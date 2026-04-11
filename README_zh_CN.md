@@ -4,7 +4,7 @@
 
 > **最新版本：**`v0.2.5` — 新增独立模式（standalone mode）支持，优化 schema 定义与兼容性。详见 [CHANGELOG.md](./CHANGELOG.md)。
 
-> 如果你想把 OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
+> 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
 这是一个把**思源笔记接到 AI Agent** 上的 MCP 服务器插件。装好之后，支持 MCP 的 Agent 就可以把思源当成一组可调用工具：读笔记、搜索文档、修改块内容、操作数据库、导出资源。
 
@@ -19,7 +19,7 @@
 
 ## 功能特性
 
-- 支持 HTTP 及 studio 两种连接方式
+- 支持 HTTP 及 stdio 两种连接方式，支持桌面及docker客户端
 - 把思源常用能力收敛成 10 个聚合 tool，降低 Agent 选错工具的概率
 - 覆盖笔记本、文档、块、数据库、资源、搜索、标签、闪卡、系统共 90 个 action
 - 提供 `none / r / rw / rwd` 四态权限模型，方便按笔记本控制访问范围
@@ -63,9 +63,16 @@ pnpm run make-link
 
 ### 2. 连接方式
 
-插件支持两种连接方式：支持 HTTP MCP 的客户端可使用 HTTP；如果你的客户端与思源在同一台机器、或通过挂载/共享路径访问插件文件，则直接使用 `stdio` 即可。
+插件支持两种连接方式：**HTTP**、**stdio**
 
-Docker / 局域网场景的关键点是：**客户端运行 `mcp-server.cjs`，`mcp-server.cjs` 再通过思源 API 端口 `6806` 访问 Docker 里的思源**。（待测成功的可在issue反馈）
+| 客户端类型 | 推荐连接方式 |
+|-----------|-------------|
+| 桌面端（Windows / macOS / Linux） | HTTP 或 stdio 均可 |
+| Docker / 远程部署 | 必须使用 stdio |
+
+**快速配置：** 打开 「`插件` → `siyuan-plugins-mcp-sisyphus` → `设置` → `🌐 连接配置`」，底部提供三段可直接复制的 JSON：`HTTP 连接方式`、`mcp-remote 桥接`、`stdio 连接方式`。
+
+> **Docker / 局域网场景注意：** 客户端运行 `mcp-server.cjs`，`mcp-server.cjs` 再通过思源 API 端口 `6806` 访问 Docker 里的思源。stdio 方式已在 Docker 场景验证可用。
 
 ---
 
@@ -75,7 +82,7 @@ HTTP 模式下，插件在思源内部托管一个 HTTP MCP Server。你只需�
 
 **第一步：启动 HTTP Server**
 
-1. 打开「插件 → siyuan-plugins-mcp-sisyphus → 设置 → 🌐 连接配置」
+1. 打开「`插件` → `siyuan-plugins-mcp-sisyphus` → `设置` → `🌐 连接配置`」
 2. 默认 `Host: 127.0.0.1`、`Port: 36806`
    - 如果 agent 在 WSL / 远程机器上，把 Host 改成 `0.0.0.0`
 3. 保持「Require Bearer token」开启，token 已自动生成
@@ -83,8 +90,6 @@ HTTP 模式下，插件在思源内部托管一个 HTTP MCP Server。你只需�
 5. 勾选「随思源自动启动」，下次不用手动点
 
 **第二步：填写客户端配置**
-
-设置面板底部提供三段可直接复制的 JSON：`HTTP 连接方式`、`mcp-remote 桥接`、`stdio 连接方式`。
 
 适用于 Cline、Cherry Studio、Cursor、Windsurf、**Claude Code** 等原生支持 HTTP 的客户端：
 
@@ -102,11 +107,11 @@ HTTP 模式下，插件在思源内部托管一个 HTTP MCP Server。你只需�
 
 > **Claude Code 注意**：必须加 `”type”: “http”`，否则 schema 校验会失败。配置写入 `~/.claude.json` 的 `mcpServers` 字段。
 
-> **WSL / 跨机器场景：** 把 Host 改为 `0.0.0.0`，在客户端配置里把 `127.0.0.1` 替换为 Windows 宿主机 IP（通常是 `192.168.x.x`）。绑定到非回环地址时**务必**保持 token 鉴权开启，否则同局域网任何设备都能访问你的工作区。
+> **WSL / 跨机器场景：** 把 Host 改为 `0.0.0.0`，在客户端配置里把 `127.0.0.1` 替换为宿主机 IP（通常是 `192.168.x.x`）。绑定到非回环地址时**务必**保持 token 鉴权开启，否则同局域网任何设备都能访问你的工作区。
 
 ---
 
-#### 方式二：stdio 模式（同机 / 挂载路径 / Docker）
+#### 方式二：stdio 模式（同机 / 挂载路径 / Docker远程）
 
 客户端完全按照文档所示的 `stdio` 连接方式即可。`6806` 是思源 API 端口，不是 MCP 端口；不要把 MCP 客户端直接配置到 `http://<思源IP>:6806`，而是让本地 `mcp-server.cjs` 通过 `SIYUAN_API_URL` 连接它。
 
@@ -127,7 +132,7 @@ HTTP 模式下，插件在思源内部托管一个 HTTP MCP Server。你只需�
 
 - 插件设置页里的示例会自动填入当前思源工作区的实际路径与token
 - 如果你的 AI agent 和思源装在同一台机器上，通常天然就能直接访问
-- 如果走局域网或容器场景，客户端需要同时满足两个条件（此条理论可行待测试）：
+- 如果走局域网或容器场景，客户端需要同时满足两个条件：
   - 能在客户端机器上运行 `mcp-server.cjs`（例如复制 `dist/mcp-server.cjs`，或通过共享目录/挂载访问插件文件）
   - 能访问 Docker 宿主机暴露出来的思源 API，例如把 `SIYUAN_API_URL` 改成 `http://192.168.x.x:6806`
 - 如果思源未开启 API 鉴权，`SIYUAN_TOKEN` 可省略
@@ -333,10 +338,6 @@ Additional actions: remove, move, list_tree ...    → 读取 siyuan://help/acti
 | `get_doc` | 按 ID 获取文档内容与元数据（`markdown` 返回干净 Markdown，`html` 返回焦点视图 HTML 载荷） |
 | `create_daily_note` | 为笔记本创建或返回今日日记 |
 
-路径语义：`create` 与 `get_ids` 使用人类可读路径（如 `/Inbox/Weekly Note`）。`rename`、`remove`、`move`、`get_hpath`、`list_tree` 与 `search_docs.path` 使用 `get_path` 返回的存储路径。需要把人类可读路径解析成文档 ID 时，优先使用 `get_ids`。刚创建文档后，`get_ids` 可能因 SiYuan 索引延迟而短暂滞后。
-
-头图语义：`set_cover` 与 `clear_cover` 是对文档根块 `title-img` 属性的语义封装。调用时优先直接传图片 URL；只有在用户明确希望把图片归档到思源资源库时，才先上传到 `/assets/...` 再设置头图。若要查看底层原值，可使用 `block(action="get_attrs", id=docId)`。
-
 ### `block`
 
 | Action | 说明 |
@@ -372,8 +373,6 @@ Additional actions: remove, move, list_tree ...    → 读取 siyuan://help/acti
 | `duplicate_block` | 复制底层数据库块，并把复制出的数据库块插入到文档树中的合适位置 |
 | `get_primary_key_values` | 获取属性视图主键列对应的行数据，支持关键词过滤与分页 |
 
-AV 说明：这个工具操作的是真实的思源属性视图（数据库块），不是 Markdown 表格。MCP 可以把已有块绑定为数据库行，但不能凭空新建一个全新的真实数据库。写入时要明确区分三类 ID：`block.id` 是绑定的源块 ID，`blockID` 是可写的 AV 行 item ID，`id` 只是单元格 value ID。
-
 ### `file`
 
 | Action | 说明 |
@@ -407,8 +406,6 @@ AV 说明：这个工具操作的是真实的思源属性视图（数据库块�
 | `skip_review_card` | 在复习流中跳过当前闪卡 |
 | `add_card` | 将已有块加入某个闪卡卡包 |
 | `remove_card` | 将已有块从某个闪卡卡包中移除（需先确认） |
-
-闪卡说明：`list_cards` 底层统一读取内核的到期卡片接口，再由 MCP 按 `cards[*].state` 过滤 `new` / `old`。闪卡打标仍建议使用 `block(action="set_attrs", attrs={"custom-riff-decks":"<deck-id>"})`。
 
 ### `mascot`
 

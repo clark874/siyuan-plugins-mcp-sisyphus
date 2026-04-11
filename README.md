@@ -4,7 +4,7 @@
 
 > **Latest:** `v0.2.5` — Added standalone mode support with schema fixes and compatibility improvements. See full history in [CHANGELOG.md](./CHANGELOG.md).
 
-> Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenCode, Claude Code, and other AI CLI tools directly in the SiYuan sidebar.
+> Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
 This is an MCP server plugin that **connects SiYuan Note to AI agents**. Once installed, any MCP-capable agent can treat SiYuan as a callable toolset: read notes, search documents, edit block content, work with databases, and export resources.
 
@@ -19,6 +19,7 @@ In other words, the plugin does one simple thing: **make SiYuan safely visible a
 
 ## Features
 
+- Supports both HTTP and stdio connection modes for desktop and Docker clients
 - Aggregates common SiYuan capabilities into 10 grouped tools, reducing the chance that an agent picks the wrong tool
 - Covers notebooks, documents, blocks, databases, assets, search, tags, flashcards, and system capabilities across 90 actions
 - Provides a four-state permission model: `none` / `r` / `rw` / `rwd`, making notebook-level access control easier
@@ -60,9 +61,18 @@ pnpm run build
 pnpm run make-link
 ```
 
-### 2. Connect your agent
+### 2. Connect Your Agent
 
-The plugin supports two connection modes. Use HTTP when your MCP client supports HTTP transport. Use `stdio` when the client is on the same machine as SiYuan or can access the plugin files through a mounted/shared path. For Docker / LAN deployments, the key point is: **the client runs `mcp-server.cjs`, and `mcp-server.cjs` talks to the Docker-hosted SiYuan instance through the SiYuan API port `6806`**.
+The plugin supports two connection modes: **HTTP** and **stdio**
+
+| Client Type | Recommended Mode |
+|------------|------------------|
+| Desktop (Windows / macOS / Linux) | HTTP or stdio |
+| Docker / Remote deployment | stdio required |
+
+**Quick Config:** Open `Plugin` → `siyuan-plugins-mcp-sisyphus` → `Settings` → `🌐 Connection Config` to find three ready-to-copy JSON snippets: `HTTP Connection`, `mcp-remote Bridge`, and `stdio Connection`.
+
+> **Docker / LAN Note:** The client runs `mcp-server.cjs`, which connects to the Docker-hosted SiYuan instance through the SiYuan API port `6806`. The stdio mode has been verified to work in Docker deployments.
 
 ---
 
@@ -72,7 +82,7 @@ In HTTP mode, the plugin hosts an HTTP MCP server inside SiYuan. You only need t
 
 **Step 1: Start the HTTP server**
 
-1. Open `Plugin → siyuan-plugins-mcp-sisyphus → Settings → 🌐 Connection Config`
+1. Open `Plugin` → `siyuan-plugins-mcp-sisyphus` → `Settings` → `🌐 Connection Config`
 2. Default is `Host: 127.0.0.1`, `Port: 36806`
    - Change Host to `0.0.0.0` if your agent runs in WSL or another remote machine
 3. Keep `Require Bearer token` enabled — a random token is already generated
@@ -327,10 +337,6 @@ Big result sets are capped and annotated with drill-down hints rather than retur
 | `get_doc` | Get document content and metadata by ID (`markdown` returns clean Markdown; `html` returns the focus-view HTML payload) |
 | `create_daily_note` | Create or return today’s daily note for a notebook |
 
-Path semantics: `create` and `get_ids` use human-readable paths (e.g., `/Inbox/Weekly Note`). `rename`, `remove`, `move`, `get_hpath`, `list_tree`, and `search_docs.path` use storage paths returned by `get_path`. Use `get_ids` when you need to resolve a human-readable path to a document ID. Right after `create`, `get_ids` may briefly lag because it depends on SiYuan indexing.
-
-Cover semantics: `set_cover` and `clear_cover` are semantic wrappers around the document root block's `title-img` attribute. Prefer passing a direct image URL to `set_cover`; only upload into `/assets/...` first when the user explicitly wants the image stored in SiYuan. To inspect the raw stored value, use `block(action="get_attrs", id=docId)`.
-
 ### `block`
 
 | Action | Description |
@@ -366,8 +372,6 @@ Cover semantics: `set_cover` and `clear_cover` are semantic wrappers around the 
 | `duplicate_block` | Duplicate the underlying database block and insert the duplicate into the document tree near the source block |
 | `get_primary_key_values` | List primary-key rows for an attribute view, with optional keyword and pagination filters |
 
-AV notes: this tool operates on real SiYuan attribute views rather than Markdown tables. MCP can bind existing blocks as rows, but it does not create a brand-new database from scratch. For writes, distinguish three identities carefully: `block.id` is the bound source block ID, `blockID` is the writable AV row item ID, and `id` is only the cell value ID.
-
 ### `file`
 
 | Action | Description |
@@ -401,8 +405,6 @@ AV notes: this tool operates on real SiYuan attribute views rather than Markdown
 | `skip_review_card` | Skip the current flashcard in the review flow |
 | `add_card` | Add existing blocks into a flashcard deck |
 | `remove_card` | Remove existing blocks from a flashcard deck (requires confirmation) |
-
-Flashcard notes: `list_cards` always reads from the kernel due-card APIs and MCP filters `cards[*].state` for `new` / `old`. Flashcard marking still belongs to `block(action="set_attrs", attrs={"custom-riff-decks":"<deck-id>"})`.
 
 ### `mascot`
 
