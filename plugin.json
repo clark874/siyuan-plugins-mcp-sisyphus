@@ -2,10 +2,10 @@
   "name": "siyuan-plugins-mcp-sisyphus",
   "author": "Taihong Yang",
   "url": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "minAppVersion": "2.9.0",
-  "backends": ["windows", "linux", "darwin"],
-  "frontends": ["desktop"],
+  "backends": ["windows", "linux", "darwin", "docker"],
+  "frontends": ["desktop","browser-desktop","desktop-window"],
   "disabledInPublish": true,
   "displayName": {
     "default": "SiYuan MCP sisyphus",

@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **最新版本：**`v0.2.2` — 优化数据仓库快照管理侧边栏 UI，支持可视化创建快照、对比差异与一键回滚，提升数据管理操作便捷性。完整历史请见 [CHANGELOG.md](./CHANGELOG.md)。
+> **最新版本：**`v0.2.3` — 修复插件配置文件，补上漏掉的 Docker 后端与 browser-desktop、desktop-window 前端。 — 优化数据仓库快照管理侧边栏 UI，支持可视化创建快照（冗余功能同siyuan重复下版本删除）、对比差异与一键回滚，提升数据管理操作便捷性。完整历史请见 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 如果你想把 OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
