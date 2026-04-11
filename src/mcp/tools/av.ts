@@ -139,7 +139,45 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
         action: 'batch_set_cells',
         schema: createActionSchema('batch_set_cells', {
             avID: { type: 'string', description: 'Attribute view ID' },
-            items: { type: 'array', description: 'Batch cell updates' },
+            items: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        rowID: { type: 'string', description: 'Row item ID' },
+                        columnID: { type: 'string', description: 'Column key ID' },
+                        valueType: { type: 'string', enum: ['text', 'number', 'date', 'checkbox', 'select', 'multi_select', 'relation', 'url', 'email', 'phone', 'mAsset'], description: 'Cell value type' },
+                        text: { type: 'string', description: 'Text value when valueType=text' },
+                        number: { type: 'number', description: 'Number value when valueType=number' },
+                        numberFormat: { type: 'string', description: 'Optional number format such as commas, percent, USD, or CNY' },
+                        date: { description: 'Date/time value as ISO text or epoch milliseconds when valueType=date' },
+                        endDate: { description: 'Optional end date as ISO text or epoch milliseconds for ranged dates' },
+                        includeTime: { type: 'boolean', description: 'When false, store only the date component' },
+                        checked: { type: 'boolean', description: 'Checkbox state when valueType=checkbox' },
+                        option: { type: 'string', description: 'Selected option label when valueType=select' },
+                        options: { type: 'array', items: { type: 'string' }, description: 'Selected option labels when valueType=multi_select' },
+                        relationBlockIDs: { type: 'array', items: { type: 'string' }, description: 'Related block IDs when valueType=relation' },
+                        url: { type: 'string', description: 'URL value when valueType=url' },
+                        email: { type: 'string', description: 'Email value when valueType=email' },
+                        phone: { type: 'string', description: 'Phone value when valueType=phone' },
+                        assets: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    type: { type: 'string', enum: ['image', 'file'], description: 'Asset entry type' },
+                                    content: { type: 'string', description: 'Asset path stored by SiYuan, e.g. assets/foo.png' },
+                                    name: { type: 'string', description: 'Optional display name' },
+                                },
+                                required: ['type', 'content'],
+                            },
+                            description: 'Asset entries when valueType=mAsset',
+                        },
+                    },
+                    required: ['rowID', 'columnID', 'valueType'],
+                },
+                description: 'Batch cell updates',
+            },
         }, ['avID', 'items'], 'Batch update multiple attribute view cells.'),
     },
     {

@@ -75,12 +75,16 @@ export async function writePuppyStats(client: SiYuanClient, stats: PuppyStats): 
 
 export async function earnPuppyBalance(client: SiYuanClient, action?: string): Promise<PuppyStats> {
     const current = await readPuppyStats(client);
-    return writePuppyStats(client, {
-        totalCalls: current.totalCalls + 1,
-        balance: current.balance + 1,
-        updatedAt: Date.now(),
-        lastAction: action,
-    });
+    try {
+        return await writePuppyStats(client, {
+            totalCalls: current.totalCalls + 1,
+            balance: current.balance + 1,
+            updatedAt: Date.now(),
+            lastAction: action,
+        });
+    } catch {
+        return current;
+    }
 }
 
 export async function spendPuppyBalance(client: SiYuanClient, cost: number, action?: string): Promise<PuppyStats> {

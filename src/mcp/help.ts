@@ -36,7 +36,7 @@ export const BLOCK_GUIDANCE: string[] = [
     'block(action="prepend") or block(action="append") with a document ID targets the document start or end.',
     'block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.',
     'block(action="prepend") or block(action="append") with a block ID targets that block\'s child list.',
-    'To create real SiYuan tags inside markdown content, use the syntax #标签# with both leading and trailing # characters.',
+    'To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.',
     'To mark a block as a flashcard, set its "custom-riff-decks" attribute via block(action="set_attrs"). A common pattern is to use an h2 heading as the question and the following blocks as the answer.',
     'block(action="fold") and block(action="unfold") require a foldable block ID, not a document ID.',
     'block(action="recent_updated") is read-only; MCP filters unreadable notebooks first and then applies count.',
@@ -62,7 +62,7 @@ export const FILE_GUIDANCE: string[] = [
 
 export const TAG_GUIDANCE: string[] = [
     'Tag actions operate across the whole workspace rather than a single notebook.',
-    'There is no direct create action for tags; tags are created by writing #标签# into block markdown content.',
+    'There is no direct create action for tags; tags are created by writing #tag# into block markdown content.',
     'tag(action="remove") requires explicit user confirmation before execution.',
 ];
 
@@ -116,10 +116,10 @@ export const DOCUMENT_ACTION_HINTS: Partial<Record<DocumentAction, string>> = {
 };
 
 export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
-    insert: 'nextID inserts BEFORE that block; previousID inserts AFTER that block. Provide at least one of nextID, previousID, or parentID. Returns a slim success object with the created block ID. Use #标签# syntax in markdown when you want SiYuan to register a real tag.',
-    prepend: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Use #标签# syntax in markdown when you want SiYuan to register a real tag.',
-    append: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Prefer append when you need to add multi-line markdown, tables, or multiple new blocks. Use #标签# syntax in markdown when you want SiYuan to register a real tag.',
-    update: 'Use dataType + data + id to replace block content. Returns a slim success object instead of raw DOM operations. block(action="update") is best for single-block replacement; multi-line markdown may be truncated to the first line by SiYuan, so use append/prepend/insert when you need multiple blocks or tables. If the content should create tags, write them as #标签#.',
+    insert: 'nextID inserts BEFORE that block; previousID inserts AFTER that block. Provide at least one of nextID, previousID, or parentID. Returns a slim success object with the created block ID. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
+    prepend: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
+    append: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Prefer append when you need to add multi-line markdown, tables, or multiple new blocks. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
+    update: 'Use dataType + data + id to replace block content. Returns a slim success object instead of raw DOM operations. block(action="update") is best for single-block replacement; multi-line markdown may be truncated to the first line by SiYuan, so use append/prepend/insert when you need multiple blocks or tables. If the content should create tags, write them as #tag#.',
     set_attrs: 'Use attrs to write block attributes such as custom metadata. To mark a flashcard, set {"custom-riff-decks":"<deck-id>"} on the question block, commonly an h2 heading.',
     delete: 'This action requires explicit user confirmation.',
     move: 'Provide id plus previousID, parentID, or both to describe the destination. On success, MCP returns a structured success object instead of SiYuan\'s raw null. This action requires explicit user confirmation.',

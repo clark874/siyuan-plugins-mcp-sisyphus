@@ -303,7 +303,6 @@ export function buildAggregatedTool<Action extends string>(
         inputSchema: {
             type: 'object',
             additionalProperties: false,
-            description: fullDescription,
             properties: {
                 action: {
                     type: 'string',

@@ -1,6 +1,8 @@
 .idea
 .vscode
 .DS_Store
+.claude/
+.sisyphus/
 *.zip
 pnpm-lock.yaml
 package-lock.json

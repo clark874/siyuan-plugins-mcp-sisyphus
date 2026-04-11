@@ -21,6 +21,7 @@ import { callTagTool, listTagTools } from './tools/tag';
 import { callFlashcardTool, listFlashcardTools } from './tools/flashcard';
 import { earnPuppyBalance, readPuppyStats, writePuppyEvent } from './puppy-state';
 import { callMascotTool, listMascotTools } from './tools/mascot';
+import { isPluginMode } from './runtime';
 
 const PLUGIN_CONFIG_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
 
@@ -106,14 +107,14 @@ Additional rules:
 ## Tag creation semantics
 
 - There is no direct create action for tags.
-- To create a real SiYuan tag in block markdown, use #标签# with both leading and trailing # characters. Hierarchical: #项目/阶段#.
-- Example: block(action=”update”, dataType=”markdown”, data=”#假期# #回家#”)
+- To create a real SiYuan tag in block markdown, use #tag# with both leading and trailing # characters. Hierarchical: #project/phase#.
+- Example: block(action=”update”, dataType=”markdown”, data=”#holiday# #home#”)
 
 ## Flashcard semantics
 
 - To mark a block as a flashcard, set “custom-riff-decks” with block(action=”set_attrs”).
 - Common pattern: h2 heading as the question, following blocks as the answer.
-- Cloze: \`==答案==\` is treated as a cloze answer in flashcard review.
+- Cloze: \`==answer==\` is treated as a cloze answer in flashcard review.
 - For scheduled review and deck operations, prefer the dedicated \`flashcard\` tool.
 
 ## SiYuan layout model (summary)
@@ -137,7 +138,7 @@ For the full layout guide with formatting inventory, distinctions, and daily heu
 
 ## Usage semantics
 
-- Bookmarks = collecting existing blocks (block attributes). Tags = inline markdown \`#标签#\`. Do not confuse them.
+- Bookmarks = collecting existing blocks (block attributes). Tags = inline markdown \`#tag#\`. Do not confuse them.
 - Flashcards are review semantics, not layout. Layout choice and flashcard marking are separate concerns.
 - Through MCP, prefer creating content directly instead of describing UI-only steps like \`/AI 编写\`.
 ${userRulesReminder}
@@ -190,7 +191,7 @@ function tryReadConfigFromFileSystem(): ToolConfig | null {
 }
 
 async function getToolConfig(client?: SiYuanClient): Promise<ToolConfig> {
-    if (client) {
+    if (client && isPluginMode()) {
         const apiConfig = await tryReadConfigFromAPI(client);
         if (apiConfig) return apiConfig;
     }
@@ -316,7 +317,7 @@ export async function createSiYuanServer(): Promise<Server> {
             case 'mascot': result = await callMascotTool(client, args, config.mascot, permMgr); break;
         }
 
-        const latestStats = await readPuppyStats(client);
+        const latestStats = category === 'mascot' ? await readPuppyStats(client) : puppyStats;
         let mascotEventMeta: { itemId?: string; itemLabel?: string; itemType?: string; itemEmoji?: string } = {};
         if (category === 'mascot' && !result.isError) {
             try {
