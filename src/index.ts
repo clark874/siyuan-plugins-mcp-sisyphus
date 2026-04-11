@@ -18,10 +18,7 @@ import {
 } from "@/setting/tool-config-storage";
 import McpConfig from "@/setting/mcp-config.svelte";
 import ToolPuppy from "@/components/ToolPuppy.svelte";
-import RepoSidebar from "@/components/RepoSidebar.svelte";
 import { HttpServerLauncher } from "@/server-launcher";
-
-const REPO_DOCK_TYPE = "siyuan-mcp-repo-dock";
 
 export default class SiyuanMCP extends Plugin {
     private puppyComponent: ToolPuppy | null = null;
@@ -37,34 +34,6 @@ export default class SiyuanMCP extends Plugin {
         this.puppySettings = await loadPersistedPuppySettings(this);
         this.puppyVisible = this.puppySettings.visible;
         this.httpSettings = await loadPersistedHttpServerSettings(this);
-
-        this.addDock({
-            config: {
-                position: "RightBottom",
-                size: { width: 320, height: 0 },
-                icon: "iconHistory",
-                title: this.i18n?.repoDockTitle ?? "数据仓库",
-            },
-            data: { plugin: this },
-            type: REPO_DOCK_TYPE,
-            init() {
-                const container = document.createElement("div");
-                container.style.height = "100%";
-                container.style.display = "flex";
-                container.style.flexDirection = "column";
-                this.element.appendChild(container);
-                (this as any).__repoComponent = new RepoSidebar({
-                    target: container,
-                });
-            },
-            destroy() {
-                const comp = (this as any).__repoComponent;
-                if (comp) {
-                    comp.$destroy();
-                    (this as any).__repoComponent = null;
-                }
-            },
-        });
 
         if (HttpServerLauncher.isSupported()) {
             try {

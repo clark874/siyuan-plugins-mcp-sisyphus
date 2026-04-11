@@ -210,8 +210,8 @@
     const PUPPY_GROUP_LABEL = "🐾 Mascot";
     const PERM_GROUP_KEY = "Permissions";
     const PERM_GROUP_LABEL = "🔒 Permissions";
-    const HTTP_GROUP_KEY = "HTTP Server";
-    const HTTP_GROUP_LABEL = "🌐 HTTP Server";
+    const HTTP_GROUP_KEY = "Connection Config";
+    const HTTP_GROUP_LABEL = "🌐 Connection Config";
     const defaultGroups = [HTTP_GROUP_LABEL, PERM_GROUP_LABEL, ...GROUP_DEFINITIONS.filter((group) => group.category !== "mascot").map((group) => `${group.icon} ${group.groupKey}`), PUPPY_GROUP_LABEL, USER_RULES_GROUP_LABEL];
 
     let config: ToolConfig = buildDefaultToolConfig();
@@ -480,19 +480,49 @@
         httpUnsubLogs?.();
     });
 
-    function generateClientSnippet(s: HttpServerSettings, mode: "direct" | "remote"): string {
+    function getWorkspaceScriptPath(): string {
+        const workspaceDir = (window as any)?.siyuan?.config?.system?.workspaceDir;
+        if (typeof workspaceDir !== "string" || !workspaceDir.trim()) {
+            return "{SIYUAN_PATH}/data/plugins/siyuan-plugins-mcp-sisyphus/mcp-server.cjs";
+        }
+        return `${workspaceDir.replace(/[\\/]+$/, "")}/data/plugins/siyuan-plugins-mcp-sisyphus/mcp-server.cjs`;
+    }
+
+    function getSiYuanApiToken(): string {
+        const token = (window as any)?.siyuan?.config?.api?.token;
+        if (typeof token !== "string" || !token.trim()) {
+            return "xxxxxx";
+        }
+        return token;
+    }
+
+    function generateClientSnippet(s: HttpServerSettings, mode: "direct" | "stdio" | "bridge"): string {
         const url = `http://${s.host}:${s.port}/mcp`;
-        const headers = s.authEnabled ? { Authorization: `Bearer ${s.token}` } : undefined;
         if (mode === "direct") {
-            const obj: any = { mcpServers: { siyuan: { url } } };
+            const headers = s.authEnabled ? { Authorization: `Bearer ${s.token}` } : undefined;
+            const obj: any = { mcpServers: { siyuan: { type: "http", url } } };
             if (headers) obj.mcpServers.siyuan.headers = headers;
             return JSON.stringify(obj, null, 2);
         }
-        const args = ["mcp-remote", url];
-        if (s.authEnabled) {
-            args.push("--header", `Authorization: Bearer ${s.token}`);
+        if (mode === "bridge") {
+            const args = ["mcp-remote", url];
+            if (s.authEnabled) {
+                args.push("--header", `Authorization: Bearer ${s.token}`);
+            }
+            return JSON.stringify({ mcpServers: { siyuan: { command: "npx", args } } }, null, 2);
         }
-        return JSON.stringify({ mcpServers: { siyuan: { command: "npx", args } } }, null, 2);
+        return JSON.stringify({
+            mcpServers: {
+                siyuan: {
+                    command: "node",
+                    args: [getWorkspaceScriptPath()],
+                    env: {
+                        SIYUAN_API_URL: "http://127.0.0.1:6806",
+                        SIYUAN_TOKEN: getSiYuanApiToken(),
+                    },
+                },
+            },
+        }, null, 2);
     }
 
     async function copyText(text: string) {
@@ -803,17 +833,21 @@
                 {/if}
 
                 <details class="http-snippet">
-                    <summary>{getLabel("httpClientSnippet", "Client config snippet (direct HTTP)")}</summary>
+                    <summary>{getLabel("httpClientSnippet", "HTTP Connection")}</summary>
                     <pre>{generateClientSnippet(httpSettings, "direct")}</pre>
                     <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "direct"))}>{getLabel("httpCopy", "Copy")}</button>
                 </details>
 
                 <details class="http-snippet">
-                    <summary>{getLabel("httpClientSnippetRemote", "Client config snippet (mcp-remote bridge)")}</summary>
-                    <pre>{generateClientSnippet(httpSettings, "remote")}</pre>
-                    <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "remote"))}>{getLabel("httpCopy", "Copy")}</button>
+                    <summary>{getLabel("httpClientSnippetBridge", "mcp-remote Bridge")}</summary>
+                    <pre>{generateClientSnippet(httpSettings, "bridge")}</pre>
+                    <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "bridge"))}>{getLabel("httpCopy", "Copy")}</button>
                 </details>
-
+                <details class="http-snippet">
+                    <summary>{getLabel("httpClientSnippetRemote", "stdio Connection")}</summary>
+                    <pre>{generateClientSnippet(httpSettings, "stdio")}</pre>
+                    <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "stdio"))}>{getLabel("httpCopy", "Copy")}</button>
+                </details>
                 <details class="http-snippet">
                     <summary>{getLabel("httpRecentLogs", "Recent server logs")}</summary>
                     <pre class="http-log-box">{httpRecentLogs.length ? httpRecentLogs.join("\n") : getLabel("httpNoLogs", "(no logs yet)")}</pre>

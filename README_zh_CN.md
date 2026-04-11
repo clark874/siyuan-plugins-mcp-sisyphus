@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **最新版本：**`v0.2.3` — 修复插件配置文件，补上漏掉的 Docker 后端与 browser-desktop、desktop-window 前端。 — 优化数据仓库快照管理侧边栏 UI，支持可视化创建快照（冗余功能同siyuan重复下版本删除）、对比差异与一键回滚，提升数据管理操作便捷性。完整历史请见 [CHANGELOG.md](./CHANGELOG.md)。
+> **最新版本：**`v0.2.4` — 移除内置数据仓库快照管理侧边栏（与思源官方功能重复），请使用「主菜单 → 数据历史 → 数据快照」修复插件配置文件，补上漏掉的 Docker 后端与 browser-desktop、desktop-window 前端。
 
 > 如果你想把 OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
@@ -19,6 +19,7 @@
 
 ## 功能特性
 
+- 支持 HTTP 及 studio 两种连接方式
 - 把思源常用能力收敛成 10 个聚合 tool，降低 Agent 选错工具的概率
 - 覆盖笔记本、文档、块、数据库、资源、搜索、标签、闪卡、系统共 90 个 action
 - 提供 `none / r / rw / rwd` 四态权限模型，方便按笔记本控制访问范围
@@ -62,28 +63,30 @@ pnpm run make-link
 
 ### 2. 连接方式
 
-插件支持两种连接方式，**推荐使用 HTTP 模式**——配置更简单，支持多个客户端同时连接，也能从 WSL / Docker / 远程机器直接访问。
+插件支持两种连接方式：支持 HTTP MCP 的客户端可使用 HTTP；如果你的客户端与思源在同一台机器、或通过挂载/共享路径访问插件文件，则直接使用 `stdio` 即可。
+
+Docker / 局域网场景的关键点是：**客户端运行 `mcp-server.cjs`，`mcp-server.cjs` 再通过思源 API 端口 `6806` 访问 Docker 里的思源**。（待测成功的可在issue反馈）
 
 ---
 
-#### 方式一：HTTP 模式（推荐）
+#### 方式一：HTTP 模式
 
-HTTP 模式下，插件在思源内部托管一个 HTTP MCP Server，**思源 API token 自动透传**，你只需把客户端的配置 URL 和 Bearer token 填好即可，无需手动配置路径或环境变量。
+HTTP 模式下，插件在思源内部托管一个 HTTP MCP Server。你只需要把这个服务端口暴露给你的 MCP 客户端即可；如果 agent 和思源就在同一台机器上，通常本来就可以直接访问。
 
 **第一步：启动 HTTP Server**
 
-1. 打开「插件 → siyuan-plugins-mcp-sisyphus → 设置 → 🌐 HTTP Server」
+1. 打开「插件 → siyuan-plugins-mcp-sisyphus → 设置 → 🌐 连接配置」
 2. 默认 `Host: 127.0.0.1`、`Port: 36806`
-   - 如果 agent 在 WSL / Docker / 远程机器上，把 Host 改成 `0.0.0.0`
+   - 如果 agent 在 WSL / 远程机器上，把 Host 改成 `0.0.0.0`
 3. 保持「Require Bearer token」开启，token 已自动生成
 4. 点「Start」，状态变为「Running」
 5. 勾选「随思源自动启动」，下次不用手动点
 
-**第二步：复制客户端配置**
+**第二步：填写客户端配置**
 
-设置面板底部「客户端配置示例」里有两段可直接复制的 JSON：
+设置面板底部提供三段可直接复制的 JSON：`HTTP 连接方式`、`mcp-remote 桥接`、`stdio 连接方式`。
 
-- **直连 HTTP**（Cline、Cherry Studio、Cursor、Windsurf、**Claude Code** 等原生支持 HTTP 的客户端）：
+适用于 Cline、Cherry Studio、Cursor、Windsurf、**Claude Code** 等原生支持 HTTP 的客户端：
 
   ```json
   {
@@ -97,28 +100,15 @@ HTTP 模式下，插件在思源内部托管一个 HTTP MCP Server，**思源 AP
   }
   ```
 
-  > **Claude Code 注意**：必须加 `”type”: “http”`，否则 schema 校验会失败。配置写入 `~/.claude.json` 的 `mcpServers` 字段。
-
-- **mcp-remote 桥接**（Claude Desktop 等只支持 stdio 的客户端）：
-
-  ```json
-  {
-    “mcpServers”: {
-      “siyuan”: {
-        “command”: “npx”,
-        “args”: [“mcp-remote”, “http://127.0.0.1:36806/mcp”, “--header”, “Authorization: Bearer <token>”]
-      }
-    }
-  }
-  ```
+> **Claude Code 注意**：必须加 `”type”: “http”`，否则 schema 校验会失败。配置写入 `~/.claude.json` 的 `mcpServers` 字段。
 
 > **WSL / 跨机器场景：** 把 Host 改为 `0.0.0.0`，在客户端配置里把 `127.0.0.1` 替换为 Windows 宿主机 IP（通常是 `192.168.x.x`）。绑定到非回环地址时**务必**保持 token 鉴权开启，否则同局域网任何设备都能访问你的工作区。
 
 ---
 
-#### 方式二：stdio 模式（本机直连，传统方式）
+#### 方式二：stdio 模式（同机 / 挂载路径 / Docker）
 
-如果你的客户端和思源运行在同一台机器上，也可以用 stdio 方式直接启动 `mcp-server.cjs`：
+客户端完全按照文档所示的 `stdio` 连接方式即可。`6806` 是思源 API 端口，不是 MCP 端口；不要把 MCP 客户端直接配置到 `http://<思源IP>:6806`，而是让本地 `mcp-server.cjs` 通过 `SIYUAN_API_URL` 连接它。
 
 ```json
 {
@@ -135,9 +125,37 @@ HTTP 模式下，插件在思源内部托管一个 HTTP MCP Server，**思源 AP
 }
 ```
 
-- `{SIYUAN_PATH}` 替换为实际路径
+- 插件设置页里的示例会自动填入当前思源工作区的实际路径与token
+- 如果你的 AI agent 和思源装在同一台机器上，通常天然就能直接访问
+- 如果走局域网或容器场景，客户端需要同时满足两个条件（此条理论可行待测试）：
+  - 能在客户端机器上运行 `mcp-server.cjs`（例如复制 `dist/mcp-server.cjs`，或通过共享目录/挂载访问插件文件）
+  - 能访问 Docker 宿主机暴露出来的思源 API，例如把 `SIYUAN_API_URL` 改成 `http://192.168.x.x:6806`
 - 如果思源未开启 API 鉴权，`SIYUAN_TOKEN` 可省略
-- stdio 每次只能对应一个客户端连接
+- `stdio` 每次只能对应一个客户端连接
+
+> **Docker 备注：** Docker 端的思源没办法在 Studio / 浏览器前端里启动插件内置的本地 HTTP MCP 服务，因此 Docker 场景请直接使用上面的 `stdio` 方式：在客户端机器运行 `mcp-server.cjs`，并暴露容器的6806端口通过 `SIYUAN_API_URL=http://<Docker宿主机IP>:6806` 连接思源 API。暴露 `6806` 时务必开启思源 API token，并尽量用防火墙限制只允许可信设备访问。
+
+---
+
+#### 方式三：`mcp-remote` 桥接
+
+如果你的客户端只支持 `stdio`，但你又想桥接到上面的 HTTP 服务，可以先用 `mcp-remote`：
+
+```json
+{
+  "mcpServers": {
+    "siyuan": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://127.0.0.1:36806/mcp",
+        "--header",
+        "Authorization: Bearer <token>"
+      ]
+    }
+  }
+}
+```
 
 ---
 
@@ -161,30 +179,15 @@ HTTP 模式下，插件在思源内部托管一个 HTTP MCP Server，**思源 AP
 
 ---
 
-### 5. 数据仓库快照管理（v0.2.1 新增）
+### 5. 数据快照
 
-插件现在提供**可视化快照管理器**，让你可快速创建、对比和回滚数据快照。
+插件不再提供单独的数据仓库快照管理器，因为思源已经内置了这项能力。
 
-**打开快照面板**
+请直接使用思源官方快照工具：
 
-1. 打开插件后思源右下角会增加一个【数据仓库】按钮，点击打开侧边栏
-2. 侧边栏显示所有快照，包含创建时间、备注、大小和标签
-
-**常用操作**
-
-| 操作 | 操作方式 |
-|------|----------|
-| 创建快照 | 点击 `创建` → 输入备注 → 确认 |
-| 对比快照 | 选中两个快照 → 点击 `对比` → 查看增删改文件列表 |
-| 回滚（检出） | 点击快照上的 `回滚` → 确认 → 笔记本恢复到该状态 |
-| 标签/置顶 | 点击标签区域 → 输入名称（ `📌`tag是用于避免快照被purge误伤 ） |
-| 删除标签 | 点击标签上的垃圾桶 |
-
-**快捷键**
-
-- `Alt + Shift + S`：打开数据仓库快照面板
-
-> **注意：** `回滚` 会用快照状态替换当前笔记本内容，属于高危操作，请谨慎使用。
+1. 打开思源主菜单
+2. 进入「数据历史 → 数据快照」
+3. 在思源官方界面中创建、对比和恢复快照
 
 ## 常见问题
 

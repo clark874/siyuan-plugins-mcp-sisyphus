@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **Latest:** `v0.2.3` — Extended platform support to include Docker backend and browser-desktop/desktop-window frontends. — Improved data-repo snapshot sidebar with enhanced UI for creating, comparing, and rolling back snapshots. See full history in [CHANGELOG.md](./CHANGELOG.md).
+> **Latest:** `v0.2.4` — Removed built-in data snapshot sidebar (duplicates SiYuan's native feature). Use "Main Menu → Data History → Data Snapshots" instead. See full history in [CHANGELOG.md](./CHANGELOG.md).
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenCode, Claude Code, and other AI CLI tools directly in the SiYuan sidebar.
 
@@ -62,48 +62,36 @@ pnpm run make-link
 
 ### 2. Connect your agent
 
-The plugin supports two connection modes. **HTTP mode is recommended** — easier to set up, supports multiple simultaneous clients, and works across WSL / Docker / remote machines without any path configuration.
+The plugin supports two connection modes. Use HTTP when your MCP client supports HTTP transport. Use `stdio` when the client is on the same machine as SiYuan or can access the plugin files through a mounted/shared path. For Docker / LAN deployments, the key point is: **the client runs `mcp-server.cjs`, and `mcp-server.cjs` talks to the Docker-hosted SiYuan instance through the SiYuan API port `6806`**.
 
 ---
 
-#### Option A: HTTP mode (recommended)
+#### Option A: HTTP mode
 
-In HTTP mode, the plugin hosts an HTTP MCP server inside SiYuan. **The SiYuan API token is forwarded automatically** — you only need to paste the URL and Bearer token into your client.
+In HTTP mode, the plugin hosts an HTTP MCP server inside SiYuan. You only need to expose that server port to your MCP client. If your agent and SiYuan run on the same machine, that is often already reachable as-is.
 
 **Step 1: Start the HTTP server**
 
-1. Open `Plugin → siyuan-plugins-mcp-sisyphus → Settings → 🌐 HTTP Server`
+1. Open `Plugin → siyuan-plugins-mcp-sisyphus → Settings → 🌐 Connection Config`
 2. Default is `Host: 127.0.0.1`, `Port: 36806`
-   - Change Host to `0.0.0.0` if your agent runs in WSL, Docker, or another machine
+   - Change Host to `0.0.0.0` if your agent runs in WSL or another remote machine
 3. Keep `Require Bearer token` enabled — a random token is already generated
 4. Click `Start`. Status changes to `Running`.
 5. Check `Auto-start with SiYuan` so you never have to start it manually again
 
-**Step 2: Copy the client config**
+**Step 2: Fill in the client config**
 
-The settings panel shows two ready-to-copy snippets at the bottom:
+The settings panel includes three ready-to-copy snippets: `HTTP Connection`, `mcp-remote Bridge`, and `stdio Connection`.
 
-- **Direct HTTP** (Cline, Cherry Studio, Cursor, Windsurf, and other clients with native HTTP support):
+It is suitable for Cline, Cherry Studio, Cursor, Windsurf, **Claude Code**, and other clients with native HTTP MCP support:
 
   ```json
   {
     “mcpServers”: {
       “siyuan”: {
+        “type”: “http”,
         “url”: “http://127.0.0.1:36806/mcp”,
         “headers”: { “Authorization”: “Bearer <copy token from settings>” }
-      }
-    }
-  }
-  ```
-
-- **mcp-remote bridge** (Claude Desktop and other stdio-only clients):
-
-  ```json
-  {
-    “mcpServers”: {
-      “siyuan”: {
-        “command”: “npx”,
-        “args”: [“mcp-remote”, “http://127.0.0.1:36806/mcp”, “--header”, “Authorization: Bearer <token>”]
       }
     }
   }
@@ -113,16 +101,16 @@ The settings panel shows two ready-to-copy snippets at the bottom:
 
 ---
 
-#### Option B: stdio mode (same machine, classic setup)
+#### Option B: stdio mode (same machine / mounted path / Docker)
 
-If your agent and SiYuan are on the same machine and you prefer not to run an HTTP server:
+Follow the documented `stdio` configuration. `6806` is the SiYuan API port, not an MCP port; do not point your MCP client directly at `http://<siyuan-host>:6806`. Instead, run `mcp-server.cjs` locally and let it connect through `SIYUAN_API_URL`.
 
 ```json
 {
   “mcpServers”: {
     “siyuan”: {
       “command”: “node”,
-      “args”: [“{SIYUAN_PATH}/data/plugins/siyuan-plugins-mcp-sisyphus/mcp-server.cjs”],
+      “args”: [“/your/siyuan/workspace/data/plugins/siyuan-plugins-mcp-sisyphus/mcp-server.cjs”],
       “env”: {
         “SIYUAN_API_URL”: “http://127.0.0.1:6806”,
         “SIYUAN_TOKEN”: “xxxxxx”
@@ -132,9 +120,37 @@ If your agent and SiYuan are on the same machine and you prefer not to run an HT
 }
 ```
 
-- Replace `{SIYUAN_PATH}` with your actual path
+- The settings example auto-fills the current SiYuan workspace path when available
+- If your AI agent and SiYuan run on the same machine, the path is usually already directly accessible
+- For LAN or container setups, the client must satisfy both conditions:
+  - It can run `mcp-server.cjs` on the client machine, either by copying `dist/mcp-server.cjs` locally or by accessing the plugin file through a shared mount/path
+  - It can reach the SiYuan API exposed by the Docker host, for example by setting `SIYUAN_API_URL` to `http://192.168.x.x:6806`
 - If SiYuan API auth is disabled, omit `SIYUAN_TOKEN`
-- stdio supports only one client at a time
+- `stdio` supports only one client at a time
+
+> **Docker note:** SiYuan running in Docker cannot start the plugin's local HTTP MCP server from the Studio / browser frontend. Docker deployments should use the `stdio` setup above: run `mcp-server.cjs` on the client machine and connect it to the SiYuan API with `SIYUAN_API_URL=http://<Docker-host-IP>:6806`. When exposing `6806`, keep the SiYuan API token enabled and preferably restrict access to trusted devices with a firewall.
+
+---
+
+#### Option C: `mcp-remote` bridge
+
+If your client only supports `stdio` but you still want to reach the HTTP server above, use `mcp-remote`:
+
+```json
+{
+  "mcpServers": {
+    "siyuan": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://127.0.0.1:36806/mcp",
+        "--header",
+        "Authorization: Bearer <token>"
+      ]
+    }
+  }
+}
+```
 
 ---
 
@@ -159,30 +175,15 @@ If you are manually debugging MCP, the action tables and JSON-oriented sections 
 
 ---
 
-### 5. Data Repo Snapshot Management (New in v0.2.1)
+### 5. Data Snapshots
 
-The plugin now provides a **visual snapshot manager** that lets you quickly create, compare, and roll back data snapshots.
+The plugin no longer provides a separate data-repo snapshot manager because SiYuan already includes this capability.
 
-**Open the snapshot panel**
+Use SiYuan's built-in snapshot tool instead:
 
-1. After enabling the plugin, a **[Data Repo]** button appears in the bottom-right corner of SiYuan — click it to open the sidebar
-2. The sidebar shows all snapshots with creation time, memo, size, and tags
-
-**Common operations**
-
-| Action | How to do it |
-|--------|--------------|
-| Create snapshot | Click `Create` → enter memo → confirm |
-| Compare snapshots | Select two snapshots → click `Compare` → see added/updated/removed files |
-| Checkout (restore) | Click `Checkout` on a snapshot → confirm → notebook reverts to that state |
-| Tag / Pin | Click the tag area → enter name (`📌` tag is used to prevent the snapshot from being accidentally purged) |
-| Delete tag | Click the trash icon on the tag |
-
-**Keyboard shortcuts**
-
-- `Alt + Shift + S`: Open Repo Snapshots panel
-
-> **Note:** `Checkout` replaces your current notebook state with the snapshot. High-risk operation — use with caution.
+1. Open SiYuan's main menu
+2. Go to `Data History -> Data Snapshots`
+3. Create, compare, and restore snapshots from the official SiYuan interface
 
 ## Troubleshooting
 
