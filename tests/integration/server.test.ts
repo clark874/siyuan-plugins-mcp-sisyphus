@@ -56,9 +56,70 @@ describe('MCP Server Integration', () => {
 
     afterEach(() => {
         delete process.env.SIYUAN_TOKEN;
+        delete process.env.SIYUAN_MCP_TOOLS;
     });
 
     describe('Server creation and tool listing', () => {
+        it('loads tool config from SiYuan API in standalone mode', async () => {
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify({
+                document: {
+                    enabled: false,
+                    actions: {},
+                },
+                userRulesText: 'Use the API-backed config.',
+            });
+
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+
+            const standaloneClient = new Client({ name: 'standalone-config-client', version: '1.0.0' });
+            await standaloneClient.connect(clientTransport);
+
+            const { tools } = await standaloneClient.listTools();
+            expect(tools.map(t => t.name)).not.toContain('document');
+
+            await standaloneClient.close();
+        });
+
+        it('falls back to default config when API config is invalid', async () => {
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = '{invalid json';
+
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+
+            const fallbackClient = new Client({ name: 'default-config-client', version: '1.0.0' });
+            await fallbackClient.connect(clientTransport);
+
+            const { tools } = await fallbackClient.listTools();
+            expect(tools.map(t => t.name)).toContain('document');
+
+            await fallbackClient.close();
+        });
+
+        it('ignores SIYUAN_MCP_TOOLS when API config is unavailable', async () => {
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = '';
+            process.env.SIYUAN_MCP_TOOLS = JSON.stringify({
+                document: {
+                    enabled: false,
+                    actions: {},
+                },
+            });
+
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+
+            const envIgnoredClient = new Client({ name: 'env-ignored-client', version: '1.0.0' });
+            await envIgnoredClient.connect(clientTransport);
+
+            const { tools } = await envIgnoredClient.listTools();
+            expect(tools.map(t => t.name)).toContain('document');
+
+            await envIgnoredClient.close();
+        });
+
         it('elevates user custom rules in server instructions when configured', () => {
             const userRule = 'After creating a document, proactively set the icon when the user mentions it.';
             const instructions = buildServerInstructions(userRule);

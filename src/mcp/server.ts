@@ -1,9 +1,6 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ErrorCode, ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, ListToolsRequestSchema, McpError, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import fs from 'fs';
-import path from 'path';
-
 import { startHttpMcpServer } from './http-transport';
 
 import { SiYuanClient } from '../api/client';
@@ -21,7 +18,6 @@ import { callTagTool, listTagTools } from './tools/tag';
 import { callFlashcardTool, listFlashcardTools } from './tools/flashcard';
 import { earnPuppyBalance, readPuppyStats, writePuppyEvent } from './puppy-state';
 import { callMascotTool, listMascotTools } from './tools/mascot';
-import { isPluginMode } from './runtime';
 
 const PLUGIN_CONFIG_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
 
@@ -158,54 +154,10 @@ async function tryReadConfigFromAPI(client: SiYuanClient): Promise<ToolConfig | 
     return null;
 }
 
-function tryReadConfigFromFileSystem(): ToolConfig | null {
-    const possiblePaths: string[] = [];
-    const envDataDir = process.env.SIYUAN_DATA_DIR;
-    if (envDataDir) {
-        possiblePaths.push(path.join(envDataDir, 'data', 'storage', 'petal', 'siyuan-plugins-mcp-sisyphus', 'mcpToolsConfig'));
-        possiblePaths.push(path.join(envDataDir, 'storage', 'petal', 'siyuan-plugins-mcp-sisyphus', 'mcpToolsConfig'));
-    }
-
-    const homeDir = process.env.HOME || process.env.USERPROFILE || '';
-    if (homeDir) {
-        possiblePaths.push(path.join(homeDir, 'SiYuan', 'data', 'storage', 'petal', 'siyuan-plugins-mcp-sisyphus', 'mcpToolsConfig'));
-        possiblePaths.push(path.join(homeDir, '.siyuan', 'data', 'storage', 'petal', 'siyuan-plugins-mcp-sisyphus', 'mcpToolsConfig'));
-        if (process.platform === 'win32') {
-            const appData = process.env.APPDATA || '';
-            if (appData) {
-                possiblePaths.push(path.join(appData, 'SiYuan', 'data', 'storage', 'petal', 'siyuan-plugins-mcp-sisyphus', 'mcpToolsConfig'));
-            }
-        }
-    }
-
-    for (const configPath of possiblePaths) {
-        if (!fs.existsSync(configPath)) continue;
-        try {
-            return normalizeToolConfig(JSON.parse(fs.readFileSync(configPath, 'utf-8')));
-        } catch {
-            // Ignore parse errors and continue with fallbacks.
-        }
-    }
-
-    return null;
-}
-
 async function getToolConfig(client?: SiYuanClient): Promise<ToolConfig> {
-    if (client && isPluginMode()) {
+    if (client) {
         const apiConfig = await tryReadConfigFromAPI(client);
         if (apiConfig) return apiConfig;
-    }
-
-    const fileConfig = tryReadConfigFromFileSystem();
-    if (fileConfig) return fileConfig;
-
-    const envConfig = process.env.SIYUAN_MCP_TOOLS;
-    if (envConfig) {
-        try {
-            return normalizeToolConfig(JSON.parse(envConfig));
-        } catch {
-            // Ignore invalid env config.
-        }
     }
 
     return buildDefaultToolConfig();

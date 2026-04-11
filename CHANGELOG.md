@@ -2,6 +2,15 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.2.6 - 2026-04-12
+
+- 调整 MCP 工具配置加载策略，统一以思源 API 中的 `/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig` 作为唯一优先真相源；无论是插件模式还是 standalone 模式，都会先尝试通过 `SIYUAN_API_URL` / `SIYUAN_TOKEN` 读取同一份配置
+- 移除 standalone 模式下默认从本地文件系统探测 `mcpToolsConfig` 的行为，不再依赖 `SIYUAN_DATA_DIR`、`~/SiYuan/...`、`~/.siyuan/...` 或 Windows `APPDATA` 等本机路径猜测，避免本地 MCP 进程误读另一份工作区配置
+- 取消 `SIYUAN_MCP_TOOLS` 在服务端工具配置加载链路中的隐式覆盖作用；当 API 配置缺失、为空或内容无效时，直接回退到内置默认工具配置，减少多来源配置叠加带来的歧义
+- 修正 standalone / Docker / 远端部署场景下的配置一致性问题：当 `mcp-server.cjs` 运行在独立 Node 进程或容器中，并通过网络连接远端 SiYuan 时，`listTools`、服务端 instructions 与实际工具调用将基于同一份远端插件配置，不再出现“API 指向远端、配置却来自本地磁盘”的错配
+- 保留 `isPluginMode()` 对 UI 刷新等插件上下文相关能力的区分，仅将“工具配置读取”从运行模式判断中解耦；standalone 仍可正常使用 API 驱动的 MCP 能力，而插件专属的界面刷新逻辑继续只在插件模式下执行
+- 补充并更新集成测试，覆盖以下关键场景：standalone 模式依然通过 API 读取工具配置、API 返回无效 JSON 时回退默认配置、`SIYUAN_MCP_TOOLS` 不再影响工具列表，以及 HTTP 并发访问下配置读取行为保持稳定
+
 ## v0.2.5 - 2026-04-11
 
 - 新增独立模式（standalone mode）支持，优化 schema 定义与兼容性
