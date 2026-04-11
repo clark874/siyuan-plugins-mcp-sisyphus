@@ -22,20 +22,27 @@ vi.mock('@/components/ToolPuppy.svelte', () => ({
 
 import SiyuanMCP from '@/index';
 import type { HttpServerSettings } from '@/setting/tool-config-storage';
+import { HttpServerLauncher } from '@/server-launcher';
 
 describe('HTTP settings sync', () => {
     let plugin: SiyuanMCP;
     let saveData: ReturnType<typeof vi.fn>;
+    let loadData: ReturnType<typeof vi.fn>;
     let launcherStart: ReturnType<typeof vi.fn>;
     let launcherStop: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         plugin = new SiyuanMCP();
+        loadData = vi.fn().mockResolvedValue(undefined);
         saveData = vi.fn().mockResolvedValue(undefined);
         launcherStart = vi.fn().mockResolvedValue(undefined);
         launcherStop = vi.fn().mockResolvedValue(undefined);
 
-        Object.assign(plugin, { saveData });
+        Object.assign(plugin, {
+            name: 'siyuan-plugins-mcp-sisyphus',
+            loadData,
+            saveData,
+        });
         plugin.httpLauncher = {
             start: launcherStart,
             stop: launcherStop,
@@ -46,9 +53,12 @@ describe('HTTP settings sync', () => {
             siyuan: {
                 config: {
                     api: { token: 'siyuan-token' },
+                    system: { workspaceDir: '/mock/workspace' },
                 },
             },
         };
+
+        vi.restoreAllMocks();
     });
 
     it('syncs settings into plugin state before start', async () => {
@@ -119,6 +129,41 @@ describe('HTTP settings sync', () => {
         expect(launcherStart).toHaveBeenCalledWith(expect.objectContaining({
             port: 39002,
             token: 'another-token',
+        }));
+    });
+
+    it('reports unsupported launcher support when workspaceDir is missing', () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+
+        expect(HttpServerLauncher.getSupportInfo()).toEqual({
+            supported: false,
+            reason: 'workspace_dir_unavailable',
+        });
+        expect(HttpServerLauncher.isSupported()).toBe(false);
+    });
+
+    it('skips launcher init without logging when current frontend is unsupported', async () => {
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        plugin.httpLauncher = null;
+
+        await plugin.onload();
+
+        expect(plugin.httpLauncher).toBeNull();
+        expect(errorSpy).not.toHaveBeenCalled();
+    });
+
+    it('initializes launcher and auto-starts HTTP server when supported', async () => {
+        const startSpy = vi.spyOn(HttpServerLauncher.prototype, 'start').mockResolvedValue(undefined);
+        plugin.httpLauncher = null;
+
+        await plugin.onload();
+
+        expect(plugin.httpLauncher).toBeInstanceOf(HttpServerLauncher);
+        expect(startSpy).toHaveBeenCalledWith(expect.objectContaining({
+            host: '127.0.0.1',
+            port: 36806,
+            siyuanToken: 'siyuan-token',
         }));
     });
 });

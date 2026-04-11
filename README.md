@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **Latest:** `v0.2.4` — Removed built-in data snapshot sidebar (duplicates SiYuan's native feature). Use "Main Menu → Data History → Data Snapshots" instead. See full history in [CHANGELOG.md](./CHANGELOG.md).
+> **Latest:** `v0.2.5` — Added standalone mode support with schema fixes and compatibility improvements. See full history in [CHANGELOG.md](./CHANGELOG.md).
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenCode, Claude Code, and other AI CLI tools directly in the SiYuan sidebar.
 

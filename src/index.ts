@@ -35,29 +35,27 @@ export default class SiyuanMCP extends Plugin {
         this.puppyVisible = this.puppySettings.visible;
         this.httpSettings = await loadPersistedHttpServerSettings(this);
 
-        if (HttpServerLauncher.isSupported()) {
-            try {
-                // In SiYuan's CJS bundle, global require is available
-                const nodeRequire: NodeRequire = (typeof require === "function")
-                    ? require
-                    : (window as unknown as { require: NodeRequire }).require;
-                const path = nodeRequire("path") as typeof import("path");
-                const workspaceDir = (window as any)?.siyuan?.config?.system?.workspaceDir;
-                if (!workspaceDir) {
-                    throw new Error("siyuan workspaceDir not available");
+        const support = HttpServerLauncher.getSupportInfo();
+        if (!support.supported) {
+            return;
+        }
+
+        const scriptPath = HttpServerLauncher.resolveServerScriptPath(this.name);
+        if (!scriptPath) {
+            return;
+        }
+
+        try {
+            this.httpLauncher = new HttpServerLauncher(scriptPath);
+            if (this.httpSettings.enabled) {
+                try {
+                    await this.startHttpServer();
+                } catch (err) {
+                    console.error("[MCP] auto-start HTTP server failed:", err);
                 }
-                const scriptPath = path.join(workspaceDir, "data", "plugins", this.name, "mcp-server.cjs");
-                this.httpLauncher = new HttpServerLauncher(scriptPath);
-                if (this.httpSettings.enabled) {
-                    try {
-                        await this.startHttpServer();
-                    } catch (err) {
-                        console.error("[MCP] auto-start HTTP server failed:", err);
-                    }
-                }
-            } catch (err) {
-                console.error("[MCP] failed to init HttpServerLauncher:", err);
             }
+        } catch (err) {
+            console.error("[MCP] failed to init HttpServerLauncher:", err);
         }
     }
 

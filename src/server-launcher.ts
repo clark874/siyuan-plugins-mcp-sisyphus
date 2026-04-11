@@ -15,6 +15,8 @@ type ChildProcessModule = typeof import("child_process");
 type ChildProcess = import("child_process").ChildProcess;
 type SpawnSyncReturns<T> = import("child_process").SpawnSyncReturns<T>;
 
+type PathModule = typeof import("path");
+
 const MAX_LOG_LINES = 200;
 const STALE_PROCESS_TERM_TIMEOUT_MS = 1500;
 const STALE_PROCESS_KILL_TIMEOUT_MS = 1500;
@@ -37,6 +39,43 @@ function getNodeRequire(): NodeRequire | undefined {
     return undefined;
 }
 
+function canRequireModule(moduleName: string): boolean {
+    const req = getNodeRequire();
+    if (!req) return false;
+    try {
+        req(moduleName);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function getWorkspaceDir(): string | null {
+    const workspaceDir = (window as Window & {
+        siyuan?: {
+            config?: {
+                system?: {
+                    workspaceDir?: unknown;
+                };
+            };
+        };
+    })?.siyuan?.config?.system?.workspaceDir;
+    if (typeof workspaceDir !== "string" || !workspaceDir.trim()) {
+        return null;
+    }
+    return workspaceDir;
+}
+
+function getPathModule(): PathModule | null {
+    const req = getNodeRequire();
+    if (!req) return null;
+    try {
+        return req("path") as PathModule;
+    } catch {
+        return null;
+    }
+}
+
 export interface HttpServerStatus {
     running: boolean;
     pid?: number;
@@ -54,9 +93,39 @@ export interface HttpServerLaunchOptions {
     siyuanToken?: string;
 }
 
+export interface HttpServerSupportInfo {
+    supported: boolean;
+    reason?: string;
+}
+
 export class HttpServerLauncher {
+    static getSupportInfo(): HttpServerSupportInfo {
+        if (!getNodeRequire()) {
+            return { supported: false, reason: "node_require_unavailable" };
+        }
+        if (!canRequireModule("child_process")) {
+            return { supported: false, reason: "child_process_unavailable" };
+        }
+        if (!getPathModule()) {
+            return { supported: false, reason: "path_unavailable" };
+        }
+        if (!getWorkspaceDir()) {
+            return { supported: false, reason: "workspace_dir_unavailable" };
+        }
+        return { supported: true };
+    }
+
     static isSupported(): boolean {
-        return getNodeRequire() !== undefined;
+        return this.getSupportInfo().supported;
+    }
+
+    static resolveServerScriptPath(pluginName: string): string | null {
+        const support = this.getSupportInfo();
+        if (!support.supported) return null;
+        const path = getPathModule();
+        const workspaceDir = getWorkspaceDir();
+        if (!path || !workspaceDir) return null;
+        return path.join(workspaceDir, "data", "plugins", pluginName, "mcp-server.cjs");
     }
 
     private readonly serverScriptPath: string;

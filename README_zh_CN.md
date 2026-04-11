@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **最新版本：**`v0.2.4` — 移除内置数据仓库快照管理侧边栏（与思源官方功能重复），请使用「主菜单 → 数据历史 → 数据快照」修复插件配置文件，补上漏掉的 Docker 后端与 browser-desktop、desktop-window 前端。
+> **最新版本：**`v0.2.5` — 新增独立模式（standalone mode）支持，优化 schema 定义与兼容性。详见 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 如果你想把 OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
