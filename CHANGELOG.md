@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.2.7 - 2026-04-13
+
+- 新增完整的 API 接口映射文档（API_COMPLETE_MAPPING.md），提供全量 90+ 个 action 的详细说明
+- 补强 block、document、file、search、av 等聚合 tool 的 action 支持，提升工具覆盖度
+- 引入 normalize 模块统一参数处理逻辑，增强请求健壮性
+- 重构文档目录结构，迁移至 VitePress 站点（docs/），改善文档浏览体验
+- 补充单元测试和冒烟测试覆盖，新增 normalize、av、block、file 等测试套件
+
 ## v0.2.6 - 2026-04-12
 
 - 调整 MCP 工具配置加载策略，统一以思源 API 中的 `/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig` 作为唯一优先真相源；无论是插件模式还是 standalone 模式，都会先尝试通过 `SIYUAN_API_URL` / `SIYUAN_TOKEN` 读取同一份配置
