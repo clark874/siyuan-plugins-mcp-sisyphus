@@ -7,15 +7,15 @@ import { callNotebookTool } from '@/mcp/tools/notebook';
 import { callTagTool } from '@/mcp/tools/tag';
 
 vi.mock('@/mcp/tools/context', () => ({
-    ensurePermissionForDocumentId: vi.fn(async (_client, _permMgr, id: string) => ({
-        context: { documentId: id.startsWith('doc-') ? id : 'doc-1', notebook: 'nb-1', path: '/doc-1.sy' },
+    ensurePermissionForDocumentId: vi.fn(async (_client: unknown, _permMgr: unknown, id: string) => ({
+        context: { documentId: id && id.startsWith('doc-') ? id : 'doc-1', notebook: 'nb-1', path: '/doc-1.sy' },
         denied: null,
     })),
     ensurePermissionForNotebook: vi.fn(async () => null),
     listChildDocumentsByPath: vi.fn(),
     resolveMoveTargetNotebook: vi.fn(),
     resolveNotebookForPath: vi.fn(),
-    resolveDocumentContextById: vi.fn(async (_client, id: string) => ({
+    resolveDocumentContextById: vi.fn(async (_client: unknown, id: string) => ({
         documentId: id,
         notebook: 'nb-1',
         path: `/${id}.sy`,
@@ -63,9 +63,7 @@ vi.mock('@/api/transaction', () => ({
     performTransactions: vi.fn(),
 }));
 
-function parseResult(result: { content: Array<{ text: string }> }) {
-    return JSON.parse(result.content[0].text);
-}
+import { parseResult } from '../../../helpers/parse-result';
 
 describe('UI refresh integration', () => {
     const client = {

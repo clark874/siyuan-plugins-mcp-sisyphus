@@ -10,9 +10,7 @@ import * as documentApi from '@/api/document';
 import * as searchApi from '@/api/search';
 import * as contextTools from '@/mcp/tools/context';
 
-function parseResult(result: Awaited<ReturnType<typeof callSearchTool>> | Awaited<ReturnType<typeof callBlockTool>> | Awaited<ReturnType<typeof callDocumentTool>>) {
-    return JSON.parse(result.content[0].text);
-}
+import { parseResult } from '../../../helpers/parse-result';
 
 const searchConfig: CategoryToolConfig<'fulltext' | 'query_sql' | 'search_tag' | 'get_backlinks' | 'get_backmentions'> = {
     enabled: true,

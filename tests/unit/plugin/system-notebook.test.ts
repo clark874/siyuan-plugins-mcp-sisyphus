@@ -8,9 +8,7 @@ import * as notebookApi from '@/api/notebook';
 import * as systemApi from '@/api/system';
 import * as contextTools from '@/mcp/tools/context';
 
-function parseResult(result: Awaited<ReturnType<typeof callNotebookTool>> | Awaited<ReturnType<typeof callSystemTool>>) {
-    return JSON.parse(result.content[0].text);
-}
+import { parseResult } from '../../helpers/parse-result';
 
 const notebookConfig: CategoryToolConfig<'list' | 'create' | 'open' | 'close' | 'remove' | 'rename' | 'get_conf' | 'set_conf' | 'set_icon' | 'get_permissions' | 'set_permission' | 'get_child_docs'> = {
     enabled: true,

@@ -21,6 +21,9 @@
 - `search`
 - `tag`
 - `system`
+- `flashcard`
+- `av` (数据库/属性视图)
+- `mascot`
 
 ### 关键源码位置
 
@@ -67,6 +70,9 @@
 - `block(action="delete")`
 - `block(action="move")`
 - `tag(action="remove")`
+- `flashcard(action="remove_card")`
+- `av(action="remove_rows")` (批量删除行)
+- `av(action="remove_column")` (删除列)
 
 ### 只读工具
 
@@ -105,7 +111,7 @@
 | `get_child_blocks` | `POST /api/block/getChildBlocks` | `src/api/block.ts` | 使用解析后的根文档 ID |
 | `get_child_docs` | `POST /api/filetree/listDocsByPath` | `src/api/document.ts` | 使用解析后的笔记本 + 存储路径 |
 | `set_icon` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 给文档块写入 `icon` 属性 |
-| `set_cover` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 给文档块写入 `title-img` 属性，值为 `background-image:url(\"...\");` |
+| `set_cover` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 给文档块写入 `title-img` 属性，值为 `background-image:url("...");` |
 | `clear_cover` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 将文档块的 `title-img` 属性清空 |
 | `list_tree` | `POST /api/filetree/listDocTree` | `src/api/document.ts` | 获取嵌套文档树 |
 | `search_docs` | `POST /api/filetree/searchDocs` | `src/api/document.ts` | 思源原生是全局标题搜索 |
@@ -165,10 +171,6 @@
 | `render_sprig` | `POST /api/template/renderSprig` | `src/api/file.ts` | 仅模板渲染 |
 | `export_md` | `POST /api/export/exportMdContent` | `src/api/file.ts` | 需要可读文档 ID |
 | `export_resources` | `POST /api/export/exportResources` | `src/api/file.ts` | 将 `assets/...` 规范化为 `data/assets/...` 后导出；若传 `outputPath`，再把 ZIP 复制到本地文件系统（高危，需先确认） |
-| `push_msg` | `POST /api/notification/pushMsg` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 普通通知 |
-| `push_err_msg` | `POST /api/notification/pushErrMsg` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 错误通知 |
-| `get_version` | `POST /api/system/version` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 只读 |
-| `get_current_time` | `POST /api/system/currentTime` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 只读 |
 
 ## `search`
 
@@ -198,13 +200,54 @@
 | `conf` | `POST /api/system/getConf` | `src/api/system.ts` | 返回脱敏配置 |
 | `sys_fonts` | `POST /api/system/getSysFonts` | `src/api/system.ts` | 只读 |
 | `boot_progress` | `POST /api/system/bootProgress` | `src/api/system.ts` | 只读 |
+| `push_msg` | `POST /api/notification/pushMsg` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 普通通知 |
+| `push_err_msg` | `POST /api/notification/pushErrMsg` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 错误通知 |
+| `get_version` | `POST /api/system/version` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 只读 |
+| `get_current_time` | `POST /api/system/currentTime` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 只读 |
+
+## `flashcard`
+
+| MCP action | 思源 HTTP API | Wrapper | 说明 |
+|---|---|---|---|
+| `list_cards` | `POST /api/riff/getRiffDueCards` / `POST /api/riff/getNotebookRiffDueCards` / `POST /api/riff/getTreeRiffDueCards` | `src/api/riff.ts` | 列出待复习闪卡，支持工作区/笔记本/文档树范围 |
+| `get_decks` | `POST /api/riff/getRiffDecks` | `src/api/riff.ts` | 获取所有闪卡 deck |
+| `get_cards` | `POST /api/riff/getRiffCards` | `src/api/riff.ts` | 获取闪卡列表 |
+| `review_card` | `POST /api/riff/reviewRiffCard` | `src/api/riff.ts` | 复习闪卡，需传评分(rating) |
+| `skip_review_card` | `POST /api/riff/skipReviewRiffCard` | `src/api/riff.ts` | 跳过当前闪卡复习 |
+| `add_card` | `POST /api/riff/addRiffCards` | `src/api/riff.ts` | 将块添加为闪卡 |
+| `remove_card` | `POST /api/riff/removeRiffCards` | `src/api/riff.ts` | 移除闪卡，需要确认 |
+
+## `av` (Attribute View / 数据库)
+
+| MCP action | 思源 HTTP API | Wrapper | 说明 |
+|---|---|---|---|
+| `get` | `POST /api/av/getAttributeView` | `src/api/av.ts` | 获取属性视图详情 |
+| `search` | `POST /api/av/searchAttributeView` | `src/api/av.ts` | 搜索属性视图 |
+| `add_rows` | `POST /api/av/addAttributeViewBlocks` | `src/api/av.ts` | 添加行(绑定已有块) |
+| `remove_rows` | `POST /api/av/removeAttributeViewBlocks` | `src/api/av.ts` | 移除行 |
+| `add_column` | `POST /api/av/addAttributeViewKey` | `src/api/av.ts` | 添加列/字段 |
+| `remove_column` | `POST /api/av/removeAttributeViewKey` | `src/api/av.ts` | 移除列/字段 |
+| `set_cell` | `POST /api/av/setAttributeViewBlockAttr` | `src/api/av.ts` | 设置单元格值 |
+| `batch_set_cells` | `POST /api/av/batchSetAttributeViewBlockAttrs` | `src/api/av.ts` | 批量设置单元格值 |
+| `duplicate_block` | `POST /api/av/duplicateAttributeViewBlock` | `src/api/av.ts` | 复制数据库块 |
+| `get_primary_key_values` | `POST /api/av/getAttributeViewPrimaryKeyValues` | `src/api/av.ts` | 获取主键值列表(用于relation字段) |
+
+## `mascot`
+
+| MCP action | 思源 HTTP API | Wrapper | 说明 |
+|---|---|---|---|
+| `get_balance` | 本地状态 (`puppy_stats`) | `src/mcp/puppy-state.ts` | 获取吉祥物金币余额和统计 |
+| `shop` | 本地常量 | `src/mcp/tools/mascot.ts` | 获取商店物品列表 |
+| `buy` | 本地状态更新 | `src/mcp/puppy-state.ts` | 购买商店物品 |
+
+**说明**: mascot tool 使用本地状态管理，不直接调用思源 HTTP API。每次 MCP 工具调用会自动获得 1 个金币奖励。
 
 ## MCP 参数形态
 
 ### 通用规则
 
 - 每个 tool 都必须带 `action`
-- 当前设计是“聚合 tool + action 分发”，不是“一条 HTTP API 对应一个 MCP tool”
+- 当前设计是"聚合 tool + action 分发"，不是"一条 HTTP API 对应一个 MCP tool"
 - 参数校验定义在 `src/mcp/types.ts`
 
 ### 重要形态示例
@@ -250,7 +293,176 @@
 
 ## 覆盖范围说明
 
-- 本文档记录的是“当前已经接入 MCP 的思源 API”
+- 本文档记录的是"当前已经接入 MCP 的思源 API"
 - 并未枚举思源 `kernel/api/` 下全部接口
 - 未接入接口可参考上游源码：
   - `https://github.com/siyuan-note/siyuan/tree/master/kernel/api`
+
+---
+
+## 未覆盖 API 清单
+
+> **更新时间**: 2026-04-12  
+> **扫描范围**: SiYuan Kernel API (459个端点) 与 MCP Tools (90个actions) 对比
+> **整体覆盖率**: 19.2% (88/459)
+
+### 覆盖率统计概览
+
+| 模块 | 总数 | 已覆盖 | 未覆盖 | 覆盖率 |
+|------|------|--------|--------|--------|
+| notebook | 11 | 9 | 2 | ████████░░ 81.8% |
+| filetree | 34 | 16 | 18 | ████░░░░░░ 47.1% |
+| block | 54 | 17 | 37 | ███░░░░░░░ 31.5% |
+| av | 35 | 10 | 25 | ██░░░░░░░░ 28.6% |
+| system | 46 | 10 | 36 | ██░░░░░░░░ 21.7% |
+| search | 14 | 2 | 12 | █░░░░░░░░░ 14.3% |
+| asset | 19 | 1 | 18 | ░░░░░░░░░░ 5.3% |
+| export | 31 | 2 | 29 | ░░░░░░░░░░ 6.5% |
+| riff | 17 | 9 | 8 | █████░░░░░ 52.9% |
+| history | 10 | 0 | 10 | ░░░░░░░░░░ 0.0% |
+| setting | 23 | 0 | 23 | ░░░░░░░░░░ 0.0% |
+| bazaar | 23 | 0 | 23 | ░░░░░░░░░░ 0.0% |
+| repo | 23 | 0 | 23 | ░░░░░░░░░░ 0.0% |
+| sync | 21 | 0 | 21 | ░░░░░░░░░░ 0.0% |
+| storage | 15 | 0 | 15 | ░░░░░░░░░░ 0.0% |
+| file | 8 | 0 | 8 | ░░░░░░░░░░ 0.0% |
+| attr | 6 | 2 | 4 | ███░░░░░░░ 33.3% |
+| ref | 5 | 2 | 3 | ████░░░░░░ 40.0% |
+| tag | 3 | 3 | 0 | ██████████ 100.0% |
+| notification | 2 | 2 | 0 | ██████████ 100.0% |
+| **总计** | **459** | **88** | **371** | █░░░░░░░░░ 19.2% |
+
+### 高优先级建议实现 (核心功能)
+
+#### 1. Search 模块 (当前14.3%覆盖)
+
+| API 路径 | 说明 | 优先级 |
+|----------|------|--------|
+| `POST /api/search/searchRefBlock` | 搜索引用块 | 🔴 高 |
+| `POST /api/search/findReplace` | 查找替换 | 🔴 高 |
+| `POST /api/search/searchAsset` | 搜索资源文件 | 🟡 中 |
+| `POST /api/search/getAssetContent` | 获取资源内容 | 🟡 中 |
+| `POST /api/search/fullTextSearchAssetContent` | 全文搜索资源内容 | 🟡 中 |
+| `POST /api/search/listInvalidBlockRefs` | 列出无效块引用 | 🟢 低 |
+
+#### 2. Block 批量操作 (当前31.5%覆盖)
+
+| API 路径 | 说明 | 优先级 |
+|----------|------|--------|
+| `POST /api/block/batchInsertBlock` | 批量插入块 | 🟡 中 |
+| `POST /api/block/batchUpdateBlock` | 批量更新块 | 🟡 中 |
+| `POST /api/block/appendDailyNoteBlock` | 追加到日记 | 🟡 中 |
+| `POST /api/block/prependDailyNoteBlock` | 前置插入日记 | 🟡 中 |
+| `POST /api/block/getDocInfo` | 获取文档信息 | 🟢 低 |
+| `POST /api/block/getDocsInfo` | 批量获取文档信息 | 🟢 低 |
+
+#### 3. Document/文件树增强 (当前47.1%覆盖)
+
+| API 路径 | 说明 | 优先级 |
+|----------|------|--------|
+| `POST /api/filetree/duplicateDoc` | 复制文档 | 🟡 中 |
+| `POST /api/filetree/removeDocs` | 批量删除文档 | 🟡 中 |
+| `POST /api/filetree/createDoc` | 创建空文档 | 🟢 低 |
+| `POST /api/filetree/heading2Doc` | 标题转为文档 | 🟢 低 |
+| `POST /api/filetree/doc2Heading` | 文档转为标题 | 🟢 低 |
+
+#### 4. Asset 资源管理 (当前5.3%覆盖)
+
+| API 路径 | 说明 | 优先级 |
+|----------|------|--------|
+| `POST /api/asset/getUnusedAssets` | 获取未使用资源 | 🟡 中 |
+| `POST /api/asset/removeUnusedAssets` | 删除未使用资源 | 🟡 中 |
+| `POST /api/asset/renameAsset` | 重命名资源 | 🟢 低 |
+| `POST /api/asset/deleteAsset` | 删除资源 | 🟢 低 |
+| `POST /api/asset/setImageAlpha` | 设置图片透明度 | 🟢 低 |
+
+### 中优先级 (扩展功能)
+
+#### History 历史版本 (当前0%覆盖)
+
+建议新增 `history` tool：
+
+| API 路径 | 说明 |
+|----------|------|
+| `POST /api/history/getDocHistoryContent` | 获取文档历史内容 |
+| `POST /api/history/rollbackDocHistory` | 回滚文档历史 |
+| `POST /api/history/getNotebookHistory` | 获取笔记本历史 |
+| `POST /api/history/rollbackNotebookHistory` | 回滚笔记本历史 |
+| `POST /api/history/searchHistory` | 搜索历史 |
+| `POST /api/history/getHistoryItems` | 获取历史条目 |
+
+#### Export 导出增强 (当前6.5%覆盖)
+
+建议扩展现有 `file` tool：
+
+| API 路径 | 说明 |
+|----------|------|
+| `POST /api/export/exportDocx` | 导出 Word |
+| `POST /api/export/exportPDF` | 导出 PDF |
+| `POST /api/export/exportHTML` | 导出 HTML |
+| `POST /api/export/exportNotebook` | 导出笔记本 |
+| `POST /api/export/preview` | 导出预览 |
+
+#### AV 数据库高级功能 (当前28.6%覆盖)
+
+当前已覆盖基础CRUD，以下功能待扩展：
+
+- **视图操作**: 创建/删除/切换视图
+- **过滤器**: 设置/修改过滤器
+- **排序**: 多列排序设置
+- **分组**: 分组设置
+- **Rollup**: 计算列配置
+- **模板列**: 模板配置
+
+### 低优先级/暂不覆盖
+
+#### System 管理类 (安全敏感)
+
+| API 路径 | 不覆盖原因 |
+|----------|------------|
+| `POST /api/system/setAPIToken` | 安全敏感 |
+| `POST /api/system/setAccessAuthCode` | 安全敏感 |
+| `POST /api/system/setNetworkServe` | 安全敏感 |
+| `POST /api/system/setWorkspaceDir` | 安全敏感 |
+| `POST /api/system/createWorkspaceDir` | 管理功能 |
+| `POST /api/system/removeWorkspaceDir` | 安全敏感 |
+| `POST /api/system/exit` | 安全敏感 |
+| `POST /api/system/rebuildDataIndex` | 维护功能 |
+| `POST /api/system/vacuumDataIndex` | 维护功能 |
+
+#### Bazaar 集市 (当前0%覆盖)
+
+暂不覆盖原因：插件管理通常通过UI操作
+
+#### Sync/Repo 同步 (当前0%覆盖)
+
+暂不覆盖原因：数据同步配置通常通过UI操作，且涉及敏感配置
+
+### 已完全覆盖的模块
+
+| 模块 | 覆盖率 | 说明 |
+|------|--------|------|
+| tag | 100% (3/3) | 完整支持 |
+| notification | 100% (2/2) | 完整支持 (合并到 system) |
+| query | 100% (1/1) | 完整支持 (SQL查询) |
+
+### 建议新增 MCP Tools
+
+基于未覆盖API分析：
+
+| 建议Tool名称 | 包含Actions | 优先级 | 预估工作量 |
+|-------------|-------------|--------|-----------|
+| `history` | get_doc_history, rollback_doc, search_history | 中 | 2-3天 |
+| `bookmark` | list, rename, remove | 低 | 0.5天 |
+| `inbox` | get, add | 低 | 0.5天 |
+| `asset` | list_unused, remove_unused, rename | 中 | 1-2天 |
+| `export` | export_pdf, export_docx, export_html | 中 | 1-2天 |
+
+---
+
+**注**: 本文档基于 SiYuan Kernel 源码自动扫描生成，统计信息：
+- 扫描时间: 2026-04-12
+- SiYuan API总数: 459个端点
+- 已覆盖API: 88个端点
+- MCP Tools: 10个
+- MCP Actions: 90个

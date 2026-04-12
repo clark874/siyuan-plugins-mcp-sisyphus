@@ -1,15 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeFullTextSearchResult } from '../../src/mcp/normalize';
-import { isMissingBlockError } from '../../src/mcp/tools/block';
-import { filterBacklinkResultByPermission, filterFullTextSearchResultByPermission } from '../../src/mcp/tools/search';
+import { normalizeFullTextSearchResult } from '@/mcp/normalize';
+import { filterBacklinkResultByPermission, filterFullTextSearchResultByPermission } from '@/mcp/tools/search';
 
-describe('MCP tool fixes', () => {
-    it('treats missing block API errors as non-existent blocks', () => {
-        expect(isMissingBlockError(new Error('SiYuan API error: -1 - 未找到 ID 为 [invalid-block-id-12345] 的内容块'))).toBe(true);
-        expect(isMissingBlockError(new Error('some other error'))).toBe(false);
-    });
-
+describe('search tool filtering', () => {
     it('filters fulltext search results by notebook permission and preserves plainContent', () => {
         const permMgr = {
             canRead(notebookId: string) {
