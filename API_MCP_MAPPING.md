@@ -67,12 +67,16 @@
 - `notebook(action="set_permission")`
 - `document(action="remove")`
 - `document(action="move")`
+- `document(action="remove_batch")`
 - `block(action="delete")`
 - `block(action="move")`
 - `tag(action="remove")`
 - `flashcard(action="remove_card")`
 - `av(action="remove_rows")` (批量删除行)
 - `av(action="remove_column")` (删除列)
+- `file(action="remove_unused_assets")`
+- `file(action="delete_asset")`
+- `search(action="find_replace")`
 
 ### 只读工具
 
@@ -117,6 +121,11 @@
 | `search_docs` | `POST /api/filetree/searchDocs` | `src/api/document.ts` | 思源原生是全局标题搜索 |
 | `get_doc` | `POST /api/filetree/getDoc` | `src/api/document.ts` | 获取文档内容和元数据 |
 | `create_daily_note` | `POST /api/filetree/createDailyNote` | `src/api/document.ts` | 创建或返回今日日记 |
+| `duplicate` | `POST /api/filetree/duplicateDoc` | `src/api/document.ts` | 复制已有文档 |
+| `remove_batch` | `POST /api/filetree/removeDocs` | `src/api/document.ts` | 按存储路径批量删除文档，需要确认 |
+| `create_empty` | `POST /api/filetree/createDoc` | `src/api/document.ts` | 创建空文档，也可传 `markdown` 作为初始内容 |
+| `heading_to_doc` | `POST /api/filetree/heading2Doc` | `src/api/document.ts` | 将标题块转换为文档 |
+| `doc_to_heading` | `POST /api/filetree/doc2Heading` | `src/api/document.ts` | 将文档转换为目标文档下的标题 |
 
 ### 路径语义
 
@@ -161,6 +170,12 @@
 | `dom` | `POST /api/block/getBlockDOM` | `src/api/block.ts` | 获取渲染后的 DOM |
 | `recent_updated` | `POST /api/block/getRecentUpdatedBlocks` | `src/api/block.ts` | 工作区级最近更新 |
 | `word_count` | `POST /api/block/getBlocksWordCount` | `src/api/block.ts` | 返回字数统计结构 |
+| `batch_insert` | `POST /api/block/batchInsertBlock` | `src/api/block.ts` | 批量插入块 |
+| `batch_update` | `POST /api/block/batchUpdateBlock` | `src/api/block.ts` | 批量更新块 |
+| `append_daily_note` | `POST /api/block/appendDailyNoteBlock` | `src/api/block.ts` | 创建或打开今日日记后追加块 |
+| `prepend_daily_note` | `POST /api/block/prependDailyNoteBlock` | `src/api/block.ts` | 创建或打开今日日记后前插块 |
+| `doc_info` | `POST /api/block/getDocInfo` | `src/api/block.ts` | 获取块或文档所在文档信息 |
+| `docs_info` | `POST /api/block/getDocsInfo` | `src/api/block.ts` | 批量获取文档信息，可选 `refCount` / `av` |
 
 ## `file`
 
@@ -171,6 +186,15 @@
 | `render_sprig` | `POST /api/template/renderSprig` | `src/api/file.ts` | 仅模板渲染 |
 | `export_md` | `POST /api/export/exportMdContent` | `src/api/file.ts` | 需要可读文档 ID |
 | `export_resources` | `POST /api/export/exportResources` | `src/api/file.ts` | 将 `assets/...` 规范化为 `data/assets/...` 后导出；若传 `outputPath`，再把 ZIP 复制到本地文件系统（高危，需先确认） |
+| `list_unused_assets` | `POST /api/asset/getUnusedAssets` | `src/api/file.ts` | 列出未使用资源 |
+| `remove_unused_assets` | `POST /api/asset/removeUnusedAssets` | `src/api/file.ts` | 删除所有未使用资源，需要确认 |
+| `rename_asset` | `POST /api/asset/renameAsset` | `src/api/file.ts` | 重命名资源 |
+| `delete_asset` | `POST /api/asset/deleteAsset` | `src/api/file.ts` | 删除指定资源，需要确认；兼容性 action，是否可用取决于目标 SiYuan 内核版本 |
+| `set_image_alpha` | `POST /api/asset/setImageAlpha` | `src/api/file.ts` | 设置图片资源透明度；兼容性 action，是否可用取决于目标 SiYuan 内核版本 |
+
+说明：
+
+- `file(action="delete_asset")` 与 `file(action="set_image_alpha")` 已在插件实现中预留，但未计入本文后续基于 2026-04-12 上游 Kernel 459 个端点扫描得到的覆盖率统计
 
 ## `search`
 
@@ -181,6 +205,12 @@
 | `search_tag` | `POST /api/search/searchTag` | `src/api/search.ts` | 标签关键词搜索 |
 | `get_backlinks` | `POST /api/ref/getBacklinkDoc` | `src/api/search.ts` | 只读 |
 | `get_backmentions` | `POST /api/ref/getBackmentionDoc` | `src/api/search.ts` | 只读 |
+| `search_refs` | `POST /api/search/searchRefBlock` | `src/api/search.ts` | 搜索引用指定块/文档的块 |
+| `find_replace` | `POST /api/search/findReplace` | `src/api/search.ts` | 查找替换，需要确认 |
+| `search_assets` | `POST /api/search/searchAsset` | `src/api/search.ts` | 按文件名搜索资源 |
+| `get_asset_content` | `POST /api/search/getAssetContent` | `src/api/search.ts` | 获取单个资源内容索引结果 |
+| `fulltext_asset_content` | `POST /api/search/fullTextSearchAssetContent` | `src/api/search.ts` | 全文搜索资源内容索引 |
+| `list_invalid_refs` | `POST /api/search/listInvalidBlockRefs` | `src/api/search.ts` | 列出无效块引用 |
 
 ## `tag`
 
@@ -303,20 +333,20 @@
 ## 未覆盖 API 清单
 
 > **更新时间**: 2026-04-12  
-> **扫描范围**: SiYuan Kernel API (459个端点) 与 MCP Tools (90个actions) 对比
-> **整体覆盖率**: 19.2% (88/459)
+> **扫描范围**: SiYuan Kernel API (459个端点) 与 MCP Tools (112个actions) 对比
+> **整体覆盖率**: 23.1% (106/459)
 
 ### 覆盖率统计概览
 
 | 模块 | 总数 | 已覆盖 | 未覆盖 | 覆盖率 |
 |------|------|--------|--------|--------|
 | notebook | 11 | 9 | 2 | ████████░░ 81.8% |
-| filetree | 34 | 16 | 18 | ████░░░░░░ 47.1% |
-| block | 54 | 17 | 37 | ███░░░░░░░ 31.5% |
+| filetree | 34 | 21 | 13 | ██████░░░░ 61.8% |
+| block | 54 | 23 | 31 | ████░░░░░░ 42.6% |
 | av | 35 | 10 | 25 | ██░░░░░░░░ 28.6% |
 | system | 46 | 10 | 36 | ██░░░░░░░░ 21.7% |
-| search | 14 | 2 | 12 | █░░░░░░░░░ 14.3% |
-| asset | 19 | 1 | 18 | ░░░░░░░░░░ 5.3% |
+| search | 14 | 8 | 6 | ██████░░░░ 57.1% |
+| asset | 19 | 4 | 15 | ██░░░░░░░░ 21.1% |
 | export | 31 | 2 | 29 | ░░░░░░░░░░ 6.5% |
 | riff | 17 | 9 | 8 | █████░░░░░ 52.9% |
 | history | 10 | 0 | 10 | ░░░░░░░░░░ 0.0% |
@@ -330,51 +360,58 @@
 | ref | 5 | 2 | 3 | ████░░░░░░ 40.0% |
 | tag | 3 | 3 | 0 | ██████████ 100.0% |
 | notification | 2 | 2 | 0 | ██████████ 100.0% |
-| **总计** | **459** | **88** | **371** | █░░░░░░░░░ 19.2% |
+| **总计** | **459** | **106** | **353** | ██░░░░░░░░ 23.1% |
 
-### 高优先级建议实现 (核心功能)
+### 已补齐的高优先级 API (核心功能)
 
-#### 1. Search 模块 (当前14.3%覆盖)
+#### 1. Search 模块 (当前57.1%覆盖)
 
-| API 路径 | 说明 | 优先级 |
-|----------|------|--------|
-| `POST /api/search/searchRefBlock` | 搜索引用块 | 🔴 高 |
-| `POST /api/search/findReplace` | 查找替换 | 🔴 高 |
-| `POST /api/search/searchAsset` | 搜索资源文件 | 🟡 中 |
-| `POST /api/search/getAssetContent` | 获取资源内容 | 🟡 中 |
-| `POST /api/search/fullTextSearchAssetContent` | 全文搜索资源内容 | 🟡 中 |
-| `POST /api/search/listInvalidBlockRefs` | 列出无效块引用 | 🟢 低 |
+| API 路径 | MCP action | 说明 | 状态 |
+|----------|------------|------|------|
+| `POST /api/search/searchRefBlock` | `search_refs` | 搜索引用块 | 已接入 |
+| `POST /api/search/findReplace` | `find_replace` | 查找替换，需要确认 | 已接入 |
+| `POST /api/search/searchAsset` | `search_assets` | 搜索资源文件 | 已接入 |
+| `POST /api/search/getAssetContent` | `get_asset_content` | 获取资源内容 | 已接入 |
+| `POST /api/search/fullTextSearchAssetContent` | `fulltext_asset_content` | 全文搜索资源内容 | 已接入 |
+| `POST /api/search/listInvalidBlockRefs` | `list_invalid_refs` | 列出无效块引用 | 已接入 |
 
-#### 2. Block 批量操作 (当前31.5%覆盖)
+#### 2. Block 批量操作 (当前42.6%覆盖)
 
-| API 路径 | 说明 | 优先级 |
-|----------|------|--------|
-| `POST /api/block/batchInsertBlock` | 批量插入块 | 🟡 中 |
-| `POST /api/block/batchUpdateBlock` | 批量更新块 | 🟡 中 |
-| `POST /api/block/appendDailyNoteBlock` | 追加到日记 | 🟡 中 |
-| `POST /api/block/prependDailyNoteBlock` | 前置插入日记 | 🟡 中 |
-| `POST /api/block/getDocInfo` | 获取文档信息 | 🟢 低 |
-| `POST /api/block/getDocsInfo` | 批量获取文档信息 | 🟢 低 |
+| API 路径 | MCP action | 说明 | 状态 |
+|----------|------------|------|------|
+| `POST /api/block/batchInsertBlock` | `batch_insert` | 批量插入块 | 已接入 |
+| `POST /api/block/batchUpdateBlock` | `batch_update` | 批量更新块 | 已接入 |
+| `POST /api/block/appendDailyNoteBlock` | `append_daily_note` | 追加到日记 | 已接入 |
+| `POST /api/block/prependDailyNoteBlock` | `prepend_daily_note` | 前置插入日记 | 已接入 |
+| `POST /api/block/getDocInfo` | `doc_info` | 获取文档信息 | 已接入 |
+| `POST /api/block/getDocsInfo` | `docs_info` | 批量获取文档信息 | 已接入 |
 
-#### 3. Document/文件树增强 (当前47.1%覆盖)
+#### 3. Document/文件树增强 (当前61.8%覆盖)
 
-| API 路径 | 说明 | 优先级 |
-|----------|------|--------|
-| `POST /api/filetree/duplicateDoc` | 复制文档 | 🟡 中 |
-| `POST /api/filetree/removeDocs` | 批量删除文档 | 🟡 中 |
-| `POST /api/filetree/createDoc` | 创建空文档 | 🟢 低 |
-| `POST /api/filetree/heading2Doc` | 标题转为文档 | 🟢 低 |
-| `POST /api/filetree/doc2Heading` | 文档转为标题 | 🟢 低 |
+| API 路径 | MCP action | 说明 | 状态 |
+|----------|------------|------|------|
+| `POST /api/filetree/duplicateDoc` | `duplicate` | 复制文档 | 已接入 |
+| `POST /api/filetree/removeDocs` | `remove_batch` | 批量删除文档，需要确认 | 已接入 |
+| `POST /api/filetree/createDoc` | `create_empty` | 创建空文档 | 已接入 |
+| `POST /api/filetree/heading2Doc` | `heading_to_doc` | 标题转为文档 | 已接入 |
+| `POST /api/filetree/doc2Heading` | `doc_to_heading` | 文档转为标题 | 已接入 |
 
-#### 4. Asset 资源管理 (当前5.3%覆盖)
+#### 4. Asset 资源管理 (当前21.1%覆盖，映射到 `file` tool)
 
-| API 路径 | 说明 | 优先级 |
-|----------|------|--------|
-| `POST /api/asset/getUnusedAssets` | 获取未使用资源 | 🟡 中 |
-| `POST /api/asset/removeUnusedAssets` | 删除未使用资源 | 🟡 中 |
-| `POST /api/asset/renameAsset` | 重命名资源 | 🟢 低 |
-| `POST /api/asset/deleteAsset` | 删除资源 | 🟢 低 |
-| `POST /api/asset/setImageAlpha` | 设置图片透明度 | 🟢 低 |
+| API 路径 | MCP action | 说明 | 状态 |
+|----------|------------|------|------|
+| `POST /api/asset/getUnusedAssets` | `list_unused_assets` | 获取未使用资源 | 已接入 |
+| `POST /api/asset/removeUnusedAssets` | `remove_unused_assets` | 删除未使用资源，需要确认 | 已接入 |
+| `POST /api/asset/renameAsset` | `rename_asset` | 重命名资源 | 已接入 |
+
+补充：
+
+- `delete_asset`
+- `set_image_alpha`
+
+说明：
+
+- 以上两个 action 已在插件中实现为兼容性扩展，但未出现在本次上游 Kernel 459 个端点扫描结果中，因此未纳入本节覆盖率统计
 
 ### 中优先级 (扩展功能)
 
@@ -455,7 +492,6 @@
 | `history` | get_doc_history, rollback_doc, search_history | 中 | 2-3天 |
 | `bookmark` | list, rename, remove | 低 | 0.5天 |
 | `inbox` | get, add | 低 | 0.5天 |
-| `asset` | list_unused, remove_unused, rename | 中 | 1-2天 |
 | `export` | export_pdf, export_docx, export_html | 中 | 1-2天 |
 
 ---
@@ -465,4 +501,4 @@
 - SiYuan API总数: 459个端点
 - 已覆盖API: 88个端点
 - MCP Tools: 10个
-- MCP Actions: 90个
+- MCP Actions: 112个

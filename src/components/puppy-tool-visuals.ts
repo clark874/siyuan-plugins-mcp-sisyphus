@@ -24,7 +24,9 @@ const READING_ACTIONS = new Set([
     'list', 'get_conf', 'get_permissions', 'conf', 'get_version',
     'get_current_time', 'boot_progress', 'network', 'changelog', 'sys_fonts',
     'fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions',
-    'get', 'search', 'get_primary_key_values', 'list_cards', 'get_decks', 'get_balance', 'shop',
+    'get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort',
+    'search', 'get_primary_key_values', 'get_doc_assets', 'get_doc_image_assets', 'get_image_ocr_text',
+    'list_unused_assets', 'list_cards', 'get_decks', 'get_balance', 'shop',
 ]);
 
 const BUILD_ACTIONS = new Set([

@@ -8,10 +8,18 @@ import { FILE_ACTION_HINTS, FILE_GUIDANCE } from '../help';
 import type { PermissionManager } from '../permissions';
 import {
     FileActionSchema,
+    FileDeleteAssetSchema,
     FileExportMdSchema,
     FileExportResourcesSchema,
+    FileGetDocAssetsSchema,
+    FileGetDocImageAssetsSchema,
+    FileGetImageOCRTextSchema,
+    FileListUnusedAssetsSchema,
+    FileRemoveUnusedAssetsSchema,
+    FileRenameAssetSchema,
     FileRenderSprigSchema,
     FileRenderTemplateSchema,
+    FileSetImageAlphaSchema,
     FileUploadAssetSchema,
 } from '../types';
 import { ensurePermissionForDocumentId } from './context';
@@ -55,6 +63,52 @@ export const FILE_VARIANTS: ActionVariant<FileAction>[] = [
             name: { type: 'string', description: 'Export file name' },
             outputPath: { type: 'string', description: 'Optional local absolute or relative filesystem path to save the exported ZIP' },
         }, ['paths'], 'Export resources as a ZIP archive.'),
+    },
+    {
+        action: 'list_unused_assets',
+        schema: createActionSchema('list_unused_assets', {}, [], 'List unused asset files.'),
+    },
+    {
+        action: 'get_doc_assets',
+        schema: createActionSchema('get_doc_assets', {
+            id: { type: 'string', description: 'Document ID' },
+        }, ['id'], 'List all assets referenced by a document.'),
+    },
+    {
+        action: 'get_doc_image_assets',
+        schema: createActionSchema('get_doc_image_assets', {
+            id: { type: 'string', description: 'Document ID' },
+        }, ['id'], 'List image assets referenced by a document.'),
+    },
+    {
+        action: 'get_image_ocr_text',
+        schema: createActionSchema('get_image_ocr_text', {
+            path: { type: 'string', description: 'Optional asset path; omit to receive an empty OCR text payload' },
+        }, [], 'Get stored OCR text for an image asset.'),
+    },
+    {
+        action: 'remove_unused_assets',
+        schema: createActionSchema('remove_unused_assets', {}, [], 'Remove all unused asset files.'),
+    },
+    {
+        action: 'rename_asset',
+        schema: createActionSchema('rename_asset', {
+            oldPath: { type: 'string', description: 'Existing asset path' },
+            newName: { type: 'string', description: 'New asset file name' },
+        }, ['oldPath', 'newName'], 'Rename an asset file.'),
+    },
+    {
+        action: 'delete_asset',
+        schema: createActionSchema('delete_asset', {
+            path: { type: 'string', description: 'Asset path to delete' },
+        }, ['path'], 'Delete an asset file.'),
+    },
+    {
+        action: 'set_image_alpha',
+        schema: createActionSchema('set_image_alpha', {
+            path: { type: 'string', description: 'Asset path to update' },
+            alpha: { type: 'number', description: 'Alpha value passed through to SiYuan' },
+        }, ['path', 'alpha'], 'Set image alpha for an asset.'),
     },
 ];
 
@@ -227,6 +281,81 @@ export async function callFileTool(
                     });
                 }
                 return createJsonResult(result);
+            }
+            case 'list_unused_assets': {
+                FileListUnusedAssetsSchema.parse(rawArgs);
+                const result = await fileApi.getUnusedAssets(client);
+                return createJsonResult({
+                    assets: result,
+                    count: Array.isArray(result) ? result.length : undefined,
+                });
+            }
+            case 'get_doc_assets': {
+                const parsed = FileGetDocAssetsSchema.parse(rawArgs);
+                const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+                if (denied) return denied;
+                const assets = await fileApi.getDocAssets(client, parsed.id);
+                return createJsonResult({
+                    id: parsed.id,
+                    assets,
+                    count: Array.isArray(assets) ? assets.length : undefined,
+                });
+            }
+            case 'get_doc_image_assets': {
+                const parsed = FileGetDocImageAssetsSchema.parse(rawArgs);
+                const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+                if (denied) return denied;
+                const assets = await fileApi.getDocImageAssets(client, parsed.id);
+                return createJsonResult({
+                    id: parsed.id,
+                    assets,
+                    count: Array.isArray(assets) ? assets.length : undefined,
+                });
+            }
+            case 'get_image_ocr_text': {
+                const parsed = FileGetImageOCRTextSchema.parse(rawArgs);
+                const result = await fileApi.getImageOCRText(client, parsed.path);
+                return createJsonResult({
+                    path: parsed.path ?? null,
+                    ...result,
+                });
+            }
+            case 'remove_unused_assets': {
+                FileRemoveUnusedAssetsSchema.parse(rawArgs);
+                const result = await fileApi.removeUnusedAssets(client);
+                return createJsonResult({
+                    success: true,
+                    ...((result && typeof result === 'object' && !Array.isArray(result)) ? result as Record<string, unknown> : { result }),
+                });
+            }
+            case 'rename_asset': {
+                const parsed = FileRenameAssetSchema.parse(rawArgs);
+                const result = await fileApi.renameAsset(client, parsed.oldPath, parsed.newName);
+                return createJsonResult({
+                    success: true,
+                    oldPath: parsed.oldPath,
+                    newName: parsed.newName,
+                    ...result,
+                });
+            }
+            case 'delete_asset': {
+                const parsed = FileDeleteAssetSchema.parse(rawArgs);
+                const result = await fileApi.deleteAsset(client, parsed.path);
+                return createJsonResult({
+                    success: true,
+                    path: parsed.path,
+                    ...((result && typeof result === 'object' && !Array.isArray(result)) ? result as Record<string, unknown> : {}),
+                });
+            }
+            case 'set_image_alpha': {
+                const parsed = FileSetImageAlphaSchema.parse(rawArgs);
+                const result = await fileApi.setImageAlpha(client, parsed.path, parsed.alpha);
+                return createJsonResult({
+                    success: true,
+                    path: parsed.path,
+                    alpha: parsed.alpha,
+                    ...((result && typeof result === 'object' && !Array.isArray(result)) ? result as Record<string, unknown> : {}),
+                });
             }
             default: {
                 const _exhaustive: never = parsedAction;

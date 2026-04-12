@@ -28,6 +28,10 @@ export async function reloadUI(client: SiYuanClient): Promise<null> {
     return client.request<null>('/api/ui/reloadUI', {});
 }
 
+export async function reloadIcon(client: SiYuanClient): Promise<null> {
+    return client.request<null>('/api/ui/reloadIcon', {});
+}
+
 export async function reloadFiletree(client: SiYuanClient): Promise<null> {
     return client.request<null>('/api/ui/reloadFiletree', {});
 }

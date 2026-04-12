@@ -1236,6 +1236,50 @@ Grouped attribute-view (database) operations.
 }
 ```
 
+#### render_attribute_view
+
+**Description**: Render an attribute view with optional view, pagination, query, and group paging context.
+
+**Permission Required**: Read
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Attribute view ID |
+| `blockID` | string | No | Optional database block ID |
+| `viewID` | string | No | Optional target view ID |
+| `page` | number | No | Page number (1-based) |
+| `pageSize` | number | No | Rows per page |
+| `query` | string | No | Optional row query |
+| `groupPaging` | object | No | Optional group paging map |
+| `createIfNotExist` | boolean | No | Create a default view if missing |
+
+#### get_attribute_view_keys
+
+**Description**: Get keys/columns for an attribute view.
+
+**Permission Required**: Read
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Attribute view ID |
+
+#### get_attribute_view_filter_sort
+
+**Description**: Get filters and sorts for a database block view.
+
+**Permission Required**: Read
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Attribute view ID |
+| `blockID` | string | Yes | Database block ID |
+
 #### add_rows
 
 **Description**: Add existing blocks as rows in an attribute view.
@@ -1581,6 +1625,38 @@ Grouped file and asset operations.
   "outputPath": "/Users/me/Downloads/backup.zip"
 }
 ```
+
+#### list_unused_assets
+
+**Description**: List unused asset files.
+
+#### get_doc_assets
+
+**Description**: List all assets referenced by a document.
+
+**Permission Required**: Read
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Document ID |
+
+#### get_doc_image_assets
+
+**Description**: List image assets referenced by a document.
+
+**Permission Required**: Read
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Document ID |
+
+#### get_image_ocr_text
+
+**Description**: Read stored OCR text for an image asset.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `path` | string | No | Asset path; omit to get an empty text payload |
 
 ---
 
@@ -2215,8 +2291,8 @@ Total: **79 actions** across **10 tools**
 | notebook | 12 | list, create, open, close, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs |
 | document | 16 | create, rename, remove, move, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, set_icon, set_cover, clear_cover, list_tree, search_docs, get_doc, create_daily_note |
 | block | 19 | insert, prepend, append, update, delete, move, fold, unfold, get_kramdown, get_children, transfer_ref, set_attrs, get_attrs, exists, info, breadcrumb, dom, recent_updated, word_count |
-| av | 10 | get, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
-| file | 5 | upload_asset, render_template, render_sprig, export_md, export_resources |
+| av | 13 | get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
+| file | 13 | upload_asset, render_template, render_sprig, export_md, export_resources, list_unused_assets, get_doc_assets, get_doc_image_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha |
 | search | 5 | fulltext, query_sql, search_tag, get_backlinks, get_backmentions |
 | tag | 3 | list, rename, remove |
 | system | 10 | push_msg, push_err_msg, get_version, get_current_time, workspace_info, network, changelog, conf, sys_fonts, boot_progress |

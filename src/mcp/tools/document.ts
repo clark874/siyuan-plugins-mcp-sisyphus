@@ -10,16 +10,21 @@ import type { PermissionManager } from '../permissions';
 import {
     DocumentActionSchema,
     DocumentCreateSchema,
+    DocumentCreateEmptySchema,
     DocumentCreateDailyNoteSchema,
+    DocumentDocToHeadingSchema,
+    DocumentDuplicateSchema,
     DocumentGetChildBlocksSchema,
     DocumentGetChildDocsSchema,
     DocumentGetDocSchema,
     DocumentGetHPathSchema,
     DocumentGetIdsSchema,
+    DocumentHeadingToDocSchema,
     DocumentListTreeSchema,
     DocumentGetPathSchema,
     DocumentClearCoverSchema,
     DocumentMoveSchema,
+    DocumentRemoveBatchSchema,
     DocumentRemoveSchema,
     DocumentRenameSchema,
     DocumentSearchDocsSchema,
@@ -182,6 +187,45 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
             notebook: { type: 'string', description: 'Notebook ID' },
             app: { type: 'string', description: 'Optional app identifier passed through to SiYuan' },
         }, ['notebook'], 'Create or return today’s daily note.'),
+    },
+    {
+        action: 'duplicate',
+        schema: createActionSchema('duplicate', {
+            id: { type: 'string', description: 'Source document ID' },
+        }, ['id'], 'Duplicate an existing document.'),
+    },
+    {
+        action: 'remove_batch',
+        schema: createActionSchema('remove_batch', {
+            paths: { type: 'array', items: { type: 'string' }, description: 'One or more storage paths to remove in batch' },
+        }, ['paths'], 'Remove multiple documents by storage path.'),
+    },
+    {
+        action: 'create_empty',
+        schema: createActionSchema('create_empty', {
+            notebook: { type: 'string', description: 'Notebook ID' },
+            path: { type: 'string', description: 'Parent human-readable path, must start with /' },
+            title: { type: 'string', description: 'New document title' },
+            markdown: { type: 'string', description: 'Optional initial markdown content, defaults to empty' },
+            sorts: { type: 'array', items: { type: 'string' }, description: 'Optional sorting path segments passed through to SiYuan' },
+        }, ['notebook', 'path', 'title'], 'Create an empty document (or seed it with optional markdown).'),
+    },
+    {
+        action: 'heading_to_doc',
+        schema: createActionSchema('heading_to_doc', {
+            headingID: { type: 'string', description: 'Heading block ID to convert into a document' },
+            targetNotebook: { type: 'string', description: 'Target notebook ID' },
+            targetPath: { type: 'string', description: 'Optional target storage path' },
+            previousPath: { type: 'string', description: 'Optional previous sibling storage path' },
+        }, ['headingID', 'targetNotebook'], 'Convert a heading into a new document.'),
+    },
+    {
+        action: 'doc_to_heading',
+        schema: createActionSchema('doc_to_heading', {
+            srcID: { type: 'string', description: 'Source document ID' },
+            targetID: { type: 'string', description: 'Target document or heading block ID' },
+            after: { type: 'boolean', description: 'Insert after the target heading instead of before it' },
+        }, ['srcID', 'targetID'], 'Convert a document into a heading under another document.'),
     },
 ];
 
@@ -420,10 +464,12 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         path: parsed.path,
         id: docId,
         iconHint: createSetIconReminder('document', Boolean(parsed.icon)),
-    }), [
-        { type: 'reloadProtyle', id: docId },
-        { type: 'reloadFiletree' },
-    ]);
+    }), parsed.icon
+        ? [{ type: 'reloadIcon' }]
+        : [
+            { type: 'reloadProtyle', id: docId },
+            { type: 'reloadFiletree' },
+        ]);
 };
 
 const handleRename: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -564,13 +610,10 @@ const handleGetChildDocs: DocumentActionHandler = async ({ client, permMgr, rawA
 
 const handleSetIcon: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentSetIconSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
+    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
     if (denied) return denied;
     await attributeApi.setBlockAttrs(client, parsed.id, { icon: parsed.icon });
-    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, icon: parsed.icon }), [
-        { type: 'reloadProtyle', id: context.documentId },
-        { type: 'reloadFiletree' },
-    ]);
+    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, icon: parsed.icon }), [{ type: 'reloadIcon' }]);
 };
 
 const handleSetCover: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -691,6 +734,96 @@ const handleCreateDailyNote: DocumentActionHandler = async ({ client, permMgr, r
     ]);
 };
 
+const handleDuplicate: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentDuplicateSchema.parse(rawArgs);
+    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
+    if (denied) return denied;
+    const result = await documentApi.duplicateDoc(client, parsed.id);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        sourceID: parsed.id,
+        ...result,
+    }), [
+        { type: 'reloadProtyle', id: context.documentId },
+        { type: 'reloadFiletree' },
+    ]);
+};
+
+const handleRemoveBatch: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentRemoveBatchSchema.parse(rawArgs);
+    for (const path of parsed.paths) {
+        const notebook = await resolveNotebookForPath(client, path);
+        if (!notebook) {
+            throw new Error(`Unable to resolve notebook for storage path "${path}" while checking permissions.`);
+        }
+        const denied = await ensurePermissionForNotebook(permMgr, notebook, 'delete');
+        if (denied) return denied;
+    }
+    await documentApi.removeDocs(client, parsed.paths);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        paths: parsed.paths,
+        count: parsed.paths.length,
+    }), [{ type: 'reloadFiletree' }]);
+};
+
+const handleCreateEmpty: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentCreateEmptySchema.parse(rawArgs);
+    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
+    if (denied) return denied;
+    const result = await documentApi.createEmptyDoc(client, parsed.notebook, parsed.path, parsed.title, parsed.markdown ?? '', parsed.sorts);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        notebook: parsed.notebook,
+        path: parsed.path,
+        title: parsed.title,
+        ...result,
+        iconHint: createSetIconReminder('document'),
+    }), [
+        { type: 'reloadProtyle', id: result.id },
+        { type: 'reloadFiletree' },
+    ]);
+};
+
+const handleHeadingToDoc: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentHeadingToDocSchema.parse(rawArgs);
+    const source = await ensurePermissionForDocumentId(client, permMgr, parsed.headingID, 'write');
+    if (source.denied) return source.denied;
+    const denied = await ensurePermissionForNotebook(permMgr, parsed.targetNotebook, 'write');
+    if (denied) return denied;
+    await documentApi.headingToDoc(client, parsed.headingID, parsed.targetNotebook, parsed.targetPath, parsed.previousPath);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        headingID: parsed.headingID,
+        targetNotebook: parsed.targetNotebook,
+        ...(parsed.targetPath ? { targetPath: parsed.targetPath } : {}),
+        ...(parsed.previousPath ? { previousPath: parsed.previousPath } : {}),
+    }), [
+        { type: 'reloadProtyle', id: source.context.documentId },
+        { type: 'reloadFiletree' },
+    ]);
+};
+
+const handleDocToHeading: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentDocToHeadingSchema.parse(rawArgs);
+    const source = await ensurePermissionForDocumentId(client, permMgr, parsed.srcID, 'write');
+    if (source.denied) return source.denied;
+    const target = await ensurePermissionForDocumentId(client, permMgr, parsed.targetID, 'write');
+    if (target.denied) return target.denied;
+    const result = await documentApi.docToHeading(client, parsed.srcID, parsed.targetID, parsed.after ?? false);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        srcID: parsed.srcID,
+        targetID: parsed.targetID,
+        after: parsed.after ?? false,
+        ...result,
+    }), [
+        { type: 'reloadProtyle', id: source.context.documentId },
+        { type: 'reloadProtyle', id: target.context.documentId },
+        { type: 'reloadFiletree' },
+    ]);
+};
+
 const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = {
     create: handleCreate,
     rename: handleRename,
@@ -708,6 +841,11 @@ const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = 
     search_docs: handleSearchDocs,
     get_doc: handleGetDoc,
     create_daily_note: handleCreateDailyNote,
+    duplicate: handleDuplicate,
+    remove_batch: handleRemoveBatch,
+    create_empty: handleCreateEmpty,
+    heading_to_doc: handleHeadingToDoc,
+    doc_to_heading: handleDocToHeading,
 };
 
 export async function callDocumentTool(

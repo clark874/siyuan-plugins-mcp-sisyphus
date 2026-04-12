@@ -52,3 +52,101 @@ export function normalizeFullTextSearchResult<T extends { blocks?: unknown[] }>(
         }),
     };
 }
+
+/* ------------------------------------------------------------------ */
+/*  Search result slimming — reduce noise for AI consumption          */
+/* ------------------------------------------------------------------ */
+
+const ESSENTIAL_FIELDS = ['id', 'type', 'box'] as const;
+const HPATH_FIELDS = ['hPath', 'hpath'] as const;
+const OPTIONAL_FIELDS = [
+    'content', 'plainContent', 'markdown',
+    'name', 'alias', 'memo', 'tag',
+    'subType', 'subtype',
+    'rootID', 'root_id',
+] as const;
+
+function isNonEmpty(value: unknown): boolean {
+    if (value === null || value === undefined || value === '') return false;
+    if (Array.isArray(value) && value.length === 0) return false;
+    return true;
+}
+
+export function slimBlockFields(block: Record<string, unknown>): Record<string, unknown> {
+    const slim: Record<string, unknown> = {};
+    for (const key of ESSENTIAL_FIELDS) {
+        if (key in block) slim[key] = block[key];
+    }
+    for (const key of HPATH_FIELDS) {
+        if (isNonEmpty(block[key])) { slim.hPath = block[key]; break; }
+    }
+    for (const key of OPTIONAL_FIELDS) {
+        if (isNonEmpty(block[key])) slim[key] = block[key];
+    }
+    return slim;
+}
+
+const MARK_RE = /<mark>[^<]*<\/mark>/g;
+const SHORT_THRESHOLD = 400;
+const DEFAULT_WINDOW = 150;
+
+export function truncateContentAroundMarks(text: string, windowSize: number = DEFAULT_WINDOW): string {
+    if (text.length <= SHORT_THRESHOLD) return text;
+
+    const matches = [...text.matchAll(MARK_RE)];
+    if (matches.length === 0) {
+        return text.length > SHORT_THRESHOLD ? text.slice(0, SHORT_THRESHOLD) + '...' : text;
+    }
+
+    // Build windows around each <mark> match
+    const windows: Array<[number, number]> = [];
+    for (const m of matches) {
+        const start = Math.max(0, m.index! - windowSize);
+        const end = Math.min(text.length, m.index! + m[0].length + windowSize);
+        windows.push([start, end]);
+    }
+
+    // Merge overlapping / adjacent windows
+    const merged: Array<[number, number]> = [windows[0]];
+    for (let i = 1; i < windows.length; i++) {
+        const prev = merged[merged.length - 1];
+        const cur = windows[i];
+        if (cur[0] <= prev[1]) {
+            prev[1] = Math.max(prev[1], cur[1]);
+        } else {
+            merged.push(cur);
+        }
+    }
+
+    // Build result
+    const parts: string[] = [];
+    if (merged[0][0] > 0) parts.push('...');
+    for (let i = 0; i < merged.length; i++) {
+        if (i > 0) parts.push('...');
+        parts.push(text.slice(merged[i][0], merged[i][1]));
+    }
+    if (merged[merged.length - 1][1] < text.length) parts.push('...');
+
+    return parts.join('');
+}
+
+const MARKDOWN_MAX = 400;
+
+export function slimSearchBlocks(blocks: unknown[]): unknown[] {
+    return blocks.map((block) => {
+        if (!block || typeof block !== 'object') return block;
+        const typed = block as Record<string, unknown>;
+        const slim = slimBlockFields(typed);
+
+        // NodeDocument content is just the title — no truncation needed
+        if (slim.type === 'NodeDocument') return slim;
+
+        if (typeof slim.content === 'string') {
+            slim.content = truncateContentAroundMarks(slim.content);
+        }
+        if (typeof slim.markdown === 'string' && (slim.markdown as string).length > MARKDOWN_MAX) {
+            slim.markdown = (slim.markdown as string).slice(0, MARKDOWN_MAX) + '...';
+        }
+        return slim;
+    });
+}

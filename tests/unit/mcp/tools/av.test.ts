@@ -19,6 +19,9 @@ vi.mock('@/mcp/tools/context', () => ({
 
 vi.mock('@/api/av', () => ({
     getAttributeView: vi.fn(),
+    renderAttributeView: vi.fn(),
+    getAttributeViewKeys: vi.fn(),
+    getAttributeViewFilterSort: vi.fn(),
     searchAttributeView: vi.fn(),
     addAttributeViewBlocks: vi.fn(),
     removeAttributeViewBlocks: vi.fn(),
@@ -58,6 +61,9 @@ describe('av tool', () => {
         const transactionApi = await import('@/api/transaction');
 
         vi.mocked(avApi.getAttributeView).mockReset();
+        vi.mocked(avApi.renderAttributeView).mockReset();
+        vi.mocked(avApi.getAttributeViewKeys).mockReset();
+        vi.mocked(avApi.getAttributeViewFilterSort).mockReset();
         vi.mocked(avApi.searchAttributeView).mockReset();
         vi.mocked(avApi.addAttributeViewBlocks).mockReset();
         vi.mocked(avApi.batchSetAttributeViewBlockAttrs).mockReset();
@@ -84,6 +90,17 @@ describe('av tool', () => {
                     },
                 ],
             },
+        });
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-1',
+            viewID: 'view-1',
+            viewType: 'table',
+            rows: [],
+        });
+        vi.mocked(avApi.getAttributeViewKeys).mockResolvedValue([{ id: 'k1', name: 'Title' }]);
+        vi.mocked(avApi.getAttributeViewFilterSort).mockResolvedValue({
+            filters: [{ field: 'status' }],
+            sorts: [{ field: 'updated' }],
         });
     });
 
@@ -1332,6 +1349,50 @@ describe('av tool', () => {
             filteredOutCount: 1,
             partial: true,
             reason: 'permission_filtered',
+        });
+    });
+
+    it('renders an attribute view with optional context', async () => {
+        const result = await callAvTool(client, {
+            action: 'render_attribute_view',
+            id: 'av-1',
+            viewID: 'view-1',
+            page: 2,
+        }, enabledActions('render_attribute_view'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            avID: 'av-1',
+            id: 'av-1',
+            viewID: 'view-1',
+            viewType: 'table',
+            rows: [],
+        });
+    });
+
+    it('returns attribute view keys', async () => {
+        const result = await callAvTool(client, {
+            action: 'get_attribute_view_keys',
+            id: 'av-1',
+        }, enabledActions('get_attribute_view_keys'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            avID: 'av-1',
+            keys: [{ id: 'k1', name: 'Title' }],
+        });
+    });
+
+    it('returns attribute view filters and sorts', async () => {
+        const result = await callAvTool(client, {
+            action: 'get_attribute_view_filter_sort',
+            id: 'av-1',
+            blockID: 'block-av-1',
+        }, enabledActions('get_attribute_view_filter_sort'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            avID: 'av-1',
+            blockID: 'block-av-1',
+            filters: [{ field: 'status' }],
+            sorts: [{ field: 'updated' }],
         });
     });
 

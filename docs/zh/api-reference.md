@@ -1236,6 +1236,50 @@ MCP 服务器返回的常见错误类型：
 }
 ```
 
+#### render_attribute_view
+
+**描述**：按可选视图、分页、查询和分组分页上下文渲染属性视图。
+
+**权限要求**：读权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `id` | string | 是 | 属性视图 ID |
+| `blockID` | string | 否 | 可选数据库块 ID |
+| `viewID` | string | 否 | 可选目标视图 ID |
+| `page` | number | 否 | 页码（从 1 开始） |
+| `pageSize` | number | 否 | 每页行数 |
+| `query` | string | 否 | 可选行查询 |
+| `groupPaging` | object | 否 | 可选分组分页映射 |
+| `createIfNotExist` | boolean | 否 | 缺失时创建默认视图 |
+
+#### get_attribute_view_keys
+
+**描述**：获取属性视图的 key/列信息。
+
+**权限要求**：读权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `id` | string | 是 | 属性视图 ID |
+
+#### get_attribute_view_filter_sort
+
+**描述**：获取数据库块视图上的筛选和排序配置。
+
+**权限要求**：读权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `id` | string | 是 | 属性视图 ID |
+| `blockID` | string | 是 | 数据库块 ID |
+
 #### add_rows
 
 **描述**：将现有块添加为属性视图的行。
@@ -1581,6 +1625,38 @@ MCP 服务器返回的常见错误类型：
   "outputPath": "/Users/me/Downloads/backup.zip"
 }
 ```
+
+#### list_unused_assets
+
+**描述**：列出未被引用的资源文件。
+
+#### get_doc_assets
+
+**描述**：列出文档引用的全部资源。
+
+**权限要求**：读权限
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `id` | string | 是 | 文档 ID |
+
+#### get_doc_image_assets
+
+**描述**：列出文档引用的图片资源。
+
+**权限要求**：读权限
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `id` | string | 是 | 文档 ID |
+
+#### get_image_ocr_text
+
+**描述**：读取图片资源已存储的 OCR 文本。
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `path` | string | 否 | 资源路径；省略时返回空文本 |
 
 ---
 
@@ -2215,8 +2291,8 @@ MCP 服务器返回的常见错误类型：
 | notebook | 12 | list, create, open, close, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs |
 | document | 16 | create, rename, remove, move, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, set_icon, set_cover, clear_cover, list_tree, search_docs, get_doc, create_daily_note |
 | block | 19 | insert, prepend, append, update, delete, move, fold, unfold, get_kramdown, get_children, transfer_ref, set_attrs, get_attrs, exists, info, breadcrumb, dom, recent_updated, word_count |
-| av | 10 | get, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
-| file | 5 | upload_asset, render_template, render_sprig, export_md, export_resources |
+| av | 13 | get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
+| file | 13 | upload_asset, render_template, render_sprig, export_md, export_resources, list_unused_assets, get_doc_assets, get_doc_image_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha |
 | search | 5 | fulltext, query_sql, search_tag, get_backlinks, get_backmentions |
 | tag | 3 | list, rename, remove |
 | system | 10 | push_msg, push_err_msg, get_version, get_current_time, workspace_info, network, changelog, conf, sys_fonts, boot_progress |

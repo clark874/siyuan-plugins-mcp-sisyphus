@@ -363,6 +363,9 @@ Additional actions: remove, move, list_tree ...    → 读取 siyuan://help/acti
 | Action | 说明 |
 |--------|------|
 | `get` | 按 `id` 读取一个真实属性视图（数据库），并经过权限校验 |
+| `render_attribute_view` | 按可选视图、分页、查询和分组分页上下文渲染数据库视图 |
+| `get_attribute_view_keys` | 返回属性视图的 key/列信息 |
+| `get_attribute_view_filter_sort` | 返回数据库块视图上的筛选与排序配置 |
 | `search` | 按关键词搜索属性视图，并对不可读或无法解析归属的结果做后置过滤 |
 | `add_rows` | 将已有块绑定为数据库行，并在解析成功时返回可写 `rowID` 映射 |
 | `remove_rows` | 从属性视图中移除已绑定的行 |
@@ -382,6 +385,14 @@ Additional actions: remove, move, list_tree ...    → 读取 siyuan://help/acti
 | `render_sprig` | 渲染 Sprig 模板 |
 | `export_md` | 导出文档为 Markdown |
 | `export_resources` | 导出资源为 ZIP 压缩包，兼容 `assets/...` 自动规范化到 `data/assets/...`，并可额外写到本地 `outputPath`（写本地时需用户确认） |
+| `list_unused_assets` | 列出未被引用的资源文件 |
+| `get_doc_assets` | 在通过权限校验后，列出文档引用的全部资源 |
+| `get_doc_image_assets` | 在通过权限校验后，列出文档引用的图片资源 |
+| `get_image_ocr_text` | 读取图片资源已存储的 OCR 文本 |
+| `remove_unused_assets` | 删除全部未被引用的资源文件 |
+| `rename_asset` | 重命名资源文件 |
+| `delete_asset` | 删除资源文件 |
+| `set_image_alpha` | 更新图片资源透明度 |
 
 ### `system`
 

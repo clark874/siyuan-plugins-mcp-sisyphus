@@ -136,6 +136,9 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
 
 export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
     get: 'Use an attribute view ID. Returns the full AV payload after permission checks.',
+    render_attribute_view: 'Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context.',
+    get_attribute_view_keys: 'Use id to return database keys/columns for a block-bound attribute view.',
+    get_attribute_view_filter_sort: 'Use id + blockID to return the filters and sorts applied to that database block view.',
     search: 'Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons.',
     add_rows: 'Use avID + blockIDs to add existing blocks as rows. MCP now polls briefly after insertion and only reports success when each source blockID resolves to exactly one writable rowID. Optional blockID/viewID/groupID/previousID refine the insertion target.',
     remove_rows: 'Use avID + srcIDs to remove rows from the AV.',
@@ -151,6 +154,9 @@ export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
     upload_asset: 'Use assetsDirPath + localFilePath to read a local file and upload it into SiYuan assets. This action reads the local filesystem and requires explicit user confirmation. Files larger than the configured large-upload threshold (10 MB by default) must be stopped, confirmed by the user, and retried with confirmLargeFile=true.',
     render_template: 'Use id + path, where path points to a template file inside the SiYuan workspace. Local filesystem paths outside the workspace are rejected by the kernel.',
     export_resources: 'Provide one or more existing resource paths. Asset paths like assets/foo.txt are normalized to /data/assets/foo.txt before export. Set outputPath to also copy the exported ZIP to a local filesystem path. Using outputPath is high-risk and requires explicit user confirmation.',
+    get_doc_assets: 'Use a document ID to list all assets referenced by the document after read-permission checks.',
+    get_doc_image_assets: 'Use a document ID to list image assets referenced by the document after read-permission checks.',
+    get_image_ocr_text: 'Use an asset path to read stored OCR text. If path is omitted, SiYuan returns an empty text payload.',
 };
 
 export const SEARCH_GUIDANCE: string[] = [

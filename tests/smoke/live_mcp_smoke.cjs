@@ -42,6 +42,9 @@ const ALL_ENABLED_CONFIG = {
         enabled: true,
         actions: {
             get: true,
+            render_attribute_view: true,
+            get_attribute_view_keys: true,
+            get_attribute_view_filter_sort: true,
             search: true,
             add_rows: true,
             remove_rows: true,
@@ -61,6 +64,14 @@ const ALL_ENABLED_CONFIG = {
             render_sprig: true,
             export_md: true,
             export_resources: true,
+            list_unused_assets: true,
+            get_doc_assets: true,
+            get_doc_image_assets: true,
+            get_image_ocr_text: true,
+            remove_unused_assets: true,
+            rename_asset: true,
+            delete_asset: true,
+            set_image_alpha: true,
         },
     },
     search: {
@@ -216,11 +227,11 @@ async function assertDefaultToolList() {
         assert.match(descriptions.block, /Read siyuan:\/\/help\/action\/block\/\{action\} for details/);
         assert.match(descriptions.block, /single-block replacement/i);
         assert.match(descriptions.block, /Multi-line markdown may be truncated to the first line/i);
-        assert.match(descriptions.av, /Common actions: get, search, get_primary_key_values/);
+        assert.match(descriptions.av, /Common actions: get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, get_primary_key_values/);
         assert.match(descriptions.av, /Additional actions: add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block/);
         assert.match(descriptions.av, /database/i);
-        assert.match(descriptions.file, /Common actions: upload_asset, export_md/);
-        assert.match(descriptions.file, /Additional actions: render_template, render_sprig, export_resources/);
+        assert.match(descriptions.file, /Common actions: upload_asset, export_md, get_doc_assets, get_doc_image_assets/);
+        assert.match(descriptions.file, /Additional actions: render_template, render_sprig, export_resources, list_unused_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha/);
         assert.match(descriptions.file, /confirmLargeFile/);
         assert.match(descriptions.file, /Read siyuan:\/\/help\/action\/file\/\{action\} for details/);
         assert.match(descriptions.search, /fulltext, query_sql, search_tag, get_backlinks, get_backmentions/);

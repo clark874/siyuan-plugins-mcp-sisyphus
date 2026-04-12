@@ -148,3 +148,46 @@ export async function getVersion(client: SiYuanClient): Promise<string> {
 export async function getCurrentTime(client: SiYuanClient): Promise<number> {
     return client.request<number>('/api/system/currentTime');
 }
+
+export async function getUnusedAssets(client: SiYuanClient): Promise<unknown> {
+    return client.request('/api/asset/getUnusedAssets', {});
+}
+
+export async function getDocAssets(client: SiYuanClient, id: string): Promise<unknown> {
+    return client.request('/api/asset/getDocAssets', { id });
+}
+
+export async function getDocImageAssets(client: SiYuanClient, id: string): Promise<unknown> {
+    return client.request('/api/asset/getDocImageAssets', { id });
+}
+
+export async function getImageOCRText(client: SiYuanClient, path?: string): Promise<{ text: string }> {
+    return client.request<{ text: string }>('/api/asset/getImageOCRText', path ? { path } : {});
+}
+
+export async function removeUnusedAssets(client: SiYuanClient): Promise<unknown> {
+    return client.request('/api/asset/removeUnusedAssets', {});
+}
+
+export async function renameAsset(
+    client: SiYuanClient,
+    oldPath: string,
+    newName: string,
+): Promise<{ newPath?: string }> {
+    return client.request('/api/asset/renameAsset', { oldPath, newName });
+}
+
+export async function deleteAsset(
+    client: SiYuanClient,
+    path: string,
+): Promise<unknown> {
+    return client.request('/api/asset/deleteAsset', { path });
+}
+
+export async function setImageAlpha(
+    client: SiYuanClient,
+    path: string,
+    alpha: number,
+): Promise<unknown> {
+    return client.request('/api/asset/setImageAlpha', { path, alpha });
+}

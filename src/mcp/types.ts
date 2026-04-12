@@ -234,6 +234,40 @@ export const DocumentCreateDailyNoteSchema = z.object({
     app: z.string().optional().describe("Optional app identifier passed through to SiYuan"),
 });
 
+export const DocumentDuplicateSchema = z.object({
+    action: z.literal("duplicate"),
+    id: z.string().describe("Source document ID"),
+});
+
+export const DocumentRemoveBatchSchema = z.object({
+    action: z.literal("remove_batch"),
+    paths: z.array(z.string()).min(1).describe("One or more storage paths to remove in batch"),
+});
+
+export const DocumentCreateEmptySchema = z.object({
+    action: z.literal("create_empty"),
+    notebook: z.string().describe("Notebook ID"),
+    path: z.string().describe("Parent human-readable path, must start with /"),
+    title: z.string().describe("New document title"),
+    markdown: z.string().optional().describe("Optional initial markdown content, defaults to empty"),
+    sorts: z.array(z.string()).optional().describe("Optional sorting path segments passed through to SiYuan"),
+});
+
+export const DocumentHeadingToDocSchema = z.object({
+    action: z.literal("heading_to_doc"),
+    headingID: z.string().describe("Heading block ID to convert into a document"),
+    targetNotebook: z.string().describe("Target notebook ID"),
+    targetPath: z.string().optional().describe("Optional target storage path"),
+    previousPath: z.string().optional().describe("Optional previous sibling storage path"),
+});
+
+export const DocumentDocToHeadingSchema = z.object({
+    action: z.literal("doc_to_heading"),
+    srcID: z.string().describe("Source document ID"),
+    targetID: z.string().describe("Target document or heading block ID"),
+    after: z.boolean().optional().describe("When true, insert after the target heading instead of before it"),
+});
+
 export const MascotGetBalanceSchema = z.object({
     action: z.literal("get_balance"),
 });
@@ -434,6 +468,56 @@ export const BlockWordCountSchema = z.object({
     ids: z.array(z.string()).describe("One or more block IDs"),
 });
 
+const BlockBatchInsertItemSchema = z.object({
+    dataType: z.enum(["markdown", "dom"]).describe("Data format"),
+    data: z.string().describe("Block content"),
+    nextID: z.string().optional().describe("Next block ID"),
+    previousID: z.string().optional().describe("Previous block ID"),
+    parentID: z.string().optional().describe("Parent block or document ID"),
+});
+
+const BlockBatchUpdateItemSchema = z.object({
+    id: z.string().describe("Block ID"),
+    dataType: z.enum(["markdown", "dom"]).describe("Data format"),
+    data: z.string().describe("Replacement block content"),
+});
+
+export const BlockBatchInsertSchema = z.object({
+    action: z.literal("batch_insert"),
+    blocks: z.array(BlockBatchInsertItemSchema).min(1).describe("Blocks to insert"),
+});
+
+export const BlockBatchUpdateSchema = z.object({
+    action: z.literal("batch_update"),
+    blocks: z.array(BlockBatchUpdateItemSchema).min(1).describe("Blocks to update"),
+});
+
+export const BlockAppendDailyNoteSchema = z.object({
+    action: z.literal("append_daily_note"),
+    notebook: z.string().describe("Notebook ID"),
+    dataType: z.enum(["markdown", "dom"]).describe("Data format"),
+    data: z.string().describe("Block content"),
+});
+
+export const BlockPrependDailyNoteSchema = z.object({
+    action: z.literal("prepend_daily_note"),
+    notebook: z.string().describe("Notebook ID"),
+    dataType: z.enum(["markdown", "dom"]).describe("Data format"),
+    data: z.string().describe("Block content"),
+});
+
+export const BlockDocInfoSchema = z.object({
+    action: z.literal("doc_info"),
+    id: z.string().describe("Block or document ID"),
+});
+
+export const BlockDocsInfoSchema = z.object({
+    action: z.literal("docs_info"),
+    ids: z.array(z.string()).min(1).describe("Document IDs"),
+    refCount: z.boolean().optional().describe("When true, include reference counts"),
+    av: z.boolean().optional().describe("When true, include AV metadata"),
+});
+
 const AvValueTypeSchema = z.enum(["text", "number", "date", "checkbox", "select", "multi_select", "relation", "url", "email", "phone", "mAsset"]);
 
 const AvAssetItemSchema = z.object({
@@ -491,6 +575,29 @@ const AvCellUpdateItemSchema = z.object({
 export const AvGetSchema = z.object({
     action: z.literal("get"),
     id: z.string().describe("Attribute view ID"),
+});
+
+export const AvRenderAttributeViewSchema = z.object({
+    action: z.literal("render_attribute_view"),
+    id: z.string().describe("Attribute view ID"),
+    blockID: z.string().optional().describe("Optional database block ID"),
+    viewID: z.string().optional().describe("Optional target view ID"),
+    page: z.number().int().min(1).optional().describe("Page number (1-based), default 1"),
+    pageSize: z.number().int().optional().describe("Rows per page; use -1 or omit for kernel default"),
+    query: z.string().optional().describe("Optional row query filter"),
+    groupPaging: z.record(z.string(), z.unknown()).optional().describe("Optional group paging map passed through to SiYuan"),
+    createIfNotExist: z.boolean().optional().describe("Create the default view if none exists; defaults to true"),
+});
+
+export const AvGetAttributeViewKeysSchema = z.object({
+    action: z.literal("get_attribute_view_keys"),
+    id: z.string().describe("Attribute view ID"),
+});
+
+export const AvGetAttributeViewFilterSortSchema = z.object({
+    action: z.literal("get_attribute_view_filter_sort"),
+    id: z.string().describe("Attribute view ID"),
+    blockID: z.string().describe("Database block ID"),
 });
 
 export const AvSearchSchema = z.object({
@@ -599,6 +706,46 @@ export const FileExportResourcesSchema = z.object({
     outputPath: z.string().optional().describe("Optional local absolute or relative filesystem path to save the exported ZIP"),
 });
 
+export const FileListUnusedAssetsSchema = z.object({
+    action: z.literal("list_unused_assets"),
+});
+
+export const FileGetDocAssetsSchema = z.object({
+    action: z.literal("get_doc_assets"),
+    id: z.string().describe("Document ID"),
+});
+
+export const FileGetDocImageAssetsSchema = z.object({
+    action: z.literal("get_doc_image_assets"),
+    id: z.string().describe("Document ID"),
+});
+
+export const FileGetImageOCRTextSchema = z.object({
+    action: z.literal("get_image_ocr_text"),
+    path: z.string().optional().describe("Asset path; omit to receive an empty OCR text payload"),
+});
+
+export const FileRemoveUnusedAssetsSchema = z.object({
+    action: z.literal("remove_unused_assets"),
+});
+
+export const FileRenameAssetSchema = z.object({
+    action: z.literal("rename_asset"),
+    oldPath: z.string().describe("Existing asset path"),
+    newName: z.string().describe("New asset file name"),
+});
+
+export const FileDeleteAssetSchema = z.object({
+    action: z.literal("delete_asset"),
+    path: z.string().describe("Asset path to delete"),
+});
+
+export const FileSetImageAlphaSchema = z.object({
+    action: z.literal("set_image_alpha"),
+    path: z.string().describe("Asset path to update"),
+    alpha: z.number().describe("Alpha value passed through to SiYuan"),
+});
+
 export const SearchActionSchema = z.enum(SEARCH_ACTIONS);
 
 export const SearchFulltextSchema = z.object({
@@ -636,6 +783,59 @@ export const SearchGetBackmentionsSchema = z.object({
     id: z.string().describe("Block or document ID to find backmentions for"),
     keyword: z.string().optional().describe("Filter backmentions by keyword"),
     refTreeID: z.string().optional().describe("Optional document tree ID to narrow backmention scope"),
+});
+
+export const SearchRefsSchema = z.object({
+    action: z.literal("search_refs"),
+    id: z.string().describe("Referenced block or document ID"),
+    rootID: z.string().optional().describe("Optional current root document ID"),
+    k: z.string().optional().describe("Keyword filter"),
+    beforeLen: z.number().int().min(0).optional().describe("Context length before the reference, default 512"),
+    isSquareBrackets: z.boolean().optional().describe("Search in square-bracket reference mode"),
+    isDatabase: z.boolean().optional().describe("Whether the reference target is a database"),
+    reqId: z.string().optional().describe("Optional passthrough request ID"),
+});
+
+export const SearchFindReplaceSchema = z.object({
+    action: z.literal("find_replace"),
+    k: z.string().describe("Find keyword"),
+    r: z.string().describe("Replacement text; use empty string to delete matches"),
+    ids: z.array(z.string()).min(1).describe("Document or block IDs to mutate"),
+    paths: z.array(z.string()).optional().describe("Optional path scope list"),
+    types: z.record(z.string(), z.boolean()).optional().describe("Optional block type filter"),
+    method: z.number().optional().describe("Search method: 0=keyword, 1=query syntax, 2=SQL, 3=regex"),
+    orderBy: z.number().optional().describe("Sort order"),
+    groupBy: z.number().optional().describe("Grouping mode"),
+    replaceTypes: z.record(z.string(), z.boolean()).optional().describe("Replace target kinds such as text, code, docTitle, blockRef"),
+});
+
+export const SearchAssetsSchema = z.object({
+    action: z.literal("search_assets"),
+    k: z.string().describe("Asset filename keyword"),
+    exts: z.array(z.string()).optional().describe("Optional extension filters"),
+});
+
+export const SearchGetAssetContentSchema = z.object({
+    action: z.literal("get_asset_content"),
+    id: z.string().describe("Asset content ID"),
+    query: z.string().describe("Matched query text"),
+    queryMethod: z.number().optional().describe("Query method: 0=keyword, 1=query syntax, 2=SQL, 3=regex"),
+});
+
+export const SearchFulltextAssetContentSchema = z.object({
+    action: z.literal("fulltext_asset_content"),
+    query: z.string().describe("Search query string"),
+    types: z.record(z.string(), z.boolean()).optional().describe("Asset type filter"),
+    method: z.number().optional().describe("Search method: 0=keyword, 1=query syntax, 2=SQL, 3=regex"),
+    orderBy: z.number().optional().describe("Sort order: 0=relevance DESC, 1=relevance ASC, 2=updated ASC, 3=updated DESC"),
+    page: z.number().int().min(1).optional().describe("Page number (1-based)"),
+    pageSize: z.number().int().min(1).max(128).optional().describe("Results per page"),
+});
+
+export const SearchListInvalidRefsSchema = z.object({
+    action: z.literal("list_invalid_refs"),
+    page: z.number().int().min(1).optional().describe("Page number (1-based)"),
+    pageSize: z.number().int().min(1).max(128).optional().describe("Results per page"),
 });
 
 export const TagActionSchema = z.enum(TAG_ACTIONS);

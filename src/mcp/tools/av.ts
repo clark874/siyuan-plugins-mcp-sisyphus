@@ -11,8 +11,11 @@ import {
     AvAddRowsSchema,
     AvBatchSetCellsSchema,
     AvDuplicateBlockSchema,
+    AvGetAttributeViewFilterSortSchema,
+    AvGetAttributeViewKeysSchema,
     AvGetPrimaryKeyValuesSchema,
     AvGetSchema,
+    AvRenderAttributeViewSchema,
     AvRemoveColumnSchema,
     AvRemoveRowsSchema,
     AvSearchSchema,
@@ -60,6 +63,32 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
             keyword: { type: 'string', description: 'Keyword to search in attribute view names' },
             excludes: { type: 'array', items: { type: 'string' }, description: 'Optional AV IDs to exclude' },
         }, ['keyword'], 'Search attribute views by keyword.'),
+    },
+    {
+        action: 'render_attribute_view',
+        schema: createActionSchema('render_attribute_view', {
+            id: { type: 'string', description: 'Attribute view ID' },
+            blockID: { type: 'string', description: 'Optional database block ID' },
+            viewID: { type: 'string', description: 'Optional target view ID' },
+            page: { type: 'number', description: 'Page number (1-based), default 1' },
+            pageSize: { type: 'number', description: 'Rows per page; omit for kernel default' },
+            query: { type: 'string', description: 'Optional row query filter' },
+            groupPaging: { type: 'object', additionalProperties: true, description: 'Optional group paging object passed through to SiYuan' },
+            createIfNotExist: { type: 'boolean', description: 'Create the default view if none exists; defaults to true' },
+        }, ['id'], 'Render an attribute view with optional view/pagination/query context.'),
+    },
+    {
+        action: 'get_attribute_view_keys',
+        schema: createActionSchema('get_attribute_view_keys', {
+            id: { type: 'string', description: 'Attribute view ID' },
+        }, ['id'], 'Get keys/columns for an attribute view.'),
+    },
+    {
+        action: 'get_attribute_view_filter_sort',
+        schema: createActionSchema('get_attribute_view_filter_sort', {
+            id: { type: 'string', description: 'Attribute view ID' },
+            blockID: { type: 'string', description: 'Database block ID' },
+        }, ['id', 'blockID'], 'Get filters and sorts for a database block view.'),
     },
     {
         action: 'add_rows',
@@ -828,6 +857,57 @@ async function handleSearch({ client, permMgr, rawArgs }: AvHandlerContext): Pro
     });
 }
 
+async function handleRenderAttributeView({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+    const parsed = AvRenderAttributeViewSchema.parse(rawArgs);
+    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
+    if (denied) return denied;
+
+    const response = await avApi.renderAttributeView(client, {
+        id: parsed.id,
+        blockID: parsed.blockID,
+        viewID: parsed.viewID,
+        page: parsed.page,
+        pageSize: parsed.pageSize,
+        query: parsed.query,
+        groupPaging: parsed.groupPaging,
+        createIfNotExist: parsed.createIfNotExist,
+    });
+
+    return createJsonResult({
+        avID: parsed.id,
+        ...response,
+    });
+}
+
+async function handleGetAttributeViewKeys({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+    const parsed = AvGetAttributeViewKeysSchema.parse(rawArgs);
+    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
+    if (denied) return denied;
+
+    const keys = await avApi.getAttributeViewKeys(client, parsed.id);
+    return createJsonResult({
+        avID: parsed.id,
+        keys,
+    });
+}
+
+async function handleGetAttributeViewFilterSort({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+    const parsed = AvGetAttributeViewFilterSortSchema.parse(rawArgs);
+    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
+    if (denied) return denied;
+
+    const response = await avApi.getAttributeViewFilterSort(client, {
+        id: parsed.id,
+        blockID: parsed.blockID,
+    });
+
+    return createJsonResult({
+        avID: parsed.id,
+        blockID: parsed.blockID,
+        ...response,
+    });
+}
+
 async function handleAddRows({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
     const parsed = AvAddRowsSchema.parse(rawArgs);
     const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write');
@@ -1156,6 +1236,9 @@ async function handleGetPrimaryKeyValues({ client, permMgr, rawArgs }: AvHandler
 
 const AV_ACTION_HANDLERS: Record<AvAction, (context: AvHandlerContext) => Promise<ToolResult>> = {
     get: handleGet,
+    render_attribute_view: handleRenderAttributeView,
+    get_attribute_view_keys: handleGetAttributeViewKeys,
+    get_attribute_view_filter_sort: handleGetAttributeViewFilterSort,
     search: handleSearch,
     add_rows: handleAddRows,
     remove_rows: handleRemoveRows,

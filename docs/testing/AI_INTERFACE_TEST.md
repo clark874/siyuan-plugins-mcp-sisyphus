@@ -224,6 +224,9 @@ AI 在执行本手册时，必须遵守以下规则：
 #### av
 
 - `get`
+- `render_attribute_view`
+- `get_attribute_view_keys`
+- `get_attribute_view_filter_sort`
 - `search`
 - `add_rows`
 - `remove_rows`
@@ -1789,6 +1792,9 @@ AI 还需要在 `SourceDoc` 中再准备 1～2 个普通块，供 `flashcard.add
 1. `av(action="search", keyword="test")`
 2. 如果已有 `providedAvID`，执行：
    - `av(action="get", id=providedAvID)`
+   - `av(action="render_attribute_view", id=providedAvID)`
+   - `av(action="get_attribute_view_keys", id=providedAvID)`
+   - `av(action="get_attribute_view_filter_sort", id=providedAvID, blockID=providedAvBlockID)`
    - `av(action="get_primary_key_values", avID=providedAvID)`
 
 #### 预期
@@ -1796,6 +1802,9 @@ AI 还需要在 `SourceDoc` 中再准备 1～2 个普通块，供 `flashcard.add
 - `search` 返回结构化结果；即使为空，也应有明确字段表示搜索结果
 - 如果已有 `providedAvID`：
   - `get` 返回完整 AV payload
+  - `render_attribute_view` 返回带视图上下文的渲染结果
+  - `get_attribute_view_keys` 返回 key/列数组
+  - `get_attribute_view_filter_sort` 返回 filters/sorts
   - `get_primary_key_values` 返回库名、主键或行值结构
 - 如果没有 `providedAvID`：
   - 只读探测完成后，将依赖真实 AV 的后续用例标记为 `BLOCKED`
@@ -1927,8 +1936,8 @@ AI 还需要在 `SourceDoc` 中再准备 1～2 个普通块，供 `flashcard.add
 - `notebook`：`open` `close` `get_conf` `set_conf` `set_icon` `get_child_docs` `get_permissions` `set_permission` `rename` `remove`
 - `document`：`create` `rename` `remove` `move` `get_path` `get_hpath` `get_ids` `get_child_blocks` `get_child_docs` `set_icon` `list_tree` `search_docs` `get_doc` `create_daily_note`
 - `block`：`insert` `prepend` `append` `update` `delete` `move` `fold` `unfold` `get_kramdown` `get_children` `transfer_ref` `set_attrs` `get_attrs` `exists` `info` `breadcrumb` `dom` `recent_updated` `word_count`
-- `av`：`get` `search` `add_rows` `remove_rows` `add_column` `remove_column` `set_cell` `batch_set_cells` `duplicate_block` `get_primary_key_values`
-- `file`：`upload_asset` `render_template` `render_sprig` `export_md` `export_resources`
+- `av`：`get` `render_attribute_view` `get_attribute_view_keys` `get_attribute_view_filter_sort` `search` `add_rows` `remove_rows` `add_column` `remove_column` `set_cell` `batch_set_cells` `duplicate_block` `get_primary_key_values`
+- `file`：`upload_asset` `render_template` `render_sprig` `export_md` `export_resources` `list_unused_assets` `get_doc_assets` `get_doc_image_assets` `get_image_ocr_text` `remove_unused_assets` `rename_asset` `delete_asset` `set_image_alpha`
 - `search`：`fulltext` `query_sql` `search_tag` `get_backlinks` `get_backmentions`
 - `tag`：`list` `rename` `remove`
 - `system`：`workspace_info` `network` `changelog` `conf` `sys_fonts` `boot_progress` `push_msg` `push_err_msg` `get_version` `get_current_time`

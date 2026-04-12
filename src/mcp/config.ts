@@ -3,11 +3,11 @@ export const TOOL_CATEGORIES = ['notebook', 'document', 'block', 'av', 'file', '
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
 export const NOTEBOOK_ACTIONS = ['list', 'create', 'open', 'close', 'remove', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'set_permission', 'get_child_docs'] as const;
-export const DOCUMENT_ACTIONS = ['create', 'rename', 'remove', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'clear_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note'] as const;
-export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'delete', 'move', 'fold', 'unfold', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count'] as const;
-export const AV_ACTIONS = ['get', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells', 'duplicate_block', 'get_primary_key_values'] as const;
-export const FILE_ACTIONS = ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources'] as const;
-export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions'] as const;
+export const DOCUMENT_ACTIONS = ['create', 'rename', 'remove', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'clear_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'create_empty', 'heading_to_doc', 'doc_to_heading'] as const;
+export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'delete', 'move', 'fold', 'unfold', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'batch_insert', 'batch_update', 'append_daily_note', 'prepend_daily_note', 'doc_info', 'docs_info'] as const;
+export const AV_ACTIONS = ['get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells', 'duplicate_block', 'get_primary_key_values'] as const;
+export const FILE_ACTIONS = ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_doc_image_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'set_image_alpha'] as const;
+export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions', 'search_refs', 'find_replace', 'search_assets', 'get_asset_content', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'changelog', 'conf', 'sys_fonts', 'boot_progress', 'push_msg', 'push_err_msg', 'get_version', 'get_current_time'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'skip_review_card', 'add_card', 'remove_card'] as const;
@@ -85,6 +85,11 @@ export const LEGACY_TOOL_TO_ACTION: Record<string, { category: ToolCategory; act
     search_docs: { category: 'document', action: 'search_docs' },
     get_doc: { category: 'document', action: 'get_doc' },
     create_daily_note: { category: 'document', action: 'create_daily_note' },
+    duplicate_doc: { category: 'document', action: 'duplicate' },
+    remove_docs: { category: 'document', action: 'remove_batch' },
+    create_empty_doc: { category: 'document', action: 'create_empty' },
+    heading_to_doc: { category: 'document', action: 'heading_to_doc' },
+    doc_to_heading: { category: 'document', action: 'doc_to_heading' },
 
     insert_block: { category: 'block', action: 'insert' },
     prepend_block: { category: 'block', action: 'prepend' },
@@ -105,8 +110,17 @@ export const LEGACY_TOOL_TO_ACTION: Record<string, { category: ToolCategory; act
     get_block_dom: { category: 'block', action: 'dom' },
     get_recent_updated_blocks: { category: 'block', action: 'recent_updated' },
     get_blocks_word_count: { category: 'block', action: 'word_count' },
+    batch_insert_block: { category: 'block', action: 'batch_insert' },
+    batch_update_block: { category: 'block', action: 'batch_update' },
+    append_daily_note_block: { category: 'block', action: 'append_daily_note' },
+    prepend_daily_note_block: { category: 'block', action: 'prepend_daily_note' },
+    get_doc_info: { category: 'block', action: 'doc_info' },
+    get_docs_info: { category: 'block', action: 'docs_info' },
 
     get_attribute_view: { category: 'av', action: 'get' },
+    render_attribute_view: { category: 'av', action: 'render_attribute_view' },
+    get_attribute_view_keys: { category: 'av', action: 'get_attribute_view_keys' },
+    get_attribute_view_filter_sort: { category: 'av', action: 'get_attribute_view_filter_sort' },
     search_attribute_view: { category: 'av', action: 'search' },
     add_attribute_view_blocks: { category: 'av', action: 'add_rows' },
     remove_attribute_view_blocks: { category: 'av', action: 'remove_rows' },
@@ -122,6 +136,20 @@ export const LEGACY_TOOL_TO_ACTION: Record<string, { category: ToolCategory; act
     render_sprig: { category: 'file', action: 'render_sprig' },
     export_md_content: { category: 'file', action: 'export_md' },
     export_resources: { category: 'file', action: 'export_resources' },
+    get_unused_assets: { category: 'file', action: 'list_unused_assets' },
+    get_doc_assets: { category: 'file', action: 'get_doc_assets' },
+    get_doc_image_assets: { category: 'file', action: 'get_doc_image_assets' },
+    get_image_ocr_text: { category: 'file', action: 'get_image_ocr_text' },
+    remove_unused_assets: { category: 'file', action: 'remove_unused_assets' },
+    rename_asset: { category: 'file', action: 'rename_asset' },
+    delete_asset: { category: 'file', action: 'delete_asset' },
+    set_image_alpha: { category: 'file', action: 'set_image_alpha' },
+    search_ref_block: { category: 'search', action: 'search_refs' },
+    find_replace: { category: 'search', action: 'find_replace' },
+    search_asset: { category: 'search', action: 'search_assets' },
+    get_asset_content: { category: 'search', action: 'get_asset_content' },
+    full_text_search_asset_content: { category: 'search', action: 'fulltext_asset_content' },
+    list_invalid_block_refs: { category: 'search', action: 'list_invalid_refs' },
     push_msg: { category: 'system', action: 'push_msg' },
     push_err_msg: { category: 'system', action: 'push_err_msg' },
     get_version: { category: 'system', action: 'get_version' },
@@ -175,7 +203,9 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         search_docs: 'basic', rename: 'basic',
         remove: 'advanced', move: 'advanced', set_icon: 'advanced',
         set_cover: 'advanced', clear_cover: 'advanced',
-        list_tree: 'advanced', create_daily_note: 'advanced',
+        list_tree: 'advanced', create_daily_note: 'advanced', duplicate: 'advanced',
+        remove_batch: 'advanced', create_empty: 'advanced', heading_to_doc: 'advanced',
+        doc_to_heading: 'advanced',
     },
     block: {
         get_kramdown: 'basic', get_children: 'basic', get_attrs: 'basic',
@@ -184,21 +214,32 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         delete: 'advanced', move: 'advanced', fold: 'advanced', unfold: 'advanced',
         transfer_ref: 'advanced', set_attrs: 'advanced', breadcrumb: 'advanced',
         dom: 'advanced', recent_updated: 'advanced', word_count: 'advanced',
+        batch_insert: 'advanced', batch_update: 'advanced', append_daily_note: 'advanced',
+        prepend_daily_note: 'advanced', doc_info: 'advanced', docs_info: 'advanced',
     },
     av: {
-        get: 'basic', search: 'basic', get_primary_key_values: 'basic',
+        get: 'basic', render_attribute_view: 'basic',
+        get_attribute_view_keys: 'basic', get_attribute_view_filter_sort: 'basic',
+        search: 'basic', get_primary_key_values: 'basic',
         add_rows: 'advanced', remove_rows: 'advanced', add_column: 'advanced',
         remove_column: 'advanced', set_cell: 'advanced', batch_set_cells: 'advanced',
         duplicate_block: 'advanced',
     },
     file: {
         export_md: 'basic', upload_asset: 'basic',
+        get_doc_assets: 'basic', get_doc_image_assets: 'basic',
         render_template: 'advanced', render_sprig: 'advanced',
-        export_resources: 'advanced',
+        export_resources: 'advanced', list_unused_assets: 'advanced',
+        get_image_ocr_text: 'advanced',
+        remove_unused_assets: 'advanced', rename_asset: 'advanced',
+        delete_asset: 'advanced', set_image_alpha: 'advanced',
     },
     search: {
         fulltext: 'basic', query_sql: 'basic',
         search_tag: 'basic', get_backlinks: 'basic', get_backmentions: 'basic',
+        search_refs: 'advanced', find_replace: 'advanced', search_assets: 'advanced',
+        get_asset_content: 'advanced', fulltext_asset_content: 'advanced',
+        list_invalid_refs: 'advanced',
     },
     tag: {
         list: 'basic', rename: 'basic',
@@ -226,11 +267,11 @@ export function getActionTier(category: ToolCategory, action: string): ActionTie
 
 export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     notebook: new Set(['remove', 'set_permission']),
-    document: new Set(['remove', 'move']),
+    document: new Set(['remove', 'move', 'remove_batch']),
     block: new Set(['delete', 'move']),
     av: new Set(),
-    file: new Set(['upload_asset']),
-    search: new Set(),
+    file: new Set(['upload_asset', 'remove_unused_assets', 'delete_asset']),
+    search: new Set(['find_replace']),
     tag: new Set(['remove']),
     system: new Set(['workspace_info']),
     flashcard: new Set(['remove_card']),
@@ -256,24 +297,24 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         document: {
             enabled: true,
-            actions: createActionsRecord(DOCUMENT_ACTIONS, ['create', 'rename', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'clear_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note']),
+            actions: createActionsRecord(DOCUMENT_ACTIONS, ['create', 'rename', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'clear_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'create_empty', 'heading_to_doc', 'doc_to_heading']),
         },
         block: {
             enabled: true,
-            actions: createActionsRecord(BLOCK_ACTIONS, ['insert', 'prepend', 'append', 'update', 'move', 'fold', 'unfold', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count']),
+            actions: createActionsRecord(BLOCK_ACTIONS, ['insert', 'prepend', 'append', 'update', 'move', 'fold', 'unfold', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'batch_insert', 'batch_update', 'append_daily_note', 'prepend_daily_note', 'doc_info', 'docs_info']),
         },
         av: {
             enabled: true,
-            actions: createActionsRecord(AV_ACTIONS, ['get', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells', 'duplicate_block', 'get_primary_key_values']),
+            actions: createActionsRecord(AV_ACTIONS, ['get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells', 'duplicate_block', 'get_primary_key_values']),
         },
         file: {
             enabled: true,
-            actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources']),
+            actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_doc_image_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'set_image_alpha']),
             uploadLargeFileThresholdMB: 10,
         },
         search: {
             enabled: true,
-            actions: createActionsRecord(SEARCH_ACTIONS, ['fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions']),
+            actions: createActionsRecord(SEARCH_ACTIONS, ['fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions', 'search_refs', 'find_replace', 'search_assets', 'get_asset_content', 'fulltext_asset_content', 'list_invalid_refs']),
         },
         tag: {
             enabled: true,

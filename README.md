@@ -21,7 +21,7 @@ In other words, the plugin does one simple thing: **make SiYuan safely visible a
 
 - Supports both HTTP and stdio connection modes for desktop and Docker clients
 - Aggregates common SiYuan capabilities into 10 grouped tools, reducing the chance that an agent picks the wrong tool
-- Covers notebooks, documents, blocks, databases, assets, search, tags, flashcards, and system capabilities across 90 actions
+- Covers notebooks, documents, blocks, databases, assets, search, tags, flashcards, and system capabilities across 118 actions
 - Provides a four-state permission model: `none` / `r` / `rw` / `rwd`, making notebook-level access control easier
 - Follows a progressive disclosure design to reduce token usage
 
@@ -362,6 +362,9 @@ Big result sets are capped and annotated with drill-down hints rather than retur
 | Action | Description |
 |--------|-------------|
 | `get` | Get one attribute view (database) by `id` after permission checks |
+| `render_attribute_view` | Render database rows using optional view, pagination, query, and group paging context |
+| `get_attribute_view_keys` | Return database keys or columns for an attribute view |
+| `get_attribute_view_filter_sort` | Return filters and sorts for a database block view |
 | `search` | Search attribute views by keyword and post-filter unreadable or unresolved results |
 | `add_rows` | Bind existing blocks into a database as rows and return writable `rowID` mappings when resolved |
 | `remove_rows` | Remove bound rows from an attribute view |
@@ -381,6 +384,14 @@ Big result sets are capped and annotated with drill-down hints rather than retur
 | `render_sprig` | Render a Sprig template |
 | `export_md` | Export document as Markdown |
 | `export_resources` | Export resources as ZIP, accepting `assets/...`, normalizing to `data/assets/...`, and optionally copying to local `outputPath` (requires confirmation when writing locally) |
+| `list_unused_assets` | List unreferenced asset files |
+| `get_doc_assets` | List all assets referenced by a document after permission checks |
+| `get_doc_image_assets` | List image assets referenced by a document after permission checks |
+| `get_image_ocr_text` | Read stored OCR text for an image asset |
+| `remove_unused_assets` | Remove all unreferenced asset files |
+| `rename_asset` | Rename an asset file |
+| `delete_asset` | Delete an asset file |
+| `set_image_alpha` | Update alpha for an image asset |
 
 ### `system`
 

@@ -6,6 +6,10 @@ import { callDocumentTool } from '@/mcp/tools/document';
 import { callNotebookTool } from '@/mcp/tools/notebook';
 import { callTagTool } from '@/mcp/tools/tag';
 
+vi.mock('@/mcp/runtime', () => ({
+    isPluginMode: vi.fn(() => true),
+}));
+
 vi.mock('@/mcp/tools/context', () => ({
     ensurePermissionForDocumentId: vi.fn(async (_client: unknown, _permMgr: unknown, id: string) => ({
         context: { documentId: id && id.startsWith('doc-') ? id : 'doc-1', notebook: 'nb-1', path: '/doc-1.sy' },
@@ -25,6 +29,7 @@ vi.mock('@/mcp/tools/context', () => ({
 }));
 
 vi.mock('@/api/block', () => ({
+    appendBlock: vi.fn(),
     updateBlock: vi.fn(),
     checkBlockExist: vi.fn(),
 }));
@@ -35,6 +40,7 @@ vi.mock('@/api/document', () => ({
 
 vi.mock('@/api/notebook', () => ({
     createNotebook: vi.fn(),
+    setNotebookIcon: vi.fn(),
 }));
 
 vi.mock('@/api/tag', () => ({
@@ -82,6 +88,7 @@ describe('UI refresh integration', () => {
     const blockConfig = {
         enabled: true,
         actions: {
+            append: true,
             update: true,
         },
     } as const;
@@ -98,6 +105,7 @@ describe('UI refresh integration', () => {
         enabled: true,
         actions: {
             create: true,
+            set_icon: true,
         },
     } as const;
 
@@ -123,18 +131,22 @@ describe('UI refresh integration', () => {
         const tagApi = await import('@/api/tag');
         const avApi = await import('@/api/av');
 
+        vi.mocked(blockApi.appendBlock).mockReset();
         vi.mocked(blockApi.updateBlock).mockReset();
         vi.mocked(blockApi.checkBlockExist).mockReset();
         vi.mocked(documentApi.createDoc).mockReset();
         vi.mocked(notebookApi.createNotebook).mockReset();
+        vi.mocked(notebookApi.setNotebookIcon).mockReset();
         vi.mocked(tagApi.renameTag).mockReset();
         vi.mocked(avApi.getAttributeView).mockReset();
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockReset();
         vi.mocked(avApi.setAttributeViewBlockAttr).mockReset();
 
+        vi.mocked(blockApi.appendBlock).mockResolvedValue([{ doOperations: [{ id: 'block-new' }] }] as never);
         vi.mocked(blockApi.updateBlock).mockResolvedValue({ updated: '20260408010101' } as never);
         vi.mocked(documentApi.createDoc).mockResolvedValue('doc-new');
         vi.mocked(notebookApi.createNotebook).mockResolvedValue({ notebook: { id: 'nb-new', name: 'New Notebook' } } as never);
+        vi.mocked(notebookApi.setNotebookIcon).mockResolvedValue(null as never);
         vi.mocked(tagApi.renameTag).mockResolvedValue(null);
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockResolvedValue({ refDefs: [] });
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
@@ -155,6 +167,19 @@ describe('UI refresh integration', () => {
         const result = await callBlockTool(client, {
             action: 'update',
             id: 'block-1',
+            dataType: 'markdown',
+            data: 'hello',
+        }, blockConfig as never, permMgr);
+
+        const parsed = parseResult(result);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadProtyle', id: 'doc-1' }]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
+    });
+
+    it('reloads protyle after block append', async () => {
+        const result = await callBlockTool(client, {
+            action: 'append',
+            parentID: 'doc-1',
             dataType: 'markdown',
             data: 'hello',
         }, blockConfig as never, permMgr);
@@ -195,7 +220,7 @@ describe('UI refresh integration', () => {
         expect(parsed.uiRefresh.partialFailure).toEqual([{ type: 'reloadProtyle', id: 'doc-1', message: 'reload failed' }]);
     });
 
-    it('reloads protyle and filetree after document set_icon', async () => {
+    it('reloads icon UI after document set_icon', async () => {
         const result = await callDocumentTool(client, {
             action: 'set_icon',
             id: 'doc-1',
@@ -203,17 +228,13 @@ describe('UI refresh integration', () => {
         }, documentConfig as never, permMgr);
 
         const parsed = parseResult(result);
-        expect(parsed.uiRefresh.operations).toEqual([
-            { type: 'reloadProtyle', id: 'doc-1' },
-            { type: 'reloadFiletree' },
-        ]);
-        expect(client.request).toHaveBeenNthCalledWith(1, '/api/ui/reloadProtyle', { id: 'doc-1' });
-        expect(client.request).toHaveBeenNthCalledWith(2, '/api/ui/reloadFiletree', {});
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadIcon', {});
     });
 
-    it('keeps document set_icon successful when filetree refresh fails', async () => {
+    it('keeps document set_icon successful when icon refresh fails', async () => {
         client.request = vi.fn(async (endpoint: string) => {
-            if (endpoint === '/api/ui/reloadFiletree') throw new Error('filetree reload failed');
+            if (endpoint === '/api/ui/reloadIcon') throw new Error('icon reload failed');
             return null;
         });
 
@@ -225,11 +246,8 @@ describe('UI refresh integration', () => {
 
         const parsed = parseResult(result);
         expect(parsed.success).toBe(true);
-        expect(parsed.uiRefresh.operations).toEqual([
-            { type: 'reloadProtyle', id: 'doc-1' },
-            { type: 'reloadFiletree' },
-        ]);
-        expect(parsed.uiRefresh.partialFailure).toEqual([{ type: 'reloadFiletree', message: 'filetree reload failed' }]);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
+        expect(parsed.uiRefresh.partialFailure).toEqual([{ type: 'reloadIcon', message: 'icon reload failed' }]);
     });
 
     it('reloads protyle and filetree after document create', async () => {
@@ -249,6 +267,20 @@ describe('UI refresh integration', () => {
         expect(client.request).toHaveBeenNthCalledWith(2, '/api/ui/reloadFiletree', {});
     });
 
+    it('reloads icon UI after document create with icon', async () => {
+        const result = await callDocumentTool(client, {
+            action: 'create',
+            notebook: 'nb-1',
+            path: '/Inbox/Test',
+            markdown: '# Test',
+            icon: '1f4d4',
+        }, documentConfig as never, permMgr);
+
+        const parsed = parseResult(result);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadIcon', {});
+    });
+
     it('reloads filetree after notebook create', async () => {
         const result = await callNotebookTool(client, {
             action: 'create',
@@ -258,6 +290,30 @@ describe('UI refresh integration', () => {
         const parsed = parseResult(result);
         expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadFiletree' }]);
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
+    });
+
+    it('reloads icon UI after notebook create with icon', async () => {
+        const result = await callNotebookTool(client, {
+            action: 'create',
+            name: 'New Notebook',
+            icon: '1f4d4',
+        }, notebookConfig as never, permMgr);
+
+        const parsed = parseResult(result);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadIcon', {});
+    });
+
+    it('reloads icon UI after notebook set_icon', async () => {
+        const result = await callNotebookTool(client, {
+            action: 'set_icon',
+            notebook: 'nb-1',
+            icon: '1f4d4',
+        }, notebookConfig as never, permMgr);
+
+        const parsed = parseResult(result);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadIcon', {});
     });
 
     it('reloads tag UI after tag rename', async () => {

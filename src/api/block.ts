@@ -200,3 +200,54 @@ export async function getRecentUpdatedBlocks(client: SiYuanClient): Promise<unkn
 export async function getBlocksWordCount(client: SiYuanClient, ids: string[]): Promise<unknown> {
     return client.request('/api/block/getBlocksWordCount', { ids });
 }
+
+export async function batchInsertBlock(
+    client: SiYuanClient,
+    blocks: Array<{
+        dataType: DataType;
+        data: string;
+        nextID?: string;
+        previousID?: string;
+        parentID?: string;
+    }>,
+): Promise<unknown> {
+    return client.request('/api/block/batchInsertBlock', { blocks });
+}
+
+export async function batchUpdateBlock(
+    client: SiYuanClient,
+    blocks: Array<{
+        id: string;
+        dataType: DataType;
+        data: string;
+    }>,
+): Promise<unknown> {
+    return client.request('/api/block/batchUpdateBlock', { blocks });
+}
+
+export async function appendDailyNoteBlock(
+    client: SiYuanClient,
+    notebook: string,
+    dataType: DataType,
+    data: string,
+): Promise<unknown> {
+    return client.request('/api/block/appendDailyNoteBlock', { notebook, dataType, data });
+}
+
+export async function prependDailyNoteBlock(
+    client: SiYuanClient,
+    notebook: string,
+    dataType: DataType,
+    data: string,
+): Promise<unknown> {
+    return client.request('/api/block/prependDailyNoteBlock', { notebook, dataType, data });
+}
+
+export async function getDocsInfo(
+    client: SiYuanClient,
+    ids: string[],
+    refCount = false,
+    av = false,
+): Promise<unknown> {
+    return client.request('/api/block/getDocsInfo', { ids, refCount, av });
+}

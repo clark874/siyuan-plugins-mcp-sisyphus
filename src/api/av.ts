@@ -12,6 +12,33 @@ export async function getAttributeView(client: SiYuanClient, id: string): Promis
     return client.request<{ av: unknown }>('/api/av/getAttributeView', { id });
 }
 
+export async function renderAttributeView(
+    client: SiYuanClient,
+    payload: {
+        id: string;
+        blockID?: string;
+        viewID?: string;
+        page?: number;
+        pageSize?: number;
+        query?: string;
+        groupPaging?: Record<string, unknown>;
+        createIfNotExist?: boolean;
+    },
+): Promise<Record<string, unknown>> {
+    return client.request<Record<string, unknown>>('/api/av/renderAttributeView', payload);
+}
+
+export async function getAttributeViewKeys(client: SiYuanClient, id: string): Promise<unknown> {
+    return client.request<unknown>('/api/av/getAttributeViewKeys', { id });
+}
+
+export async function getAttributeViewFilterSort(
+    client: SiYuanClient,
+    payload: { id: string; blockID: string },
+): Promise<{ filters: unknown; sorts: unknown }> {
+    return client.request<{ filters: unknown; sorts: unknown }>('/api/av/getAttributeViewFilterSort', payload);
+}
+
 export async function searchAttributeView(
     client: SiYuanClient,
     keyword: string,

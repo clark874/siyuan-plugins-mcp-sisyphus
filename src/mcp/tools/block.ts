@@ -8,9 +8,14 @@ import type { PermissionManager } from '../permissions';
 import {
     BlockActionSchema,
     BlockAppendSchema,
+    BlockAppendDailyNoteSchema,
+    BlockBatchInsertSchema,
+    BlockBatchUpdateSchema,
     BlockBreadcrumbSchema,
     BlockDeleteSchema,
+    BlockDocInfoSchema,
     BlockDomSchema,
+    BlockDocsInfoSchema,
     BlockExistsSchema,
     BlockFoldSchema,
     BlockGetAttrsSchema,
@@ -20,6 +25,7 @@ import {
     BlockInsertSchema,
     BlockMoveSchema,
     BlockPrependSchema,
+    BlockPrependDailyNoteSchema,
     BlockRecentUpdatedSchema,
     BlockSetAttrsSchema,
     BlockTransferRefSchema,
@@ -27,7 +33,7 @@ import {
     BlockUpdateSchema,
     BlockWordCountSchema,
 } from '../types';
-import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocumentContextById, resolveResultItemContext } from './context';
+import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from './context';
 import { filterItemsByPermission } from './search';
 import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createWriteSuccessResult, paginate, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
 import { applyUiRefresh } from './ui-refresh';
@@ -170,6 +176,76 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
         schema: createActionSchema('word_count', {
             ids: { type: 'array', items: { type: 'string' }, description: 'One or more block IDs' },
         }, ['ids'], 'Get word-count statistics for blocks.'),
+    },
+    {
+        action: 'batch_insert',
+        schema: createActionSchema('batch_insert', {
+            blocks: {
+                type: 'array',
+                description: 'Blocks to insert',
+                items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
+                        data: { type: 'string', description: 'Block content' },
+                        nextID: { type: 'string', description: 'Next block ID' },
+                        previousID: { type: 'string', description: 'Previous block ID' },
+                        parentID: { type: 'string', description: 'Parent block or document ID' },
+                    },
+                    required: ['dataType', 'data'],
+                },
+            },
+        }, ['blocks'], 'Insert multiple blocks in one request.'),
+    },
+    {
+        action: 'batch_update',
+        schema: createActionSchema('batch_update', {
+            blocks: {
+                type: 'array',
+                description: 'Blocks to update',
+                items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        id: { type: 'string', description: 'Block ID' },
+                        dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
+                        data: { type: 'string', description: 'Replacement block content' },
+                    },
+                    required: ['id', 'dataType', 'data'],
+                },
+            },
+        }, ['blocks'], 'Update multiple blocks in one request.'),
+    },
+    {
+        action: 'append_daily_note',
+        schema: createActionSchema('append_daily_note', {
+            notebook: { type: 'string', description: 'Notebook ID' },
+            dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
+            data: { type: 'string', description: 'Block content' },
+        }, ['notebook', 'dataType', 'data'], 'Append a block to today’s daily note, creating the note if needed.'),
+    },
+    {
+        action: 'prepend_daily_note',
+        schema: createActionSchema('prepend_daily_note', {
+            notebook: { type: 'string', description: 'Notebook ID' },
+            dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
+            data: { type: 'string', description: 'Block content' },
+        }, ['notebook', 'dataType', 'data'], 'Prepend a block to today’s daily note, creating the note if needed.'),
+    },
+    {
+        action: 'doc_info',
+        schema: createActionSchema('doc_info', {
+            id: { type: 'string', description: 'Block or document ID' },
+        }, ['id'], 'Get owning document info for a block or document ID.'),
+    },
+    {
+        action: 'docs_info',
+        schema: createActionSchema('docs_info', {
+            ids: { type: 'array', items: { type: 'string' }, description: 'Document IDs' },
+            refCount: { type: 'boolean', description: 'When true, include reference counts' },
+            av: { type: 'boolean', description: 'When true, include AV metadata' },
+        }, ['ids'], 'Get document info for multiple documents.'),
     },
 ];
 
@@ -604,6 +680,88 @@ const handleWordCount: BlockActionHandler = async ({ client, permMgr, rawArgs })
     return createJsonResult(result);
 };
 
+const handleBatchInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockBatchInsertSchema.parse(rawArgs);
+    const reloadIds = new Set<string>();
+    for (const block of parsed.blocks) {
+        const refId = block.nextID || block.previousID || block.parentID;
+        if (!refId) continue;
+        const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, refId, 'write');
+        if (denied) return denied;
+        reloadIds.add(context.documentId);
+    }
+    const result = await blockApi.batchInsertBlock(client, parsed.blocks);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        action: 'batch_insert',
+        count: parsed.blocks.length,
+        transactions: result,
+    }), [...reloadIds].map((id) => ({ type: 'reloadProtyle' as const, id })));
+};
+
+const handleBatchUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockBatchUpdateSchema.parse(rawArgs);
+    const reloadIds = new Set<string>();
+    for (const block of parsed.blocks) {
+        const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, block.id, 'write');
+        if (denied) return denied;
+        reloadIds.add(context.documentId);
+    }
+    const result = await blockApi.batchUpdateBlock(client, parsed.blocks);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        action: 'batch_update',
+        count: parsed.blocks.length,
+        transactions: result,
+    }), [...reloadIds].map((id) => ({ type: 'reloadProtyle' as const, id })));
+};
+
+const handleAppendDailyNote: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockAppendDailyNoteSchema.parse(rawArgs);
+    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
+    if (denied) return denied;
+    const result = await blockApi.appendDailyNoteBlock(client, parsed.notebook, parsed.dataType, parsed.data);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        action: 'append_daily_note',
+        notebook: parsed.notebook,
+        dataType: parsed.dataType,
+        transactions: result,
+    }), [{ type: 'reloadFiletree' }]);
+};
+
+const handlePrependDailyNote: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockPrependDailyNoteSchema.parse(rawArgs);
+    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
+    if (denied) return denied;
+    const result = await blockApi.prependDailyNoteBlock(client, parsed.notebook, parsed.dataType, parsed.data);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        action: 'prepend_daily_note',
+        notebook: parsed.notebook,
+        dataType: parsed.dataType,
+        transactions: result,
+    }), [{ type: 'reloadFiletree' }]);
+};
+
+const handleDocInfo: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockDocInfoSchema.parse(rawArgs);
+    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+    if (denied) return denied;
+    const result = await blockApi.getDocInfo(client, parsed.id);
+    return createJsonResult(result);
+};
+
+const handleDocsInfo: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockDocsInfoSchema.parse(rawArgs);
+    for (const id of parsed.ids) {
+        const { denied } = await ensurePermissionForDocumentId(client, permMgr, id, 'read');
+        if (denied) return denied;
+    }
+    const result = await blockApi.getDocsInfo(client, parsed.ids, parsed.refCount ?? false, parsed.av ?? false);
+    return createJsonResult(result);
+};
+
 const BLOCK_ACTION_HANDLERS: Record<BlockAction, BlockActionHandler> = {
     insert: handleInsert,
     prepend: handlePrepend,
@@ -624,6 +782,12 @@ const BLOCK_ACTION_HANDLERS: Record<BlockAction, BlockActionHandler> = {
     dom: handleDom,
     recent_updated: handleRecentUpdated,
     word_count: handleWordCount,
+    batch_insert: handleBatchInsert,
+    batch_update: handleBatchUpdate,
+    append_daily_note: handleAppendDailyNote,
+    prepend_daily_note: handlePrependDailyNote,
+    doc_info: handleDocInfo,
+    docs_info: handleDocsInfo,
 };
 
 export async function callBlockTool(

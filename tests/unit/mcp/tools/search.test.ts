@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildDefaultToolConfig } from '@/mcp/config';
 import { normalizeFullTextSearchResult } from '@/mcp/normalize';
-import { filterBacklinkResultByPermission, filterFullTextSearchResultByPermission } from '@/mcp/tools/search';
+import { callSearchTool, filterBacklinkResultByPermission, filterFullTextSearchResultByPermission, listSearchTools } from '@/mcp/tools/search';
+import { createMockClient } from '../../../helpers/mock-client';
+import { parseResult } from '../../../helpers/parse-result';
 
 describe('search tool filtering', () => {
     it('filters fulltext search results by notebook permission and preserves plainContent', () => {
@@ -64,5 +67,39 @@ describe('search tool filtering', () => {
         expect(filtered.filteredOutCount).toBe(2);
         expect(filtered.partial).toBe(true);
         expect(filtered.reason).toBe('permission_filtered');
+    });
+
+    it('exposes high-priority search actions in the grouped schema', () => {
+        const config = buildDefaultToolConfig();
+        const [tool] = listSearchTools(config.search);
+        expect(tool.inputSchema.properties.action.enum).toContain('search_refs');
+        expect(tool.inputSchema.properties.action.enum).toContain('find_replace');
+        expect(tool.inputSchema.properties.action.enum).toContain('search_assets');
+        expect(tool.inputSchema.properties.action.enum).toContain('list_invalid_refs');
+    });
+
+    it('calls search asset endpoint', async () => {
+        const client = createMockClient({
+            request: async (endpoint: string, body: unknown) => {
+                expect(endpoint).toBe('/api/search/searchAsset');
+                expect(body).toMatchObject({ k: 'diagram', exts: ['png'] });
+                return [{ path: 'assets/diagram.png' }];
+            },
+        });
+        const permMgr = {
+            reload: async () => undefined,
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'search_assets',
+            k: 'diagram',
+            exts: ['png'],
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        expect(parseResult(result)).toEqual([{ path: 'assets/diagram.png' }]);
     });
 });

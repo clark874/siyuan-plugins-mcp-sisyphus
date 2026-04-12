@@ -229,3 +229,52 @@ export async function createDailyNote(
         app,
     });
 }
+
+export async function duplicateDoc(
+    client: SiYuanClient,
+    id: string,
+): Promise<{ id: string; notebook: string; path: string; hPath?: string }> {
+    return client.request('/api/filetree/duplicateDoc', { id });
+}
+
+export async function removeDocs(
+    client: SiYuanClient,
+    paths: string[],
+): Promise<null> {
+    return client.request('/api/filetree/removeDocs', { paths });
+}
+
+export async function createEmptyDoc(
+    client: SiYuanClient,
+    notebook: string,
+    path: string,
+    title: string,
+    md = '',
+    sorts?: string[],
+): Promise<{ id: string }> {
+    return client.request('/api/filetree/createDoc', { notebook, path, title, md, sorts });
+}
+
+export async function headingToDoc(
+    client: SiYuanClient,
+    srcHeadingID: string,
+    targetNotebook: string,
+    targetPath?: string,
+    previousPath?: string,
+): Promise<null> {
+    return client.request('/api/filetree/heading2Doc', {
+        srcHeadingID,
+        targetNoteBook: targetNotebook,
+        targetPath,
+        previousPath,
+    });
+}
+
+export async function docToHeading(
+    client: SiYuanClient,
+    srcID: string,
+    targetID: string,
+    after = false,
+): Promise<{ srcTreeBox: string; srcTreePath: string }> {
+    return client.request('/api/filetree/doc2Heading', { srcID, targetID, after });
+}

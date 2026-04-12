@@ -6,6 +6,7 @@ import type { ToolResult } from './shared';
 export type UiRefreshOperation =
     | { type: 'reloadProtyle'; id: string }
     | { type: 'reloadAttributeView'; id: string }
+    | { type: 'reloadIcon' }
     | { type: 'reloadFiletree' }
     | { type: 'reloadTag' };
 
@@ -47,6 +48,9 @@ async function runOperation(client: SiYuanClient, operation: UiRefreshOperation)
             return;
         case 'reloadAttributeView':
             await systemApi.reloadAttributeView(client, operation.id);
+            return;
+        case 'reloadIcon':
+            await systemApi.reloadIcon(client);
             return;
         case 'reloadFiletree':
             await systemApi.reloadFiletree(client);

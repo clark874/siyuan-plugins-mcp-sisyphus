@@ -48,3 +48,82 @@ export async function getBackmentionDoc(
     const request: IReqGetBackmentionDoc = { defID, keyword, refTreeID };
     return client.request<IResGetBackmentionDoc | null>('/api/ref/getBackmentionDoc', request);
 }
+
+export async function searchRefBlock(
+    client: SiYuanClient,
+    params: {
+        id: string;
+        rootID?: string;
+        k?: string;
+        beforeLen?: number;
+        isSquareBrackets?: boolean;
+        isDatabase?: boolean;
+        reqId?: string;
+    },
+): Promise<unknown> {
+    return client.request('/api/search/searchRefBlock', {
+        reqId: params.reqId,
+        id: params.id,
+        rootID: params.rootID ?? '',
+        k: params.k ?? '',
+        beforeLen: params.beforeLen ?? 512,
+        isSquareBrackets: params.isSquareBrackets ?? false,
+        isDatabase: params.isDatabase ?? false,
+    });
+}
+
+export async function findReplace(
+    client: SiYuanClient,
+    params: {
+        k: string;
+        r: string;
+        ids: string[];
+        paths?: string[];
+        types?: Record<string, boolean>;
+        method?: number;
+        orderBy?: number;
+        groupBy?: number;
+        replaceTypes?: Record<string, boolean>;
+    },
+): Promise<null> {
+    return client.request<null>('/api/search/findReplace', params);
+}
+
+export async function searchAsset(
+    client: SiYuanClient,
+    k: string,
+    exts?: string[],
+): Promise<unknown> {
+    return client.request('/api/search/searchAsset', { k, exts });
+}
+
+export async function getAssetContent(
+    client: SiYuanClient,
+    id: string,
+    query: string,
+    queryMethod = 0,
+): Promise<unknown> {
+    return client.request('/api/search/getAssetContent', { id, query, queryMethod });
+}
+
+export async function fullTextSearchAssetContent(
+    client: SiYuanClient,
+    params: {
+        query: string;
+        types?: Record<string, boolean>;
+        method?: number;
+        orderBy?: number;
+        page?: number;
+        pageSize?: number;
+    },
+): Promise<unknown> {
+    return client.request('/api/search/fullTextSearchAssetContent', params);
+}
+
+export async function listInvalidBlockRefs(
+    client: SiYuanClient,
+    page?: number,
+    pageSize?: number,
+): Promise<unknown> {
+    return client.request('/api/search/listInvalidBlockRefs', { page, pageSize });
+}

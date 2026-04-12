@@ -235,7 +235,7 @@ export async function callNotebookTool(
                 return applyUiRefresh(client, createJsonResult({
                     ...result.notebook,
                     iconHint: createSetIconReminder('notebook', Boolean(parsed.icon)),
-                }), [{ type: 'reloadFiletree' }]);
+                }), parsed.icon ? [{ type: 'reloadIcon' }] : [{ type: 'reloadFiletree' }]);
             }
             case 'open': {
                 const parsed = NotebookOpenSchema.parse(rawArgs);
@@ -284,7 +284,7 @@ export async function callNotebookTool(
                 const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
                 if (denied) return denied;
                 await notebookApi.setNotebookIcon(client, parsed.notebook, parsed.icon);
-                return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, icon: parsed.icon }), [{ type: 'reloadFiletree' }]);
+                return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, icon: parsed.icon }), [{ type: 'reloadIcon' }]);
             }
             case 'get_permissions': {
                 const parsed = NotebookGetPermissionsSchema.parse(rawArgs);

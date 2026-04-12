@@ -2,17 +2,23 @@ import type { SiYuanClient } from '../../api/client';
 import * as searchApi from '../../api/search';
 import type { CategoryToolConfig, SearchAction } from '../config';
 import { SEARCH_ACTION_HINTS, SEARCH_GUIDANCE } from '../help';
-import { normalizeFullTextSearchResult } from '../normalize';
+import { normalizeFullTextSearchResult, slimSearchBlocks } from '../normalize';
 import type { PermissionManager } from '../permissions';
 import {
     SearchActionSchema,
+    SearchAssetsSchema,
+    SearchFindReplaceSchema,
     SearchFulltextSchema,
+    SearchFulltextAssetContentSchema,
+    SearchGetAssetContentSchema,
     SearchGetBacklinksSchema,
     SearchGetBackmentionsSchema,
+    SearchListInvalidRefsSchema,
     SearchQuerySqlSchema,
+    SearchRefsSchema,
     SearchTagSchema,
 } from '../types';
-import { createResultResolutionCache, ensurePermissionForDocumentId, escapeSqlString, resolveResultItemContext } from './context';
+import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, escapeSqlString, resolveNotebookForPath, resolveResultItemContext } from './context';
 import { applyTruncation, buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
 
 export const SEARCH_TOOL_NAME = 'search';
@@ -59,6 +65,65 @@ export const SEARCH_VARIANTS: ActionVariant<SearchAction>[] = [
             keyword: { type: 'string', description: 'Filter backmentions by keyword' },
             refTreeID: { type: 'string', description: 'Optional document tree ID to narrow backmention scope' },
         }, ['id'], 'Find documents/blocks that mention the given block name.'),
+    },
+    {
+        action: 'search_refs',
+        schema: createActionSchema('search_refs', {
+            id: { type: 'string', description: 'Referenced block or document ID' },
+            rootID: { type: 'string', description: 'Optional current root document ID' },
+            k: { type: 'string', description: 'Keyword filter' },
+            beforeLen: { type: 'number', description: 'Context length before the reference, default 512' },
+            isSquareBrackets: { type: 'boolean', description: 'Search in square-bracket reference mode' },
+            isDatabase: { type: 'boolean', description: 'Whether the reference target is a database' },
+            reqId: { type: 'string', description: 'Optional passthrough request ID' },
+        }, ['id'], 'Search blocks that reference a given block or document.'),
+    },
+    {
+        action: 'find_replace',
+        schema: createActionSchema('find_replace', {
+            k: { type: 'string', description: 'Find keyword' },
+            r: { type: 'string', description: 'Replacement text; use empty string to delete matches' },
+            ids: { type: 'array', items: { type: 'string' }, description: 'Document or block IDs to mutate' },
+            paths: { type: 'array', items: { type: 'string' }, description: 'Optional path scope list' },
+            types: { type: 'object', additionalProperties: { type: 'boolean' }, description: 'Optional block type filter' },
+            method: { type: 'number', description: 'Search method: 0=keyword, 1=query syntax, 2=SQL, 3=regex' },
+            orderBy: { type: 'number', description: 'Sort order' },
+            groupBy: { type: 'number', description: 'Grouping mode' },
+            replaceTypes: { type: 'object', additionalProperties: { type: 'boolean' }, description: 'Replace target kinds such as text, code, docTitle, blockRef' },
+        }, ['k', 'r', 'ids'], 'Find and replace text in documents or blocks.'),
+    },
+    {
+        action: 'search_assets',
+        schema: createActionSchema('search_assets', {
+            k: { type: 'string', description: 'Asset filename keyword' },
+            exts: { type: 'array', items: { type: 'string' }, description: 'Optional extension filters' },
+        }, ['k'], 'Search asset files by filename.'),
+    },
+    {
+        action: 'get_asset_content',
+        schema: createActionSchema('get_asset_content', {
+            id: { type: 'string', description: 'Asset content ID' },
+            query: { type: 'string', description: 'Matched query text' },
+            queryMethod: { type: 'number', description: 'Query method: 0=keyword, 1=query syntax, 2=SQL, 3=regex' },
+        }, ['id', 'query'], 'Get a specific asset-content record.'),
+    },
+    {
+        action: 'fulltext_asset_content',
+        schema: createActionSchema('fulltext_asset_content', {
+            query: { type: 'string', description: 'Search query string' },
+            types: { type: 'object', additionalProperties: { type: 'boolean' }, description: 'Asset type filter' },
+            method: { type: 'number', description: 'Search method: 0=keyword, 1=query syntax, 2=SQL, 3=regex' },
+            orderBy: { type: 'number', description: 'Sort order: 0=relevance DESC, 1=relevance ASC, 2=updated ASC, 3=updated DESC' },
+            page: { type: 'number', description: 'Page number (1-based)' },
+            pageSize: { type: 'number', description: 'Results per page' },
+        }, ['query'], 'Full-text search indexed asset contents.'),
+    },
+    {
+        action: 'list_invalid_refs',
+        schema: createActionSchema('list_invalid_refs', {
+            page: { type: 'number', description: 'Page number (1-based)' },
+            pageSize: { type: 'number', description: 'Results per page' },
+        }, [], 'List invalid block references.'),
     },
 ];
 
@@ -394,8 +459,12 @@ export async function callSearchTool(
                 });
                 const filtered = filterFullTextSearchResultByPermission(result, permMgr);
                 const normalized = normalizeFullTextSearchResult(filtered, parsed.stripHtml ?? false);
-                const blocks = Array.isArray((normalized as Record<string, unknown>).blocks)
-                    ? (normalized as Record<string, unknown>).blocks as unknown[]
+                const normalizedObj = normalized as Record<string, unknown>;
+                if (Array.isArray(normalizedObj.blocks)) {
+                    normalizedObj.blocks = slimSearchBlocks(normalizedObj.blocks as unknown[]);
+                }
+                const blocks = Array.isArray(normalizedObj.blocks)
+                    ? normalizedObj.blocks as unknown[]
                     : [];
                 const pageCount = typeof (normalized as Record<string, unknown>).pageCount === 'number'
                     ? (normalized as Record<string, unknown>).pageCount as number
@@ -486,6 +555,78 @@ export async function callSearchTool(
                     }
                     throw error;
                 }
+            }
+            case 'search_refs': {
+                const parsed = SearchRefsSchema.parse(rawArgs);
+                const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+                if (denied) return denied;
+                const result = await searchApi.searchRefBlock(client, parsed);
+                const typed = result && typeof result === 'object' ? result as Record<string, unknown> : {};
+                const blocks = Array.isArray(typed.blocks) ? typed.blocks : [];
+                const filtered = await filterItemsByPermission(client, blocks, permMgr);
+                return createJsonResult({
+                    ...typed,
+                    blocks: slimSearchBlocks(filtered.items),
+                    ...createPartialMetadata(filtered.removedCount),
+                });
+            }
+            case 'find_replace': {
+                const parsed = SearchFindReplaceSchema.parse(rawArgs);
+                for (const id of parsed.ids) {
+                    const { denied } = await ensurePermissionForDocumentId(client, permMgr, id, 'write');
+                    if (denied) return denied;
+                }
+                if (Array.isArray(parsed.paths)) {
+                    for (const path of parsed.paths) {
+                        const notebook = await resolveNotebookForPath(client, path);
+                        if (!notebook) continue;
+                        const denied = await ensurePermissionForNotebook(permMgr, notebook, 'write');
+                        if (denied) return denied;
+                    }
+                }
+                await searchApi.findReplace(client, parsed);
+                return createJsonResult({
+                    success: true,
+                    replaced: true,
+                    ids: parsed.ids,
+                    k: parsed.k,
+                    r: parsed.r,
+                    ...(parsed.paths ? { paths: parsed.paths } : {}),
+                });
+            }
+            case 'search_assets': {
+                const parsed = SearchAssetsSchema.parse(rawArgs);
+                const result = await searchApi.searchAsset(client, parsed.k, parsed.exts);
+                return createJsonResult(result);
+            }
+            case 'get_asset_content': {
+                const parsed = SearchGetAssetContentSchema.parse(rawArgs);
+                const result = await searchApi.getAssetContent(client, parsed.id, parsed.query, parsed.queryMethod ?? 0);
+                return createJsonResult(result);
+            }
+            case 'fulltext_asset_content': {
+                const parsed = SearchFulltextAssetContentSchema.parse(rawArgs);
+                const result = await searchApi.fullTextSearchAssetContent(client, parsed);
+                const typed = result && typeof result === 'object' ? result as Record<string, unknown> : {};
+                const assetContents = Array.isArray(typed.assetContents) ? typed.assetContents : [];
+                const filtered = await filterItemsByPermission(client, assetContents, permMgr);
+                const truncated = applyTruncation(filtered.items, 20, 'Use page/pageSize parameters to paginate asset content results.');
+                return createJsonResult({
+                    ...typed,
+                    assetContents: truncated.items,
+                    ...createPartialMetadata(filtered.removedCount),
+                    ...(truncated.meta ? truncated.meta : {}),
+                });
+            }
+            case 'list_invalid_refs': {
+                const parsed = SearchListInvalidRefsSchema.parse(rawArgs);
+                const result = await searchApi.listInvalidBlockRefs(client, parsed.page, parsed.pageSize);
+                const filtered = filterFullTextSearchResultByPermission((result ?? {}) as {
+                    blocks?: unknown[];
+                    matchedBlockCount?: number;
+                    matchedRootCount?: number;
+                }, permMgr);
+                return createJsonResult(filtered);
             }
             default: {
                 const _exhaustive: never = parsedAction;
