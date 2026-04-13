@@ -174,6 +174,8 @@ export async function resolveResultItemContext(
     const path = [typedItem.path]
         .find((value): value is string => typeof value === 'string' && value.length > 0);
     const documentId = [
+        typedItem.blockID,
+        typedItem.blockId,
         typedItem.rootID,
         typedItem.rootId,
         typedItem.root_id,

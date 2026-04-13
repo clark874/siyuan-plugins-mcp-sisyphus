@@ -597,7 +597,7 @@ export const AvGetAttributeViewKeysSchema = z.object({
 export const AvGetAttributeViewFilterSortSchema = z.object({
     action: z.literal("get_attribute_view_filter_sort"),
     id: z.string().describe("Attribute view ID"),
-    blockID: z.string().describe("Database block ID"),
+    blockID: z.string().optional().describe("Database block ID (optional)"),
 });
 
 export const AvSearchSchema = z.object({
@@ -752,12 +752,16 @@ export const SearchFulltextSchema = z.object({
     action: z.literal("fulltext"),
     query: z.string().describe("Search query string"),
     method: z.number().optional().describe("Search method: 0=keyword (default), 1=query syntax, 2=SQL, 3=regex"),
-    types: z.record(z.string(), z.boolean()).optional().describe("Block type filter, e.g. {\"heading\": true, \"paragraph\": true}"),
+    types: z.record(z.string(), z.boolean()).optional().describe("Block type filter. Accepts full names (e.g. {\"heading\": true}) or shortcodes (e.g. {\"h\": true, \"p\": true}). Codes: d=document, h=heading, p=paragraph, l=list, i=listItem, b=blockquote, c=codeBlock, m=mathBlock, t=table, s=superBlock, html=htmlBlock, embed=embedBlock, av=databaseBlock."),
+    typeShortcodes: z.array(z.string()).optional().describe("Alternative shorthand type filter as array: [\"h\",\"p\"]. Merged with types if both provided."),
     paths: z.array(z.string()).optional().describe("Restrict search to specific notebook paths"),
     groupBy: z.number().optional().describe("0=no grouping (default), 1=group by document"),
     orderBy: z.number().optional().describe("Sort order: 0=type, 1=created ASC, 2=created DESC, 3=updated ASC, 4=updated DESC, 5=content ASC, 6=content DESC, 7=relevance (default)"),
+    sortBy: z.string().optional().describe("Named sort alias: \"relevance\", \"date\", \"updated_desc\", \"updated_asc\", \"created_desc\", \"created_asc\", \"type\". Overrides orderBy if both provided."),
     page: z.number().optional().describe("Page number (1-based), default 1"),
     pageSize: z.number().optional().describe("Results per page, default 32, max 128"),
+    parentId: z.string().optional().describe("Post-filter results to blocks whose root_id or parent_id matches this ID, scoping search within a document subtree."),
+    hasTags: z.boolean().optional().describe("When true, only return blocks that have tags. When false, only return blocks without tags."),
     stripHtml: z.boolean().optional().describe("When true, preserves highlighted HTML while adding plain-text fields for easier downstream parsing"),
 });
 

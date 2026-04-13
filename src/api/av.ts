@@ -34,7 +34,7 @@ export async function getAttributeViewKeys(client: SiYuanClient, id: string): Pr
 
 export async function getAttributeViewFilterSort(
     client: SiYuanClient,
-    payload: { id: string; blockID: string },
+    payload: { id: string; blockID?: string },
 ): Promise<{ filters: unknown; sorts: unknown }> {
     return client.request<{ filters: unknown; sorts: unknown }>('/api/av/getAttributeViewFilterSort', payload);
 }

@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **最新版本：**`v0.2.7` — 新增完整 API 接口映射文档，补强 block/document/file/search/av 工具覆盖，引入 normalize 模块统一参数处理。详见 [CHANGELOG.md](./CHANGELOG.md)。
+> **最新版本：**`v0.2.8` — 增强 search 工具的类型短码、排序别名与搜索结果瘦身，降低 AI token 占用；修复 flashcard 添加/移除及 get_cards 稳定性问题。详见 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 

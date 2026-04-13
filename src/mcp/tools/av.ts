@@ -289,6 +289,8 @@ type AddRowsResolution = {
 
 const ADD_ROWS_POLL_ATTEMPTS = 6;
 const ADD_ROWS_POLL_DELAY_MS = 500;
+const ATTRIBUTE_VIEW_DIR = '/data/storage/av';
+const ATTRIBUTE_VIEW_ID_PATTERN = /^\d{14}-[a-z0-9]{7}$/;
 
 function extractFirstRowBlockId(avData: unknown): string | undefined {
     if (!avData || typeof avData !== 'object') return undefined;
@@ -306,6 +308,15 @@ function extractFirstRowBlockId(avData: unknown): string | undefined {
         if (blockValue?.block?.id) return blockValue.block.id;
     }
     return undefined;
+}
+
+function extractAttributeViewKeysFromData(avData: unknown): unknown[] {
+    if (!avData || typeof avData !== 'object') return [];
+    const keyValues = (avData as { keyValues?: unknown }).keyValues;
+    if (!Array.isArray(keyValues)) return [];
+    return keyValues
+        .map((entry) => (entry && typeof entry === 'object' ? (entry as { key?: unknown }).key : undefined))
+        .filter((key): key is Record<string, unknown> => Boolean(key && typeof key === 'object'));
 }
 
 function getStringField(value: unknown, fieldNames: string[]): string | undefined {
@@ -725,6 +736,62 @@ async function filterAvSearchResultsByPermission(
     };
 }
 
+async function listAllAttributeViewIDs(client: SiYuanClient): Promise<string[]> {
+    const entries = await client.request<Array<{ isDir?: boolean; name?: string }>>('/api/file/readDir', { path: ATTRIBUTE_VIEW_DIR });
+    return (Array.isArray(entries) ? entries : [])
+        .filter((entry) => !entry?.isDir && typeof entry?.name === 'string' && entry.name.endsWith('.json'))
+        .map((entry) => entry.name!.slice(0, -5))
+        .filter((name) => ATTRIBUTE_VIEW_ID_PATTERN.test(name));
+}
+
+function extractPrimaryKeyMatchedValues(rows: unknown): Array<Record<string, unknown>> {
+    if (!rows || typeof rows !== 'object') return [];
+    const values = (rows as { values?: unknown }).values;
+    if (!Array.isArray(values)) return [];
+    return values.filter((value): value is Record<string, unknown> => Boolean(value && typeof value === 'object'));
+}
+
+async function searchAttributeViewPrimaryKeys(
+    client: SiYuanClient,
+    keyword: string,
+    excludes?: string[],
+): Promise<unknown[]> {
+    if (!keyword.trim()) return [];
+    if (typeof client.request !== 'function') return [];
+    const excludeSet = new Set(excludes ?? []);
+    const avIDs = await listAllAttributeViewIDs(client);
+    const results: unknown[] = [];
+
+    for (const avID of avIDs) {
+        if (excludeSet.has(avID)) continue;
+        try {
+            const response = await avApi.getAttributeViewPrimaryKeyValues(client, {
+                id: avID,
+                keyword,
+                page: 1,
+                pageSize: 3,
+            });
+            const matchedRows = extractPrimaryKeyMatchedValues(response.rows);
+            if (matchedRows.length === 0) continue;
+            const blockIDs = Array.isArray(response.blockIDs) ? response.blockIDs.filter((value): value is string => typeof value === 'string' && value.length > 0) : [];
+            if (blockIDs.length === 0) continue;
+            results.push({
+                avID,
+                avName: response.name,
+                blockID: blockIDs[0],
+                blockIDs,
+                rows: response.rows,
+                matchedRowCount: matchedRows.length,
+                matchSource: 'primary_key',
+            });
+        } catch {
+            // Ignore unreadable or incompatible AVs during fallback search.
+        }
+    }
+
+    return results;
+}
+
 function parseDateMillis(value: string | number, fieldName: string): number {
     if (typeof value === 'number') {
         if (!Number.isFinite(value)) throw new Error(`${fieldName} must be a finite epoch millisecond value.`);
@@ -840,7 +907,21 @@ async function handleGet({ client, permMgr, rawArgs }: AvHandlerContext): Promis
 async function handleSearch({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
     const parsed = AvSearchSchema.parse(rawArgs);
     const response = await avApi.searchAttributeView(client, parsed.keyword, parsed.excludes);
-    const filtered = await filterAvSearchResultsByPermission(client, permMgr, response.results ?? []);
+    const kernelResults = Array.isArray(response.results) ? response.results : [];
+    const primaryKeyResults = await searchAttributeViewPrimaryKeys(client, parsed.keyword, parsed.excludes);
+    const dedupedResults = [...kernelResults];
+    const seenAvIDs = new Set(
+        dedupedResults
+            .map((item) => item && typeof item === 'object' ? (item as Record<string, unknown>).avID : undefined)
+            .filter((value): value is string => typeof value === 'string' && value.length > 0),
+    );
+    for (const result of primaryKeyResults) {
+        const avID = (result as Record<string, unknown>).avID;
+        if (typeof avID === 'string' && seenAvIDs.has(avID)) continue;
+        if (typeof avID === 'string') seenAvIDs.add(avID);
+        dedupedResults.push(result);
+    }
+    const filtered = await filterAvSearchResultsByPermission(client, permMgr, dedupedResults);
     return createJsonResult({
         keyword: parsed.keyword,
         ...filtered,
@@ -881,13 +962,20 @@ async function handleRenderAttributeView({ client, permMgr, rawArgs }: AvHandler
 
 async function handleGetAttributeViewKeys({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
     const parsed = AvGetAttributeViewKeysSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
     if (denied) return denied;
 
-    const keys = await avApi.getAttributeViewKeys(client, parsed.id);
+    const raw = await avApi.getAttributeViewKeys(client, parsed.id);
+    const keysArray =
+        raw && typeof raw === 'object' && !Array.isArray(raw) &&
+        Array.isArray((raw as Record<string, unknown>).keys)
+            ? (raw as Record<string, unknown>).keys
+            : Array.isArray(raw) && raw.length > 0
+                ? raw
+                : extractAttributeViewKeysFromData(avData);
     return createJsonResult({
         avID: parsed.id,
-        keys,
+        keys: keysArray,
     });
 }
 
@@ -898,12 +986,12 @@ async function handleGetAttributeViewFilterSort({ client, permMgr, rawArgs }: Av
 
     const response = await avApi.getAttributeViewFilterSort(client, {
         id: parsed.id,
-        blockID: parsed.blockID,
+        ...(parsed.blockID ? { blockID: parsed.blockID } : {}),
     });
 
     return createJsonResult({
         avID: parsed.id,
-        blockID: parsed.blockID,
+        ...(parsed.blockID ? { blockID: parsed.blockID } : {}),
         ...response,
     });
 }

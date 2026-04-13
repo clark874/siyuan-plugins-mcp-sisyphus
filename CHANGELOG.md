@@ -2,6 +2,12 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.2.8 - 2026-04-14
+
+- 增强 search 聚合工具：支持类型短码自动展开、sortBy 别名、parentId 与 hasTags 过滤，并优化搜索结果瘦身（字段裁剪、内容截断、excerpt 提取），显著降低 AI 消费时的 token 占用
+- 修复闪卡（flashcard）工具在 add_card / remove_card 时的状态校验与重试逻辑，解决文档块误加入卡组和 get_cards 返回未解析内容的问题
+- 补充 search 与 flashcard 的单元测试覆盖，提升相关模块稳定性
+
 ## v0.2.7 - 2026-04-13
 
 - 新增完整的 API 接口映射文档（API_COMPLETE_MAPPING.md），提供全量 90+ 个 action 的详细说明

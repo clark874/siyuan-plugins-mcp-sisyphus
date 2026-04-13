@@ -65,6 +65,7 @@ describe('av tool', () => {
         vi.mocked(avApi.getAttributeViewKeys).mockReset();
         vi.mocked(avApi.getAttributeViewFilterSort).mockReset();
         vi.mocked(avApi.searchAttributeView).mockReset();
+        vi.mocked(avApi.getAttributeViewPrimaryKeyValues).mockReset();
         vi.mocked(avApi.addAttributeViewBlocks).mockReset();
         vi.mocked(avApi.batchSetAttributeViewBlockAttrs).mockReset();
         vi.mocked(avApi.setAttributeViewBlockAttr).mockReset();
@@ -98,6 +99,11 @@ describe('av tool', () => {
             rows: [],
         });
         vi.mocked(avApi.getAttributeViewKeys).mockResolvedValue([{ id: 'k1', name: 'Title' }]);
+        vi.mocked(avApi.getAttributeViewPrimaryKeyValues).mockResolvedValue({
+            name: 'AV',
+            blockIDs: [],
+            rows: { values: [] },
+        });
         vi.mocked(avApi.getAttributeViewFilterSort).mockResolvedValue({
             filters: [{ field: 'status' }],
             sorts: [{ field: 'updated' }],
@@ -544,6 +550,132 @@ describe('av tool', () => {
             keyword: '账本',
             results: [],
             unresolvedResults: [{ id: 'av-a' }],
+            rawResultCount: 1,
+            filteredOutCount: 1,
+            unresolvedCount: 1,
+            permissionFilteredOutCount: 0,
+            partial: true,
+            reason: 'context_unresolved',
+            emptyReason: 'no_verified_results_unresolved_candidates_available',
+            unresolvedHint: 'unresolvedResults contains kernel search candidates that matched, but MCP could not verify notebook context yet.',
+        });
+    });
+
+    it('resolves AV search results by blockID when kernel results include database blocks', async () => {
+        const avApi = await import('@/api/av');
+        const context = await import('@/mcp/tools/context');
+
+        vi.mocked(avApi.searchAttributeView).mockResolvedValue({
+            results: [{ avID: 'av-a', avName: '测试', blockID: 'db-block-1' }],
+        });
+        vi.mocked(context.resolveResultItemContext).mockResolvedValue({
+            notebook: 'allowed',
+            path: '/a.sy',
+            documentId: 'doc-a',
+        });
+
+        const result = await callAvTool(client, {
+            action: 'search',
+            keyword: '测试',
+        }, enabledActions('search'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            keyword: '测试',
+            results: [{ avID: 'av-a', avName: '测试', blockID: 'db-block-1' }],
+            unresolvedResults: [],
+            rawResultCount: 1,
+            filteredOutCount: 0,
+            unresolvedCount: 0,
+            permissionFilteredOutCount: 0,
+        });
+    });
+
+    it('falls back to primary key search when name search misses AV row content', async () => {
+        const avApi = await import('@/api/av');
+        const context = await import('@/mcp/tools/context');
+        client.request = vi.fn(async (endpoint: string) => {
+            if (endpoint === '/api/file/readDir') {
+                return [{ isDir: false, name: '20260407011715-lmkb6df.json' }];
+            }
+            throw new Error(`unexpected endpoint: ${endpoint}`);
+        });
+        vi.mocked(avApi.searchAttributeView).mockResolvedValue({ results: [] });
+        vi.mocked(avApi.getAttributeViewPrimaryKeyValues).mockResolvedValue({
+            name: '测试',
+            blockIDs: ['row-block-1'],
+            rows: { values: [{ id: 'row-1', blockID: 'item-1', block: { id: 'row-block-1', content: 'av row seed' } }] },
+        });
+        vi.mocked(context.resolveResultItemContext).mockResolvedValue({
+            notebook: 'allowed',
+            path: '/db.sy',
+            documentId: 'doc-db',
+        });
+
+        const result = await callAvTool(client, {
+            action: 'search',
+            keyword: 'av row seed',
+        }, enabledActions('search'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            keyword: 'av row seed',
+            results: [{
+                avID: '20260407011715-lmkb6df',
+                avName: '测试',
+                blockID: 'row-block-1',
+                blockIDs: ['row-block-1'],
+                rows: { values: [{ id: 'row-1', blockID: 'item-1', block: { id: 'row-block-1', content: 'av row seed' } }] },
+                matchedRowCount: 1,
+                matchSource: 'primary_key',
+            }],
+            unresolvedResults: [],
+            rawResultCount: 1,
+            filteredOutCount: 0,
+            unresolvedCount: 0,
+            permissionFilteredOutCount: 0,
+        });
+    });
+
+    it('skips primary key fallback AVs when returned rows contain no matched values', async () => {
+        const avApi = await import('@/api/av');
+        client.request = vi.fn(async (endpoint: string) => {
+            if (endpoint === '/api/file/readDir') {
+                return [
+                    { isDir: false, name: '20260407011715-lmkb6df.json' },
+                    { isDir: false, name: '20260407011715-otherav.json' },
+                ];
+            }
+            throw new Error(`unexpected endpoint: ${endpoint}`);
+        });
+        vi.mocked(avApi.searchAttributeView).mockResolvedValue({ results: [] });
+        vi.mocked(avApi.getAttributeViewPrimaryKeyValues)
+            .mockResolvedValueOnce({
+                name: '测试',
+                blockIDs: ['row-block-1'],
+                rows: { values: [{ id: 'row-1', blockID: 'item-1', block: { id: 'row-block-1', content: 'av row seed' } }] },
+            })
+            .mockResolvedValueOnce({
+                name: '其他库',
+                blockIDs: ['row-block-2'],
+                rows: { values: [] },
+            });
+
+        const result = await callAvTool(client, {
+            action: 'search',
+            keyword: 'av row seed',
+        }, enabledActions('search'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            keyword: 'av row seed',
+            results: [],
+            unresolvedResults: [{
+                avID: '20260407011715-lmkb6df',
+                avName: '测试',
+                blockID: 'row-block-1',
+                blockIDs: ['row-block-1'],
+                rows: { values: [{ id: 'row-1', blockID: 'item-1', block: { id: 'row-block-1', content: 'av row seed' } }] },
+                matchedRowCount: 1,
+                matchSource: 'primary_key',
+            }],
             rawResultCount: 1,
             filteredOutCount: 1,
             unresolvedCount: 1,
@@ -1378,6 +1510,33 @@ describe('av tool', () => {
         expect(JSON.parse(result.content[0].text)).toEqual({
             avID: 'av-1',
             keys: [{ id: 'k1', name: 'Title' }],
+        });
+    });
+
+    it('falls back to av.keyValues when get_attribute_view_keys returns empty', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.getAttributeViewKeys).mockResolvedValue([]);
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({
+            av: {
+                id: 'av-1',
+                keyValues: [
+                    { key: { id: 'k1', name: '主键', type: 'block' }, values: [{ id: 'value-1', blockID: 'row-1', block: { id: 'block-1' } }] },
+                    { key: { id: 'k2', name: '状态', type: 'select' }, values: [] },
+                ],
+            },
+        });
+
+        const result = await callAvTool(client, {
+            action: 'get_attribute_view_keys',
+            id: 'av-1',
+        }, enabledActions('get_attribute_view_keys'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            avID: 'av-1',
+            keys: [
+                { id: 'k1', name: '主键', type: 'block' },
+                { id: 'k2', name: '状态', type: 'select' },
+            ],
         });
     });
 

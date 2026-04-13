@@ -79,7 +79,7 @@ export const FLASHCARD_GUIDANCE: string[] = [
     'list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old".',
     'get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.',
     'To mark a block as a flashcard, keep using block(action="set_attrs", attrs={"custom-riff-decks":"<deck-id>"}).',
-    'add_card and remove_card operate on existing block IDs; they do not create standalone card content.',
+    'add_card and remove_card operate on existing content block IDs such as paragraphs or headings; document blocks are rejected.',
     'flashcard(action="remove_card") requires explicit user confirmation before execution.',
 ];
 
@@ -165,10 +165,12 @@ export const SEARCH_GUIDANCE: string[] = [
     'The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.',
     'In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.',
     'Use search(action="fulltext") for natural language searches; use search(action="query_sql") for structured queries.',
+    'search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. sortBy ("relevance", "date") is a shorthand for numeric orderBy.',
+    'search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.',
 ];
 
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
-    fulltext: 'Pass a query string. Supports keyword, query syntax, SQL, and regex modes via the method parameter. Set stripHtml=true to add plain-text fields alongside highlighted HTML content.',
+    fulltext: 'Pass a query string. Supports keyword, query syntax, SQL, and regex modes via the method parameter. Set stripHtml=true to add plain-text fields. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.',
     query_sql: 'Execute a SELECT statement. Common tables: blocks, spans, assets. Always use LIMIT to control result size. MCP returns rows plus metadata such as rowCount and possible permission-filtering info.',
     search_tag: 'Returns all tags matching the given keyword prefix.',
     get_backlinks: 'Returns documents/blocks that contain a reference ((ref)) to the given block ID. Partial permission-filtered results include machine-readable metadata.',

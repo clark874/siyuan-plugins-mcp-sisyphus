@@ -27,6 +27,78 @@ export function stripHtmlTags(value: string): string {
     return value.replace(HTML_TAG_PATTERN, '');
 }
 
+/* ------------------------------------------------------------------ */
+/*  Type shortcode expansion                                          */
+/* ------------------------------------------------------------------ */
+
+const TYPE_SHORTCODE_MAP: Record<string, string> = {
+    d: 'document',
+    h: 'heading',
+    p: 'paragraph',
+    l: 'list',
+    i: 'listItem',
+    b: 'blockquote',
+    c: 'codeBlock',
+    m: 'mathBlock',
+    t: 'table',
+    s: 'superBlock',
+    html: 'htmlBlock',
+    embed: 'embedBlock',
+    av: 'databaseBlock',
+    video: 'video',
+    audio: 'audio',
+    widget: 'widget',
+};
+
+export function expandTypeShortcodes(shortcodes: string[]): Record<string, boolean> {
+    const types: Record<string, boolean> = {};
+    for (const code of shortcodes) {
+        const fullName = TYPE_SHORTCODE_MAP[code];
+        if (fullName) {
+            types[fullName] = true;
+        }
+    }
+    return types;
+}
+
+/**
+ * Auto-expand shortcodes found as keys in a types Record.
+ * e.g. {"h": true, "paragraph": true} → {"heading": true, "paragraph": true}
+ */
+export function resolveTypeRecord(types: Record<string, boolean>): Record<string, boolean> {
+    const resolved: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(types)) {
+        const fullName = TYPE_SHORTCODE_MAP[key];
+        if (fullName) {
+            resolved[fullName] = value;
+        } else {
+            resolved[key] = value;
+        }
+    }
+    return resolved;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sort alias resolution                                             */
+/* ------------------------------------------------------------------ */
+
+const SORT_ALIAS_MAP: Record<string, number> = {
+    relevance: 7,
+    date: 4,
+    updated_desc: 4,
+    updated_asc: 3,
+    created_desc: 2,
+    created_asc: 1,
+    type: 0,
+};
+
+export function resolveSortAlias(sortBy: string | undefined, orderBy: number | undefined): number | undefined {
+    if (sortBy && sortBy in SORT_ALIAS_MAP) {
+        return SORT_ALIAS_MAP[sortBy];
+    }
+    return orderBy;
+}
+
 export function normalizeFullTextSearchResult<T extends { blocks?: unknown[] }>(
     value: T,
     stripHtml: boolean,
@@ -131,6 +203,7 @@ export function truncateContentAroundMarks(text: string, windowSize: number = DE
 }
 
 const MARKDOWN_MAX = 400;
+const EXCERPT_LENGTH = 200;
 
 export function slimSearchBlocks(blocks: unknown[]): unknown[] {
     return blocks.map((block) => {
@@ -142,6 +215,12 @@ export function slimSearchBlocks(blocks: unknown[]): unknown[] {
         if (slim.type === 'NodeDocument') return slim;
 
         if (typeof slim.content === 'string') {
+            const plainText = stripHtmlTags(slim.content as string).trim();
+            if (plainText.length > 0) {
+                slim.excerpt = plainText.length > EXCERPT_LENGTH
+                    ? plainText.slice(0, EXCERPT_LENGTH) + '...'
+                    : plainText;
+            }
             slim.content = truncateContentAroundMarks(slim.content);
         }
         if (typeof slim.markdown === 'string' && (slim.markdown as string).length > MARKDOWN_MAX) {

@@ -2,7 +2,7 @@ import type { SiYuanClient } from '../../api/client';
 import * as searchApi from '../../api/search';
 import type { CategoryToolConfig, SearchAction } from '../config';
 import { SEARCH_ACTION_HINTS, SEARCH_GUIDANCE } from '../help';
-import { normalizeFullTextSearchResult, slimSearchBlocks } from '../normalize';
+import { expandTypeShortcodes, normalizeFullTextSearchResult, resolveTypeRecord, resolveSortAlias, slimSearchBlocks } from '../normalize';
 import type { PermissionManager } from '../permissions';
 import {
     SearchActionSchema,
@@ -29,12 +29,16 @@ export const SEARCH_VARIANTS: ActionVariant<SearchAction>[] = [
         schema: createActionSchema('fulltext', {
             query: { type: 'string', description: 'Search query string' },
             method: { type: 'number', description: 'Search method: 0=keyword (default), 1=query syntax, 2=SQL, 3=regex' },
-            types: { type: 'object', additionalProperties: { type: 'boolean' }, description: 'Block type filter, e.g. {"heading": true, "paragraph": true}' },
+            types: { type: 'object', additionalProperties: { type: 'boolean' }, description: 'Block type filter. Accepts full names (e.g. {"heading": true}) or shortcodes (e.g. {"h": true, "p": true}). Shortcodes: d=document, h=heading, p=paragraph, l=list, i=listItem, b=blockquote, c=codeBlock, m=mathBlock, t=table, s=superBlock, html=htmlBlock, embed=embedBlock, av=databaseBlock, video, audio, widget.' },
+            typeShortcodes: { type: 'array', items: { type: 'string' }, description: 'Alternative shorthand type filter as array: ["h","p"]. Merged with types if both provided.' },
             paths: { type: 'array', items: { type: 'string' }, description: 'Restrict search to specific notebook paths' },
             groupBy: { type: 'number', description: '0=no grouping (default), 1=group by document' },
             orderBy: { type: 'number', description: 'Sort order: 0=type, 1=created ASC, 2=created DESC, 3=updated ASC, 4=updated DESC, 5=content ASC, 6=content DESC, 7=relevance (default)' },
+            sortBy: { type: 'string', description: 'Named sort: "relevance", "date", "updated_desc", "updated_asc", "created_desc", "created_asc", "type". Overrides orderBy.' },
             page: { type: 'number', description: 'Page number (1-based), default 1' },
             pageSize: { type: 'number', description: 'Results per page, default 32, max 128' },
+            parentId: { type: 'string', description: 'Post-filter: only return blocks within this document subtree (matches root_id or parent_id)' },
+            hasTags: { type: 'boolean', description: 'When true, only blocks with tags; when false, only blocks without tags' },
             stripHtml: { type: 'boolean', description: 'When true, add plain-text fields while keeping highlighted HTML content unchanged' },
         }, ['query'], 'Full-text search across all blocks.'),
     },
@@ -447,15 +451,37 @@ export async function callSearchTool(
         switch (parsedAction) {
             case 'fulltext': {
                 const parsed = SearchFulltextSchema.parse(rawArgs);
+
+                // Resolve type shortcodes in both types and typeShortcodes
+                let resolvedTypes = parsed.types ? resolveTypeRecord(parsed.types) : parsed.types;
+                if (parsed.typeShortcodes && parsed.typeShortcodes.length > 0) {
+                    const expanded = expandTypeShortcodes(parsed.typeShortcodes);
+                    resolvedTypes = { ...expanded, ...resolvedTypes };
+                }
+
+                // Resolve sortBy → orderBy
+                const resolvedOrderBy = resolveSortAlias(parsed.sortBy, parsed.orderBy);
+
+                // Permission check for parentId
+                if (parsed.parentId) {
+                    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.parentId, 'read');
+                    if (denied) return denied;
+                }
+
+                // When parentId is set, request more results to compensate post-filter loss
+                const requestPageSize = parsed.parentId
+                    ? Math.min((parsed.pageSize ?? 32) * 3, 128)
+                    : parsed.pageSize;
+
                 const result = await searchApi.fullTextSearchBlock(client, {
                     query: parsed.query,
                     method: parsed.method,
-                    types: parsed.types,
+                    types: resolvedTypes,
                     paths: parsed.paths,
                     groupBy: parsed.groupBy,
-                    orderBy: parsed.orderBy,
+                    orderBy: resolvedOrderBy,
                     page: parsed.page,
-                    pageSize: parsed.pageSize,
+                    pageSize: requestPageSize,
                 });
                 const filtered = filterFullTextSearchResultByPermission(result, permMgr);
                 const normalized = normalizeFullTextSearchResult(filtered, parsed.stripHtml ?? false);
@@ -463,6 +489,27 @@ export async function callSearchTool(
                 if (Array.isArray(normalizedObj.blocks)) {
                     normalizedObj.blocks = slimSearchBlocks(normalizedObj.blocks as unknown[]);
                 }
+
+                // Post-filter: parentId
+                if (parsed.parentId && Array.isArray(normalizedObj.blocks)) {
+                    const pid = parsed.parentId;
+                    normalizedObj.blocks = (normalizedObj.blocks as Array<Record<string, unknown>>).filter((block) =>
+                        block.rootID === pid || block.root_id === pid || block.parent_id === pid || block.parentID === pid,
+                    );
+                    normalizedObj.matchedBlockCount = (normalizedObj.blocks as unknown[]).length;
+                    normalizedObj.parentIdFilter = pid;
+                }
+
+                // Post-filter: hasTags
+                if (parsed.hasTags !== undefined && Array.isArray(normalizedObj.blocks)) {
+                    normalizedObj.blocks = (normalizedObj.blocks as Array<Record<string, unknown>>).filter((block) => {
+                        const tagField = typeof block.tag === 'string' ? (block.tag as string).trim() : '';
+                        const hasTag = tagField.length > 0;
+                        return parsed.hasTags ? hasTag : !hasTag;
+                    });
+                    normalizedObj.matchedBlockCount = (normalizedObj.blocks as unknown[]).length;
+                }
+
                 const blocks = Array.isArray(normalizedObj.blocks)
                     ? normalizedObj.blocks as unknown[]
                     : [];

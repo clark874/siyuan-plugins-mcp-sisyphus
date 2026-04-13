@@ -21,7 +21,8 @@ export interface FlashcardListResult {
 }
 
 export interface FlashcardGetCardsResult {
-    cards: Flashcard[];
+    blocks?: Flashcard[];
+    cards?: Flashcard[];
     total?: number;
     pageCount?: number;
     [key: string]: unknown;
@@ -39,7 +40,7 @@ export async function getRiffDecks(client: SiYuanClient): Promise<unknown> {
 }
 
 export async function getRiffDueCards(client: SiYuanClient, deckID?: string): Promise<FlashcardListResult> {
-    return client.request<FlashcardListResult>('/api/riff/getRiffDueCards', deckID ? { deckID } : {});
+    return client.request<FlashcardListResult>('/api/riff/getRiffDueCards', { deckID: deckID ?? '' });
 }
 
 export async function getNotebookRiffDueCards(client: SiYuanClient, notebook: string): Promise<FlashcardListResult> {
@@ -96,8 +97,15 @@ export async function getRiffCards(
     pageSize?: number,
 ): Promise<FlashcardGetCardsResult> {
     return client.request<FlashcardGetCardsResult>('/api/riff/getRiffCards', {
-        deckID,
+        id: deckID,
         page,
         ...(pageSize !== undefined ? { pageSize } : {}),
     });
+}
+
+export async function getRiffCardsByBlockIDs(
+    client: SiYuanClient,
+    blockIDs: string[],
+): Promise<{ blocks?: Flashcard[] }> {
+    return client.request<{ blocks?: Flashcard[] }>('/api/riff/getRiffCardsByBlockIDs', { blockIDs });
 }
