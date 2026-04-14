@@ -2,6 +2,7 @@ import { ZodError, type ZodIssue } from 'zod';
 
 import { getActionTier, getEnabledActions, isDangerousAction, type ActionTier, type CategoryToolConfig, type ToolCategory } from '../config';
 import { getActionHint, TOOL_ACTION_HINTS, TOOL_GUIDANCE_BY_CATEGORY } from '../help';
+import { buildActionExampleObjects, buildActionShapes } from './help-render';
 
 export interface ToolResult {
     content: Array<{ type: 'text'; text: string }>;
@@ -297,6 +298,15 @@ export function buildAggregatedTool<Action extends string>(
     const fullDescription = buildTieredDescription(category, description, enabledActions, enabledVariants, options);
     const confirmationActions = enabledActions.filter((action) => isDangerousAction(category, action));
 
+    const mergedProperties = mergePropertySchemas(enabledVariants, options.propertyDescriptionOverrides);
+    // `topic` is a help-only selector; merge it in without clobbering any action-specific property.
+    if (!('topic' in mergedProperties)) {
+        mergedProperties.topic = {
+            type: 'string',
+            description: 'Optional. Only used when action="help". Pass an action name (e.g. "create") to get per-action help; omit or use "overview" for the action index.',
+        };
+    }
+
     return [{
         name: category,
         description: fullDescription,
@@ -307,9 +317,9 @@ export function buildAggregatedTool<Action extends string>(
                 action: {
                     type: 'string',
                     enum: [...enabledActions, 'help'],
-                    description: `Action to perform. Supported values: ${enabledActions.join(', ')}. Use action="help" for usage guidance.${confirmationActions.length > 0 ? ` User confirmation is required before calling: ${confirmationActions.join(', ')}.` : ''}`,
+                    description: `Action to perform. Supported values: ${enabledActions.join(', ')}. Use action="help" for the action index, or action="help" with topic="<actionName>" for per-action details.${confirmationActions.length > 0 ? ` User confirmation is required before calling: ${confirmationActions.join(', ')}.` : ''}`,
                 },
-                ...mergePropertySchemas(enabledVariants, options.propertyDescriptionOverrides),
+                ...mergedProperties,
             },
             required: ['action'],
         },
@@ -328,47 +338,93 @@ export function tryHandleHelpAction<Action extends string>(
     const enabledSet = new Set(enabledActions);
     const enabledVariants = variants.filter((v) => enabledSet.has(v.action));
 
+    const rawTopic = typeof rawArgs.topic === 'string' ? rawArgs.topic.trim() : '';
+    const topic = rawTopic && rawTopic !== 'overview' ? rawTopic : null;
+
+    if (topic) {
+        if (!enabledSet.has(topic as Action)) {
+            return toErrorText({
+                error: {
+                    type: 'unknown_help_topic',
+                    message: `Unknown help topic "${topic}" for tool "${category}".`,
+                    tool: category,
+                    topic,
+                    validTopics: [...enabledActions],
+                    hint: `Call ${category}(action="help") without topic to see the action index.`,
+                },
+            });
+        }
+        return createJsonResult(buildActionHelp(category, topic as Action, enabledVariants));
+    }
+
+    return createJsonResult(buildHelpIndex(category, enabledActions, enabledVariants));
+}
+
+function buildHelpIndex<Action extends string>(
+    category: ToolCategory,
+    enabledActions: Action[],
+    enabledVariants: ActionVariant<Action>[],
+): Record<string, unknown> {
     const tierGroups: Record<ActionTier, string[]> = { basic: [], advanced: [] };
     for (const action of enabledActions) {
         tierGroups[getActionTier(category, action)].push(action);
     }
 
-    const actionDetails: Record<string, { requiredFields: string; hint?: string; example?: Record<string, unknown> }> = {};
+    const actionSummaries: Record<string, string> = {};
     const seen = new Set<string>();
     for (const variant of enabledVariants) {
         if (seen.has(variant.action)) continue;
         seen.add(variant.action);
+        const hint = TOOL_ACTION_HINTS[category]?.[variant.action];
         const fields = getSchemaRequired(variant.schema).filter((f) => f !== 'action');
-        const example: Record<string, unknown> = { action: variant.action };
-        const properties = getSchemaProperties(variant.schema);
-        for (const field of fields) {
-            const prop = properties[field];
-            example[field] = prop && typeof prop === 'object' && 'type' in (prop as JsonSchema)
-                ? `<${field}>`
-                : `<${field}>`;
-        }
-        actionDetails[variant.action] = {
-            requiredFields: fields.length > 0 ? fields.join(', ') : 'none',
-            hint: TOOL_ACTION_HINTS[category]?.[variant.action],
-            ...(fields.length > 0 ? { example } : {}),
-        };
+        const shape = fields.length > 0 ? `requires: ${fields.join(', ')}` : 'no extra fields';
+        actionSummaries[variant.action] = hint ?? shape;
     }
 
-    const guidance = TOOL_GUIDANCE_BY_CATEGORY[category] ?? [];
+    const confirmationActions = enabledActions.filter((action) => isDangerousAction(category, action));
 
-    return createJsonResult({
+    return {
         tool: category,
         commonActions: tierGroups.basic,
         advancedActions: tierGroups.advanced,
-        actions: actionDetails,
-        guidance,
+        actionSummaries,
+        ...(confirmationActions.length > 0 ? { requiresConfirmation: confirmationActions } : {}),
+        detailsHint: `Call ${category}(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.`,
         helpResources: [
             `siyuan://help/action/${category}/{action}`,
             'siyuan://help/tool-overview',
             'siyuan://help/examples',
             'siyuan://help/ai-layout-guide',
         ],
-    });
+    };
+}
+
+function buildActionHelp<Action extends string>(
+    category: ToolCategory,
+    action: Action,
+    enabledVariants: ActionVariant<Action>[],
+): Record<string, unknown> {
+    const matching = enabledVariants.filter((v) => v.action === action);
+    const shapes = buildActionShapes(matching, action);
+    const examples = buildActionExampleObjects(matching, action);
+    const requiredFieldSets = matching.map((variant) =>
+        getSchemaRequired(variant.schema).filter((f) => f !== 'action'),
+    );
+    const hint = TOOL_ACTION_HINTS[category]?.[action];
+    const guidance = TOOL_GUIDANCE_BY_CATEGORY[category] ?? [];
+    const confirmation = isDangerousAction(category, action);
+
+    return {
+        tool: category,
+        action,
+        ...(hint ? { hint } : {}),
+        shapes,
+        requiredFields: requiredFieldSets.length === 1 ? requiredFieldSets[0] : requiredFieldSets,
+        example: examples.length === 1 ? examples[0] : examples,
+        guidance,
+        requiresConfirmation: confirmation,
+        fullDocResource: `siyuan://help/action/${category}/${action}`,
+    };
 }
 
 export interface TruncationMeta {

@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **最新版本：**`v0.2.8` — 增强 search 工具的类型短码、排序别名与搜索结果瘦身，降低 AI token 占用；修复 flashcard 添加/移除及 get_cards 稳定性问题。详见 [CHANGELOG.md](./CHANGELOG.md)。
+> **最新版本：**`v0.2.9` — 合并成对 action 为单一动作（笔记本开/合、文档头图设/清、块折叠/展开、文件资源过滤），通过布尔或枚举参数统一控制，减少工具数量并提升调用一致性。详见 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
@@ -21,7 +21,7 @@
 
 - 支持 HTTP 及 stdio 两种连接方式，支持桌面及docker客户端
 - 把思源常用能力收敛成 10 个聚合 tool，降低 Agent 选错工具的概率
-- 覆盖笔记本、文档、块、数据库、资源、搜索、标签、闪卡、系统共 86 个 action
+- 覆盖笔记本、文档、块、数据库、资源、搜索、标签、闪卡、系统共 114 个 action
 - 提供 `none / r / rw / rwd` 四态权限模型，方便按笔记本控制访问范围
 - 渐进式披露思想，减少token占用
 

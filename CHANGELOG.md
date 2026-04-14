@@ -2,6 +2,12 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.2.9 - 2026-04-14
+
+- 合并成对 action 为单一动作：notebook 的 `open`/`close` 合并为 `set_open_state`、document 的 `set_cover`/`clear_cover` 合并为 `set_cover`、block 的 `fold`/`unfold` 合并为 `set_fold_state`、file 的 `get_doc_assets`/`get_doc_image_assets` 合并为 `get_doc_assets`，通过布尔或枚举参数控制行为，减少工具数量并提升调用一致性
+- 优化 AV 搜索返回结构，补充 searchScope 与空结果 warning 提示，改善 AI 对搜索范围的感知
+- 同步更新 API 映射文档、双语文档与单元测试覆盖
+
 ## v0.2.8 - 2026-04-14
 
 - 增强 search 聚合工具：支持类型短码自动展开、sortBy 别名、parentId 与 hasTags 过滤，并优化搜索结果瘦身（字段裁剪、内容截断、excerpt 提取），显著降低 AI 消费时的 token 占用

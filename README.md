@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **Latest:** `v0.2.8` — Enhanced search tool with type shortcodes, sort aliases, and result slimming for lower token usage; fixed flashcard add/remove and get_cards stability issues. See full history in [CHANGELOG.md](./CHANGELOG.md).
+> **Latest:** `v0.2.9` — Merged paired actions into single actions with boolean/enum parameters (notebook open/close, document set/clear cover, block fold/unfold, file asset filtering), reducing action count and improving consistency. See full history in [CHANGELOG.md](./CHANGELOG.md).
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
