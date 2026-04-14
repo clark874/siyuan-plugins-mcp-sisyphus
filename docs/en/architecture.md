@@ -90,11 +90,11 @@ Ten aggregated tool implementations, each handling a specific domain:
 | Tool | File | Description |
 |------|------|-------------|
 | notebook | `notebook.ts` | Notebook CRUD and configuration |
-| document | `document.ts` | Document operations, tree navigation |
-| block | `block.ts` | Block-level operations (insert, update, delete) |
+| document | `document.ts` | Document operations, tree navigation (18 actions) |
+| block | `block.ts` | Block-level operations (22 actions) |
 | av | `av.ts` | Attribute view (database) operations |
-| file | `file.ts` | Asset upload, template rendering, export |
-| search | `search.ts` | Full-text search, SQL queries, backlinks |
+| file | `file.ts` | Asset upload, template rendering, export (12 actions) |
+| search | `search.ts` | Full-text search, SQL queries, backlinks (11 actions) |
 | tag | `tag.ts` | Tag management |
 | system | `system.ts` | System info, notifications |
 | flashcard | `flashcard.ts` | Spaced repetition flashcard operations |

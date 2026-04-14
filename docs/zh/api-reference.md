@@ -23,16 +23,16 @@ SiYuan MCP Sisyphus 完整 API 参考文档。本文档描述所有可用的 MCP
 
 ## 概述
 
-SiYuan MCP Sisyphus 提供 **10 个聚合工具**，包含 **79 个 action**，覆盖思源笔记的绝大部分功能：
+SiYuan MCP Sisyphus 提供 **10 个聚合工具**，包含 **109 个 action**，覆盖思源笔记的绝大部分功能：
 
 | 工具 | Action 数量 | 描述 |
 |------|-------------|------|
-| `notebook` | 12 | 笔记本管理 |
-| `document` | 16 | 文档操作 |
-| `block` | 19 | 块编辑和属性 |
-| `av` | 10 | 属性视图（数据库）操作 |
-| `file` | 5 | 文件上传、导出、模板 |
-| `search` | 5 | 搜索和查询操作 |
+| `notebook` | 11 | 笔记本管理 |
+| `document` | 18 | 文档操作 |
+| `block` | 22 | 块编辑和属性 |
+| `av` | 12 | 属性视图（数据库）操作 |
+| `file` | 12 | 文件上传、导出、模板 |
+| `search` | 11 | 搜索和查询操作 |
 | `tag` | 3 | 标签管理 |
 | `system` | 10 | 系统和通知操作 |
 | `flashcard` | 7 | 闪卡复习和卡组 |
@@ -63,9 +63,13 @@ SiYuan MCP Sisyphus 提供 **10 个聚合工具**，包含 **79 个 action**，�
 | `notebook` | `set_permission` | 更改访问权限 |
 | `document` | `remove` | 删除文档 |
 | `document` | `move` | 移动文档位置 |
+| `document` | `remove_batch` | 批量删除文档 |
 | `block` | `delete` | 删除块 |
 | `block` | `move` | 移动块 |
 | `file` | `upload_asset` | 上传本地文件（大于 10MB 的文件也需要确认） |
+| `file` | `remove_unused_assets` | 删除所有未使用资源 |
+| `file` | `delete_asset` | 删除指定资源 |
+| `search` | `find_replace` | 跨工作区查找替换 |
 | `tag` | `remove` | 删除标签 |
 | `flashcard` | `remove_card` | 从卡组移除卡片 |
 
@@ -150,9 +154,9 @@ MCP 服务器返回的常见错误类型：
 }
 ```
 
-#### open
+#### set_open_state
 
-**描述**：打开已关闭的笔记本。
+**描述**：设置笔记本的打开/关闭状态。
 
 **权限要求**：读权限
 
@@ -161,32 +165,23 @@ MCP 服务器返回的常见错误类型：
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
 | `notebook` | string | 是 | 笔记本 ID |
+| `opened` | boolean | 是 | `true` 打开，`false` 关闭 |
 
-**示例**：
+**示例**（打开笔记本）：
 ```json
 {
-  "action": "open",
-  "notebook": "20240318112233-abc123"
+  "action": "set_open_state",
+  "notebook": "20240318112233-abc123",
+  "opened": true
 }
 ```
 
-#### close
-
-**描述**：关闭打开的笔记本。
-
-**权限要求**：读权限
-
-**参数**：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| `notebook` | string | 是 | 笔记本 ID |
-
-**示例**：
+**示例**（关闭笔记本）：
 ```json
 {
-  "action": "close",
-  "notebook": "20240318112233-abc123"
+  "action": "set_open_state",
+  "notebook": "20240318112233-abc123",
+  "opened": false
 }
 ```
 
@@ -628,7 +623,7 @@ MCP 服务器返回的常见错误类型：
 
 #### set_cover
 
-**描述**：设置文档封面图片。
+**描述**：设置或清除文档封面图片。省略 `source` 即清除封面。
 
 **权限要求**：写权限
 
@@ -637,9 +632,9 @@ MCP 服务器返回的常见错误类型：
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
 | `id` | string | 是 | 文档 ID |
-| `source` | string | 是 | URL 或 `/assets/...` 路径 |
+| `source` | string | 否 | URL 或 `/assets/...` 路径；省略即清除封面 |
 
-**示例**：
+**示例**（设置封面）：
 ```json
 {
   "action": "set_cover",
@@ -648,22 +643,10 @@ MCP 服务器返回的常见错误类型：
 }
 ```
 
-#### clear_cover
-
-**描述**：清除文档封面图片。
-
-**权限要求**：写权限
-
-**参数**：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| `id` | string | 是 | 文档 ID |
-
-**示例**：
+**示例**（清除封面）：
 ```json
 {
-  "action": "clear_cover",
+  "action": "set_cover",
   "id": "20240318112233-abc123"
 }
 ```
@@ -760,6 +743,120 @@ MCP 服务器返回的常见错误类型：
 {
   "action": "create_daily_note",
   "notebook": "20240318112233-abc123"
+}
+```
+
+#### duplicate
+
+**描述**：复制已有文档。
+
+**权限要求**：写权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `notebook` | string | 是 | 笔记本 ID |
+| `path` | string | 是 | 要复制文档的存储路径 |
+
+**示例**：
+```json
+{
+  "action": "duplicate",
+  "notebook": "20240318112233-abc123",
+  "path": "/20240318112233-abc123.sy"
+}
+```
+
+#### remove_batch
+
+**描述**：按存储路径批量删除多个文档。
+
+**权限要求**：删除权限（rwd）
+
+**需要确认**：是
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `notebook` | string | 是 | 笔记本 ID |
+| `paths` | string[] | 是 | 要删除的存储路径数组 |
+
+**示例**：
+```json
+{
+  "action": "remove_batch",
+  "notebook": "20240318112233-abc123",
+  "paths": ["/20240318112233-abc123.sy", "/20240318112233-def456.sy"]
+}
+```
+
+#### create_empty
+
+**描述**：创建空文档。也可传入 `markdown` 作为初始内容。
+
+**权限要求**：写权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `notebook` | string | 是 | 笔记本 ID |
+| `path` | string | 是 | 人类可读路径 |
+| `markdown` | string | 否 | 可选的初始 Markdown 内容 |
+
+**示例**：
+```json
+{
+  "action": "create_empty",
+  "notebook": "20240318112233-abc123",
+  "path": "/收件箱/新笔记"
+}
+```
+
+#### heading_to_doc
+
+**描述**：将标题块转换为独立文档。
+
+**权限要求**：写权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `id` | string | 是 | 标题块 ID |
+| `notebook` | string | 是 | 目标笔记本 ID |
+| `path` | string | 否 | 目标人类可读路径 |
+
+**示例**：
+```json
+{
+  "action": "heading_to_doc",
+  "id": "20240318112233-abc123",
+  "notebook": "20240318112233-def456"
+}
+```
+
+#### doc_to_heading
+
+**描述**：将文档转换为目标文档下的标题。
+
+**权限要求**：写权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `srcID` | string | 是 | 源文档 ID |
+| `targetID` | string | 是 | 目标文档 ID |
+
+**示例**：
+```json
+{
+  "action": "doc_to_heading",
+  "srcID": "20240318112233-abc123",
+  "targetID": "20240318112233-def456"
 }
 ```
 
@@ -916,9 +1013,9 @@ MCP 服务器返回的常见错误类型：
 }
 ```
 
-#### fold
+#### set_fold_state
 
-**描述**：折叠可折叠块。
+**描述**：设置可折叠块的折叠状态。
 
 **权限要求**：写权限
 
@@ -927,32 +1024,23 @@ MCP 服务器返回的常见错误类型：
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
 | `id` | string | 是 | 可折叠块 ID |
+| `folded` | boolean | 是 | `true` 折叠，`false` 展开 |
 
-**示例**：
+**示例**（折叠）：
 ```json
 {
-  "action": "fold",
-  "id": "20240318112233-abc123"
+  "action": "set_fold_state",
+  "id": "20240318112233-abc123",
+  "folded": true
 }
 ```
 
-#### unfold
-
-**描述**：展开可折叠块。
-
-**权限要求**：写权限
-
-**参数**：
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| `id` | string | 是 | 可折叠块 ID |
-
-**示例**：
+**示例**（展开）：
 ```json
 {
-  "action": "unfold",
-  "id": "20240318112233-abc123"
+  "action": "set_fold_state",
+  "id": "20240318112233-abc123",
+  "folded": false
 }
 ```
 
@@ -1185,6 +1273,142 @@ MCP 服务器返回的常见错误类型：
 ```json
 {
   "action": "word_count",
+  "ids": ["20240318112233-abc123", "20240318112233-def456"]
+}
+```
+
+#### batch_insert
+
+**描述**：在指定位置批量插入多个块。
+
+**权限要求**：写权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `parentID` | string | 是 | 父块或文档 ID |
+| `blocks` | array | 是 | 块对象数组，包含 `dataType` 和 `data` |
+
+**示例**：
+```json
+{
+  "action": "batch_insert",
+  "parentID": "20240318112233-abc123",
+  "blocks": [
+    { "dataType": "markdown", "data": "# 标题 1" },
+    { "dataType": "markdown", "data": "# 标题 2" }
+  ]
+}
+```
+
+#### batch_update
+
+**描述**：一次性批量更新多个块。
+
+**权限要求**：写权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `blocks` | array | 是 | 块对象数组，包含 `id`、`dataType` 和 `data` |
+
+**示例**：
+```json
+{
+  "action": "batch_update",
+  "blocks": [
+    { "id": "20240318112233-abc123", "dataType": "markdown", "data": "更新 1" },
+    { "id": "20240318112233-def456", "dataType": "markdown", "data": "更新 2" }
+  ]
+}
+```
+
+#### append_daily_note
+
+**描述**：在今日日记末尾追加块。
+
+**权限要求**：写权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `dataType` | string | 是 | `markdown` 或 `dom` |
+| `data` | string | 是 | 块内容 |
+| `notebook` | string | 否 | 笔记本 ID |
+
+**示例**：
+```json
+{
+  "action": "append_daily_note",
+  "dataType": "markdown",
+  "data": "- [ ] 晨间任务"
+}
+```
+
+#### prepend_daily_note
+
+**描述**：在今日日记开头前置插入块。
+
+**权限要求**：写权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `dataType` | string | 是 | `markdown` 或 `dom` |
+| `data` | string | 是 | 块内容 |
+| `notebook` | string | 否 | 笔记本 ID |
+
+**示例**：
+```json
+{
+  "action": "prepend_daily_note",
+  "dataType": "markdown",
+  "data": "# 每日站会"
+}
+```
+
+#### doc_info
+
+**描述**：获取包含指定块的文档信息。
+
+**权限要求**：读权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `id` | string | 是 | 块或文档 ID |
+
+**示例**：
+```json
+{
+  "action": "doc_info",
+  "id": "20240318112233-abc123"
+}
+```
+
+#### docs_info
+
+**描述**：批量获取多个文档的信息。
+
+**权限要求**：读权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `ids` | string[] | 是 | 文档 ID 数组 |
+| `refCount` | boolean | 否 | 包含引用计数 |
+| `av` | boolean | 否 | 包含属性视图元数据 |
+
+**示例**：
+```json
+{
+  "action": "docs_info",
   "ids": ["20240318112233-abc123", "20240318112233-def456"]
 }
 ```
@@ -1632,23 +1856,14 @@ MCP 服务器返回的常见错误类型：
 
 #### get_doc_assets
 
-**描述**：列出文档引用的全部资源。
+**描述**：列出文档引用的资源。使用 `assetType` 按类型过滤。
 
 **权限要求**：读权限
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
 | `id` | string | 是 | 文档 ID |
-
-#### get_doc_image_assets
-
-**描述**：列出文档引用的图片资源。
-
-**权限要求**：读权限
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| `id` | string | 是 | 文档 ID |
+| `assetType` | string | 否 | `"all"`（默认）或 `"image"` 仅列出图片资源 |
 
 #### get_image_ocr_text
 
@@ -1778,6 +1993,131 @@ MCP 服务器返回的常见错误类型：
 {
   "action": "get_backmentions",
   "id": "20240318112233-abc123"
+}
+```
+
+#### search_refs
+
+**描述**：搜索引用指定块或文档的块。
+
+**权限要求**：读权限
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `id` | string | 是 | 被引用的块或文档 ID |
+| `keyword` | string | 否 | 关键词过滤 |
+| `typeShortcodes` | string[] | 否 | 块类型过滤 |
+
+**示例**：
+```json
+{
+  "action": "search_refs",
+  "id": "20240318112233-abc123"
+}
+```
+
+#### find_replace
+
+**描述**：跨工作区查找替换文本。
+
+**权限要求**：写权限
+
+**需要确认**：是
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `k` | string | 是 | 查找关键词 |
+| `r` | string | 是 | 替换文本 |
+| `paths` | string[] | 否 | 限制在笔记本路径 |
+| `replaceTypes` | object | 否 | 目标类型（text, code, docTitle, blockRef） |
+
+**示例**：
+```json
+{
+  "action": "find_replace",
+  "k": "旧文本",
+  "r": "新文本"
+}
+```
+
+#### search_assets
+
+**描述**：按文件名搜索资源文件。
+
+**权限要求**：无
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `k` | string | 是 | 资源文件名关键词 |
+
+**示例**：
+```json
+{
+  "action": "search_assets",
+  "k": "image.png"
+}
+```
+
+#### get_asset_content
+
+**描述**：获取单个资源的内容索引结果。
+
+**权限要求**：无
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `id` | string | 是 | 资源内容 ID |
+
+**示例**：
+```json
+{
+  "action": "get_asset_content",
+  "id": "20240318112233-abc123"
+}
+```
+
+#### fulltext_asset_content
+
+**描述**：在资源内容索引中进行全文搜索。
+
+**权限要求**：无
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `query` | string | 是 | 搜索查询 |
+| `page` | number | 否 | 页码 |
+| `pageSize` | number | 否 | 每页结果数 |
+
+**示例**：
+```json
+{
+  "action": "fulltext_asset_content",
+  "query": "季度报告"
+}
+```
+
+#### list_invalid_refs
+
+**描述**：列出工作区中的无效块引用。
+
+**权限要求**：读权限
+
+**参数**：无
+
+**示例**：
+```json
+{
+  "action": "list_invalid_refs"
 }
 ```
 
@@ -2284,16 +2624,16 @@ MCP 服务器返回的常见错误类型：
 
 ## Action 汇总
 
-总计：**10 个工具** 包含 **79 个 action**
+总计：**10 个工具** 包含 **109 个 action**
 
 | 工具 | 数量 | Actions |
 |------|------|---------|
-| notebook | 12 | list, create, open, close, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs |
-| document | 16 | create, rename, remove, move, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, set_icon, set_cover, clear_cover, list_tree, search_docs, get_doc, create_daily_note |
-| block | 19 | insert, prepend, append, update, delete, move, fold, unfold, get_kramdown, get_children, transfer_ref, set_attrs, get_attrs, exists, info, breadcrumb, dom, recent_updated, word_count |
-| av | 13 | get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
-| file | 13 | upload_asset, render_template, render_sprig, export_md, export_resources, list_unused_assets, get_doc_assets, get_doc_image_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha |
-| search | 5 | fulltext, query_sql, search_tag, get_backlinks, get_backmentions |
+| notebook | 11 | list, create, set_open_state, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs |
+| document | 18 | create, rename, remove, move, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, set_icon, set_cover, list_tree, search_docs, get_doc, create_daily_note, duplicate, remove_batch, create_empty, heading_to_doc, doc_to_heading |
+| block | 22 | insert, prepend, append, update, delete, move, set_fold_state, get_kramdown, get_children, transfer_ref, set_attrs, get_attrs, exists, info, breadcrumb, dom, recent_updated, word_count, batch_insert, batch_update, append_daily_note, prepend_daily_note, doc_info, docs_info |
+| av | 12 | get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
+| file | 12 | upload_asset, render_template, render_sprig, export_md, export_resources, list_unused_assets, get_doc_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha |
+| search | 11 | fulltext, query_sql, search_tag, get_backlinks, get_backmentions, search_refs, find_replace, search_assets, get_asset_content, fulltext_asset_content, list_invalid_refs |
 | tag | 3 | list, rename, remove |
 | system | 10 | push_msg, push_err_msg, get_version, get_current_time, workspace_info, network, changelog, conf, sys_fonts, boot_progress |
 | flashcard | 7 | list_cards, get_decks, get_cards, review_card, skip_review_card, add_card, remove_card |

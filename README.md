@@ -21,7 +21,7 @@ In other words, the plugin does one simple thing: **make SiYuan safely visible a
 
 - Supports both HTTP and stdio connection modes for desktop and Docker clients
 - Aggregates common SiYuan capabilities into 10 grouped tools, reducing the chance that an agent picks the wrong tool
-- Covers notebooks, documents, blocks, databases, assets, search, tags, flashcards, and system capabilities across 118 actions
+- Covers notebooks, documents, blocks, databases, assets, search, tags, flashcards, and system capabilities across 114 actions
 - Provides a four-state permission model: `none` / `r` / `rw` / `rwd`, making notebook-level access control easier
 - Follows a progressive disclosure design to reduce token usage
 
@@ -308,7 +308,7 @@ Big result sets are capped and annotated with drill-down hints rather than retur
 |--------|-------------|
 | `list` | List all notebooks |
 | `create` | Create a new notebook (supports `icon`, prefer Unicode hex strings like `1f4d4`) |
-| `open` / `close` | Open or close a notebook |
+| `set_open_state` | Open or close a notebook (`opened: boolean`) |
 | `rename` | Rename a notebook |
 | `get_conf` / `set_conf` | Get or set notebook configuration |
 | `set_icon` | Set notebook icon; prefer Unicode hex strings like `1f4d4` over raw emoji characters |
@@ -325,8 +325,7 @@ Big result sets are capped and annotated with drill-down hints rather than retur
 | `remove` | Remove a document by ID or storage path |
 | `move` | Move documents by ID or storage path |
 | `set_icon` | Set document or folder icon; prefer Unicode hex strings like `1f4d4` over raw emoji characters |
-| `set_cover` | Set the document cover image, preferably from an `http(s)` URL and secondarily from a `/assets/...` path |
-| `clear_cover` | Clear the document cover image |
+| `set_cover` | Set or clear the document cover image; pass `source` to set, omit to clear |
 | `get_path` | Get storage path by document ID |
 | `get_hpath` | Get human-readable path by ID or storage path |
 | `get_ids` | Get document IDs by human-readable path |
@@ -345,7 +344,7 @@ Big result sets are capped and annotated with drill-down hints rather than retur
 | `update` | Update block content and return a slim success payload |
 | `delete` | Delete a block |
 | `move` | Move a block to a new position |
-| `fold` / `unfold` | Fold or unfold a foldable block |
+| `set_fold_state` | Fold or unfold a foldable block (`folded: boolean`) |
 | `get_kramdown` | Get block content in kramdown format |
 | `get_children` | Get direct child blocks |
 | `transfer_ref` | Transfer block references |
@@ -385,8 +384,7 @@ Big result sets are capped and annotated with drill-down hints rather than retur
 | `export_md` | Export document as Markdown |
 | `export_resources` | Export resources as ZIP, accepting `assets/...`, normalizing to `data/assets/...`, and optionally copying to local `outputPath` (requires confirmation when writing locally) |
 | `list_unused_assets` | List unreferenced asset files |
-| `get_doc_assets` | List all assets referenced by a document after permission checks |
-| `get_doc_image_assets` | List image assets referenced by a document after permission checks |
+| `get_doc_assets` | List assets referenced by a document after permission checks; use `assetType` to filter (`"all"` or `"image"`) |
 | `get_image_ocr_text` | Read stored OCR text for an image asset |
 | `remove_unused_assets` | Remove all unreferenced asset files |
 | `rename_asset` | Rename an asset file |

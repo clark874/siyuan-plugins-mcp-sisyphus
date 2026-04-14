@@ -924,6 +924,10 @@ async function handleSearch({ client, permMgr, rawArgs }: AvHandlerContext): Pro
     const filtered = await filterAvSearchResultsByPermission(client, permMgr, dedupedResults);
     return createJsonResult({
         keyword: parsed.keyword,
+        searchScope: {
+            kernel: 'attribute_view_name_or_kernel_candidates',
+            fallback: 'primary_key_values',
+        },
         ...filtered,
         ...(filtered.filteredOutCount > 0 ? {
             emptyReason: filtered.results.length === 0
@@ -934,6 +938,9 @@ async function handleSearch({ client, permMgr, rawArgs }: AvHandlerContext): Pro
             unresolvedHint: filtered.unresolvedResults.length > 0
                 ? 'unresolvedResults contains kernel search candidates that matched, but MCP could not verify notebook context yet.'
                 : undefined,
+        } : {}),
+        ...(parsed.keyword.trim().length > 0 && filtered.results.length === 0 ? {
+            warning: 'No verified AV matches were found. AV search primarily covers database names and primary-key values; non-primary-key cell text may not be searchable immediately after writes.',
         } : {}),
     });
 }

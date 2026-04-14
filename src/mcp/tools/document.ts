@@ -22,7 +22,6 @@ import {
     DocumentHeadingToDocSchema,
     DocumentListTreeSchema,
     DocumentGetPathSchema,
-    DocumentClearCoverSchema,
     DocumentMoveSchema,
     DocumentRemoveBatchSchema,
     DocumentRemoveSchema,
@@ -146,14 +145,8 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
         action: 'set_cover',
         schema: createActionSchema('set_cover', {
             id: { type: 'string', description: 'Document ID' },
-            source: { type: 'string', description: 'Cover image source. Accepts http(s) URLs or SiYuan asset paths like /assets/foo.png.' },
-        }, ['id', 'source'], 'Set the document cover image using a URL or SiYuan asset path.'),
-    },
-    {
-        action: 'clear_cover',
-        schema: createActionSchema('clear_cover', {
-            id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'Clear the document cover image.'),
+            source: { type: 'string', description: 'Cover image source. Accepts http(s) URLs or SiYuan asset paths like /assets/foo.png. Omit or pass empty string to clear the cover.' },
+        }, ['id'], 'Set or clear the document cover image. Omit source to clear.'),
     },
     {
         action: 'list_tree',
@@ -620,7 +613,12 @@ const handleSetCover: DocumentActionHandler = async ({ client, permMgr, rawArgs 
     const parsed = DocumentSetCoverSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
     if (denied) return denied;
-    const normalized = normalizeDocumentCoverSource(parsed.source);
+    const source = parsed.source;
+    if (!source) {
+        await attributeApi.setBlockAttrs(client, parsed.id, { 'title-img': '' });
+        return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, cleared: true }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    }
+    const normalized = normalizeDocumentCoverSource(source);
     await attributeApi.setBlockAttrs(client, parsed.id, { 'title-img': normalized.titleImg });
     return applyUiRefresh(client, createJsonResult({
         success: true,
@@ -628,14 +626,6 @@ const handleSetCover: DocumentActionHandler = async ({ client, permMgr, rawArgs 
         source: normalized.source,
         titleImg: normalized.titleImg,
     }), [{ type: 'reloadProtyle', id: context.documentId }]);
-};
-
-const handleClearCover: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentClearCoverSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
-    if (denied) return denied;
-    await attributeApi.setBlockAttrs(client, parsed.id, { 'title-img': '' });
-    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, cleared: true }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
 const handleListTree: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -836,7 +826,6 @@ const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = 
     get_child_docs: handleGetChildDocs,
     set_icon: handleSetIcon,
     set_cover: handleSetCover,
-    clear_cover: handleClearCover,
     list_tree: handleListTree,
     search_docs: handleSearchDocs,
     get_doc: handleGetDoc,

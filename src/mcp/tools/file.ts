@@ -12,7 +12,6 @@ import {
     FileExportMdSchema,
     FileExportResourcesSchema,
     FileGetDocAssetsSchema,
-    FileGetDocImageAssetsSchema,
     FileGetImageOCRTextSchema,
     FileListUnusedAssetsSchema,
     FileRemoveUnusedAssetsSchema,
@@ -72,13 +71,8 @@ export const FILE_VARIANTS: ActionVariant<FileAction>[] = [
         action: 'get_doc_assets',
         schema: createActionSchema('get_doc_assets', {
             id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'List all assets referenced by a document.'),
-    },
-    {
-        action: 'get_doc_image_assets',
-        schema: createActionSchema('get_doc_image_assets', {
-            id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'List image assets referenced by a document.'),
+            assetType: { type: 'string', enum: ['all', 'image'], description: "Filter: 'all' (default) returns all assets, 'image' returns only image assets." },
+        }, ['id'], 'List assets referenced by a document. Use assetType to filter.'),
     },
     {
         action: 'get_image_ocr_text',
@@ -294,20 +288,12 @@ export async function callFileTool(
                 const parsed = FileGetDocAssetsSchema.parse(rawArgs);
                 const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
                 if (denied) return denied;
-                const assets = await fileApi.getDocAssets(client, parsed.id);
+                const assets = parsed.assetType === 'image'
+                    ? await fileApi.getDocImageAssets(client, parsed.id)
+                    : await fileApi.getDocAssets(client, parsed.id);
                 return createJsonResult({
                     id: parsed.id,
-                    assets,
-                    count: Array.isArray(assets) ? assets.length : undefined,
-                });
-            }
-            case 'get_doc_image_assets': {
-                const parsed = FileGetDocImageAssetsSchema.parse(rawArgs);
-                const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
-                if (denied) return denied;
-                const assets = await fileApi.getDocImageAssets(client, parsed.id);
-                return createJsonResult({
-                    id: parsed.id,
+                    assetType: parsed.assetType ?? 'all',
                     assets,
                     count: Array.isArray(assets) ? assets.length : undefined,
                 });

@@ -77,6 +77,7 @@ AI 在执行本手册时，必须遵守以下规则：
    - 用户明确授权用于测试的现有 AV
    - 或该 AV 中由本轮测试新加的列 / 新绑的行
 6. 如果 `add_rows` 无法返回或无法推导出真实 **row item ID**，后续 `set_cell` / `batch_set_cells` 必须记为 `FAIL` 或 `BLOCKED`，不得猜测 `rowID`。
+7. `av(action="search")` 的验证应优先基于数据库名称或主键值；不要把普通文本列内容当作稳定搜索契约。
 
 ### 2.2 flashcard 特别规则
 
@@ -157,8 +158,7 @@ AI 在执行本手册时，必须遵守以下规则：
 
 - `list`
 - `create`
-- `open`
-- `close`
+- `set_open_state`
 - `remove`
 - `rename`
 - `get_conf`
@@ -193,8 +193,7 @@ AI 在执行本手册时，必须遵守以下规则：
 - `update`
 - `delete`
 - `move`
-- `fold`
-- `unfold`
+- `set_fold_state`
 - `get_kramdown`
 - `get_children`
 - `transfer_ref`
@@ -428,15 +427,15 @@ AI 还需要在 `SourceDoc` 中再准备 1～2 个普通块，供 `flashcard.add
 
 1. `notebook(action="list")`
 2. `notebook(action="get_conf", notebook=testNotebookId)`
-3. `notebook(action="open", notebook=testNotebookId)`
-4. `notebook(action="close", notebook=testNotebookId)`
-5. 再次 `notebook(action="open", notebook=testNotebookId)`
+3. `notebook(action="set_open_state", notebook=testNotebookId, opened=true)`
+4. `notebook(action="set_open_state", notebook=testNotebookId, opened=false)`
+5. 再次 `notebook(action="set_open_state", notebook=testNotebookId, opened=true)`
 
 #### 预期
 
 - `list` 返回数组，且包含测试笔记本
 - `get_conf` 返回配置对象
-- `open` / `close` / 再次 `open` 返回成功
+- `set_open_state` 打开 / 关闭 / 再次打开均返回成功
 
 ---
 
@@ -857,25 +856,27 @@ AI 还需要在 `SourceDoc` 中再准备 1～2 个普通块，供 `flashcard.add
 
 #### 目标
 
-验证 `fold` / `unfold` 可执行。
+验证 `set_fold_state` 可执行。
 
 #### 步骤
 
-对 `appendBlockId` 调用：
+对 `appendBlockId` 调用折叠：
 
 ```json
 {
-  "action": "fold",
-  "id": "<appendBlockId>"
+  "action": "set_fold_state",
+  "id": "<appendBlockId>",
+  "folded": true
 }
 ```
 
-然后：
+然后展开：
 
 ```json
 {
-  "action": "unfold",
-  "id": "<appendBlockId>"
+  "action": "set_fold_state",
+  "id": "<appendBlockId>",
+  "folded": false
 }
 ```
 
@@ -1151,8 +1152,8 @@ AI 还需要在 `SourceDoc` 中再准备 1～2 个普通块，供 `flashcard.add
 13. `block.append(parentID=sourceDocId, ...)`
 14. `block.update(id=appendBlockId, ...)`
 15. `block.move(id=insertBlockId, ...)`
-16. `block.fold(id=appendBlockId)`
-17. `block.unfold(id=appendBlockId)`
+16. `block.set_fold_state(id=appendBlockId, folded=true)`
+17. `block.set_fold_state(id=appendBlockId, folded=false)`
 
 删除操作示例：
 
@@ -1411,6 +1412,7 @@ AI 还需要在 `SourceDoc` 中再准备 1～2 个普通块，供 `flashcard.add
 - 返回对象包含 `tags` 数组
 - 返回对象包含 `k` 字段
 - 搜索结果中能匹配到 `tagLabel` 或其前缀
+- 若标签刚刚由测试写入，允许短暂重试；同时必须确认标签在 Markdown 中使用的是 `#tag#` 语法，而不是单侧 `#tag`
 
 ---
 
@@ -1800,6 +1802,7 @@ AI 还需要在 `SourceDoc` 中再准备 1～2 个普通块，供 `flashcard.add
 #### 预期
 
 - `search` 返回结构化结果；即使为空，也应有明确字段表示搜索结果
+- `search` 的命中范围应按“数据库名称 + 主键值回退”理解，不应要求它稳定命中任意普通列文本
 - 如果已有 `providedAvID`：
   - `get` 返回完整 AV payload
   - `render_attribute_view` 返回带视图上下文的渲染结果
@@ -1933,11 +1936,11 @@ AI 还需要在 `SourceDoc` 中再准备 1～2 个普通块，供 `flashcard.add
 
 最终报告必须额外给出一张覆盖矩阵，逐项标记下列 action 是否已被验证：
 
-- `notebook`：`open` `close` `get_conf` `set_conf` `set_icon` `get_child_docs` `get_permissions` `set_permission` `rename` `remove`
+- `notebook`：`set_open_state` `get_conf` `set_conf` `set_icon` `get_child_docs` `get_permissions` `set_permission` `rename` `remove`
 - `document`：`create` `rename` `remove` `move` `get_path` `get_hpath` `get_ids` `get_child_blocks` `get_child_docs` `set_icon` `list_tree` `search_docs` `get_doc` `create_daily_note`
-- `block`：`insert` `prepend` `append` `update` `delete` `move` `fold` `unfold` `get_kramdown` `get_children` `transfer_ref` `set_attrs` `get_attrs` `exists` `info` `breadcrumb` `dom` `recent_updated` `word_count`
+- `block`：`insert` `prepend` `append` `update` `delete` `move` `set_fold_state` `get_kramdown` `get_children` `transfer_ref` `set_attrs` `get_attrs` `exists` `info` `breadcrumb` `dom` `recent_updated` `word_count`
 - `av`：`get` `render_attribute_view` `get_attribute_view_keys` `get_attribute_view_filter_sort` `search` `add_rows` `remove_rows` `add_column` `remove_column` `set_cell` `batch_set_cells` `duplicate_block` `get_primary_key_values`
-- `file`：`upload_asset` `render_template` `render_sprig` `export_md` `export_resources` `list_unused_assets` `get_doc_assets` `get_doc_image_assets` `get_image_ocr_text` `remove_unused_assets` `rename_asset` `delete_asset` `set_image_alpha`
+- `file`：`upload_asset` `render_template` `render_sprig` `export_md` `export_resources` `list_unused_assets` `get_doc_assets` `get_image_ocr_text` `remove_unused_assets` `rename_asset` `delete_asset` `set_image_alpha`
 - `search`：`fulltext` `query_sql` `search_tag` `get_backlinks` `get_backmentions`
 - `tag`：`list` `rename` `remove`
 - `system`：`workspace_info` `network` `changelog` `conf` `sys_fonts` `boot_progress` `push_msg` `push_err_msg` `get_version` `get_current_time`

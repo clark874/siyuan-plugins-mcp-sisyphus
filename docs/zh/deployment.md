@@ -287,9 +287,13 @@ stdio 模式下，客户端将 `mcp-server.cjs` 作为子进程运行，脚本�
 - `notebook(action="set_permission")`
 - `document(action="remove")`
 - `document(action="move")`
+- `document(action="remove_batch")`
 - `block(action="delete")`
 - `block(action="move")`
 - `file(action="upload_asset")`
+- `file(action="remove_unused_assets")`
+- `file(action="delete_asset")`
+- `search(action="find_replace")`
 - `tag(action="remove")`
 - `flashcard(action="remove_card")`
 

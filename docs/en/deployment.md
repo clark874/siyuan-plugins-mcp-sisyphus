@@ -287,9 +287,13 @@ The following actions require explicit user confirmation:
 - `notebook(action="set_permission")`
 - `document(action="remove")`
 - `document(action="move")`
+- `document(action="remove_batch")`
 - `block(action="delete")`
 - `block(action="move")`
 - `file(action="upload_asset")`
+- `file(action="remove_unused_assets")`
+- `file(action="delete_asset")`
+- `search(action="find_replace")`
 - `tag(action="remove")`
 - `flashcard(action="remove_card")`
 

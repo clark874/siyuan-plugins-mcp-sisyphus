@@ -25,7 +25,7 @@ const READING_ACTIONS = new Set([
     'get_current_time', 'boot_progress', 'network', 'changelog', 'sys_fonts',
     'fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions',
     'get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort',
-    'search', 'get_primary_key_values', 'get_doc_assets', 'get_doc_image_assets', 'get_image_ocr_text',
+    'search', 'get_primary_key_values', 'get_doc_assets', 'get_image_ocr_text',
     'list_unused_assets', 'list_cards', 'get_decks', 'get_balance', 'shop',
 ]);
 
@@ -34,8 +34,8 @@ const BUILD_ACTIONS = new Set([
 ]);
 
 const EDIT_ACTIONS = new Set([
-    'update', 'rename', 'set_attrs', 'transfer_ref', 'fold', 'unfold',
-    'set_icon', 'set_cover', 'clear_cover', 'set_conf', 'push_msg', 'push_err_msg', 'open', 'close',
+    'update', 'rename', 'set_attrs', 'transfer_ref', 'set_fold_state',
+    'set_icon', 'set_cover', 'set_conf', 'push_msg', 'push_err_msg', 'set_open_state',
     'render_template', 'render_sprig', 'rename_tag', 'buy',
     'review_card', 'skip_review_card', 'add_card',
     'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells',

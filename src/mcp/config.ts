@@ -2,11 +2,11 @@ export const TOOL_CATEGORIES = ['notebook', 'document', 'block', 'av', 'file', '
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
-export const NOTEBOOK_ACTIONS = ['list', 'create', 'open', 'close', 'remove', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'set_permission', 'get_child_docs'] as const;
-export const DOCUMENT_ACTIONS = ['create', 'rename', 'remove', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'clear_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'create_empty', 'heading_to_doc', 'doc_to_heading'] as const;
-export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'delete', 'move', 'fold', 'unfold', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'batch_insert', 'batch_update', 'append_daily_note', 'prepend_daily_note', 'doc_info', 'docs_info'] as const;
+export const NOTEBOOK_ACTIONS = ['list', 'create', 'set_open_state', 'remove', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'set_permission', 'get_child_docs'] as const;
+export const DOCUMENT_ACTIONS = ['create', 'rename', 'remove', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'create_empty', 'heading_to_doc', 'doc_to_heading'] as const;
+export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'batch_insert', 'batch_update', 'append_daily_note', 'prepend_daily_note', 'doc_info', 'docs_info'] as const;
 export const AV_ACTIONS = ['get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells', 'duplicate_block', 'get_primary_key_values'] as const;
-export const FILE_ACTIONS = ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_doc_image_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'set_image_alpha'] as const;
+export const FILE_ACTIONS = ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'set_image_alpha'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions', 'search_refs', 'find_replace', 'search_assets', 'get_asset_content', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'changelog', 'conf', 'sys_fonts', 'boot_progress', 'push_msg', 'push_err_msg', 'get_version', 'get_current_time'] as const;
@@ -63,8 +63,8 @@ export type ToolConfig = {
 export const LEGACY_TOOL_TO_ACTION: Record<string, { category: ToolCategory; action: string }> = {
     list_notebooks: { category: 'notebook', action: 'list' },
     create_notebook: { category: 'notebook', action: 'create' },
-    open_notebook: { category: 'notebook', action: 'open' },
-    close_notebook: { category: 'notebook', action: 'close' },
+    open_notebook: { category: 'notebook', action: 'set_open_state' },
+    close_notebook: { category: 'notebook', action: 'set_open_state' },
     remove_notebook: { category: 'notebook', action: 'remove' },
     rename_notebook: { category: 'notebook', action: 'rename' },
     get_notebook_conf: { category: 'notebook', action: 'get_conf' },
@@ -97,8 +97,8 @@ export const LEGACY_TOOL_TO_ACTION: Record<string, { category: ToolCategory; act
     update_block: { category: 'block', action: 'update' },
     delete_block: { category: 'block', action: 'delete' },
     move_block: { category: 'block', action: 'move' },
-    fold_block: { category: 'block', action: 'fold' },
-    unfold_block: { category: 'block', action: 'unfold' },
+    fold_block: { category: 'block', action: 'set_fold_state' },
+    unfold_block: { category: 'block', action: 'set_fold_state' },
     get_block_kramdown: { category: 'block', action: 'get_kramdown' },
     get_child_blocks: { category: 'block', action: 'get_children' },
     transfer_block_ref: { category: 'block', action: 'transfer_ref' },
@@ -138,7 +138,7 @@ export const LEGACY_TOOL_TO_ACTION: Record<string, { category: ToolCategory; act
     export_resources: { category: 'file', action: 'export_resources' },
     get_unused_assets: { category: 'file', action: 'list_unused_assets' },
     get_doc_assets: { category: 'file', action: 'get_doc_assets' },
-    get_doc_image_assets: { category: 'file', action: 'get_doc_image_assets' },
+    get_doc_image_assets: { category: 'file', action: 'get_doc_assets' },
     get_image_ocr_text: { category: 'file', action: 'get_image_ocr_text' },
     remove_unused_assets: { category: 'file', action: 'remove_unused_assets' },
     rename_asset: { category: 'file', action: 'rename_asset' },
@@ -192,7 +192,7 @@ export type ActionTier = 'basic' | 'advanced';
 
 const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     notebook: {
-        list: 'basic', create: 'basic', open: 'basic', close: 'basic',
+        list: 'basic', create: 'basic', set_open_state: 'basic',
         rename: 'basic', get_conf: 'basic', get_child_docs: 'basic',
         remove: 'advanced', set_conf: 'advanced', set_icon: 'advanced',
         get_permissions: 'advanced', set_permission: 'advanced',
@@ -202,7 +202,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         get_ids: 'basic', get_child_blocks: 'basic', get_child_docs: 'basic',
         search_docs: 'basic', rename: 'basic',
         remove: 'advanced', move: 'advanced', set_icon: 'advanced',
-        set_cover: 'advanced', clear_cover: 'advanced',
+        set_cover: 'advanced',
         list_tree: 'advanced', create_daily_note: 'advanced', duplicate: 'advanced',
         remove_batch: 'advanced', create_empty: 'advanced', heading_to_doc: 'advanced',
         doc_to_heading: 'advanced',
@@ -211,7 +211,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         get_kramdown: 'basic', get_children: 'basic', get_attrs: 'basic',
         exists: 'basic', info: 'basic', append: 'basic', prepend: 'basic',
         insert: 'basic', update: 'basic',
-        delete: 'advanced', move: 'advanced', fold: 'advanced', unfold: 'advanced',
+        delete: 'advanced', move: 'advanced', set_fold_state: 'advanced',
         transfer_ref: 'advanced', set_attrs: 'advanced', breadcrumb: 'advanced',
         dom: 'advanced', recent_updated: 'advanced', word_count: 'advanced',
         batch_insert: 'advanced', batch_update: 'advanced', append_daily_note: 'advanced',
@@ -227,7 +227,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     },
     file: {
         export_md: 'basic', upload_asset: 'basic',
-        get_doc_assets: 'basic', get_doc_image_assets: 'basic',
+        get_doc_assets: 'basic',
         render_template: 'advanced', render_sprig: 'advanced',
         export_resources: 'advanced', list_unused_assets: 'advanced',
         get_image_ocr_text: 'advanced',
@@ -293,15 +293,15 @@ export function buildDefaultToolConfig(): ToolConfig {
     return {
         notebook: {
             enabled: true,
-            actions: createActionsRecord(NOTEBOOK_ACTIONS, ['list', 'create', 'open', 'close', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'get_child_docs']),
+            actions: createActionsRecord(NOTEBOOK_ACTIONS, ['list', 'create', 'set_open_state', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'get_child_docs']),
         },
         document: {
             enabled: true,
-            actions: createActionsRecord(DOCUMENT_ACTIONS, ['create', 'rename', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'clear_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'create_empty', 'heading_to_doc', 'doc_to_heading']),
+            actions: createActionsRecord(DOCUMENT_ACTIONS, ['create', 'rename', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'create_empty', 'heading_to_doc', 'doc_to_heading']),
         },
         block: {
             enabled: true,
-            actions: createActionsRecord(BLOCK_ACTIONS, ['insert', 'prepend', 'append', 'update', 'move', 'fold', 'unfold', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'batch_insert', 'batch_update', 'append_daily_note', 'prepend_daily_note', 'doc_info', 'docs_info']),
+            actions: createActionsRecord(BLOCK_ACTIONS, ['insert', 'prepend', 'append', 'update', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'batch_insert', 'batch_update', 'append_daily_note', 'prepend_daily_note', 'doc_info', 'docs_info']),
         },
         av: {
             enabled: true,
@@ -309,7 +309,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         file: {
             enabled: true,
-            actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_doc_image_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'set_image_alpha']),
+            actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'set_image_alpha']),
             uploadLargeFileThresholdMB: 10,
         },
         search: {

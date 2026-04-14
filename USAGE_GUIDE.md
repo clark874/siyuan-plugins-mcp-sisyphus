@@ -293,9 +293,9 @@
 - `prepend` / `append` + 块 ID：操作该块的子块列表
 - `insert`：按 `nextID` / `previousID` 精确定位插入
 
-### `block(action="fold" | "unfold")`
+### `block(action="set_fold_state")`
 
-实测应使用可折叠块 ID。直接传文档 ID 会被 SiYuan 拒绝。
+使用 `folded: true` 折叠，`folded: false` 展开。实测应使用可折叠块 ID；直接传文档 ID 会被 SiYuan 拒绝。
 
 ## 高危 Action
 

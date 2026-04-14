@@ -90,8 +90,7 @@
 |---|---|---|---|
 | `list` | `POST /api/notebook/lsNotebooks` | `src/api/notebook.ts` | 列出所有笔记本 |
 | `create` | `POST /api/notebook/createNotebook` | `src/api/notebook.ts` | 支持额外传 `icon`，图标通过第二次调用设置 |
-| `open` | `POST /api/notebook/openNotebook` | `src/api/notebook.ts` | 需要笔记本读权限 |
-| `close` | `POST /api/notebook/closeNotebook` | `src/api/notebook.ts` | 需要笔记本读权限 |
+| `set_open_state` | `POST /api/notebook/openNotebook` / `POST /api/notebook/closeNotebook` | `src/api/notebook.ts` | 需要笔记本读权限；`opened: true` 打开，`opened: false` 关闭 |
 | `remove` | `POST /api/notebook/removeNotebook` | `src/api/notebook.ts` | 需要确认，且需要删除权限（`rwd`） |
 | `rename` | `POST /api/notebook/renameNotebook` | `src/api/notebook.ts` | 需要写权限（`rw` / `rwd`） |
 | `get_conf` | `POST /api/notebook/getNotebookConf` | `src/api/notebook.ts` | 需要读权限 |
@@ -115,8 +114,7 @@
 | `get_child_blocks` | `POST /api/block/getChildBlocks` | `src/api/block.ts` | 使用解析后的根文档 ID |
 | `get_child_docs` | `POST /api/filetree/listDocsByPath` | `src/api/document.ts` | 使用解析后的笔记本 + 存储路径 |
 | `set_icon` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 给文档块写入 `icon` 属性 |
-| `set_cover` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 给文档块写入 `title-img` 属性，值为 `background-image:url("...");` |
-| `clear_cover` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 将文档块的 `title-img` 属性清空 |
+| `set_cover` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 给文档块写入 `title-img` 属性；传 `source` 则设置封面，省略则清空 |
 | `list_tree` | `POST /api/filetree/listDocTree` | `src/api/document.ts` | 获取嵌套文档树 |
 | `search_docs` | `POST /api/filetree/searchDocs` | `src/api/document.ts` | 思源原生是全局标题搜索 |
 | `get_doc` | `POST /api/filetree/getDoc` | `src/api/document.ts` | 获取文档内容和元数据 |
@@ -157,8 +155,7 @@
 | `update` | `POST /api/block/updateBlock` | `src/api/block.ts` | 更新块内容 |
 | `delete` | `POST /api/block/deleteBlock` | `src/api/block.ts` | 需要确认 |
 | `move` | `POST /api/block/moveBlock` | `src/api/block.ts` | 需要确认 |
-| `fold` | `POST /api/block/foldBlock` | `src/api/block.ts` | 仅适用于可折叠块 |
-| `unfold` | `POST /api/block/unfoldBlock` | `src/api/block.ts` | 仅适用于可折叠块 |
+| `set_fold_state` | `POST /api/block/foldBlock` / `POST /api/block/unfoldBlock` | `src/api/block.ts` | `folded: true` 折叠，`folded: false` 展开；仅适用于可折叠块 |
 | `get_kramdown` | `POST /api/block/getBlockKramdown` | `src/api/block.ts` | 只读 |
 | `get_children` | `POST /api/block/getChildBlocks` | `src/api/block.ts` | 只读 |
 | `transfer_ref` | `POST /api/block/transferBlockRef` | `src/api/block.ts` | 写操作 |
@@ -187,6 +184,7 @@
 | `export_md` | `POST /api/export/exportMdContent` | `src/api/file.ts` | 需要可读文档 ID |
 | `export_resources` | `POST /api/export/exportResources` | `src/api/file.ts` | 将 `assets/...` 规范化为 `data/assets/...` 后导出；若传 `outputPath`，再把 ZIP 复制到本地文件系统（高危，需先确认） |
 | `list_unused_assets` | `POST /api/asset/getUnusedAssets` | `src/api/file.ts` | 列出未使用资源 |
+| `get_doc_assets` | `POST /api/asset/getDocAssets` / `POST /api/asset/getDocImageAssets` | `src/api/file.ts` | 列出文档引用的资源；`assetType: "all"`（默认）或 `"image"` |
 | `remove_unused_assets` | `POST /api/asset/removeUnusedAssets` | `src/api/file.ts` | 删除所有未使用资源，需要确认 |
 | `rename_asset` | `POST /api/asset/renameAsset` | `src/api/file.ts` | 重命名资源 |
 | `delete_asset` | `POST /api/asset/deleteAsset` | `src/api/file.ts` | 删除指定资源，需要确认；兼容性 action，是否可用取决于目标 SiYuan 内核版本 |
@@ -333,8 +331,8 @@
 ## 未覆盖 API 清单
 
 > **更新时间**: 2026-04-12  
-> **扫描范围**: SiYuan Kernel API (459个端点) 与 MCP Tools (112个actions) 对比
-> **整体覆盖率**: 23.1% (106/459)
+> **扫描范围**: SiYuan Kernel API (459个端点) 与 MCP Tools (109个actions) 对比
+> **整体覆盖率**: 24.6% (113/459)
 
 ### 覆盖率统计概览
 
@@ -346,7 +344,7 @@
 | av | 35 | 10 | 25 | ██░░░░░░░░ 28.6% |
 | system | 46 | 10 | 36 | ██░░░░░░░░ 21.7% |
 | search | 14 | 8 | 6 | ██████░░░░ 57.1% |
-| asset | 19 | 4 | 15 | ██░░░░░░░░ 21.1% |
+| asset | 19 | 6 | 13 | █████░░░░░ 31.6% |
 | export | 31 | 2 | 29 | ░░░░░░░░░░ 6.5% |
 | riff | 17 | 9 | 8 | █████░░░░░ 52.9% |
 | history | 10 | 0 | 10 | ░░░░░░░░░░ 0.0% |
@@ -360,7 +358,7 @@
 | ref | 5 | 2 | 3 | ████░░░░░░ 40.0% |
 | tag | 3 | 3 | 0 | ██████████ 100.0% |
 | notification | 2 | 2 | 0 | ██████████ 100.0% |
-| **总计** | **459** | **106** | **353** | ██░░░░░░░░ 23.1% |
+| **总计** | **459** | **113** | **346** | █████░░░░░ 24.6% |
 
 ### 已补齐的高优先级 API (核心功能)
 
@@ -499,6 +497,6 @@
 **注**: 本文档基于 SiYuan Kernel 源码自动扫描生成，统计信息：
 - 扫描时间: 2026-04-12
 - SiYuan API总数: 459个端点
-- 已覆盖API: 88个端点
+- 已覆盖API: 113个端点
 - MCP Tools: 10个
-- MCP Actions: 112个
+- MCP Actions: 109个

@@ -14,11 +14,11 @@ import {
 } from './config';
 
 export const NOTEBOOK_GUIDANCE: string[] = [
-    'Use notebook IDs for open, close, rename, get_conf, and set_conf.',
+    'Use notebook IDs for set_open_state, rename, get_conf, and set_conf.',
     'notebook(action="get_permissions") supports notebook="all" (or omission) for all notebooks, and a specific notebook ID for one notebook.',
     'notebook(action="remove") requires explicit user confirmation before execution.',
     'notebook(action="get_child_docs") returns direct child documents at the notebook root and retries short closed-or-initializing windows before failing.',
-    'Right after notebook(action="close"), get_child_docs may still return a retryable closed-or-initializing error; open the notebook first or retry shortly.',
+    'Right after notebook(action="set_open_state", opened=false), get_child_docs may still return a retryable closed-or-initializing error; open the notebook first or retry shortly.',
 ];
 
 export const DOCUMENT_GUIDANCE: string[] = [
@@ -26,7 +26,7 @@ export const DOCUMENT_GUIDANCE: string[] = [
     'Other document actions that use notebook + path expect storage paths returned by document(action="get_path").',
     'A safe path-based workflow is get_path -> rename/remove/move/get_hpath.',
     'document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.',
-    'document(action="set_cover") and document(action="clear_cover") are semantic wrappers around the document root block\'s "title-img" attribute.',
+    'document(action="set_cover") is a semantic wrapper around the document root block\'s "title-img" attribute. Omit source to clear the cover.',
     'document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.',
     'For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.',
     'document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.',
@@ -38,7 +38,7 @@ export const BLOCK_GUIDANCE: string[] = [
     'block(action="prepend") or block(action="append") with a block ID targets that block\'s child list.',
     'To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.',
     'To mark a block as a flashcard, set its "custom-riff-decks" attribute via block(action="set_attrs"). A common pattern is to use an h2 heading as the question and the following blocks as the answer.',
-    'block(action="fold") and block(action="unfold") require a foldable block ID, not a document ID.',
+    'block(action="set_fold_state") requires a foldable block ID, not a document ID.',
     'block(action="recent_updated") is read-only; MCP filters unreadable notebooks first and then applies count.',
     'block(action="recent_updated") now presents the document-grouped summary as the primary user-facing view while keeping the raw block stream for advanced consumers.',
 ];
@@ -50,6 +50,7 @@ export const AV_GUIDANCE: string[] = [
     'For cell writes, rowID must be the database row item ID stored in each AV value\'s blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.',
     'AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.',
     'av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.',
+    'av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.',
 ];
 
 export const FILE_GUIDANCE: string[] = [
@@ -64,6 +65,7 @@ export const TAG_GUIDANCE: string[] = [
     'Tag actions operate across the whole workspace rather than a single notebook.',
     'There is no direct create action for tags; tags are created by writing #tag# into block markdown content.',
     'tag(action="remove") requires explicit user confirmation before execution.',
+    'Recently written tags may appear with a short indexing delay in search_tag or tag list results; retry briefly before treating that as a failure.',
 ];
 
 export const SYSTEM_GUIDANCE: string[] = [
@@ -107,8 +109,7 @@ export const DOCUMENT_ACTION_HINTS: Partial<Record<DocumentAction, string>> = {
     get_child_blocks: 'Use a document ID. Returns direct child blocks only.',
     get_child_docs: 'Use a document ID. Returns direct child documents only.',
     set_icon: 'Use a document ID + icon. Prefer a Unicode hex code string such as "1f4d4" for 📔; raw emoji characters may not render correctly.',
-    set_cover: 'Use a document ID + source, where source is either an http(s) URL or a SiYuan asset path like /assets/foo.png. MCP stores it in the "title-img" attribute.',
-    clear_cover: 'Use a document ID to clear the document cover by resetting the "title-img" attribute.',
+    set_cover: 'Use a document ID + source, where source is either an http(s) URL or a SiYuan asset path like /assets/foo.png. MCP stores it in the "title-img" attribute. Omit source to clear the cover.',
     list_tree: 'Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.',
     search_docs: 'Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.',
     get_doc: 'Use a document ID. mode="markdown" returns clean Markdown content and supports page/pageSize for long documents; mode="html" uses the current focus view. For structured reading, prefer get_child_blocks.',
@@ -123,8 +124,7 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
     set_attrs: 'Use attrs to write block attributes such as custom metadata. To mark a flashcard, set {"custom-riff-decks":"<deck-id>"} on the question block, commonly an h2 heading.',
     delete: 'This action requires explicit user confirmation.',
     move: 'Provide id plus previousID, parentID, or both to describe the destination. On success, MCP returns a structured success object instead of SiYuan\'s raw null. This action requires explicit user confirmation.',
-    fold: 'Use a foldable block ID.',
-    unfold: 'Use a foldable block ID.',
+    set_fold_state: 'Use a foldable block ID + folded (true to fold, false to unfold).',
     get_children: 'Accepts both document IDs and block IDs. Returns direct child blocks. Use page/pageSize to paginate when there are many children.',
     exists: 'Returns a boolean existence check for a block ID.',
     info: 'Returns root document positioning metadata for a block.',
@@ -139,7 +139,7 @@ export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
     render_attribute_view: 'Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context.',
     get_attribute_view_keys: 'Use id to return database keys/columns for a block-bound attribute view.',
     get_attribute_view_filter_sort: 'Use id + blockID to return the filters and sorts applied to that database block view.',
-    search: 'Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons.',
+    search: 'Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.',
     add_rows: 'Use avID + blockIDs to add existing blocks as rows. MCP now polls briefly after insertion and only reports success when each source blockID resolves to exactly one writable rowID. Optional blockID/viewID/groupID/previousID refine the insertion target.',
     remove_rows: 'Use avID + srcIDs to remove rows from the AV.',
     add_column: 'Use avID + keyName + keyType, and optionally keyID. MCP generates keyID automatically when omitted. Supported keyType values match the 16 SiYuan addable column types, including keyType="mSelect", keyType="mAsset", and keyType="lineNumber".',
@@ -154,8 +154,7 @@ export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
     upload_asset: 'Use assetsDirPath + localFilePath to read a local file and upload it into SiYuan assets. This action reads the local filesystem and requires explicit user confirmation. Files larger than the configured large-upload threshold (10 MB by default) must be stopped, confirmed by the user, and retried with confirmLargeFile=true.',
     render_template: 'Use id + path, where path points to a template file inside the SiYuan workspace. Local filesystem paths outside the workspace are rejected by the kernel.',
     export_resources: 'Provide one or more existing resource paths. Asset paths like assets/foo.txt are normalized to /data/assets/foo.txt before export. Set outputPath to also copy the exported ZIP to a local filesystem path. Using outputPath is high-risk and requires explicit user confirmation.',
-    get_doc_assets: 'Use a document ID to list all assets referenced by the document after read-permission checks.',
-    get_doc_image_assets: 'Use a document ID to list image assets referenced by the document after read-permission checks.',
+    get_doc_assets: 'Use a document ID to list assets referenced by the document after read-permission checks. Use assetType="image" to return only image assets.',
     get_image_ocr_text: 'Use an asset path to read stored OCR text. If path is omitted, SiYuan returns an empty text payload.',
 };
 
@@ -167,12 +166,13 @@ export const SEARCH_GUIDANCE: string[] = [
     'Use search(action="fulltext") for natural language searches; use search(action="query_sql") for structured queries.',
     'search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. sortBy ("relevance", "date") is a shorthand for numeric orderBy.',
     'search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.',
+    'Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.',
 ];
 
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     fulltext: 'Pass a query string. Supports keyword, query syntax, SQL, and regex modes via the method parameter. Set stripHtml=true to add plain-text fields. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.',
     query_sql: 'Execute a SELECT statement. Common tables: blocks, spans, assets. Always use LIMIT to control result size. MCP returns rows plus metadata such as rowCount and possible permission-filtering info.',
-    search_tag: 'Returns all tags matching the given keyword prefix.',
+    search_tag: 'Returns all tags matching the given keyword prefix. Real tags must be written as #tag# in markdown, and very recent tags may need a brief retry while indexing catches up.',
     get_backlinks: 'Returns documents/blocks that contain a reference ((ref)) to the given block ID. Partial permission-filtered results include machine-readable metadata.',
     get_backmentions: 'Returns documents/blocks that mention the name of the given block (text mention, not ref link). Partial permission-filtered results include machine-readable metadata.',
 };

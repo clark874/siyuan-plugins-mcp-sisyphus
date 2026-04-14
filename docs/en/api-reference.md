@@ -23,16 +23,16 @@ Complete API reference for SiYuan MCP Sisyphus. This document describes all avai
 
 ## Overview
 
-SiYuan MCP Sisyphus provides **10 aggregated tools** with **79 actions**, covering most SiYuan Note functionality:
+SiYuan MCP Sisyphus provides **10 aggregated tools** with **109 actions**, covering most SiYuan Note functionality:
 
 | Tool | Actions | Description |
 |------|---------|-------------|
-| `notebook` | 12 | Notebook management |
-| `document` | 16 | Document operations |
-| `block` | 19 | Block editing and attributes |
-| `av` | 10 | Attribute view (database) operations |
-| `file` | 5 | File uploads, exports, templates |
-| `search` | 5 | Search and query operations |
+| `notebook` | 11 | Notebook management |
+| `document` | 18 | Document operations |
+| `block` | 22 | Block editing and attributes |
+| `av` | 12 | Attribute view (database) operations |
+| `file` | 12 | File uploads, exports, templates |
+| `search` | 11 | Search and query operations |
 | `tag` | 3 | Tag management |
 | `system` | 10 | System and notification operations |
 | `flashcard` | 7 | Flashcard review and decks |
@@ -63,9 +63,13 @@ The following actions require explicit user confirmation before execution:
 | `notebook` | `set_permission` | Changes access permissions |
 | `document` | `remove` | Deletes documents |
 | `document` | `move` | Moves documents between locations |
+| `document` | `remove_batch` | Batch deletes documents |
 | `block` | `delete` | Deletes blocks |
 | `block` | `move` | Moves blocks |
 | `file` | `upload_asset` | Uploads local files (also requires confirmation for files >10MB) |
+| `file` | `remove_unused_assets` | Removes all unused assets |
+| `file` | `delete_asset` | Deletes a specific asset |
+| `search` | `find_replace` | Finds and replaces text across workspace |
 | `tag` | `remove` | Removes tags |
 | `flashcard` | `remove_card` | Removes cards from decks |
 
@@ -150,9 +154,9 @@ Grouped notebook operations.
 }
 ```
 
-#### open
+#### set_open_state
 
-**Description**: Open a closed notebook.
+**Description**: Set notebook open/closed state.
 
 **Permission Required**: Read
 
@@ -161,32 +165,23 @@ Grouped notebook operations.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `notebook` | string | Yes | Notebook ID |
+| `opened` | boolean | Yes | `true` to open, `false` to close |
 
-**Example**:
+**Example** (open a notebook):
 ```json
 {
-  "action": "open",
-  "notebook": "20240318112233-abc123"
+  "action": "set_open_state",
+  "notebook": "20240318112233-abc123",
+  "opened": true
 }
 ```
 
-#### close
-
-**Description**: Close an open notebook.
-
-**Permission Required**: Read
-
-**Parameters**:
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `notebook` | string | Yes | Notebook ID |
-
-**Example**:
+**Example** (close a notebook):
 ```json
 {
-  "action": "close",
-  "notebook": "20240318112233-abc123"
+  "action": "set_open_state",
+  "notebook": "20240318112233-abc123",
+  "opened": false
 }
 ```
 
@@ -628,7 +623,7 @@ Grouped document operations.
 
 #### set_cover
 
-**Description**: Set document cover image.
+**Description**: Set or clear document cover image. Omit `source` to clear the cover.
 
 **Permission Required**: Write
 
@@ -637,9 +632,9 @@ Grouped document operations.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | string | Yes | Document ID |
-| `source` | string | Yes | URL or `/assets/...` path |
+| `source` | string | No | URL or `/assets/...` path; omit to clear cover |
 
-**Example**:
+**Example** (set cover):
 ```json
 {
   "action": "set_cover",
@@ -648,22 +643,10 @@ Grouped document operations.
 }
 ```
 
-#### clear_cover
-
-**Description**: Clear document cover image.
-
-**Permission Required**: Write
-
-**Parameters**:
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | string | Yes | Document ID |
-
-**Example**:
+**Example** (clear cover):
 ```json
 {
-  "action": "clear_cover",
+  "action": "set_cover",
   "id": "20240318112233-abc123"
 }
 ```
@@ -760,6 +743,120 @@ Grouped document operations.
 {
   "action": "create_daily_note",
   "notebook": "20240318112233-abc123"
+}
+```
+
+#### duplicate
+
+**Description**: Duplicate an existing document.
+
+**Permission Required**: Write
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `notebook` | string | Yes | Notebook ID |
+| `path` | string | Yes | Storage path of the document to duplicate |
+
+**Example**:
+```json
+{
+  "action": "duplicate",
+  "notebook": "20240318112233-abc123",
+  "path": "/20240318112233-abc123.sy"
+}
+```
+
+#### remove_batch
+
+**Description**: Remove multiple documents by storage paths.
+
+**Permission Required**: Delete (rwd)
+
+**Confirmation Required**: Yes
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `notebook` | string | Yes | Notebook ID |
+| `paths` | string[] | Yes | Storage paths to remove |
+
+**Example**:
+```json
+{
+  "action": "remove_batch",
+  "notebook": "20240318112233-abc123",
+  "paths": ["/20240318112233-abc123.sy", "/20240318112233-def456.sy"]
+}
+```
+
+#### create_empty
+
+**Description**: Create an empty document. Can also pass `markdown` as initial content.
+
+**Permission Required**: Write
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `notebook` | string | Yes | Notebook ID |
+| `path` | string | Yes | Human-readable path |
+| `markdown` | string | No | Optional initial markdown content |
+
+**Example**:
+```json
+{
+  "action": "create_empty",
+  "notebook": "20240318112233-abc123",
+  "path": "/Inbox/New Note"
+}
+```
+
+#### heading_to_doc
+
+**Description**: Convert a heading block into a standalone document.
+
+**Permission Required**: Write
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Heading block ID |
+| `notebook` | string | Yes | Target notebook ID |
+| `path` | string | No | Target human-readable path |
+
+**Example**:
+```json
+{
+  "action": "heading_to_doc",
+  "id": "20240318112233-abc123",
+  "notebook": "20240318112233-def456"
+}
+```
+
+#### doc_to_heading
+
+**Description**: Convert a document into a heading under a target document.
+
+**Permission Required**: Write
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `srcID` | string | Yes | Source document ID |
+| `targetID` | string | Yes | Target document ID |
+
+**Example**:
+```json
+{
+  "action": "doc_to_heading",
+  "srcID": "20240318112233-abc123",
+  "targetID": "20240318112233-def456"
 }
 ```
 
@@ -916,9 +1013,9 @@ Grouped block operations.
 }
 ```
 
-#### fold
+#### set_fold_state
 
-**Description**: Fold a foldable block.
+**Description**: Set the fold state of a foldable block.
 
 **Permission Required**: Write
 
@@ -927,32 +1024,23 @@ Grouped block operations.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | string | Yes | Foldable block ID |
+| `folded` | boolean | Yes | `true` to fold, `false` to unfold |
 
-**Example**:
+**Example** (fold a block):
 ```json
 {
-  "action": "fold",
-  "id": "20240318112233-abc123"
+  "action": "set_fold_state",
+  "id": "20240318112233-abc123",
+  "folded": true
 }
 ```
 
-#### unfold
-
-**Description**: Unfold a foldable block.
-
-**Permission Required**: Write
-
-**Parameters**:
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | string | Yes | Foldable block ID |
-
-**Example**:
+**Example** (unfold a block):
 ```json
 {
-  "action": "unfold",
-  "id": "20240318112233-abc123"
+  "action": "set_fold_state",
+  "id": "20240318112233-abc123",
+  "folded": false
 }
 ```
 
@@ -1185,6 +1273,142 @@ Grouped block operations.
 ```json
 {
   "action": "word_count",
+  "ids": ["20240318112233-abc123", "20240318112233-def456"]
+}
+```
+
+#### batch_insert
+
+**Description**: Insert multiple blocks at specified positions.
+
+**Permission Required**: Write
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `parentID` | string | Yes | Parent block or document ID |
+| `blocks` | array | Yes | Array of block objects with `dataType` and `data` |
+
+**Example**:
+```json
+{
+  "action": "batch_insert",
+  "parentID": "20240318112233-abc123",
+  "blocks": [
+    { "dataType": "markdown", "data": "# Heading 1" },
+    { "dataType": "markdown", "data": "# Heading 2" }
+  ]
+}
+```
+
+#### batch_update
+
+**Description**: Update multiple blocks at once.
+
+**Permission Required**: Write
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `blocks` | array | Yes | Array of block objects with `id`, `dataType`, and `data` |
+
+**Example**:
+```json
+{
+  "action": "batch_update",
+  "blocks": [
+    { "id": "20240318112233-abc123", "dataType": "markdown", "data": "Updated 1" },
+    { "id": "20240318112233-def456", "dataType": "markdown", "data": "Updated 2" }
+  ]
+}
+```
+
+#### append_daily_note
+
+**Description**: Append a block to today's daily note.
+
+**Permission Required**: Write
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `dataType` | string | Yes | `markdown` or `dom` |
+| `data` | string | Yes | Block content |
+| `notebook` | string | No | Notebook ID |
+
+**Example**:
+```json
+{
+  "action": "append_daily_note",
+  "dataType": "markdown",
+  "data": "- [ ] Morning task"
+}
+```
+
+#### prepend_daily_note
+
+**Description**: Prepend a block to today's daily note.
+
+**Permission Required**: Write
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `dataType` | string | Yes | `markdown` or `dom` |
+| `data` | string | Yes | Block content |
+| `notebook` | string | No | Notebook ID |
+
+**Example**:
+```json
+{
+  "action": "prepend_daily_note",
+  "dataType": "markdown",
+  "data": "# Daily Standup"
+}
+```
+
+#### doc_info
+
+**Description**: Get information about the document containing a block.
+
+**Permission Required**: Read
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Block or document ID |
+
+**Example**:
+```json
+{
+  "action": "doc_info",
+  "id": "20240318112233-abc123"
+}
+```
+
+#### docs_info
+
+**Description**: Get information for multiple documents.
+
+**Permission Required**: Read
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `ids` | string[] | Yes | Document IDs |
+| `refCount` | boolean | No | Include reference counts |
+| `av` | boolean | No | Include attribute view metadata |
+
+**Example**:
+```json
+{
+  "action": "docs_info",
   "ids": ["20240318112233-abc123", "20240318112233-def456"]
 }
 ```
@@ -1632,23 +1856,14 @@ Grouped file and asset operations.
 
 #### get_doc_assets
 
-**Description**: List all assets referenced by a document.
+**Description**: List assets referenced by a document. Use `assetType` to filter by type.
 
 **Permission Required**: Read
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `id` | string | Yes | Document ID |
-
-#### get_doc_image_assets
-
-**Description**: List image assets referenced by a document.
-
-**Permission Required**: Read
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `id` | string | Yes | Document ID |
+| `assetType` | string | No | `"all"` (default) or `"image"` to list only image assets |
 
 #### get_image_ocr_text
 
@@ -1778,6 +1993,131 @@ Grouped search and query operations.
 {
   "action": "get_backmentions",
   "id": "20240318112233-abc123"
+}
+```
+
+#### search_refs
+
+**Description**: Search blocks that reference a specific block or document.
+
+**Permission Required**: Read
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Referenced block or document ID |
+| `keyword` | string | No | Filter by keyword |
+| `typeShortcodes` | string[] | No | Block type filters |
+
+**Example**:
+```json
+{
+  "action": "search_refs",
+  "id": "20240318112233-abc123"
+}
+```
+
+#### find_replace
+
+**Description**: Find and replace text across the workspace.
+
+**Permission Required**: Write
+
+**Confirmation Required**: Yes
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `k` | string | Yes | Find keyword |
+| `r` | string | Yes | Replacement text |
+| `paths` | string[] | No | Restrict to notebook paths |
+| `replaceTypes` | object | No | Target kinds (text, code, docTitle, blockRef) |
+
+**Example**:
+```json
+{
+  "action": "find_replace",
+  "k": "old text",
+  "r": "new text"
+}
+```
+
+#### search_assets
+
+**Description**: Search asset files by filename.
+
+**Permission Required**: None
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `k` | string | Yes | Asset filename keyword |
+
+**Example**:
+```json
+{
+  "action": "search_assets",
+  "k": "image.png"
+}
+```
+
+#### get_asset_content
+
+**Description**: Get indexed content result for a single asset.
+
+**Permission Required**: None
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | string | Yes | Asset content ID |
+
+**Example**:
+```json
+{
+  "action": "get_asset_content",
+  "id": "20240318112233-abc123"
+}
+```
+
+#### fulltext_asset_content
+
+**Description**: Full-text search within asset content indexes.
+
+**Permission Required**: None
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `query` | string | Yes | Search query |
+| `page` | number | No | Page number |
+| `pageSize` | number | No | Results per page |
+
+**Example**:
+```json
+{
+  "action": "fulltext_asset_content",
+  "query": "quarterly report"
+}
+```
+
+#### list_invalid_refs
+
+**Description**: List invalid block references in the workspace.
+
+**Permission Required**: Read
+
+**Parameters**: None
+
+**Example**:
+```json
+{
+  "action": "list_invalid_refs"
 }
 ```
 
@@ -2284,16 +2624,16 @@ Grouped mascot balance and care operations. Every successful MCP tool call earns
 
 ## Action Summary
 
-Total: **79 actions** across **10 tools**
+Total: **109 actions** across **10 tools**
 
 | Tool | Count | Actions |
 |------|-------|---------|
-| notebook | 12 | list, create, open, close, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs |
-| document | 16 | create, rename, remove, move, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, set_icon, set_cover, clear_cover, list_tree, search_docs, get_doc, create_daily_note |
-| block | 19 | insert, prepend, append, update, delete, move, fold, unfold, get_kramdown, get_children, transfer_ref, set_attrs, get_attrs, exists, info, breadcrumb, dom, recent_updated, word_count |
-| av | 13 | get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
-| file | 13 | upload_asset, render_template, render_sprig, export_md, export_resources, list_unused_assets, get_doc_assets, get_doc_image_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha |
-| search | 5 | fulltext, query_sql, search_tag, get_backlinks, get_backmentions |
+| notebook | 11 | list, create, set_open_state, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs |
+| document | 18 | create, rename, remove, move, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, set_icon, set_cover, list_tree, search_docs, get_doc, create_daily_note, duplicate, remove_batch, create_empty, heading_to_doc, doc_to_heading |
+| block | 22 | insert, prepend, append, update, delete, move, set_fold_state, get_kramdown, get_children, transfer_ref, set_attrs, get_attrs, exists, info, breadcrumb, dom, recent_updated, word_count, batch_insert, batch_update, append_daily_note, prepend_daily_note, doc_info, docs_info |
+| av | 12 | get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
+| file | 12 | upload_asset, render_template, render_sprig, export_md, export_resources, list_unused_assets, get_doc_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha |
+| search | 11 | fulltext, query_sql, search_tag, get_backlinks, get_backmentions, search_refs, find_replace, search_assets, get_asset_content, fulltext_asset_content, list_invalid_refs |
 | tag | 3 | list, rename, remove |
 | system | 10 | push_msg, push_err_msg, get_version, get_current_time, workspace_info, network, changelog, conf, sys_fonts, boot_progress |
 | flashcard | 7 | list_cards, get_decks, get_cards, review_card, skip_review_card, add_card, remove_card |

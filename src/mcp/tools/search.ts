@@ -522,6 +522,9 @@ export async function callSearchTool(
                     blocks: truncated.items,
                     ...(truncated.meta ? truncated.meta : {}),
                     ...(pageCount > 1 ? { pageCount, paginationHint: `${pageCount} pages available. Use page (1-based) and pageSize to navigate.` } : {}),
+                    ...(parsed.parentId && blocks.length === 0 ? {
+                        warning: 'No matching blocks were found in the requested document subtree. If the content was just created or updated, SiYuan full-text indexing may still be catching up; retry shortly.',
+                    } : {}),
                 });
             }
             case 'query_sql': {
@@ -548,7 +551,14 @@ export async function callSearchTool(
             case 'search_tag': {
                 const parsed = SearchTagSchema.parse(rawArgs);
                 const result = await searchApi.searchTag(client, parsed.k);
-                return createJsonResult(result);
+                const typedResult = result && typeof result === 'object' ? result as Record<string, unknown> : {};
+                const tags = Array.isArray(typedResult.tags) ? typedResult.tags : [];
+                return createJsonResult({
+                    ...typedResult,
+                    ...(parsed.k.trim().length > 0 && tags.length === 0 ? {
+                        warning: 'No matching tags were found. If the tag was just created, SiYuan tag indexing may still be catching up; verify the markdown uses #tag# syntax and retry shortly.',
+                    } : {}),
+                });
             }
             case 'get_backlinks': {
                 const parsed = SearchGetBacklinksSchema.parse(rawArgs);

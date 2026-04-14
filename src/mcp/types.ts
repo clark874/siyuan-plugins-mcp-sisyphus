@@ -88,14 +88,10 @@ export const NotebookCreateSchema = z.object({
     icon: z.string().optional().describe("Optional notebook icon. Prefer a Unicode hex code string such as '1f4d4' for 📔 instead of a raw emoji character."),
 });
 
-export const NotebookOpenSchema = z.object({
-    action: z.literal("open"),
+export const NotebookSetOpenStateSchema = z.object({
+    action: z.literal("set_open_state"),
     notebook: z.string().describe("Notebook ID"),
-});
-
-export const NotebookCloseSchema = z.object({
-    action: z.literal("close"),
-    notebook: z.string().describe("Notebook ID"),
+    opened: z.boolean().describe("true to open, false to close"),
 });
 
 export const NotebookRemoveSchema = z.object({
@@ -197,12 +193,7 @@ export const DocumentSetIconSchema = z.object({
 export const DocumentSetCoverSchema = z.object({
     action: z.literal("set_cover"),
     id: z.string().describe("Document ID"),
-    source: z.string().describe("Cover image source. Accepts http(s) URLs or SiYuan asset paths like /assets/foo.png."),
-});
-
-export const DocumentClearCoverSchema = z.object({
-    action: z.literal("clear_cover"),
-    id: z.string().describe("Document ID"),
+    source: z.string().optional().describe("Cover image source. Accepts http(s) URLs or SiYuan asset paths like /assets/foo.png. Omit or pass empty string to clear the cover."),
 });
 
 export const DocumentListTreeSchema = z.object({
@@ -397,14 +388,10 @@ export const BlockMoveSchema = z.object({
     }
 });
 
-export const BlockFoldSchema = z.object({
-    action: z.literal("fold"),
+export const BlockSetFoldStateSchema = z.object({
+    action: z.literal("set_fold_state"),
     id: z.string().describe("Foldable block ID"),
-});
-
-export const BlockUnfoldSchema = z.object({
-    action: z.literal("unfold"),
-    id: z.string().describe("Foldable block ID"),
+    folded: z.boolean().describe("true to fold, false to unfold"),
 });
 
 export const BlockGetKramdownSchema = z.object({
@@ -713,11 +700,7 @@ export const FileListUnusedAssetsSchema = z.object({
 export const FileGetDocAssetsSchema = z.object({
     action: z.literal("get_doc_assets"),
     id: z.string().describe("Document ID"),
-});
-
-export const FileGetDocImageAssetsSchema = z.object({
-    action: z.literal("get_doc_image_assets"),
-    id: z.string().describe("Document ID"),
+    assetType: z.enum(['all', 'image']).optional().describe("Filter asset type: 'all' (default) returns all assets, 'image' returns only image assets."),
 });
 
 export const FileGetImageOCRTextSchema = z.object({

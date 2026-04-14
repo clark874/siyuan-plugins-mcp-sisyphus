@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { buildDefaultToolConfig } from '@/mcp/config';
 import { normalizeFullTextSearchResult } from '@/mcp/normalize';
@@ -101,5 +101,33 @@ describe('search tool filtering', () => {
         }, buildDefaultToolConfig().search, permMgr as never);
 
         expect(parseResult(result)).toEqual([{ path: 'assets/diagram.png' }]);
+    });
+
+    it('adds an indexing hint when tag search returns empty for a non-empty keyword', async () => {
+        const client = createMockClient({
+            request: async (endpoint: string, body: unknown) => {
+                expect(endpoint).toBe('/api/search/searchTag');
+                expect(body).toMatchObject({ k: 'mcp-test-tag' });
+                return { k: 'mcp-test-tag', tags: [] };
+            },
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'search_tag',
+            k: 'mcp-test-tag',
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        expect(parseResult(result)).toEqual({
+            k: 'mcp-test-tag',
+            tags: [],
+            warning: 'No matching tags were found. If the tag was just created, SiYuan tag indexing may still be catching up; verify the markdown uses #tag# syntax and retry shortly.',
+        });
     });
 });

@@ -3,9 +3,9 @@
 ## 统计信息
 - **SiYuan API 总数**: 459 个端点
 - **MCP Tools**: 10 个
-- **已覆盖 API**: 111 个端点
-- **未覆盖 API**: 348 个端点
-- **整体覆盖率**: 24.2%
+- **已覆盖 API**: 113 个端点
+- **未覆盖 API**: 346 个端点
+- **整体覆盖率**: 24.6%
 
 ---
 
@@ -54,8 +54,8 @@
 | 37 | POST | `/api/block/deleteBlock` | deleteBlock | 块删除 | block.delete | ✅ 已覆盖 |
 | 38 | POST | `/api/block/moveBlock` | moveBlock | 块移动 | block.move | ✅ 已覆盖 |
 | 39 | POST | `/api/block/moveOutlineHeading` | moveOutlineHeading | 块移动OutlineHeading | - | ❌ 未覆盖 |
-| 40 | POST | `/api/block/foldBlock` | foldBlock | 块折叠 | block.fold | ✅ 已覆盖 |
-| 41 | POST | `/api/block/unfoldBlock` | unfoldBlock | 块展开 | block.unfold | ✅ 已覆盖 |
+| 40 | POST | `/api/block/foldBlock` | foldBlock | 块折叠 | block.set_fold_state | ✅ 已覆盖 |
+| 41 | POST | `/api/block/unfoldBlock` | unfoldBlock | 块展开 | block.set_fold_state | ✅ 已覆盖 |
 | 42 | POST | `/api/block/setBlockReminder` | setBlockReminder | 块设置Reminder | - | ❌ 未覆盖 |
 | 43 | POST | `/api/block/getHeadingLevelTransaction` | getHeadingLevelTransaction | 块获取HeadingLevelTransaction | - | ❌ 未覆盖 |
 | 44 | POST | `/api/block/getHeadingDeleteTransaction` | getHeadingDeleteTransaction | 块获取HeadingDeleteTransaction | - | ❌ 未覆盖 |
@@ -397,8 +397,8 @@
 | 9 | POST | `/api/asset/getMissingAssets` | getMissingAssets | 资源获取Missing资源 | - | ❌ 未覆盖 |
 | 10 | POST | `/api/asset/removeUnusedAsset` | removeUnusedAsset | 资源删除Unused资源 | - | ❌ 未覆盖 |
 | 11 | POST | `/api/asset/removeUnusedAssets` | removeUnusedAssets | 资源删除Unused资源 | file.remove_unused_assets | ✅ 已覆盖 |
-| 12 | POST | `/api/asset/getDocImageAssets` | getDocImageAssets | 资源获取DocImage资源 | - | ❌ 未覆盖 |
-| 13 | POST | `/api/asset/getDocAssets` | getDocAssets | 资源获取Doc资源 | - | ❌ 未覆盖 |
+| 12 | POST | `/api/asset/getDocImageAssets` | getDocImageAssets | 资源获取DocImage资源 | file.get_doc_assets | ✅ 已覆盖 |
+| 13 | POST | `/api/asset/getDocAssets` | getDocAssets | 资源获取Doc资源 | file.get_doc_assets | ✅ 已覆盖 |
 | 14 | POST | `/api/asset/renameAsset` | renameAsset | 资源重命名资源 | file.rename_asset | ✅ 已覆盖 |
 
 > 注：`file.delete_asset` 与 `file.set_image_alpha` 已在插件中实现兼容性 action，但未出现在本次 459 个上游 Kernel API 端点扫描结果中，因此不计入本表覆盖率统计。
@@ -490,8 +490,8 @@
 | 序号 | 方法 | API 路径 | 处理函数 | 功能描述 | MCP 映射 | 状态 |
 |------|------|----------|----------|----------|----------|------|
 | 1 | POST | `/api/notebook/lsNotebooks` | lsNotebooks | 笔记本lsNotebooks | notebook.list | ✅ 已覆盖 |
-| 2 | POST | `/api/notebook/openNotebook` | openNotebook | 笔记本打开 | notebook.open | ✅ 已覆盖 |
-| 3 | POST | `/api/notebook/closeNotebook` | closeNotebook | 笔记本关闭 | notebook.close | ✅ 已覆盖 |
+| 2 | POST | `/api/notebook/openNotebook` | openNotebook | 笔记本打开 | notebook.set_open_state | ✅ 已覆盖 |
+| 3 | POST | `/api/notebook/closeNotebook` | closeNotebook | 笔记本关闭 | notebook.set_open_state | ✅ 已覆盖 |
 | 4 | POST | `/api/notebook/getNotebookConf` | getNotebookConf | 笔记本获取配置 | notebook.get_conf | ✅ 已覆盖 |
 | 5 | POST | `/api/notebook/setNotebookConf` | setNotebookConf | 笔记本设置配置 | notebook.set_conf | ✅ 已覆盖 |
 | 6 | POST | `/api/notebook/createNotebook` | createNotebook | 笔记本创建 | notebook.create | ✅ 已覆盖 |
@@ -563,7 +563,7 @@
 |------|------|----------|----------|----------|----------|------|
 | 1 | POST | `/api/attr/getBookmarkLabels` | getBookmarkLabels | 属性获取BookmarkLabels | - | ❌ 未覆盖 |
 | 2 | POST | `/api/attr/resetBlockAttrs` | resetBlockAttrs | 属性重置Block属性 | - | ❌ 未覆盖 |
-| 3 | POST | `/api/attr/setBlockAttrs` | setBlockAttrs | 属性设置Block属性 | document.set_icon<br>document.set_cover<br>document.clear_cover<br>block.set_attrs | ✅ 已覆盖 |
+| 3 | POST | `/api/attr/setBlockAttrs` | setBlockAttrs | 属性设置Block属性 | document.set_icon<br>document.set_cover<br>block.set_attrs | ✅ 已覆盖 |
 | 4 | POST | `/api/attr/batchSetBlockAttrs` | batchSetBlockAttrs | 属性批量SetBlock属性 | - | ❌ 未覆盖 |
 | 5 | POST | `/api/attr/getBlockAttrs` | getBlockAttrs | 属性获取Block属性 | block.get_attrs | ✅ 已覆盖 |
 | 6 | POST | `/api/attr/batchGetBlockAttrs` | batchGetBlockAttrs | 属性批量GetBlock属性 | - | ❌ 未覆盖 |

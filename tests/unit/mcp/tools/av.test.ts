@@ -521,6 +521,10 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             keyword: 'crm',
+            searchScope: {
+                kernel: 'attribute_view_name_or_kernel_candidates',
+                fallback: 'primary_key_values',
+            },
             results: [{ id: 'av-a' }],
             unresolvedResults: [],
             rawResultCount: 2,
@@ -548,6 +552,10 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             keyword: '账本',
+            searchScope: {
+                kernel: 'attribute_view_name_or_kernel_candidates',
+                fallback: 'primary_key_values',
+            },
             results: [],
             unresolvedResults: [{ id: 'av-a' }],
             rawResultCount: 1,
@@ -558,6 +566,7 @@ describe('av tool', () => {
             reason: 'context_unresolved',
             emptyReason: 'no_verified_results_unresolved_candidates_available',
             unresolvedHint: 'unresolvedResults contains kernel search candidates that matched, but MCP could not verify notebook context yet.',
+            warning: 'No verified AV matches were found. AV search primarily covers database names and primary-key values; non-primary-key cell text may not be searchable immediately after writes.',
         });
     });
 
@@ -581,6 +590,10 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             keyword: '测试',
+            searchScope: {
+                kernel: 'attribute_view_name_or_kernel_candidates',
+                fallback: 'primary_key_values',
+            },
             results: [{ avID: 'av-a', avName: '测试', blockID: 'db-block-1' }],
             unresolvedResults: [],
             rawResultCount: 1,
@@ -618,6 +631,10 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             keyword: 'av row seed',
+            searchScope: {
+                kernel: 'attribute_view_name_or_kernel_candidates',
+                fallback: 'primary_key_values',
+            },
             results: [{
                 avID: '20260407011715-lmkb6df',
                 avName: '测试',
@@ -666,6 +683,10 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             keyword: 'av row seed',
+            searchScope: {
+                kernel: 'attribute_view_name_or_kernel_candidates',
+                fallback: 'primary_key_values',
+            },
             results: [],
             unresolvedResults: [{
                 avID: '20260407011715-lmkb6df',
@@ -684,6 +705,7 @@ describe('av tool', () => {
             reason: 'context_unresolved',
             emptyReason: 'no_verified_results_unresolved_candidates_available',
             unresolvedHint: 'unresolvedResults contains kernel search candidates that matched, but MCP could not verify notebook context yet.',
+            warning: 'No verified AV matches were found. AV search primarily covers database names and primary-key values; non-primary-key cell text may not be searchable immediately after writes.',
         });
     });
 

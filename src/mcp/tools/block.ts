@@ -17,7 +17,7 @@ import {
     BlockDomSchema,
     BlockDocsInfoSchema,
     BlockExistsSchema,
-    BlockFoldSchema,
+    BlockSetFoldStateSchema,
     BlockGetAttrsSchema,
     BlockGetChildrenSchema,
     BlockGetKramdownSchema,
@@ -29,7 +29,6 @@ import {
     BlockRecentUpdatedSchema,
     BlockSetAttrsSchema,
     BlockTransferRefSchema,
-    BlockUnfoldSchema,
     BlockUpdateSchema,
     BlockWordCountSchema,
 } from '../types';
@@ -90,16 +89,11 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
         }, ['id'], 'Move a block to a new position.'),
     },
     {
-        action: 'fold',
-        schema: createActionSchema('fold', {
+        action: 'set_fold_state',
+        schema: createActionSchema('set_fold_state', {
             id: { type: 'string', description: 'Foldable block ID' },
-        }, ['id'], 'Fold a foldable block.'),
-    },
-    {
-        action: 'unfold',
-        schema: createActionSchema('unfold', {
-            id: { type: 'string', description: 'Foldable block ID' },
-        }, ['id'], 'Unfold a foldable block.'),
+            folded: { type: 'boolean', description: 'true to fold, false to unfold' },
+        }, ['id', 'folded'], 'Set the fold state of a foldable block.'),
     },
     {
         action: 'get_kramdown',
@@ -531,20 +525,16 @@ const handleMove: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     }, result), operations);
 };
 
-const handleFold: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockFoldSchema.parse(rawArgs);
+const handleSetFoldState: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockSetFoldStateSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
     if (denied) return denied;
-    await blockApi.foldBlock(client, parsed.id);
-    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id }), [{ type: 'reloadProtyle', id: context.documentId }]);
-};
-
-const handleUnfold: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockUnfoldSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
-    if (denied) return denied;
-    await blockApi.unfoldBlock(client, parsed.id);
-    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    if (parsed.folded) {
+        await blockApi.foldBlock(client, parsed.id);
+    } else {
+        await blockApi.unfoldBlock(client, parsed.id);
+    }
+    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, folded: parsed.folded }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
 const handleGetKramdown: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -769,8 +759,7 @@ const BLOCK_ACTION_HANDLERS: Record<BlockAction, BlockActionHandler> = {
     update: handleUpdate,
     delete: handleDelete,
     move: handleMove,
-    fold: handleFold,
-    unfold: handleUnfold,
+    set_fold_state: handleSetFoldState,
     get_kramdown: handleGetKramdown,
     get_children: handleGetChildren,
     transfer_ref: handleTransferRef,

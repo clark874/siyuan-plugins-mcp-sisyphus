@@ -131,14 +131,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 | 工具 | Actions | 说明 |
 |------|---------|------|
 | **notebook** | 11 | 笔记本管理、权限控制 |
-| **document** | 16 | 文档 CRUD、树操作 |
-| **block** | 19 | 块级操作、属性管理 |
+| **document** | 18 | 文档 CRUD、树操作 |
+| **block** | 22 | 块级操作、属性管理 |
 | **av** | 10 | 属性视图/数据库操作 |
-| **file** | 5 | 资源上传、导出、模板 |
-| **search** | 5 | 全文搜索、SQL查询 |
+| **file** | 12 | 资源上传、导出、模板 |
+| **search** | 11 | 全文搜索、SQL查询 |
 | **tag** | 3 | 标签管理 |
 | **system** | 10 | 系统信息、通知 |
-| **flashcard** | 6 | 闪卡复习、卡组管理 |
+| **flashcard** | 7 | 闪卡复习、卡组管理 |
 | **mascot** | 3 | 交互反馈、商店 |
 
 **工具实现模式：**

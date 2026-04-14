@@ -215,7 +215,7 @@ const filtered = results.filter(item => {
 
 | 维度 | 覆盖内容 | 工具 |
 |------|----------|------|
-| 功能覆盖 | 所有 actions | 9 个工具 |
+| 功能覆盖 | 所有 actions | 10 个工具 |
 | 权限测试 | r/rw/none/rwd 四档 | notebook 工具 |
 | 场景测试 | 真实用户工作流 | 多角色模拟 |
 | 边界测试 | 空值、超长、特殊字符 | 各工具边界 |
@@ -342,5 +342,5 @@ SiYuan MCP Sisyphus 的设计遵循以下核心原则：
 
 ---
 
-*文档整理时间: 2026-04-12*
+*文档整理时间: 2026-04-14*
 *基于: AI_MCP_EXPERIENCE_REPORT_001-005, API_MAPPING, API_UPDATE_SUGGESTIONS*

@@ -21,7 +21,7 @@
 
 - 支持 HTTP 及 stdio 两种连接方式，支持桌面及docker客户端
 - 把思源常用能力收敛成 10 个聚合 tool，降低 Agent 选错工具的概率
-- 覆盖笔记本、文档、块、数据库、资源、搜索、标签、闪卡、系统共 90 个 action
+- 覆盖笔记本、文档、块、数据库、资源、搜索、标签、闪卡、系统共 86 个 action
 - 提供 `none / r / rw / rwd` 四态权限模型，方便按笔记本控制访问范围
 - 渐进式披露思想，减少token占用
 
@@ -309,7 +309,7 @@ Additional actions: remove, move, list_tree ...    → 读取 siyuan://help/acti
 |--------|------|
 | `list` | 列出所有笔记本 |
 | `create` | 创建笔记本（支持传入 `icon`，推荐使用 `1f4d4` 这类 Unicode 十六进制字符串） |
-| `open` / `close` | 打开或关闭笔记本 |
+| `set_open_state` | 打开或关闭笔记本（`opened: boolean`） |
 | `rename` | 重命名笔记本 |
 | `get_conf` / `set_conf` | 获取或设置笔记本配置 |
 | `set_icon` | 设置笔记本图标；推荐使用 `1f4d4` 这类 Unicode 十六进制字符串，而不是直接传 emoji 字符 |
@@ -326,8 +326,7 @@ Additional actions: remove, move, list_tree ...    → 读取 siyuan://help/acti
 | `remove` | 删除文档（按 ID 或存储路径） |
 | `move` | 移动文档（按 ID 或存储路径） |
 | `set_icon` | 设置文档/文件夹图标；推荐使用 `1f4d4` 这类 Unicode 十六进制字符串，而不是直接传 emoji 字符 |
-| `set_cover` | 设置文档头图，优先使用 `http(s)` URL，其次才是 `/assets/...` 路径 |
-| `clear_cover` | 清空文档头图 |
+| `set_cover` | 设置或清除文档头图；传 `source` 则设置，省略则清除 |
 | `get_path` | 按文档 ID 获取存储路径 |
 | `get_hpath` | 按 ID 或存储路径获取人类可读路径 |
 | `get_ids` | 按人类可读路径获取文档 ID |
@@ -346,7 +345,7 @@ Additional actions: remove, move, list_tree ...    → 读取 siyuan://help/acti
 | `update` | 更新块内容，并返回精简成功结果 |
 | `delete` | 删除块 |
 | `move` | 移动块到新位置 |
-| `fold` / `unfold` | 折叠/展开可折叠块 |
+| `set_fold_state` | 折叠/展开可折叠块（`folded: boolean`） |
 | `get_kramdown` | 获取块的 kramdown 格式内容 |
 | `get_children` | 获取直属子块 |
 | `transfer_ref` | 转移块引用 |
@@ -386,8 +385,7 @@ Additional actions: remove, move, list_tree ...    → 读取 siyuan://help/acti
 | `export_md` | 导出文档为 Markdown |
 | `export_resources` | 导出资源为 ZIP 压缩包，兼容 `assets/...` 自动规范化到 `data/assets/...`，并可额外写到本地 `outputPath`（写本地时需用户确认） |
 | `list_unused_assets` | 列出未被引用的资源文件 |
-| `get_doc_assets` | 在通过权限校验后，列出文档引用的全部资源 |
-| `get_doc_image_assets` | 在通过权限校验后，列出文档引用的图片资源 |
+| `get_doc_assets` | 在通过权限校验后，列出文档引用的资源；可用 `assetType` 过滤（`"all"` 或 `"image"`） |
 | `get_image_ocr_text` | 读取图片资源已存储的 OCR 文本 |
 | `remove_unused_assets` | 删除全部未被引用的资源文件 |
 | `rename_asset` | 重命名资源文件 |

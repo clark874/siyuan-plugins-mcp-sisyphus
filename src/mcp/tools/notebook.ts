@@ -5,13 +5,12 @@ import { NOTEBOOK_ACTION_HINTS, NOTEBOOK_GUIDANCE } from '../help';
 import type { PermissionManager } from '../permissions';
 import {
     NotebookActionSchema,
-    NotebookCloseSchema,
     NotebookCreateSchema,
     NotebookGetConfSchema,
     NotebookGetChildDocsSchema,
     NotebookGetPermissionsSchema,
     NotebookListSchema,
-    NotebookOpenSchema,
+    NotebookSetOpenStateSchema,
     NotebookRemoveSchema,
     NotebookRenameSchema,
     NotebookSetConfSchema,
@@ -37,16 +36,11 @@ export const NOTEBOOK_VARIANTS: ActionVariant<NotebookAction>[] = [
         }, ['name'], 'Create a new notebook.'),
     },
     {
-        action: 'open',
-        schema: createActionSchema('open', {
+        action: 'set_open_state',
+        schema: createActionSchema('set_open_state', {
             notebook: { type: 'string', description: 'Notebook ID' },
-        }, ['notebook'], 'Open a notebook.'),
-    },
-    {
-        action: 'close',
-        schema: createActionSchema('close', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-        }, ['notebook'], 'Close a notebook.'),
+            opened: { type: 'boolean', description: 'true to open, false to close' },
+        }, ['notebook', 'opened'], 'Set notebook open state (open or close).'),
     },
     {
         action: 'remove',
@@ -237,19 +231,16 @@ export async function callNotebookTool(
                     iconHint: createSetIconReminder('notebook', Boolean(parsed.icon)),
                 }), parsed.icon ? [{ type: 'reloadIcon' }] : [{ type: 'reloadFiletree' }]);
             }
-            case 'open': {
-                const parsed = NotebookOpenSchema.parse(rawArgs);
+            case 'set_open_state': {
+                const parsed = NotebookSetOpenStateSchema.parse(rawArgs);
                 const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
                 if (denied) return denied;
-                await notebookApi.openNotebook(client, parsed.notebook);
-                return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook }), [{ type: 'reloadFiletree' }]);
-            }
-            case 'close': {
-                const parsed = NotebookCloseSchema.parse(rawArgs);
-                const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
-                if (denied) return denied;
-                await notebookApi.closeNotebook(client, parsed.notebook);
-                return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook }), [{ type: 'reloadFiletree' }]);
+                if (parsed.opened) {
+                    await notebookApi.openNotebook(client, parsed.notebook);
+                } else {
+                    await notebookApi.closeNotebook(client, parsed.notebook);
+                }
+                return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, opened: parsed.opened }), [{ type: 'reloadFiletree' }]);
             }
             case 'remove': {
                 const parsed = NotebookRemoveSchema.parse(rawArgs);
