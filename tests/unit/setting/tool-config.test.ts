@@ -7,7 +7,8 @@ describe('setting tool config', () => {
         const config = buildDefaultToolConfig();
 
         expect(config.document.actions.set_cover).toBe(true);
-        expect(config.document.actions.clear_cover).toBe(true);
+        expect(config.document.actions.duplicate).toBe(true);
+        expect(config.document.actions.remove_batch).toBe(true);
         expect(config.file.actions.upload_asset).toBe(true);
         expect(config.file.uploadLargeFileThresholdMB).toBe(10);
         expect(config.av.actions.get).toBe(true);

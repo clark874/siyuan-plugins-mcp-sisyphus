@@ -410,9 +410,10 @@ describe('tool result normalization', () => {
         const attributeApi = await import('@/api/attribute');
 
         const result = await callDocumentTool(client, {
-            action: 'clear_cover',
+            action: 'set_cover',
             id: 'doc-1',
-        }, enabledActions('clear_cover'), permMgr);
+            source: '',
+        }, enabledActions('set_cover'), permMgr);
 
         expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(client, 'doc-1', {
             'title-img': '',
@@ -440,10 +441,14 @@ describe('tool result normalization', () => {
         }, enabledActions('fulltext'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toEqual({
-            blocks: [{ id: 'b1', content: 'before <mark>hit</mark> after', plainContent: 'before hit after' }],
+            data: [{ id: 'b1', content: 'before <mark>hit</mark> after', plainContent: 'before hit after', excerpt: 'before hit after' }],
+            total: 1,
+            page: 1,
+            pageSize: 32,
+            pageCount: 1,
+            hasNextPage: false,
             matchedBlockCount: 1,
             matchedRootCount: 1,
-            pageCount: 1,
         });
     });
 
@@ -465,16 +470,14 @@ describe('tool result normalization', () => {
         }, enabledActions('get_children'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toEqual({
-            children: [
+            data: [
                 { id: 'child-3' },
                 { id: 'child-4' },
             ],
-            totalChildren: 5,
+            total: 5,
             page: 2,
             pageSize: 2,
             pageCount: 3,
-            showing: 2,
-            truncated: true,
             hasNextPage: true,
             hint: 'Use page/pageSize to paginate. For focused reads, use block(action="get_kramdown") or search(action="query_sql") with a parent_id filter.',
         });

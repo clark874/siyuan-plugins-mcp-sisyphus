@@ -6,10 +6,20 @@
         type IdleMotion,
     } from './puppy-motion';
     import {
-        hasPointerMovedEnough,
         parsePuppyEventPayload,
         shouldShowWageCard,
+        type PuppyEventPayload,
     } from './puppy-interactions';
+    import {
+        formatBubbleText,
+        getFeedProp,
+        shouldShowBalanceCard,
+        type FeedPropKind,
+    } from './puppy-bubble';
+    import { loadPuppyPosition, savePuppyPosition } from './puppy-position';
+    import { createJsonFilePoller, type Poller } from './puppy-polling';
+    import { moveDrag, startDrag, type DragSession } from './puppy-drag';
+    import { createTestModeRunner, type TestModeRunner } from './puppy-test-mode';
     import {
         resolveActionState,
         resolveToolVariant,
@@ -37,7 +47,6 @@
 
     type ResultState = 'none' | 'success' | 'error';
     type PointerState = 'none' | 'pointer-down' | 'pointer-drag' | 'pointer-release';
-    type FeedPropKind = 'none' | 'food' | 'drink';
 
     const TEST_SUCCESS_WEIGHT = 0.8;
 
@@ -47,7 +56,7 @@
     let toolAction = '';
     let bubbleText = '';
     let lastSeq = 0;
-    let pollTimer: ReturnType<typeof setInterval> | undefined;
+    let poller: Poller;
     let idleTimer: ReturnType<typeof setTimeout>;
     let resultTimer: ReturnType<typeof setTimeout>;
     let blinkTimer: ReturnType<typeof setInterval>;
@@ -56,18 +65,12 @@
     let heartTimer: ReturnType<typeof setTimeout> | undefined;
     let feedPropTimer: ReturnType<typeof setTimeout> | undefined;
     let clickHintTimer: ReturnType<typeof setTimeout> | undefined;
-    let testAdvanceTimer: ReturnType<typeof setTimeout> | undefined;
-    let testResultPhaseTimer: ReturnType<typeof setTimeout> | undefined;
+    let testRunner: TestModeRunner;
     let mounted = false;
 
     let posX: number;
     let posY: number;
-    let dragging = false;
-    let dragStartX = 0;
-    let dragStartY = 0;
-    let elStartX = 0;
-    let elStartY = 0;
-    let pointerMoved = false;
+    let dragSession: DragSession | null = null;
 
     let blinking = false;
     let idleMotion: IdleMotion = 'stand';
@@ -80,7 +83,6 @@
     let feedPropEmoji = '';
     let feedPropKind: FeedPropKind = 'none';
     let feedPropSeq = 0;
-    let mascotItemId = '';
     let mascotItemLabel = '';
     let mascotItemType = '';
     let mascotItemEmoji = '';
@@ -88,43 +90,8 @@
 
     const MASCOT_CLICK_HINT = '我是 MCP 插件提供的猫猫，可在设置里关闭这个提示。';
 
-    function shouldShowBalanceCard(tool: string, action: string) {
-        return tool === 'mascot' && action === 'get_balance';
-    }
-
-    function getFeedProp(action: string, bubble: string): { emoji: string; kind: FeedPropKind } | null {
-        if (action !== 'buy') return null;
-        if (mascotItemEmoji && mascotItemType) {
-            return {
-                emoji: mascotItemEmoji,
-                kind: mascotItemType === 'drink' ? 'drink' : 'food',
-            };
-        }
-        if (bubble.includes('猫粮')) return { emoji: '🍖', kind: 'food' };
-        if (bubble.includes('牛奶')) return { emoji: '🥛', kind: 'drink' };
-        return null;
-    }
-
-    function formatBubbleText(tool: string, action: string, status: 'running' | 'success' | 'error', testing = false) {
-        const suffix = testing ? ' · test' : '';
-        if (tool === 'mascot') {
-            if (status === 'running') {
-                if (action === 'get_balance') return `查看余额${suffix}`;
-                if (action === 'shop') return `查看商店${suffix}`;
-                if (action === 'buy') return mascotItemLabel ? `购买${mascotItemLabel}${suffix}` : `购买商品${suffix}`;
-            }
-            if (status === 'success') {
-                if (action === 'get_balance') return `余额 ${balance}${suffix}`;
-                if (action === 'shop') return `商店已打开 ✓${suffix}`;
-                if (action === 'buy') return mascotItemLabel ? `买到${mascotItemLabel} ✓${suffix}` : `购买成功 ✓${suffix}`;
-            }
-            if (action === 'get_balance') return `查看余额 ✗${suffix}`;
-            if (action === 'shop') return `查看商店 ✗${suffix}`;
-            if (action === 'buy') return mascotItemLabel ? `${mascotItemLabel}不足 ✗${suffix}` : `购买失败 ✗${suffix}`;
-        }
-
-        if (status === 'running') return `${tool}/${action}${suffix}`;
-        return `${tool}/${action} ${status === 'success' ? '✓' : '✗'}${suffix}`;
+    function bubbleMeta() {
+        return { balance, mascotItemLabel };
     }
 
     function pickRandomAction(): TestActionEntry {
@@ -139,7 +106,7 @@
             toolVariant = nextTool;
             toolAction = action;
             showWageCard = shouldShowBalanceCard(tool, action) || shouldShowWageCard();
-            bubbleText = formatBubbleText(tool, action, status, true);
+            bubbleText = formatBubbleText(tool, action, status, bubbleMeta(), true);
             clearTimeout(resultTimer);
             resetIdleTimer();
             return;
@@ -149,7 +116,7 @@
         resultState = status;
         toolVariant = nextTool;
         toolAction = action;
-        const nextBubbleText = formatBubbleText(tool, action, status, true);
+        const nextBubbleText = formatBubbleText(tool, action, status, bubbleMeta(), true);
         if (tool === 'mascot' && status === 'success' && action !== 'get_balance') {
             triggerPettingHeart();
             triggerFeedProp(action, nextBubbleText);
@@ -194,7 +161,7 @@
     }
 
     function triggerFeedProp(action: string, bubble: string) {
-        const feedProp = getFeedProp(action, bubble);
+        const feedProp = getFeedProp(action, bubble, mascotItemEmoji, mascotItemType);
         if (!feedProp) return;
         feedPropSeq += 1;
         feedPropVisible = true;
@@ -243,34 +210,15 @@
         }
     }
 
-    function clearTestTimers() {
-        if (testAdvanceTimer) clearTimeout(testAdvanceTimer);
-        if (testResultPhaseTimer) clearTimeout(testResultPhaseTimer);
-        testAdvanceTimer = undefined;
-        testResultPhaseTimer = undefined;
-    }
-
-    function scheduleNextTestTick(delay = 120) {
-        testAdvanceTimer = setTimeout(() => {
-            const next = pickRandomAction();
-            applyDisplayEvent(next.tool, next.action, 'running');
-            testResultPhaseTimer = setTimeout(() => {
-                applyDisplayEvent(next.tool, next.action, Math.random() < TEST_SUCCESS_WEIGHT ? 'success' : 'error');
-                scheduleNextTestTick(testModeIntervalMs);
-            }, Math.max(480, Math.min(1200, Math.floor(testModeIntervalMs * 0.42))));
-        }, delay);
-    }
-
     function syncTestMode() {
         if (!mounted) return;
         if (testModeEnabled) {
             stopPolling();
-            clearTestTimers();
             clearIdleMotionTimer();
-            scheduleNextTestTick();
+            testRunner?.start();
             return;
         }
-        clearTestTimers();
+        testRunner?.stop();
         stopPolling();
         startPolling();
         setIdle();
@@ -278,45 +226,28 @@
     }
 
     function loadPosition() {
-        try {
-            const saved = localStorage.getItem('sy-puppy-pos');
-            if (saved) {
-                const p = JSON.parse(saved);
-                posX = p.x;
-                posY = p.y;
-                return;
-            }
-        } catch { /* ignore */ }
-        posX = window.innerWidth - 110;
-        posY = window.innerHeight - 148;
+        const { x, y } = loadPuppyPosition(window.innerWidth, window.innerHeight);
+        posX = x;
+        posY = y;
     }
 
     function savePosition() {
-        localStorage.setItem('sy-puppy-pos', JSON.stringify({ x: posX, y: posY }));
+        savePuppyPosition({ x: posX, y: posY });
     }
 
     function onMouseDown(e: MouseEvent) {
-        dragging = true;
-        pointerMoved = false;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        elStartX = posX;
-        elStartY = posY;
+        dragSession = startDrag(e.clientX, e.clientY, posX, posY);
         setPointerState('pointer-down');
         e.preventDefault();
     }
 
     function onMouseMove(e: MouseEvent) {
-        if (!dragging) return;
-        const deltaX = e.clientX - dragStartX;
-        const deltaY = e.clientY - dragStartY;
-        const movedEnough = hasPointerMovedEnough(deltaX, deltaY);
-        pointerMoved = pointerMoved || movedEnough;
-        posX = elStartX + deltaX;
-        posY = elStartY + deltaY;
-        if (pointerMoved) {
-            setPointerState('pointer-drag');
-        }
+        if (!dragSession) return;
+        const moved = moveDrag(dragSession, e.clientX, e.clientY);
+        dragSession = moved.session;
+        posX = moved.posX;
+        posY = moved.posY;
+        setPointerState(moved.pointerState);
     }
 
     function triggerPettingHeart() {
@@ -329,16 +260,17 @@
     }
 
     function onMouseUp() {
-        if (!dragging) return;
-        dragging = false;
-        if (pointerMoved) {
+        if (!dragSession) return;
+        const shouldSave = dragSession.pointerMoved;
+        if (shouldSave) {
             savePosition();
         } else {
-            posX = elStartX;
-            posY = elStartY;
+            posX = dragSession.baseX;
+            posY = dragSession.baseY;
             triggerPettingHeart();
             triggerClickHint();
         }
+        dragSession = null;
         setPointerState('pointer-release');
     }
 
@@ -355,7 +287,6 @@
     function clearTransientDisplayState() {
         setIdle();
         balance = 0;
-        mascotItemId = '';
         mascotItemLabel = '';
         mascotItemType = '';
         mascotItemEmoji = '';
@@ -375,77 +306,58 @@
     }
 
     function stopPolling() {
-        if (pollTimer) {
-            clearInterval(pollTimer);
-            pollTimer = undefined;
-        }
+        poller?.stop();
     }
 
     function startPolling() {
-        if (pollTimer || testModeEnabled || !visible) return;
-        pollEvents();
-        pollTimer = setInterval(pollEvents, POLL_INTERVAL);
+        if (testModeEnabled || !visible) return;
+        poller?.start();
     }
 
-    async function pollEvents() {
+    function handlePolledEvent(event: PuppyEventPayload) {
         if (testModeEnabled) return;
-        try {
-            const res = await fetch(API_FILE_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: EVENTS_PATH }),
-            });
-            if (!res.ok) return;
-            const text = await res.text();
-            if (!text) return;
-            const event = parsePuppyEventPayload(text);
-            if (!event) return;
-            balance = event.balance;
-            mascotItemId = event.itemId ?? '';
-            mascotItemLabel = event.itemLabel ?? '';
-            mascotItemType = event.itemType ?? '';
-            mascotItemEmoji = event.itemEmoji ?? '';
-            if (event.seq <= lastSeq) return;
-            lastSeq = event.seq;
+        balance = event.balance;
+        mascotItemLabel = event.itemLabel ?? '';
+        mascotItemType = event.itemType ?? '';
+        mascotItemEmoji = event.itemEmoji ?? '';
+        if (event.seq <= lastSeq) return;
+        lastSeq = event.seq;
 
-            const tool = event.tool || '';
-            const action = event.action || 'unknown';
-            const status = event.status || 'running';
-            const nextTool = resolveToolVariant(tool);
+        const tool = event.tool || '';
+        const action = event.action || 'unknown';
+        const status = event.status || 'running';
+        const nextTool = resolveToolVariant(tool);
 
-            if (status === 'running') {
-                state = resolveActionState(action);
-                resultState = 'none';
-                toolVariant = nextTool;
-                toolAction = action;
-                showWageCard = shouldShowBalanceCard(tool, action) || shouldShowWageCard();
-                bubbleText = formatBubbleText(tool, action, status);
-                clearTimeout(resultTimer);
-                resetIdleTimer();
-            } else if (status === 'success') {
-                state = resolveActionState(action);
-                resultState = 'success';
-                toolVariant = nextTool;
-                toolAction = action;
-                const nextBubbleText = formatBubbleText(tool, action, status);
-                if (tool === 'mascot' && action !== 'get_balance') {
-                    triggerPettingHeart();
-                    triggerFeedProp(action, nextBubbleText);
-                }
-                bubbleText = nextBubbleText;
-                clearTimeout(resultTimer);
-                resultTimer = setTimeout(() => resetIdleTimer(), RESULT_DISPLAY_TIME);
-            } else if (status === 'error') {
-                state = resolveActionState(action);
-                resultState = 'error';
-                toolVariant = nextTool;
-                toolAction = action;
-                bubbleText = formatBubbleText(tool, action, status);
-                clearTimeout(resultTimer);
-                resultTimer = setTimeout(() => resetIdleTimer(), RESULT_DISPLAY_TIME);
+        if (status === 'running') {
+            state = resolveActionState(action);
+            resultState = 'none';
+            toolVariant = nextTool;
+            toolAction = action;
+            showWageCard = shouldShowBalanceCard(tool, action) || shouldShowWageCard();
+            bubbleText = formatBubbleText(tool, action, status, bubbleMeta());
+            clearTimeout(resultTimer);
+            resetIdleTimer();
+        } else if (status === 'success') {
+            state = resolveActionState(action);
+            resultState = 'success';
+            toolVariant = nextTool;
+            toolAction = action;
+            const nextBubbleText = formatBubbleText(tool, action, status, bubbleMeta());
+            if (tool === 'mascot' && action !== 'get_balance') {
+                triggerPettingHeart();
+                triggerFeedProp(action, nextBubbleText);
             }
-        } catch {
-            // Silent fail
+            bubbleText = nextBubbleText;
+            clearTimeout(resultTimer);
+            resultTimer = setTimeout(() => resetIdleTimer(), RESULT_DISPLAY_TIME);
+        } else if (status === 'error') {
+            state = resolveActionState(action);
+            resultState = 'error';
+            toolVariant = nextTool;
+            toolAction = action;
+            bubbleText = formatBubbleText(tool, action, status, bubbleMeta());
+            clearTimeout(resultTimer);
+            resultTimer = setTimeout(() => resetIdleTimer(), RESULT_DISPLAY_TIME);
         }
     }
 
@@ -460,6 +372,19 @@
 
     onMount(() => {
         mounted = true;
+        testRunner = createTestModeRunner({
+            pickAction: pickRandomAction,
+            applyEvent: applyDisplayEvent,
+            getIntervalMs: () => testModeIntervalMs,
+            successWeight: TEST_SUCCESS_WEIGHT,
+        });
+        poller = createJsonFilePoller({
+            endpoint: API_FILE_ENDPOINT,
+            path: EVENTS_PATH,
+            intervalMs: POLL_INTERVAL,
+            parse: parsePuppyEventPayload,
+            onValue: handlePolledEvent,
+        });
         loadPosition();
         startPolling();
         startBlink();
@@ -472,7 +397,7 @@
     onDestroy(() => {
         stopPolling();
         clearInterval(blinkTimer);
-        clearTestTimers();
+        testRunner?.stop();
         clearIdleMotionTimer();
         clearPointerReleaseTimer();
         clearHeartTimer();

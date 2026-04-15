@@ -22,8 +22,8 @@ import {
     AvSetCellSchema,
 } from '../types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocumentContextById, resolveResultItemContext } from './context';
-import { isMissingBlockError } from './block';
-import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createWriteSuccessResult, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
+import { isMissingBlockError } from './errorTranslation';
+import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createPaginatedResult, createWriteSuccessResult, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
 import { applyUiRefresh } from './ui-refresh';
 
 export const AV_TOOL_NAME = 'av';
@@ -961,9 +961,31 @@ async function handleRenderAttributeView({ client, permMgr, rawArgs }: AvHandler
         createIfNotExist: parsed.createIfNotExist,
     });
 
-    return createJsonResult({
+    const responseObj = (response && typeof response === 'object' && !Array.isArray(response))
+        ? response as Record<string, unknown>
+        : {};
+    const rows = Array.isArray(responseObj.rows) ? responseObj.rows as unknown[] : [];
+    const page = parsed.page ?? 1;
+    const pageSize = parsed.pageSize ?? (rows.length || 1);
+    const kernelPageCount = typeof responseObj.pageCount === 'number'
+        ? responseObj.pageCount as number
+        : 1;
+    const total = typeof responseObj.rowCount === 'number'
+        ? responseObj.rowCount as number
+        : rows.length;
+    const { rows: _ignoredRows, pageCount: _ignoredPageCount, rowCount: _ignoredRowCount, ...restResponse } = responseObj;
+    void _ignoredRows;
+    void _ignoredPageCount;
+    void _ignoredRowCount;
+    return createPaginatedResult(rows, {
+        total,
+        page,
+        pageSize,
+        pageCount: kernelPageCount,
+        hasNextPage: page < kernelPageCount,
+    }, {
         avID: parsed.id,
-        ...response,
+        ...restResponse,
     });
 }
 

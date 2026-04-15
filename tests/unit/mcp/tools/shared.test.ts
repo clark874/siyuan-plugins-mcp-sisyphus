@@ -6,9 +6,11 @@ import {
     getSchemaRequired,
     createJsonResult,
     createErrorResult,
+    createPaginatedResult,
     createPermissionDeniedResult,
     createDisabledActionResult,
     buildAggregatedTool,
+    normalizeJsonSchema,
     type JsonSchema,
     type ActionVariant,
 } from '@/mcp/tools/shared';
@@ -273,5 +275,119 @@ describe('buildAggregatedTool', () => {
 
         expect(result[0].description).toContain('confirmation');
         expect(result[0].description).toContain('remove');
+    });
+
+    it('should preserve nested array item schemas', () => {
+        const nestedVariants: ActionVariant<string>[] = [{
+            action: 'create',
+            schema: createActionSchema('create', {
+                items: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            tags: {
+                                type: 'array',
+                                items: { type: 'string' },
+                            },
+                        },
+                        required: ['tags'],
+                    },
+                },
+            }, ['items']),
+        }];
+
+        const result = buildAggregatedTool('notebook', 'Test tool', {
+            enabled: true,
+            actions: { create: true },
+        }, nestedVariants);
+
+        const schema = result[0].inputSchema;
+        expect(schema.properties?.items?.items?.properties?.tags?.items).toEqual({ type: 'string' });
+    });
+});
+
+describe('createPaginatedResult', () => {
+    it('wraps items in the canonical { data, total, page, pageSize, pageCount, hasNextPage } shape', () => {
+        const result = createPaginatedResult([{ id: 1 }, { id: 2 }], {
+            total: 12,
+            page: 2,
+            pageSize: 2,
+            pageCount: 6,
+        });
+        const parsed = JSON.parse(result.content[0].text);
+        expect(parsed).toEqual({
+            data: [{ id: 1 }, { id: 2 }],
+            total: 12,
+            page: 2,
+            pageSize: 2,
+            pageCount: 6,
+            hasNextPage: true,
+        });
+    });
+
+    it('computes hasNextPage from page vs pageCount when omitted', () => {
+        const result = createPaginatedResult([], {
+            total: 0,
+            page: 1,
+            pageSize: 10,
+            pageCount: 1,
+        });
+        const parsed = JSON.parse(result.content[0].text);
+        expect(parsed.hasNextPage).toBe(false);
+    });
+
+    it('merges extras at the top level', () => {
+        const result = createPaginatedResult(['a'], { total: 1, page: 1, pageSize: 1, pageCount: 1 }, { notebook: 'nb-1', warning: 'x' });
+        const parsed = JSON.parse(result.content[0].text);
+        expect(parsed.notebook).toBe('nb-1');
+        expect(parsed.warning).toBe('x');
+    });
+});
+
+describe('mergePropertySchemas annotations', () => {
+    it('annotates each merged property with Required by / Optional in per action', () => {
+        const variants: ActionVariant<string>[] = [
+            { action: 'append', schema: { type: 'object', properties: { parentID: { type: 'string', description: 'Parent ID' }, data: { type: 'string' } }, required: ['parentID', 'data'] } },
+            { action: 'update', schema: { type: 'object', properties: { id: { type: 'string' }, data: { type: 'string' } }, required: ['id', 'data'] } },
+        ];
+        const result = buildAggregatedTool('block', 'Test', { enabled: true, actions: { append: true, update: true } }, variants);
+        const schema = result[0].inputSchema;
+        const dataDesc = schema.properties?.data?.description as string;
+        expect(dataDesc).toContain('Required by: append, update');
+        const parentDesc = schema.properties?.parentID?.description as string;
+        expect(parentDesc).toContain('Required by: append');
+    });
+
+    it('includes Parameter contract block in tool description', () => {
+        const variants: ActionVariant<string>[] = [
+            { action: 'create', schema: { type: 'object', properties: { name: { type: 'string' }, icon: { type: 'string' } }, required: ['name'] } },
+        ];
+        const result = buildAggregatedTool('notebook', 'Manage notebooks.', { enabled: true, actions: { create: true } }, variants);
+        expect(result[0].description).toContain('Parameter contract per action');
+        expect(result[0].description).toContain('notebook.create: required [name] | optional [icon]');
+    });
+});
+
+describe('normalizeJsonSchema', () => {
+    it('fills missing items for nested array schemas', () => {
+        const schema = normalizeJsonSchema({
+            type: 'object',
+            properties: {
+                items: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            values: {
+                                type: 'array',
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        expect(schema.properties?.items?.items?.properties?.values?.items).toEqual({ type: 'string' });
     });
 });

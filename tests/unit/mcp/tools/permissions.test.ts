@@ -100,9 +100,9 @@ describe('tool permission and filtering behavior', () => {
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);
 
-        expect(parsed.rows).toHaveLength(1);
-        expect(parsed.rows[0].content).toBe('visible');
-        expect(parsed.rowCount).toBe(1);
+        expect(parsed.data).toHaveLength(1);
+        expect(parsed.data[0].content).toBe('visible');
+        expect(parsed.total).toBe(1);
         expect(parsed.filteredOutCount).toBe(1);
         expect(parsed.partial).toBe(true);
         expect(parsed.reason).toBe('permission_filtered');
@@ -129,8 +129,8 @@ describe('tool permission and filtering behavior', () => {
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);
 
-        expect(parsed.rows).toHaveLength(1);
-        expect(parsed.rows[0].id).toBe('allowed-row');
+        expect(parsed.data).toHaveLength(1);
+        expect(parsed.data[0].id).toBe('allowed-row');
         expect(parsed.filteredOutCount).toBe(1);
     });
 

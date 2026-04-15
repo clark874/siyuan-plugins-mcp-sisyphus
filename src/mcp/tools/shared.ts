@@ -2,6 +2,7 @@ import { ZodError, type ZodIssue } from 'zod';
 
 import { getActionTier, getEnabledActions, isDangerousAction, type ActionTier, type CategoryToolConfig, type ToolCategory } from '../config';
 import { getActionHint, TOOL_ACTION_HINTS, TOOL_GUIDANCE_BY_CATEGORY } from '../help';
+import { translateError } from './errorTranslation';
 import { buildActionExampleObjects, buildActionShapes } from './help-render';
 
 export interface ToolResult {
@@ -93,6 +94,25 @@ function buildActionUsageSummary<Action extends string>(variants: ActionVariant<
         .join('; ');
 }
 
+function buildParameterContract<Action extends string>(
+    category: ToolCategory,
+    variants: ActionVariant<Action>[],
+): string {
+    const lines: string[] = [];
+    const seen = new Set<string>();
+    for (const variant of variants) {
+        if (seen.has(variant.action)) continue;
+        seen.add(variant.action);
+        const required = getSchemaRequired(variant.schema).filter((f) => f !== 'action');
+        const allProps = Object.keys(getSchemaProperties(variant.schema)).filter((f) => f !== 'action');
+        const optional = allProps.filter((name) => !required.includes(name));
+        const requiredStr = required.length > 0 ? `[${required.join(', ')}]` : '[]';
+        const optionalStr = optional.length > 0 ? `[${optional.join(', ')}]` : '[]';
+        lines.push(`${category}.${variant.action}: required ${requiredStr} | optional ${optionalStr}`);
+    }
+    return lines.join('\n');
+}
+
 function mergePropertySchemas<Action extends string>(
     variants: ActionVariant<Action>[],
     propertyDescriptionOverrides: Record<string, string> = {},
@@ -100,8 +120,11 @@ function mergePropertySchemas<Action extends string>(
     const mergedProperties: JsonSchema = {};
     const descriptions = new Map<string, Set<string>>();
     const enums = new Map<string, Set<unknown>>();
+    const requiredBy = new Map<string, Set<string>>();
+    const optionalIn = new Map<string, Set<string>>();
 
     for (const variant of variants) {
+        const variantRequired = new Set(getSchemaRequired(variant.schema));
         for (const [propertyName, propertySchema] of Object.entries(getSchemaProperties(variant.schema))) {
             if (propertyName === 'action' || !propertySchema || typeof propertySchema !== 'object') continue;
 
@@ -125,19 +148,41 @@ function mergePropertySchemas<Action extends string>(
                 }
                 enums.set(propertyName, values);
             }
+
+            if (variantRequired.has(propertyName)) {
+                const set = requiredBy.get(propertyName) ?? new Set<string>();
+                set.add(variant.action);
+                requiredBy.set(propertyName, set);
+            } else {
+                const set = optionalIn.get(propertyName) ?? new Set<string>();
+                set.add(variant.action);
+                optionalIn.set(propertyName, set);
+            }
         }
     }
 
     for (const [propertyName, propertySchema] of Object.entries(mergedProperties)) {
         const overrideDescription = propertyDescriptionOverrides[propertyName];
+        let baseDescription: string | undefined;
         if (overrideDescription) {
-            (propertySchema as JsonSchema).description = overrideDescription;
+            baseDescription = overrideDescription;
         } else {
             const propertyDescriptions = descriptions.get(propertyName);
             if (propertyDescriptions && propertyDescriptions.size > 0) {
-                (propertySchema as JsonSchema).description = [...propertyDescriptions].join(' / ');
+                baseDescription = [...propertyDescriptions].join(' / ');
             }
         }
+
+        const required = [...(requiredBy.get(propertyName) ?? [])].sort();
+        const optional = [...(optionalIn.get(propertyName) ?? [])].sort();
+        const annotations: string[] = [];
+        if (required.length > 0) annotations.push(`Required by: ${required.join(', ')}`);
+        if (optional.length > 0) annotations.push(`Optional in: ${optional.join(', ')}`);
+
+        const annotationText = annotations.length > 0 ? `[${annotations.join('; ')}]` : '';
+        (propertySchema as JsonSchema).description = baseDescription
+            ? (annotationText ? `${baseDescription} ${annotationText}` : baseDescription)
+            : (annotationText || undefined);
 
         const enumValues = enums.get(propertyName);
         if (enumValues && enumValues.size > 0) {
@@ -146,6 +191,46 @@ function mergePropertySchemas<Action extends string>(
     }
 
     return mergedProperties;
+}
+
+function normalizeSchemaNode(schema: unknown): unknown {
+    if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return schema;
+
+    const normalized = { ...(schema as JsonSchema) };
+
+    if (normalized.type === 'array') {
+        normalized.items = normalizeSchemaNode(
+            normalized.items && typeof normalized.items === 'object'
+                ? normalized.items
+                : { type: 'string' },
+        );
+    }
+
+    if (normalized.properties && typeof normalized.properties === 'object' && !Array.isArray(normalized.properties)) {
+        normalized.properties = Object.fromEntries(
+            Object.entries(normalized.properties).map(([key, value]) => [key, normalizeSchemaNode(value)]),
+        );
+    }
+
+    if (normalized.additionalProperties && typeof normalized.additionalProperties === 'object' && !Array.isArray(normalized.additionalProperties)) {
+        normalized.additionalProperties = normalizeSchemaNode(normalized.additionalProperties);
+    }
+
+    if (Array.isArray(normalized.oneOf)) {
+        normalized.oneOf = normalized.oneOf.map((item) => normalizeSchemaNode(item));
+    }
+    if (Array.isArray(normalized.anyOf)) {
+        normalized.anyOf = normalized.anyOf.map((item) => normalizeSchemaNode(item));
+    }
+    if (Array.isArray(normalized.allOf)) {
+        normalized.allOf = normalized.allOf.map((item) => normalizeSchemaNode(item));
+    }
+
+    return normalized;
+}
+
+export function normalizeJsonSchema(schema: JsonSchema): JsonSchema {
+    return normalizeSchemaNode(schema) as JsonSchema;
 }
 
 function buildEssentialGuidance<Action extends string>(
@@ -273,6 +358,11 @@ function buildTieredDescription<Action extends string>(
         parts.push(`Additional actions: ${advancedActions.join(', ')}. Read siyuan://help/action/${category}/{action} for details, or call action="help" if resources are unavailable.`);
     }
 
+    const contract = buildParameterContract(category, enabledVariants);
+    if (contract.length > 0) {
+        parts.push(`Parameter contract per action (fields outside the action's optional list should not be sent):\n${contract}`);
+    }
+
     const guidance = buildEssentialGuidance(category, enabledActions, options);
     if (guidance.length > 0) {
         parts.push(guidance.join(' '));
@@ -310,7 +400,7 @@ export function buildAggregatedTool<Action extends string>(
     return [{
         name: category,
         description: fullDescription,
-        inputSchema: {
+        inputSchema: normalizeJsonSchema({
             type: 'object',
             additionalProperties: false,
             properties: {
@@ -322,7 +412,7 @@ export function buildAggregatedTool<Action extends string>(
                 ...mergedProperties,
             },
             required: ['action'],
-        },
+        }),
     }];
 }
 
@@ -371,6 +461,7 @@ function buildHelpIndex<Action extends string>(
     }
 
     const actionSummaries: Record<string, string> = {};
+    const actions: Record<string, { hint?: string; requiresConfirmation: boolean }> = {};
     const seen = new Set<string>();
     for (const variant of enabledVariants) {
         if (seen.has(variant.action)) continue;
@@ -379,14 +470,21 @@ function buildHelpIndex<Action extends string>(
         const fields = getSchemaRequired(variant.schema).filter((f) => f !== 'action');
         const shape = fields.length > 0 ? `requires: ${fields.join(', ')}` : 'no extra fields';
         actionSummaries[variant.action] = hint ?? shape;
+        actions[variant.action] = {
+            ...(hint ? { hint } : {}),
+            requiresConfirmation: isDangerousAction(category, variant.action),
+        };
     }
 
     const confirmationActions = enabledActions.filter((action) => isDangerousAction(category, action));
+    const guidance = TOOL_GUIDANCE_BY_CATEGORY[category] ?? [];
 
     return {
         tool: category,
         commonActions: tierGroups.basic,
         advancedActions: tierGroups.advanced,
+        guidance,
+        actions,
         actionSummaries,
         ...(confirmationActions.length > 0 ? { requiresConfirmation: confirmationActions } : {}),
         detailsHint: `Call ${category}(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.`,
@@ -480,6 +578,37 @@ export function paginate<T>(items: T[], page: number, pageSize: number): Paginat
     };
 }
 
+export interface PaginatedPayload<T> {
+    data: T[];
+    total: number;
+    page: number;
+    pageSize: number;
+    pageCount: number;
+    hasNextPage: boolean;
+}
+
+/**
+ * Build the standard `{ data, total, page, pageSize, pageCount, hasNextPage }` shape
+ * used by every list-style action. `extras` are merged at the top level (e.g. avID,
+ * notebook, warnings). Pass a `PaginationResult` from `paginate()` or hand-rolled values.
+ */
+export function createPaginatedResult<T>(
+    data: T[],
+    pagination: { total: number; page: number; pageSize: number; pageCount: number; hasNextPage?: boolean },
+    extras?: Record<string, unknown>,
+): ToolResult {
+    const payload: PaginatedPayload<T> & Record<string, unknown> = {
+        data,
+        total: pagination.total,
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        pageCount: pagination.pageCount,
+        hasNextPage: pagination.hasNextPage ?? (pagination.page < pagination.pageCount),
+        ...(extras ?? {}),
+    };
+    return createJsonResult(payload);
+}
+
 export function createJsonResult(value: unknown): ToolResult {
     return {
         content: [{ type: 'text', text: JSON.stringify(value, null, 2) }],
@@ -529,13 +658,20 @@ export function createErrorResult(error: unknown, context?: ToolErrorContext): T
     }
 
     const normalizedError = error instanceof Error ? error : new Error(String(error));
+    const translation = translateError(normalizedError);
+    const contextHint = resolveHint(context);
+    const combinedHint = translation && contextHint
+        ? `${translation.hint} ${contextHint}`
+        : (translation?.hint ?? contextHint);
+
     const payload: Record<string, unknown> = {
         error: {
             type: isApiError(normalizedError) ? 'api_error' : 'internal_error',
+            ...(translation ? { code: translation.code } : {}),
             message: normalizedError.message,
             ...(context?.tool ? { tool: context.tool } : {}),
             ...(context?.action ? { action: context.action } : {}),
-            ...(resolveHint(context) ? { hint: resolveHint(context) } : {}),
+            ...(combinedHint ? { hint: combinedHint } : {}),
             ...(includeDebugDetails() && normalizedError.stack ? { details: normalizedError.stack } : {}),
         },
     };

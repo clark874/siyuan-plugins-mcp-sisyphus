@@ -40,7 +40,6 @@ describe('file tool asset actions', () => {
         const [tool] = listFileTools(config.file);
         expect(tool.inputSchema.properties.action.enum).toContain('list_unused_assets');
         expect(tool.inputSchema.properties.action.enum).toContain('get_doc_assets');
-        expect(tool.inputSchema.properties.action.enum).toContain('get_doc_image_assets');
         expect(tool.inputSchema.properties.action.enum).toContain('get_image_ocr_text');
         expect(tool.inputSchema.properties.action.enum).toContain('remove_unused_assets');
         expect(tool.inputSchema.properties.action.enum).toContain('rename_asset');
@@ -67,6 +66,7 @@ describe('file tool asset actions', () => {
 
         expect(parseResult(result)).toEqual({
             id: 'doc-1',
+            assetType: 'all',
             assets: ['assets/manual.pdf', 'assets/cover.png'],
             count: 2,
         });
@@ -74,12 +74,14 @@ describe('file tool asset actions', () => {
 
     it('returns document image assets after permission check', async () => {
         const result = await callFileTool(client, {
-            action: 'get_doc_image_assets',
+            action: 'get_doc_assets',
             id: 'doc-1',
+            assetType: 'image',
         }, config.file, {} as never);
 
         expect(parseResult(result)).toEqual({
             id: 'doc-1',
+            assetType: 'image',
             assets: ['assets/cover.png'],
             count: 1,
         });

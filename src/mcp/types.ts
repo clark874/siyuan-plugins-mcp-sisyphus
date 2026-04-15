@@ -136,6 +136,8 @@ export const NotebookSetPermissionSchema = z.object({
 export const NotebookGetChildDocsSchema = z.object({
     action: z.literal("get_child_docs"),
     notebook: z.string().describe("Notebook ID"),
+    page: z.number().int().positive().optional().describe("Page number (1-based), default 1"),
+    pageSize: z.number().int().positive().optional().describe("Rows per page, default 50"),
 });
 
 export const DocumentCreateSchema = z.object({

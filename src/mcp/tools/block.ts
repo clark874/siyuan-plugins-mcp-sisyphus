@@ -34,7 +34,8 @@ import {
 } from '../types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from './context';
 import { filterItemsByPermission } from './search';
-import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createWriteSuccessResult, paginate, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
+import { isMissingBlockError } from './errorTranslation';
+import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createPaginatedResult, createWriteSuccessResult, paginate, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
 import { applyUiRefresh } from './ui-refresh';
 
 export const BLOCK_TOOL_NAME = 'block';
@@ -260,11 +261,6 @@ export function listBlockTools(config: CategoryToolConfig<BlockAction>) {
     );
 }
 
-export function isMissingBlockError(error: unknown): boolean {
-    return error instanceof Error
-        && (/未找到 ID 为 \[[^\]]+\] 的内容块/.test(error.message)
-            || /SiYuan API error:\s*-1\b/.test(error.message));
-}
 
 type RecentUpdatedDocumentSummary = {
     documentId: string;
@@ -552,16 +548,8 @@ const handleGetChildren: BlockActionHandler = async ({ client, permMgr, rawArgs 
     const result = await blockApi.getChildBlocks(client, parsed.id);
     const children = Array.isArray(result) ? result : [];
     const paged = paginate(children, parsed.page ?? 1, parsed.pageSize ?? 50);
-    return createJsonResult({
-        children: paged.items,
-        totalChildren: paged.total,
-        page: paged.page,
-        pageSize: paged.pageSize,
-        pageCount: paged.pageCount,
-        showing: paged.showing,
+    return createPaginatedResult(paged.items, paged, {
         ...(paged.truncated ? {
-            truncated: true,
-            hasNextPage: paged.hasNextPage,
             hint: 'Use page/pageSize to paginate. For focused reads, use block(action="get_kramdown") or search(action="query_sql") with a parent_id filter.',
         } : {}),
     });

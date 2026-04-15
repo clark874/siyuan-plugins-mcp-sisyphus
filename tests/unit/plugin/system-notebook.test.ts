@@ -204,7 +204,15 @@ describe('system and notebook behavior', () => {
         const parsed = parseResult(result);
 
         expect(result.isError).toBeFalsy();
-        expect(parsed).toEqual([{ id: 'doc-1', notebook: 'nb-1', path: '/doc-1.sy', name: 'Doc 1' }]);
+        expect(parsed).toEqual({
+            data: [{ id: 'doc-1', notebook: 'nb-1', path: '/doc-1.sy', name: 'Doc 1' }],
+            total: 1,
+            page: 1,
+            pageSize: 50,
+            pageCount: 1,
+            hasNextPage: false,
+            notebook: 'nb-1',
+        });
         vi.useRealTimers();
     });
 });

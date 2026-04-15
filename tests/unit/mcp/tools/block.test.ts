@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildDefaultToolConfig } from '@/mcp/config';
 import { callBlockTool, listBlockTools } from '@/mcp/tools/block';
-import { isMissingBlockError } from '@/mcp/tools/block';
+import { isMissingBlockError } from '@/mcp/tools/errorTranslation';
 import { createMockClient } from '../../../helpers/mock-client';
 import { parseResult } from '../../../helpers/parse-result';
 

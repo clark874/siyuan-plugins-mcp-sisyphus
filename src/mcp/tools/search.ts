@@ -19,7 +19,7 @@ import {
     SearchTagSchema,
 } from '../types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, escapeSqlString, resolveNotebookForPath, resolveResultItemContext } from './context';
-import { applyTruncation, buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
+import { applyTruncation, buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createPaginatedResult, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
 
 export const SEARCH_TOOL_NAME = 'search';
 
@@ -430,6 +430,307 @@ function isPermissionRelatedApiError(error: unknown): boolean {
     return /permission[_\s-]?denied|has permission|read access is required|write access is required/i.test(error.message);
 }
 
+type SearchFulltextArgs = ReturnType<(typeof SearchFulltextSchema)['parse']>;
+type SearchQuerySqlArgs = ReturnType<(typeof SearchQuerySqlSchema)['parse']>;
+type SearchFulltextAssetContentArgs = ReturnType<(typeof SearchFulltextAssetContentSchema)['parse']>;
+
+function resolveFulltextTypes(parsed: SearchFulltextArgs): unknown {
+    let resolvedTypes = parsed.types ? resolveTypeRecord(parsed.types) : parsed.types;
+    if (parsed.typeShortcodes && parsed.typeShortcodes.length > 0) {
+        const expanded = expandTypeShortcodes(parsed.typeShortcodes);
+        resolvedTypes = { ...expanded, ...resolvedTypes };
+    }
+    return resolvedTypes;
+}
+
+function resolveFulltextRequestPageSize(parsed: SearchFulltextArgs): number | undefined {
+    return parsed.parentId
+        ? Math.min((parsed.pageSize ?? 32) * 3, 128)
+        : parsed.pageSize;
+}
+
+function normalizeFulltextBlocks(normalized: unknown): Record<string, unknown> {
+    const normalizedObj = normalized as Record<string, unknown>;
+    if (Array.isArray(normalizedObj.blocks)) {
+        normalizedObj.blocks = slimSearchBlocks(normalizedObj.blocks as unknown[]);
+    }
+    return normalizedObj;
+}
+
+function applyFulltextParentIdFilter(normalizedObj: Record<string, unknown>, parentId: string): void {
+    if (!Array.isArray(normalizedObj.blocks)) return;
+    const pid = parentId;
+    normalizedObj.blocks = (normalizedObj.blocks as Array<Record<string, unknown>>).filter((block) =>
+        block.rootID === pid || block.root_id === pid || block.parent_id === pid || block.parentID === pid,
+    );
+    normalizedObj.matchedBlockCount = (normalizedObj.blocks as unknown[]).length;
+    normalizedObj.parentIdFilter = pid;
+}
+
+function applyFulltextHasTagsFilter(normalizedObj: Record<string, unknown>, hasTags: boolean): void {
+    if (!Array.isArray(normalizedObj.blocks)) return;
+    normalizedObj.blocks = (normalizedObj.blocks as Array<Record<string, unknown>>).filter((block) => {
+        const tagField = typeof block.tag === 'string' ? (block.tag as string).trim() : '';
+        const hasTag = tagField.length > 0;
+        return hasTags ? hasTag : !hasTag;
+    });
+    normalizedObj.matchedBlockCount = (normalizedObj.blocks as unknown[]).length;
+}
+
+function createFulltextPaginatedResult(normalized: unknown, parsed: SearchFulltextArgs): ToolResult {
+    const normalizedObj = normalized as Record<string, unknown>;
+    const blocks = Array.isArray(normalizedObj.blocks)
+        ? normalizedObj.blocks as unknown[]
+        : [];
+    const kernelRaw = normalized as Record<string, unknown>;
+    const kernelPageCount = typeof kernelRaw.pageCount === 'number'
+        ? kernelRaw.pageCount as number
+        : 1;
+    const page = parsed.page ?? 1;
+    const pageSize = parsed.pageSize ?? 32;
+    const truncated = applyTruncation(blocks, 20, `Use page/pageSize parameters to paginate. Current page: ${page}.`);
+    const matchedBlockCount = typeof kernelRaw.matchedBlockCount === 'number'
+        ? kernelRaw.matchedBlockCount as number
+        : blocks.length;
+    const { blocks: _ignoredBlocks, pageCount: _ignoredPageCount, ...restRaw } = kernelRaw;
+    void _ignoredBlocks;
+    void _ignoredPageCount;
+    return createPaginatedResult(truncated.items, {
+        total: matchedBlockCount,
+        page,
+        pageSize,
+        pageCount: kernelPageCount,
+        hasNextPage: page < kernelPageCount,
+    }, {
+        ...restRaw,
+        ...(truncated.meta ? truncated.meta : {}),
+        ...(parsed.parentId && blocks.length === 0 ? {
+            warning: 'No matching blocks were found in the requested document subtree. If the content was just created or updated, SiYuan full-text indexing may still be catching up; retry shortly.',
+        } : {}),
+    });
+}
+
+function assertReadOnlySql(stmt: string): void {
+    const trimmed = stmt.trim();
+    const firstWord = trimmed.split(/\s+/)[0]?.toUpperCase();
+    if (firstWord !== 'SELECT' && firstWord !== 'WITH') {
+        throw new Error('Only SELECT and WITH (CTE) statements are allowed. Mutation queries (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE) are forbidden.');
+    }
+}
+
+function createSqlQueryResult(rows: unknown[], removedCount: number): ToolResult {
+    const truncated = applyTruncation(rows, 50, 'Add LIMIT and OFFSET to your SQL for pagination.');
+    const total = rows.length;
+    return createPaginatedResult(truncated.items, {
+        total,
+        page: 1,
+        pageSize: total,
+        pageCount: 1,
+        hasNextPage: false,
+    }, {
+        ...createPartialMetadata(removedCount),
+        ...(truncated.meta ? truncated.meta : {}),
+    });
+}
+
+function createFulltextAssetContentResult(typed: Record<string, unknown>, assetContents: unknown[], removedCount: number): ToolResult {
+    const truncated = applyTruncation(assetContents, 20, 'Use page/pageSize parameters to paginate asset content results.');
+    return createJsonResult({
+        ...typed,
+        assetContents: truncated.items,
+        ...createPartialMetadata(removedCount),
+        ...(truncated.meta ? truncated.meta : {}),
+    });
+}
+
+type SearchActionHandlerContext = {
+    client: SiYuanClient;
+    permMgr: PermissionManager;
+    rawArgs: Record<string, unknown>;
+};
+
+type SearchActionHandler = (context: SearchActionHandlerContext) => Promise<ToolResult>;
+
+const SEARCH_ACTION_HANDLERS: Record<SearchAction, SearchActionHandler> = {
+    fulltext: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchFulltextSchema.parse(rawArgs);
+        if (parsed.parentId) {
+            const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.parentId, 'read');
+            if (denied) return denied;
+        }
+
+        const resolvedOrderBy = resolveSortAlias(parsed.sortBy, parsed.orderBy);
+        const result = await searchApi.fullTextSearchBlock(client, {
+            query: parsed.query,
+            method: parsed.method,
+            types: resolveFulltextTypes(parsed),
+            paths: parsed.paths,
+            groupBy: parsed.groupBy,
+            orderBy: resolvedOrderBy,
+            page: parsed.page,
+            pageSize: resolveFulltextRequestPageSize(parsed),
+        });
+        const filtered = filterFullTextSearchResultByPermission(result, permMgr);
+        const normalized = normalizeFullTextSearchResult(filtered, parsed.stripHtml ?? false);
+        const normalizedObj = normalizeFulltextBlocks(normalized);
+        if (parsed.parentId) {
+            applyFulltextParentIdFilter(normalizedObj, parsed.parentId);
+        }
+
+        if (parsed.hasTags !== undefined) {
+            applyFulltextHasTagsFilter(normalizedObj, parsed.hasTags);
+        }
+
+        return createFulltextPaginatedResult(normalized, parsed);
+    },
+    query_sql: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchQuerySqlSchema.parse(rawArgs);
+        try {
+            assertReadOnlySql(parsed.stmt);
+        } catch (error) {
+            return createErrorResult(
+                error,
+                { tool: SEARCH_TOOL_NAME, action: 'query_sql', rawArgs },
+            );
+        }
+        const result = await searchApi.querySQL(client, parsed.stmt);
+        const rows = Array.isArray(result) ? result : [];
+        const filtered = await filterItemsByPermission(client, rows, permMgr);
+        return createSqlQueryResult(filtered.items, filtered.removedCount);
+    },
+    search_tag: async ({ client, rawArgs }) => {
+        const parsed = SearchTagSchema.parse(rawArgs);
+        const result = await searchApi.searchTag(client, parsed.k);
+        const typedResult = result && typeof result === 'object' ? result as Record<string, unknown> : {};
+        const tags = Array.isArray(typedResult.tags) ? typedResult.tags : [];
+        return createJsonResult({
+            ...typedResult,
+            ...(parsed.k.trim().length > 0 && tags.length === 0 ? {
+                warning: 'No matching tags were found. If the tag was just created, SiYuan tag indexing may still be catching up; verify the markdown uses #tag# syntax and retry shortly.',
+            } : {}),
+        });
+    },
+    get_backlinks: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchGetBacklinksSchema.parse(rawArgs);
+        const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+        if (denied) return denied;
+        try {
+            const result = await getBacklinkDocWithFallback(client, parsed.id, parsed.keyword, parsed.refTreeID);
+            const filtered = filterBacklinkResultByPermission(result, permMgr);
+            return createJsonResult({
+                ...filtered,
+                ...(result.sourcePayloadMissing ? { sourcePayloadMissing: true } : {}),
+                ...(result.fallbackQuery ? { fallbackQuery: result.fallbackQuery } : {}),
+                ...(result.resultConfidence ? { resultConfidence: result.resultConfidence } : {}),
+                ...(result.fallbackUsed ? { warning: 'SiYuan returned no backlink payload; SQL fallback results are shown.' } : {}),
+            });
+        } catch (error) {
+            if (isPermissionRelatedApiError(error)) {
+                return createJsonResult({
+                    backlinks: [],
+                    backmentions: [],
+                    warning: 'SiYuan rejected part of the backlink query due to restricted notebooks; restricted results were omitted.',
+                    partial: true,
+                    reason: 'permission_filtered',
+                });
+            }
+            throw error;
+        }
+    },
+    get_backmentions: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchGetBackmentionsSchema.parse(rawArgs);
+        const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+        if (denied) return denied;
+        try {
+            const result = await getBackmentionDocWithFallback(client, parsed.id, parsed.keyword, parsed.refTreeID);
+            const filtered = filterBacklinkResultByPermission(result, permMgr);
+            return createJsonResult({
+                ...filtered,
+                ...(result.sourcePayloadMissing ? { sourcePayloadMissing: true } : {}),
+                ...(result.fallbackQuery ? { fallbackQuery: result.fallbackQuery } : {}),
+                ...(result.resultConfidence ? { resultConfidence: result.resultConfidence } : {}),
+                ...(result.fallbackUsed ? { warning: 'SiYuan returned no backmention payload; SQL fallback results are shown.' } : {}),
+            });
+        } catch (error) {
+            if (isPermissionRelatedApiError(error)) {
+                return createJsonResult({
+                    backmentions: [],
+                    warning: 'SiYuan rejected part of the backmention query due to restricted notebooks; restricted results were omitted.',
+                    partial: true,
+                    reason: 'permission_filtered',
+                });
+            }
+            throw error;
+        }
+    },
+    search_refs: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchRefsSchema.parse(rawArgs);
+        const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+        if (denied) return denied;
+        const result = await searchApi.searchRefBlock(client, parsed);
+        const typed = result && typeof result === 'object' ? result as Record<string, unknown> : {};
+        const blocks = Array.isArray(typed.blocks) ? typed.blocks : [];
+        const filtered = await filterItemsByPermission(client, blocks, permMgr);
+        return createJsonResult({
+            ...typed,
+            blocks: slimSearchBlocks(filtered.items),
+            ...createPartialMetadata(filtered.removedCount),
+        });
+    },
+    find_replace: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchFindReplaceSchema.parse(rawArgs);
+        for (const id of parsed.ids) {
+            const { denied } = await ensurePermissionForDocumentId(client, permMgr, id, 'write');
+            if (denied) return denied;
+        }
+        if (Array.isArray(parsed.paths)) {
+            for (const path of parsed.paths) {
+                const notebook = await resolveNotebookForPath(client, path);
+                if (!notebook) continue;
+                const denied = await ensurePermissionForNotebook(permMgr, notebook, 'write');
+                if (denied) return denied;
+            }
+        }
+        await searchApi.findReplace(client, parsed);
+        return createJsonResult({
+            success: true,
+            replaced: true,
+            ids: parsed.ids,
+            k: parsed.k,
+            r: parsed.r,
+            ...(parsed.paths ? { paths: parsed.paths } : {}),
+        });
+    },
+    search_assets: async ({ client, rawArgs }) => {
+        const parsed = SearchAssetsSchema.parse(rawArgs);
+        const result = await searchApi.searchAsset(client, parsed.k, parsed.exts);
+        return createJsonResult(result);
+    },
+    get_asset_content: async ({ client, rawArgs }) => {
+        const parsed = SearchGetAssetContentSchema.parse(rawArgs);
+        const result = await searchApi.getAssetContent(client, parsed.id, parsed.query, parsed.queryMethod ?? 0);
+        return createJsonResult(result);
+    },
+    fulltext_asset_content: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchFulltextAssetContentSchema.parse(rawArgs) as SearchFulltextAssetContentArgs;
+        const result = await searchApi.fullTextSearchAssetContent(client, parsed);
+        const typed = result && typeof result === 'object' ? result as Record<string, unknown> : {};
+        const assetContents = Array.isArray(typed.assetContents) ? typed.assetContents : [];
+        const filtered = await filterItemsByPermission(client, assetContents, permMgr);
+        return createFulltextAssetContentResult(typed, filtered.items, filtered.removedCount);
+    },
+    list_invalid_refs: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchListInvalidRefsSchema.parse(rawArgs);
+        const result = await searchApi.listInvalidBlockRefs(client, parsed.page, parsed.pageSize);
+        const filtered = filterFullTextSearchResultByPermission((result ?? {}) as {
+            blocks?: unknown[];
+            matchedBlockCount?: number;
+            matchedRootCount?: number;
+        }, permMgr);
+        return createJsonResult(filtered);
+    },
+};
+
 export async function callSearchTool(
     client: SiYuanClient,
     args: Record<string, unknown> | undefined,
@@ -447,249 +748,8 @@ export async function callSearchTool(
         if (!config.enabled || !config.actions[parsedAction]) {
             return createDisabledActionResult(SEARCH_TOOL_NAME, parsedAction);
         }
-
-        switch (parsedAction) {
-            case 'fulltext': {
-                const parsed = SearchFulltextSchema.parse(rawArgs);
-
-                // Resolve type shortcodes in both types and typeShortcodes
-                let resolvedTypes = parsed.types ? resolveTypeRecord(parsed.types) : parsed.types;
-                if (parsed.typeShortcodes && parsed.typeShortcodes.length > 0) {
-                    const expanded = expandTypeShortcodes(parsed.typeShortcodes);
-                    resolvedTypes = { ...expanded, ...resolvedTypes };
-                }
-
-                // Resolve sortBy → orderBy
-                const resolvedOrderBy = resolveSortAlias(parsed.sortBy, parsed.orderBy);
-
-                // Permission check for parentId
-                if (parsed.parentId) {
-                    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.parentId, 'read');
-                    if (denied) return denied;
-                }
-
-                // When parentId is set, request more results to compensate post-filter loss
-                const requestPageSize = parsed.parentId
-                    ? Math.min((parsed.pageSize ?? 32) * 3, 128)
-                    : parsed.pageSize;
-
-                const result = await searchApi.fullTextSearchBlock(client, {
-                    query: parsed.query,
-                    method: parsed.method,
-                    types: resolvedTypes,
-                    paths: parsed.paths,
-                    groupBy: parsed.groupBy,
-                    orderBy: resolvedOrderBy,
-                    page: parsed.page,
-                    pageSize: requestPageSize,
-                });
-                const filtered = filterFullTextSearchResultByPermission(result, permMgr);
-                const normalized = normalizeFullTextSearchResult(filtered, parsed.stripHtml ?? false);
-                const normalizedObj = normalized as Record<string, unknown>;
-                if (Array.isArray(normalizedObj.blocks)) {
-                    normalizedObj.blocks = slimSearchBlocks(normalizedObj.blocks as unknown[]);
-                }
-
-                // Post-filter: parentId
-                if (parsed.parentId && Array.isArray(normalizedObj.blocks)) {
-                    const pid = parsed.parentId;
-                    normalizedObj.blocks = (normalizedObj.blocks as Array<Record<string, unknown>>).filter((block) =>
-                        block.rootID === pid || block.root_id === pid || block.parent_id === pid || block.parentID === pid,
-                    );
-                    normalizedObj.matchedBlockCount = (normalizedObj.blocks as unknown[]).length;
-                    normalizedObj.parentIdFilter = pid;
-                }
-
-                // Post-filter: hasTags
-                if (parsed.hasTags !== undefined && Array.isArray(normalizedObj.blocks)) {
-                    normalizedObj.blocks = (normalizedObj.blocks as Array<Record<string, unknown>>).filter((block) => {
-                        const tagField = typeof block.tag === 'string' ? (block.tag as string).trim() : '';
-                        const hasTag = tagField.length > 0;
-                        return parsed.hasTags ? hasTag : !hasTag;
-                    });
-                    normalizedObj.matchedBlockCount = (normalizedObj.blocks as unknown[]).length;
-                }
-
-                const blocks = Array.isArray(normalizedObj.blocks)
-                    ? normalizedObj.blocks as unknown[]
-                    : [];
-                const pageCount = typeof (normalized as Record<string, unknown>).pageCount === 'number'
-                    ? (normalized as Record<string, unknown>).pageCount as number
-                    : 1;
-                const truncated = applyTruncation(blocks, 20, 'Use page/pageSize parameters to paginate. Current page: ' + (parsed.page ?? 1) + '.');
-                return createJsonResult({
-                    ...(normalized as Record<string, unknown>),
-                    blocks: truncated.items,
-                    ...(truncated.meta ? truncated.meta : {}),
-                    ...(pageCount > 1 ? { pageCount, paginationHint: `${pageCount} pages available. Use page (1-based) and pageSize to navigate.` } : {}),
-                    ...(parsed.parentId && blocks.length === 0 ? {
-                        warning: 'No matching blocks were found in the requested document subtree. If the content was just created or updated, SiYuan full-text indexing may still be catching up; retry shortly.',
-                    } : {}),
-                });
-            }
-            case 'query_sql': {
-                const parsed = SearchQuerySqlSchema.parse(rawArgs);
-                const trimmed = parsed.stmt.trim();
-                const firstWord = trimmed.split(/\s+/)[0]?.toUpperCase();
-                if (firstWord !== 'SELECT' && firstWord !== 'WITH') {
-                    return createErrorResult(
-                        new Error('Only SELECT and WITH (CTE) statements are allowed. Mutation queries (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE) are forbidden.'),
-                        { tool: SEARCH_TOOL_NAME, action: 'query_sql', rawArgs },
-                    );
-                }
-                const result = await searchApi.querySQL(client, parsed.stmt);
-                const rows = Array.isArray(result) ? result : [];
-                const filtered = await filterItemsByPermission(client, rows, permMgr);
-                const truncated = applyTruncation(filtered.items, 50, 'Add LIMIT and OFFSET to your SQL for pagination.');
-                return createJsonResult({
-                    rows: truncated.items,
-                    rowCount: filtered.items.length,
-                    ...createPartialMetadata(filtered.removedCount),
-                    ...(truncated.meta ? truncated.meta : {}),
-                });
-            }
-            case 'search_tag': {
-                const parsed = SearchTagSchema.parse(rawArgs);
-                const result = await searchApi.searchTag(client, parsed.k);
-                const typedResult = result && typeof result === 'object' ? result as Record<string, unknown> : {};
-                const tags = Array.isArray(typedResult.tags) ? typedResult.tags : [];
-                return createJsonResult({
-                    ...typedResult,
-                    ...(parsed.k.trim().length > 0 && tags.length === 0 ? {
-                        warning: 'No matching tags were found. If the tag was just created, SiYuan tag indexing may still be catching up; verify the markdown uses #tag# syntax and retry shortly.',
-                    } : {}),
-                });
-            }
-            case 'get_backlinks': {
-                const parsed = SearchGetBacklinksSchema.parse(rawArgs);
-                const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
-                if (denied) return denied;
-                try {
-                    const result = await getBacklinkDocWithFallback(client, parsed.id, parsed.keyword, parsed.refTreeID);
-                    const filtered = filterBacklinkResultByPermission(result, permMgr);
-                    return createJsonResult({
-                        ...filtered,
-                        ...(result.sourcePayloadMissing ? { sourcePayloadMissing: true } : {}),
-                        ...(result.fallbackQuery ? { fallbackQuery: result.fallbackQuery } : {}),
-                        ...(result.resultConfidence ? { resultConfidence: result.resultConfidence } : {}),
-                        ...(result.fallbackUsed ? { warning: 'SiYuan returned no backlink payload; SQL fallback results are shown.' } : {}),
-                    });
-                } catch (error) {
-                    if (isPermissionRelatedApiError(error)) {
-                        return createJsonResult({
-                            backlinks: [],
-                            backmentions: [],
-                            warning: 'SiYuan rejected part of the backlink query due to restricted notebooks; restricted results were omitted.',
-                            partial: true,
-                            reason: 'permission_filtered',
-                        });
-                    }
-                    throw error;
-                }
-            }
-            case 'get_backmentions': {
-                const parsed = SearchGetBackmentionsSchema.parse(rawArgs);
-                const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
-                if (denied) return denied;
-                try {
-                    const result = await getBackmentionDocWithFallback(client, parsed.id, parsed.keyword, parsed.refTreeID);
-                    const filtered = filterBacklinkResultByPermission(result, permMgr);
-                    return createJsonResult({
-                        ...filtered,
-                        ...(result.sourcePayloadMissing ? { sourcePayloadMissing: true } : {}),
-                        ...(result.fallbackQuery ? { fallbackQuery: result.fallbackQuery } : {}),
-                        ...(result.resultConfidence ? { resultConfidence: result.resultConfidence } : {}),
-                        ...(result.fallbackUsed ? { warning: 'SiYuan returned no backmention payload; SQL fallback results are shown.' } : {}),
-                    });
-                } catch (error) {
-                    if (isPermissionRelatedApiError(error)) {
-                        return createJsonResult({
-                            backmentions: [],
-                            warning: 'SiYuan rejected part of the backmention query due to restricted notebooks; restricted results were omitted.',
-                            partial: true,
-                            reason: 'permission_filtered',
-                        });
-                    }
-                    throw error;
-                }
-            }
-            case 'search_refs': {
-                const parsed = SearchRefsSchema.parse(rawArgs);
-                const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
-                if (denied) return denied;
-                const result = await searchApi.searchRefBlock(client, parsed);
-                const typed = result && typeof result === 'object' ? result as Record<string, unknown> : {};
-                const blocks = Array.isArray(typed.blocks) ? typed.blocks : [];
-                const filtered = await filterItemsByPermission(client, blocks, permMgr);
-                return createJsonResult({
-                    ...typed,
-                    blocks: slimSearchBlocks(filtered.items),
-                    ...createPartialMetadata(filtered.removedCount),
-                });
-            }
-            case 'find_replace': {
-                const parsed = SearchFindReplaceSchema.parse(rawArgs);
-                for (const id of parsed.ids) {
-                    const { denied } = await ensurePermissionForDocumentId(client, permMgr, id, 'write');
-                    if (denied) return denied;
-                }
-                if (Array.isArray(parsed.paths)) {
-                    for (const path of parsed.paths) {
-                        const notebook = await resolveNotebookForPath(client, path);
-                        if (!notebook) continue;
-                        const denied = await ensurePermissionForNotebook(permMgr, notebook, 'write');
-                        if (denied) return denied;
-                    }
-                }
-                await searchApi.findReplace(client, parsed);
-                return createJsonResult({
-                    success: true,
-                    replaced: true,
-                    ids: parsed.ids,
-                    k: parsed.k,
-                    r: parsed.r,
-                    ...(parsed.paths ? { paths: parsed.paths } : {}),
-                });
-            }
-            case 'search_assets': {
-                const parsed = SearchAssetsSchema.parse(rawArgs);
-                const result = await searchApi.searchAsset(client, parsed.k, parsed.exts);
-                return createJsonResult(result);
-            }
-            case 'get_asset_content': {
-                const parsed = SearchGetAssetContentSchema.parse(rawArgs);
-                const result = await searchApi.getAssetContent(client, parsed.id, parsed.query, parsed.queryMethod ?? 0);
-                return createJsonResult(result);
-            }
-            case 'fulltext_asset_content': {
-                const parsed = SearchFulltextAssetContentSchema.parse(rawArgs);
-                const result = await searchApi.fullTextSearchAssetContent(client, parsed);
-                const typed = result && typeof result === 'object' ? result as Record<string, unknown> : {};
-                const assetContents = Array.isArray(typed.assetContents) ? typed.assetContents : [];
-                const filtered = await filterItemsByPermission(client, assetContents, permMgr);
-                const truncated = applyTruncation(filtered.items, 20, 'Use page/pageSize parameters to paginate asset content results.');
-                return createJsonResult({
-                    ...typed,
-                    assetContents: truncated.items,
-                    ...createPartialMetadata(filtered.removedCount),
-                    ...(truncated.meta ? truncated.meta : {}),
-                });
-            }
-            case 'list_invalid_refs': {
-                const parsed = SearchListInvalidRefsSchema.parse(rawArgs);
-                const result = await searchApi.listInvalidBlockRefs(client, parsed.page, parsed.pageSize);
-                const filtered = filterFullTextSearchResultByPermission((result ?? {}) as {
-                    blocks?: unknown[];
-                    matchedBlockCount?: number;
-                    matchedRootCount?: number;
-                }, permMgr);
-                return createJsonResult(filtered);
-            }
-            default: {
-                const _exhaustive: never = parsedAction;
-                return createErrorResult(new Error(`Unknown action: ${_exhaustive}`), { tool: SEARCH_TOOL_NAME, action, rawArgs });
-            }
-        }
+        const handler = SEARCH_ACTION_HANDLERS[parsedAction];
+        return await handler({ client, permMgr, rawArgs });
     } catch (error) {
         return createErrorResult(error, { tool: SEARCH_TOOL_NAME, action, rawArgs });
     }

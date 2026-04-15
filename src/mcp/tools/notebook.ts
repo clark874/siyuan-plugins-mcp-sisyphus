@@ -18,7 +18,7 @@ import {
     NotebookSetPermissionSchema,
 } from '../types';
 import { ensurePermissionForNotebook, listChildDocumentsByPath } from './context';
-import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createSetIconReminder, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
+import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createPaginatedResult, createSetIconReminder, paginate, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
 import { applyUiRefresh } from './ui-refresh';
 
 export const NOTEBOOK_TOOL_NAME = 'notebook';
@@ -107,7 +107,9 @@ export const NOTEBOOK_VARIANTS: ActionVariant<NotebookAction>[] = [
         action: 'get_child_docs',
         schema: createActionSchema('get_child_docs', {
             notebook: { type: 'string', description: 'Notebook ID' },
-        }, ['notebook'], 'Get direct child documents at the notebook root.'),
+            page: { type: 'number', description: 'Page number (1-based), default 1' },
+            pageSize: { type: 'number', description: 'Rows per page, default 50' },
+        }, ['notebook'], 'Get direct child documents at the notebook root. Returns a paginated { data, total, page, pageSize, pageCount, hasNextPage } payload.'),
     },
 ];
 
@@ -212,130 +214,138 @@ export async function callNotebookTool(
         if (!config.enabled || !config.actions[parsedAction]) {
             return createDisabledActionResult(NOTEBOOK_TOOL_NAME, parsedAction);
         }
-
-        switch (parsedAction) {
-            case 'list': {
-                NotebookListSchema.parse(rawArgs);
-                const result = await notebookApi.listNotebooks(client);
-                return createJsonResult(result.notebooks);
-            }
-            case 'create': {
-                const parsed = NotebookCreateSchema.parse(rawArgs);
-                const result = await notebookApi.createNotebook(client, parsed.name);
-                if (parsed.icon) {
-                    await notebookApi.setNotebookIcon(client, result.notebook.id, parsed.icon);
-                    result.notebook.icon = parsed.icon;
-                }
-                return applyUiRefresh(client, createJsonResult({
-                    ...result.notebook,
-                    iconHint: createSetIconReminder('notebook', Boolean(parsed.icon)),
-                }), parsed.icon ? [{ type: 'reloadIcon' }] : [{ type: 'reloadFiletree' }]);
-            }
-            case 'set_open_state': {
-                const parsed = NotebookSetOpenStateSchema.parse(rawArgs);
-                const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
-                if (denied) return denied;
-                if (parsed.opened) {
-                    await notebookApi.openNotebook(client, parsed.notebook);
-                } else {
-                    await notebookApi.closeNotebook(client, parsed.notebook);
-                }
-                return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, opened: parsed.opened }), [{ type: 'reloadFiletree' }]);
-            }
-            case 'remove': {
-                const parsed = NotebookRemoveSchema.parse(rawArgs);
-                const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'delete');
-                if (denied) return denied;
-                await notebookApi.removeNotebook(client, parsed.notebook);
-                return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook }), [{ type: 'reloadFiletree' }]);
-            }
-            case 'rename': {
-                const parsed = NotebookRenameSchema.parse(rawArgs);
-                const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
-                if (denied) return denied;
-                await notebookApi.renameNotebook(client, parsed.notebook, parsed.name);
-                return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, name: parsed.name }), [{ type: 'reloadFiletree' }]);
-            }
-            case 'get_conf': {
-                const parsed = NotebookGetConfSchema.parse(rawArgs);
-                const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
-                if (denied) return denied;
-                const result = await notebookApi.getNotebookConf(client, parsed.notebook);
-                return createJsonResult(result);
-            }
-            case 'set_conf': {
-                const parsed = NotebookSetConfSchema.parse(rawArgs);
-                const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
-                if (denied) return denied;
-                const result = await notebookApi.setNotebookConf(client, parsed.notebook, parsed.conf);
-                return applyUiRefresh(client, createJsonResult(result), [{ type: 'reloadFiletree' }]);
-            }
-            case 'set_icon': {
-                const parsed = NotebookSetIconSchema.parse(rawArgs);
-                const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
-                if (denied) return denied;
-                await notebookApi.setNotebookIcon(client, parsed.notebook, parsed.icon);
-                return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, icon: parsed.icon }), [{ type: 'reloadIcon' }]);
-            }
-            case 'get_permissions': {
-                const parsed = NotebookGetPermissionsSchema.parse(rawArgs);
-                await permMgr.reload();
-                const listResult = await notebookApi.listNotebooks(client);
-                const notebooks = listResult.notebooks.map(nb => ({
-                    id: nb.id,
-                    name: nb.name,
-                    permission: permMgr.get(nb.id),
-                }));
-                if (!parsed.notebook || parsed.notebook === 'all') {
-                    return createJsonResult({ notebooks });
-                }
-
-                const notebook = notebooks.find((entry) => entry.id === parsed.notebook);
-                if (!notebook) {
-                    return createErrorResult(
-                        new Error(`Notebook "${parsed.notebook}" not found.`),
-                        { tool: NOTEBOOK_TOOL_NAME, action: 'get_permissions', rawArgs },
-                    );
-                }
-
-                return createJsonResult({ notebook });
-            }
-            case 'set_permission': {
-                const parsed = NotebookSetPermissionSchema.parse(rawArgs);
-                await permMgr.set(parsed.notebook, parsed.permission);
-                return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, permission: parsed.permission }), [{ type: 'reloadFiletree' }]);
-            }
-            case 'get_child_docs': {
-                const parsed = NotebookGetChildDocsSchema.parse(rawArgs);
-                const retryCount = 2;
-                const retryDelayMs = 150;
-                const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
-                if (denied) {
-                    return denied;
-                }
-                const notebookList = await notebookApi.listNotebooks(client);
-                const notebook = notebookList.notebooks.find((item) => item.id === parsed.notebook);
-
-                if (!notebook) {
-                    throw normalizeNotebookChildDocsError(new Error('Notebook not found in lsNotebooks result.'), parsed.notebook, false, false);
-                }
-
-                const retryResult = await retryNotebookChildDocs(client, parsed.notebook, retryCount, retryDelayMs);
-                if (retryResult.error) {
-                    const normalized = normalizeNotebookChildDocsError(retryResult.error, parsed.notebook, true, Boolean(notebook.closed));
-                    if (notebook.closed) {
-                        return createNotebookChildDocsStateErrorResult(parsed.notebook, normalized.message, retryResult.attempts, retryCount * retryDelayMs);
-                    }
-                    throw normalized;
-                }
-                return createJsonResult(retryResult.children ?? []);
-            }
-            default: {
-                const _exhaustive: never = parsedAction;
-                return createErrorResult(new Error(`Unknown action: ${_exhaustive}`), { tool: NOTEBOOK_TOOL_NAME, action, rawArgs });
-            }
-        }
+        const handler = NOTEBOOK_ACTION_HANDLERS[parsedAction];
+        return await handler({ client, permMgr, rawArgs });
     } catch (error) {
         return createErrorResult(error, { tool: NOTEBOOK_TOOL_NAME, action, rawArgs });
     }
 }
+
+type NotebookActionHandlerContext = {
+    client: SiYuanClient;
+    permMgr: PermissionManager;
+    rawArgs: Record<string, unknown>;
+};
+
+type NotebookActionHandler = (context: NotebookActionHandlerContext) => Promise<ToolResult>;
+
+const NOTEBOOK_ACTION_HANDLERS: Record<NotebookAction, NotebookActionHandler> = {
+    list: async ({ client, rawArgs }) => {
+        NotebookListSchema.parse(rawArgs);
+        const result = await notebookApi.listNotebooks(client);
+        return createJsonResult(result.notebooks);
+    },
+    create: async ({ client, rawArgs }) => {
+        const parsed = NotebookCreateSchema.parse(rawArgs);
+        const result = await notebookApi.createNotebook(client, parsed.name);
+        if (parsed.icon) {
+            await notebookApi.setNotebookIcon(client, result.notebook.id, parsed.icon);
+            result.notebook.icon = parsed.icon;
+        }
+        return applyUiRefresh(client, createJsonResult({
+            ...result.notebook,
+            iconHint: createSetIconReminder('notebook', Boolean(parsed.icon)),
+        }), parsed.icon ? [{ type: 'reloadIcon' }] : [{ type: 'reloadFiletree' }]);
+    },
+    set_open_state: async ({ client, permMgr, rawArgs }) => {
+        const parsed = NotebookSetOpenStateSchema.parse(rawArgs);
+        const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
+        if (denied) return denied;
+        if (parsed.opened) {
+            await notebookApi.openNotebook(client, parsed.notebook);
+        } else {
+            await notebookApi.closeNotebook(client, parsed.notebook);
+        }
+        return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, opened: parsed.opened }), [{ type: 'reloadFiletree' }]);
+    },
+    remove: async ({ client, permMgr, rawArgs }) => {
+        const parsed = NotebookRemoveSchema.parse(rawArgs);
+        const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'delete');
+        if (denied) return denied;
+        await notebookApi.removeNotebook(client, parsed.notebook);
+        return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook }), [{ type: 'reloadFiletree' }]);
+    },
+    rename: async ({ client, permMgr, rawArgs }) => {
+        const parsed = NotebookRenameSchema.parse(rawArgs);
+        const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
+        if (denied) return denied;
+        await notebookApi.renameNotebook(client, parsed.notebook, parsed.name);
+        return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, name: parsed.name }), [{ type: 'reloadFiletree' }]);
+    },
+    get_conf: async ({ client, permMgr, rawArgs }) => {
+        const parsed = NotebookGetConfSchema.parse(rawArgs);
+        const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
+        if (denied) return denied;
+        const result = await notebookApi.getNotebookConf(client, parsed.notebook);
+        return createJsonResult(result);
+    },
+    set_conf: async ({ client, permMgr, rawArgs }) => {
+        const parsed = NotebookSetConfSchema.parse(rawArgs);
+        const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
+        if (denied) return denied;
+        const result = await notebookApi.setNotebookConf(client, parsed.notebook, parsed.conf);
+        return applyUiRefresh(client, createJsonResult(result), [{ type: 'reloadFiletree' }]);
+    },
+    set_icon: async ({ client, permMgr, rawArgs }) => {
+        const parsed = NotebookSetIconSchema.parse(rawArgs);
+        const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
+        if (denied) return denied;
+        await notebookApi.setNotebookIcon(client, parsed.notebook, parsed.icon);
+        return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, icon: parsed.icon }), [{ type: 'reloadIcon' }]);
+    },
+    get_permissions: async ({ client, permMgr, rawArgs }) => {
+        const parsed = NotebookGetPermissionsSchema.parse(rawArgs);
+        await permMgr.reload();
+        const listResult = await notebookApi.listNotebooks(client);
+        const notebooks = listResult.notebooks.map(nb => ({
+            id: nb.id,
+            name: nb.name,
+            permission: permMgr.get(nb.id),
+        }));
+        if (!parsed.notebook || parsed.notebook === 'all') {
+            return createJsonResult({ notebooks });
+        }
+
+        const notebook = notebooks.find((entry) => entry.id === parsed.notebook);
+        if (!notebook) {
+            return createErrorResult(
+                new Error(`Notebook "${parsed.notebook}" not found.`),
+                { tool: NOTEBOOK_TOOL_NAME, action: 'get_permissions', rawArgs },
+            );
+        }
+
+        return createJsonResult({ notebook });
+    },
+    set_permission: async ({ client, permMgr, rawArgs }) => {
+        const parsed = NotebookSetPermissionSchema.parse(rawArgs);
+        await permMgr.set(parsed.notebook, parsed.permission);
+        return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, permission: parsed.permission }), [{ type: 'reloadFiletree' }]);
+    },
+    get_child_docs: async ({ client, permMgr, rawArgs }) => {
+        const parsed = NotebookGetChildDocsSchema.parse(rawArgs);
+        const retryCount = 2;
+        const retryDelayMs = 150;
+        const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
+        if (denied) {
+            return denied;
+        }
+        const notebookList = await notebookApi.listNotebooks(client);
+        const notebook = notebookList.notebooks.find((item) => item.id === parsed.notebook);
+
+        if (!notebook) {
+            throw normalizeNotebookChildDocsError(new Error('Notebook not found in lsNotebooks result.'), parsed.notebook, false, false);
+        }
+
+        const retryResult = await retryNotebookChildDocs(client, parsed.notebook, retryCount, retryDelayMs);
+        if (retryResult.error) {
+            const normalized = normalizeNotebookChildDocsError(retryResult.error, parsed.notebook, true, Boolean(notebook.closed));
+            if (notebook.closed) {
+                return createNotebookChildDocsStateErrorResult(parsed.notebook, normalized.message, retryResult.attempts, retryCount * retryDelayMs);
+            }
+            throw normalized;
+        }
+        const docs = retryResult.children ?? [];
+        const paged = paginate(docs, parsed.page ?? 1, parsed.pageSize ?? 50);
+        return createPaginatedResult(paged.items, paged, { notebook: parsed.notebook });
+    },
+};

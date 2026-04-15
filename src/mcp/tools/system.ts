@@ -285,6 +285,65 @@ function buildFontsResponse(raw: unknown, mode: 'summary' | 'list', offset: numb
     };
 }
 
+type SystemActionHandlerContext = {
+    client: SiYuanClient;
+    rawArgs: Record<string, unknown>;
+};
+
+type SystemActionHandler = (context: SystemActionHandlerContext) => Promise<ToolResult>;
+
+const SYSTEM_ACTION_HANDLERS: Record<SystemAction, SystemActionHandler> = {
+    workspace_info: async ({ client, rawArgs }) => {
+        SystemWorkspaceInfoSchema.parse(rawArgs);
+        return createJsonResult(await systemApi.getWorkspaceInfo(client));
+    },
+    network: async ({ client, rawArgs }) => {
+        SystemNetworkSchema.parse(rawArgs);
+        return createJsonResult(await systemApi.getNetwork(client));
+    },
+    changelog: async ({ client, rawArgs }) => {
+        SystemChangelogSchema.parse(rawArgs);
+        return createJsonResult(await systemApi.getChangelog(client));
+    },
+    conf: async ({ client, rawArgs }) => {
+        const parsed = SystemConfSchema.parse(rawArgs);
+        const rawConf = await systemApi.getConf(client);
+        const mode = parsed.mode ?? 'summary';
+        const maxDepth = clampInteger(parsed.maxDepth, DEFAULT_CONF_MAX_DEPTH, 0, 5);
+        const maxItems = clampInteger(parsed.maxItems, DEFAULT_CONF_MAX_ITEMS, 1, 100);
+        return createJsonResult(buildConfResponse(rawConf, mode, parsed.keyPath, maxDepth, maxItems));
+    },
+    sys_fonts: async ({ client, rawArgs }) => {
+        const parsed = SystemSysFontsSchema.parse(rawArgs);
+        const rawFonts = await systemApi.getSysFonts(client);
+        const mode = parsed.mode ?? 'summary';
+        const offset = clampInteger(parsed.offset, 0, 0, Number.MAX_SAFE_INTEGER);
+        const limit = clampInteger(parsed.limit, DEFAULT_FONT_LIST_LIMIT, 1, MAX_FONT_LIST_LIMIT);
+        return createJsonResult(buildFontsResponse(rawFonts, mode, offset, limit, parsed.query));
+    },
+    boot_progress: async ({ client, rawArgs }) => {
+        SystemBootProgressSchema.parse(rawArgs);
+        return createJsonResult(await systemApi.getBootProgress(client));
+    },
+    push_msg: async ({ client, rawArgs }) => {
+        const parsed = SystemPushMsgSchema.parse(rawArgs);
+        return createJsonResult(await fileApi.pushMsg(client, parsed.msg, parsed.timeout));
+    },
+    push_err_msg: async ({ client, rawArgs }) => {
+        const parsed = SystemPushErrMsgSchema.parse(rawArgs);
+        return createJsonResult(await fileApi.pushErrMsg(client, parsed.msg, parsed.timeout));
+    },
+    get_version: async ({ client, rawArgs }) => {
+        SystemGetVersionSchema.parse(rawArgs);
+        return createJsonResult({ version: await fileApi.getVersion(client) });
+    },
+    get_current_time: async ({ client, rawArgs }) => {
+        SystemGetCurrentTimeSchema.parse(rawArgs);
+        const currentTime = await fileApi.getCurrentTime(client);
+        return createJsonResult({ currentTime, iso: new Date(currentTime).toISOString() });
+    },
+};
+
 export async function callSystemTool(
     client: SiYuanClient,
     args: Record<string, unknown> | undefined,
@@ -302,62 +361,8 @@ export async function callSystemTool(
         if (!config.enabled || !config.actions[parsedAction]) {
             return createDisabledActionResult(SYSTEM_TOOL_NAME, parsedAction);
         }
-
-        switch (parsedAction) {
-            case 'workspace_info': {
-                SystemWorkspaceInfoSchema.parse(rawArgs);
-                return createJsonResult(await systemApi.getWorkspaceInfo(client));
-            }
-            case 'network': {
-                SystemNetworkSchema.parse(rawArgs);
-                return createJsonResult(await systemApi.getNetwork(client));
-            }
-            case 'changelog': {
-                SystemChangelogSchema.parse(rawArgs);
-                return createJsonResult(await systemApi.getChangelog(client));
-            }
-            case 'conf': {
-                const parsed = SystemConfSchema.parse(rawArgs);
-                const rawConf = await systemApi.getConf(client);
-                const mode = parsed.mode ?? 'summary';
-                const maxDepth = clampInteger(parsed.maxDepth, DEFAULT_CONF_MAX_DEPTH, 0, 5);
-                const maxItems = clampInteger(parsed.maxItems, DEFAULT_CONF_MAX_ITEMS, 1, 100);
-                return createJsonResult(buildConfResponse(rawConf, mode, parsed.keyPath, maxDepth, maxItems));
-            }
-            case 'sys_fonts': {
-                const parsed = SystemSysFontsSchema.parse(rawArgs);
-                const rawFonts = await systemApi.getSysFonts(client);
-                const mode = parsed.mode ?? 'summary';
-                const offset = clampInteger(parsed.offset, 0, 0, Number.MAX_SAFE_INTEGER);
-                const limit = clampInteger(parsed.limit, DEFAULT_FONT_LIST_LIMIT, 1, MAX_FONT_LIST_LIMIT);
-                return createJsonResult(buildFontsResponse(rawFonts, mode, offset, limit, parsed.query));
-            }
-            case 'boot_progress': {
-                SystemBootProgressSchema.parse(rawArgs);
-                return createJsonResult(await systemApi.getBootProgress(client));
-            }
-            case 'push_msg': {
-                const parsed = SystemPushMsgSchema.parse(rawArgs);
-                return createJsonResult(await fileApi.pushMsg(client, parsed.msg, parsed.timeout));
-            }
-            case 'push_err_msg': {
-                const parsed = SystemPushErrMsgSchema.parse(rawArgs);
-                return createJsonResult(await fileApi.pushErrMsg(client, parsed.msg, parsed.timeout));
-            }
-            case 'get_version': {
-                SystemGetVersionSchema.parse(rawArgs);
-                return createJsonResult({ version: await fileApi.getVersion(client) });
-            }
-            case 'get_current_time': {
-                SystemGetCurrentTimeSchema.parse(rawArgs);
-                const currentTime = await fileApi.getCurrentTime(client);
-                return createJsonResult({ currentTime, iso: new Date(currentTime).toISOString() });
-            }
-            default: {
-                const _exhaustive: never = parsedAction;
-                return createErrorResult(new Error(`Unknown action: ${_exhaustive}`), { tool: SYSTEM_TOOL_NAME, action, rawArgs });
-            }
-        }
+        const handler = SYSTEM_ACTION_HANDLERS[parsedAction];
+        return await handler({ client, rawArgs });
     } catch (error) {
         return createErrorResult(error, { tool: SYSTEM_TOOL_NAME, action, rawArgs });
     }

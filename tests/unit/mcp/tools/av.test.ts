@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { callAvTool } from '@/mcp/tools/av';
+import { callAvTool, listAvTools } from '@/mcp/tools/av';
 import type { ToolResult } from '@/mcp/tools/shared';
 
 vi.mock('@/mcp/tools/context', () => ({
@@ -108,6 +108,13 @@ describe('av tool', () => {
             filters: [{ field: 'status' }],
             sorts: [{ field: 'updated' }],
         });
+    });
+
+    it('exports batch_set_cells items with nested array item schemas intact', () => {
+        const [tool] = listAvTools(enabledActions('batch_set_cells'));
+
+        expect(tool.inputSchema.properties?.items?.items?.properties?.options?.items).toEqual({ type: 'string' });
+        expect(tool.inputSchema.properties?.items?.items?.properties?.assets?.items?.properties?.content?.type).toBe('string');
     });
 
     it('maps typed set_cell input into the kernel value payload', async () => {
@@ -1515,11 +1522,16 @@ describe('av tool', () => {
         }, enabledActions('render_attribute_view'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toEqual({
+            data: [],
+            total: 0,
+            page: 2,
+            pageSize: 1,
+            pageCount: 1,
+            hasNextPage: false,
             avID: 'av-1',
             id: 'av-1',
             viewID: 'view-1',
             viewType: 'table',
-            rows: [],
         });
     });
 
