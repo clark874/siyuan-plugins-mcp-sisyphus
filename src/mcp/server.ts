@@ -4,20 +4,11 @@ import { CallToolRequestSchema, ErrorCode, ListResourcesRequestSchema, ListResou
 import { startHttpMcpServer } from './http-transport';
 
 import { SiYuanClient } from '../api/client';
-import { buildDefaultToolConfig, formatDangerousActionsList, normalizeToolConfig, TOOL_CATEGORIES, type ToolCategory, type ToolConfig } from './config';
+import { buildDefaultToolConfig, formatDangerousActionsList, normalizeToolConfig, type ToolConfig } from './config';
 import { PermissionManager } from './permissions';
 import { listHelpResources, listHelpResourceTemplates, readHelpResource } from './resources';
-import { callBlockTool, listBlockTools } from './tools/block';
-import { callAvTool, listAvTools } from './tools/av';
-import { callDocumentTool, listDocumentTools } from './tools/document';
-import { callFileTool, listFileTools } from './tools/file';
-import { callNotebookTool, listNotebookTools } from './tools/notebook';
-import { callSearchTool, listSearchTools } from './tools/search';
-import { callSystemTool, listSystemTools } from './tools/system';
-import { callTagTool, listTagTools } from './tools/tag';
-import { callFlashcardTool, listFlashcardTools } from './tools/flashcard';
-import { earnPuppyBalance, readPuppyStats, writePuppyEvent } from './puppy-state';
-import { callMascotTool, listMascotTools } from './tools/mascot';
+import { listAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
+import { runToolCall } from './tool-lifecycle';
 
 const PLUGIN_CONFIG_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
 
@@ -163,25 +154,6 @@ async function getToolConfig(client?: SiYuanClient): Promise<ToolConfig> {
     return buildDefaultToolConfig();
 }
 
-function getToolsByConfig(config: ToolConfig) {
-    return [
-        ...listNotebookTools(config.notebook),
-        ...listDocumentTools(config.document),
-        ...listBlockTools(config.block),
-        ...listAvTools(config.av),
-        ...listFileTools(config.file),
-        ...listSearchTools(config.search),
-        ...listTagTools(config.tag),
-        ...listSystemTools(config.system),
-        ...listFlashcardTools(config.flashcard),
-        ...listMascotTools(config.mascot),
-    ];
-}
-
-function asCategory(name: string): ToolCategory | null {
-    return TOOL_CATEGORIES.includes(name as ToolCategory) ? (name as ToolCategory) : null;
-}
-
 async function initSiYuanClient(): Promise<SiYuanClient> {
     const client = new SiYuanClient();
 
@@ -205,7 +177,7 @@ export async function createSiYuanServer(): Promise<Server> {
 
     server.setRequestHandler(ListToolsRequestSchema, async () => {
         const config = await getToolConfig(client);
-        return { tools: getToolsByConfig(config) };
+        return { tools: listAllTools(config) };
     });
 
     server.setRequestHandler(ListResourcesRequestSchema, async () => {
@@ -227,7 +199,7 @@ export async function createSiYuanServer(): Promise<Server> {
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { name, arguments: args } = request.params;
         const action = typeof args?.action === 'string' ? args.action : 'unknown';
-        const category = asCategory(name);
+        const category = resolveCategory(name);
         if (!category) {
             return {
                 content: [{ type: 'text' as const, text: `Unknown tool: ${name}` }],
@@ -243,57 +215,14 @@ export async function createSiYuanServer(): Promise<Server> {
             };
         }
 
-        const puppyStats = category === 'mascot'
-            ? await readPuppyStats(client)
-            : await earnPuppyBalance(client, `${name}/${action}`);
-
-        await writePuppyEvent(client, {
-            tool: name,
-            action,
-            status: 'running',
-            totalCalls: puppyStats.totalCalls,
-            balance: puppyStats.balance,
-        });
-
-        let result: { content: { type: 'text'; text: string }[]; isError?: boolean };
-        switch (category) {
-            case 'notebook': result = await callNotebookTool(client, args, config.notebook, permMgr); break;
-            case 'document': result = await callDocumentTool(client, args, config.document, permMgr); break;
-            case 'block': result = await callBlockTool(client, args, config.block, permMgr); break;
-            case 'av': result = await callAvTool(client, args, config.av, permMgr); break;
-            case 'file': result = await callFileTool(client, args, config.file, permMgr); break;
-            case 'search': result = await callSearchTool(client, args, config.search, permMgr); break;
-            case 'tag': result = await callTagTool(client, args, config.tag, permMgr); break;
-            case 'system': result = await callSystemTool(client, args, config.system, permMgr); break;
-            case 'flashcard': result = await callFlashcardTool(client, args, config.flashcard, permMgr); break;
-            case 'mascot': result = await callMascotTool(client, args, config.mascot, permMgr); break;
-        }
-
-        const latestStats = category === 'mascot' ? await readPuppyStats(client) : puppyStats;
-        let mascotEventMeta: { itemId?: string; itemLabel?: string; itemType?: string; itemEmoji?: string } = {};
-        if (category === 'mascot' && !result.isError) {
-            try {
-                const payload = JSON.parse(result.content[0]?.text ?? '{}') as Record<string, unknown>;
-                mascotEventMeta = {
-                    itemId: typeof payload.item_id === 'string' ? payload.item_id : undefined,
-                    itemLabel: typeof payload.item === 'string' ? payload.item : undefined,
-                    itemType: typeof payload.type === 'string' ? payload.type : undefined,
-                    itemEmoji: typeof payload.emoji === 'string' ? payload.emoji : undefined,
-                };
-            } catch {
-                mascotEventMeta = {};
-            }
-        }
-        await writePuppyEvent(client, {
-            tool: name,
-            action,
-            status: result.isError ? 'error' : 'success',
-            totalCalls: latestStats.totalCalls,
-            balance: latestStats.balance,
-            ...mascotEventMeta,
-        });
-
-        return result;
+        const module = TOOL_REGISTRY[category];
+        const result = await runToolCall(
+            { client, category, name, action, args },
+            () => module.callTool(client, args, config[category], permMgr),
+        );
+        // The MCP SDK CallToolResult uses a wider ContentBlock union; our
+        // ToolResult always emits text-only content, which is a valid subset.
+        return result as { content: { type: 'text'; text: string }[]; isError?: boolean };
     });
 
     return server;

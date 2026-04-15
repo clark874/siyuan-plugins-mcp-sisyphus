@@ -1,9 +1,8 @@
 import type { SiYuanClient } from '../../api/client';
 import * as attributeApi from '../../api/attribute';
 import * as flashcardApi from '../../api/flashcard';
-import type { CategoryToolConfig, FlashcardAction } from '../config';
+import type { FlashcardAction } from '../config';
 import { FLASHCARD_ACTION_HINTS, FLASHCARD_GUIDANCE } from '../help';
-import type { PermissionManager } from '../permissions';
 import {
     FlashcardActionSchema,
     FlashcardAddCardSchema,
@@ -14,7 +13,8 @@ import {
     FlashcardReviewCardSchema,
     FlashcardSkipReviewCardSchema,
 } from '../types';
-import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, type ActionVariant, type ToolResult, tryHandleHelpAction } from './shared';
+import { defineTool } from './define-tool';
+import { createActionSchema, createJsonResult, type ActionVariant } from './shared';
 
 export const FLASHCARD_TOOL_NAME = 'flashcard';
 const BUILTIN_DECK_ID = '20230218211946-2kw8jgx';
@@ -81,19 +81,6 @@ export const FLASHCARD_VARIANTS: ActionVariant<FlashcardAction>[] = [
         }, ['deckID', 'blockIDs'], 'Remove existing blocks from a flashcard deck.'),
     },
 ];
-
-export function listFlashcardTools(config: CategoryToolConfig<FlashcardAction>) {
-    return buildAggregatedTool(
-        FLASHCARD_TOOL_NAME,
-        '🃏 Grouped flashcard review and deck operations.',
-        config,
-        FLASHCARD_VARIANTS,
-        {
-            guidance: FLASHCARD_GUIDANCE,
-            actionHints: FLASHCARD_ACTION_HINTS,
-        },
-    );
-}
 
 function isNewCardState(state: unknown): boolean {
     if (typeof state === 'string') {
@@ -240,148 +227,135 @@ async function getStableRiffCards(
     return lastResult;
 }
 
-export async function callFlashcardTool(
-    client: SiYuanClient,
-    args: Record<string, unknown> | undefined,
-    config: CategoryToolConfig<FlashcardAction>,
-    _permMgr: PermissionManager,
-): Promise<ToolResult> {
-    const rawArgs = args ?? {};
-    const action = typeof rawArgs.action === 'string' ? rawArgs.action : undefined;
+const flashcardTool = defineTool<FlashcardAction>({
+    name: 'flashcard',
+    description: '🃏 Grouped flashcard review and deck operations.',
+    variants: FLASHCARD_VARIANTS,
+    actionSchema: FlashcardActionSchema,
+    aggregateOptions: {
+        guidance: FLASHCARD_GUIDANCE,
+        actionHints: FLASHCARD_ACTION_HINTS,
+    },
+    handlers: {
+        list_cards: async ({ client, rawArgs }) => {
+            const parsed = FlashcardListCardsSchema.parse(rawArgs);
+            const result = parsed.scope === 'all'
+                ? await flashcardApi.getRiffDueCards(client, '')
+                : parsed.scope === 'deck'
+                    ? await flashcardApi.getRiffDueCards(client, parsed.deckID)
+                    : parsed.scope === 'notebook'
+                        ? await flashcardApi.getNotebookRiffDueCards(client, parsed.notebook)
+                        : await flashcardApi.getTreeRiffDueCards(client, parsed.rootID);
 
-    const helpResult = tryHandleHelpAction(FLASHCARD_TOOL_NAME, rawArgs, config, FLASHCARD_VARIANTS);
-    if (helpResult) return helpResult;
+            const safeResult = result ?? {} as flashcardApi.FlashcardListResult;
+            return createJsonResult({
+                ...safeResult,
+                action: 'list_cards',
+                scope: parsed.scope,
+                filter: parsed.filter,
+                ...(parsed.deckID ? { deckID: parsed.deckID } : {}),
+                ...(parsed.notebook ? { notebook: parsed.notebook } : {}),
+                ...(parsed.rootID ? { rootID: parsed.rootID } : {}),
+                cards: filterCardsByState(Array.isArray(safeResult.cards) ? safeResult.cards : [], parsed.filter),
+            });
+        },
+        get_decks: async ({ client, rawArgs }) => {
+            FlashcardGetDecksSchema.parse(rawArgs);
+            const result = await flashcardApi.getRiffDecks(client);
+            const decks = Array.isArray(result) ? [...result] : [];
+            const hasBuiltinDeck = decks.some((deck) => {
+                if (!deck || typeof deck !== 'object') return false;
+                const typedDeck = deck as Record<string, unknown>;
+                return typedDeck.id === BUILTIN_DECK_ID || typedDeck.deckID === BUILTIN_DECK_ID;
+            });
+            if (!hasBuiltinDeck) {
+                decks.unshift({
+                    id: BUILTIN_DECK_ID,
+                    deckID: BUILTIN_DECK_ID,
+                    name: BUILTIN_DECK_NAME,
+                    builtin: true,
+                });
+            }
+            return createJsonResult({
+                action: 'get_decks',
+                decks,
+            });
+        },
+        get_cards: async ({ client, rawArgs }) => {
+            const parsed = FlashcardGetCardsSchema.parse(rawArgs);
+            const result = await getStableRiffCards(client, parsed.deckID, parsed.page ?? 1, parsed.pageSize);
+            return createJsonResult({
+                action: 'get_cards',
+                deckID: parsed.deckID,
+                page: parsed.page ?? 1,
+                ...(parsed.pageSize !== undefined ? { pageSize: parsed.pageSize } : {}),
+                cards: normalizeGetCardsResult(result),
+                total: result?.total,
+                pageCount: result?.pageCount,
+            });
+        },
+        review_card: async ({ client, rawArgs }) => {
+            const parsed = FlashcardReviewCardSchema.parse(rawArgs);
+            if (parsed.deckID === '') {
+                throw new Error('flashcard/review_card requires a concrete deckID. Use flashcard/get_cards first to resolve the card deck, then retry.');
+            }
+            const result = await flashcardApi.reviewRiffCard(client, parsed.deckID, parsed.cardID, parsed.rating, parsed.reviewedCards);
+            return createJsonResult({
+                action: 'review_card',
+                deckID: parsed.deckID,
+                cardID: parsed.cardID,
+                rating: parsed.rating,
+                ...(parsed.reviewedCards !== undefined ? { reviewedCards: parsed.reviewedCards } : {}),
+                result,
+            });
+        },
+        skip_review_card: async ({ client, rawArgs }) => {
+            const parsed = FlashcardSkipReviewCardSchema.parse(rawArgs);
+            if (parsed.deckID === '') {
+                throw new Error('flashcard/skip_review_card requires a concrete deckID. Use flashcard/get_cards first to resolve the card deck, then retry.');
+            }
+            const result = await flashcardApi.skipReviewRiffCard(client, parsed.deckID, parsed.cardID);
+            return createJsonResult({
+                action: 'skip_review_card',
+                deckID: parsed.deckID,
+                cardID: parsed.cardID,
+                result,
+            });
+        },
+        add_card: async ({ client, rawArgs }) => {
+            const parsed = FlashcardAddCardSchema.parse(rawArgs);
+            const deckID = normalizeWritableDeckID(parsed.deckID);
+            await ensureFlashcardTargetsWritable(client, parsed.blockIDs);
+            const result = await flashcardApi.addRiffCards(client, deckID, parsed.blockIDs);
+            await verifyFlashcardBindings(client, parsed.blockIDs, deckID);
+            if (deckID === BUILTIN_DECK_ID) {
+                await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'present');
+            }
+            return createJsonResult({
+                action: 'add_card',
+                deckID: parsed.deckID,
+                effectiveDeckID: deckID,
+                blockIDs: parsed.blockIDs,
+                result,
+            });
+        },
+        remove_card: async ({ client, rawArgs }) => {
+            const parsed = FlashcardRemoveCardSchema.parse(rawArgs);
+            const deckID = normalizeWritableDeckID(parsed.deckID);
+            const result = await flashcardApi.removeRiffCards(client, deckID, parsed.blockIDs);
+            if (deckID === BUILTIN_DECK_ID) {
+                await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'absent');
+            }
+            return createJsonResult({
+                action: 'remove_card',
+                deckID: parsed.deckID,
+                effectiveDeckID: deckID,
+                blockIDs: parsed.blockIDs,
+                result,
+            });
+        },
+    },
+});
 
-    try {
-        const parsedAction = FlashcardActionSchema.parse(rawArgs.action);
-        if (!config.enabled || !config.actions[parsedAction]) {
-            return createDisabledActionResult(FLASHCARD_TOOL_NAME, parsedAction);
-        }
-
-        switch (parsedAction) {
-            case 'list_cards': {
-                const parsed = FlashcardListCardsSchema.parse(rawArgs);
-                const result = parsed.scope === 'all'
-                    ? await flashcardApi.getRiffDueCards(client, '')
-                    : parsed.scope === 'deck'
-                        ? await flashcardApi.getRiffDueCards(client, parsed.deckID)
-                        : parsed.scope === 'notebook'
-                            ? await flashcardApi.getNotebookRiffDueCards(client, parsed.notebook)
-                            : await flashcardApi.getTreeRiffDueCards(client, parsed.rootID);
-
-                const safeResult = result ?? {} as flashcardApi.FlashcardListResult;
-                return createJsonResult({
-                    ...safeResult,
-                    action: 'list_cards',
-                    scope: parsed.scope,
-                    filter: parsed.filter,
-                    ...(parsed.deckID ? { deckID: parsed.deckID } : {}),
-                    ...(parsed.notebook ? { notebook: parsed.notebook } : {}),
-                    ...(parsed.rootID ? { rootID: parsed.rootID } : {}),
-                    cards: filterCardsByState(Array.isArray(safeResult.cards) ? safeResult.cards : [], parsed.filter),
-                });
-            }
-            case 'get_decks': {
-                FlashcardGetDecksSchema.parse(rawArgs);
-                const result = await flashcardApi.getRiffDecks(client);
-                const decks = Array.isArray(result) ? [...result] : [];
-                const hasBuiltinDeck = decks.some((deck) => {
-                    if (!deck || typeof deck !== 'object') return false;
-                    const typedDeck = deck as Record<string, unknown>;
-                    return typedDeck.id === BUILTIN_DECK_ID || typedDeck.deckID === BUILTIN_DECK_ID;
-                });
-                if (!hasBuiltinDeck) {
-                    decks.unshift({
-                        id: BUILTIN_DECK_ID,
-                        deckID: BUILTIN_DECK_ID,
-                        name: BUILTIN_DECK_NAME,
-                        builtin: true,
-                    });
-                }
-                return createJsonResult({
-                    action: 'get_decks',
-                    decks,
-                });
-            }
-            case 'get_cards': {
-                const parsed = FlashcardGetCardsSchema.parse(rawArgs);
-                const result = await getStableRiffCards(client, parsed.deckID, parsed.page ?? 1, parsed.pageSize);
-                return createJsonResult({
-                    action: 'get_cards',
-                    deckID: parsed.deckID,
-                    page: parsed.page ?? 1,
-                    ...(parsed.pageSize !== undefined ? { pageSize: parsed.pageSize } : {}),
-                    cards: normalizeGetCardsResult(result),
-                    total: result?.total,
-                    pageCount: result?.pageCount,
-                });
-            }
-            case 'review_card': {
-                const parsed = FlashcardReviewCardSchema.parse(rawArgs);
-                if (parsed.deckID === '') {
-                    throw new Error('flashcard/review_card requires a concrete deckID. Use flashcard/get_cards first to resolve the card deck, then retry.');
-                }
-                const result = await flashcardApi.reviewRiffCard(client, parsed.deckID, parsed.cardID, parsed.rating, parsed.reviewedCards);
-                return createJsonResult({
-                    action: 'review_card',
-                    deckID: parsed.deckID,
-                    cardID: parsed.cardID,
-                    rating: parsed.rating,
-                    ...(parsed.reviewedCards !== undefined ? { reviewedCards: parsed.reviewedCards } : {}),
-                    result,
-                });
-            }
-            case 'skip_review_card': {
-                const parsed = FlashcardSkipReviewCardSchema.parse(rawArgs);
-                if (parsed.deckID === '') {
-                    throw new Error('flashcard/skip_review_card requires a concrete deckID. Use flashcard/get_cards first to resolve the card deck, then retry.');
-                }
-                const result = await flashcardApi.skipReviewRiffCard(client, parsed.deckID, parsed.cardID);
-                return createJsonResult({
-                    action: 'skip_review_card',
-                    deckID: parsed.deckID,
-                    cardID: parsed.cardID,
-                    result,
-                });
-            }
-            case 'add_card': {
-                const parsed = FlashcardAddCardSchema.parse(rawArgs);
-                const deckID = normalizeWritableDeckID(parsed.deckID);
-                await ensureFlashcardTargetsWritable(client, parsed.blockIDs);
-                const result = await flashcardApi.addRiffCards(client, deckID, parsed.blockIDs);
-                await verifyFlashcardBindings(client, parsed.blockIDs, deckID);
-                if (deckID === BUILTIN_DECK_ID) {
-                    await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'present');
-                }
-                return createJsonResult({
-                    action: 'add_card',
-                    deckID: parsed.deckID,
-                    effectiveDeckID: deckID,
-                    blockIDs: parsed.blockIDs,
-                    result,
-                });
-            }
-            case 'remove_card': {
-                const parsed = FlashcardRemoveCardSchema.parse(rawArgs);
-                const deckID = normalizeWritableDeckID(parsed.deckID);
-                const result = await flashcardApi.removeRiffCards(client, deckID, parsed.blockIDs);
-                if (deckID === BUILTIN_DECK_ID) {
-                    await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'absent');
-                }
-                return createJsonResult({
-                    action: 'remove_card',
-                    deckID: parsed.deckID,
-                    effectiveDeckID: deckID,
-                    blockIDs: parsed.blockIDs,
-                    result,
-                });
-            }
-            default: {
-                const _exhaustive: never = parsedAction;
-                return createErrorResult(new Error(`Unknown action: ${_exhaustive}`), { tool: FLASHCARD_TOOL_NAME, action, rawArgs });
-            }
-        }
-    } catch (error) {
-        return createErrorResult(error, { tool: FLASHCARD_TOOL_NAME, action, rawArgs });
-    }
-}
+export const listFlashcardTools = flashcardTool.listTools;
+export const callFlashcardTool = flashcardTool.callTool;

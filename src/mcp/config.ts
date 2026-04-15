@@ -332,7 +332,7 @@ export function buildDefaultToolConfig(): ToolConfig {
             enabled: true,
             actions: createActionsRecord(MASCOT_ACTIONS, ['get_balance', 'shop', 'buy']),
         },
-        userRulesText: 'After creating a document or daily note, proactively set an icon.',
+        userRulesText: '创建文档/日记后主动设图标',
     };
 }
 

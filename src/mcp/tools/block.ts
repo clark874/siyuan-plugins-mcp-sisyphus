@@ -1,7 +1,7 @@
 import type { SiYuanClient } from '../../api/client';
 import * as attributeApi from '../../api/attribute';
 import * as blockApi from '../../api/block';
-import type { BlockAction, CategoryToolConfig } from '../config';
+import type { BlockAction } from '../config';
 import { BLOCK_ACTION_HINTS, BLOCK_GUIDANCE } from '../help';
 import { normalizeKramdownResult, stripZeroWidthChars } from '../normalize';
 import type { PermissionManager } from '../permissions';
@@ -33,9 +33,10 @@ import {
     BlockWordCountSchema,
 } from '../types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from './context';
+import { defineTool } from './define-tool';
 import { filterItemsByPermission } from './search';
 import { isMissingBlockError } from './errorTranslation';
-import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createPaginatedResult, createWriteSuccessResult, paginate, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
+import { createActionSchema, createJsonResult, createPaginatedResult, createWriteSuccessResult, paginate, type ActionVariant, type ToolResult } from './shared';
 import { applyUiRefresh } from './ui-refresh';
 
 export const BLOCK_TOOL_NAME = 'block';
@@ -231,7 +232,7 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
     {
         action: 'doc_info',
         schema: createActionSchema('doc_info', {
-            id: { type: 'string', description: 'Block or document ID' },
+            id: { type: 'string', description: 'Block ID or document ID' },
         }, ['id'], 'Get owning document info for a block or document ID.'),
     },
     {
@@ -243,23 +244,6 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
         }, ['ids'], 'Get document info for multiple documents.'),
     },
 ];
-
-export function listBlockTools(config: CategoryToolConfig<BlockAction>) {
-    return buildAggregatedTool(
-        BLOCK_TOOL_NAME,
-        '🧱 Grouped block operations.',
-        config,
-        BLOCK_VARIANTS,
-        {
-            guidance: BLOCK_GUIDANCE,
-            actionHints: BLOCK_ACTION_HINTS,
-            propertyDescriptionOverrides: {
-                parentID: 'Parent block or document ID. With prepend/append, a document ID targets the document head or tail; a block ID targets that block\'s child list.',
-                previousID: 'Sibling block ID to position after. For block(action="move"), provide previousID, parentID, or both to describe the destination. Successful moves return a structured success object.',
-            },
-        },
-    );
-}
 
 
 type RecentUpdatedDocumentSummary = {
@@ -740,54 +724,46 @@ const handleDocsInfo: BlockActionHandler = async ({ client, permMgr, rawArgs }) 
     return createJsonResult(result);
 };
 
-const BLOCK_ACTION_HANDLERS: Record<BlockAction, BlockActionHandler> = {
-    insert: handleInsert,
-    prepend: handlePrepend,
-    append: handleAppend,
-    update: handleUpdate,
-    delete: handleDelete,
-    move: handleMove,
-    set_fold_state: handleSetFoldState,
-    get_kramdown: handleGetKramdown,
-    get_children: handleGetChildren,
-    transfer_ref: handleTransferRef,
-    set_attrs: handleSetAttrs,
-    get_attrs: handleGetAttrs,
-    exists: handleExists,
-    info: handleInfo,
-    breadcrumb: handleBreadcrumb,
-    dom: handleDom,
-    recent_updated: handleRecentUpdated,
-    word_count: handleWordCount,
-    batch_insert: handleBatchInsert,
-    batch_update: handleBatchUpdate,
-    append_daily_note: handleAppendDailyNote,
-    prepend_daily_note: handlePrependDailyNote,
-    doc_info: handleDocInfo,
-    docs_info: handleDocsInfo,
-};
+const blockTool = defineTool<BlockAction>({
+    name: 'block',
+    description: '🧱 Grouped block operations.',
+    variants: BLOCK_VARIANTS,
+    actionSchema: BlockActionSchema,
+    aggregateOptions: {
+        guidance: BLOCK_GUIDANCE,
+        actionHints: BLOCK_ACTION_HINTS,
+        propertyDescriptionOverrides: {
+            parentID: 'Parent block or document ID. With prepend/append, a document ID targets the document head or tail; a block ID targets that block\'s child list.',
+            previousID: 'Sibling block ID to position after. For block(action="move"), provide previousID, parentID, or both to describe the destination. Successful moves return a structured success object.',
+        },
+    },
+    handlers: {
+        insert: handleInsert,
+        prepend: handlePrepend,
+        append: handleAppend,
+        update: handleUpdate,
+        delete: handleDelete,
+        move: handleMove,
+        set_fold_state: handleSetFoldState,
+        get_kramdown: handleGetKramdown,
+        get_children: handleGetChildren,
+        transfer_ref: handleTransferRef,
+        set_attrs: handleSetAttrs,
+        get_attrs: handleGetAttrs,
+        exists: handleExists,
+        info: handleInfo,
+        breadcrumb: handleBreadcrumb,
+        dom: handleDom,
+        recent_updated: handleRecentUpdated,
+        word_count: handleWordCount,
+        batch_insert: handleBatchInsert,
+        batch_update: handleBatchUpdate,
+        append_daily_note: handleAppendDailyNote,
+        prepend_daily_note: handlePrependDailyNote,
+        doc_info: handleDocInfo,
+        docs_info: handleDocsInfo,
+    },
+});
 
-export async function callBlockTool(
-    client: SiYuanClient,
-    args: Record<string, unknown> | undefined,
-    config: CategoryToolConfig<BlockAction>,
-    permMgr: PermissionManager,
-): Promise<ToolResult> {
-    const rawArgs = args ?? {};
-    const action = typeof rawArgs.action === 'string' ? rawArgs.action : undefined;
-
-    const helpResult = tryHandleHelpAction(BLOCK_TOOL_NAME, rawArgs, config, BLOCK_VARIANTS);
-    if (helpResult) return helpResult;
-
-    try {
-        const parsedAction = BlockActionSchema.parse(rawArgs.action);
-        if (!config.enabled || !config.actions[parsedAction]) {
-            return createDisabledActionResult(BLOCK_TOOL_NAME, parsedAction);
-        }
-
-        const handler = BLOCK_ACTION_HANDLERS[parsedAction];
-        return await handler({ client, permMgr, rawArgs });
-    } catch (error) {
-        return createErrorResult(error, { tool: BLOCK_TOOL_NAME, action, rawArgs });
-    }
-}
+export const listBlockTools = blockTool.listTools;
+export const callBlockTool = blockTool.callTool;

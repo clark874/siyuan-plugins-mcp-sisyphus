@@ -37,8 +37,9 @@ import {
     resolveMoveTargetNotebook,
     resolveNotebookForPath,
 } from './context';
+import { defineTool } from './define-tool';
 import { filterBacklinkResultByPermission, filterItemsByPermissionAndPath } from './search';
-import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createPermissionDeniedResult, createSetIconReminder, paginate, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
+import { createActionSchema, createJsonResult, createPermissionDeniedResult, createSetIconReminder, paginate, type ActionVariant, type ToolResult } from './shared';
 import { applyUiRefresh } from './ui-refresh';
 
 export const DOCUMENT_TOOL_NAME = 'document';
@@ -118,7 +119,7 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
     {
         action: 'get_ids',
         schema: createActionSchema('get_ids', {
-            path: { type: 'string', description: 'Human-readable path (e.g., /foo/bar)' },
+            path: { type: 'string', description: 'Human-readable path (e.g., /foo/bar), must start with /' },
             notebook: { type: 'string', description: 'Notebook ID' },
         }, ['path', 'notebook'], 'Get document IDs by hierarchical path.'),
     },
@@ -221,24 +222,6 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
         }, ['srcID', 'targetID'], 'Convert a document into a heading under another document.'),
     },
 ];
-
-export function listDocumentTools(config: CategoryToolConfig<DocumentAction>) {
-    return buildAggregatedTool(
-        DOCUMENT_TOOL_NAME,
-        '📝 Grouped document operations.',
-        config,
-        DOCUMENT_VARIANTS,
-        {
-            guidance: DOCUMENT_GUIDANCE,
-            actionHints: DOCUMENT_ACTION_HINTS,
-            propertyDescriptionOverrides: {
-                path: 'Path value. For action="create", use a human-readable target path such as /Inbox/Weekly Note. For other document actions that use notebook + path, use a storage path returned by document(action="get_path").',
-                fromPaths: 'Source storage paths returned by document(action="get_path").',
-                toPath: 'Target storage path. Use the storage path of an existing destination document returned by document(action="get_path").',
-            },
-        },
-    );
-}
 
 const GET_HPATH_INDEXING_RETRY_DELAYS_MS = [120, 240];
 
@@ -837,27 +820,32 @@ const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = 
     doc_to_heading: handleDocToHeading,
 };
 
+const documentTool = defineTool<DocumentAction>({
+    name: 'document',
+    description: '📝 Grouped document operations.',
+    variants: DOCUMENT_VARIANTS,
+    actionSchema: DocumentActionSchema,
+    aggregateOptions: {
+        guidance: DOCUMENT_GUIDANCE,
+        actionHints: DOCUMENT_ACTION_HINTS,
+        propertyDescriptionOverrides: {
+            path: 'Path value. For action="create", use a human-readable target path such as /Inbox/Weekly Note. For other document actions that use notebook + path, use a storage path returned by document(action="get_path").',
+            fromPaths: 'Source storage paths returned by document(action="get_path").',
+            toPath: 'Target storage path. Use the storage path of an existing destination document returned by document(action="get_path").',
+        },
+    },
+    handlers: DOCUMENT_ACTION_HANDLERS,
+});
+
+export function listDocumentTools(config: CategoryToolConfig<DocumentAction>) {
+    return documentTool.listTools(config);
+}
+
 export async function callDocumentTool(
     client: SiYuanClient,
     args: Record<string, unknown> | undefined,
     config: CategoryToolConfig<DocumentAction>,
     permMgr: PermissionManager,
 ): Promise<ToolResult> {
-    const rawArgs = args ?? {};
-    const action = typeof rawArgs.action === 'string' ? rawArgs.action : undefined;
-
-    const helpResult = tryHandleHelpAction(DOCUMENT_TOOL_NAME, rawArgs, config, DOCUMENT_VARIANTS);
-    if (helpResult) return helpResult;
-
-    try {
-        const parsedAction = DocumentActionSchema.parse(rawArgs.action);
-        if (!config.enabled || !config.actions[parsedAction]) {
-            return createDisabledActionResult(DOCUMENT_TOOL_NAME, parsedAction);
-        }
-
-        const handler = DOCUMENT_ACTION_HANDLERS[parsedAction];
-        return await handler({ client, permMgr, rawArgs });
-    } catch (error) {
-        return createErrorResult(error, { tool: DOCUMENT_TOOL_NAME, action, rawArgs });
-    }
+    return documentTool.callTool(client, args, config, permMgr);
 }

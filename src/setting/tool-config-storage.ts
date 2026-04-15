@@ -1,4 +1,16 @@
 import { normalizeToolConfig, type ToolConfig } from "./tool-config";
+import {
+    TELEMETRY_CONFIG_STORAGE_KEY,
+    buildDefaultTelemetryConfig,
+    normalizeTelemetryConfig,
+    type TelemetryConfig,
+} from "../mcp/telemetry-config";
+
+export {
+    buildDefaultTelemetryConfig,
+    normalizeTelemetryConfig,
+    type TelemetryConfig,
+} from "../mcp/telemetry-config";
 
 const CONFIG_STORAGE_KEY = "mcpToolsConfig";
 const PUPPY_SETTINGS_STORAGE_KEY = "puppySettings";
@@ -150,6 +162,19 @@ export async function savePersistedHttpServerSettings(settings: HttpServerSettin
     const normalized = normalizeHttpServerSettings(settings);
     if (plugin?.saveData) {
         await plugin.saveData(HTTP_SETTINGS_STORAGE_KEY, normalized);
+    }
+    return normalized;
+}
+
+export async function loadPersistedTelemetryConfig(plugin?: PluginStorage): Promise<TelemetryConfig> {
+    const raw = await plugin?.loadData?.(TELEMETRY_CONFIG_STORAGE_KEY);
+    return normalizeTelemetryConfig(raw);
+}
+
+export async function savePersistedTelemetryConfig(config: TelemetryConfig, plugin?: PluginStorage): Promise<TelemetryConfig> {
+    const normalized = normalizeTelemetryConfig(config);
+    if (plugin?.saveData) {
+        await plugin.saveData(TELEMETRY_CONFIG_STORAGE_KEY, normalized);
     }
     return normalized;
 }

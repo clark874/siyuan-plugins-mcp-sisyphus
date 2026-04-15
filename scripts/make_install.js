@@ -54,4 +54,9 @@ const targetPath = `${targetDir}/${name}`;
 /**
  * 4. Copy the compiled plugin code to the target directory
  */
+if (fs.existsSync(targetPath)) {
+    fs.rmSync(targetPath, { recursive: true, force: true });
+    log(`Removed existing plugin directory: ${targetPath}`);
+}
+
 copyDirectory(distDir, targetPath);

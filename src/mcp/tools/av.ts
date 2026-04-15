@@ -22,8 +22,9 @@ import {
     AvSetCellSchema,
 } from '../types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocumentContextById, resolveResultItemContext } from './context';
+import { defineTool } from './define-tool';
 import { isMissingBlockError } from './errorTranslation';
-import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, createPaginatedResult, createWriteSuccessResult, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
+import { createActionSchema, createJsonResult, createPaginatedResult, createWriteSuccessResult, type ActionVariant, type ToolResult } from './shared';
 import { applyUiRefresh } from './ui-refresh';
 
 export const AV_TOOL_NAME = 'av';
@@ -226,19 +227,6 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
         }, ['avID'], 'Get primary key values for an attribute view.'),
     },
 ];
-
-export function listAvTools(config: CategoryToolConfig<AvAction>) {
-    return buildAggregatedTool(
-        AV_TOOL_NAME,
-        '🗃️ Grouped attribute-view (database) operations.',
-        config,
-        AV_VARIANTS,
-        {
-            guidance: AV_GUIDANCE,
-            actionHints: AV_ACTION_HINTS,
-        },
-    );
-}
 
 interface AvHandlerContext {
     client: SiYuanClient;
@@ -1367,27 +1355,27 @@ const AV_ACTION_HANDLERS: Record<AvAction, (context: AvHandlerContext) => Promis
     get_primary_key_values: handleGetPrimaryKeyValues,
 };
 
+const avTool = defineTool<AvAction>({
+    name: 'av',
+    description: '🗃️ Grouped attribute-view (database) operations.',
+    variants: AV_VARIANTS,
+    actionSchema: AvActionSchema,
+    aggregateOptions: {
+        guidance: AV_GUIDANCE,
+        actionHints: AV_ACTION_HINTS,
+    },
+    handlers: AV_ACTION_HANDLERS,
+});
+
+export function listAvTools(config: CategoryToolConfig<AvAction>) {
+    return avTool.listTools(config);
+}
+
 export async function callAvTool(
     client: SiYuanClient,
     args: Record<string, unknown> | undefined,
     config: CategoryToolConfig<AvAction>,
     permMgr: PermissionManager,
 ): Promise<ToolResult> {
-    const rawArgs = args ?? {};
-    const action = typeof rawArgs.action === 'string' ? rawArgs.action : undefined;
-
-    const helpResult = tryHandleHelpAction(AV_TOOL_NAME, rawArgs, config, AV_VARIANTS);
-    if (helpResult) return helpResult;
-
-    try {
-        const parsedAction = AvActionSchema.parse(rawArgs.action);
-        if (!config.enabled || !config.actions[parsedAction]) {
-            return createDisabledActionResult(AV_TOOL_NAME, parsedAction);
-        }
-
-        const handler = AV_ACTION_HANDLERS[parsedAction];
-        return await handler({ client, permMgr, rawArgs });
-    } catch (error) {
-        return createErrorResult(error, { tool: AV_TOOL_NAME, action, rawArgs });
-    }
+    return avTool.callTool(client, args, config, permMgr);
 }

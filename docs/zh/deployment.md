@@ -131,7 +131,7 @@ stdio 模式下，客户端将 `mcp-server.cjs` 作为子进程运行，脚本�
 ```
 
 **`mcp-server.cjs` 路径：**
-- 默认插件位置：`{SIYUAN_WORKSPACE}/data/plugins/siyuan-plugins-mcp-sisyphus/dist/mcp-server.cjs`
+- 默认插件位置：`{SIYUAN_WORKSPACE}/data/plugins/siyuan-plugins-mcp-sisyphus/mcp-server.cjs`
 - 插件设置面板会在可用时自动填充此路径
 
 **重要说明：**
@@ -388,5 +388,5 @@ stdio 模式下，客户端将 `mcp-server.cjs` 作为子进程运行，脚本�
 | 文件 | 默认位置 |
 |------|---------|
 | 插件 | `{workspace}/data/plugins/siyuan-plugins-mcp-sisyphus/` |
-| MCP 服务器 | `{plugin}/dist/mcp-server.cjs` |
+| MCP 服务器 | `{plugin}/mcp-server.cjs` |
 | 配置 | `{workspace}/data/storage/petal/siyuan-plugins-mcp-sisyphus/` |

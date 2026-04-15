@@ -15,6 +15,11 @@ const PERMISSIONS_FILENAME = 'notebookPermissions';
 const PERMISSIONS_API_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions';
 const DEBUG_PERMISSIONS = process.env.SIYUAN_MCP_DEBUG_PERMISSIONS === '1';
 
+export type PermissionsSource =
+    | { kind: 'api' }
+    | { kind: 'fs'; path: string }
+    | { kind: 'none'; attemptedPaths: string[] };
+
 function logPermissionDebug(...args: unknown[]) {
     if (DEBUG_PERMISSIONS) {
         console.error('[MCP]', ...args);
@@ -82,11 +87,27 @@ function resolvePermissionsPaths(): string[] {
     return paths;
 }
 
+function logResolvedPermissionsSource(source: PermissionsSource): void {
+    if (source.kind === 'api') {
+        logPermissionDebug('Permissions source selected:', 'api');
+        return;
+    }
+
+    if (source.kind === 'fs') {
+        logPermissionDebug('Permissions source selected:', 'fs', source.path);
+        return;
+    }
+
+    logPermissionDebug('Permissions source selected:', 'none', 'attemptedPaths=', source.attemptedPaths);
+}
+
 export class PermissionManager {
     private savePath: string | null = null;
     private permissions: Record<string, NotebookPermission> = {};
     private client: SiYuanClient | null = null;
     private loaded = false;
+    private source: PermissionsSource | null = null;
+    private resolvedApiContent: string | null = null;
 
     constructor(client?: SiYuanClient) {
         this.client = client ?? null;
@@ -99,46 +120,45 @@ export class PermissionManager {
         // Already loaded, skip
         if (this.loaded) return;
 
-        // Try to load from API first if client is available
-        if (this.client) {
-            try {
-                const content = await this.client.readFile(PERMISSIONS_API_PATH);
-                if (content) {
-                    const rawPermissions = JSON.parse(content);
-                    this.permissions = normalizePermissionsRecord(rawPermissions);
-                    this.loaded = true;
-                    if (hasPermissionRecordChanged(rawPermissions, this.permissions)) {
-                        await this.save();
-                    }
-                    logPermissionDebug('Permissions loaded from API:', Object.keys(this.permissions).length, 'entries');
-                    return;
-                }
-            } catch (e) {
-                logPermissionDebug('Failed to load permissions from API:', e);
-            }
-        }
+        this.source = await this.resolvePermissionsSource();
+        logResolvedPermissionsSource(this.source);
 
-        // Fallback to filesystem
-        const candidates = resolvePermissionsPaths();
-        for (const p of candidates) {
-            if (!fs.existsSync(p)) continue;
+        if (this.source.kind === 'api' && this.client) {
             try {
-                const rawPermissions = JSON.parse(fs.readFileSync(p, 'utf-8'));
+                const content = this.resolvedApiContent ?? (await this.client.readFile(PERMISSIONS_API_PATH));
+                const rawPermissions = JSON.parse(content);
                 this.permissions = normalizePermissionsRecord(rawPermissions);
-                this.savePath = p;
                 this.loaded = true;
                 if (hasPermissionRecordChanged(rawPermissions, this.permissions)) {
                     await this.save();
                 }
-                logPermissionDebug('Permissions loaded from filesystem:', p, Object.keys(this.permissions).length, 'entries');
+                logPermissionDebug('Permissions loaded from API:', Object.keys(this.permissions).length, 'entries');
                 return;
             } catch (e) {
-                logPermissionDebug('Failed to parse permissions from:', p, e);
+                logPermissionDebug('Failed to load permissions from resolved API source:', e);
             }
         }
 
-        logPermissionDebug('No permissions file found, using empty permissions');
+        if (this.source.kind === 'fs') {
+            const filePath = this.source.path;
+            try {
+                const rawPermissions = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                this.permissions = normalizePermissionsRecord(rawPermissions);
+                this.savePath = filePath;
+                this.loaded = true;
+                if (hasPermissionRecordChanged(rawPermissions, this.permissions)) {
+                    await this.save();
+                }
+                logPermissionDebug('Permissions loaded from filesystem:', filePath, Object.keys(this.permissions).length, 'entries');
+                return;
+            } catch (e) {
+                logPermissionDebug('Failed to parse permissions from resolved filesystem source:', filePath, e);
+            }
+        }
+
+        this.permissions = {};
         this.loaded = true;
+        this.savePath = null;
     }
 
     /**
@@ -146,33 +166,66 @@ export class PermissionManager {
      */
     async reload(): Promise<void> {
         this.loaded = false;
+        this.resolvedApiContent = null;
         await this.load();
     }
 
-    private getFallbackSavePath(): string {
-        if (!this.savePath) {
-            const candidates = resolvePermissionsPaths();
-            this.savePath = candidates[0] ?? path.join(process.cwd(), PERMISSIONS_FILENAME);
+    private async resolvePermissionsSource(): Promise<PermissionsSource> {
+        this.resolvedApiContent = null;
+        const attemptedPaths = resolvePermissionsPaths();
+
+        if (this.client) {
+            try {
+                this.resolvedApiContent = await this.client.readFile(PERMISSIONS_API_PATH);
+                return { kind: 'api' };
+            } catch (error) {
+                logPermissionDebug('Permissions API source unavailable:', error);
+            }
         }
+
+        for (const candidatePath of attemptedPaths) {
+            if (fs.existsSync(candidatePath)) {
+                return { kind: 'fs', path: candidatePath };
+            }
+        }
+
+        return { kind: 'none', attemptedPaths };
+    }
+
+    private getFallbackSavePath(): string {
+        if (this.source?.kind === 'fs') {
+            return this.source.path;
+        }
+
+        if (!this.savePath) {
+            const fallbackPath =
+                this.source?.kind === 'none'
+                    ? this.source.attemptedPaths[0]
+                    : resolvePermissionsPaths()[0];
+            this.savePath = fallbackPath ?? path.join(process.cwd(), PERMISSIONS_FILENAME);
+        }
+
         return this.savePath;
     }
 
     async save(): Promise<void> {
         const serialized = JSON.stringify(this.permissions, null, 2);
 
-        if (this.client) {
-            try {
-                await this.client.writeFile(PERMISSIONS_API_PATH, serialized);
-                this.loaded = true;
-                return;
-            } catch (error) {
-                console.error('[MCP] Failed to save permissions via API, falling back to filesystem:', error);
-            }
+        if (!this.source) {
+            this.source = await this.resolvePermissionsSource();
+        }
+
+        if (this.source.kind === 'api' && this.client) {
+            await this.client.writeFile(PERMISSIONS_API_PATH, serialized);
+            this.loaded = true;
+            return;
         }
 
         const savePath = this.getFallbackSavePath();
         fs.mkdirSync(path.dirname(savePath), { recursive: true });
         fs.writeFileSync(savePath, serialized, 'utf-8');
+        this.savePath = savePath;
+        this.source = { kind: 'fs', path: savePath };
         this.loaded = true;
     }
 

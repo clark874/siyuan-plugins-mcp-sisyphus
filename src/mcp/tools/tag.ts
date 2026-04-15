@@ -1,15 +1,14 @@
-import type { SiYuanClient } from '../../api/client';
 import * as tagApi from '../../api/tag';
-import type { CategoryToolConfig, TagAction } from '../config';
+import type { TagAction } from '../config';
 import { TAG_ACTION_HINTS, TAG_GUIDANCE } from '../help';
-import type { PermissionManager } from '../permissions';
 import {
     TagActionSchema,
     TagListSchema,
     TagRemoveSchema,
     TagRenameSchema,
 } from '../types';
-import { buildAggregatedTool, createActionSchema, createDisabledActionResult, createErrorResult, createJsonResult, tryHandleHelpAction, type ActionVariant, type ToolResult } from './shared';
+import { defineTool } from './define-tool';
+import { createActionSchema, createJsonResult, type ActionVariant } from './shared';
 import { applyUiRefresh } from './ui-refresh';
 
 export const TAG_TOOL_NAME = 'tag';
@@ -38,59 +37,41 @@ export const TAG_VARIANTS: ActionVariant<TagAction>[] = [
     },
 ];
 
-export function listTagTools(config: CategoryToolConfig<TagAction>) {
-    return buildAggregatedTool(
-        TAG_TOOL_NAME,
-        '🏷️ Grouped tag operations.',
-        config,
-        TAG_VARIANTS,
-        {
-            guidance: TAG_GUIDANCE,
-            actionHints: TAG_ACTION_HINTS,
+const tagTool = defineTool<TagAction>({
+    name: 'tag',
+    description: '🏷️ Grouped tag operations.',
+    variants: TAG_VARIANTS,
+    actionSchema: TagActionSchema,
+    aggregateOptions: {
+        guidance: TAG_GUIDANCE,
+        actionHints: TAG_ACTION_HINTS,
+    },
+    handlers: {
+        list: async ({ client, rawArgs }) => {
+            const parsed = TagListSchema.parse(rawArgs);
+            const result = await tagApi.listTags(client, parsed);
+            return createJsonResult(result);
         },
-    );
-}
+        rename: async ({ client, rawArgs }) => {
+            const parsed = TagRenameSchema.parse(rawArgs);
+            await tagApi.renameTag(client, parsed.oldLabel, parsed.newLabel);
+            return applyUiRefresh(
+                client,
+                createJsonResult({ success: true, oldLabel: parsed.oldLabel, newLabel: parsed.newLabel }),
+                [{ type: 'reloadTag' }],
+            );
+        },
+        remove: async ({ client, rawArgs }) => {
+            const parsed = TagRemoveSchema.parse(rawArgs);
+            await tagApi.removeTag(client, parsed.label);
+            return applyUiRefresh(
+                client,
+                createJsonResult({ success: true, label: parsed.label }),
+                [{ type: 'reloadTag' }],
+            );
+        },
+    },
+});
 
-export async function callTagTool(
-    client: SiYuanClient,
-    args: Record<string, unknown> | undefined,
-    config: CategoryToolConfig<TagAction>,
-    _permMgr: PermissionManager,
-): Promise<ToolResult> {
-    const rawArgs = args ?? {};
-    const action = typeof rawArgs.action === 'string' ? rawArgs.action : undefined;
-
-    const helpResult = tryHandleHelpAction(TAG_TOOL_NAME, rawArgs, config, TAG_VARIANTS);
-    if (helpResult) return helpResult;
-
-    try {
-        const parsedAction = TagActionSchema.parse(rawArgs.action);
-        if (!config.enabled || !config.actions[parsedAction]) {
-            return createDisabledActionResult(TAG_TOOL_NAME, parsedAction);
-        }
-
-        switch (parsedAction) {
-            case 'list': {
-                const parsed = TagListSchema.parse(rawArgs);
-                const result = await tagApi.listTags(client, parsed);
-                return createJsonResult(result);
-            }
-            case 'rename': {
-                const parsed = TagRenameSchema.parse(rawArgs);
-                await tagApi.renameTag(client, parsed.oldLabel, parsed.newLabel);
-                return applyUiRefresh(client, createJsonResult({ success: true, oldLabel: parsed.oldLabel, newLabel: parsed.newLabel }), [{ type: 'reloadTag' }]);
-            }
-            case 'remove': {
-                const parsed = TagRemoveSchema.parse(rawArgs);
-                await tagApi.removeTag(client, parsed.label);
-                return applyUiRefresh(client, createJsonResult({ success: true, label: parsed.label }), [{ type: 'reloadTag' }]);
-            }
-            default: {
-                const _exhaustive: never = parsedAction;
-                return createErrorResult(new Error(`Unknown action: ${_exhaustive}`), { tool: TAG_TOOL_NAME, action, rawArgs });
-            }
-        }
-    } catch (error) {
-        return createErrorResult(error, { tool: TAG_TOOL_NAME, action, rawArgs });
-    }
-}
+export const listTagTools = tagTool.listTools;
+export const callTagTool = tagTool.callTool;

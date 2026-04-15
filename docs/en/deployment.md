@@ -131,7 +131,7 @@ In stdio mode, the client runs `mcp-server.cjs` as a subprocess, and the script 
 ```
 
 **Path to `mcp-server.cjs`:**
-- Default plugin location: `{SIYUAN_WORKSPACE}/data/plugins/siyuan-plugins-mcp-sisyphus/dist/mcp-server.cjs`
+- Default plugin location: `{SIYUAN_WORKSPACE}/data/plugins/siyuan-plugins-mcp-sisyphus/mcp-server.cjs`
 - The plugin settings panel auto-fills this path when available
 
 **Important Notes:**
@@ -388,5 +388,5 @@ Same machine?
 | File | Default Location |
 |------|------------------|
 | Plugin | `{workspace}/data/plugins/siyuan-plugins-mcp-sisyphus/` |
-| MCP Server | `{plugin}/dist/mcp-server.cjs` |
+| MCP Server | `{plugin}/mcp-server.cjs` |
 | Config | `{workspace}/data/storage/petal/siyuan-plugins-mcp-sisyphus/` |
