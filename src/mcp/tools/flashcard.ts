@@ -6,6 +6,7 @@ import { FLASHCARD_ACTION_HINTS, FLASHCARD_GUIDANCE } from '../help';
 import {
     FlashcardActionSchema,
     FlashcardAddCardSchema,
+    FlashcardCreateCardSchema,
     FlashcardGetCardsSchema,
     FlashcardGetDecksSchema,
     FlashcardListCardsSchema,
@@ -67,6 +68,13 @@ export const FLASHCARD_VARIANTS: ActionVariant<FlashcardAction>[] = [
         }, ['deckID', 'cardID'], 'Skip the current flashcard in a review flow.'),
     },
     {
+        action: 'create_card',
+        schema: createActionSchema('create_card', {
+            deckID: { type: 'string', description: 'Deck ID' },
+            blockIDs: { type: 'array', items: { type: 'string' }, description: 'Existing block IDs to turn into flashcards' },
+        }, ['deckID', 'blockIDs'], 'Turn existing blocks into flashcards by writing deck attrs and registering riff cards.'),
+    },
+    {
         action: 'add_card',
         schema: createActionSchema('add_card', {
             deckID: { type: 'string', description: 'Deck ID' },
@@ -123,17 +131,32 @@ async function ensureFlashcardTargetsWritable(client: SiYuanClient, blockIDs: st
     for (const blockID of blockIDs) {
         const attrs = await getBlockAttrsSafe(client, blockID);
         if (attrs.type === 'doc') {
-            throw new Error(`Block "${blockID}" is a document block and cannot be added as a flashcard. Pass a content block ID such as a paragraph or heading instead.`);
+            throw new Error(`Block "${blockID}" is a document block and cannot be turned into a flashcard. Pass a content block ID such as a paragraph or heading instead.`);
         }
     }
 }
 
-async function verifyFlashcardBindings(client: SiYuanClient, blockIDs: string[], deckID: string): Promise<void> {
+function mergeDeckBinding(value: string | undefined, deckID: string): string {
+    const deckIDs = normalizeDeckBinding(value);
+    if (!deckIDs.includes(deckID)) deckIDs.push(deckID);
+    return deckIDs.join(',');
+}
+
+async function bindBlocksToDeck(client: SiYuanClient, blockIDs: string[], deckID: string): Promise<void> {
+    for (const blockID of blockIDs) {
+        const attrs = await getBlockAttrsSafe(client, blockID);
+        await attributeApi.setBlockAttrs(client, blockID, {
+            [NODE_ATTR_RIFF_DECKS]: mergeDeckBinding(attrs[NODE_ATTR_RIFF_DECKS], deckID),
+        });
+    }
+}
+
+async function verifyFlashcardBindings(client: SiYuanClient, blockIDs: string[], deckID: string, action: 'create_card' | 'add_card'): Promise<void> {
     for (const blockID of blockIDs) {
         const attrs = await getBlockAttrsSafe(client, blockID);
         const deckIDs = normalizeDeckBinding(attrs[NODE_ATTR_RIFF_DECKS]);
         if (!deckIDs.includes(deckID)) {
-            throw new Error(`flashcard/add_card did not persist a valid deck binding for block "${blockID}". Expected ${NODE_ATTR_RIFF_DECKS} to include "${deckID}".`);
+            throw new Error(`flashcard/${action} did not persist a valid deck binding for block "${blockID}". Expected ${NODE_ATTR_RIFF_DECKS} to include "${deckID}".`);
         }
     }
 }
@@ -160,6 +183,7 @@ async function verifyFlashcardDeckRecords(
     client: SiYuanClient,
     blockIDs: string[],
     mode: 'present' | 'absent',
+    action: 'create_card' | 'add_card' | 'remove_card',
 ): Promise<void> {
     const expected = new Set(blockIDs);
     for (let attempt = 0; attempt < FLASHCARD_BINDING_VERIFY_ATTEMPTS; attempt += 1) {
@@ -183,8 +207,8 @@ async function verifyFlashcardDeckRecords(
 
     throw new Error(
         mode === 'present'
-            ? `flashcard/add_card did not create readable riff card records for blocks: ${blockIDs.join(', ')}`
-            : `flashcard/remove_card did not fully remove readable riff card records for blocks: ${blockIDs.join(', ')}`,
+            ? `flashcard/${action} did not create readable riff card records for blocks: ${blockIDs.join(', ')}`
+            : `flashcard/${action} did not fully remove readable riff card records for blocks: ${blockIDs.join(', ')}`,
     );
 }
 
@@ -322,14 +346,30 @@ const flashcardTool = defineTool<FlashcardAction>({
                 result,
             });
         },
+        create_card: async ({ client, rawArgs }) => {
+            const parsed = FlashcardCreateCardSchema.parse(rawArgs);
+            const deckID = normalizeWritableDeckID(parsed.deckID);
+            await ensureFlashcardTargetsWritable(client, parsed.blockIDs);
+            await bindBlocksToDeck(client, parsed.blockIDs, deckID);
+            const result = await flashcardApi.addRiffCards(client, deckID, parsed.blockIDs);
+            await verifyFlashcardBindings(client, parsed.blockIDs, deckID, 'create_card');
+            await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'present', 'create_card');
+            return createJsonResult({
+                action: 'create_card',
+                deckID: parsed.deckID,
+                effectiveDeckID: deckID,
+                blockIDs: parsed.blockIDs,
+                result,
+            });
+        },
         add_card: async ({ client, rawArgs }) => {
             const parsed = FlashcardAddCardSchema.parse(rawArgs);
             const deckID = normalizeWritableDeckID(parsed.deckID);
             await ensureFlashcardTargetsWritable(client, parsed.blockIDs);
             const result = await flashcardApi.addRiffCards(client, deckID, parsed.blockIDs);
-            await verifyFlashcardBindings(client, parsed.blockIDs, deckID);
+            await verifyFlashcardBindings(client, parsed.blockIDs, deckID, 'add_card');
             if (deckID === BUILTIN_DECK_ID) {
-                await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'present');
+                await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'present', 'add_card');
             }
             return createJsonResult({
                 action: 'add_card',
@@ -344,7 +384,7 @@ const flashcardTool = defineTool<FlashcardAction>({
             const deckID = normalizeWritableDeckID(parsed.deckID);
             const result = await flashcardApi.removeRiffCards(client, deckID, parsed.blockIDs);
             if (deckID === BUILTIN_DECK_ID) {
-                await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'absent');
+                await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'absent', 'remove_card');
             }
             return createJsonResult({
                 action: 'remove_card',

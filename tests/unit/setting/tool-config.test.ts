@@ -14,6 +14,7 @@ describe('setting tool config', () => {
         expect(config.av.actions.get).toBe(true);
         expect(config.av.actions.set_cell).toBe(true);
         expect(config.flashcard.actions.list_cards).toBe(true);
+        expect(config.flashcard.actions.create_card).toBe(true);
         expect(config.flashcard.actions.remove_card).toBe(true);
         expect(config.mascot.actions.get_balance).toBe(true);
         expect(config.mascot.actions.shop).toBe(true);
@@ -70,6 +71,7 @@ describe('setting tool config', () => {
 
         expect(config.flashcard.enabled).toBe(true);
         expect(config.flashcard.actions.list_cards).toBe(true);
+        expect(config.flashcard.actions.create_card).toBe(true);
         expect(config.flashcard.actions.remove_card).toBe(false);
         expect(config.flashcard.actions.review_card).toBe(true);
     });

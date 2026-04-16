@@ -18,6 +18,7 @@ vi.mock('@/api/flashcard', () => ({
 
 vi.mock('@/api/attribute', () => ({
     getBlockAttrs: vi.fn(),
+    setBlockAttrs: vi.fn(),
 }));
 
 describe('flashcard tool', () => {
@@ -29,6 +30,7 @@ describe('flashcard tool', () => {
             get_cards: true,
             review_card: true,
             skip_review_card: true,
+            create_card: true,
             add_card: true,
             remove_card: true,
         },
@@ -48,6 +50,7 @@ describe('flashcard tool', () => {
         vi.mocked(api.addRiffCards).mockReset();
         vi.mocked(api.removeRiffCards).mockReset();
         vi.mocked(attributeApi.getBlockAttrs).mockReset();
+        vi.mocked(attributeApi.setBlockAttrs).mockReset();
     });
 
     it('routes list_cards(scope="all") to getRiffDueCards without deck id', async () => {
@@ -218,6 +221,85 @@ describe('flashcard tool', () => {
         expect(result.content[0].text).toContain('document block');
     });
 
+    it('create_card writes attrs before registering riff cards', async () => {
+        const api = await import('@/api/flashcard');
+        const attributeApi = await import('@/api/attribute');
+        vi.mocked(attributeApi.getBlockAttrs)
+            .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': 'deck-a' })
+            .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': 'deck-a' })
+            .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': 'deck-a,deck-b' });
+        vi.mocked(attributeApi.setBlockAttrs).mockResolvedValue(null);
+        vi.mocked(api.addRiffCards).mockResolvedValue({ id: 'deck-b' });
+        vi.mocked(api.getRiffCardsByBlockIDs).mockResolvedValue({
+            blocks: [{ id: 'block-1', riffCardID: 'card-1', riffCard: { state: 0 } }],
+        });
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'create_card',
+            deckID: 'deck-b',
+            blockIDs: ['block-1'],
+        }, enabledActions as any, {} as any);
+
+        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(expect.anything(), 'block-1', {
+            'custom-riff-decks': 'deck-a,deck-b',
+        });
+        expect(vi.mocked(api.addRiffCards)).toHaveBeenCalledWith(expect.anything(), 'deck-b', ['block-1']);
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            action: 'create_card',
+            deckID: 'deck-b',
+            effectiveDeckID: 'deck-b',
+            blockIDs: ['block-1'],
+        });
+    });
+
+    it('normalizes empty create_card deck IDs to the built-in deck', async () => {
+        const api = await import('@/api/flashcard');
+        const attributeApi = await import('@/api/attribute');
+        vi.mocked(attributeApi.getBlockAttrs)
+            .mockResolvedValueOnce({ type: 'p' })
+            .mockResolvedValueOnce({ type: 'p' })
+            .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': '20230218211946-2kw8jgx' });
+        vi.mocked(attributeApi.setBlockAttrs).mockResolvedValue(null);
+        vi.mocked(api.addRiffCards).mockResolvedValue({ id: '20230218211946-2kw8jgx' });
+        vi.mocked(api.getRiffCardsByBlockIDs).mockResolvedValue({
+            blocks: [{ id: 'block-1', riffCardID: 'card-1', riffCard: { state: 0 } }],
+        });
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'create_card',
+            deckID: '',
+            blockIDs: ['block-1'],
+        }, enabledActions as any, {} as any);
+
+        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(expect.anything(), 'block-1', {
+            'custom-riff-decks': '20230218211946-2kw8jgx',
+        });
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            action: 'create_card',
+            deckID: '',
+            effectiveDeckID: '20230218211946-2kw8jgx',
+        });
+    });
+
+    it('fails create_card when the deck binding is not persisted', async () => {
+        const api = await import('@/api/flashcard');
+        const attributeApi = await import('@/api/attribute');
+        vi.mocked(attributeApi.getBlockAttrs)
+            .mockResolvedValueOnce({ type: 'p' })
+            .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': '' });
+        vi.mocked(attributeApi.setBlockAttrs).mockResolvedValue(null);
+        vi.mocked(api.addRiffCards).mockResolvedValue({ id: 'deck-1' });
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'create_card',
+            deckID: 'deck-1',
+            blockIDs: ['block-1'],
+        }, enabledActions as any, {} as any);
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('flashcard/create_card did not persist a valid deck binding');
+    });
+
     it('includes the built-in deck in get_decks when the kernel hides it', async () => {
         const api = await import('@/api/flashcard');
         vi.mocked(api.getRiffDecks).mockResolvedValue([]);
@@ -364,6 +446,7 @@ describe('flashcard tool', () => {
         const payload = JSON.parse(result.content[0].text);
 
         expect(payload.guidance).toContain('flashcard actions cover review-first flashcard workflows and deck discovery.');
+        expect(payload.actions.create_card.hint).toContain('turn existing blocks into flashcards');
         expect(payload.actions.remove_card.hint).toContain('requires explicit user confirmation');
     });
 

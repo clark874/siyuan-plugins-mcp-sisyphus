@@ -131,14 +131,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 | 工具 | Actions | 说明 |
 |------|---------|------|
 | **notebook** | 11 | 笔记本管理、权限控制 |
-| **document** | 18 | 文档 CRUD、树操作 |
-| **block** | 22 | 块级操作、属性管理 |
-| **av** | 10 | 属性视图/数据库操作 |
+| **document** | 20 | 文档 CRUD、树操作 |
+| **block** | 24 | 块级操作、属性管理 |
+| **av** | 13 | 属性视图/数据库操作 |
 | **file** | 12 | 资源上传、导出、模板 |
 | **search** | 11 | 全文搜索、SQL查询 |
 | **tag** | 3 | 标签管理 |
 | **system** | 10 | 系统信息、通知 |
-| **flashcard** | 7 | 闪卡复习、卡组管理 |
+| **flashcard** | 8 | 闪卡复习、卡组管理 |
 | **mascot** | 3 | 交互反馈、商店 |
 
 **工具实现模式：**
@@ -166,7 +166,43 @@ export async function callNotebookTool(client, args, config, permMgr) {
 
 ---
 
-### 2.5 API 封装层 (src/api/*.ts)
+### 2.5 工具注册表 (src/mcp/tool-registry.ts)
+
+**职责：**
+- 统一管理 10 个聚合工具的注册信息
+- 提供 `listAllTools()` 和 `resolveCategory()` 等通用查询能力
+- 解耦 `server.ts` 与具体工具实现，新增工具时无需修改 server 主逻辑
+
+**核心设计：**
+```typescript
+export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
+    notebook: { category: 'notebook', listTools: ..., callTool: ... },
+    document: { category: 'document', listTools: ..., callTool: ... },
+    // ...
+};
+```
+
+**代码位置：** `src/mcp/tool-registry.ts`
+
+---
+
+### 2.6 工具调用生命周期 (src/mcp/tool-lifecycle.ts)
+
+**职责：**
+- 包装每一次工具调用，注入统一的副作用生命周期
+- 吉祥物事件记录（puppy-state）：每次调用前写 `running`，成功后写 `success/error`
+- 分析事件收集（analytics）：记录调用时长、参数、结果大小、错误码
+- 遥测上报（telemetry）：按需发送匿名使用数据
+
+**设计原则：**
+- 所有副作用均为 fire-and-forget，失败从不阻塞工具调用
+- 非 mascot 类工具每次成功调用自动赚取 1 枚硬币
+
+**代码位置：** `src/mcp/tool-lifecycle.ts`
+
+---
+
+### 2.7 API 封装层 (src/api/*.ts)
 
 **职责：**
 - 思源 HTTP API 的 TypeScript 封装
@@ -192,7 +228,7 @@ export async function callNotebookTool(client, args, config, permMgr) {
 
 ---
 
-### 2.6 权限管理 (src/mcp/permissions.ts)
+### 2.8 权限管理 (src/mcp/permissions.ts)
 
 **职责：**
 - 笔记本级权限控制
@@ -218,7 +254,7 @@ type PermissionLevel = \'none\' | \'r\' | \'rw\' | \'rwd\';
 
 ---
 
-### 2.7 配置管理 (src/mcp/config.ts)
+### 2.9 配置管理 (src/mcp/config.ts)
 
 **职责：**
 - 工具配置结构定义
@@ -392,15 +428,20 @@ src/
 ├── mcp/                        # MCP 服务器实现
 │   ├── server.ts              # 主服务器
 │   ├── http-transport.ts      # HTTP 传输
+│   ├── tool-registry.ts       # 工具注册表
+│   ├── tool-lifecycle.ts      # 工具调用生命周期
 │   ├── config.ts              # 工具配置
 │   ├── permissions.ts         # 权限管理
 │   ├── types.ts               # 类型定义
 │   ├── help.ts                # 帮助系统
 │   ├── resources.ts           # MCP 资源
+│   ├── analytics.ts           # 分析事件
+│   ├── telemetry.ts           # 遥测上报
+│   ├── telemetry-config.ts    # 遥测配置
 │   ├── runtime.ts             # 运行时检测
 │   ├── normalize.ts           # 数据规范化
 │   ├── process.ts             # 进程管理
-│   ├── puppy-state.ts         # 吉祥物状态
+│   └── puppy-state.ts         # 吉祥物状态
 │   └── tools/                 # 工具实现
 │       ├── notebook.ts
 │       ├── document.ts
@@ -443,7 +484,7 @@ src/
 2. **定义 list 函数**: 返回工具描述和 schema
 3. **实现 call 函数**: 处理各 action
 4. **注册到 config**: `src/mcp/config.ts`
-5. **注册到 server**: `src/mcp/server.ts`
+5. **注册到 tool-registry**: `src/mcp/tool-registry.ts`
 6. **添加 API 封装** (如需要): `src/api/newtool.ts`
 
 ### 6.2 添加新 Action
@@ -460,4 +501,3 @@ src/
 - [API 参考](./api-reference.md) - 完整的 Action 文档
 - [开发指南](./development-guide.md) - 开发环境搭建
 - [部署指南](./deployment.md) - 安装与配置
-

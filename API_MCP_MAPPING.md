@@ -242,7 +242,8 @@
 | `get_cards` | `POST /api/riff/getRiffCards` | `src/api/riff.ts` | 获取闪卡列表 |
 | `review_card` | `POST /api/riff/reviewRiffCard` | `src/api/riff.ts` | 复习闪卡，需传评分(rating) |
 | `skip_review_card` | `POST /api/riff/skipReviewRiffCard` | `src/api/riff.ts` | 跳过当前闪卡复习 |
-| `add_card` | `POST /api/riff/addRiffCards` | `src/api/riff.ts` | 将块添加为闪卡 |
+| `create_card` | `POST /api/attr/setBlockAttrs` + `POST /api/riff/addRiffCards` | `src/api/attribute.ts` + `src/api/flashcard.ts` | 将块正式转为闪卡：先写 `custom-riff-decks`，再注册 riff 卡片 |
+| `add_card` | `POST /api/riff/addRiffCards` | `src/api/riff.ts` | 执行底层 riff 加卡注册，不等于完整“制卡” |
 | `remove_card` | `POST /api/riff/removeRiffCards` | `src/api/riff.ts` | 移除闪卡，需要确认 |
 
 ## `av` (Attribute View / 数据库)

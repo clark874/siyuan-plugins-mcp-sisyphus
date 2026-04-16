@@ -294,6 +294,7 @@ The following actions require explicit user confirmation:
 - `file(action="remove_unused_assets")`
 - `file(action="delete_asset")`
 - `search(action="find_replace")`
+- `system(action="workspace_info")`
 - `tag(action="remove")`
 - `flashcard(action="remove_card")`
 

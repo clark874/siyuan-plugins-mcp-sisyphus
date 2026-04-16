@@ -321,6 +321,12 @@ export const FlashcardSkipReviewCardSchema = z.object({
     cardID: z.string().describe("Card ID"),
 });
 
+export const FlashcardCreateCardSchema = z.object({
+    action: z.literal("create_card"),
+    deckID: z.string().describe("Deck ID"),
+    blockIDs: z.array(z.string()).min(1).describe("Existing block IDs to turn into flashcards"),
+});
+
 export const FlashcardAddCardSchema = z.object({
     action: z.literal("add_card"),
     deckID: z.string().describe("Deck ID"),

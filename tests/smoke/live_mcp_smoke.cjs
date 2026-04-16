@@ -294,7 +294,7 @@ async function assertDefaultToolList() {
         assert.match(documentPathText, /existing destination document/);
 
         const examplesText = await readResourceText(client, 'siyuan://help/examples');
-        assert.match(examplesText, /Mark a flashcard with block attributes/);
+        assert.match(examplesText, /Turn a block into a flashcard/);
         assert.match(examplesText, /custom-riff-decks/);
 
         const aiLayoutGuideText = await readResourceText(client, 'siyuan://help/ai-layout-guide');

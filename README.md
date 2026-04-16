@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **Latest:** `v0.2.9` — Merged paired actions into single actions with boolean/enum parameters (notebook open/close, document set/clear cover, block fold/unfold, file asset filtering), reducing action count and improving consistency. See full history in [CHANGELOG.md](./CHANGELOG.md).
+> **Latest:** `v0.2.10` — Introduced `defineTool` factory, split settings into dedicated panels (HTTP Server, Puppy, Telemetry, Tool Categories, User Rules), added telemetry/analytics for call stats and error-rate insights, and completed `flashcard(action="create_card")` for end-to-end flashcard creation. See full history in [CHANGELOG.md](./CHANGELOG.md).
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
@@ -21,7 +21,7 @@ In other words, the plugin does one simple thing: **make SiYuan safely visible a
 
 - Supports both HTTP and stdio connection modes for desktop and Docker clients
 - Aggregates common SiYuan capabilities into 10 grouped tools, reducing the chance that an agent picks the wrong tool
-- Covers notebooks, documents, blocks, databases, assets, search, tags, flashcards, and system capabilities across 114 actions
+- Covers notebooks, documents, blocks, databases, assets, search, tags, flashcards, and system capabilities across 115 actions
 - Provides a four-state permission model: `none` / `r` / `rw` / `rwd`, making notebook-level access control easier
 - Follows a progressive disclosure design to reduce token usage
 
@@ -348,7 +348,7 @@ Big result sets are capped and annotated with drill-down hints rather than retur
 | `get_kramdown` | Get block content in kramdown format |
 | `get_children` | Get direct child blocks |
 | `transfer_ref` | Transfer block references |
-| `set_attrs` / `get_attrs` | Set or get block attributes, including custom metadata such as `custom-riff-decks` for flashcards |
+| `set_attrs` / `get_attrs` | Set or get block attributes, including custom metadata such as `custom-riff-decks` for flashcards; attribute writes alone do not fully create a review card |
 | `exists` | Check whether a block exists |
 | `info` | Get root document metadata for a block |
 | `breadcrumb` | Get breadcrumb path for a block |
@@ -410,9 +410,11 @@ Big result sets are capped and annotated with drill-down hints rather than retur
 |--------|-------------|
 | `list_cards` | List due flashcards across all decks, one deck, one notebook, or one tree, and optionally filter returned cards to `due` / `new` / `old` |
 | `get_decks` | List available flashcard decks for discovering `deckID` values |
+| `get_cards` | List all cards in a deck with pagination |
 | `review_card` | Submit one flashcard review result with `deckID`, `cardID`, and `rating` |
 | `skip_review_card` | Skip the current flashcard in the review flow |
-| `add_card` | Add existing blocks into a flashcard deck |
+| `create_card` | Turn existing blocks into real flashcards by writing `custom-riff-decks` and registering the riff card |
+| `add_card` | Run the lower-level riff registration step for existing blocks that are already deck-bound |
 | `remove_card` | Remove existing blocks from a flashcard deck (requires confirmation) |
 
 ### `mascot`

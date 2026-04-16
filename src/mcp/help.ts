@@ -37,7 +37,7 @@ export const BLOCK_GUIDANCE: string[] = [
     'block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.',
     'block(action="prepend") or block(action="append") with a block ID targets that block\'s child list.',
     'To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.',
-    'To mark a block as a flashcard, set its "custom-riff-decks" attribute via block(action="set_attrs"). A common pattern is to use an h2 heading as the question and the following blocks as the answer.',
+    'To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.',
     'block(action="set_fold_state") requires a foldable block ID, not a document ID.',
     'block(action="recent_updated") is read-only; MCP filters unreadable notebooks first and then applies count.',
     'block(action="recent_updated") now presents the document-grouped summary as the primary user-facing view while keeping the raw block stream for advanced consumers.',
@@ -80,8 +80,9 @@ export const FLASHCARD_GUIDANCE: string[] = [
     'flashcard actions cover review-first flashcard workflows and deck discovery.',
     'list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old".',
     'get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.',
-    'To mark a block as a flashcard, keep using block(action="set_attrs", attrs={"custom-riff-decks":"<deck-id>"}).',
-    'add_card and remove_card operate on existing content block IDs such as paragraphs or headings; document blocks are rejected.',
+    'Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.',
+    'create_card writes the "custom-riff-decks" binding first, then calls the riff add-card registration step.',
+    'add_card and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.',
     'flashcard(action="remove_card") requires explicit user confirmation before execution.',
 ];
 
@@ -121,7 +122,7 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
     prepend: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
     append: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Prefer append when you need to add multi-line markdown, tables, or multiple new blocks. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
     update: 'Use dataType + data + id to replace block content. Returns a slim success object instead of raw DOM operations. block(action="update") is best for single-block replacement; multi-line markdown may be truncated to the first line by SiYuan, so use append/prepend/insert when you need multiple blocks or tables. If the content should create tags, write them as #tag#.',
-    set_attrs: 'Use attrs to write block attributes such as custom metadata. To mark a flashcard, set {"custom-riff-decks":"<deck-id>"} on the question block, commonly an h2 heading.',
+    set_attrs: 'Use attrs to write block attributes such as custom metadata. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.',
     delete: 'This action requires explicit user confirmation.',
     move: 'Provide id plus previousID, parentID, or both to describe the destination. On success, MCP returns a structured success object instead of SiYuan\'s raw null. This action requires explicit user confirmation.',
     set_fold_state: 'Use a foldable block ID + folded (true to fold, false to unfold).',
@@ -202,7 +203,8 @@ export const FLASHCARD_ACTION_HINTS: Partial<Record<FlashcardAction, string>> = 
     get_cards: 'Use deckID + optional page/pageSize to list all cards in a deck (regardless of due state). Use empty string deckID to query across all decks. Returns cards, total count, and pageCount.',
     review_card: 'Use deckID + cardID + rating. reviewedCards is optional and passed through to the kernel as-is.',
     skip_review_card: 'Use deckID + cardID to skip the current card in a review flow.',
-    add_card: 'Use deckID + blockIDs to add existing blocks to a deck. This does not create new standalone card content.',
+    create_card: 'Use deckID + blockIDs to turn existing blocks into flashcards. MCP writes custom-riff-decks first, then registers the riff cards.',
+    add_card: 'Use deckID + blockIDs for the lower-level riff registration step. If you want the block to become a real flashcard end-to-end, prefer create_card.',
     remove_card: 'Use deckID + blockIDs to remove existing blocks from a deck. This action requires explicit user confirmation.',
 };
 

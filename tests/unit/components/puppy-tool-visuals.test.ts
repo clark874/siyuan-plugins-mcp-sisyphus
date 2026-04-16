@@ -25,6 +25,8 @@ describe('puppy tool visuals helpers', () => {
     it('maps flashcard actions into reading, writing, and deleting states', () => {
         expect(resolveActionState('list_cards')).toBe('reading');
         expect(resolveActionState('get_decks')).toBe('reading');
+        expect(resolveActionState('get_cards')).toBe('reading');
+        expect(resolveActionState('create_card')).toBe('writing');
         expect(resolveActionState('review_card')).toBe('writing');
         expect(resolveActionState('remove_card')).toBe('deleting');
     });
@@ -42,6 +44,7 @@ describe('puppy tool visuals helpers', () => {
                 expect.objectContaining({ tool: 'av', action: 'get' }),
                 expect.objectContaining({ tool: 'av', action: 'set_cell' }),
                 expect.objectContaining({ tool: 'flashcard', action: 'list_cards' }),
+                expect.objectContaining({ tool: 'flashcard', action: 'create_card' }),
                 expect.objectContaining({ tool: 'flashcard', action: 'review_card' }),
                 expect.objectContaining({ tool: 'mascot', action: 'get_balance' }),
                 expect.objectContaining({ tool: 'mascot', action: 'buy' }),

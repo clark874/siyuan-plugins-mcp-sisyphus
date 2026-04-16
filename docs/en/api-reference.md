@@ -23,19 +23,19 @@ Complete API reference for SiYuan MCP Sisyphus. This document describes all avai
 
 ## Overview
 
-SiYuan MCP Sisyphus provides **10 aggregated tools** with **109 actions**, covering most SiYuan Note functionality:
+SiYuan MCP Sisyphus provides **10 aggregated tools** with **115 actions**, covering most SiYuan Note functionality:
 
 | Tool | Actions | Description |
 |------|---------|-------------|
 | `notebook` | 11 | Notebook management |
-| `document` | 18 | Document operations |
-| `block` | 22 | Block editing and attributes |
-| `av` | 12 | Attribute view (database) operations |
+| `document` | 20 | Document operations |
+| `block` | 24 | Block editing and attributes |
+| `av` | 13 | Attribute view (database) operations |
 | `file` | 12 | File uploads, exports, templates |
 | `search` | 11 | Search and query operations |
 | `tag` | 3 | Tag management |
 | `system` | 10 | System and notification operations |
-| `flashcard` | 7 | Flashcard review and decks |
+| `flashcard` | 8 | Flashcard review and decks |
 | `mascot` | 3 | Balance, shop, and purchases |
 
 Each tool uses a required `action` field to specify the operation to perform.
@@ -70,6 +70,7 @@ The following actions require explicit user confirmation before execution:
 | `file` | `remove_unused_assets` | Removes all unused assets |
 | `file` | `delete_asset` | Deletes a specific asset |
 | `search` | `find_replace` | Finds and replaces text across workspace |
+| `system` | `workspace_info` | Exposes absolute workspace path |
 | `tag` | `remove` | Removes tags |
 | `flashcard` | `remove_card` | Removes cards from decks |
 
@@ -2502,9 +2503,31 @@ Grouped flashcard review and deck operations.
 }
 ```
 
+#### create_card
+
+**Description**: Turn existing blocks into real flashcards by writing `custom-riff-decks` and registering riff cards.
+
+**Permission Required**: None
+
+**Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `deckID` | string | Yes | Deck ID |
+| `blockIDs` | string[] | Yes | Block IDs to turn into flashcards |
+
+**Example**:
+```json
+{
+  "action": "create_card",
+  "deckID": "20240318112233-abc123",
+  "blockIDs": ["20240318112233-def456"]
+}
+```
+
 #### add_card
 
-**Description**: Add existing blocks to a flashcard deck.
+**Description**: Run the lower-level riff registration step for existing blocks.
 
 **Permission Required**: None
 
@@ -2624,17 +2647,17 @@ Grouped mascot balance and care operations. Every successful MCP tool call earns
 
 ## Action Summary
 
-Total: **109 actions** across **10 tools**
+Total: **115 actions** across **10 tools**
 
 | Tool | Count | Actions |
 |------|-------|---------|
 | notebook | 11 | list, create, set_open_state, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs |
-| document | 18 | create, rename, remove, move, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, set_icon, set_cover, list_tree, search_docs, get_doc, create_daily_note, duplicate, remove_batch, create_empty, heading_to_doc, doc_to_heading |
-| block | 22 | insert, prepend, append, update, delete, move, set_fold_state, get_kramdown, get_children, transfer_ref, set_attrs, get_attrs, exists, info, breadcrumb, dom, recent_updated, word_count, batch_insert, batch_update, append_daily_note, prepend_daily_note, doc_info, docs_info |
-| av | 12 | get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
+| document | 20 | create, rename, remove, move, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, set_icon, set_cover, list_tree, search_docs, get_doc, create_daily_note, duplicate, remove_batch, create_empty, heading_to_doc, doc_to_heading |
+| block | 24 | insert, prepend, append, update, delete, move, set_fold_state, get_kramdown, get_children, transfer_ref, set_attrs, get_attrs, exists, info, breadcrumb, dom, recent_updated, word_count, batch_insert, batch_update, append_daily_note, prepend_daily_note, doc_info, docs_info |
+| av | 13 | get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
 | file | 12 | upload_asset, render_template, render_sprig, export_md, export_resources, list_unused_assets, get_doc_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha |
 | search | 11 | fulltext, query_sql, search_tag, get_backlinks, get_backmentions, search_refs, find_replace, search_assets, get_asset_content, fulltext_asset_content, list_invalid_refs |
 | tag | 3 | list, rename, remove |
 | system | 10 | push_msg, push_err_msg, get_version, get_current_time, workspace_info, network, changelog, conf, sys_fonts, boot_progress |
-| flashcard | 7 | list_cards, get_decks, get_cards, review_card, skip_review_card, add_card, remove_card |
+| flashcard | 8 | list_cards, get_decks, get_cards, review_card, skip_review_card, create_card, add_card, remove_card |
 | mascot | 3 | get_balance, shop, buy |

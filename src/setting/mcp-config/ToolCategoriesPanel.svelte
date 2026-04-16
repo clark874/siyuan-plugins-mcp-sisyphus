@@ -185,9 +185,11 @@
             actions: [
                 { key: "list_cards", title: "List Cards", description: "List due flashcards by scope and optionally filter to due/new/old cards." },
                 { key: "get_decks", title: "Get Decks", description: "List available flashcard decks for discovering deck IDs." },
+                { key: "get_cards", title: "Get Cards", description: "List all cards in a flashcard deck with pagination." },
                 { key: "review_card", title: "Review Card", description: "Submit a flashcard review rating." },
                 { key: "skip_review_card", title: "Skip Review Card", description: "Skip the current flashcard in the review flow." },
-                { key: "add_card", title: "Add Card", description: "Add existing blocks to a flashcard deck." },
+                { key: "create_card", title: "Create Card", description: "Turn existing blocks into flashcards by writing deck attrs and registering riff cards." },
+                { key: "add_card", title: "Add Card", description: "Run the lower-level riff registration step for existing blocks." },
                 { key: "remove_card", title: "Remove Card", description: "Remove existing blocks from a flashcard deck." },
             ],
         },

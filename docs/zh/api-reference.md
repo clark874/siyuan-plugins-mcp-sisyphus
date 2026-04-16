@@ -23,19 +23,19 @@ SiYuan MCP Sisyphus 完整 API 参考文档。本文档描述所有可用的 MCP
 
 ## 概述
 
-SiYuan MCP Sisyphus 提供 **10 个聚合工具**，包含 **109 个 action**，覆盖思源笔记的绝大部分功能：
+SiYuan MCP Sisyphus 提供 **10 个聚合工具**，包含 **115 个 action**，覆盖思源笔记的绝大部分功能：
 
 | 工具 | Action 数量 | 描述 |
 |------|-------------|------|
 | `notebook` | 11 | 笔记本管理 |
-| `document` | 18 | 文档操作 |
-| `block` | 22 | 块编辑和属性 |
-| `av` | 12 | 属性视图（数据库）操作 |
+| `document` | 20 | 文档操作 |
+| `block` | 24 | 块编辑和属性 |
+| `av` | 13 | 属性视图（数据库）操作 |
 | `file` | 12 | 文件上传、导出、模板 |
 | `search` | 11 | 搜索和查询操作 |
 | `tag` | 3 | 标签管理 |
 | `system` | 10 | 系统和通知操作 |
-| `flashcard` | 7 | 闪卡复习和卡组 |
+| `flashcard` | 8 | 闪卡复习和卡组 |
 | `mascot` | 3 | 余额、商店和购买 |
 
 每个工具都需要一个必需的 `action` 字段来指定要执行的操作。
@@ -70,6 +70,7 @@ SiYuan MCP Sisyphus 提供 **10 个聚合工具**，包含 **109 个 action**，
 | `file` | `remove_unused_assets` | 删除所有未使用资源 |
 | `file` | `delete_asset` | 删除指定资源 |
 | `search` | `find_replace` | 跨工作区查找替换 |
+| `system` | `workspace_info` | 暴露工作区绝对路径 |
 | `tag` | `remove` | 删除标签 |
 | `flashcard` | `remove_card` | 从卡组移除卡片 |
 
@@ -2502,9 +2503,31 @@ MCP 服务器返回的常见错误类型：
 }
 ```
 
+#### create_card
+
+**描述**：将已有块正式转成闪卡：先写入 `custom-riff-decks`，再注册 riff 卡片。
+
+**权限要求**：无
+
+**参数**：
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| `deckID` | string | 是 | 卡组 ID |
+| `blockIDs` | string[] | 是 | 要转成闪卡的块 ID |
+
+**示例**：
+```json
+{
+  "action": "create_card",
+  "deckID": "20240318112233-abc123",
+  "blockIDs": ["20240318112233-def456"]
+}
+```
+
 #### add_card
 
-**描述**：将现有块添加到闪卡卡组。
+**描述**：对现有块执行底层 riff 加卡注册。
 
 **权限要求**：无
 
@@ -2624,17 +2647,17 @@ MCP 服务器返回的常见错误类型：
 
 ## Action 汇总
 
-总计：**10 个工具** 包含 **109 个 action**
+总计：**10 个工具** 包含 **115 个 action**
 
 | 工具 | 数量 | Actions |
 |------|------|---------|
 | notebook | 11 | list, create, set_open_state, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs |
-| document | 18 | create, rename, remove, move, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, set_icon, set_cover, list_tree, search_docs, get_doc, create_daily_note, duplicate, remove_batch, create_empty, heading_to_doc, doc_to_heading |
-| block | 22 | insert, prepend, append, update, delete, move, set_fold_state, get_kramdown, get_children, transfer_ref, set_attrs, get_attrs, exists, info, breadcrumb, dom, recent_updated, word_count, batch_insert, batch_update, append_daily_note, prepend_daily_note, doc_info, docs_info |
-| av | 12 | get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
+| document | 20 | create, rename, remove, move, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, set_icon, set_cover, list_tree, search_docs, get_doc, create_daily_note, duplicate, remove_batch, create_empty, heading_to_doc, doc_to_heading |
+| block | 24 | insert, prepend, append, update, delete, move, set_fold_state, get_kramdown, get_children, transfer_ref, set_attrs, get_attrs, exists, info, breadcrumb, dom, recent_updated, word_count, batch_insert, batch_update, append_daily_note, prepend_daily_note, doc_info, docs_info |
+| av | 13 | get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block, get_primary_key_values |
 | file | 12 | upload_asset, render_template, render_sprig, export_md, export_resources, list_unused_assets, get_doc_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha |
 | search | 11 | fulltext, query_sql, search_tag, get_backlinks, get_backmentions, search_refs, find_replace, search_assets, get_asset_content, fulltext_asset_content, list_invalid_refs |
 | tag | 3 | list, rename, remove |
 | system | 10 | push_msg, push_err_msg, get_version, get_current_time, workspace_info, network, changelog, conf, sys_fonts, boot_progress |
-| flashcard | 7 | list_cards, get_decks, get_cards, review_card, skip_review_card, add_card, remove_card |
+| flashcard | 8 | list_cards, get_decks, get_cards, review_card, skip_review_card, create_card, add_card, remove_card |
 | mascot | 3 | get_balance, shop, buy |

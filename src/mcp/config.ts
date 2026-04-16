@@ -10,7 +10,7 @@ export const FILE_ACTIONS = ['upload_asset', 'render_template', 'render_sprig', 
 export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions', 'search_refs', 'find_replace', 'search_assets', 'get_asset_content', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'changelog', 'conf', 'sys_fonts', 'boot_progress', 'push_msg', 'push_err_msg', 'get_version', 'get_current_time'] as const;
-export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'skip_review_card', 'add_card', 'remove_card'] as const;
+export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'skip_review_card', 'create_card', 'add_card', 'remove_card'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 
 export type NotebookAction = typeof NOTEBOOK_ACTIONS[number];
@@ -168,6 +168,7 @@ export const LEGACY_TOOL_TO_ACTION: Record<string, { category: ToolCategory; act
     get_flashcard_cards: { category: 'flashcard', action: 'get_cards' },
     review_flashcard: { category: 'flashcard', action: 'review_card' },
     skip_flashcard_review: { category: 'flashcard', action: 'skip_review_card' },
+    create_flashcard: { category: 'flashcard', action: 'create_card' },
     add_flashcard: { category: 'flashcard', action: 'add_card' },
     remove_flashcard: { category: 'flashcard', action: 'remove_card' },
     get_mascot_balance: { category: 'mascot', action: 'get_balance' },
@@ -254,7 +255,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     flashcard: {
         list_cards: 'basic', get_decks: 'basic', get_cards: 'basic',
         review_card: 'advanced', skip_review_card: 'advanced',
-        add_card: 'advanced', remove_card: 'advanced',
+        create_card: 'advanced', add_card: 'advanced', remove_card: 'advanced',
     },
     mascot: {
         get_balance: 'basic', shop: 'basic', buy: 'basic',
@@ -326,7 +327,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         flashcard: {
             enabled: true,
-            actions: createActionsRecord(FLASHCARD_ACTIONS, ['list_cards', 'get_decks', 'get_cards', 'review_card', 'skip_review_card', 'add_card', 'remove_card']),
+            actions: createActionsRecord(FLASHCARD_ACTIONS, ['list_cards', 'get_decks', 'get_cards', 'review_card', 'skip_review_card', 'create_card', 'add_card', 'remove_card']),
         },
         mascot: {
             enabled: true,

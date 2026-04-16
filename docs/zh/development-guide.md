@@ -58,7 +58,7 @@ siyuan-plugins-mcp-sisyphus/
 │   │   │   ├── mascot.ts
 │   │   │   ├── shared.ts     # 共享工具函数
 │   │   │   └── context.ts    # 上下文解析
-│   │   └── resources/        # MCP 资源
+│   │   ├── resources.ts      # MCP 资源
 │   ├── api/                  # 思源 API 封装
 │   │   ├── client.ts
 │   │   ├── block.ts
@@ -386,21 +386,17 @@ export async function callCalendarTool(
 }
 ```
 
-### 步骤 4：在服务器中注册
+### 步骤 4：在工具注册表中注册
 
-更新 `src/mcp/server.ts`：
+更新 `src/mcp/tool-registry.ts`：
 
 ```typescript
 import { callCalendarTool, listCalendarTools } from './tools/calendar';
 
-// 在 getToolsByConfig() 中：
-return [
+export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
     // ... 现有工具
-    ...listCalendarTools(config.calendar),
-];
-
-// 在 CallToolRequestSchema 处理器中：
-case 'calendar': result = await callCalendarTool(client, args, config.calendar, permMgr); break;
+    calendar: { category: 'calendar', listTools: listCalendarTools as ToolModule['listTools'], callTool: callCalendarTool as ToolModule['callTool'] },
+};
 ```
 
 ### 步骤 5：添加默认配置

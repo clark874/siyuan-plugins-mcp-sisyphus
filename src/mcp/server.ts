@@ -99,7 +99,8 @@ Additional rules:
 
 ## Flashcard semantics
 
-- To mark a block as a flashcard, set “custom-riff-decks” with block(action=”set_attrs”).
+- To turn a block into a flashcard, prefer flashcard(action=”create_card”), which writes “custom-riff-decks” and registers the riff card together.
+- block(action=”set_attrs”) with “custom-riff-decks” only writes the metadata binding and is not the full “make flashcard” workflow by itself.
 - Common pattern: h2 heading as the question, following blocks as the answer.
 - Cloze: \`==answer==\` is treated as a cloze answer in flashcard review.
 - For scheduled review and deck operations, prefer the dedicated \`flashcard\` tool.

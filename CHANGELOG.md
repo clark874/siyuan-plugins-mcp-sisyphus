@@ -2,6 +2,12 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.2.10 - 2026-04-16
+
+- 引入 `defineTool` 工厂统一所有聚合 tool 的定义模式，拆分设置面板为 HttpServer / Puppy / Telemetry / ToolCategories / UserRules 五大子面板，并新增遥测与分析模块，支持调用统计、错误率与耗时分布洞察
+- 补全 `flashcard` 工具的 `create_card` action，支持将已有块完整转为闪卡（自动写 `custom-riff-decks` 并完成 riff 注册），action 总数扩展至 115
+- 同步更新双语文档、帮助资源、国际化文案与测试覆盖
+
 ## v0.2.9 - 2026-04-14
 
 - 合并成对 action 为单一动作：notebook 的 `open`/`close` 合并为 `set_open_state`、document 的 `set_cover`/`clear_cover` 合并为 `set_cover`、block 的 `fold`/`unfold` 合并为 `set_fold_state`、file 的 `get_doc_assets`/`get_doc_image_assets` 合并为 `get_doc_assets`，通过布尔或枚举参数控制行为，减少工具数量并提升调用一致性

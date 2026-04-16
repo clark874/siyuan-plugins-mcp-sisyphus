@@ -2,7 +2,7 @@
   "name": "siyuan-plugins-mcp-sisyphus",
   "author": "Taihong Yang",
   "url": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "minAppVersion": "2.9.0",
   "backends": ["windows", "linux", "darwin", "docker"],
   "frontends": ["desktop","browser-desktop","desktop-window"],
@@ -18,6 +18,11 @@
   "readme": {
     "default": "README.md",
     "zh_CN": "README_zh_CN.md"
+  },
+  "funding": {
+    "custom": [
+      "https://test.fukit.cn/autoupload/fr/ZlJTJY_vV5qbwjLHMIPMkMeFqX06-F03aQf380QiM0iyl5f0KlZfm6UsKj-HyTuv/20260416/jcDl/886X886/AE0A11A2-9BE1-4CC6-A70D-9DB54D17F854_1_105_c.jpeg/webp"
+    ]
   },
   "keywords": [
     "AI",

@@ -90,8 +90,8 @@ Ten aggregated tool implementations, each handling a specific domain:
 | Tool | File | Description |
 |------|------|-------------|
 | notebook | `notebook.ts` | Notebook CRUD and configuration |
-| document | `document.ts` | Document operations, tree navigation (18 actions) |
-| block | `block.ts` | Block-level operations (22 actions) |
+| document | `document.ts` | Document operations, tree navigation (20 actions) |
+| block | `block.ts` | Block-level operations (24 actions) |
 | av | `av.ts` | Attribute view (database) operations |
 | file | `file.ts` | Asset upload, template rendering, export (12 actions) |
 | search | `search.ts` | Full-text search, SQL queries, backlinks (11 actions) |
@@ -104,7 +104,25 @@ Each tool follows a consistent pattern:
 - `list*Tools(config)` - Returns tool schemas based on configuration
 - `call*Tool(client, args, config, permMgr)` - Executes the tool action
 
-### 5. API Layer (`src/api/*.ts`)
+### 5. Tool Registry (`src/mcp/tool-registry.ts`)
+
+Centralized registry for all 10 aggregated tools:
+- `TOOL_REGISTRY` maps each `ToolCategory` to its `listTools` and `callTool` implementations
+- `listAllTools(config)` iterates the registry to build the `ListTools` response
+- `resolveCategory(name)` validates incoming tool names
+
+This design decouples `server.ts` from individual tool modules, so adding a new category only requires updating the registry.
+
+### 6. Tool Lifecycle (`src/mcp/tool-lifecycle.ts`)
+
+Wraps every tool call with cross-cutting concerns:
+- **Puppy events**: writes `running` before execution and `success`/`error` after
+- **Analytics**: records duration, parameter keys, result size hint, and error codes
+- **Telemetry**: sends opt-in usage pings on a best-effort basis
+
+All side effects are fire-and-forget so they never block or fail the actual tool call. Non-mascot calls also earn +1 puppy coin.
+
+### 7. API Layer (`src/api/*.ts`)
 
 SiYuan HTTP API client abstractions:
 - `client.ts` - Core HTTP client with authentication
@@ -114,7 +132,7 @@ SiYuan HTTP API client abstractions:
 - `av.ts` - Attribute view API wrappers
 - `search.ts` - Search API wrappers
 
-### 6. Configuration (`src/mcp/config.ts`)
+### 8. Configuration (`src/mcp/config.ts`)
 
 Tool configuration management:
 - Tool category definitions (10 categories)
@@ -130,7 +148,7 @@ export const TOOL_CATEGORIES = [
 ] as const;
 ```
 
-### 7. Permissions (`src/mcp/permissions.ts`)
+### 9. Permissions (`src/mcp/permissions.ts`)
 
 Notebook-level permission control:
 - Four permission levels: `none`, `r` (read), `rw` (read-write), `rwd` (read-write-delete)
@@ -296,16 +314,28 @@ src/
 ├── mcp/
 │   ├── server.ts
 │   │   └── Uses: createSiYuanServer, startHttpMcpServer, PermissionManager
-│   │   └── Routes to: notebook, document, block, av, file, search, tag, system, flashcard, mascot tools
+│   │   └── Routes via TOOL_REGISTRY to all tool modules
 │   │
 │   ├── http-transport.ts
 │   │   └── Uses: createSiYuanServer, StreamableHTTPServerTransport
+│   │
+│   ├── tool-registry.ts
+│   │   └── Defines: TOOL_REGISTRY, listAllTools, resolveCategory
+│   │
+│   ├── tool-lifecycle.ts
+│   │   └── Wraps: runToolCall with analytics, telemetry, puppy events
 │   │
 │   ├── config.ts
 │   │   └── Defines: TOOL_CATEGORIES, default configs, action tiers
 │   │
 │   ├── permissions.ts
 │   │   └── Uses: SiYuanClient (for persistence)
+│   │
+│   ├── analytics.ts
+│   │   └── Provides: event building, size estimation, error extraction
+│   │
+│   ├── telemetry.ts / telemetry-config.ts
+│   │   └── Provides: opt-in telemetry pings
 │   │
 │   └── tools/
 │       ├── shared.ts
@@ -347,5 +377,5 @@ To add a new tool category:
 
 1. Add category to `TOOL_CATEGORIES` in `src/mcp/config.ts`
 2. Define actions and schema in `src/mcp/tools/newtool.ts`
-3. Add handler to `createSiYuanServer()` switch statement in `src/mcp/server.ts`
+3. Register the module in `TOOL_REGISTRY` in `src/mcp/tool-registry.ts`
 4. Add help documentation in `src/mcp/help.ts`

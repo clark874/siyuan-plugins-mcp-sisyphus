@@ -58,7 +58,7 @@ siyuan-plugins-mcp-sisyphus/
 │   │   │   ├── mascot.ts
 │   │   │   ├── shared.ts     # Shared utilities
 │   │   │   └── context.ts    # Context resolution
-│   │   └── resources/        # MCP resources
+│   │   ├── resources.ts      # MCP resources
 │   ├── api/                  # SiYuan API wrappers
 │   │   ├── client.ts
 │   │   ├── block.ts
@@ -386,21 +386,17 @@ export async function callCalendarTool(
 }
 ```
 
-### Step 4: Register in Server
+### Step 4: Register in Tool Registry
 
-Update `src/mcp/server.ts`:
+Update `src/mcp/tool-registry.ts`:
 
 ```typescript
 import { callCalendarTool, listCalendarTools } from './tools/calendar';
 
-// In getToolsByConfig():
-return [
+export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
     // ... existing tools
-    ...listCalendarTools(config.calendar),
-];
-
-// In CallToolRequestSchema handler:
-case 'calendar': result = await callCalendarTool(client, args, config.calendar, permMgr); break;
+    calendar: { category: 'calendar', listTools: listCalendarTools as ToolModule['listTools'], callTool: callCalendarTool as ToolModule['callTool'] },
+};
 ```
 
 ### Step 5: Add Default Config
