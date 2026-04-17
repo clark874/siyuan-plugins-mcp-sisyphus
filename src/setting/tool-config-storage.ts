@@ -95,6 +95,17 @@ export interface HttpServerSettings {
     port: number;
     token: string;
     authEnabled: boolean;
+    tlsEnabled: boolean;
+    tlsCertFile: string;
+    tlsKeyFile: string;
+    tlsCaFile: string;
+}
+
+export function hasValidHttpTlsFiles(settings: HttpServerSettings): boolean {
+    if (!settings.tlsEnabled) {
+        return true;
+    }
+    return Boolean(settings.tlsCertFile.trim() && settings.tlsKeyFile.trim());
 }
 
 function generateRandomToken(): string {
@@ -116,6 +127,10 @@ export function buildDefaultHttpServerSettings(): HttpServerSettings {
         port: DEFAULT_HTTP_PORT,
         token: generateRandomToken(),
         authEnabled: true,
+        tlsEnabled: false,
+        tlsCertFile: "",
+        tlsKeyFile: "",
+        tlsCaFile: "",
     };
 }
 
@@ -141,6 +156,10 @@ export function normalizeHttpServerSettings(raw: unknown): HttpServerSettings {
         port,
         token,
         authEnabled: typeof record.authEnabled === "boolean" ? record.authEnabled : defaults.authEnabled,
+        tlsEnabled: typeof record.tlsEnabled === "boolean" ? record.tlsEnabled : defaults.tlsEnabled,
+        tlsCertFile: typeof record.tlsCertFile === "string" ? record.tlsCertFile : defaults.tlsCertFile,
+        tlsKeyFile: typeof record.tlsKeyFile === "string" ? record.tlsKeyFile : defaults.tlsKeyFile,
+        tlsCaFile: typeof record.tlsCaFile === "string" ? record.tlsCaFile : defaults.tlsCaFile,
     };
 }
 

@@ -1,12 +1,10 @@
-import type { SiYuanClient } from '../../api/client';
-import * as avApi from '../../api/av';
-import * as blockApi from '../../api/block';
-import * as transactionApi from '../../api/transaction';
-import type { AvAction, CategoryToolConfig } from '../config';
-import { AV_ACTION_HINTS, AV_GUIDANCE } from '../help';
-import type { PermissionManager } from '../permissions';
+import type { SiYuanClient } from '../../../api/client';
+import * as avApi from '../../../api/av';
+import * as blockApi from '../../../api/block';
+import * as transactionApi from '../../../api/transaction';
+import type { AvAction } from '../../config';
+import type { PermissionManager } from '../../permissions';
 import {
-    AvActionSchema,
     AvAddColumnSchema,
     AvAddRowsSchema,
     AvBatchSetCellsSchema,
@@ -20,213 +18,13 @@ import {
     AvRemoveRowsSchema,
     AvSearchSchema,
     AvSetCellSchema,
-} from '../types';
-import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocumentContextById, resolveResultItemContext } from './context';
-import { defineTool } from './define-tool';
-import { isMissingBlockError } from './errorTranslation';
-import { createActionSchema, createJsonResult, createPaginatedResult, createWriteSuccessResult, type ActionVariant, type ToolResult } from './shared';
-import { applyUiRefresh } from './ui-refresh';
+} from '../../types';
+import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocumentContextById, resolveResultItemContext } from '../context';
+import { isMissingBlockError } from '../errorTranslation';
+import { createJsonResult, createPaginatedResult, createWriteSuccessResult, type ToolResult } from '../shared';
+import { applyUiRefresh } from '../ui-refresh';
 
-export const AV_TOOL_NAME = 'av';
-
-type StrongCellValueInput = {
-    valueType: 'text' | 'number' | 'date' | 'checkbox' | 'select' | 'multi_select' | 'relation' | 'url' | 'email' | 'phone' | 'mAsset';
-    text?: string;
-    number?: number;
-    numberFormat?: string;
-    date?: string | number;
-    endDate?: string | number;
-    includeTime?: boolean;
-    checked?: boolean;
-    option?: string;
-    options?: string[];
-    relationBlockIDs?: string[];
-    url?: string;
-    email?: string;
-    phone?: string;
-    assets?: Array<{
-        type: 'image' | 'file';
-        content: string;
-        name?: string;
-    }>;
-};
-
-export const AV_VARIANTS: ActionVariant<AvAction>[] = [
-    {
-        action: 'get',
-        schema: createActionSchema('get', {
-            id: { type: 'string', description: 'Attribute view ID' },
-        }, ['id'], 'Get the full attribute view payload by AV ID.'),
-    },
-    {
-        action: 'search',
-        schema: createActionSchema('search', {
-            keyword: { type: 'string', description: 'Keyword to search in attribute view names' },
-            excludes: { type: 'array', items: { type: 'string' }, description: 'Optional AV IDs to exclude' },
-        }, ['keyword'], 'Search attribute views by keyword.'),
-    },
-    {
-        action: 'render_attribute_view',
-        schema: createActionSchema('render_attribute_view', {
-            id: { type: 'string', description: 'Attribute view ID' },
-            blockID: { type: 'string', description: 'Optional database block ID' },
-            viewID: { type: 'string', description: 'Optional target view ID' },
-            page: { type: 'number', description: 'Page number (1-based), default 1' },
-            pageSize: { type: 'number', description: 'Rows per page; omit for kernel default' },
-            query: { type: 'string', description: 'Optional row query filter' },
-            groupPaging: { type: 'object', additionalProperties: true, description: 'Optional group paging object passed through to SiYuan' },
-            createIfNotExist: { type: 'boolean', description: 'Create the default view if none exists; defaults to true' },
-        }, ['id'], 'Render an attribute view with optional view/pagination/query context.'),
-    },
-    {
-        action: 'get_attribute_view_keys',
-        schema: createActionSchema('get_attribute_view_keys', {
-            id: { type: 'string', description: 'Attribute view ID' },
-        }, ['id'], 'Get keys/columns for an attribute view.'),
-    },
-    {
-        action: 'get_attribute_view_filter_sort',
-        schema: createActionSchema('get_attribute_view_filter_sort', {
-            id: { type: 'string', description: 'Attribute view ID' },
-            blockID: { type: 'string', description: 'Database block ID' },
-        }, ['id', 'blockID'], 'Get filters and sorts for a database block view.'),
-    },
-    {
-        action: 'add_rows',
-        schema: createActionSchema('add_rows', {
-            avID: { type: 'string', description: 'Attribute view ID' },
-            blockIDs: { type: 'array', items: { type: 'string' }, description: 'Existing block IDs to add as rows' },
-            blockID: { type: 'string', description: 'Optional database block ID' },
-            viewID: { type: 'string', description: 'Optional target view ID' },
-            groupID: { type: 'string', description: 'Optional target group ID' },
-            previousID: { type: 'string', description: 'Optional previous row item ID' },
-            ignoreDefaultFill: { type: 'boolean', description: 'Skip default fill from filters/groups' },
-        }, ['avID', 'blockIDs'], 'Add existing blocks as rows in an attribute view.'),
-    },
-    {
-        action: 'remove_rows',
-        schema: createActionSchema('remove_rows', {
-            avID: { type: 'string', description: 'Attribute view ID' },
-            srcIDs: { type: 'array', items: { type: 'string' }, description: 'Bound row block/item IDs to remove' },
-        }, ['avID', 'srcIDs'], 'Remove rows from an attribute view by source IDs.'),
-    },
-    {
-        action: 'add_column',
-        schema: createActionSchema('add_column', {
-            avID: { type: 'string', description: 'Attribute view ID' },
-            keyID: { type: 'string', description: 'Optional new column key ID; MCP generates one when omitted' },
-            keyName: { type: 'string', description: 'New column name' },
-            keyType: { type: 'string', enum: ['text', 'number', 'date', 'select', 'mSelect', 'url', 'email', 'phone', 'mAsset', 'template', 'created', 'updated', 'checkbox', 'relation', 'rollup', 'lineNumber'], description: 'Column type' },
-            keyIcon: { type: 'string', description: 'Optional column icon' },
-            previousKeyID: { type: 'string', description: 'Insert after this key ID' },
-        }, ['avID', 'keyName', 'keyType'], 'Add a column to an attribute view.'),
-    },
-    {
-        action: 'remove_column',
-        schema: createActionSchema('remove_column', {
-            avID: { type: 'string', description: 'Attribute view ID' },
-            keyID: { type: 'string', description: 'Column key ID' },
-            columnID: { type: 'string', description: 'Alias of keyID' },
-            removeRelationDest: { type: 'boolean', description: 'Also remove reverse relation metadata' },
-        }, ['avID'], 'Remove a column from an attribute view.'),
-    },
-    {
-        action: 'set_cell',
-        schema: createActionSchema('set_cell', {
-            avID: { type: 'string', description: 'Attribute view ID' },
-            rowID: { type: 'string', description: 'Row item ID' },
-            columnID: { type: 'string', description: 'Column key ID' },
-            valueType: { type: 'string', enum: ['text', 'number', 'date', 'checkbox', 'select', 'multi_select', 'relation', 'url', 'email', 'phone', 'mAsset'], description: 'Cell value type' },
-            text: { type: 'string', description: 'Text value when valueType=text' },
-            number: { type: 'number', description: 'Number value when valueType=number' },
-            numberFormat: { type: 'string', description: 'Optional number format such as commas, percent, USD, or CNY' },
-            date: { description: 'Date/time value as ISO text or epoch milliseconds when valueType=date' },
-            endDate: { description: 'Optional end date as ISO text or epoch milliseconds for ranged dates' },
-            includeTime: { type: 'boolean', description: 'When false, store only the date component' },
-            checked: { type: 'boolean', description: 'Checkbox state when valueType=checkbox' },
-            option: { type: 'string', description: 'Selected option label when valueType=select' },
-            options: { type: 'array', items: { type: 'string' }, description: 'Selected option labels when valueType=multi_select' },
-            relationBlockIDs: { type: 'array', items: { type: 'string' }, description: 'Related block IDs when valueType=relation' },
-            url: { type: 'string', description: 'URL value when valueType=url' },
-            email: { type: 'string', description: 'Email value when valueType=email' },
-            phone: { type: 'string', description: 'Phone value when valueType=phone' },
-            assets: {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    properties: {
-                        type: { type: 'string', enum: ['image', 'file'], description: 'Asset entry type' },
-                        content: { type: 'string', description: 'Asset path stored by SiYuan, e.g. assets/foo.png' },
-                        name: { type: 'string', description: 'Optional display name' },
-                    },
-                    required: ['type', 'content'],
-                },
-                description: 'Asset entries when valueType=mAsset',
-            },
-        }, ['avID', 'rowID', 'columnID', 'valueType'], 'Update one attribute view cell using a strong typed input shape.'),
-    },
-    {
-        action: 'batch_set_cells',
-        schema: createActionSchema('batch_set_cells', {
-            avID: { type: 'string', description: 'Attribute view ID' },
-            items: {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    properties: {
-                        rowID: { type: 'string', description: 'Row item ID' },
-                        columnID: { type: 'string', description: 'Column key ID' },
-                        valueType: { type: 'string', enum: ['text', 'number', 'date', 'checkbox', 'select', 'multi_select', 'relation', 'url', 'email', 'phone', 'mAsset'], description: 'Cell value type' },
-                        text: { type: 'string', description: 'Text value when valueType=text' },
-                        number: { type: 'number', description: 'Number value when valueType=number' },
-                        numberFormat: { type: 'string', description: 'Optional number format such as commas, percent, USD, or CNY' },
-                        date: { description: 'Date/time value as ISO text or epoch milliseconds when valueType=date' },
-                        endDate: { description: 'Optional end date as ISO text or epoch milliseconds for ranged dates' },
-                        includeTime: { type: 'boolean', description: 'When false, store only the date component' },
-                        checked: { type: 'boolean', description: 'Checkbox state when valueType=checkbox' },
-                        option: { type: 'string', description: 'Selected option label when valueType=select' },
-                        options: { type: 'array', items: { type: 'string' }, description: 'Selected option labels when valueType=multi_select' },
-                        relationBlockIDs: { type: 'array', items: { type: 'string' }, description: 'Related block IDs when valueType=relation' },
-                        url: { type: 'string', description: 'URL value when valueType=url' },
-                        email: { type: 'string', description: 'Email value when valueType=email' },
-                        phone: { type: 'string', description: 'Phone value when valueType=phone' },
-                        assets: {
-                            type: 'array',
-                            items: {
-                                type: 'object',
-                                properties: {
-                                    type: { type: 'string', enum: ['image', 'file'], description: 'Asset entry type' },
-                                    content: { type: 'string', description: 'Asset path stored by SiYuan, e.g. assets/foo.png' },
-                                    name: { type: 'string', description: 'Optional display name' },
-                                },
-                                required: ['type', 'content'],
-                            },
-                            description: 'Asset entries when valueType=mAsset',
-                        },
-                    },
-                    required: ['rowID', 'columnID', 'valueType'],
-                },
-                description: 'Batch cell updates',
-            },
-        }, ['avID', 'items'], 'Batch update multiple attribute view cells.'),
-    },
-    {
-        action: 'duplicate_block',
-        schema: createActionSchema('duplicate_block', {
-            avID: { type: 'string', description: 'Source attribute view ID' },
-            previousID: { type: 'string', description: 'Optional block ID to insert the duplicated database block after' },
-        }, ['avID'], 'Duplicate a database block from an existing attribute view. By default MCP inserts the duplicate after the source database block; previousID overrides that insertion target.'),
-    },
-    {
-        action: 'get_primary_key_values',
-        schema: createActionSchema('get_primary_key_values', {
-            avID: { type: 'string', description: 'Attribute view ID' },
-            keyword: { type: 'string', description: 'Optional keyword filter for primary key values' },
-            page: { type: 'number', description: 'Page number (1-based), default 1' },
-            pageSize: { type: 'number', description: 'Rows per page, default all' },
-        }, ['avID'], 'Get primary key values for an attribute view.'),
-    },
-];
+const AV_TOOL_NAME = 'av';
 
 interface AvHandlerContext {
     client: SiYuanClient;
@@ -1339,7 +1137,7 @@ async function handleGetPrimaryKeyValues({ client, permMgr, rawArgs }: AvHandler
     });
 }
 
-const AV_ACTION_HANDLERS: Record<AvAction, (context: AvHandlerContext) => Promise<ToolResult>> = {
+export const AV_ACTION_HANDLERS: Record<AvAction, (context: AvHandlerContext) => Promise<ToolResult>> = {
     get: handleGet,
     render_attribute_view: handleRenderAttributeView,
     get_attribute_view_keys: handleGetAttributeViewKeys,
@@ -1354,28 +1152,3 @@ const AV_ACTION_HANDLERS: Record<AvAction, (context: AvHandlerContext) => Promis
     duplicate_block: handleDuplicateBlock,
     get_primary_key_values: handleGetPrimaryKeyValues,
 };
-
-const avTool = defineTool<AvAction>({
-    name: 'av',
-    description: '🗃️ Grouped attribute-view (database) operations.',
-    variants: AV_VARIANTS,
-    actionSchema: AvActionSchema,
-    aggregateOptions: {
-        guidance: AV_GUIDANCE,
-        actionHints: AV_ACTION_HINTS,
-    },
-    handlers: AV_ACTION_HANDLERS,
-});
-
-export function listAvTools(config: CategoryToolConfig<AvAction>) {
-    return avTool.listTools(config);
-}
-
-export async function callAvTool(
-    client: SiYuanClient,
-    args: Record<string, unknown> | undefined,
-    config: CategoryToolConfig<AvAction>,
-    permMgr: PermissionManager,
-): Promise<ToolResult> {
-    return avTool.callTool(client, args, config, permMgr);
-}

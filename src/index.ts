@@ -8,6 +8,7 @@ import "./index.scss";
 import {
     buildDefaultHttpServerSettings,
     buildDefaultPuppySettings,
+    hasValidHttpTlsFiles,
     loadPersistedHttpServerSettings,
     loadPersistedPuppySettings,
     loadPersistedToolConfig,
@@ -61,6 +62,9 @@ export default class SiyuanMCP extends Plugin {
 
     async startHttpServer(): Promise<void> {
         if (!this.httpLauncher) return;
+        if (!hasValidHttpTlsFiles(this.httpSettings)) {
+            throw new Error("HTTPS requires both certificate and key file paths.");
+        }
         const siyuanToken = (window as any)?.siyuan?.config?.api?.token ?? undefined;
         await this.httpLauncher.start({
             host: this.httpSettings.host,
@@ -68,6 +72,9 @@ export default class SiyuanMCP extends Plugin {
             token: this.httpSettings.authEnabled ? this.httpSettings.token : undefined,
             siyuanApiUrl: "http://127.0.0.1:6806",
             siyuanToken,
+            tlsCertFile: this.httpSettings.tlsEnabled && this.httpSettings.tlsCertFile ? this.httpSettings.tlsCertFile : undefined,
+            tlsKeyFile: this.httpSettings.tlsEnabled && this.httpSettings.tlsKeyFile ? this.httpSettings.tlsKeyFile : undefined,
+            tlsCaFile: this.httpSettings.tlsEnabled && this.httpSettings.tlsCaFile ? this.httpSettings.tlsCaFile : undefined,
         });
     }
 
@@ -82,6 +89,9 @@ export default class SiyuanMCP extends Plugin {
 
     async updateHttpServerSettings(next: HttpServerSettings): Promise<HttpServerSettings> {
         const wasRunning = this.httpLauncher?.getStatus().running ?? false;
+        if ((wasRunning || next.enabled) && !hasValidHttpTlsFiles(next)) {
+            throw new Error("HTTPS requires both certificate and key file paths.");
+        }
         if (wasRunning) {
             try { await this.stopHttpServer(); } catch (err) { console.error("[MCP] stop before update failed:", err); }
         }

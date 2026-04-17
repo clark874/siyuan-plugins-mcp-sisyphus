@@ -75,3 +75,4 @@ pnpm make-link  # 创建开发链接到 SiYuan 插件目录
 1. 开发时使用 `pnpm dev` 而不是 `pnpm build`
 2. 关联到 SiYuan 时使用 `pnpm make-link`
 3. MCP 服务器代码在 `src/mcp/` 下，编译产物为 `dist/mcp-server.cjs`
+4. 注意需要兼容远程场景，任何读写操作都必须经过 SiYuan API，不能直接访问本地文件系统

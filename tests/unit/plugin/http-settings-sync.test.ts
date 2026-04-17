@@ -68,6 +68,10 @@ describe('HTTP settings sync', () => {
             port: 39000,
             token: '12345678-token',
             authEnabled: true,
+            tlsEnabled: false,
+            tlsCertFile: '',
+            tlsKeyFile: '',
+            tlsCaFile: '',
         };
 
         await plugin.setHttpServerSettings(next);
@@ -97,6 +101,10 @@ describe('HTTP settings sync', () => {
             port: 39001,
             token: 'updated-token',
             authEnabled: false,
+            tlsEnabled: false,
+            tlsCertFile: '',
+            tlsKeyFile: '',
+            tlsCaFile: '',
         };
 
         await plugin.updateHttpServerSettings(next);
@@ -121,6 +129,10 @@ describe('HTTP settings sync', () => {
             port: 39002,
             token: 'another-token',
             authEnabled: true,
+            tlsEnabled: false,
+            tlsCertFile: '',
+            tlsKeyFile: '',
+            tlsCaFile: '',
         };
 
         await plugin.updateHttpServerSettings(next);
@@ -130,6 +142,23 @@ describe('HTTP settings sync', () => {
             port: 39002,
             token: 'another-token',
         }));
+    });
+
+    it('rejects HTTPS start when TLS cert or key path is missing', async () => {
+        plugin.httpSettings = {
+            enabled: true,
+            host: '127.0.0.1',
+            port: 39003,
+            token: 'secure-token',
+            authEnabled: true,
+            tlsEnabled: true,
+            tlsCertFile: '/tmp/cert.pem',
+            tlsKeyFile: '',
+            tlsCaFile: '',
+        };
+
+        await expect(plugin.startHttpServer()).rejects.toThrow('HTTPS requires both certificate and key file paths.');
+        expect(launcherStart).not.toHaveBeenCalled();
     });
 
     it('reports unsupported launcher support when workspaceDir is missing', () => {

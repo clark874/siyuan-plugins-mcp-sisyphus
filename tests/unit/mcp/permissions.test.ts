@@ -11,6 +11,7 @@ describe('PermissionManager', () => {
             readFile: vi.fn(),
             writeFile: vi.fn(),
         } as unknown as SiYuanClient;
+        vi.mocked(mockClient.readFile).mockResolvedValue('');
         manager = new PermissionManager(mockClient);
     });
 
@@ -34,18 +35,24 @@ describe('PermissionManager', () => {
             expect(manager.getAll()).toEqual(permissions);
         });
 
-        it('should handle empty API response gracefully', async () => {
-            vi.mocked(mockClient.readFile).mockResolvedValue('{}');
+        it('should treat empty API response as fresh install', async () => {
+            vi.mocked(mockClient.readFile).mockResolvedValue('');
 
             await manager.load();
             expect(manager.getAll()).toEqual({});
         });
 
-        it('should handle API error gracefully', async () => {
-            vi.mocked(mockClient.readFile).mockRejectedValue(new Error('API error'));
+        it('should throw when API fails', async () => {
+            vi.mocked(mockClient.readFile).mockRejectedValue(new Error('network down'));
 
-            await manager.load();
+            await expect(manager.load()).rejects.toThrow(/Failed to read permissions/);
             expect(manager.getAll()).toEqual({});
+        });
+
+        it('should throw when no client is provided', async () => {
+            const mgr = new PermissionManager();
+
+            await expect(mgr.load()).rejects.toThrow(/No SiYuan client/);
         });
 
         it('should migrate legacy persisted permissions', async () => {

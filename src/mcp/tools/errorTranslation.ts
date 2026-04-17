@@ -100,12 +100,8 @@ export function translateError(error: Error): ErrorTranslation | null {
     return null;
 }
 
-/**
- * Compatibility helper kept for callers that previously used block.ts:isMissingBlockError.
- * New code should prefer translateError() and branch on code === 'block_not_found'.
- */
+/** Returns true when the error indicates a missing/deleted block. */
 export function isMissingBlockError(error: unknown): boolean {
     if (!(error instanceof Error)) return false;
-    const translated = translateError(error);
-    return translated?.code === 'block_not_found';
+    return translateError(error)?.code === 'block_not_found';
 }

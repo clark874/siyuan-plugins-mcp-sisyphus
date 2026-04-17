@@ -91,6 +91,9 @@ export interface HttpServerLaunchOptions {
     token?: string;
     siyuanApiUrl?: string;
     siyuanToken?: string;
+    tlsCertFile?: string;
+    tlsKeyFile?: string;
+    tlsCaFile?: string;
 }
 
 export interface HttpServerSupportInfo {
@@ -194,6 +197,9 @@ export class HttpServerLauncher {
         if (opts.token) env.SIYUAN_MCP_TOKEN = opts.token;
         if (opts.siyuanApiUrl) env.SIYUAN_API_URL = opts.siyuanApiUrl;
         if (opts.siyuanToken) env.SIYUAN_TOKEN = opts.siyuanToken;
+        if (opts.tlsCertFile) env.SIYUAN_MCP_TLS_CERT = opts.tlsCertFile;
+        if (opts.tlsKeyFile) env.SIYUAN_MCP_TLS_KEY = opts.tlsKeyFile;
+        if (opts.tlsCaFile) env.SIYUAN_MCP_TLS_CA = opts.tlsCaFile;
 
         let child: ChildProcess;
         try {

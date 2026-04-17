@@ -1,4 +1,5 @@
-import { createServer, IncomingMessage, ServerResponse } from 'node:http';
+import { createServer as createHttpServer, IncomingMessage, ServerResponse } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import type { Socket } from 'node:net';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -6,11 +7,22 @@ import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
 import { createSiYuanServer } from './server';
 
+export interface TlsOptions {
+    /** Path to PEM-encoded certificate file */
+    certFile: string;
+    /** Path to PEM-encoded private key file */
+    keyFile: string;
+    /** Path to PEM-encoded CA certificate file (optional) */
+    caFile?: string;
+}
+
 export interface HttpServerOptions {
     host: string;
     port: number;
     token?: string;
     path?: string;
+    /** When provided, the server starts in HTTPS mode using these TLS credentials */
+    tls?: TlsOptions;
 }
 
 export interface HttpMcpServerHandle {
@@ -42,14 +54,27 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
     }
 }
 
+function loadTlsCredentials(tls: TlsOptions): { cert: Buffer; key: Buffer; ca?: Buffer } {
+    try {
+        const cert = readFileSync(tls.certFile);
+        const key = readFileSync(tls.keyFile);
+        const ca = tls.caFile ? readFileSync(tls.caFile) : undefined;
+        return { cert, key, ca };
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(`[MCP][HTTPS] Failed to load TLS credentials: ${msg}`);
+    }
+}
+
 export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpMcpServerHandle> {
     const sessions = new Map<string, SessionEntry>();
     const mcpPath = opts.path ?? '/mcp';
     const sockets = new Set<Socket>();
     let shuttingDown = false;
     let watchdogTimer: NodeJS.Timeout | null = null;
+    const isTls = Boolean(opts.tls);
 
-    const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+    const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
         try {
             // Path check
             const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
@@ -110,7 +135,12 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
                 try { res.end(); } catch { /* noop */ }
             }
         }
-    });
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const httpServer = isTls
+        ? (require('https') as typeof import('https')).createServer(loadTlsCredentials(opts.tls!), requestHandler)
+        : createHttpServer(requestHandler);
 
     httpServer.on('connection', (socket) => {
         sockets.add(socket);
@@ -179,10 +209,12 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
         httpServer.once('error', onError);
         httpServer.listen(opts.port, opts.host, () => {
             httpServer.removeListener('error', onError);
-            console.error(`[MCP][HTTP] listening on http://${opts.host}:${opts.port}${mcpPath}`);
-            console.error(`[MCP][HTTP] auth: ${opts.token ? 'Bearer token required' : 'DISABLED (open access)'}`);
+            const scheme = isTls ? 'https' : 'http';
+            const tag = isTls ? '[MCP][HTTPS]' : '[MCP][HTTP]';
+            console.error(`${tag} listening on ${scheme}://${opts.host}:${opts.port}${mcpPath}`);
+            console.error(`${tag} auth: ${opts.token ? 'Bearer token required' : 'DISABLED (open access)'}`);
             if (opts.host !== '127.0.0.1' && opts.host !== 'localhost' && !opts.token) {
-                console.error('[MCP][HTTP] WARNING: bound to non-loopback address without auth token. Set SIYUAN_MCP_TOKEN to secure.');
+                console.error(`${tag} WARNING: bound to non-loopback address without auth token. Set SIYUAN_MCP_TOKEN to secure.`);
             }
             resolve();
         });

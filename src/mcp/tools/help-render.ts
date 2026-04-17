@@ -1,8 +1,24 @@
-import type { ToolCategory } from '../config';
-import { getSchemaProperties, getSchemaRequired, type ActionVariant, type JsonSchema } from './shared';
+import { getActionTier, isDangerousAction, type ActionTier, type ToolCategory } from '../config';
+import { TOOL_ACTION_HINTS, TOOL_GUIDANCE_BY_CATEGORY } from '../help';
+import { getSchemaProperties, getSchemaRequired } from './schema-analyzer';
+import type { ActionVariant, JsonSchema } from './shared';
 
 function getSchemaRequiredWithoutAction(schema: JsonSchema): string[] {
     return getSchemaRequired(schema).filter(field => field !== 'action');
+}
+
+function getSchemaFieldNames(schema: JsonSchema, required?: boolean): string[] {
+    const requiredFields = new Set(getSchemaRequiredWithoutAction(schema));
+
+    return Object.entries(getSchemaProperties(schema)).flatMap(([name, propertySchema]) => {
+        if (name === 'action' || !propertySchema || typeof propertySchema !== 'object' || Array.isArray(propertySchema)) {
+            return [];
+        }
+
+        if (required === true && !requiredFields.has(name)) return [];
+        if (required === false && requiredFields.has(name)) return [];
+        return [name];
+    });
 }
 
 export function buildExampleValue(fieldName: string, schema: JsonSchema): unknown {
@@ -129,6 +145,107 @@ export function buildActionShapes<Action extends string>(
             const fields = getSchemaRequiredWithoutAction(variant.schema);
             return fields.length > 0 ? fields.join(' + ') : 'action only';
         });
+}
+
+function formatFieldList(fields: string[]): string {
+    return fields.length > 0 ? fields.join(', ') : 'no additional fields';
+}
+
+export function buildActionUsageSummary<Action extends string>(variants: ActionVariant<Action>[]): string {
+    const actionShapes = new Map<string, string[]>();
+
+    for (const variant of variants) {
+        const shape = formatFieldList(
+            getSchemaFieldNames(variant.schema, true),
+        );
+        const shapes = actionShapes.get(variant.action) ?? [];
+        if (!shapes.includes(shape)) shapes.push(shape);
+        actionShapes.set(variant.action, shapes);
+    }
+
+    return [...actionShapes.entries()].map(([action, shapes]) => `${action}: ${shapes.join(' | ')}`).join('; ');
+}
+
+export function buildParameterContract<Action extends string>(
+    category: ToolCategory,
+    variants: ActionVariant<Action>[],
+): string {
+    const seen = new Set<string>();
+    return variants.flatMap((variant) => {
+        if (seen.has(variant.action)) return [];
+        seen.add(variant.action);
+
+        const required = getSchemaFieldNames(variant.schema, true);
+        const optional = getSchemaFieldNames(variant.schema, false);
+
+        return [`${category}.${variant.action}: required ${required.length > 0 ? `[${required.join(', ')}]` : '[]'} | optional ${optional.length > 0 ? `[${optional.join(', ')}]` : '[]'}`];
+    }).join('\n');
+}
+
+export function buildHelpIndex<Action extends string>(
+    category: ToolCategory,
+    enabledActions: Action[],
+    enabledVariants: ActionVariant<Action>[],
+): Record<string, unknown> {
+    const tierGroups: Record<ActionTier, string[]> = { basic: [], advanced: [] };
+    for (const action of enabledActions) tierGroups[getActionTier(category, action)].push(action);
+
+    const actionSummaries: Record<string, string> = {};
+    const actions: Record<string, { hint?: string; requiresConfirmation: boolean }> = {};
+    const seen = new Set<string>();
+    for (const variant of enabledVariants) {
+        if (seen.has(variant.action)) continue;
+        seen.add(variant.action);
+        const hint = TOOL_ACTION_HINTS[category]?.[variant.action];
+        const fields = getSchemaFieldNames(variant.schema, true);
+        actionSummaries[variant.action] = hint ?? (fields.length > 0 ? `requires: ${fields.join(', ')}` : 'no extra fields');
+        actions[variant.action] = {
+            ...(hint ? { hint } : {}),
+            requiresConfirmation: isDangerousAction(category, variant.action),
+        };
+    }
+
+    const confirmationActions = enabledActions.filter((action) => isDangerousAction(category, action));
+    return {
+        tool: category,
+        commonActions: tierGroups.basic,
+        advancedActions: tierGroups.advanced,
+        guidance: TOOL_GUIDANCE_BY_CATEGORY[category] ?? [],
+        actions,
+        actionSummaries,
+        ...(confirmationActions.length > 0 ? { requiresConfirmation: confirmationActions } : {}),
+        detailsHint: `Call ${category}(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.`,
+        helpResources: [
+            `siyuan://help/action/${category}/{action}`,
+            'siyuan://help/tool-overview',
+            'siyuan://help/examples',
+            'siyuan://help/ai-layout-guide',
+        ],
+    };
+}
+
+export function buildActionHelp<Action extends string>(
+    category: ToolCategory,
+    action: Action,
+    enabledVariants: ActionVariant<Action>[],
+): Record<string, unknown> {
+    const matching = enabledVariants.filter((variant) => variant.action === action);
+    const requiredFieldSets = matching.map((variant) => getSchemaFieldNames(variant.schema, true));
+
+    return {
+        tool: category,
+        action,
+        ...(TOOL_ACTION_HINTS[category]?.[action] ? { hint: TOOL_ACTION_HINTS[category][action] } : {}),
+        shapes: requiredFieldSets.map((fields) => fields.length > 0 ? fields.join(' + ') : 'action only'),
+        requiredFields: requiredFieldSets.length === 1 ? requiredFieldSets[0] : requiredFieldSets,
+        example: (() => {
+            const examples = buildActionExampleObjects(matching, action);
+            return examples.length === 1 ? examples[0] : examples;
+        })(),
+        guidance: TOOL_GUIDANCE_BY_CATEGORY[category] ?? [],
+        requiresConfirmation: isDangerousAction(category, action),
+        fullDocResource: `siyuan://help/action/${category}/${action}`,
+    };
 }
 
 // Re-export alias for backward compatibility with resources.ts style callers.

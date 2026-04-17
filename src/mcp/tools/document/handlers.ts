@@ -1,12 +1,11 @@
-import type { SiYuanClient } from '../../api/client';
-import * as attributeApi from '../../api/attribute';
-import * as blockApi from '../../api/block';
-import * as documentApi from '../../api/document';
-import * as fileApi from '../../api/file';
-import type { CategoryToolConfig, DocumentAction } from '../config';
-import { DOCUMENT_ACTION_HINTS, DOCUMENT_GUIDANCE } from '../help';
-import { normalizeMarkdownContent } from '../normalize';
-import type { PermissionManager } from '../permissions';
+import type { SiYuanClient } from '../../../api/client';
+import * as attributeApi from '../../../api/attribute';
+import * as blockApi from '../../../api/block';
+import * as documentApi from '../../../api/document';
+import * as fileApi from '../../../api/file';
+import type { DocumentAction } from '../../config';
+import { normalizeMarkdownContent } from '../../normalize';
+import type { PermissionManager } from '../../permissions';
 import {
     DocumentActionSchema,
     DocumentCreateSchema,
@@ -29,199 +28,17 @@ import {
     DocumentSearchDocsSchema,
     DocumentSetCoverSchema,
     DocumentSetIconSchema,
-} from '../types';
+} from '../../types';
 import {
     ensurePermissionForDocumentId,
     ensurePermissionForNotebook,
     listChildDocumentsByPath,
     resolveMoveTargetNotebook,
     resolveNotebookForPath,
-} from './context';
-import { defineTool } from './define-tool';
-import { filterBacklinkResultByPermission, filterItemsByPermissionAndPath } from './search';
-import { createActionSchema, createJsonResult, createPermissionDeniedResult, createSetIconReminder, paginate, type ActionVariant, type ToolResult } from './shared';
-import { applyUiRefresh } from './ui-refresh';
-
-export const DOCUMENT_TOOL_NAME = 'document';
-
-export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
-    {
-        action: 'create',
-        schema: createActionSchema('create', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Human-readable target path, must start with / (e.g., /foo/bar). Parent paths must already exist.' },
-            markdown: { type: 'string', description: 'Markdown content' },
-            icon: { type: 'string', description: 'Optional document icon. Prefer a Unicode hex code string such as "1f4d4" for 📔 instead of a raw emoji character.' },
-        }, ['notebook', 'path', 'markdown'], 'Create a new document with markdown content.'),
-    },
-    {
-        action: 'rename',
-        schema: createActionSchema('rename', {
-            id: { type: 'string', description: 'Document ID' },
-            title: { type: 'string', description: 'New document title' },
-        }, ['id', 'title'], 'Rename a document by document ID.'),
-    },
-    {
-        action: 'rename',
-        schema: createActionSchema('rename', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path' },
-            title: { type: 'string', description: 'New document title' },
-        }, ['notebook', 'path', 'title'], 'Rename a document by storage path.'),
-    },
-    {
-        action: 'remove',
-        schema: createActionSchema('remove', {
-            id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'Remove a document by document ID.'),
-    },
-    {
-        action: 'remove',
-        schema: createActionSchema('remove', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path' },
-        }, ['notebook', 'path'], 'Remove a document by storage path.'),
-    },
-    {
-        action: 'move',
-        schema: createActionSchema('move', {
-            fromPaths: { type: 'array', items: { type: 'string' }, description: 'Source document paths' },
-            toNotebook: { type: 'string', description: 'Target notebook ID' },
-            toPath: { type: 'string', description: 'Target storage path' },
-        }, ['fromPaths', 'toNotebook', 'toPath'], 'Move multiple documents by storage path.'),
-    },
-    {
-        action: 'move',
-        schema: createActionSchema('move', {
-            fromIDs: { type: 'array', items: { type: 'string' }, description: 'Source document IDs' },
-            toID: { type: 'string', description: 'Target document ID or notebook ID' },
-        }, ['fromIDs', 'toID'], 'Move multiple documents by document ID.'),
-    },
-    {
-        action: 'get_path',
-        schema: createActionSchema('get_path', {
-            id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'Get storage path by document ID.'),
-    },
-    {
-        action: 'get_hpath',
-        schema: createActionSchema('get_hpath', {
-            id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'Get hierarchical path by document ID.'),
-    },
-    {
-        action: 'get_hpath',
-        schema: createActionSchema('get_hpath', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path' },
-        }, ['notebook', 'path'], 'Get hierarchical path by storage path.'),
-    },
-    {
-        action: 'get_ids',
-        schema: createActionSchema('get_ids', {
-            path: { type: 'string', description: 'Human-readable path (e.g., /foo/bar), must start with /' },
-            notebook: { type: 'string', description: 'Notebook ID' },
-        }, ['path', 'notebook'], 'Get document IDs by hierarchical path.'),
-    },
-    {
-        action: 'get_child_blocks',
-        schema: createActionSchema('get_child_blocks', {
-            id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'Get direct child blocks for a document ID.'),
-    },
-    {
-        action: 'get_child_docs',
-        schema: createActionSchema('get_child_docs', {
-            id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'Get direct child documents for a document ID.'),
-    },
-    {
-        action: 'set_icon',
-        schema: createActionSchema('set_icon', {
-            id: { type: 'string', description: 'Document ID' },
-            icon: { type: 'string', description: 'Icon value. Prefer a Unicode hex code string such as "1f4d4" for 📔; raw emoji characters may not render correctly. Custom icon paths are also supported.' },
-        }, ['id', 'icon'], 'Set the icon for a document or folder.'),
-    },
-    {
-        action: 'set_cover',
-        schema: createActionSchema('set_cover', {
-            id: { type: 'string', description: 'Document ID' },
-            source: { type: 'string', description: 'Cover image source. Accepts http(s) URLs or SiYuan asset paths like /assets/foo.png. Omit or pass empty string to clear the cover.' },
-        }, ['id'], 'Set or clear the document cover image. Omit source to clear.'),
-    },
-    {
-        action: 'list_tree',
-        schema: createActionSchema('list_tree', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path or / for the notebook root' },
-            maxDepth: { type: 'number', description: 'Max tree depth (default 3). Deeper nodes collapsed to childCount.' },
-        }, ['notebook', 'path'], 'List the document tree under a notebook path.'),
-    },
-    {
-        action: 'search_docs',
-        schema: createActionSchema('search_docs', {
-            notebook: { type: 'string', description: 'Notebook ID used for permission scoping' },
-            query: { type: 'string', description: 'Keyword to search in document titles' },
-            path: { type: 'string', description: 'Optional storage path to narrow the search scope' },
-        }, ['notebook', 'query'], 'Search documents by title keyword.'),
-    },
-    {
-        action: 'get_doc',
-        schema: createActionSchema('get_doc', {
-            id: { type: 'string', description: 'Document ID' },
-            mode: { type: 'string', enum: ['markdown', 'html'], description: 'Return mode: markdown (default) or html' },
-            size: { type: 'number', description: 'Optional maximum content size hint' },
-            page: { type: 'number', description: 'Page number for markdown pagination (1-based)' },
-            pageSize: { type: 'number', description: 'Characters per page for markdown pagination (default 8000)' },
-        }, ['id'], 'Get document content and metadata with markdown pagination support.'),
-    },
-    {
-        action: 'create_daily_note',
-        schema: createActionSchema('create_daily_note', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            app: { type: 'string', description: 'Optional app identifier passed through to SiYuan' },
-        }, ['notebook'], 'Create or return today’s daily note.'),
-    },
-    {
-        action: 'duplicate',
-        schema: createActionSchema('duplicate', {
-            id: { type: 'string', description: 'Source document ID' },
-        }, ['id'], 'Duplicate an existing document.'),
-    },
-    {
-        action: 'remove_batch',
-        schema: createActionSchema('remove_batch', {
-            paths: { type: 'array', items: { type: 'string' }, description: 'One or more storage paths to remove in batch' },
-        }, ['paths'], 'Remove multiple documents by storage path.'),
-    },
-    {
-        action: 'create_empty',
-        schema: createActionSchema('create_empty', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Parent human-readable path, must start with /' },
-            title: { type: 'string', description: 'New document title' },
-            markdown: { type: 'string', description: 'Optional initial markdown content, defaults to empty' },
-            sorts: { type: 'array', items: { type: 'string' }, description: 'Optional sorting path segments passed through to SiYuan' },
-        }, ['notebook', 'path', 'title'], 'Create an empty document (or seed it with optional markdown).'),
-    },
-    {
-        action: 'heading_to_doc',
-        schema: createActionSchema('heading_to_doc', {
-            headingID: { type: 'string', description: 'Heading block ID to convert into a document' },
-            targetNotebook: { type: 'string', description: 'Target notebook ID' },
-            targetPath: { type: 'string', description: 'Optional target storage path' },
-            previousPath: { type: 'string', description: 'Optional previous sibling storage path' },
-        }, ['headingID', 'targetNotebook'], 'Convert a heading into a new document.'),
-    },
-    {
-        action: 'doc_to_heading',
-        schema: createActionSchema('doc_to_heading', {
-            srcID: { type: 'string', description: 'Source document ID' },
-            targetID: { type: 'string', description: 'Target document or heading block ID' },
-            after: { type: 'boolean', description: 'Insert after the target heading instead of before it' },
-        }, ['srcID', 'targetID'], 'Convert a document into a heading under another document.'),
-    },
-];
+} from '../context';
+import { filterBacklinkResultByPermission, filterItemsByPermissionAndPath } from '../search';
+import { createJsonResult, createPermissionDeniedResult, createSetIconReminder, paginate, type ToolResult } from '../shared';
+import { applyUiRefresh } from '../ui-refresh';
 
 const GET_HPATH_INDEXING_RETRY_DELAYS_MS = [120, 240];
 
@@ -797,7 +614,7 @@ const handleDocToHeading: DocumentActionHandler = async ({ client, permMgr, rawA
     ]);
 };
 
-const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = {
+export const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = {
     create: handleCreate,
     rename: handleRename,
     remove: handleRemove,
@@ -819,33 +636,3 @@ const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = 
     heading_to_doc: handleHeadingToDoc,
     doc_to_heading: handleDocToHeading,
 };
-
-const documentTool = defineTool<DocumentAction>({
-    name: 'document',
-    description: '📝 Grouped document operations.',
-    variants: DOCUMENT_VARIANTS,
-    actionSchema: DocumentActionSchema,
-    aggregateOptions: {
-        guidance: DOCUMENT_GUIDANCE,
-        actionHints: DOCUMENT_ACTION_HINTS,
-        propertyDescriptionOverrides: {
-            path: 'Path value. For action="create", use a human-readable target path such as /Inbox/Weekly Note. For other document actions that use notebook + path, use a storage path returned by document(action="get_path").',
-            fromPaths: 'Source storage paths returned by document(action="get_path").',
-            toPath: 'Target storage path. Use the storage path of an existing destination document returned by document(action="get_path").',
-        },
-    },
-    handlers: DOCUMENT_ACTION_HANDLERS,
-});
-
-export function listDocumentTools(config: CategoryToolConfig<DocumentAction>) {
-    return documentTool.listTools(config);
-}
-
-export async function callDocumentTool(
-    client: SiYuanClient,
-    args: Record<string, unknown> | undefined,
-    config: CategoryToolConfig<DocumentAction>,
-    permMgr: PermissionManager,
-): Promise<ToolResult> {
-    return documentTool.callTool(client, args, config, permMgr);
-}

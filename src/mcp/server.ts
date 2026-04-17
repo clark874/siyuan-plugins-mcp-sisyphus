@@ -1,10 +1,11 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ErrorCode, ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, ListToolsRequestSchema, McpError, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { startHttpMcpServer } from './http-transport';
+import { startHttpMcpServer, type TlsOptions } from './http-transport';
 
 import { SiYuanClient } from '../api/client';
 import { buildDefaultToolConfig, formatDangerousActionsList, normalizeToolConfig, type ToolConfig } from './config';
+import { noopSchemaValidator } from './noop-schema-validator';
 import { PermissionManager } from './permissions';
 import { listHelpResources, listHelpResourceTemplates, readHelpResource } from './resources';
 import { listAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
@@ -146,14 +147,7 @@ async function tryReadConfigFromAPI(client: SiYuanClient): Promise<ToolConfig | 
     return null;
 }
 
-async function getToolConfig(client?: SiYuanClient): Promise<ToolConfig> {
-    if (client) {
-        const apiConfig = await tryReadConfigFromAPI(client);
-        if (apiConfig) return apiConfig;
-    }
-
-    return buildDefaultToolConfig();
-}
+const CONFIG_TTL_MS = 30_000;
 
 async function initSiYuanClient(): Promise<SiYuanClient> {
     const client = new SiYuanClient();
@@ -168,16 +162,47 @@ async function initSiYuanClient(): Promise<SiYuanClient> {
 
 export async function createSiYuanServer(): Promise<Server> {
     const client = await initSiYuanClient();
-    const initialConfig = await getToolConfig(client);
+    let cachedConfig: ToolConfig | null = null;
+    let cachedConfigAt = 0;
+    let inFlight: Promise<ToolConfig> | null = null;
+
+    async function getToolConfig(): Promise<ToolConfig> {
+        const now = Date.now();
+        if (cachedConfig && now - cachedConfigAt < CONFIG_TTL_MS) {
+            return cachedConfig;
+        }
+
+        if (inFlight) {
+            return inFlight;
+        }
+
+        inFlight = (async () => {
+            try {
+                const config = await tryReadConfigFromAPI(client);
+                cachedConfig = config ?? buildDefaultToolConfig();
+                cachedConfigAt = Date.now();
+                return cachedConfig;
+            } finally {
+                inFlight = null;
+            }
+        })();
+        return inFlight;
+    }
+
+    const initialConfig = await getToolConfig();
     const server = new Server(
         { name: 'siyuan-mcp', version: '2.0.0' },
-        { capabilities: { tools: {}, resources: {} }, instructions: buildServerInstructions(initialConfig.userRulesText).trim() },
+        {
+            capabilities: { tools: {}, resources: {} },
+            instructions: buildServerInstructions(initialConfig.userRulesText).trim(),
+            jsonSchemaValidator: noopSchemaValidator,
+        },
     );
     const permMgr = new PermissionManager(client);
     await permMgr.load();
 
     server.setRequestHandler(ListToolsRequestSchema, async () => {
-        const config = await getToolConfig(client);
+        const config = await getToolConfig();
         return { tools: listAllTools(config) };
     });
 
@@ -208,7 +233,7 @@ export async function createSiYuanServer(): Promise<Server> {
             };
         }
 
-        const config = await getToolConfig(client);
+        const config = await getToolConfig();
         if (!config[category].enabled) {
             return {
                 content: [{ type: 'text' as const, text: `Tool "${name}" is disabled.` }],
@@ -254,11 +279,25 @@ async function main() {
         if (!Number.isFinite(port) || port <= 0 || port > 65535) {
             throw new Error(`[MCP] invalid SIYUAN_MCP_PORT: ${portRaw}`);
         }
+        const certFile = process.env.SIYUAN_MCP_TLS_CERT;
+        const keyFile = process.env.SIYUAN_MCP_TLS_KEY;
+        let tls: TlsOptions | undefined;
+        if (certFile && keyFile) {
+            tls = {
+                certFile,
+                keyFile,
+                caFile: process.env.SIYUAN_MCP_TLS_CA || undefined,
+            };
+        } else if (certFile || keyFile) {
+            throw new Error('[MCP] HTTPS requires both SIYUAN_MCP_TLS_CERT and SIYUAN_MCP_TLS_KEY to be set.');
+        }
+
         await startHttpMcpServer({
             host: process.env.SIYUAN_MCP_HOST ?? '127.0.0.1',
             port,
             token: process.env.SIYUAN_MCP_TOKEN || undefined,
             path: process.env.SIYUAN_MCP_PATH || '/mcp',
+            tls,
         });
         return;
     }

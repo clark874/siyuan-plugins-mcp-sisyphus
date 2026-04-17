@@ -38,45 +38,16 @@ export class SiYuanClient {
         return headers;
     }
 
-    async readFile(path: string): Promise<string> {
-        const url = `${this.baseUrl}/api/file/getFile`;
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (this.token) headers['Authorization'] = `Token ${this.token}`;
-
+    private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ path }),
-                signal: controller.signal,
-            });
-            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-            return await response.text();
-        } finally {
-            clearTimeout(timeoutId);
-        }
-    }
-
-    async readFileBinary(path: string): Promise<Uint8Array> {
-        const url = `${this.baseUrl}/api/file/getFile`;
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (this.token) headers['Authorization'] = `Token ${this.token}`;
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ path }),
-                signal: controller.signal,
-            });
-            if (!response.ok) throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
-            return new Uint8Array(await response.arrayBuffer());
+            const response = await fetch(url, { ...init, signal: controller.signal });
+            if (!response.ok) {
+                throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+            }
+            return response;
         } catch (error) {
             if (error instanceof Error && error.name === 'AbortError') {
                 throw new Error(`Request timeout after ${this.timeout}ms`);
@@ -87,11 +58,25 @@ export class SiYuanClient {
         }
     }
 
-    async writeFile(path: string, content: string): Promise<void> {
-        const url = `${this.baseUrl}/api/file/putFile`;
-        const headers: Record<string, string> = {};
-        if (this.token) headers['Authorization'] = `Token ${this.token}`;
+    async readFile(path: string): Promise<string> {
+        const response = await this.fetchWithTimeout(`${this.baseUrl}/api/file/getFile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+            body: JSON.stringify({ path }),
+        });
+        return await response.text();
+    }
 
+    async readFileBinary(path: string): Promise<Uint8Array> {
+        const response = await this.fetchWithTimeout(`${this.baseUrl}/api/file/getFile`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+            body: JSON.stringify({ path }),
+        });
+        return new Uint8Array(await response.arrayBuffer());
+    }
+
+    async writeFile(path: string, content: string): Promise<void> {
         const formData = new FormData();
         const file = new File([content], 'content');
         formData.append('path', path);
@@ -99,79 +84,30 @@ export class SiYuanClient {
         formData.append('modTime', String(Date.now()));
         formData.append('file', file);
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+        const response = await this.fetchWithTimeout(`${this.baseUrl}/api/file/putFile`, {
+            method: 'POST',
+            headers: this.getAuthHeaders(),
+            body: formData,
+        });
 
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers,
-                body: formData,
-                signal: controller.signal,
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
-            }
-
-            const result: SiYuanResponse = await response.json();
-            if (result.code !== 0) {
-                throw new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
-            }
-        } catch (error) {
-            if (error instanceof Error && error.name === 'AbortError') {
-                throw new Error(`Request timeout after ${this.timeout}ms`);
-            }
-            throw error;
-        } finally {
-            clearTimeout(timeoutId);
+        const result: SiYuanResponse = await response.json();
+        if (result.code !== 0) {
+            throw new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
         }
     }
 
     async request<T>(endpoint: string, data?: object): Promise<T> {
-        const url = `${this.baseUrl}${endpoint}`;
+        const response = await this.fetchWithTimeout(`${this.baseUrl}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+            body: JSON.stringify(data ?? {}),
+        });
 
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-        };
-
-        if (this.token) {
-            headers['Authorization'] = `Token ${this.token}`;
+        const result: SiYuanResponse<T> = await response.json();
+        if (result.code !== 0) {
+            throw new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
         }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(data ?? {}),
-                signal: controller.signal,
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
-            }
-
-            const result: SiYuanResponse<T> = await response.json();
-
-            if (result.code !== 0) {
-                throw new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
-            }
-
-            return result.data;
-        } catch (error) {
-            if (error instanceof Error) {
-                if (error.name === 'AbortError') {
-                    throw new Error(`Request timeout after ${this.timeout}ms`);
-                }
-                throw error;
-            }
-
-            throw new Error('Unknown error occurred during request');
-        } finally {
-            clearTimeout(timeoutId);
-        }
+        return result.data;
     }
 }

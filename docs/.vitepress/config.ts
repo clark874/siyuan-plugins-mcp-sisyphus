@@ -60,6 +60,7 @@ export default defineConfig({
             { text: '概述', link: '/zh/' },
             { text: '架构', link: '/zh/architecture' },
             { text: '部署', link: '/zh/deployment' },
+            { text: 'HTTPS 指南', link: '/zh/https-guide' },
           ],
         },
         {

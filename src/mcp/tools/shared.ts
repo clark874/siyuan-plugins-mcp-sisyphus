@@ -1,9 +1,15 @@
 import { ZodError, type ZodIssue } from 'zod';
 
-import { getActionTier, getEnabledActions, isDangerousAction, type ActionTier, type CategoryToolConfig, type ToolCategory } from '../config';
-import { getActionHint, TOOL_ACTION_HINTS, TOOL_GUIDANCE_BY_CATEGORY } from '../help';
+import { getActionTier, getEnabledActions, isDangerousAction, type CategoryToolConfig, type ToolCategory } from '../config';
+import { getActionHint } from '../help';
 import { translateError } from './errorTranslation';
-import { buildActionExampleObjects, buildActionShapes } from './help-render';
+import { buildActionHelp, buildActionUsageSummary, buildHelpIndex, buildParameterContract } from './help-render';
+import {
+    getSchemaProperties,
+    getSchemaRequired,
+    mergePropertySchemas,
+    normalizeJsonSchema,
+} from './schema-analyzer';
 
 export interface ToolResult {
     content: Array<{ type: 'text'; text: string }>;
@@ -16,6 +22,8 @@ export interface ActionVariant<Action extends string> {
     action: Action;
     schema: JsonSchema;
 }
+
+export { getSchemaProperties, getSchemaRequired, normalizeJsonSchema };
 
 export interface AggregatedToolOptions<Action extends string> {
     guidance?: string[];
@@ -55,182 +63,6 @@ export function createActionSchema(
         },
         required: ['action', ...required],
     };
-}
-
-export function getSchemaProperties(schema: JsonSchema): JsonSchema {
-    const value = schema.properties;
-    return value && typeof value === 'object' ? value as JsonSchema : {};
-}
-
-export function getSchemaRequired(schema: JsonSchema): string[] {
-    return Array.isArray(schema.required)
-        ? schema.required.filter((value): value is string => typeof value === 'string')
-        : [];
-}
-
-function getSchemaDescription(schema: JsonSchema): string | null {
-    return typeof schema.description === 'string' ? schema.description : null;
-}
-
-function formatFieldList(fields: string[]): string {
-    return fields.length > 0 ? fields.join(', ') : 'no additional fields';
-}
-
-function buildActionUsageSummary<Action extends string>(variants: ActionVariant<Action>[]): string {
-    const actionShapes = new Map<string, string[]>();
-
-    for (const variant of variants) {
-        const fields = getSchemaRequired(variant.schema).filter((field) => field !== 'action');
-        const shape = formatFieldList(fields);
-        const shapes = actionShapes.get(variant.action) ?? [];
-        if (!shapes.includes(shape)) {
-            shapes.push(shape);
-        }
-        actionShapes.set(variant.action, shapes);
-    }
-
-    return [...actionShapes.entries()]
-        .map(([action, shapes]) => `${action}: ${shapes.join(' | ')}`)
-        .join('; ');
-}
-
-function buildParameterContract<Action extends string>(
-    category: ToolCategory,
-    variants: ActionVariant<Action>[],
-): string {
-    const lines: string[] = [];
-    const seen = new Set<string>();
-    for (const variant of variants) {
-        if (seen.has(variant.action)) continue;
-        seen.add(variant.action);
-        const required = getSchemaRequired(variant.schema).filter((f) => f !== 'action');
-        const allProps = Object.keys(getSchemaProperties(variant.schema)).filter((f) => f !== 'action');
-        const optional = allProps.filter((name) => !required.includes(name));
-        const requiredStr = required.length > 0 ? `[${required.join(', ')}]` : '[]';
-        const optionalStr = optional.length > 0 ? `[${optional.join(', ')}]` : '[]';
-        lines.push(`${category}.${variant.action}: required ${requiredStr} | optional ${optionalStr}`);
-    }
-    return lines.join('\n');
-}
-
-function mergePropertySchemas<Action extends string>(
-    variants: ActionVariant<Action>[],
-    propertyDescriptionOverrides: Record<string, string> = {},
-): JsonSchema {
-    const mergedProperties: JsonSchema = {};
-    const descriptions = new Map<string, Set<string>>();
-    const enums = new Map<string, Set<unknown>>();
-    const requiredBy = new Map<string, Set<string>>();
-    const optionalIn = new Map<string, Set<string>>();
-
-    for (const variant of variants) {
-        const variantRequired = new Set(getSchemaRequired(variant.schema));
-        for (const [propertyName, propertySchema] of Object.entries(getSchemaProperties(variant.schema))) {
-            if (propertyName === 'action' || !propertySchema || typeof propertySchema !== 'object') continue;
-
-            mergedProperties[propertyName] = {
-                ...(mergedProperties[propertyName] as JsonSchema | undefined),
-                ...(propertySchema as JsonSchema),
-            };
-
-            const description = getSchemaDescription(propertySchema as JsonSchema);
-            if (description) {
-                const values = descriptions.get(propertyName) ?? new Set<string>();
-                values.add(description);
-                descriptions.set(propertyName, values);
-            }
-
-            const enumValues = (propertySchema as JsonSchema).enum;
-            if (Array.isArray(enumValues)) {
-                const values = enums.get(propertyName) ?? new Set<unknown>();
-                for (const value of enumValues) {
-                    values.add(value);
-                }
-                enums.set(propertyName, values);
-            }
-
-            if (variantRequired.has(propertyName)) {
-                const set = requiredBy.get(propertyName) ?? new Set<string>();
-                set.add(variant.action);
-                requiredBy.set(propertyName, set);
-            } else {
-                const set = optionalIn.get(propertyName) ?? new Set<string>();
-                set.add(variant.action);
-                optionalIn.set(propertyName, set);
-            }
-        }
-    }
-
-    for (const [propertyName, propertySchema] of Object.entries(mergedProperties)) {
-        const overrideDescription = propertyDescriptionOverrides[propertyName];
-        let baseDescription: string | undefined;
-        if (overrideDescription) {
-            baseDescription = overrideDescription;
-        } else {
-            const propertyDescriptions = descriptions.get(propertyName);
-            if (propertyDescriptions && propertyDescriptions.size > 0) {
-                baseDescription = [...propertyDescriptions].join(' / ');
-            }
-        }
-
-        const required = [...(requiredBy.get(propertyName) ?? [])].sort();
-        const optional = [...(optionalIn.get(propertyName) ?? [])].sort();
-        const annotations: string[] = [];
-        if (required.length > 0) annotations.push(`Required by: ${required.join(', ')}`);
-        if (optional.length > 0) annotations.push(`Optional in: ${optional.join(', ')}`);
-
-        const annotationText = annotations.length > 0 ? `[${annotations.join('; ')}]` : '';
-        (propertySchema as JsonSchema).description = baseDescription
-            ? (annotationText ? `${baseDescription} ${annotationText}` : baseDescription)
-            : (annotationText || undefined);
-
-        const enumValues = enums.get(propertyName);
-        if (enumValues && enumValues.size > 0) {
-            (propertySchema as JsonSchema).enum = [...enumValues];
-        }
-    }
-
-    return mergedProperties;
-}
-
-function normalizeSchemaNode(schema: unknown): unknown {
-    if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return schema;
-
-    const normalized = { ...(schema as JsonSchema) };
-
-    if (normalized.type === 'array') {
-        normalized.items = normalizeSchemaNode(
-            normalized.items && typeof normalized.items === 'object'
-                ? normalized.items
-                : { type: 'string' },
-        );
-    }
-
-    if (normalized.properties && typeof normalized.properties === 'object' && !Array.isArray(normalized.properties)) {
-        normalized.properties = Object.fromEntries(
-            Object.entries(normalized.properties).map(([key, value]) => [key, normalizeSchemaNode(value)]),
-        );
-    }
-
-    if (normalized.additionalProperties && typeof normalized.additionalProperties === 'object' && !Array.isArray(normalized.additionalProperties)) {
-        normalized.additionalProperties = normalizeSchemaNode(normalized.additionalProperties);
-    }
-
-    if (Array.isArray(normalized.oneOf)) {
-        normalized.oneOf = normalized.oneOf.map((item) => normalizeSchemaNode(item));
-    }
-    if (Array.isArray(normalized.anyOf)) {
-        normalized.anyOf = normalized.anyOf.map((item) => normalizeSchemaNode(item));
-    }
-    if (Array.isArray(normalized.allOf)) {
-        normalized.allOf = normalized.allOf.map((item) => normalizeSchemaNode(item));
-    }
-
-    return normalized;
-}
-
-export function normalizeJsonSchema(schema: JsonSchema): JsonSchema {
-    return normalizeSchemaNode(schema) as JsonSchema;
 }
 
 function buildEssentialGuidance<Action extends string>(
@@ -448,81 +280,6 @@ export function tryHandleHelpAction<Action extends string>(
     }
 
     return createJsonResult(buildHelpIndex(category, enabledActions, enabledVariants));
-}
-
-function buildHelpIndex<Action extends string>(
-    category: ToolCategory,
-    enabledActions: Action[],
-    enabledVariants: ActionVariant<Action>[],
-): Record<string, unknown> {
-    const tierGroups: Record<ActionTier, string[]> = { basic: [], advanced: [] };
-    for (const action of enabledActions) {
-        tierGroups[getActionTier(category, action)].push(action);
-    }
-
-    const actionSummaries: Record<string, string> = {};
-    const actions: Record<string, { hint?: string; requiresConfirmation: boolean }> = {};
-    const seen = new Set<string>();
-    for (const variant of enabledVariants) {
-        if (seen.has(variant.action)) continue;
-        seen.add(variant.action);
-        const hint = TOOL_ACTION_HINTS[category]?.[variant.action];
-        const fields = getSchemaRequired(variant.schema).filter((f) => f !== 'action');
-        const shape = fields.length > 0 ? `requires: ${fields.join(', ')}` : 'no extra fields';
-        actionSummaries[variant.action] = hint ?? shape;
-        actions[variant.action] = {
-            ...(hint ? { hint } : {}),
-            requiresConfirmation: isDangerousAction(category, variant.action),
-        };
-    }
-
-    const confirmationActions = enabledActions.filter((action) => isDangerousAction(category, action));
-    const guidance = TOOL_GUIDANCE_BY_CATEGORY[category] ?? [];
-
-    return {
-        tool: category,
-        commonActions: tierGroups.basic,
-        advancedActions: tierGroups.advanced,
-        guidance,
-        actions,
-        actionSummaries,
-        ...(confirmationActions.length > 0 ? { requiresConfirmation: confirmationActions } : {}),
-        detailsHint: `Call ${category}(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.`,
-        helpResources: [
-            `siyuan://help/action/${category}/{action}`,
-            'siyuan://help/tool-overview',
-            'siyuan://help/examples',
-            'siyuan://help/ai-layout-guide',
-        ],
-    };
-}
-
-function buildActionHelp<Action extends string>(
-    category: ToolCategory,
-    action: Action,
-    enabledVariants: ActionVariant<Action>[],
-): Record<string, unknown> {
-    const matching = enabledVariants.filter((v) => v.action === action);
-    const shapes = buildActionShapes(matching, action);
-    const examples = buildActionExampleObjects(matching, action);
-    const requiredFieldSets = matching.map((variant) =>
-        getSchemaRequired(variant.schema).filter((f) => f !== 'action'),
-    );
-    const hint = TOOL_ACTION_HINTS[category]?.[action];
-    const guidance = TOOL_GUIDANCE_BY_CATEGORY[category] ?? [];
-    const confirmation = isDangerousAction(category, action);
-
-    return {
-        tool: category,
-        action,
-        ...(hint ? { hint } : {}),
-        shapes,
-        requiredFields: requiredFieldSets.length === 1 ? requiredFieldSets[0] : requiredFieldSets,
-        example: examples.length === 1 ? examples[0] : examples,
-        guidance,
-        requiresConfirmation: confirmation,
-        fullDocResource: `siyuan://help/action/${category}/${action}`,
-    };
 }
 
 export interface TruncationMeta {

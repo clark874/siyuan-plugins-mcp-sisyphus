@@ -4,7 +4,7 @@
 
     import SettingPanel from "../../libs/components/setting-panel.svelte";
     import type { HttpServerStatus } from "../../server-launcher";
-    import { regenerateHttpServerToken, savePersistedHttpServerSettings, type HttpServerSettings } from "../tool-config-storage";
+    import { hasValidHttpTlsFiles, regenerateHttpServerToken, savePersistedHttpServerSettings, type HttpServerSettings } from "../tool-config-storage";
 
     export let plugin: any;
     export let group: string;
@@ -53,8 +53,27 @@
         return token;
     }
 
+    function onTlsEnabledChange(event: Event) {
+        const target = event.currentTarget as HTMLInputElement;
+        httpSettings = { ...httpSettings, tlsEnabled: target.checked };
+        httpDirty = true;
+    }
+
+    function getTlsMissingFilesMessage(): string {
+        return getLabel("httpTlsMissingFiles", "⚠️ Cert and Key file paths are required for HTTPS.");
+    }
+
+    function validateTlsBeforeStart(): boolean {
+        if (hasValidHttpTlsFiles(httpSettings)) {
+            return true;
+        }
+        showMessage(getTlsMissingFilesMessage());
+        return false;
+    }
+
     function generateClientSnippet(s: HttpServerSettings, mode: "direct" | "stdio" | "bridge"): string {
-        const url = `http://${s.host}:${s.port}/mcp`;
+        const scheme = s.tlsEnabled ? "https" : "http";
+        const url = `${scheme}://${s.host}:${s.port}/mcp`;
         if (mode === "direct") {
             const headers = s.authEnabled ? { Authorization: `Bearer ${s.token}` } : undefined;
             const obj: any = { mcpServers: { siyuan: { type: "http", url } } };
@@ -118,6 +137,9 @@
             if (httpStatus.running) {
                 await plugin.stopHttpServer();
             } else {
+                if (!validateTlsBeforeStart()) {
+                    return;
+                }
                 if (httpDirty) {
                     await persistHttpSettings(httpSettings, false);
                 }
@@ -132,6 +154,9 @@
     }
 
     async function applyHttpSettings() {
+        if (!validateTlsBeforeStart()) {
+            return;
+        }
         await persistHttpSettings(httpSettings, true);
         showMessage(getLabel("httpSettingsSaved", "✅ HTTP server settings saved"));
     }
@@ -168,7 +193,7 @@
             <span class="http-status-dot" class:running={httpStatus.running}></span>
             {#if httpStatus.running}
                 <span class="http-status-text">
-                    {getLabel("httpStatusRunning", "Running")}: <code>http://{httpStatus.host}:{httpStatus.port}/mcp</code>
+                    {getLabel("httpStatusRunning", "Running")}: <code>{httpSettings.tlsEnabled ? "https" : "http"}://{httpStatus.host}:{httpStatus.port}/mcp</code>
                     {#if httpStatus.pid} (PID {httpStatus.pid}){/if}
                 </span>
             {:else}
@@ -199,12 +224,12 @@
             </label>
 
             <label class="http-field">
-                <span class="http-label">Host</span>
+                <span class="http-label">{getLabel("httpHost", "Host")}</span>
                 <input type="text" class="b3-text-field" bind:value={httpSettings.host} on:input={markHttpDirty} placeholder="127.0.0.1" />
             </label>
 
             <label class="http-field">
-                <span class="http-label">Port</span>
+                <span class="http-label">{getLabel("httpPort", "Port")}</span>
                 <input type="number" class="b3-text-field" bind:value={httpSettings.port} on:input={markHttpDirty} min="1" max="65535" />
             </label>
 
@@ -215,11 +240,34 @@
 
             {#if httpSettings.authEnabled}
                 <div class="http-field http-token-row">
-                    <span class="http-label">Token</span>
+                    <span class="http-label">{getLabel("httpToken", "Token")}</span>
                     <input type="text" class="b3-text-field http-token-input" readonly value={httpSettings.token} />
                     <button class="b3-button b3-button--outline" on:click={() => copyText(httpSettings.token)}>{getLabel("httpCopy", "Copy")}</button>
                     <button class="b3-button b3-button--outline" on:click={regenerateToken}>{getLabel("httpRegenerate", "Regenerate")}</button>
                 </div>
+            {/if}
+
+            <label class="http-field">
+                <input type="checkbox" checked={httpSettings.tlsEnabled} on:change={onTlsEnabledChange} />
+                {getLabel("httpEnableTls", "Enable HTTPS (TLS)")}
+            </label>
+
+            {#if httpSettings.tlsEnabled}
+                <label class="http-field">
+                    <span class="http-label">{getLabel("httpTlsCert", "Cert")}</span>
+                    <input type="text" class="b3-text-field http-path-input" bind:value={httpSettings.tlsCertFile} on:input={markHttpDirty} placeholder={getLabel("httpTlsCertPlaceholder", "/path/to/cert.pem")} />
+                </label>
+                <label class="http-field">
+                    <span class="http-label">{getLabel("httpTlsKey", "Key")}</span>
+                    <input type="text" class="b3-text-field http-path-input" bind:value={httpSettings.tlsKeyFile} on:input={markHttpDirty} placeholder={getLabel("httpTlsKeyPlaceholder", "/path/to/key.pem")} />
+                </label>
+                <label class="http-field">
+                    <span class="http-label">{getLabel("httpTlsCa", "CA")}</span>
+                    <input type="text" class="b3-text-field http-path-input" bind:value={httpSettings.tlsCaFile} on:input={markHttpDirty} placeholder={getLabel("httpTlsCaPlaceholder", "/path/to/ca.pem (optional)")} />
+                </label>
+                {#if !hasValidHttpTlsFiles(httpSettings)}
+                    <div class="http-warning">{getTlsMissingFilesMessage()}</div>
+                {/if}
             {/if}
         </div>
 
@@ -324,6 +372,13 @@
                 font-family: monospace;
                 font-size: 12px;
             }
+        }
+
+        .http-path-input {
+            flex: 1;
+            min-width: 280px;
+            font-family: monospace;
+            font-size: 12px;
         }
 
         .http-snippet {
