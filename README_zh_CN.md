@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **最新版本：**`v0.2.10` — 引入 `defineTool` 工厂统一聚合 tool 定义模式，拆分设置面板为 HTTP Server / Puppy / Telemetry / ToolCategories / UserRules 五大子面板，新增遥测分析模块支持调用统计与错误率洞察，并补全 `flashcard(action="create_card")` 实现端到端闪卡创建。详见 [CHANGELOG.md](./CHANGELOG.md)。
+> **最新版本：**`v0.2.11` — 修复并补全 AV（数据库块）创建能力，`av(action="render_attribute_view")` 新增 `createIfNotExist=true` 参数，支持在指定文档中创建新的数据库块，解决此前无法通过 MCP 新建数据库的问题。详见 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
@@ -362,7 +362,7 @@ Additional actions: remove, move, list_tree ...    → 读取 siyuan://help/acti
 | Action | 说明 |
 |--------|------|
 | `get` | 按 `id` 读取一个真实属性视图（数据库），并经过权限校验 |
-| `render_attribute_view` | 按可选视图、分页、查询和分组分页上下文渲染数据库视图 |
+| `render_attribute_view` | 按可选视图、分页、查询和分组分页上下文渲染数据库视图，或在 `createIfNotExist=true` 时创建并落库数据库块 |
 | `get_attribute_view_keys` | 返回属性视图的 key/列信息 |
 | `get_attribute_view_filter_sort` | 返回数据库块视图上的筛选与排序配置 |
 | `search` | 按关键词搜索属性视图，并对不可读或无法解析归属的结果做后置过滤 |

@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **Latest:** `v0.2.10` — Introduced `defineTool` factory, split settings into dedicated panels (HTTP Server, Puppy, Telemetry, Tool Categories, User Rules), added telemetry/analytics for call stats and error-rate insights, and completed `flashcard(action="create_card")` for end-to-end flashcard creation. See full history in [CHANGELOG.md](./CHANGELOG.md).
+> **Latest:** `v0.2.11` — Fixed AV (database block) creation via `av(action="render_attribute_view")` with `createIfNotExist=true`, allowing AI agents to create new attribute views in designated documents. See full history in [CHANGELOG.md](./CHANGELOG.md).
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
@@ -361,7 +361,7 @@ Big result sets are capped and annotated with drill-down hints rather than retur
 | Action | Description |
 |--------|-------------|
 | `get` | Get one attribute view (database) by `id` after permission checks |
-| `render_attribute_view` | Render database rows using optional view, pagination, query, and group paging context |
+| `render_attribute_view` | Render database rows, or create and materialize a database when `createIfNotExist=true` |
 | `get_attribute_view_keys` | Return database keys or columns for an attribute view |
 | `get_attribute_view_filter_sort` | Return filters and sorts for a database block view |
 | `search` | Search attribute views by keyword and post-filter unreadable or unresolved results |

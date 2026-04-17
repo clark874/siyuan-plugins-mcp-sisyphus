@@ -574,14 +574,14 @@ export const AvGetSchema = z.object({
 
 export const AvRenderAttributeViewSchema = z.object({
     action: z.literal("render_attribute_view"),
-    id: z.string().describe("Attribute view ID"),
-    blockID: z.string().optional().describe("Optional database block ID"),
+    id: z.string().optional().describe("Attribute view ID; omit only with createIfNotExist=true to let MCP generate one"),
+    blockID: z.string().optional().describe("Optional database block ID; required when creating a new AV"),
     viewID: z.string().optional().describe("Optional target view ID"),
     page: z.number().int().min(1).optional().describe("Page number (1-based), default 1"),
     pageSize: z.number().int().optional().describe("Rows per page; use -1 or omit for kernel default"),
     query: z.string().optional().describe("Optional row query filter"),
     groupPaging: z.record(z.string(), z.unknown()).optional().describe("Optional group paging map passed through to SiYuan"),
-    createIfNotExist: z.boolean().optional().describe("Create the default view if none exists; defaults to true"),
+    createIfNotExist: z.boolean().optional().describe("Create the default view only when explicitly true; provide blockID when creating a new AV"),
 });
 
 export const AvGetAttributeViewKeysSchema = z.object({

@@ -2,6 +2,11 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.2.11 - 2026-04-18
+
+- 修复并补全 AV（数据库块）创建能力：`av(action="render_attribute_view")` 新增 `createIfNotExist=true` 参数，支持在指定文档中创建新的数据库块，解决此前无法通过 MCP 新建数据库的问题
+- 配套更新权限校验逻辑、错误翻译规则、帮助文案、API 文档与单元测试覆盖
+
 ## v0.2.10 - 2026-04-16
 
 - 引入 `defineTool` 工厂统一所有聚合 tool 的定义模式，拆分设置面板为 HttpServer / Puppy / Telemetry / ToolCategories / UserRules 五大子面板，并新增遥测与分析模块，支持调用统计、错误率与耗时分布洞察

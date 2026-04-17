@@ -45,10 +45,10 @@ export const BLOCK_GUIDANCE: string[] = [
 
 export const AV_GUIDANCE: string[] = [
     'AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.',
-    'The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.',
+    'To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.',
     'Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").',
     'For cell writes, rowID must be the database row item ID stored in each AV value\'s blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.',
-    'AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.',
+    'AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.',
     'av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.',
     'av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.',
 ];
@@ -137,7 +137,7 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
 
 export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
     get: 'Use an attribute view ID. Returns the full AV payload after permission checks.',
-    render_attribute_view: 'Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context.',
+    render_attribute_view: 'Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically.',
     get_attribute_view_keys: 'Use id to return database keys/columns for a block-bound attribute view.',
     get_attribute_view_filter_sort: 'Use id + blockID to return the filters and sorts applied to that database block view.',
     search: 'Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.',

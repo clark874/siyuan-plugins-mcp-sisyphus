@@ -35,6 +35,7 @@ vi.mock('@/api/av', () => ({
 }));
 
 vi.mock('@/api/block', () => ({
+    appendBlock: vi.fn(),
     checkBlockExist: vi.fn(),
 }));
 
@@ -71,10 +72,20 @@ describe('av tool', () => {
         vi.mocked(avApi.setAttributeViewBlockAttr).mockReset();
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockReset();
         vi.mocked(avApi.duplicateAttributeViewBlock).mockReset();
+        vi.mocked(context.ensurePermissionForDocumentId).mockReset();
         vi.mocked(context.resolveResultItemContext).mockReset();
+        vi.mocked(blockApi.appendBlock).mockReset();
         vi.mocked(blockApi.checkBlockExist).mockReset();
         vi.mocked(transactionApi.performTransactions).mockReset();
+        vi.mocked(context.ensurePermissionForDocumentId).mockResolvedValue({
+            context: { documentId: 'doc-1', notebook: 'nb-1', path: '/doc-1.sy' },
+            denied: null,
+        } as { context: { documentId: string; notebook: string; path: string }; denied: ToolResult | null });
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockResolvedValue({ refDefs: [] });
+        vi.mocked(blockApi.appendBlock).mockResolvedValue({
+            doOperations: [{ action: 'append', id: 'av-block-new', parentID: 'target-doc' }],
+            undoOperations: [{ action: 'delete', id: 'av-block-new' }],
+        } as never);
         vi.mocked(blockApi.checkBlockExist).mockResolvedValue(true);
         vi.mocked(transactionApi.performTransactions).mockResolvedValue([{
             doOperations: [{ action: 'insert', id: 'block-copy', previousID: 'prev-1' }],
@@ -1533,6 +1544,232 @@ describe('av tool', () => {
             viewID: 'view-1',
             viewType: 'table',
         });
+    });
+
+    it('requires id when createIfNotExist is not enabled', async () => {
+        const avApi = await import('@/api/av');
+        const result = await callAvTool(client, {
+            action: 'render_attribute_view',
+            blockID: 'target-doc',
+        }, enabledActions('render_attribute_view'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: {
+                type: 'internal_error',
+                tool: 'av',
+                action: 'render_attribute_view',
+                message: 'av(action="render_attribute_view") requires id unless createIfNotExist=true is provided.',
+            },
+        });
+        expect(vi.mocked(avApi.renderAttributeView)).not.toHaveBeenCalled();
+    });
+
+    it('renders and initializes a new attribute view using blockID as permission context', async () => {
+        const avApi = await import('@/api/av');
+        const blockApi = await import('@/api/block');
+        const context = await import('@/mcp/tools/context');
+
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({
+            av: {
+                id: 'av-new',
+                keyValues: [],
+            },
+        });
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-new',
+            viewID: 'view-new',
+            viewType: 'table',
+            columns: [{ name: '主键' }, { name: '单选' }],
+            rows: [],
+        });
+
+        const result = await callAvTool(client, {
+            action: 'render_attribute_view',
+            id: 'av-new',
+            blockID: 'target-doc',
+            createIfNotExist: true,
+        }, enabledActions('render_attribute_view'), permMgr);
+
+        expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'target-doc', 'write');
+        expect(vi.mocked(avApi.renderAttributeView)).toHaveBeenCalledWith(client, {
+            id: 'av-new',
+            blockID: 'target-doc',
+            viewID: undefined,
+            page: undefined,
+            pageSize: undefined,
+            query: undefined,
+            groupPaging: undefined,
+            createIfNotExist: true,
+        });
+        expect(vi.mocked(blockApi.appendBlock)).toHaveBeenCalledWith(
+            client,
+            'dom',
+            expect.stringContaining('data-av-id="av-new"'),
+            'target-doc',
+        );
+        expect(vi.mocked(blockApi.appendBlock).mock.calls[0][2]).not.toContain('data-node-id');
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            data: [],
+            total: 0,
+            page: 1,
+            pageSize: 1,
+            pageCount: 1,
+            hasNextPage: false,
+            avID: 'av-new',
+            id: 'av-new',
+            viewID: 'view-new',
+            viewType: 'table',
+            columns: [{ name: '主键' }, { name: '单选' }],
+            generatedAvID: false,
+            materialized: true,
+            blockID: 'av-block-new',
+            parentID: 'target-doc',
+        });
+    });
+
+    it('auto-generates an avID and materializes the database block when creating without id', async () => {
+        const avApi = await import('@/api/av');
+        const blockApi = await import('@/api/block');
+        const context = await import('@/mcp/tools/context');
+
+        vi.mocked(avApi.renderAttributeView).mockImplementation(async (_clientArg, payload) => ({
+            id: payload.id,
+            viewID: 'view-new',
+            viewType: 'table',
+            columns: [{ name: '主键' }, { name: '单选' }],
+            rows: [],
+        }));
+
+        const result = await callAvTool(client, {
+            action: 'render_attribute_view',
+            blockID: 'target-doc',
+            createIfNotExist: true,
+        }, enabledActions('render_attribute_view'), permMgr);
+
+        const renderPayload = vi.mocked(avApi.renderAttributeView).mock.calls[0][1];
+        expect(renderPayload.id).toMatch(/^\d{14}-[a-z0-9]{7}$/);
+        expect(renderPayload).toMatchObject({
+            blockID: 'target-doc',
+            createIfNotExist: true,
+        });
+        expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'target-doc', 'write');
+        expect(vi.mocked(blockApi.appendBlock)).toHaveBeenCalledWith(
+            client,
+            'dom',
+            expect.stringContaining(`data-av-id="${renderPayload.id}"`),
+            'target-doc',
+        );
+        expect(vi.mocked(blockApi.appendBlock).mock.calls[0][2]).not.toContain('data-node-id');
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            avID: renderPayload.id,
+            id: renderPayload.id,
+            generatedAvID: true,
+            materialized: true,
+            blockID: 'av-block-new',
+            parentID: 'target-doc',
+            columns: [{ name: '主键' }, { name: '单选' }],
+        });
+    });
+
+    it('initializes a missing attribute view using blockID as permission context', async () => {
+        const avApi = await import('@/api/av');
+        const context = await import('@/mcp/tools/context');
+
+        vi.mocked(avApi.getAttributeView).mockRejectedValue(new Error('attribute view "av-missing" not found'));
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-missing',
+            viewID: 'view-new',
+            viewType: 'table',
+            rows: [],
+        });
+
+        const result = await callAvTool(client, {
+            action: 'render_attribute_view',
+            id: 'av-missing',
+            blockID: 'target-doc',
+            createIfNotExist: true,
+        }, enabledActions('render_attribute_view'), permMgr);
+
+        expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'target-doc', 'write');
+        expect(vi.mocked(avApi.renderAttributeView)).toHaveBeenCalled();
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            avID: 'av-missing',
+            id: 'av-missing',
+            viewID: 'view-new',
+            viewType: 'table',
+            generatedAvID: false,
+            materialized: true,
+            blockID: 'av-block-new',
+            parentID: 'target-doc',
+        });
+    });
+
+    it('returns permission denied when new AV creation blockID is unreadable', async () => {
+        const avApi = await import('@/api/av');
+        const blockApi = await import('@/api/block');
+        const context = await import('@/mcp/tools/context');
+        const deniedResult: ToolResult = {
+            isError: true,
+            content: [{
+                type: 'text',
+                text: JSON.stringify({
+                    error: {
+                        type: 'permission_denied',
+                        notebook: 'blocked',
+                    },
+                }),
+            }],
+        };
+
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({
+            av: {
+                id: 'av-new',
+                keyValues: [],
+            },
+        });
+        vi.mocked(context.ensurePermissionForDocumentId).mockResolvedValue({
+            context: { documentId: 'doc-blocked', notebook: 'blocked', path: '/doc-blocked.sy' },
+            denied: deniedResult,
+        } as { context: { documentId: string; notebook: string; path: string }; denied: ToolResult | null });
+
+        const result = await callAvTool(client, {
+            action: 'render_attribute_view',
+            id: 'av-new',
+            blockID: 'blocked-doc',
+            createIfNotExist: true,
+        }, enabledActions('render_attribute_view'), permMgr);
+
+        expect(result).toBe(deniedResult);
+        expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'blocked-doc', 'write');
+        expect(vi.mocked(avApi.renderAttributeView)).not.toHaveBeenCalled();
+        expect(vi.mocked(blockApi.appendBlock)).not.toHaveBeenCalled();
+    });
+
+    it('requires blockID when createIfNotExist cannot resolve an AV permission scope', async () => {
+        const avApi = await import('@/api/av');
+
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({
+            av: {
+                id: 'av-new',
+                keyValues: [],
+            },
+        });
+
+        const result = await callAvTool(client, {
+            action: 'render_attribute_view',
+            id: 'av-new',
+            createIfNotExist: true,
+        }, enabledActions('render_attribute_view'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: {
+                type: 'internal_error',
+                tool: 'av',
+                action: 'render_attribute_view',
+                message: 'Unable to create or render attribute view "av-new" because createIfNotExist=true requires blockID to resolve notebook permission scope.',
+            },
+        });
+        expect(vi.mocked(avApi.renderAttributeView)).not.toHaveBeenCalled();
     });
 
     it('returns attribute view keys', async () => {

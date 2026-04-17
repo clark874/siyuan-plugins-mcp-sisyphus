@@ -20,7 +20,7 @@ import {
     AvSetCellSchema,
 } from '../../types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocumentContextById, resolveResultItemContext } from '../context';
-import { isMissingBlockError } from '../errorTranslation';
+import { isMissingBlockError, translateError } from '../errorTranslation';
 import { createJsonResult, createPaginatedResult, createWriteSuccessResult, type ToolResult } from '../shared';
 import { applyUiRefresh } from '../ui-refresh';
 
@@ -48,6 +48,18 @@ function generateSiYuanNodeId(now = new Date()): string {
         suffix += alphabet[Math.floor(Math.random() * alphabet.length)];
     }
     return `${timestamp}-${suffix}`;
+}
+
+function formatSiYuanTimestamp(now = new Date()): string {
+    const pad = (value: number, length = 2) => String(value).padStart(length, '0');
+    return [
+        now.getFullYear(),
+        pad(now.getMonth() + 1),
+        pad(now.getDate()),
+        pad(now.getHours()),
+        pad(now.getMinutes()),
+        pad(now.getSeconds()),
+    ].join('');
 }
 
 type AvContextResolution = {
@@ -444,6 +456,65 @@ async function ensurePermissionForAvId(
     throw new Error(`Unable to resolve notebook permission scope for attribute view "${avID}" because all known owning block references are stale or missing.`);
 }
 
+function isUnresolvedAvPermissionScopeError(error: unknown): boolean {
+    return error instanceof Error &&
+        error.message.includes('The database may have no rows yet; AV writes require a resolvable owning block context.');
+}
+
+function isMissingAttributeViewError(error: unknown): boolean {
+    return error instanceof Error && translateError(error)?.code === 'av_not_found';
+}
+
+async function ensurePermissionForRenderAttributeView(
+    client: SiYuanClient,
+    permMgr: PermissionManager,
+    parsed: {
+        id?: string;
+        blockID?: string;
+        createIfNotExist?: boolean;
+    },
+    effectiveAvID: string,
+    idWasGenerated: boolean,
+): Promise<{
+    denied: ToolResult | null;
+    shouldMaterialize: boolean;
+    targetDocumentId?: string;
+}> {
+    if (parsed.createIfNotExist === true) {
+        if (!parsed.blockID) {
+            throw new Error(`Unable to create or render attribute view "${effectiveAvID}" because createIfNotExist=true requires blockID to resolve notebook permission scope.`);
+        }
+
+        if (idWasGenerated) {
+            const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.blockID, 'write');
+            return { denied, shouldMaterialize: true, targetDocumentId: context.documentId };
+        }
+
+        try {
+            const { denied } = await ensurePermissionForAvId(client, permMgr, effectiveAvID, 'read');
+            return { denied, shouldMaterialize: false };
+        } catch (error) {
+            const canFallBackToBlockContext = isUnresolvedAvPermissionScopeError(error) || isMissingAttributeViewError(error);
+            if (!canFallBackToBlockContext) {
+                throw error;
+            }
+            const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.blockID, 'write');
+            return { denied, shouldMaterialize: true, targetDocumentId: context.documentId };
+        }
+    }
+
+    if (!parsed.id) {
+        throw new Error('av(action="render_attribute_view") requires id unless createIfNotExist=true is provided.');
+    }
+
+    try {
+        const { denied } = await ensurePermissionForAvId(client, permMgr, effectiveAvID, 'read');
+        return { denied, shouldMaterialize: false };
+    } catch (error) {
+        throw error;
+    }
+}
+
 async function resolveAvOwningBlockId(
     client: SiYuanClient,
     avID: string,
@@ -595,6 +666,20 @@ function buildDuplicateAvBlockDom(blockID: string, avID: string): string {
     return `<div class="av" data-node-id="${blockID}" data-av-id="${avID}" data-type="NodeAttributeView" data-av-type="table"></div>`;
 }
 
+function buildNewAvBlockDom(avID: string, now = new Date()): string {
+    return `<div data-av-id="${avID}" data-type="NodeAttributeView" class="av" updated="${formatSiYuanTimestamp(now)}"></div>`;
+}
+
+function extractInsertedBlockId(rawResult: unknown): string | undefined {
+    const operationBatch = Array.isArray(rawResult) ? rawResult[0] : rawResult;
+    const firstOperation = operationBatch && typeof operationBatch === 'object' && Array.isArray((operationBatch as { doOperations?: unknown[] }).doOperations)
+        ? (operationBatch as { doOperations: Array<Record<string, unknown>> }).doOperations[0]
+        : undefined;
+    return typeof firstOperation?.id === 'string' && firstOperation.id.length > 0
+        ? firstOperation.id
+        : undefined;
+}
+
 function buildStrongCellValue(
     columnID: string,
     rowID: string,
@@ -733,11 +818,14 @@ async function handleSearch({ client, permMgr, rawArgs }: AvHandlerContext): Pro
 
 async function handleRenderAttributeView({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
     const parsed = AvRenderAttributeViewSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
-    if (denied) return denied;
+    const creationTime = new Date();
+    const idWasGenerated = !parsed.id;
+    const effectiveAvID = parsed.id ?? generateSiYuanNodeId(creationTime);
+    const permission = await ensurePermissionForRenderAttributeView(client, permMgr, parsed, effectiveAvID, idWasGenerated);
+    if (permission.denied) return permission.denied;
 
     const response = await avApi.renderAttributeView(client, {
-        id: parsed.id,
+        id: effectiveAvID,
         blockID: parsed.blockID,
         viewID: parsed.viewID,
         page: parsed.page,
@@ -746,6 +834,15 @@ async function handleRenderAttributeView({ client, permMgr, rawArgs }: AvHandler
         groupPaging: parsed.groupPaging,
         createIfNotExist: parsed.createIfNotExist,
     });
+
+    let materializedBlockID: string | undefined;
+    if (permission.shouldMaterialize) {
+        const appendResult = await blockApi.appendBlock(client, 'dom', buildNewAvBlockDom(effectiveAvID, creationTime), parsed.blockID!);
+        materializedBlockID = extractInsertedBlockId(appendResult);
+        if (!materializedBlockID) {
+            throw new Error(`Created attribute view "${effectiveAvID}", but SiYuan did not return the materialized database block ID.`);
+        }
+    }
 
     const responseObj = (response && typeof response === 'object' && !Array.isArray(response))
         ? response as Record<string, unknown>
@@ -763,16 +860,29 @@ async function handleRenderAttributeView({ client, permMgr, rawArgs }: AvHandler
     void _ignoredRows;
     void _ignoredPageCount;
     void _ignoredRowCount;
-    return createPaginatedResult(rows, {
+    const result = createPaginatedResult(rows, {
         total,
         page,
         pageSize,
         pageCount: kernelPageCount,
         hasNextPage: page < kernelPageCount,
     }, {
-        avID: parsed.id,
         ...restResponse,
+        avID: effectiveAvID,
+        id: effectiveAvID,
+        ...(parsed.createIfNotExist === true ? { generatedAvID: idWasGenerated } : {}),
+        ...(permission.shouldMaterialize ? {
+            materialized: true,
+            blockID: materializedBlockID,
+            parentID: parsed.blockID,
+        } : {}),
     });
+    return permission.shouldMaterialize
+        ? applyUiRefresh(client, result, [
+            { type: 'reloadAttributeView', id: effectiveAvID },
+            ...(permission.targetDocumentId ? [{ type: 'reloadProtyle' as const, id: permission.targetDocumentId }] : []),
+        ])
+        : result;
 }
 
 async function handleGetAttributeViewKeys({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
