@@ -1,0 +1,33 @@
+{
+  "name": "siyuan-mcp",
+  "version": "0.1.0",
+  "description": "Direct command-line control for SiYuan Note. Call any SiYuan MCP tool as a subcommand: `siyuan block append --parent-id ... --data \"...\"`.",
+  "bin": {
+    "siyuan": "./dist/cli.cjs"
+  },
+  "files": [
+    "dist/cli.cjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "siyuan",
+    "siyuan-cli",
+    "mcp",
+    "cli",
+    "note-taking",
+    "obsidian-cli-alternative"
+  ],
+  "license": "MIT",
+  "author": "Taihong Yang",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus.git"
+  },
+  "homepage": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus#readme",
+  "bugs": {
+    "url": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/issues"
+  }
+}
