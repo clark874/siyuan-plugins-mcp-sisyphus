@@ -13,11 +13,15 @@ export interface ResolvedConfig {
 }
 
 export function getDefaultConfigPath(): string {
+    return join(homedir(), '.siyuan-sisyphus', 'config.json');
+}
+
+export function getLegacyConfigPath(): string {
     return join(homedir(), '.siyuan-mcp', 'config.json');
 }
 
 export function loadFileConfig(configPath?: string): FileConfig {
-    const resolved = configPath ?? getDefaultConfigPath();
+    const resolved = resolveReadableConfigPath(configPath);
     if (!existsSync(resolved)) return {};
     try {
         const raw = readFileSync(resolved, 'utf8');
@@ -31,8 +35,20 @@ export function loadFileConfig(configPath?: string): FileConfig {
         return {};
     } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        throw new Error(`[siyuan] Failed to load config at ${resolved}: ${msg}`);
+        throw new Error(`[siyuan-sisyphus] Failed to load config at ${resolved}: ${msg}`);
     }
+}
+
+function resolveReadableConfigPath(configPath?: string): string {
+    if (configPath) return configPath;
+
+    const defaultPath = getDefaultConfigPath();
+    if (existsSync(defaultPath)) return defaultPath;
+
+    const legacyPath = getLegacyConfigPath();
+    if (existsSync(legacyPath)) return legacyPath;
+
+    return defaultPath;
 }
 
 export function resolveConfig(

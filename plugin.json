@@ -2,18 +2,18 @@
   "name": "siyuan-plugins-mcp-sisyphus",
   "author": "Taihong Yang",
   "url": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "minAppVersion": "2.9.0",
   "backends": ["windows", "linux", "darwin", "docker"],
   "frontends": ["desktop","browser-desktop","desktop-window"],
   "disabledInPublish": true,
   "displayName": {
-    "default": "SiYuan MCP sisyphus",
-    "zh_CN": "思源 MCP sisyphus"
+    "default": "SiYuan sisyphus MCP & CLI",
+    "zh_CN": "思源 sisyphus MCP & CLI"
   },
   "description": {
-    "default": "Siyuan MCP Server enables AI Agents to operate your Siyuan with notebook-level permission control, covering most of Siyuan's functionality. Supports desktop and docker.",
-    "zh_CN": "思源 MCP 服务器，让 AI Agent 操作你的思源，支持笔记本级权限管控、覆盖SIYUAN绝大部分功能，支持思源的桌面及docker端。"
+    "default": "Siyuan sisyphus enables AI Agents to operate your Siyuan with notebook-level permission control, covering most of Siyuan's functionality. Supports desktop and docker.",
+    "zh_CN": "思源 西西弗斯，让 AI Agent 操作你的思源，提供 MCP CLI 两种方式，支持笔记本级权限管控、覆盖SIYUAN绝大部分功能，支持思源的桌面及docker端。"
   },
   "readme": {
     "default": "README.md",

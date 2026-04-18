@@ -8,11 +8,13 @@ import {
 } from '../mcp/config';
 import { PermissionManager } from '../mcp/permissions';
 import { TOOL_REGISTRY, resolveCategory } from '../mcp/tool-registry';
+import { ensureRequiredPluginInstalled } from './plugin-check';
 
 import type { ParsedArgs } from './args';
+import { PRIMARY_CLI_COMMAND } from './args';
 import { applyConfigToEnv, loadFileConfig, resolveConfig } from './config';
 import { mapFlagsToArgs } from './flag-mapper';
-import { renderToolResult } from './render';
+import { renderCliError, renderToolResult } from './render';
 
 export async function runDispatch(cli: ParsedArgs): Promise<number> {
     const { tool, action, rest } = cli;
@@ -38,35 +40,26 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
     const client = new SiYuanClient({ baseUrl: resolved.apiUrl });
     if (resolved.token) client.setToken(resolved.token);
 
-    const permMgr = new PermissionManager(client);
     try {
+        await ensureRequiredPluginInstalled(client);
+
+        const permMgr = new PermissionManager(client);
         await permMgr.load();
-    } catch {
-        // No permission file or server unreachable — treat as no restrictions.
-        // PermissionManager.get() returns 'rwd' for unknown notebook IDs,
-        // so an un-loaded map is equivalent to full access.
-    }
 
-    const toolConfig = buildPermissiveToolConfig();
-    const module = TOOL_REGISTRY[category];
-    const inputSchema = resolveInputSchema(category, toolConfig);
+        const toolConfig = buildPermissiveToolConfig();
+        const module = TOOL_REGISTRY[category];
+        const inputSchema = resolveInputSchema(category, toolConfig);
 
-    const { args: mappedArgs, warnings } = mapFlagsToArgs(rest, inputSchema);
-    if (warnings.length > 0 && cli.debug) {
-        for (const w of warnings) process.stderr.write(`[warn] ${w}\n`);
-    }
+        const { args: mappedArgs, warnings } = mapFlagsToArgs(rest, inputSchema);
+        if (warnings.length > 0 && cli.debug) {
+            for (const w of warnings) process.stderr.write(`[warn] ${w}\n`);
+        }
 
-    const payload = { action: normalizedAction, ...mappedArgs } as Record<string, unknown>;
-
-    try {
+        const payload = { action: normalizedAction, ...mappedArgs } as Record<string, unknown>;
         const result = await module.callTool(client, payload, toolConfig[category], permMgr);
         return renderToolResult(result, { json: cli.json, debug: cli.debug });
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`\x1b[31m✗ ${message}\x1b[0m\n`);
-        if (cli.debug && error instanceof Error && error.stack) {
-            process.stderr.write(error.stack + '\n');
-        }
+        renderCliError(error, { debug: cli.debug });
         return 1;
     }
 }
@@ -96,13 +89,13 @@ function buildPermissiveToolConfig(): ToolConfig {
 
 function formatUnknownToolError(tool: string): Error {
     const categories = TOOL_CATEGORIES.join(', ');
-    return new Error(`Unknown tool "${tool}". Available tools: ${categories}. Try "siyuan list".`);
+    return new Error(`Unknown tool "${tool}". Available tools: ${categories}. Try "${PRIMARY_CLI_COMMAND} list".`);
 }
 
 function formatUnknownActionError(category: ToolCategory, action: string): Error {
     const actions = ACTIONS_BY_CATEGORY[category].join(', ');
     return new Error(
         `Unknown action "${action}" for tool "${category}". ` +
-        `Available actions: ${actions}. Try "siyuan help ${category}".`,
+        `Available actions: ${actions}. Try "${PRIMARY_CLI_COMMAND} help ${category}".`,
     );
 }

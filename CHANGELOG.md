@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.2.11 - 2026-04-18
+
+- CLI 工具 `siyuan-sisyphus` 预览版上线，发布至 npm，支持通过命令行直接调用全部 10 个聚合工具的 115+ action
+- 支持 `init` 交互式配置、`list` / `help` 命令查询工具与 action，以及全局 `--json` / `--debug` / `--config` / `--url` / `--token` 等 flag
+- 支持 kebab / camel / snake 混用 flag 命名、`--<key>-json` 侧车参数传入复杂对象与数组，以及通过 `jq` 管道处理 JSON 输出
+- 双语文档同步更新，在 README 开篇新增 CLI 简介与快速示例，插件介绍文案同步扩展为「插件 + CLI」双重定位
+
 ## v0.2.10 - 2026-04-16
 
 - 引入 `defineTool` 工厂统一所有聚合 tool 的定义模式，拆分设置面板为 HttpServer / Puppy / Telemetry / ToolCategories / UserRules 五大子面板，并新增遥测与分析模块，支持调用统计、错误率与耗时分布洞察

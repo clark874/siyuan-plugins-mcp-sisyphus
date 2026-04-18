@@ -1,6 +1,6 @@
-# 本地试用 siyuan（不发布到 npm）
+# 本地试用 siyuan-sisyphus（不发布到 npm）
 
-本指南教你在本机把这个仓库里的 CLI 安装成像 `obsidian-cli` / `kubectl` 一样的全局命令 `siyuan`，在终端直接跑 `siyuan notebook list` 这种命令验证效果，而不用 `npm publish`。
+本指南教你在本机把这个仓库里的 CLI 安装成像 `obsidian-cli` / `kubectl` 一样的全局命令 `siyuan-sisyphus`，并保留别名 `siyuan`，在终端直接跑命令验证效果，而不用 `npm publish`。
 
 你的环境：Node 18+、pnpm 或 npm 均可、macOS/Linux/WSL。
 
@@ -35,7 +35,7 @@ node cli/dist/cli.cjs list block  # 列出 block 工具的所有 action
 
 ---
 
-## 二、选一种方式让 `siyuan` 进 PATH
+## 二、选一种方式让 `siyuan-sisyphus` 进 PATH
 
 ### 方式 A：`npm link`（推荐，开发期最方便）
 
@@ -44,11 +44,12 @@ cd cli
 npm link
 ```
 
-这会在 `/opt/homebrew/bin/siyuan`（或你的 npm 全局 bin 目录）建一个软链指向 `cli/dist/cli.cjs`。之后在任意目录都能执行：
+这会在 `/opt/homebrew/bin/siyuan-sisyphus` 和 `/opt/homebrew/bin/siyuan`（或你的 npm 全局 bin 目录）建软链指向 `cli/dist/cli.cjs`。之后在任意目录都能执行：
 
 ```bash
+siyuan-sisyphus --help
 siyuan --help
-siyuan list
+siyuan-sisyphus list
 ```
 
 重新 `pnpm build:cli` 更新产物后，软链会自动指向新内容，**不需要重新 `npm link`**。
@@ -56,25 +57,26 @@ siyuan list
 卸载：
 
 ```bash
-cd cli && npm unlink -g siyuan-mcp
+cd cli && npm unlink -g siyuan-sisyphus
 ```
 
 ### 方式 B：`npm pack` + 全局安装（模拟真实发布体验）
 
 ```bash
 cd cli
-npm pack                              # 生成 siyuan-mcp-0.1.0.tgz
-npm i -g ./siyuan-mcp-0.1.0.tgz
+npm pack                              # 生成 siyuan-sisyphus-0.1.0.tgz
+npm i -g ./siyuan-sisyphus-0.1.0.tgz
 ```
 
-这种方式最接近用户 `npm i -g siyuan-mcp` 后获得 `siyuan` 命令的真实场景，能同时验证 `files`、`bin`、shebang 这些发布相关的细节。更新后需要重新 `pack + install`。
+这种方式最接近用户 `npm i -g siyuan-sisyphus` 后获得 `siyuan-sisyphus` 和 `siyuan` 两个命令的真实场景，能同时验证 `files`、`bin`、shebang 这些发布相关的细节。更新后需要重新 `pack + install`。
 
-卸载：`npm uninstall -g siyuan-mcp`。
+卸载：`npm uninstall -g siyuan-sisyphus`。
 
 ### 方式 C：不安装，直接跑（最轻量）
 
 ```bash
 # 在 ~/.zshrc 或 ~/.bashrc 里加一行（绝对路径）
+alias siyuan-sisyphus="node /Users/skycat/Documents/GitHub/siyuan-plugin-dev/siyuan-plugins-mcp-sisyphus/cli/dist/cli.cjs"
 alias siyuan="node /Users/skycat/Documents/GitHub/siyuan-plugin-dev/siyuan-plugins-mcp-sisyphus/cli/dist/cli.cjs"
 ```
 
@@ -102,7 +104,7 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 ## 四、生成配置文件
 
 ```bash
-siyuan init
+siyuan-sisyphus init
 ```
 
 按提示填：
@@ -110,10 +112,10 @@ siyuan init
 - SiYuan API URL：直接回车用默认 `http://127.0.0.1:6806`
 - SiYuan API token：粘贴上一步复制的 token
 
-结果会写到 `~/.siyuan-mcp/config.json`（权限 `0600`，只有你自己可读）：
+结果会写到 `~/.siyuan-sisyphus/config.json`（权限 `0600`，只有你自己可读）：
 
 ```bash
-cat ~/.siyuan-mcp/config.json
+cat ~/.siyuan-sisyphus/config.json
 # {
 #   "apiUrl": "http://127.0.0.1:6806",
 #   "token": "xxxxxxxxxxxxxxxx"
@@ -122,7 +124,9 @@ cat ~/.siyuan-mcp/config.json
 
 之后所有命令都会自动读这个文件，不需要每次加 `--token`。
 
-> 也可以完全不用配置文件，每次走环境变量 `SIYUAN_TOKEN=xxx siyuan ...` 或命令行 flag `siyuan --token xxx ...`。优先级：flag > 环境变量 > 配置文件 > 默认值。
+> 额外提醒：`siyuan-sisyphus` CLI 依赖已安装并启用的 `siyuan-plugins-mcp-sisyphus` 插件。首次使用前，请先在思源里打开该插件设置面板至少一次，并完成权限配置；否则 CLI 会直接提示缺少插件或插件尚未初始化。
+
+> 也可以完全不用配置文件，每次走环境变量 `SIYUAN_TOKEN=xxx siyuan-sisyphus ...` 或命令行 flag `siyuan-sisyphus --token xxx ...`。优先级：flag > 环境变量 > 配置文件 > 默认值。若旧的 `~/.siyuan-mcp/config.json` 仍在，CLI 也会兼容读取。
 
 ---
 
@@ -132,26 +136,26 @@ cat ~/.siyuan-mcp/config.json
 
 ```bash
 # 1. 连通性：列所有笔记本
-siyuan notebook list
+siyuan-sisyphus notebook list
 
 # 2. 系统信息
-siyuan system get-version
-siyuan system get-current-time
+siyuan-sisyphus system get-version
+siyuan-sisyphus system get-current-time
 
 # 3. 列一个笔记本的文档树（替换成你自己的 notebook id）
-siyuan notebook list --json | jq '.[0].id'   # 拿第一个 notebook id
-siyuan document list-tree --notebook <notebook-id> --path "/" --max-depth 2
+siyuan-sisyphus notebook list --json | jq '.[0].id'   # 拿第一个 notebook id
+siyuan-sisyphus document list-tree --notebook <notebook-id> --path "/" --max-depth 2
 
 # 4. 全文搜索
-siyuan search fulltext --query "TODO" --page-size 5
+siyuan-sisyphus search fulltext --query "TODO" --page-size 5
 
 # 5. 管道给 jq 消费
-siyuan notebook list --json | jq '.[] | select(.closed==false) | .name'
-siyuan search fulltext --query "MCP" --page-size 10 --json | jq '.data[].hPath'
+siyuan-sisyphus notebook list --json | jq '.[] | select(.closed==false) | .name'
+siyuan-sisyphus search fulltext --query "MCP" --page-size 10 --json | jq '.data[].hPath'
 
 # 6. help 查特定 action 的参数
-siyuan help block append
-siyuan help document create
+siyuan-sisyphus help block append
+siyuan-sisyphus help document create
 ```
 
 **人类可读 vs JSON**：默认输出带图标/分页表头/ANSI 颜色方便人读；加 `--json` 变成单行紧凑 JSON，专门给 `jq`、脚本、Python `json.loads()` 用。
@@ -164,25 +168,25 @@ siyuan help document create
 
 ```bash
 # 创建一个新文档（human-readable path，自动建中间层）
-siyuan document create \
+siyuan-sisyphus document create \
   --notebook <notebook-id> \
   --path "/CLI 测试/Hello" \
   --markdown "# Hello from siyuan CLI"
 
 # 给文档末尾追加一个 markdown 块
-siyuan block append \
+siyuan-sisyphus block append \
   --parent-id <doc-id> \
   --data-type markdown \
   --data "- 来自 CLI 的新列表项"
 
 # 查文档信息
-siyuan block info --id <doc-id>
+siyuan-sisyphus block info --id <doc-id>
 
 # 读回 kramdown 源码
-siyuan block get-kramdown --id <doc-id>
+siyuan-sisyphus block get-kramdown --id <doc-id>
 ```
 
-flag 命名规则：kebab-case、camelCase、snake_case 都接受 —— `--parent-id`、`--parentID`、`--parentId` 指向同一个字段。action 名也是两种都行：`get-kramdown` == `get_kramdown`。
+flag 命名规则：kebab-case、camelCase、snake_case 都接受 —— `--parent-id`、`--parentID`、`--parentId` 指向同一个字段。action 名也是两种都行：`get-kramdown` == `get_kramdown`。以上示例默认用 `siyuan-sisyphus`，但换成别名 `siyuan` 也一样。
 
 ---
 
@@ -192,19 +196,19 @@ flag 命名规则：kebab-case、camelCase、snake_case 都接受 —— `--pare
 
 ```bash
 # 未知工具
-siyuan frobnicate foo
+siyuan-sisyphus frobnicate foo
 echo $?                # 1
 
 # 未知 action
-siyuan block frobnicate
+siyuan-sisyphus block frobnicate
 echo $?                # 1
 
 # 缺必填字段（人类可读的校验错误）
-siyuan document list-tree --notebook <id>   # 会提示 path 必填
+siyuan-sisyphus document list-tree --notebook <id>   # 会提示 path 必填
 
 # 没 token（去掉配置文件后）
-rm ~/.siyuan-mcp/config.json
-siyuan notebook list                         # 401 / api_error
+rm ~/.siyuan-sisyphus/config.json
+siyuan-sisyphus notebook list                # 401 / api_error
 ```
 
 ---
@@ -218,7 +222,7 @@ SiYuan 没启动，或 `SIYUAN_API_URL` 写错。确认上面那条 `curl` 命�
 token 错误。去 SiYuan 设置页重新拷一次。记住 token 是敏感凭据，别 commit 进代码仓库。
 
 **`Unknown flag --xxx; ignored.` 警告**
-flag 名拼错了。加 `--debug` 看具体哪条被忽略，或 `siyuan help <tool> <action>` 看正确的字段名。
+flag 名拼错了。加 `--debug` 看具体哪条被忽略，或 `siyuan-sisyphus help <tool> <action>` 看正确的字段名。
 
 **改了源码但 CLI 行为没变**
 忘了 `pnpm build:cli`。CLI 当前没有 watch 模式，每次改源码都需要手动构建一次。
@@ -227,7 +231,7 @@ flag 名拼错了。加 `--debug` 看具体哪条被忽略，或 `siyuan help <t
 加 `--debug`，会把忽略的 flag 警告输出到 stderr。想看实际请求体的话，设 `SIYUAN_MCP_DEBUG_ERRORS=1` 会在错误里带上 stack trace。
 
 **CLI 在一个终端里能跑，但切到别的 shell 就找不到命令**
-PATH 没刷新。`which siyuan` 能定位到哪里；方式 A/B 装完后需要 `hash -r`（zsh）或重开终端。
+PATH 没刷新。`which siyuan-sisyphus` 或 `which siyuan` 能定位到哪里；方式 A/B 装完后需要 `hash -r`（zsh）或重开终端。
 
 ---
 
@@ -235,16 +239,16 @@ PATH 没刷新。`which siyuan` 能定位到哪里；方式 A/B 装完后需要 
 
 ```bash
 # 如果用了 npm link
-cd cli && npm unlink -g siyuan-mcp
+cd cli && npm unlink -g siyuan-sisyphus
 
 # 如果用了 npm i -g
-npm uninstall -g siyuan-mcp
+npm uninstall -g siyuan-sisyphus
 
 # 如果用了方式 C（alias）
 # 编辑 ~/.zshrc 删除对应行
 
 # 删掉配置文件
-rm -rf ~/.siyuan-mcp
+rm -rf ~/.siyuan-sisyphus
 
 # 删掉构建产物
 rm -rf cli/dist

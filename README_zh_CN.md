@@ -1,12 +1,17 @@
-# SiYuan MCP Sisyphus
+# SiYuan Sisyphus MCP & CLI
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **最新版本：**`v0.2.10` — 引入 `defineTool` 工厂统一聚合 tool 定义模式，拆分设置面板为 HTTP Server / Puppy / Telemetry / ToolCategories / UserRules 五大子面板，新增遥测分析模块支持调用统计与错误率洞察，并补全 `flashcard(action="create_card")` 实现端到端闪卡创建。详见 [CHANGELOG.md](./CHANGELOG.md)。
+> **最新版本：**`v0.2.11` — CLI 工具 `siyuan-sisyphus` 预览版上线 npm，全部 10 个聚合工具、115+ action 均可在终端直接调用。详见 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
-这是一个把**思源笔记接到 AI Agent** 上的 MCP 服务器插件。装好之后，支持 MCP 的 Agent 就可以把思源当成一组可调用工具：读笔记、搜索文档、修改块内容、操作数据库、导出资源。
+本项目提供**两种将思源笔记与外部连接的方式**：
+
+- **MCP 服务器插件** — 运行在思源内部，让支持 MCP 的 Agent 把你的笔记当成一组可调用工具。
+- **CLI 工具 (`siyuan-sisyphus`)** — 无需启动 MCP 客户端，直接在终端或脚本里操作思源。
+
+两种入口共享同一套能力：权限管理，读笔记、搜索文档、修改块内容、操作数据库、导出资源等。
 
 如果你以前没接触过 MCP，可以先这样理解：
 
@@ -16,6 +21,19 @@
 - **MCP**：Agent 和外部工具之间的一套通用连接协议
 
 也就是说，这个插件做的事情很简单：**让 Agent 能安全地“看见并调用”思源笔记。**
+
+## CLI 工具：`siyuan-sisyphus`
+
+本仓库还提供了一个独立的命令行工具 [`siyuan-sisyphus`](./cli/README_zh_CN.md)，让你无需启动 MCP 客户端，就能直接在终端或脚本中操作思源笔记。
+
+```bash
+npm i -g siyuan-sisyphus
+siyuan notebook list
+siyuan document create --notebook <id> --path "/Inbox/Note" --markdown "# Hello"
+siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
+```
+
+所有 MCP 工具（`notebook`、`document`、`block`、`av`、`search`、`tag`、`file`、`system`、`flashcard`、`mascot`）都被暴露为子命令。CLI 通过 HTTP API 连接思源，执行完一次操作即退出，无需常驻进程。
 
 ## 功能特性
 
@@ -69,6 +87,11 @@ pnpm run make-link
 |-----------|-------------|
 | 桌面端（Windows / macOS / Linux） | HTTP 或 stdio 均可 |
 | Docker / 远程部署 | 必须使用 stdio |
+
+如果你更习惯命令行，CLI 工具 `siyuan-sisyphus` 也覆盖了上述两种场景：
+
+- **HTTP 场景**（桌面端）：安装 `siyuan-sisyphus` 后直接通过 `siyuan notebook list`、`siyuan document create ...` 等子命令操作思源，无需启动 MCP 客户端。
+- **stdio 场景**（Docker / 远程）：使用同一包内的 `mcp-server.cjs` 作为 stdio MCP 服务器运行，通过 `SIYUAN_API_URL` 连接远程思源实例。
 
 **快速配置：** 打开 「`插件` → `siyuan-plugins-mcp-sisyphus` → `设置` → `🌐 连接配置`」，底部提供三段可直接复制的 JSON：`HTTP 连接方式`、`mcp-remote 桥接`、`stdio 连接方式`。
 

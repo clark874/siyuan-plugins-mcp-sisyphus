@@ -2,6 +2,7 @@ import { getHelpText, parseArgs } from './args';
 import { runDispatch } from './dispatch';
 import { runInit } from './init';
 import { runHelp, runList } from './list-help';
+import { renderCliError } from './render';
 
 declare const __CLI_VERSION__: string;
 
@@ -10,7 +11,7 @@ async function main(): Promise<number> {
     try {
         cli = parseArgs(process.argv.slice(2));
     } catch (error) {
-        process.stderr.write((error instanceof Error ? error.message : String(error)) + '\n');
+        renderCliError(error);
         return 2;
     }
 
@@ -38,10 +39,6 @@ async function main(): Promise<number> {
 main()
     .then((code) => process.exit(code))
     .catch((error) => {
-        const msg = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`\x1b[31m✗ ${msg}\x1b[0m\n`);
-        if (process.env.SIYUAN_MCP_DEBUG === '1' && error instanceof Error && error.stack) {
-            process.stderr.write(error.stack + '\n');
-        }
+        renderCliError(error, { debug: process.env.SIYUAN_MCP_DEBUG === '1' });
         process.exit(1);
     });

@@ -3,13 +3,23 @@ import {
     ACTIONS_BY_CATEGORY,
     TOOL_CATEGORIES,
     buildDefaultToolConfig,
+    getActionTier,
+    isDangerousAction,
 } from '../mcp/config';
 import { PermissionManager } from '../mcp/permissions';
 import { TOOL_REGISTRY, resolveCategory } from '../mcp/tool-registry';
 
 import type { ParsedArgs } from './args';
+import { PRIMARY_CLI_COMMAND } from './args';
 import { applyConfigToEnv, loadFileConfig, resolveConfig } from './config';
-import { renderToolResult } from './render';
+import {
+    renderCliError,
+    renderToolResult,
+    writeBulletList,
+    writeHeading,
+    writeHint,
+    writeSection,
+} from './render';
 
 export function runList(cli: ParsedArgs): number {
     const out = process.stdout;
@@ -17,39 +27,45 @@ export function runList(cli: ParsedArgs): number {
 
     if (!toolFilter) {
         if (cli.tool) {
-            process.stderr.write(`Unknown tool "${cli.tool}". Showing all tools instead.\n`);
+            renderCliError(`Unknown tool "${cli.tool}". Showing all tools instead.`);
         }
-        out.write('Tools:\n');
-        for (const cat of TOOL_CATEGORIES) {
+        writeHeading('SiYuan tools', out);
+        writeBulletList(TOOL_CATEGORIES.map((cat) => {
             const actions = ACTIONS_BY_CATEGORY[cat];
-            out.write(`  ${cat.padEnd(10)} ${actions.length} actions\n`);
-        }
-        out.write('\nUse "siyuan list <tool>" to see actions for a specific tool.\n');
+            const basicCount = actions.filter((action) => getActionTier(cat, action) === 'basic').length;
+            const advancedCount = actions.length - basicCount;
+            return `${cat} — ${actions.length} actions (${basicCount} common, ${advancedCount} advanced)`;
+        }), out);
+        writeSection('Next Step', out);
+        writeHint('Tip', `Run \`${PRIMARY_CLI_COMMAND} list <tool>\` to see a tool’s actions.`, out);
         return 0;
     }
 
-    out.write(`${toolFilter} actions:\n`);
-    for (const action of ACTIONS_BY_CATEGORY[toolFilter]) {
-        out.write(`  ${action}\n`);
-    }
-    out.write(`\nUse "siyuan help ${toolFilter} <action>" to see flags for a specific action.\n`);
+    writeHeading(`${toolFilter} actions`, out);
+    writeBulletList(ACTIONS_BY_CATEGORY[toolFilter].map((action) => {
+        const tier = getActionTier(toolFilter, action) === 'basic' ? 'common' : 'advanced';
+        const safety = isDangerousAction(toolFilter, action) ? ' · confirmation required' : '';
+        return `${action} — ${tier}${safety}`;
+    }), out);
+    writeSection('Next Step', out);
+    writeHint('Tip', `Run \`${PRIMARY_CLI_COMMAND} help ${toolFilter} <action>\` for fields and examples.`, out);
     return 0;
 }
 
 /**
- * Forward `siyuan help <tool> [action]` to the existing `action="help"`
+ * Forward `siyuan-sisyphus help <tool> [action]` to the existing `action="help"`
  * mechanism inside each tool — this gives the same help content AI clients see.
  */
 export async function runHelp(cli: ParsedArgs): Promise<number> {
     const tool = cli.tool;
     if (!tool) {
-        process.stderr.write('Missing tool. Usage: siyuan help <tool> [action]\n');
+        renderCliError(`Missing tool. Usage: ${PRIMARY_CLI_COMMAND} help <tool> [action]`);
         return 2;
     }
 
     const category = resolveCategory(tool);
     if (!category) {
-        process.stderr.write(`Unknown tool "${tool}". Available: ${TOOL_CATEGORIES.join(', ')}.\n`);
+        renderCliError(`Unknown tool "${tool}". Available: ${TOOL_CATEGORIES.join(', ')}.`);
         return 2;
     }
 
@@ -72,8 +88,7 @@ export async function runHelp(cli: ParsedArgs): Promise<number> {
         const result = await module.callTool(client, payload, toolConfig[category], permMgr);
         return renderToolResult(result, { json: cli.json, debug: cli.debug });
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`\x1b[31m✗ ${message}\x1b[0m\n`);
+        renderCliError(error, { debug: cli.debug });
         return 1;
     }
 }
