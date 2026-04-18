@@ -1,12 +1,17 @@
-# SiYuan MCP Sisyphus
+# SiYuan Sisyphus MCP & CLI
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **Latest:** `v0.2.11` — Fixed AV (database block) creation via `av(action="render_attribute_view")` with `createIfNotExist=true`, allowing AI agents to create new attribute views in designated documents. See full history in [CHANGELOG.md](./CHANGELOG.md).
+> **Latest:** `v0.3.0` — CLI tool `siyuan-sisyphus` preview release on npm; all 10 aggregated tools and 115+ actions are now callable from the terminal. See full history in [CHANGELOG.md](./CHANGELOG.md).
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
-This is an MCP server plugin that **connects SiYuan Note to AI agents**. Once installed, any MCP-capable agent can treat SiYuan as a callable toolset: read notes, search documents, edit block content, work with databases, and export resources.
+This project provides **two ways to connect SiYuan Note to the outside world**:
+
+- **MCP Server Plugin** — Runs inside SiYuan so any MCP-capable agent can treat your notes as a callable toolset.
+- **CLI (`siyuan-sisyphus`)** — Drive SiYuan directly from your terminal or shell scripts without an MCP client.
+
+Both paths expose the same operations: read notes, search documents, edit blocks, work with databases, export resources, and more.
 
 If MCP is new to you, here is the simple version:
 
@@ -16,6 +21,19 @@ If MCP is new to you, here is the simple version:
 - **MCP** is the protocol that lets agents talk to external tools in a standard way
 
 In other words, the plugin does one simple thing: **make SiYuan safely visible and callable from your agent**.
+
+## CLI Tool: `siyuan-sisyphus`
+
+This repo also ships a standalone CLI — [`siyuan-sisyphus`](./cli/README.md) — so you can drive SiYuan straight from your terminal or shell scripts without starting an MCP client.
+
+```bash
+npm i -g siyuan-sisyphus
+siyuan notebook list
+siyuan document create --notebook <id> --path "/Inbox/Note" --markdown "# Hello"
+siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
+```
+
+Every MCP tool (`notebook`, `document`, `block`, `av`, `search`, `tag`, `file`, `system`, `flashcard`, `mascot`) is exposed as a subcommand. The CLI connects to SiYuan over the HTTP API, executes one operation, and exits — no long-running server required.
 
 ## Features
 
@@ -69,6 +87,11 @@ The plugin supports two connection modes: **HTTP** and **stdio**
 |------------|------------------|
 | Desktop (Windows / macOS / Linux) | HTTP or stdio |
 | Docker / Remote deployment | stdio required |
+
+If you prefer the terminal, the CLI tool `siyuan-sisyphus` covers both scenarios too:
+
+- **HTTP scenario** (desktop): Install `siyuan-sisyphus` and run commands like `siyuan notebook list` or `siyuan document create ...` directly — no MCP client needed.
+- **stdio scenario** (Docker / remote): Use the bundled `mcp-server.cjs` as a stdio MCP server, connecting to the remote SiYuan instance via `SIYUAN_API_URL`.
 
 **Quick Config:** Open `Plugin` → `siyuan-plugins-mcp-sisyphus` → `Settings` → `🌐 Connection Config` to find three ready-to-copy JSON snippets: `HTTP Connection`, `mcp-remote Bridge`, and `stdio Connection`.
 

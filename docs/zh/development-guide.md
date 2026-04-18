@@ -9,9 +9,10 @@
 3. [开发工作流](#开发工作流)
 4. [测试](#测试)
 5. [代码规范](#代码规范)
-6. [如何添加新工具](#如何添加新工具)
-7. [如何添加新action](#如何添加新action)
-8. [调试技巧](#调试技巧)
+6. [发布 CLI npm 包](#发布-cli-npm-包)
+7. [如何添加新工具](#如何添加新工具)
+8. [如何添加新action](#如何添加新action)
+9. [调试技巧](#调试技巧)
 
 ---
 
@@ -187,6 +188,113 @@ pnpm make-install
 ```
 
 构建并打包插件用于分发。
+
+### 发布 CLI npm 包
+
+本项目的 npm CLI 包是 `cli/` 子目录下的独立包，不是仓库根目录的插件包。
+
+#### 相关文件
+
+- 根目录脚本：`package.json` 中的 `publish:cli`
+- CLI 包信息：`cli/package.json`
+- 当前发布包名：`siyuan-sisyphus`
+- 当前命令入口：`siyuan-sisyphus` 和 `siyuan`
+
+#### 首次发布前检查
+
+1. 确认已经有 npm 账号：<https://www.npmjs.com/>
+2. 本地登录 npm：
+
+```bash
+npm login
+```
+
+3. 确认包名是否可用：
+
+```bash
+npm view siyuan-sisyphus
+```
+
+如果返回 404，通常表示这个名字还没有被占用；如果已经有结果，需要确认你是否拥有该包的发布权限。
+
+#### 正式发布流程
+
+1. 修改 CLI 版本号：
+
+```bash
+# 编辑这个文件
+cli/package.json
+```
+
+把 `version` 从当前值递增，例如 `0.1.0` → `0.1.1`。
+
+2. 在仓库根目录构建 CLI：
+
+```bash
+pnpm build:cli
+```
+
+3. 预览打包内容（推荐）：
+
+```bash
+cd cli
+npm pack --dry-run
+```
+
+你应该看到类似：
+
+```text
+name: siyuan-sisyphus
+filename: siyuan-sisyphus-x.y.z.tgz
+```
+
+4. 发布到 npm：
+
+```bash
+# 方式 A：使用仓库现成脚本（推荐）
+pnpm publish:cli
+
+# 方式 B：手动发布
+pnpm build:cli
+cd cli
+npm publish --access public
+```
+
+#### 发布后验证
+
+```bash
+npm view siyuan-sisyphus version
+npm i -g siyuan-sisyphus
+siyuan-sisyphus --help
+siyuan --help
+```
+
+#### 常见问题
+
+- **需要 2FA / OTP**
+  - 如果你的 npm 账号开启了双因素认证，`npm publish` 时会要求输入一次性验证码。
+- **版本号重复**
+  - npm 不允许重复发布同一版本；重新修改 `cli/package.json` 里的 `version` 后再发。
+- **打包内容不对**
+  - 检查 `cli/package.json` 的 `files` 字段是否包含你希望发布的文件。
+- **权限错误 / 无法写入本地 npm cache**
+  - 如果出现本地 cache 权限问题，可临时指定缓存目录：
+
+```bash
+npm_config_cache=/tmp/npm-cache-sisyphus npm pack --dry-run
+```
+
+#### 推荐发布节奏
+
+- 改完 CLI 代码后先运行：
+
+```bash
+pnpm build:cli
+pnpm test
+```
+
+- 确认无误后再执行 `pnpm publish:cli`
+- 发布完成后，在一个干净环境里用 `npm i -g siyuan-sisyphus` 做一次真实安装验证
 
 ---
 

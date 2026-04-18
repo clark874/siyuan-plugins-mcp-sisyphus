@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import { resolve } from "path";
 import { defineConfig } from "vite";
 import { viteStaticCopy } from "vite-plugin-static-copy";
@@ -12,6 +13,7 @@ const isSrcmap = env.VITE_SOURCEMAP === "inline";
 const isDev = env.NODE_ENV === "development";
 
 const outputDir = isDev ? "dev" : "dist";
+const cliOutputDir = "cli/dist";
 
 const serverExternals = [
     "siyuan",
@@ -46,16 +48,31 @@ const serverExternals = [
     "node:querystring",
 ];
 
-const buildTarget = env.BUILD_TARGET === "server" ? "server" : "renderer";
+const cliExtraExternals = [
+    "os",
+    "node:os",
+    "readline",
+    "node:readline",
+];
+
+const validTargets = ["renderer", "server", "cli"] as const;
+type BuildTarget = typeof validTargets[number];
+const buildTarget: BuildTarget = (validTargets as readonly string[]).includes(env.BUILD_TARGET ?? "")
+    ? (env.BUILD_TARGET as BuildTarget)
+    : "renderer";
 
 console.log("isDev=>", isDev);
 console.log("isSrcmap=>", isSrcmap);
 console.log("outputDir=>", outputDir);
 console.log("buildTarget=>", buildTarget);
 
-export default defineConfig(buildTarget === "server"
-    ? createServerConfig()
-    : createRendererConfig());
+export default defineConfig(() => {
+    switch (buildTarget) {
+        case "server": return createServerConfig();
+        case "cli": return createCliConfig();
+        default: return createRendererConfig();
+    }
+});
 
 function createRendererConfig() {
     return {
@@ -224,6 +241,97 @@ function createServerConfig() {
                     inlineDynamicImports: true,
                     entryFileNames: "mcp-server.cjs",
                 },
+            },
+        },
+    };
+}
+
+function readCliVersion(): string {
+    try {
+        const raw = readFileSync(resolve(__dirname, "cli/package.json"), "utf8");
+        const parsed = JSON.parse(raw);
+        return typeof parsed.version === "string" ? parsed.version : "0.0.0";
+    } catch {
+        return "0.0.0";
+    }
+}
+
+function createCliConfig() {
+    const version = readCliVersion();
+    return {
+        plugins: [
+            {
+                name: "sdk-lightweight-resolver",
+                enforce: "pre" as const,
+                resolveId(id: string) {
+                    if (id.endsWith("validation/ajv-provider.js") || id.endsWith("validation/ajv-provider")) {
+                        return resolve(__dirname, "src/mcp/noop-schema-validator.ts");
+                    }
+                    if (id.endsWith("experimental/tasks/server.js") || id.endsWith("experimental/tasks/server")) {
+                        return resolve(__dirname, "src/mcp/noop-experimental-tasks.ts");
+                    }
+                    if (id.endsWith("experimental/tasks/helpers.js") || id.endsWith("experimental/tasks/helpers")) {
+                        return resolve(__dirname, "src/mcp/noop-experimental-tasks.ts");
+                    }
+                    return null;
+                },
+            },
+        ],
+        publicDir: false as const,
+        resolve: {
+            alias: {
+                "@": resolve(__dirname, "src"),
+            },
+        },
+        define: {
+            "process.env.DEV_MODE": JSON.stringify(isDev),
+            "process.env.NODE_ENV": JSON.stringify(env.NODE_ENV),
+            __CLI_VERSION__: JSON.stringify(version),
+        },
+        build: {
+            outDir: cliOutputDir,
+            emptyOutDir: false,
+            minify: true,
+            sourcemap: isSrcmap ? "inline" : false,
+            lib: {
+                entry: resolve(__dirname, "src/cli/index.ts"),
+                fileName: () => "cli",
+                formats: ["cjs"] as const,
+            },
+            rollupOptions: {
+                external: (id: string) => {
+                    if (serverExternals.includes(id)) return true;
+                    if (cliExtraExternals.includes(id)) return true;
+                    return false;
+                },
+                plugins: [shebangAndChmod(`${cliOutputDir}/cli.cjs`)],
+                output: {
+                    inlineDynamicImports: true,
+                    entryFileNames: "cli.cjs",
+                    banner: "#!/usr/bin/env node",
+                },
+            },
+        },
+    };
+}
+
+function shebangAndChmod(relPath: string) {
+    return {
+        name: "cli-shebang-chmod",
+        writeBundle: {
+            sequential: true,
+            order: "post" as const,
+            async handler() {
+                const fs = await import("fs");
+                const target = resolve(__dirname, relPath);
+                if (fs.default.existsSync(target)) {
+                    try {
+                        fs.default.chmodSync(target, 0o755);
+                        console.log(`[cli-shebang-chmod] chmod 755 ${target}`);
+                    } catch (error) {
+                        console.warn(`[cli-shebang-chmod] chmod failed: ${error instanceof Error ? error.message : String(error)}`);
+                    }
+                }
             },
         },
     };

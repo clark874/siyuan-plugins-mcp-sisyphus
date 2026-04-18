@@ -262,7 +262,7 @@ function parseTransportMode(): 'stdio' | 'http' {
     return 'stdio';
 }
 
-async function main() {
+export async function startMcpServer() {
     process.on('uncaughtException', (error) => {
         console.error('[MCP] Uncaught exception:', error instanceof Error ? error.message : String(error));
     });
@@ -311,7 +311,7 @@ async function main() {
 }
 
 if (require.main === module) {
-    main().catch((error) => {
+    startMcpServer().catch((error) => {
         console.error('[MCP] Failed to start server:', error instanceof Error ? error.message : String(error));
         process.exit(1);
     });

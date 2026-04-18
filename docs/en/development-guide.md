@@ -9,9 +9,10 @@ This guide helps developers understand and contribute to the SiYuan MCP Sisyphus
 3. [Development Workflow](#development-workflow)
 4. [Testing](#testing)
 5. [Code Conventions](#code-conventions)
-6. [Adding New Tools](#adding-new-tools)
-7. [Adding New Actions](#adding-new-actions)
-8. [Debugging](#debugging)
+6. [Publishing the CLI npm Package](#publishing-the-cli-npm-package)
+7. [Adding New Tools](#adding-new-tools)
+8. [Adding New Actions](#adding-new-actions)
+9. [Debugging](#debugging)
 
 ---
 
@@ -187,6 +188,113 @@ pnpm make-install
 ```
 
 Builds and packages the plugin for distribution.
+
+### Publishing the CLI npm Package
+
+The npm CLI package lives in the `cli/` subdirectory and is published separately from the root plugin package.
+
+#### Relevant Files
+
+- Root script: `publish:cli` in `package.json`
+- CLI package metadata: `cli/package.json`
+- Current published package name: `siyuan-sisyphus`
+- Installed command names: `siyuan-sisyphus` and `siyuan`
+
+#### First-Time Checks
+
+1. Make sure you have an npm account: <https://www.npmjs.com/>
+2. Log in locally:
+
+```bash
+npm login
+```
+
+3. Check whether the package name is available:
+
+```bash
+npm view siyuan-sisyphus
+```
+
+If this returns 404, the name is usually still available. If it returns package metadata, make sure your account has publish access.
+
+#### Release Workflow
+
+1. Update the CLI version:
+
+```bash
+# Edit this file
+cli/package.json
+```
+
+Increment `version`, for example `0.1.0` → `0.1.1`.
+
+2. Build the CLI from the repo root:
+
+```bash
+pnpm build:cli
+```
+
+3. Preview the tarball contents:
+
+```bash
+cd cli
+npm pack --dry-run
+```
+
+You should see output similar to:
+
+```text
+name: siyuan-sisyphus
+filename: siyuan-sisyphus-x.y.z.tgz
+```
+
+4. Publish to npm:
+
+```bash
+# Option A: use the repo script (recommended)
+pnpm publish:cli
+
+# Option B: publish manually
+pnpm build:cli
+cd cli
+npm publish --access public
+```
+
+#### Post-Publish Verification
+
+```bash
+npm view siyuan-sisyphus version
+npm i -g siyuan-sisyphus
+siyuan-sisyphus --help
+siyuan --help
+```
+
+#### Common Issues
+
+- **2FA / OTP required**
+  - If your npm account uses two-factor auth, `npm publish` will ask for a one-time code.
+- **Duplicate version**
+  - npm does not allow republishing the same version; bump `cli/package.json` and publish again.
+- **Unexpected package contents**
+  - Check the `files` field in `cli/package.json`.
+- **Local npm cache permission errors**
+  - If your local npm cache is not writable, temporarily override it:
+
+```bash
+npm_config_cache=/tmp/npm-cache-sisyphus npm pack --dry-run
+```
+
+#### Recommended Release Routine
+
+- After changing CLI code, run:
+
+```bash
+pnpm build:cli
+pnpm test
+```
+
+- Publish only after validation passes
+- After release, verify a real install in a clean environment with `npm i -g siyuan-sisyphus`
 
 ---
 
