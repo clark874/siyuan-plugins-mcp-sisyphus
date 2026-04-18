@@ -1,8 +1,9 @@
 {
-  "name": "siyuan-mcp",
-  "version": "0.1.0",
-  "description": "Direct command-line control for SiYuan Note. Call any SiYuan MCP tool as a subcommand: `siyuan block append --parent-id ... --data \"...\"`.",
+  "name": "siyuan-sisyphus",
+  "version": "0.1.2",
+  "description": "Direct command-line control for SiYuan Note. Call any SiYuan MCP tool as a subcommand: `siyuan-sisyphus block append --parent-id ... --data \"...\"`.",
   "bin": {
+    "siyuan-sisyphus": "./dist/cli.cjs",
     "siyuan": "./dist/cli.cjs"
   },
   "files": [
@@ -24,10 +25,13 @@
   "author": "Taihong Yang",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus.git"
+    "url": "git+https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus.git"
   },
   "homepage": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus#readme",
   "bugs": {
     "url": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/issues"
+  },
+  "dependencies": {
+    "siyuan-sisyphus": "^0.1.0"
   }
 }

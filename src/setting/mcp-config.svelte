@@ -340,6 +340,7 @@
 <style lang="scss">
     .config__panel {
         height: 100%;
+        min-height: 0;
     }
 
     .config__panel > ul > li {

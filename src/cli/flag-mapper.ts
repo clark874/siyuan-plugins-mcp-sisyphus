@@ -24,16 +24,13 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMap
     const stringKeys = new Set<string>();
     for (const [name, schema] of Object.entries(props)) {
         if (name === 'action' || name === 'topic') continue;
-        const lower = name.toLowerCase();
-        canonicalByLower.set(lower, name);
-        canonicalByLower.set(toKebab(name).toLowerCase(), name);
+        const aliases = getFlagAliases(name);
+        for (const alias of aliases) canonicalByLower.set(alias.toLowerCase(), name);
         const type = inferType(schema);
         if (type === 'boolean') {
-            booleanKeys.add(name);
-            booleanKeys.add(toKebab(name));
+            for (const alias of aliases) booleanKeys.add(alias);
         } else {
-            stringKeys.add(name);
-            stringKeys.add(toKebab(name));
+            for (const alias of aliases) stringKeys.add(alias);
         }
     }
 
@@ -42,18 +39,18 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMap
     const jsonSidecarKeys: string[] = [];
     for (const name of Object.keys(props)) {
         if (name === 'action' || name === 'topic') continue;
-        const kebab = toKebab(name);
-        jsonSidecarKeys.push(`${kebab}-json`);
-        if (kebab !== name) jsonSidecarKeys.push(`${name}-json`);
+        for (const alias of getFlagAliases(name)) jsonSidecarKeys.push(`${alias}-json`);
     }
 
     const parsed = minimist(rest, {
         boolean: [...booleanKeys],
         string: [...stringKeys, ...jsonSidecarKeys],
     });
+    const providedFlagKeys = collectProvidedFlagKeys(rest);
 
     const result: Record<string, unknown> = {};
     const warnings: string[] = [];
+    const jsonOverrides: Record<string, unknown> = {};
 
     for (const [rawKey, rawVal] of Object.entries(parsed)) {
         if (rawKey === '_') continue;
@@ -68,12 +65,15 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMap
             }
             if (typeof rawVal !== 'string' || rawVal.length === 0) continue;
             try {
-                result[canonical] = JSON.parse(rawVal);
+                jsonOverrides[canonical] = JSON.parse(rawVal);
             } catch (error) {
                 throw new Error(`--${rawKey} must be valid JSON: ${error instanceof Error ? error.message : String(error)}`);
             }
-            continue;
         }
+    }
+
+    for (const [rawKey, rawVal] of Object.entries(parsed)) {
+        if (rawKey === '_' || rawKey.endsWith('-json')) continue;
 
         const canonical = canonicalByLower.get(rawKey.toLowerCase());
         if (!canonical) {
@@ -81,8 +81,12 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMap
             continue;
         }
 
+        if (canonical in jsonOverrides) continue;
         if (canonical in result) continue; // avoid double-assignment from alias+original
         const schema = props[canonical];
+        if (inferType(schema) === 'boolean' && rawVal === false && !providedFlagKeys.has(rawKey.toLowerCase())) {
+            continue;
+        }
         result[canonical] = coerce(canonical, rawVal, schema);
     }
 
@@ -90,7 +94,7 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMap
         warnings.push(`Extra positional arguments ignored: ${parsed._.join(' ')}`);
     }
 
-    return { args: result, warnings };
+    return { args: { ...result, ...jsonOverrides }, warnings };
 }
 
 function coerce(key: string, value: unknown, schema: JsonSchema): unknown {
@@ -158,9 +162,46 @@ function inferType(schema: JsonSchema | undefined): string {
     return 'string';
 }
 
-function toKebab(name: string): string {
+function getFlagAliases(name: string): string[] {
+    const parts = splitFlagName(name);
+    const aliases = new Set<string>([name]);
+    if (parts.length === 0) return [...aliases];
+
+    aliases.add(parts.join('-'));
+    aliases.add(parts.join('_'));
+    aliases.add(toCamel(parts));
+
+    return [...aliases];
+}
+
+function splitFlagName(name: string): string[] {
     return name
-        .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
-        .toLowerCase();
+        .split(/[_-]+/)
+        .flatMap((segment) => segment.replace(/([A-Z]+)([A-Z][a-z]{2,})/g, '$1 $2').split(/\s+/))
+        .flatMap((segment) => segment.match(/[A-Z]+[a-z]*|[a-z]+|[0-9]+/g) ?? [])
+        .map((part) => part.toLowerCase());
+}
+
+function toCamel(parts: string[]): string {
+    if (parts.length === 0) return '';
+    return parts[0] + parts.slice(1).map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join('');
+}
+
+function toKebab(name: string): string {
+    const parts = splitFlagName(name);
+    return parts.length > 0 ? parts.join('-') : name.toLowerCase();
+}
+
+function collectProvidedFlagKeys(rest: string[]): Set<string> {
+    const keys = new Set<string>();
+    for (const token of rest) {
+        if (!token.startsWith('-')) continue;
+        const eq = token.indexOf('=');
+        const rawKey = eq === -1
+            ? token.replace(/^-+/, '')
+            : token.slice(token.startsWith('--') ? 2 : 1, eq);
+        const key = rawKey.startsWith('no-') ? rawKey.slice(3) : rawKey;
+        if (key) keys.add(key.toLowerCase());
+    }
+    return keys;
 }

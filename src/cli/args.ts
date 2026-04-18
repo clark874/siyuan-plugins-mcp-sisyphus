@@ -2,6 +2,9 @@ import minimist from 'minimist';
 
 export type Command = 'dispatch' | 'list' | 'help' | 'init' | 'show-help' | 'version';
 
+export const PRIMARY_CLI_COMMAND = 'siyuan-sisyphus';
+export const CLI_COMMAND_ALIAS = 'siyuan';
+
 export interface ParsedArgs {
     command: Command;
     tool?: string;
@@ -14,41 +17,47 @@ export interface ParsedArgs {
     debug: boolean;
 }
 
-const HELP_TEXT = `siyuan — Direct command-line control for SiYuan Note
+const HELP_TEXT = `${PRIMARY_CLI_COMMAND} — Direct command-line control for SiYuan Note
 
-Usage:
-  siyuan <tool> <action> [--flag value ...]   Execute a SiYuan operation
-  siyuan list [tool]                           List tools or list a tool's actions
-  siyuan help <tool> [action]                  Show detailed help for a tool or action
-  siyuan init                                  Create ~/.siyuan-mcp/config.json
-  siyuan --help | -h                           Show this help
-  siyuan --version | -v                        Show version
+Commands:
+  ${PRIMARY_CLI_COMMAND} <tool> <action> [--flag value ...]   Execute a SiYuan operation
+  ${PRIMARY_CLI_COMMAND} list [tool]                          List tools or a tool's actions
+  ${PRIMARY_CLI_COMMAND} help <tool> [action]                 Show terminal-friendly help
+  ${PRIMARY_CLI_COMMAND} init                                 Create ~/.siyuan-sisyphus/config.json
+  ${PRIMARY_CLI_COMMAND} --help | -h                          Show this help
+  ${PRIMARY_CLI_COMMAND} --version | -v                       Show version
 
 Tools:
   notebook, document, block, av, file, search, tag, system, flashcard, mascot
 
+Alias:
+  ${CLI_COMMAND_ALIAS}                                         Same CLI, shorter command name
+
 Global options:
-  --config <file>     Load config from <file> instead of ~/.siyuan-mcp/config.json
-  --url <url>         SiYuan API base URL (default http://127.0.0.1:6806)
-  --token <token>     SiYuan API token
-  --json              Emit compact JSON (for scripts); default is pretty / human-readable
-  --debug             Include stack traces and extra diagnostics
+  --config <file>    Load config from <file> instead of ~/.siyuan-sisyphus/config.json
+  --url <url>        SiYuan API base URL (default http://127.0.0.1:6806)
+  --token <token>    SiYuan API token
+  --json             Emit compact JSON for scripts and pipes
+  --debug            Include stack traces and extra diagnostics
 
 Examples:
-  siyuan notebook list
-  siyuan document create --notebook <id> --path "/Inbox/Test" --markdown "# Hello"
-  siyuan block append --parent-id <id> --data-type markdown --data "- item"
-  siyuan block get-kramdown --id <id>
-  siyuan search fulltext --query "keyword" --page-size 10
-  siyuan document list-tree --notebook <id> --json | jq '.data[].title'
+  ${PRIMARY_CLI_COMMAND} notebook list
+  ${PRIMARY_CLI_COMMAND} help document create
+  ${PRIMARY_CLI_COMMAND} document create --notebook <id> --path "/Inbox/Test" --markdown "# Hello"
+  ${PRIMARY_CLI_COMMAND} block append --parent-id <id> --data-type markdown --data "- item"
+  ${PRIMARY_CLI_COMMAND} search fulltext --query "keyword" --page-size 10
+  ${PRIMARY_CLI_COMMAND} document list-tree --notebook <id> --json | jq '.data[].title'
 
-Config precedence: CLI flags > environment variables > config file > defaults.
-Environment: SIYUAN_API_URL, SIYUAN_TOKEN.
+Config precedence:
+  CLI flags > environment variables > config file > defaults
+
+Environment:
+  SIYUAN_API_URL, SIYUAN_TOKEN
 
 Flag naming:
   Use kebab-case or camelCase freely: --parent-id, --parentID, --parentId all work.
   Action names accept either form: set_open_state or set-open-state.
-  Boolean flags: use --flag (true), --flag=false, or --no-flag.
+  Boolean flags: use --flag, --flag=false, or --no-flag.
   For complex object/array values, use --<key>-json '<json>'.
 `;
 
@@ -114,7 +123,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
     const action = typeof positional[1] === 'string' ? positional[1] : undefined;
     if (!action) {
-        throw new Error(`Missing action for tool "${first}". Try "siyuan help ${first}".`);
+        throw new Error(`Missing action for tool "${first}". Try "${PRIMARY_CLI_COMMAND} help ${first}".`);
     }
 
     // Everything after tool+action is the tool-specific flag payload.

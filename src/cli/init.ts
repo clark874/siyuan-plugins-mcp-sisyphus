@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { createInterface, type Interface } from 'node:readline';
 
 import { getDefaultConfigPath, type FileConfig } from './config';
+import { writeHeading, writeHint, writeKeyValueRows, writeStatus } from './render';
 
 class Prompter {
     private rl: Interface;
@@ -42,15 +43,17 @@ export async function runInit(configPath?: string): Promise<void> {
         const confirm = (await confirmer.ask(`Config already exists at ${target}. Overwrite? [y/N] `)).toLowerCase();
         confirmer.close();
         if (confirm !== 'y' && confirm !== 'yes') {
-            console.log('Aborted.');
+            writeStatus('warning', 'Aborted. Existing config was kept.');
             return;
         }
     }
 
     const p = new Prompter();
     try {
-        console.log('This will create a config file for the siyuan CLI.');
-        console.log('Press Enter to accept defaults shown in brackets.\n');
+        writeHeading('SiYuan CLI setup');
+        writeHint('Path', target);
+        writeHint('Tip', 'Press Enter to accept the default shown in brackets.');
+        process.stdout.write('\n');
 
         const apiUrl = (await p.ask('SiYuan API URL [http://127.0.0.1:6806]: ')) || 'http://127.0.0.1:6806';
         const token = await p.ask('SiYuan API token (find it in SiYuan > Settings > About): ');
@@ -60,8 +63,15 @@ export async function runInit(configPath?: string): Promise<void> {
         const dir = dirname(target);
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
         writeFileSync(target, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
-        console.log(`\nWrote config to ${target}`);
-        console.log('Try: siyuan notebook list');
+        process.stdout.write('\n');
+        writeStatus('success', 'Config written.');
+        writeKeyValueRows([
+            { key: 'path', value: target },
+            { key: 'apiUrl', value: apiUrl },
+            { key: 'token', value: token ? 'configured' : 'empty' },
+        ]);
+        process.stdout.write('\n');
+        writeHint('Next', 'Run `siyuan-sisyphus notebook list` to verify the connection. (`siyuan` also works.)');
     } finally {
         p.close();
     }

@@ -12,12 +12,46 @@
     export let httpSettings: HttpServerSettings;
     export let getLabel: (key: string, fallback: string) => string;
 
+    const CLI_COMMAND = "siyuan-sisyphus";
+    const CLI_SNIPPETS = [
+        {
+            titleKey: "cliGuideInstallTitle",
+            titleFallback: "Install CLI",
+            descKey: "cliGuideInstallDesc",
+            descFallback: "Install the published package globally.",
+            command: `npm i -g ${CLI_COMMAND}`,
+        },
+        {
+            titleKey: "cliGuideInitTitle",
+            titleFallback: "Initialize config",
+            descKey: "cliGuideInitDesc",
+            descFallback: "Create the local config file with API URL and token.",
+            command: `${CLI_COMMAND} init`,
+        },
+        {
+            titleKey: "cliGuideVerifyTitle",
+            titleFallback: "Verify connection",
+            descKey: "cliGuideVerifyDesc",
+            descFallback: "Run a simple command to confirm connectivity.",
+            command: `${CLI_COMMAND} notebook list`,
+        },
+        {
+            titleKey: "cliGuideHelpTitle",
+            titleFallback: "Discover commands",
+            descKey: "cliGuideHelpDesc",
+            descFallback: "List tools and inspect action help from the terminal.",
+            command: `${CLI_COMMAND} list\n${CLI_COMMAND} help <tool> <action>`,
+        },
+    ] as const;
+
     let httpStatus: HttpServerStatus = { running: false, host: httpSettings.host, port: httpSettings.port };
     let httpRecentLogs: string[] = [];
     let httpDirty = false;
     let httpBusy = false;
     let httpUnsubStatus: (() => void) | null = null;
     let httpUnsubLogs: (() => void) | null = null;
+    $: changelogTitle = getLabel("toolSettingsChangelogTitle", "更新日志");
+    $: changelogText = getLabel("toolSettingsChangelogText", "已支持 CLI 工具；共享设置使用同一套逻辑。");
 
     onMount(() => {
         if (plugin?.httpLauncher) {
@@ -189,111 +223,146 @@
 
 <SettingPanel {group} settingItems={[]} {display}>
     <div class="http-server-section">
-        <div class="http-status-row">
-            <span class="http-status-dot" class:running={httpStatus.running}></span>
-            {#if httpStatus.running}
-                <span class="http-status-text">
-                    {getLabel("httpStatusRunning", "Running")}: <code>{httpSettings.tlsEnabled ? "https" : "http"}://{httpStatus.host}:{httpStatus.port}/mcp</code>
-                    {#if httpStatus.pid} (PID {httpStatus.pid}){/if}
-                </span>
-            {:else}
-                <span class="http-status-text">{getLabel("httpStatusStopped", "Stopped")}</span>
-                {#if httpStatus.lastError}
-                    <span class="http-error">{httpStatus.lastError}</span>
-                {/if}
-            {/if}
-        </div>
+        <section class="http-changelog" aria-labelledby="tool-settings-changelog-title">
+            <div id="tool-settings-changelog-title" class="http-changelog-title">{changelogTitle}</div>
+            <textarea class="b3-text-field http-changelog-text" readonly aria-label={changelogTitle}>{changelogText}</textarea>
+        </section>
 
-        {#if !plugin?.httpLauncher}
-            <div class="http-warning">{getLabel("httpUnsupported", "HTTP server is only available in the SiYuan desktop app.")}</div>
-        {/if}
+        <details class="http-guide">
+            <summary>{getLabel("mcpGuideTitle", "MCP Connection Guide")}</summary>
+            <div class="http-guide-content">
+                <div class="http-guide-intro">{getLabel("mcpGuideDesc", "Use these snippets to connect MCP clients to the built-in server.")}</div>
 
-        <div class="http-actions">
-            <button class="b3-button b3-button--outline" on:click={toggleHttpServer} disabled={httpBusy || !plugin?.httpLauncher}>
-                {httpStatus.running ? getLabel("httpStop", "Stop") : getLabel("httpStart", "Start")}
-            </button>
-            <button class="b3-button b3-button--outline" on:click={applyHttpSettings} disabled={httpBusy || !httpDirty}>
-                {getLabel("httpApply", "Apply & Restart")}
-            </button>
-        </div>
-
-        <div class="http-form">
-            <label class="http-field">
-                <input type="checkbox" checked={httpSettings.enabled} on:change={onHttpAutoStartChange} />
-                {getLabel("httpAutoStart", "Auto-start with SiYuan")}
-            </label>
-
-            <label class="http-field">
-                <span class="http-label">{getLabel("httpHost", "Host")}</span>
-                <input type="text" class="b3-text-field" bind:value={httpSettings.host} on:input={markHttpDirty} placeholder="127.0.0.1" />
-            </label>
-
-            <label class="http-field">
-                <span class="http-label">{getLabel("httpPort", "Port")}</span>
-                <input type="number" class="b3-text-field" bind:value={httpSettings.port} on:input={markHttpDirty} min="1" max="65535" />
-            </label>
-
-            <label class="http-field">
-                <input type="checkbox" checked={httpSettings.authEnabled} on:change={onHttpAuthChange} />
-                {getLabel("httpEnableAuth", "Require Bearer token")}
-            </label>
-
-            {#if httpSettings.authEnabled}
-                <div class="http-field http-token-row">
-                    <span class="http-label">{getLabel("httpToken", "Token")}</span>
-                    <input type="text" class="b3-text-field http-token-input" readonly value={httpSettings.token} />
-                    <button class="b3-button b3-button--outline" on:click={() => copyText(httpSettings.token)}>{getLabel("httpCopy", "Copy")}</button>
-                    <button class="b3-button b3-button--outline" on:click={regenerateToken}>{getLabel("httpRegenerate", "Regenerate")}</button>
+                <div class="http-status-row">
+                    <span class="http-status-dot" class:running={httpStatus.running}></span>
+                    {#if httpStatus.running}
+                        <span class="http-status-text">
+                            {getLabel("httpStatusRunning", "Running")}: <code>{httpSettings.tlsEnabled ? "https" : "http"}://{httpStatus.host}:{httpStatus.port}/mcp</code>
+                            {#if httpStatus.pid} (PID {httpStatus.pid}){/if}
+                        </span>
+                    {:else}
+                        <span class="http-status-text">{getLabel("httpStatusStopped", "Stopped")}</span>
+                        {#if httpStatus.lastError}
+                            <span class="http-error">{httpStatus.lastError}</span>
+                        {/if}
+                    {/if}
                 </div>
-            {/if}
 
-            <label class="http-field">
-                <input type="checkbox" checked={httpSettings.tlsEnabled} on:change={onTlsEnabledChange} />
-                {getLabel("httpEnableTls", "Enable HTTPS (TLS)")}
-            </label>
-
-            {#if httpSettings.tlsEnabled}
-                <label class="http-field">
-                    <span class="http-label">{getLabel("httpTlsCert", "Cert")}</span>
-                    <input type="text" class="b3-text-field http-path-input" bind:value={httpSettings.tlsCertFile} on:input={markHttpDirty} placeholder={getLabel("httpTlsCertPlaceholder", "/path/to/cert.pem")} />
-                </label>
-                <label class="http-field">
-                    <span class="http-label">{getLabel("httpTlsKey", "Key")}</span>
-                    <input type="text" class="b3-text-field http-path-input" bind:value={httpSettings.tlsKeyFile} on:input={markHttpDirty} placeholder={getLabel("httpTlsKeyPlaceholder", "/path/to/key.pem")} />
-                </label>
-                <label class="http-field">
-                    <span class="http-label">{getLabel("httpTlsCa", "CA")}</span>
-                    <input type="text" class="b3-text-field http-path-input" bind:value={httpSettings.tlsCaFile} on:input={markHttpDirty} placeholder={getLabel("httpTlsCaPlaceholder", "/path/to/ca.pem (optional)")} />
-                </label>
-                {#if !hasValidHttpTlsFiles(httpSettings)}
-                    <div class="http-warning">{getTlsMissingFilesMessage()}</div>
+                {#if !plugin?.httpLauncher}
+                    <div class="http-warning">{getLabel("httpUnsupported", "HTTP server is only available in the SiYuan desktop app.")}</div>
                 {/if}
-            {/if}
-        </div>
 
-        {#if httpSettings.host !== "127.0.0.1" && httpSettings.host !== "localhost" && !httpSettings.authEnabled}
-            <div class="http-warning">{getLabel("httpWarnExposedNoAuth", "⚠️ Bound to a non-loopback address with auth disabled. Other devices on the network can access your SiYuan workspace.")}</div>
-        {/if}
+                <div class="http-actions">
+                    <button class="b3-button b3-button--outline" on:click={toggleHttpServer} disabled={httpBusy || !plugin?.httpLauncher}>
+                        {httpStatus.running ? getLabel("httpStop", "Stop") : getLabel("httpStart", "Start")}
+                    </button>
+                    <button class="b3-button b3-button--outline" on:click={applyHttpSettings} disabled={httpBusy || !httpDirty}>
+                        {getLabel("httpApply", "Apply & Restart")}
+                    </button>
+                </div>
 
-        <details class="http-snippet">
-            <summary>{getLabel("httpClientSnippet", "HTTP Connection")}</summary>
-            <pre>{generateClientSnippet(httpSettings, "direct")}</pre>
-            <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "direct"))}>{getLabel("httpCopy", "Copy")}</button>
+                <div class="http-form">
+                    <label class="http-field">
+                        <input type="checkbox" checked={httpSettings.enabled} on:change={onHttpAutoStartChange} />
+                        {getLabel("httpAutoStart", "Auto-start with SiYuan")}
+                    </label>
+
+                    <label class="http-field">
+                        <span class="http-label">{getLabel("httpHost", "Host")}</span>
+                        <input type="text" class="b3-text-field" bind:value={httpSettings.host} on:input={markHttpDirty} placeholder="127.0.0.1" />
+                    </label>
+
+                    <label class="http-field">
+                        <span class="http-label">{getLabel("httpPort", "Port")}</span>
+                        <input type="number" class="b3-text-field" bind:value={httpSettings.port} on:input={markHttpDirty} min="1" max="65535" />
+                    </label>
+
+                    <label class="http-field">
+                        <input type="checkbox" checked={httpSettings.authEnabled} on:change={onHttpAuthChange} />
+                        {getLabel("httpEnableAuth", "Require Bearer token")}
+                    </label>
+
+                    {#if httpSettings.authEnabled}
+                        <div class="http-field http-token-row">
+                            <span class="http-label">{getLabel("httpToken", "Token")}</span>
+                            <input type="text" class="b3-text-field http-token-input" readonly value={httpSettings.token} />
+                            <button class="b3-button b3-button--outline" on:click={() => copyText(httpSettings.token)}>{getLabel("httpCopy", "Copy")}</button>
+                            <button class="b3-button b3-button--outline" on:click={regenerateToken}>{getLabel("httpRegenerate", "Regenerate")}</button>
+                        </div>
+                    {/if}
+
+                    <label class="http-field">
+                        <input type="checkbox" checked={httpSettings.tlsEnabled} on:change={onTlsEnabledChange} />
+                        {getLabel("httpEnableTls", "Enable HTTPS (TLS)")}
+                    </label>
+
+                    {#if httpSettings.tlsEnabled}
+                        <label class="http-field">
+                            <span class="http-label">{getLabel("httpTlsCert", "Cert")}</span>
+                            <input type="text" class="b3-text-field http-path-input" bind:value={httpSettings.tlsCertFile} on:input={markHttpDirty} placeholder={getLabel("httpTlsCertPlaceholder", "/path/to/cert.pem")} />
+                        </label>
+                        <label class="http-field">
+                            <span class="http-label">{getLabel("httpTlsKey", "Key")}</span>
+                            <input type="text" class="b3-text-field http-path-input" bind:value={httpSettings.tlsKeyFile} on:input={markHttpDirty} placeholder={getLabel("httpTlsKeyPlaceholder", "/path/to/key.pem")} />
+                        </label>
+                        <label class="http-field">
+                            <span class="http-label">{getLabel("httpTlsCa", "CA")}</span>
+                            <input type="text" class="b3-text-field http-path-input" bind:value={httpSettings.tlsCaFile} on:input={markHttpDirty} placeholder={getLabel("httpTlsCaPlaceholder", "/path/to/ca.pem (optional)")} />
+                        </label>
+                        {#if !hasValidHttpTlsFiles(httpSettings)}
+                            <div class="http-warning">{getTlsMissingFilesMessage()}</div>
+                        {/if}
+                    {/if}
+                </div>
+
+                {#if httpSettings.host !== "127.0.0.1" && httpSettings.host !== "localhost" && !httpSettings.authEnabled}
+                    <div class="http-warning">{getLabel("httpWarnExposedNoAuth", "⚠️ Bound to a non-loopback address with auth disabled. Other devices on the network can access your SiYuan workspace.")}</div>
+                {/if}
+
+                <details class="http-snippet">
+                    <summary>{getLabel("httpClientSnippet", "HTTP Connection")}</summary>
+                    <pre>{generateClientSnippet(httpSettings, "direct")}</pre>
+                    <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "direct"))}>{getLabel("httpCopy", "Copy")}</button>
+                </details>
+
+                <details class="http-snippet">
+                    <summary>{getLabel("httpClientSnippetBridge", "mcp-remote Bridge")}</summary>
+                    <pre>{generateClientSnippet(httpSettings, "bridge")}</pre>
+                    <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "bridge"))}>{getLabel("httpCopy", "Copy")}</button>
+                </details>
+
+                <details class="http-snippet">
+                    <summary>{getLabel("httpClientSnippetRemote", "stdio Connection")}</summary>
+                    <pre>{generateClientSnippet(httpSettings, "stdio")}</pre>
+                    <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "stdio"))}>{getLabel("httpCopy", "Copy")}</button>
+                </details>
+
+                <details class="http-snippet">
+                    <summary>{getLabel("httpRecentLogs", "Recent server logs")}</summary>
+                    <pre class="http-log-box">{httpRecentLogs.length ? httpRecentLogs.join("\n") : getLabel("httpNoLogs", "(no logs yet)")}</pre>
+                </details>
+            </div>
         </details>
 
-        <details class="http-snippet">
-            <summary>{getLabel("httpClientSnippetBridge", "mcp-remote Bridge")}</summary>
-            <pre>{generateClientSnippet(httpSettings, "bridge")}</pre>
-            <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "bridge"))}>{getLabel("httpCopy", "Copy")}</button>
-        </details>
-        <details class="http-snippet">
-            <summary>{getLabel("httpClientSnippetRemote", "stdio Connection")}</summary>
-            <pre>{generateClientSnippet(httpSettings, "stdio")}</pre>
-            <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "stdio"))}>{getLabel("httpCopy", "Copy")}</button>
-        </details>
-        <details class="http-snippet">
-            <summary>{getLabel("httpRecentLogs", "Recent server logs")}</summary>
-            <pre class="http-log-box">{httpRecentLogs.length ? httpRecentLogs.join("\n") : getLabel("httpNoLogs", "(no logs yet)")}</pre>
+        <details class="http-guide">
+            <summary>
+                {getLabel("cliGuideTitle", "CLI Connection Guide")}
+                <span class="cli-preview-badge">{getLabel("cliPreviewBadge", "Preview")}</span>
+            </summary>
+            <div class="http-guide-content">
+                <div class="http-guide-intro">{getLabel("cliGuideDesc", "The CLI talks to SiYuan over HTTP API directly and does not require the MCP server.")}</div>
+
+                {#each CLI_SNIPPETS as snippet}
+                    <div class="http-snippet cli-snippet">
+                        <div class="cli-snippet-meta">
+                            <div class="cli-snippet-title">{getLabel(snippet.titleKey, snippet.titleFallback)}</div>
+                            <div class="cli-snippet-desc">{getLabel(snippet.descKey, snippet.descFallback)}</div>
+                        </div>
+                        <pre>{snippet.command}</pre>
+                        <button class="b3-button b3-button--outline" on:click={() => copyText(snippet.command)}>{getLabel("httpCopy", "Copy")}</button>
+                    </div>
+                {/each}
+            </div>
         </details>
     </div>
 </SettingPanel>
@@ -305,6 +374,25 @@
         flex-direction: column;
         gap: 14px;
         font-size: 13px;
+
+        .http-changelog {
+            background: var(--b3-theme-surface);
+            border-radius: 6px;
+            padding: 10px 12px;
+        }
+
+        .http-changelog-title {
+            color: var(--b3-theme-primary);
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .http-changelog-text {
+            box-sizing: border-box;
+            min-height: 4.5em;
+            resize: vertical;
+            width: 100%;
+        }
 
         .http-status-row {
             display: flex;
@@ -405,6 +493,65 @@
         .http-log-box {
             white-space: pre-wrap;
             word-break: break-all;
+        }
+
+        .http-guide {
+            background: var(--b3-theme-surface);
+            border-radius: 6px;
+            padding: 10px 12px;
+
+            > summary {
+                cursor: pointer;
+                user-select: none;
+                font-weight: 600;
+            }
+        }
+
+        .http-guide-content {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .http-guide-intro {
+            color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+            line-height: 1.5;
+        }
+
+        .cli-snippet {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .cli-snippet-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .cli-snippet-title {
+            font-weight: 600;
+        }
+
+        .cli-snippet-desc {
+            color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+            line-height: 1.5;
+        }
+
+        .cli-preview-badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 6px;
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 1.4;
+            color: var(--b3-theme-primary);
+            background: var(--b3-theme-primary-lightest, rgba(0, 0, 0, 0.05));
+            border: 1px solid var(--b3-theme-primary-light, var(--b3-theme-primary));
+            border-radius: 10px;
+            vertical-align: middle;
         }
     }
 </style>
