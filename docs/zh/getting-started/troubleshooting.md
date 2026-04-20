@@ -1,0 +1,57 @@
+# Troubleshooting
+
+这个页面汇总了 MCP 连接和调用的常见问题，以及最快的检查路径。
+
+适用场景：服务起不来、工具不显示，或者连接成功后调用失败。
+
+相关页面：
+
+- [Deployment](./deployment.md)
+- [HTTPS](./https.md)
+
+## 连接失败
+
+先检查：
+
+- 思源是否正在运行，`6806` API 是否可访问
+- 插件是否已启用
+- 如果使用 HTTP，MCP 服务是否已在 `36806` 启动
+- 如果使用 stdio，`mcp-server.cjs` 路径是否正确
+
+## 工具不可见
+
+- 确认客户端真的连上了 MCP 端点
+- 确认插件侧工具配置没有禁用对应工具
+- 如果刚改过设置，重启一次 MCP 服务
+
+## 连接成功但调用失败
+
+- 检查 bearer token 或 `SIYUAN_TOKEN`
+- 检查目标笔记本的权限配置
+- 检查文档相关 action 是否使用了正确的路径类型
+
+## 权限被拒绝
+
+权限级别：
+
+- `rwd`：读写删
+- `rw`：读写
+- `r`：只读
+- `none`：无权限
+
+调用失败时同时检查：
+
+- 笔记本级权限设置
+- 该 action 是否属于高危操作或已被禁用
+
+## 日志与快速参考
+
+默认端口：
+
+- 思源 API：`6806`
+- MCP HTTP：`36806`
+
+常见路径：
+
+- 插件目录：`{workspace}/data/plugins/siyuan-plugins-mcp-sisyphus/`
+- `mcp-server.cjs`：与插件 bundle 同目录

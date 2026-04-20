@@ -2,18 +2,20 @@
 
 ## 中文文档
 
-- [架构文档](zh/architecture.md)
-- [API 参考](zh/api-reference.md)
-- [开发指南](zh/development-guide.md)
-- [部署指南](zh/deployment.md)
+- [文档首页](zh/index.md)
+- [快速开始](zh/getting-started/index.md)
+- [参考首页](zh/reference/index.md)
+- [架构首页](zh/architecture/index.md)
+- [开发首页](zh/development/index.md)
 - [经验洞察](insights.md)
 
 ## English Documentation
 
-- [Architecture](en/architecture.md)
-- [API Reference](en/api-reference.md)
-- [Development Guide](en/development-guide.md)
-- [Deployment](en/deployment.md)
+- [Docs Home](en/index.md)
+- [Getting Started](en/getting-started/index.md)
+- [Reference](en/reference/index.md)
+- [Architecture](en/architecture/index.md)
+- [Development](en/development/index.md)
 - [Insights](insights.md)
 
 ---

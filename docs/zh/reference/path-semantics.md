@@ -1,0 +1,50 @@
+# 路径语义
+
+这个页面定义了 `document` 工具里使用的两种路径类型。
+
+适用场景：你在调用 `document` 相关 action，但不确定某个字段需要人类可读路径还是存储路径。
+
+相关页面：
+
+- [权限模型](./permissions.md)
+- [document 工具](./tools/document.md)
+
+## 人类可读路径
+
+用于：
+
+- `document(action="create")`
+- `document(action="get_ids")`
+
+格式：
+
+- `/Inbox/Weekly Note`
+
+规则：
+
+- 必须以 `/` 开头
+- 父路径必须已存在
+
+## 存储路径
+
+用于：
+
+- `document(action="rename")`
+- `document(action="remove")`
+- `document(action="move")`
+- `document(action="get_hpath")`
+- `document(action="list_tree")`
+
+格式：
+
+- `/20240318112233-abc123.sy`
+
+规则：
+
+- 表示真实文件存储位置
+- 通过 `document(action="get_path", id=...)` 获取
+
+## 安全工作流
+
+1. 先调用 `document(action="get_path", id=...)`
+2. 在后续操作里复用返回的存储路径
