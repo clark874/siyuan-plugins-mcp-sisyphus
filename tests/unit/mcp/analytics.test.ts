@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     appendAnalyticsEvent,
+    buildTokenUsageSummary,
     computeAnalyticsSummary,
     parseJsonl,
     clearAnalyticsData,
@@ -11,6 +12,8 @@ import {
     type AnalyticsEvent,
 } from '../../../src/mcp/analytics';
 import { SiYuanClient } from '../../../src/api/client';
+import { buildDefaultToolConfig } from '../../../src/mcp/config';
+import { APPROX_TOKEN_MODE } from '../../../src/mcp/token-usage';
 
 describe('analytics', () => {
     let writtenFiles: Record<string, string> = {};
@@ -62,6 +65,32 @@ describe('analytics', () => {
             expect(events[1].transport).toBe('stdio');
         });
 
+        it('preserves token usage fields when present', () => {
+            const content = JSON.stringify({
+                tool: 'system',
+                action: 'get_version',
+                ts: 1,
+                seq: 1,
+                status: 'success',
+                durationMs: 10,
+                paramKeys: [],
+                transport: 'cli',
+                requestChars: 24,
+                responseChars: 19,
+                requestApproxTokens: 6,
+                responseApproxTokens: 5,
+                totalApproxTokens: 11,
+                tokenMode: APPROX_TOKEN_MODE,
+            });
+            const [event] = parseJsonl(content);
+            expect(event.requestChars).toBe(24);
+            expect(event.responseChars).toBe(19);
+            expect(event.requestApproxTokens).toBe(6);
+            expect(event.responseApproxTokens).toBe(5);
+            expect(event.totalApproxTokens).toBe(11);
+            expect(event.tokenMode).toBe(APPROX_TOKEN_MODE);
+        });
+
         it('returns empty array for empty content', () => {
             expect(parseJsonl('')).toEqual([]);
             expect(parseJsonl('   \n  ')).toEqual([]);
@@ -78,6 +107,12 @@ describe('analytics', () => {
                 durationMs: 5,
                 paramKeys: [],
                 transport: 'stdio',
+                requestChars: 10,
+                responseChars: 20,
+                requestApproxTokens: 3,
+                responseApproxTokens: 5,
+                totalApproxTokens: 8,
+                tokenMode: APPROX_TOKEN_MODE,
             });
             expect(client.writeFile).toHaveBeenCalledWith(ANALYTICS_PATH, expect.stringContaining('"tool":"notebook"'));
         });
@@ -92,6 +127,12 @@ describe('analytics', () => {
                 durationMs: 5,
                 paramKeys: [],
                 transport: 'stdio',
+                requestChars: 10,
+                responseChars: 10,
+                requestApproxTokens: 3,
+                responseApproxTokens: 3,
+                totalApproxTokens: 6,
+                tokenMode: APPROX_TOKEN_MODE,
             });
             const content = writtenFiles[ANALYTICS_PATH];
             expect(content).toContain('"tool":"first"');
@@ -112,6 +153,12 @@ describe('analytics', () => {
                 durationMs: 5,
                 paramKeys: [],
                 transport: 'stdio',
+                requestChars: 10,
+                responseChars: 10,
+                requestApproxTokens: 3,
+                responseApproxTokens: 3,
+                totalApproxTokens: 6,
+                tokenMode: APPROX_TOKEN_MODE,
             });
 
             expect(writtenFiles[ANALYTICS_ROTATED_PATH]).toBe(existing);
@@ -129,16 +176,23 @@ describe('analytics', () => {
             expect(summary.topActions).toEqual([]);
             expect(summary.dailyTrend).toEqual([]);
             expect(summary.transportDistribution).toEqual({ cli: 0, stdio: 0, http: 0 });
+            expect(summary.tokenUsage).toMatchObject({
+                tokenMode: APPROX_TOKEN_MODE,
+                cliMeasuredCalls: 0,
+                mcpMeasuredCalls: 0,
+                cliAvgApproxTokens: null,
+                mcpAvgApproxTokens: null,
+            });
         });
 
         it('computes correct aggregates', () => {
             const baseDate = new Date('2024-01-15T10:00:00Z').getTime();
             const events: AnalyticsEvent[] = [
-                { seq: 1, ts: baseDate, tool: 'notebook', action: 'list', status: 'success', durationMs: 100, paramKeys: [], transport: 'cli' },
-                { seq: 2, ts: baseDate + 1, tool: 'notebook', action: 'list', status: 'success', durationMs: 200, paramKeys: [], transport: 'stdio' },
-                { seq: 3, ts: baseDate + 2, tool: 'document', action: 'create', status: 'error', durationMs: 300, paramKeys: ['path'], transport: 'http', errorCode: 'UnknownError' },
+                { seq: 1, ts: baseDate, tool: 'notebook', action: 'list', status: 'success', durationMs: 100, paramKeys: [], transport: 'cli', totalApproxTokens: 100, tokenMode: APPROX_TOKEN_MODE },
+                { seq: 2, ts: baseDate + 1, tool: 'notebook', action: 'list', status: 'success', durationMs: 200, paramKeys: [], transport: 'stdio', totalApproxTokens: 200, tokenMode: APPROX_TOKEN_MODE },
+                { seq: 3, ts: baseDate + 2, tool: 'document', action: 'create', status: 'error', durationMs: 300, paramKeys: ['path'], transport: 'http', errorCode: 'UnknownError', totalApproxTokens: 300, tokenMode: APPROX_TOKEN_MODE },
             ];
-            const summary = computeAnalyticsSummary(events);
+            const summary = computeAnalyticsSummary(events, { currentToolConfig: buildDefaultToolConfig() });
             expect(summary.totalCalls).toBe(3);
             expect(summary.errorCalls).toBe(1);
             expect(summary.errorRate).toBeCloseTo(1 / 3);
@@ -149,6 +203,29 @@ describe('analytics', () => {
             expect(summary.dailyTrend).toHaveLength(1);
             expect(summary.dailyTrend[0]).toMatchObject({ date: '2024-01-15', count: 3, errorCount: 1 });
             expect(summary.transportDistribution).toEqual({ cli: 1, stdio: 1, http: 1 });
+            expect(summary.tokenUsage).toMatchObject({
+                tokenMode: APPROX_TOKEN_MODE,
+                cliMeasuredCalls: 1,
+                mcpMeasuredCalls: 2,
+                cliAvgApproxTokens: 100,
+                mcpAvgApproxTokens: 250,
+            });
+            expect(summary.tokenUsage.mcpInitialApproxTokens).toBeGreaterThan(0);
+        });
+    });
+
+    describe('buildTokenUsageSummary', () => {
+        it('ignores legacy rows without token fields', () => {
+            const summary = buildTokenUsageSummary([
+                { seq: 1, ts: 1, tool: 'notebook', action: 'list', status: 'success', durationMs: 10, paramKeys: [], transport: 'cli' },
+                { seq: 2, ts: 2, tool: 'system', action: 'get_version', status: 'success', durationMs: 10, paramKeys: [], transport: 'http', totalApproxTokens: 20, tokenMode: APPROX_TOKEN_MODE },
+            ], buildDefaultToolConfig());
+
+            expect(summary.cliMeasuredCalls).toBe(0);
+            expect(summary.cliAvgApproxTokens).toBeNull();
+            expect(summary.mcpMeasuredCalls).toBe(1);
+            expect(summary.mcpAvgApproxTokens).toBe(20);
+            expect(summary.mcpInitialApproxTokens).toBeGreaterThan(0);
         });
     });
 

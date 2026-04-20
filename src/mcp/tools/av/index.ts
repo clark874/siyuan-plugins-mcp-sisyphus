@@ -81,6 +81,7 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
         action: 'remove_rows',
         schema: createActionSchema('remove_rows', {
             avID: { type: 'string', description: 'Attribute view ID' },
+            blockID: { type: 'string', description: 'Owning database block ID for permission resolution (optional)' },
             srcIDs: {
                 type: 'array',
                 items: { type: 'string' },
@@ -92,6 +93,7 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
         action: 'add_column',
         schema: createActionSchema('add_column', {
             avID: { type: 'string', description: 'Attribute view ID' },
+            blockID: { type: 'string', description: 'Owning database block ID for permission resolution (optional)' },
             keyID: { type: 'string', description: 'Column key ID (auto-generated if omitted)' },
             keyName: { type: 'string', description: 'Column display name' },
             keyType: { type: 'string', description: 'Column type (text, number, date, select, mSelect, url, email, phone, checkbox, relation, rollup, template, mAsset, lineNumber, created, updated)' },
@@ -103,6 +105,7 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
         action: 'remove_column',
         schema: createActionSchema('remove_column', {
             avID: { type: 'string', description: 'Attribute view ID' },
+            blockID: { type: 'string', description: 'Owning database block ID for permission resolution (optional)' },
             keyID: { type: 'string', description: 'Column key ID to remove' },
             columnID: { type: 'string', description: 'Alias for keyID (deprecated, use keyID)' },
             removeRelationDest: { type: 'boolean', description: 'Also remove the paired relation column in the target AV (default false)' },
@@ -112,6 +115,7 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
         action: 'set_cell',
         schema: createActionSchema('set_cell', {
             avID: { type: 'string', description: 'Attribute view ID' },
+            blockID: { type: 'string', description: 'Owning database block ID for permission resolution (optional)' },
             rowID: { type: 'string', description: 'Row item ID (value.blockID, NOT the source block ID or value.id)' },
             columnID: { type: 'string', description: 'Column key ID' },
             valueType: { type: 'string', enum: ['text', 'number', 'date', 'checkbox', 'select', 'multi_select', 'relation', 'url', 'email', 'phone', 'mAsset'], description: 'Cell value type' },
@@ -147,6 +151,7 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
         action: 'batch_set_cells',
         schema: createActionSchema('batch_set_cells', {
             avID: { type: 'string', description: 'Attribute view ID' },
+            blockID: { type: 'string', description: 'Owning database block ID for permission resolution (optional)' },
             items: {
                 type: 'array',
                 items: {

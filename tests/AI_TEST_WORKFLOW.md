@@ -1824,6 +1824,7 @@
   "tool": "av",
   "action": "add_column",
   "avID": "$AV_ID",
+  "blockID": "$AV_BLOCK_ID",
   "keyType": "text",
   "keyName": "备注"
 }
@@ -1856,7 +1857,7 @@
 
 ### 步骤 9.6 — 设置单元格内容
 
-> **前置：** 先通过 `render_attribute_view` 获取真实的 rowID 和 columnID。
+> **前置：** 先通过 `render_attribute_view` 获取真实的 rowID 和 columnID。若数据库刚创建且仍为空，后续写操作都应继续传入 `$AV_BLOCK_ID` 作为显式权限上下文。
 
 **调用：**
 ```json

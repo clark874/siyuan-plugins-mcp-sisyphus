@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **最新版本：**`v0.3.2` — 修复设置面板因跨 chunk 模块解析失败导致的配置初始化异常。详见 [CHANGELOG.md](./CHANGELOG.md)。
+> **最新版本：**`v0.3.3` — CLI 新增多 profile 配置管理、交互式分页浏览，文档站点重组为细分结构。详见 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
@@ -12,6 +12,11 @@
 
 - **CLI 工具 `siyuan-sisyphus`**：无需 MCP 客户端，直接在终端或脚本里操作思源。
 - **MCP 服务器插件**：运行在思源内部，让支持 MCP 的 Agent 把笔记当成一组可调用工具。
+
+简而言之，两种工具各有优劣，按需求选取：
+
+- **CLI 通常更省 token**，因为它并不将工具说明直接塞入模型，理论上模型根据需求直接查询需要使用的工具说明，简短命令行调用，不涉及复杂的 JSON Schema，在一些小型任务的时候更具优势。
+- **MCP 首次连接会携带更多工具说明和 schema**，上下文成本更高，适合动态、多步、需要工具组合的 Agent 工作流，其设计目标就是支持这种复杂性，首次连接成本高是必要的 trade-off。
 
 如果你不熟悉这些概念，简单理解：
 - **SiYuan**：你的笔记和数据

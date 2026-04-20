@@ -2,6 +2,17 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.3.3 - 2026-04-21
+
+- 修复并强化 AV（数据库块）的权限校验与 materialization 流程：写操作支持传入 `blockID` 做精确数据库块归属验证；新建 AV 后增加 mirror registration 轮询确认，避免后续写入因块未注册而失败
+- CLI 新增 `config` 命令，支持多 profile 管理（`list`/`get`/`set`/`use`），便于在多思源实例间快速切换
+- CLI 支持交互式分页浏览，分页结果可在终端内通过 Enter/n/p/q 直接翻页，脚本场景仍可通过 `--page` / `--page-size` / `--json` 精确控制
+- MCP 新增 token 消耗洞察：每次调用记录 request/response 的近似 token，分析面板展示 CLI 与 MCP 的 token 成本对比，帮助用户按场景选择连接方式
+- 服务端指令拆分为独立 `server-instructions.ts`，降低 server.ts 复杂度
+- 文档站点结构重组，VitePress 导航拆分为 getting-started、reference、architecture、development 四大板块，中英文同步更新
+- HTTP Server 设置面板体验优化，配置提示与交互细节改进
+- 补充 CLI config、dispatch、render、args 及 AV、token-usage、analytics 等模块的单元测试覆盖
+
 ## v0.3.2 - 2026-04-20
 
 - 修复设置面板加载时因跨 chunk 模块解析失败导致的配置初始化异常

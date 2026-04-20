@@ -1,17 +1,136 @@
 # Overview
 
-这个页面描述系统最顶层的分层关系和运行形态。
+这个页面描述系统最顶层的分层关系、运行形态与技术栈。
 
-适用场景：你需要快速建立 MCP 到 SiYuan 的边界认知。
+适用场景：你需要快速建立从 AI Agent 到 SiYuan 数据边界的完整认知。
 
-## 三层视图
+---
 
-1. AI Agent / MCP Client
-2. MCP 服务与插件运行时
-3. SiYuan HTTP API 与数据模型
+## 四层架构
 
-## 关键事实
+系统从外到内分为四个层次：
 
-- 仓库同时产出插件和独立 CLI
-- 插件可以通过 HTTP 或 stdio 相关方式暴露 MCP 能力
-- 两个入口共用同一套工具注册表和 API 封装层
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 1: AI Agent / MCP Client                             │
+│  - Claude Desktop / Kimi CLI / Cursor / 其他 MCP 客户端     │
+│  - 通过 stdio 或 HTTP(S) 发起 MCP 协议请求                  │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 2: MCP Server / CLI                                  │
+│  ┌──────────────┐  ┌─────────────────────────────────────┐  │
+│  │ 插件 MCP Server│  │ 独立 CLI (siyuan-sisyphus)         │  │
+│  │ - stdio 模式  │  │ - 直接调用 TOOL_REGISTRY           │  │
+│  │ - HTTP 模式   │  │ - 不经过 MCP 协议                  │  │
+│  └──────────────┘  └─────────────────────────────────────┘  │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3: 插件运行时 & 工具层                                │
+│  - Tool Registry (10 个聚合工具)                            │
+│  - Tool Lifecycle (analytics / telemetry / mascot)          │
+│  - Permission Manager (笔记本级四级权限)                    │
+│  - 设置面板 & 吉祥物 UI                                     │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 4: SiYuan HTTP API & 数据模型                        │
+│  - SiYuanClient (统一 HTTP 封装)                            │
+│  - 笔记本 / 文档 / 块 / 属性视图 / 文件 / 搜索 / 标签 等 API │
+│  - SQLite 数据存储                                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**关键边界**：Layer 1 与 Layer 2 之间走 [Model Context Protocol](https://modelcontextprotocol.io/)（MCP）标准协议；Layer 2 与 Layer 3 之间在插件模式下也是 MCP 协议（`ListToolsRequestSchema` / `CallToolRequestSchema`），但在 CLI 模式下则是**直接函数调用**；Layer 3 与 Layer 4 之间始终走 SiYuan 开放的 HTTP API，**绝不直接访问本地文件系统**，确保远程场景安全。
+
+---
+
+## 双产物架构
+
+本仓库同时产出两种可独立使用的产品：
+
+| 维度 | SiYuan 插件 | 独立 CLI (`siyuan-sisyphus`) |
+|------|------------|------------------------------|
+| **入口文件** | `src/index.ts` | `src/cli/index.ts` |
+| **构建产物** | `dist/index.js` + `dist/mcp-server.cjs` | `cli/dist/cli.cjs` |
+| **运行形态** | 长进程，随 SiYuan 启动 | 短进程，一次调用即退出 |
+| **传输方式** | stdio（默认）/ HTTP（可选） | 直接函数调用，不走 MCP 传输 |
+| **配置来源** | 插件设置面板 → SiYuan 存储 | CLI profile + SiYuan 存储中的插件 UI 配置 |
+| **工具开关** | 用户通过 UI 精细控制每个 action | 同样遵守 UI 中的 tool/action 开关 |
+| **吉祥物 UI** | 有（Svelte 组件挂载到 DOM） | 无 |
+| **权限管理** | 从 SiYuan 存储读取权限文件 | 同一套 `PermissionManager`；未配置 notebook 默认 `rwd` |
+| **适用场景** | AI 客户端接入、日常持续使用 | 脚本化操作、CI/CD、快速查询 |
+
+两种产物**共用同一套核心**：`TOOL_REGISTRY`、`SiYuanClient`、`PermissionManager`、`tool-lifecycle`、所有 `src/api/*` 封装。差异仅在于外层包装（MCP Server vs CLI 参数解析）和配置持久化方式。
+
+---
+
+## 技术栈
+
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| **构建** | Vite | 多入口编译（renderer / server / cli），输出 CommonJS |
+| **前端框架** | Svelte | 设置面板 `McpConfig`、吉祥物 `ToolPuppy` |
+| **语言** | TypeScript | 源码 ESM（`"type": "module"`），产物 CJS |
+| **MCP 协议** | `@modelcontextprotocol/sdk` ^1.26.0 | stdio / StreamableHTTP 双传输 |
+| **校验** | Zod ^4.3.6 | 所有 tool action 的输入参数校验（约 913 行 schema） |
+| **测试** | Vitest | Unit + Integration + Smoke 三层测试 |
+| **文档** | VitePress | 双语站点（英文默认 + 简体中文 `/zh/`） |
+| **CLI 解析** | minimist | 两轮解析：全局 flags + schema-aware action flags |
+
+---
+
+## 运行形态对比
+
+### 插件 stdio 模式（默认）
+
+```
+AI 客户端 (如 Claude Desktop)
+    ↓ 启动子进程
+SiYuan.app → 加载插件 → 启动 mcp-server.cjs (stdio)
+    ↓ MCP stdio 协议
+调用 TOOL_REGISTRY → SiYuanClient → SiYuan HTTP API
+```
+
+- 由 AI 客户端负责启动 `dist/mcp-server.cjs` 子进程
+- 标准输入输出作为 MCP 传输通道
+- 适合本地桌面端 AI 助手（Claude Desktop、Kimi CLI 等）
+
+### 插件 HTTP 模式
+
+```
+AI 客户端 / 浏览器 / 第三方服务
+    ↓ HTTP POST (Bearer Token)
+SiYuan.app → 加载插件 → 启动内嵌 HTTP Server
+    ↓ StreamableHTTP (MCP 2025-03-26 spec)
+调用 TOOL_REGISTRY → SiYuanClient → SiYuan HTTP API
+```
+
+- 插件 `onload()` 时自动启动 HTTP server（若用户开启）
+- 支持 Session 管理、`mcp-session-id` 路由
+- 支持 TLS（自定义证书）、Token 鉴权、Parent Watchdog（父进程退出自毁）
+- 适合远程访问、浏览器插件、多客户端共享
+
+### CLI 直接操作模式
+
+```
+终端用户
+    ↓ shell 命令
+siyuan-sisyphus notebook list
+    ↓ 直接 import
+src/cli/dispatch.ts → TOOL_REGISTRY[notebook].callTool()
+    ↓ runToolCall (复用生命周期)
+SiYuanClient → SiYuan HTTP API
+    ↓ 渲染
+终端输出 (人类可读 / --json)
+```
+
+- 不启动任何 MCP server 进程
+- 直接 `import` 插件源码中的 `TOOL_REGISTRY` 和 `runToolCall`
+- 一次调用、一次请求、立即退出
+- 支持交互式分页（TTY 下按 Enter/n/p/q 翻页）
+
+---
+
+## 关键事实速查
+
+1. **聚合工具表面**：10 个 MCP tool（notebook / document / block / av / file / search / tag / system / flashcard / mascot），而非 100+ 个单用途工具。
+2. **配置热加载**：`server.ts` 中 `getToolConfig()` 带 30 秒 TTL 缓存 + in-flight 去重，设置面板改动后无需重启即可生效。
+3. **危险动作标记**：`DANGEROUS_ACTIONS` 集合标记了 15 个高危 action（delete / remove / find_replace 等），在 tool description 和 server instructions 中自动注入警告，但不阻止调用（依赖 LLM 自律）。
+4. **Analytics 与 Telemetry**：每次工具调用都会记录 analytics 事件（JSONL 格式，2MB 自动轮转），telemetry 按配置周期聚合上报；CLI 模式下 analytics 会同步等待落盘。
+5. **Puppy 吉祥物**：通过轮询 `puppyEvents.json` 文件与 MCP server 解耦通信，支持空闲动画、拖拽、工资卡、测试模式等状态机。

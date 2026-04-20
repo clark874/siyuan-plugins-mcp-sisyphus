@@ -45,6 +45,7 @@ describe('mcp/tool-lifecycle', () => {
                 name: 'notebook',
                 action: 'list',
                 args: { action: 'list' },
+                requestText: 'siyuan-sisyphus notebook list',
             },
             async () => ({ content: [{ type: 'text', text: '{"ok":true}' }] }),
         ).then(() => {
@@ -54,6 +55,14 @@ describe('mcp/tool-lifecycle', () => {
         await vi.waitFor(() => {
             expect(appendAnalyticsEvent).toHaveBeenCalledTimes(1);
             expect(release).toBeTypeOf('function');
+        });
+        expect(vi.mocked(appendAnalyticsEvent).mock.calls[0][1]).toMatchObject({
+            requestChars: 'siyuan-sisyphus notebook list'.length,
+            responseChars: '{"ok":true}'.length,
+            requestApproxTokens: Math.ceil('siyuan-sisyphus notebook list'.length / 4),
+            responseApproxTokens: Math.ceil('{"ok":true}'.length / 4),
+            totalApproxTokens: Math.ceil('siyuan-sisyphus notebook list'.length / 4) + Math.ceil('{"ok":true}'.length / 4),
+            tokenMode: 'approx_context_v1',
         });
         expect(finished).toBe(false);
 
@@ -75,8 +84,15 @@ describe('mcp/tool-lifecycle', () => {
                 name: 'notebook',
                 action: 'list',
                 args: { action: 'list' },
+                requestText: '{"name":"notebook","arguments":{"action":"list"}}',
             },
             async () => ({ content: [{ type: 'text', text: '{"ok":true}' }] }),
         )).resolves.toEqual({ content: [{ type: 'text', text: '{"ok":true}' }] });
+
+        expect(vi.mocked(appendAnalyticsEvent).mock.calls[0][1]).toMatchObject({
+            requestChars: '{"name":"notebook","arguments":{"action":"list"}}'.length,
+            responseChars: '{"ok":true}'.length,
+            tokenMode: 'approx_context_v1',
+        });
     });
 });

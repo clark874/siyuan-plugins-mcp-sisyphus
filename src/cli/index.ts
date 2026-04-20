@@ -29,7 +29,7 @@ async function main(): Promise<number> {
         case 'config':
             return runConfigCommand(cli);
         case 'list':
-            return runList(cli);
+            return await runList(cli);
         case 'help':
             return await runHelp(cli);
         case 'dispatch':

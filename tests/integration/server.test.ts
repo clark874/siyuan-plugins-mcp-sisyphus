@@ -226,6 +226,21 @@ describe('MCP Server Integration', () => {
                 status: 'success',
                 totalCalls: 1,
             });
+            await vi.waitFor(() => {
+                expect(storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/analytics.jsonl']).toBeTruthy();
+            });
+            const analyticsLine = storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/analytics.jsonl'];
+            expect(analyticsLine).toBeTruthy();
+            expect(JSON.parse(analyticsLine)).toMatchObject({
+                tool: 'system',
+                action: 'get_version',
+                requestChars: expect.any(Number),
+                responseChars: expect.any(Number),
+                requestApproxTokens: expect.any(Number),
+                responseApproxTokens: expect.any(Number),
+                totalApproxTokens: expect.any(Number),
+                tokenMode: 'approx_context_v1',
+            });
         });
 
         it('increments total calls once for a failed tool call', async () => {

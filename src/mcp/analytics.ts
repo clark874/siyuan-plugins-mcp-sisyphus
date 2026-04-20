@@ -1,5 +1,10 @@
 import type { SiYuanClient } from '../api/client';
+import type { ToolConfig } from './config';
 import type { InvocationTransport } from './runtime';
+import {
+    APPROX_TOKEN_MODE,
+    calculateMcpInitialTokenCost,
+} from './token-usage';
 
 export const ANALYTICS_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/analytics.jsonl';
 export const ANALYTICS_ROTATED_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/analytics.jsonl.1';
@@ -17,6 +22,22 @@ export interface AnalyticsEvent {
     resultSizeHint?: string;
     transport: InvocationTransport;
     sessionIdHash?: string;
+    requestChars?: number;
+    responseChars?: number;
+    requestApproxTokens?: number;
+    responseApproxTokens?: number;
+    totalApproxTokens?: number;
+    tokenMode?: typeof APPROX_TOKEN_MODE;
+}
+
+export interface TokenUsageSummary {
+    tokenMode: typeof APPROX_TOKEN_MODE;
+    cliMeasuredCalls: number;
+    mcpMeasuredCalls: number;
+    cliAvgApproxTokens: number | null;
+    mcpAvgApproxTokens: number | null;
+    mcpInitialChars?: number;
+    mcpInitialApproxTokens?: number;
 }
 
 export interface AnalyticsSummary {
@@ -27,6 +48,7 @@ export interface AnalyticsSummary {
     topActions: Array<{ tool: string; action: string; count: number; errorCount: number; avgDurationMs: number }>;
     dailyTrend: Array<{ date: string; count: number; errorCount: number }>;
     transportDistribution: Record<InvocationTransport, number>;
+    tokenUsage: TokenUsageSummary;
 }
 
 export function normalizeAnalyticsTransport(value: unknown): InvocationTransport {
@@ -42,6 +64,12 @@ export function createTransportDistribution(): Record<InvocationTransport, numbe
         stdio: 0,
         http: 0,
     };
+}
+
+function toMeasuredTokenValue(event: AnalyticsEvent): number | null {
+    return typeof event.totalApproxTokens === 'number' && Number.isFinite(event.totalApproxTokens) && event.totalApproxTokens >= 0
+        ? event.totalApproxTokens
+        : null;
 }
 
 function getByteLength(text: string): number {
@@ -138,7 +166,45 @@ export async function readAnalyticsEvents(
     return events;
 }
 
-export function computeAnalyticsSummary(events: AnalyticsEvent[]): AnalyticsSummary {
+export function buildTokenUsageSummary(
+    events: AnalyticsEvent[],
+    currentToolConfig?: ToolConfig,
+): TokenUsageSummary {
+    let cliMeasuredCalls = 0;
+    let mcpMeasuredCalls = 0;
+    let cliTotalApproxTokens = 0;
+    let mcpTotalApproxTokens = 0;
+
+    for (const event of events) {
+        const measuredTokens = toMeasuredTokenValue(event);
+        if (measuredTokens === null) continue;
+
+        if (normalizeAnalyticsTransport(event.transport) === 'cli') {
+            cliMeasuredCalls += 1;
+            cliTotalApproxTokens += measuredTokens;
+            continue;
+        }
+
+        mcpMeasuredCalls += 1;
+        mcpTotalApproxTokens += measuredTokens;
+    }
+
+    const initialCost = currentToolConfig ? calculateMcpInitialTokenCost(currentToolConfig) : null;
+
+    return {
+        tokenMode: APPROX_TOKEN_MODE,
+        cliMeasuredCalls,
+        mcpMeasuredCalls,
+        cliAvgApproxTokens: cliMeasuredCalls > 0 ? cliTotalApproxTokens / cliMeasuredCalls : null,
+        mcpAvgApproxTokens: mcpMeasuredCalls > 0 ? mcpTotalApproxTokens / mcpMeasuredCalls : null,
+        ...(initialCost ?? {}),
+    };
+}
+
+export function computeAnalyticsSummary(
+    events: AnalyticsEvent[],
+    options: { currentToolConfig?: ToolConfig } = {},
+): AnalyticsSummary {
     const totalCalls = events.length;
     const errorCalls = events.filter((e) => e.status === 'error').length;
     const errorRate = totalCalls > 0 ? errorCalls / totalCalls : 0;
@@ -202,6 +268,7 @@ export function computeAnalyticsSummary(events: AnalyticsEvent[]): AnalyticsSumm
         topActions,
         dailyTrend,
         transportDistribution,
+        tokenUsage: buildTokenUsageSummary(events, options.currentToolConfig),
     };
 }
 

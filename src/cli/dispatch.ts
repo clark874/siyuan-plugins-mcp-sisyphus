@@ -1,21 +1,17 @@
-import { SiYuanClient } from '../api/client';
 import {
     ACTIONS_BY_CATEGORY,
     TOOL_CATEGORIES,
-    buildDefaultToolConfig,
     type ToolCategory,
     type ToolConfig,
 } from '../mcp/config';
-import { PermissionManager } from '../mcp/permissions';
 import { TOOL_REGISTRY, resolveCategory } from '../mcp/tool-registry';
 import { runToolCall } from '../mcp/tool-lifecycle';
-import { ensureRequiredPluginInstalled } from './plugin-check';
 
 import type { ParsedArgs } from './args';
 import { PRIMARY_CLI_COMMAND } from './args';
-import { applyConfigToEnv, loadFileConfig, resolveConfig } from './config';
 import { mapFlagsToArgs } from './flag-mapper';
 import { extractPaginationInfo, renderCliError, renderToolResult } from './render';
+import { loadCliRuntimeState } from './runtime';
 
 import type { ToolResult } from '../mcp/tools/shared';
 
@@ -36,27 +32,18 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         throw formatUnknownActionError(category, normalizedAction);
     }
 
-    const fileConfig = loadFileConfig(cli.configPath);
-    const resolved = resolveConfig(fileConfig, {
-        cliUrl: cli.url,
-        cliToken: cli.token,
-        profile: cli.profile,
-    });
-    applyConfigToEnv(resolved);
-
-    const client = new SiYuanClient({ baseUrl: resolved.apiUrl });
-    if (resolved.token) client.setToken(resolved.token);
-
     const previousTransport = process.env.SIYUAN_MCP_TRANSPORT;
     process.env.SIYUAN_MCP_TRANSPORT = 'cli';
 
     try {
-        await ensureRequiredPluginInstalled(client);
+        const { client, toolConfig, permMgr } = await loadCliRuntimeState(cli);
+        if (!toolConfig[category].enabled) {
+            return renderToolResult({
+                content: [{ type: 'text', text: `Tool "${tool}" is disabled.` }],
+                isError: true,
+            }, { json: cli.json, debug: cli.debug });
+        }
 
-        const permMgr = new PermissionManager(client);
-        await permMgr.load();
-
-        const toolConfig = buildPermissiveToolConfig();
         const module = TOOL_REGISTRY[category];
         const inputSchema = resolveInputSchema(category, toolConfig);
 
@@ -66,10 +53,11 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         }
 
         const basePayload = { action: normalizedAction, ...mappedArgs } as Record<string, unknown>;
+        const requestText = [PRIMARY_CLI_COMMAND, tool, action, ...rest].join(' ').trim();
         const runPage = async (page?: number): Promise<ToolResult> => {
             const payload = page === undefined ? basePayload : { ...basePayload, page };
             return runToolCall(
-                { client, category, name: tool, action: normalizedAction, args: payload },
+                { client, category, name: tool, action: normalizedAction, args: payload, requestText },
                 () => module.callTool(client, payload, toolConfig[category], permMgr),
             );
         };
@@ -166,20 +154,6 @@ function resolveInputSchema(category: ToolCategory, config: ToolConfig): Record<
         throw new Error(`Tool "${category}" has no aggregated descriptor — this is a bug.`);
     }
     return descriptor.inputSchema;
-}
-
-/**
- * CLI users explicitly type each command, so all actions are opted-in by
- * default — including the ones that the plugin UI gates off for safety.
- */
-function buildPermissiveToolConfig(): ToolConfig {
-    const base = buildDefaultToolConfig();
-    for (const cat of TOOL_CATEGORIES) {
-        const actions = ACTIONS_BY_CATEGORY[cat];
-        const record = base[cat].actions as Record<string, boolean>;
-        for (const action of actions) record[action] = true;
-    }
-    return base;
 }
 
 function formatUnknownToolError(tool: string): Error {

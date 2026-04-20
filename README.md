@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **Latest:** `v0.3.2` — Fixed a setting-panel config loading issue caused by cross-chunk module resolution in the SiYuan plugin environment. See [CHANGELOG.md](./CHANGELOG.md) for full history.
+> **Latest:** `v0.3.3` — CLI adds multi-profile config management, interactive paging, and a reorganized VitePress doc structure. See [CHANGELOG.md](./CHANGELOG.md) for full history.
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
@@ -10,6 +10,11 @@ This project provides **two ways to connect SiYuan Note to the outside world**, 
 
 - **CLI tool `siyuan-sisyphus`**: Drive SiYuan directly from your terminal or scripts without an MCP client.
 - **MCP Server Plugin**: Runs inside SiYuan so any MCP-capable agent can treat your notes as a callable toolset.
+
+In short, each interface has its own trade-offs, so choose based on the task:
+
+- **CLI usually uses fewer tokens**, because it does not push the tool descriptions directly into the model context. In practice, the model can query the specific help it needs on demand, invoke shorter shell commands, and avoid the overhead of complex JSON Schema. That makes CLI more efficient for many small tasks.
+- **MCP sends more tool guidance and schema on first connection**, so the upfront context cost is higher. It is better suited to dynamic, multi-step agent workflows that need tool composition, and that higher initial cost is a deliberate trade-off to support that complexity.
 
 If these concepts are new to you, here is the simple version:
 - **SiYuan**: your notes and data
