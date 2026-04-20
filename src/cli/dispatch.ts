@@ -66,10 +66,11 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         }
 
         const basePayload = { action: normalizedAction, ...mappedArgs } as Record<string, unknown>;
+        const requestText = [PRIMARY_CLI_COMMAND, tool, action, ...rest].join(' ').trim();
         const runPage = async (page?: number): Promise<ToolResult> => {
             const payload = page === undefined ? basePayload : { ...basePayload, page };
             return runToolCall(
-                { client, category, name: tool, action: normalizedAction, args: payload },
+                { client, category, name: tool, action: normalizedAction, args: payload, requestText },
                 () => module.callTool(client, payload, toolConfig[category], permMgr),
             );
         };

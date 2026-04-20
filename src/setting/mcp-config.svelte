@@ -332,7 +332,7 @@
         <HttpServerPanel {plugin} group={httpGroupLabel} display={focusGroup === httpGroupLabel} bind:httpSettings {getLabel} />
         <ToolCategoriesPanel {config} {groups} {focusGroup} {permGroupLabel} {notebooks} {permissions} {permLoading} {getLabel} {onChanged} />
         <PuppyPanel group={puppyGroupLabel} display={focusGroup === puppyGroupLabel} {config} {puppySettings} {getLabel} {onChanged} />
-        <TelemetryPanel analyticsGroup={analyticsGroupLabel} telemetryGroup="" showTelemetry={false} {focusGroup} {telemetryConfig} {getLabel} {onChanged} />
+        <TelemetryPanel analyticsGroup={analyticsGroupLabel} telemetryGroup="" showTelemetry={false} currentToolConfig={config} {focusGroup} {telemetryConfig} {getLabel} {onChanged} />
         <UserRulesPanel group={userRulesGroupLabel} display={focusGroup === userRulesGroupLabel} {config} {getLabel} {onChanged} />
     </div>
 </div>

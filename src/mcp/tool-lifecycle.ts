@@ -4,6 +4,7 @@ import type { ToolCategory } from './config';
 import { earnPuppyBalance, readPuppyStats, writePuppyEvent } from './puppy-state';
 import { getInvocationTransport } from './runtime';
 import { maybeSendTelemetry } from './telemetry';
+import { APPROX_TOKEN_MODE, measureApproxContent, measureApproxText } from './token-usage';
 import type { ToolResult } from './tools/shared';
 
 /**
@@ -17,17 +18,21 @@ export interface ToolCallContext {
     name: string;
     action: string;
     args: Record<string, unknown> | undefined;
+    requestText?: string;
 }
 
 function buildAnalyticsEvent(
     name: string,
     action: string,
     args: unknown,
+    requestText: string | undefined,
     status: 'success' | 'error',
     durationMs: number,
     resultText?: string,
     content?: { type: 'text'; text: string }[],
 ) {
+    const requestMetrics = measureApproxText(requestText);
+    const responseMetrics = content ? measureApproxContent(content) : measureApproxText(resultText);
     const paramKeys = args && typeof args === 'object'
         ? Object.keys(args as Record<string, unknown>).filter((key) => key !== 'action')
         : [];
@@ -40,6 +45,12 @@ function buildAnalyticsEvent(
         paramKeys,
         resultSizeHint: estimateResultSizeHint(content),
         transport: getInvocationTransport(),
+        requestChars: requestMetrics.chars,
+        responseChars: responseMetrics.chars,
+        requestApproxTokens: requestMetrics.approxTokens,
+        responseApproxTokens: responseMetrics.approxTokens,
+        totalApproxTokens: requestMetrics.approxTokens + responseMetrics.approxTokens,
+        tokenMode: APPROX_TOKEN_MODE,
     };
 }
 
@@ -90,6 +101,7 @@ export async function runToolCall(
     handler: () => Promise<ToolResult>,
 ): Promise<ToolResult> {
     const { client, category, name, action, args } = ctx;
+    const requestText = ctx.requestText;
     const startTime = Date.now();
 
     // Mascot actions read the current puppy balance (they may spend it);
@@ -111,7 +123,7 @@ export async function runToolCall(
     } catch (error) {
         const durationMs = Date.now() - startTime;
         const errorText = error instanceof Error ? error.message : String(error);
-        await persistAnalyticsEvent(client, buildAnalyticsEvent(name, action, args, 'error', durationMs, errorText));
+        await persistAnalyticsEvent(client, buildAnalyticsEvent(name, action, args, requestText, 'error', durationMs, errorText));
         maybeSendTelemetry(client).catch(() => { /* never block on telemetry */ });
         throw error;
     }
@@ -134,6 +146,7 @@ export async function runToolCall(
             name,
             action,
             args,
+            requestText,
             result.isError ? 'error' : 'success',
             durationMs,
             result.content[0]?.text,

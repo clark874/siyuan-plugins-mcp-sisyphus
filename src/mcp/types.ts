@@ -605,7 +605,7 @@ export const AvAddRowsSchema = z.object({
     action: z.literal("add_rows"),
     avID: z.string().describe("Attribute view ID"),
     blockIDs: z.array(z.string()).describe("Existing block IDs to add as rows"),
-    blockID: z.string().optional().describe("Optional database block ID"),
+    blockID: z.string().optional().describe("Optional database block ID used to pin a specific database-block view context"),
     viewID: z.string().optional().describe("Optional target view ID"),
     groupID: z.string().optional().describe("Optional target group ID"),
     previousID: z.string().optional().describe("Optional previous row item ID"),
@@ -615,12 +615,14 @@ export const AvAddRowsSchema = z.object({
 export const AvRemoveRowsSchema = z.object({
     action: z.literal("remove_rows"),
     avID: z.string().describe("Attribute view ID"),
+    blockID: z.string().optional().describe("Registered database block ID for explicit database-block context"),
     srcIDs: z.array(z.string()).min(1).describe("Bound row block/item IDs to remove"),
 });
 
 export const AvAddColumnSchema = z.object({
     action: z.literal("add_column"),
     avID: z.string().describe("Attribute view ID"),
+    blockID: z.string().optional().describe("Registered database block ID for explicit database-block context"),
     keyID: z.string().optional().describe("Optional new column key ID; MCP generates one when omitted"),
     keyName: z.string().describe("New column name"),
     keyType: z.enum(["text", "number", "date", "select", "mSelect", "url", "email", "phone", "mAsset", "template", "created", "updated", "checkbox", "relation", "rollup", "lineNumber"]).describe("Column type"),
@@ -631,6 +633,7 @@ export const AvAddColumnSchema = z.object({
 export const AvRemoveColumnSchema = z.object({
     action: z.literal("remove_column"),
     avID: z.string().describe("Attribute view ID"),
+    blockID: z.string().optional().describe("Registered database block ID for explicit database-block context"),
     keyID: z.string().optional().describe("Column key ID"),
     columnID: z.string().optional().describe("Alias of keyID"),
     removeRelationDest: z.boolean().optional().describe("Also remove reverse relation metadata when deleting a relation column"),
@@ -647,6 +650,7 @@ export const AvRemoveColumnSchema = z.object({
 export const AvSetCellSchema = z.object({
     action: z.literal("set_cell"),
     avID: z.string().describe("Attribute view ID"),
+    blockID: z.string().optional().describe("Registered database block ID for explicit database-block context"),
     rowID: z.string().describe("Row item ID"),
     columnID: z.string().describe("Column key ID"),
 }).and(AvSetCellValueFieldsSchema);
@@ -654,6 +658,7 @@ export const AvSetCellSchema = z.object({
 export const AvBatchSetCellsSchema = z.object({
     action: z.literal("batch_set_cells"),
     avID: z.string().describe("Attribute view ID"),
+    blockID: z.string().optional().describe("Registered database block ID for explicit database-block context"),
     items: z.array(AvCellUpdateItemSchema).min(1).describe("Batch cell updates"),
 });
 

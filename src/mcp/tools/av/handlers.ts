@@ -87,6 +87,8 @@ type AddRowsResolution = {
 
 const ADD_ROWS_POLL_ATTEMPTS = 6;
 const ADD_ROWS_POLL_DELAY_MS = 500;
+const AV_MATERIALIZATION_POLL_ATTEMPTS = 6;
+const AV_MATERIALIZATION_POLL_DELAY_MS = 300;
 const ATTRIBUTE_VIEW_DIR = '/data/storage/av';
 const ATTRIBUTE_VIEW_ID_PATTERN = /^\d{14}-[a-z0-9]{7}$/;
 
@@ -412,31 +414,117 @@ async function resolveAvContext(
     return { avData, blockID };
 }
 
+function extractMirrorDatabaseBlockIds(mirrors: { refDefs?: Array<{ refID?: string; defIDs?: string[] }> }): string[] {
+    const blockIDs: string[] = [];
+    for (const entry of mirrors.refDefs ?? []) {
+        const refID = typeof entry?.refID === 'string' && entry.refID.length > 0 ? entry.refID : undefined;
+        if (refID && !blockIDs.includes(refID)) {
+            blockIDs.push(refID);
+        }
+    }
+    return blockIDs;
+}
+
+async function getAvMirrorDatabaseBlockIds(client: SiYuanClient, avID: string): Promise<string[]> {
+    try {
+        return extractMirrorDatabaseBlockIds(await avApi.getMirrorDatabaseBlocks(client, avID));
+    } catch (error) {
+        if (isMissingBlockError(error)) {
+            return [];
+        }
+        throw error;
+    }
+}
+
+async function isExplicitAvDatabaseBlock(
+    client: SiYuanClient,
+    avID: string,
+    avData: unknown,
+    blockID: string,
+): Promise<boolean> {
+    const candidateBlockIDs: string[] = [];
+    const mirrors = await getAvMirrorDatabaseBlockIds(client, avID);
+    candidateBlockIDs.push(...mirrors);
+
+    const resolved = await resolveAvContext(client, avData);
+    if (resolved.blockID && !candidateBlockIDs.includes(resolved.blockID)) {
+        candidateBlockIDs.push(resolved.blockID);
+    }
+
+    if (candidateBlockIDs.includes(blockID)) {
+        return true;
+    }
+
+    try {
+        const response = await blockApi.getBlockDOM(client, blockID);
+        const dom = typeof response?.dom === 'string' ? response.dom : '';
+        return dom.includes('data-type="NodeAttributeView"') && dom.includes(`data-av-id="${avID}"`);
+    } catch (error) {
+        if (isMissingBlockError(error)) {
+            return false;
+        }
+        throw error;
+    }
+}
+
+function createAvBlockContextErrorResult(
+    action: AvAction,
+    avID: string,
+    blockID: string,
+): ToolResult {
+    return {
+        content: [{
+            type: 'text',
+            text: JSON.stringify({
+                error: {
+                    type: 'validation_error',
+                    tool: AV_TOOL_NAME,
+                    action,
+                    message: `blockID "${blockID}" is not a database block for attribute view "${avID}".`,
+                    fields: [{
+                        path: 'blockID',
+                        message: `blockID "${blockID}" does not belong to attribute view "${avID}".`,
+                    }],
+                    hint: 'Pass the materialized database block for this AV, or omit blockID and let MCP resolve a registered mirror block automatically.',
+                },
+            }, null, 2),
+        }],
+        isError: true,
+    };
+}
+
 async function ensurePermissionForAvId(
     client: SiYuanClient,
     permMgr: PermissionManager,
     avID: string,
     required: 'read' | 'write',
+    options?: {
+        blockID?: string;
+        action?: AvAction;
+    },
 ): Promise<{ denied: ToolResult | null; avData: unknown }> {
     const response = await avApi.getAttributeView(client, avID);
     const avData = response.av;
-    const resolved = await resolveAvContext(client, avData);
-    const candidateBlockIDs = [];
-    if (resolved.blockID) {
-        candidateBlockIDs.push(resolved.blockID);
-    }
 
-    try {
-        const mirrors = await avApi.getMirrorDatabaseBlocks(client, avID);
-        for (const entry of mirrors.refDefs ?? []) {
-            const refID = typeof entry?.refID === 'string' && entry.refID.length > 0 ? entry.refID : undefined;
-            if (refID && !candidateBlockIDs.includes(refID)) {
-                candidateBlockIDs.push(refID);
-            }
+    if (options?.blockID) {
+        const { denied } = await ensurePermissionForDocumentId(client, permMgr, options.blockID, required);
+        if (denied) return { denied, avData };
+        const matchesAv = await isExplicitAvDatabaseBlock(client, avID, avData, options.blockID);
+        if (!matchesAv) {
+            return {
+                denied: createAvBlockContextErrorResult(options.action ?? 'get', avID, options.blockID),
+                avData,
+            };
         }
-    } catch (error) {
-        if (!isMissingBlockError(error)) {
-            throw error;
+        return { denied: null, avData };
+    }
+    const resolved = await resolveAvContext(client, avData);
+    const candidateBlockIDs: string[] = [];
+    const mirrors = await getAvMirrorDatabaseBlockIds(client, avID);
+    candidateBlockIDs.push(...mirrors);
+    if (resolved.blockID) {
+        if (!candidateBlockIDs.includes(resolved.blockID)) {
+            candidateBlockIDs.push(resolved.blockID);
         }
     }
 
@@ -666,8 +754,8 @@ function buildDuplicateAvBlockDom(blockID: string, avID: string): string {
     return `<div class="av" data-node-id="${blockID}" data-av-id="${avID}" data-type="NodeAttributeView" data-av-type="table"></div>`;
 }
 
-function buildNewAvBlockDom(avID: string, now = new Date()): string {
-    return `<div data-av-id="${avID}" data-type="NodeAttributeView" class="av" updated="${formatSiYuanTimestamp(now)}"></div>`;
+function buildNewAvBlockDom(blockID: string, avID: string, now = new Date()): string {
+    return `<div data-node-id="${blockID}" data-av-id="${avID}" data-type="NodeAttributeView" class="av" updated="${formatSiYuanTimestamp(now)}"></div>`;
 }
 
 function extractInsertedBlockId(rawResult: unknown): string | undefined {
@@ -836,11 +924,25 @@ async function handleRenderAttributeView({ client, permMgr, rawArgs }: AvHandler
     });
 
     let materializedBlockID: string | undefined;
+    let materializedBlockRegistered: boolean | undefined;
     if (permission.shouldMaterialize) {
-        const appendResult = await blockApi.appendBlock(client, 'dom', buildNewAvBlockDom(effectiveAvID, creationTime), parsed.blockID!);
+        materializedBlockID = generateSiYuanNodeId(creationTime);
+        const appendResult = await blockApi.appendBlock(client, 'dom', buildNewAvBlockDom(materializedBlockID, effectiveAvID, creationTime), parsed.blockID!);
         materializedBlockID = extractInsertedBlockId(appendResult);
         if (!materializedBlockID) {
             throw new Error(`Created attribute view "${effectiveAvID}", but SiYuan did not return the materialized database block ID.`);
+        }
+        materializedBlockRegistered = false;
+        for (let attempt = 0; attempt < AV_MATERIALIZATION_POLL_ATTEMPTS; attempt += 1) {
+            const mirrorBlockIDs = await getAvMirrorDatabaseBlockIds(client, effectiveAvID);
+            if (mirrorBlockIDs.includes(materializedBlockID)) {
+                materializedBlockRegistered = true;
+                break;
+            }
+            if (attempt === AV_MATERIALIZATION_POLL_ATTEMPTS - 1) {
+                break;
+            }
+            await sleep(AV_MATERIALIZATION_POLL_DELAY_MS);
         }
     }
 
@@ -875,6 +977,10 @@ async function handleRenderAttributeView({ client, permMgr, rawArgs }: AvHandler
             materialized: true,
             blockID: materializedBlockID,
             parentID: parsed.blockID,
+            databaseBlockRegistrationVerified: materializedBlockRegistered === true,
+            ...(materializedBlockRegistered === false ? {
+                warning: `Created attribute view "${effectiveAvID}" and materialized database block "${materializedBlockID}", but MCP could not verify mirror registration before the timeout. If the next AV write cannot resolve by avID yet, retry shortly or pass this blockID as explicit database-block context.`,
+            } : {}),
         } : {}),
     });
     return permission.shouldMaterialize
@@ -923,7 +1029,7 @@ async function handleGetAttributeViewFilterSort({ client, permMgr, rawArgs }: Av
 
 async function handleAddRows({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
     const parsed = AvAddRowsSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write');
+    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'add_rows' });
     if (denied) return denied;
 
     if (parsed.blockIDs.length === 0) {
@@ -964,7 +1070,7 @@ async function handleAddRows({ client, permMgr, rawArgs }: AvHandlerContext): Pr
 
 async function handleRemoveRows({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
     const parsed = AvRemoveRowsSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write');
+    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'remove_rows' });
     if (denied) return denied;
 
     await avApi.removeAttributeViewBlocks(client, parsed.avID, parsed.srcIDs);
@@ -978,7 +1084,7 @@ async function handleRemoveRows({ client, permMgr, rawArgs }: AvHandlerContext):
 
 async function handleAddColumn({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
     const parsed = AvAddColumnSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write');
+    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'add_column' });
     if (denied) return denied;
 
     const keyID = parsed.keyID ?? generateSiYuanNodeId();
@@ -997,7 +1103,7 @@ async function handleAddColumn({ client, permMgr, rawArgs }: AvHandlerContext): 
 
 async function handleRemoveColumn({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
     const parsed = AvRemoveColumnSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write');
+    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'remove_column' });
     if (denied) return denied;
     const keyID = parsed.keyID ?? parsed.columnID!;
 
@@ -1012,7 +1118,7 @@ async function handleRemoveColumn({ client, permMgr, rawArgs }: AvHandlerContext
 
 async function handleSetCell({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
     const parsed = AvSetCellSchema.parse(rawArgs);
-    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write');
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'set_cell' });
     if (denied) return denied;
     const validatedRowID = validateRowIdForAv(parsed.avID, 'set_cell', extractAvRowLookup(avData), parsed.rowID);
     if (!validatedRowID.ok) return validatedRowID.result;
@@ -1036,7 +1142,7 @@ async function handleSetCell({ client, permMgr, rawArgs }: AvHandlerContext): Pr
 
 async function handleBatchSetCells({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
     const parsed = AvBatchSetCellsSchema.parse(rawArgs);
-    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write');
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'batch_set_cells' });
     if (denied) return denied;
     const rowLookup = extractAvRowLookup(avData);
 

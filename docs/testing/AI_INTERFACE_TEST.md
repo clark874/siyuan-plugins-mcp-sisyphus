@@ -81,7 +81,7 @@ siyuan-sisyphus document create --notebook <id> --path "/Inbox/Test Doc" --markd
 - 权限拦截是否正确
 - 搜索 / 标签 / 系统接口是否正常
 - flashcard 的只读发现与条件式写链路
-- AV 的读写、搜索、复制链路
+- AV 的创建、读写、搜索、复制链路
 - 清理是否完整
 
 ---
@@ -260,72 +260,140 @@ siyuan-sisyphus system get-version
 
 ## 6. AV / 数据库专项规则
 
-### 6.1 本项目当前真实能力边界
+### 6.1 主测试路径
 
-截至当前版本，`av` **不能从零创建 brand-new real AV block**。
+AV 测试必须由 AI 在本轮测试中**自己创建真实 AV 块**，不得把“复制已有数据库”当作主路径。
 
-当前可依赖的能力是：
+标准起手动作必须是：
 
-- 操作现有真实 AV
-- `duplicate_block` 复制现有数据库块
-- 对已有 AV 做行、列、单元格、搜索、主键读取等操作
+- `av.render_attribute_view`
+- 参数必须包含 `blockID` + `createIfNotExist=true`
+- 可省略 `id`，让 MCP/CLI 自动生成 `avID`
 
-所以本轮 AV 测试要按下面三种情况处理：
+创建成功后，必须立即记录两个标识：
 
-#### 情况 A：用户提供现有真实 AV
+- `AV_ID`：返回中的 `avID` / `id`
+- `AV_BLOCK_ID`：返回中的 materialized `blockID`
 
-可以执行：
+后续所有 AV 写操作都应优先显式携带 `AV_BLOCK_ID` 作为权限上下文，尤其是：
 
-- `get`
-- `render_attribute_view`
-- `get_attribute_view_keys`
-- `get_attribute_view_filter_sort`
-- `get_primary_key_values`
-- `add_column`
 - `add_rows`
-- `set_cell`
-- `batch_set_cells`
-- `search`
+- `add_column`
 - `remove_rows`
 - `remove_column`
+- `set_cell`
+- `batch_set_cells`
 
-#### 情况 B：用户未提供现有 AV，但允许基于现有数据库复制
+这一步是本项目当前 AV 测试的标准写法，不允许省略。
 
-可先执行：
+### 6.2 标准调用链路
 
-- `duplicate_block`
+AI 必须在自己创建的 AV 上完成以下动作链路：
 
-然后对复制出的测试数据库执行与情况 A 相同的测试，并在结束后删除测试数据库块。
+1. `render_attribute_view`
+2. `get`
+3. `get_attribute_view_keys`
+4. `get_attribute_view_filter_sort`
+5. `search`
+6. `get_primary_key_values`
+7. 创建 3 个普通块，准备绑定为数据库行
+8. `add_rows`
+9. `add_column`
+10. `set_cell`
+11. `batch_set_cells`
+12. `duplicate_block`
+13. `remove_rows`
+14. `remove_column`
 
-#### 情况 C：既没有现成 AV，也没有可复制来源
+推荐按以下参数模式执行：
 
-则 AV 写操作统一记为 `BLOCKED`，只执行可读检查。
+- `render_attribute_view`：创建本轮测试 AV，拿到 `AV_ID` 与 `AV_BLOCK_ID`
+- `add_rows`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`、`blockIDs=[...]`
+- `add_column`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`
+- `set_cell`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`
+- `batch_set_cells`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`
+- `remove_rows`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`
+- `remove_column`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`
 
-### 6.2 AV 强约束
+### 6.3 通过标准
+
+可以参考下面这组标准结果来判断是否通过：
+
+| 动作 | 通过标准 |
+| --- | --- |
+| `render_attribute_view` | 成功创建 AV 块，并返回新的 `avID` 与 materialized `blockID` |
+| `get` | 能获取完整 AV 结构 |
+| `get_attribute_view_keys` | 初始至少返回 `主键(block)`、`单选(select)` 两列 |
+| `get_attribute_view_filter_sort` | 能返回当前筛选 / 排序信息；空数组也算通过 |
+| `search` | 能正常返回搜索结果或合理的空结果说明 |
+| `get_primary_key_values` | 能返回当前主键值列表 |
+| `add_rows` | 成功添加 3 行，并在响应中拿到对应 `rowID` |
+| `add_column` | 成功新增一列，例如 `备注(text)` |
+| `set_cell` | 能成功给第一行写入单元格值 |
+| `batch_set_cells` | 能成功批量给多行写入值 |
+| `duplicate_block` | 能复制出一个新的 AV 块，并返回新的 `avID` |
+| `remove_rows` | 能删除指定测试行 |
+| `remove_column` | 能删除本轮新增测试列 |
+
+下面这个实际案例可以作为参考验收结果：
+
+| 动作 | 示例结果 |
+| --- | --- |
+| `render_attribute_view` | 创建 AV 块成功（示例 `avID: 20260420234836-a2uhpwt`） |
+| `get` | 获取到完整 AV 结构，包含 3 行 2 列 |
+| `get_attribute_view_keys` | 返回 2 列：主键(block)、单选(select) |
+| `get_attribute_view_filter_sort` | 返回空筛选 / 排序 |
+| `search` | 搜索 `表格` 返回空，并给出合理提示 |
+| `get_primary_key_values` | 返回 3 个主键值：行 1、行 2、行 3 |
+| `add_rows` | 成功添加 3 行 |
+| `add_column` | 新增 `备注` 列（示例 `keyID: 20260420234938-3ofgulm`） |
+| `set_cell` | 第一行备注被设为 `测试备注` |
+| `batch_set_cells` | 三行单选列分别设为 `选项A`、`选项B`、`选项C` |
+| `duplicate_block` | 复制出一个新的 AV 块（示例 `avID: 20260420234949-753pglm`） |
+| `remove_rows` | 删除第三行 |
+| `remove_column` | 删除 `备注` 列 |
+
+最终状态的标准描述应类似：
+
+- 原 AV 剩余 2 行
+- 保留 2 列：`主键`、`单选`
+- 旁边多出一个复制出的 AV 块
+
+### 6.4 AV 强约束
 
 AI 不得：
 
+- 把“复制已有数据库”当作 AV 主测试路径
+- 跳过 `render_attribute_view(createIfNotExist=true, blockID=...)` 这一步
+- 创建 AV 后不记录 `AV_ID` 与 `AV_BLOCK_ID`
+- 在 `add_column`、`set_cell`、`batch_set_cells`、`remove_rows`、`remove_column` 时省略 `blockID`
 - 用 Markdown 表格冒充真实 AV
 - 用普通块或 DOM 片段冒充数据库块
-- 在没有真实 `rowID` 的情况下伪造 `set_cell` 成功
+- 在没有真实 `rowID` 的情况下伪造 `set_cell` / `batch_set_cells` 成功
+- 把空结果或提示性结果误判为接口失败，只要返回语义自洽即可
 
-### 6.3 AV 建议顺序
+### 6.5 AV 建议顺序
 
-1. 确认 AV 来源：用户提供 / 复制获得
-2. `av.get`
-3. `av.render_attribute_view`
-4. `av.get_attribute_view_keys`
-5. `av.get_primary_key_values`
-6. `av.add_column`
-7. 创建测试块
-8. `av.add_rows`
-9. `av.set_cell`
-10. `av.batch_set_cells`
-11. `av.search`
-12. `av.get_attribute_view_filter_sort`
-13. `av.remove_rows`
-14. `av.remove_column`
-15. 如果本轮复制了数据库块，最后删除副本
+1. 创建本轮测试文档或块，作为 AV 创建目标
+2. 执行 `av.render_attribute_view`，带 `createIfNotExist=true`
+3. 记录 `AV_ID`
+4. 记录 `AV_BLOCK_ID`
+5. 执行 `av.get`
+6. `av.get_attribute_view_keys`
+7. `av.get_attribute_view_filter_sort`
+8. `av.search`
+9. `av.get_primary_key_values`
+10. 创建 3 个测试块
+11. `av.add_rows`
+12. 从响应中记录真实 `rowID`
+13. `av.add_column`
+14. `av.set_cell`
+15. `av.batch_set_cells`
+16. `av.duplicate_block`
+17. `av.remove_rows`
+18. `av.remove_column`
+19. 删除复制出的测试 AV 块
+20. 删除原始测试 AV 块
 
 ---
 
@@ -349,6 +417,7 @@ AI 不得：
 - 测试笔记本：`AI Interface Test <timestamp>`
 - 测试文档：`AI Interface Root <timestamp>`
 - 测试标签：`#ai-interface-test-<timestamp>#`
+- AV 测试名：`AI AV Test <timestamp>`
 - AV 测试列：`AI Text <timestamp>`
 - AV 测试值：`AI interface value <timestamp>`
 
@@ -420,4 +489,3 @@ AI 不得：
 
 - `请按 AI_INTERFACE_TEST.md，用 CLI 模式完整测试，只测 CLI，不要切到 MCP。`
 - `请按 AI_INTERFACE_TEST.md，用 MCP 模式完整测试，只测 MCP，不要切到 CLI。`
-

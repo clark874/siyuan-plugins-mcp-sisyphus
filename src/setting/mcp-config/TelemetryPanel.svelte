@@ -3,6 +3,7 @@
     import { fetchPost, showMessage } from "siyuan";
 
     import SettingPanel from "../../libs/components/setting-panel.svelte";
+    import type { ToolConfig } from "../tool-config";
     import type { TelemetryConfig } from "../tool-config-storage";
 
     export let analyticsGroup: string;
@@ -10,6 +11,7 @@
     export let showTelemetry = true;
     export let focusGroup: string;
     export let telemetryConfig: TelemetryConfig;
+    export let currentToolConfig: ToolConfig;
     export let getLabel: (key: string, fallback: string) => string;
     export let onChanged: (event: CustomEvent<ChangeEvent>) => void | Promise<void>;
 
@@ -80,7 +82,7 @@
                 getAuthHeaders: () => ({}),
                 setToken: () => {},
             } as any, 7 * 24);
-            analyticsSummary = computeAnalyticsSummary(events);
+            analyticsSummary = computeAnalyticsSummary(events, { currentToolConfig });
         } catch (e) {
             analyticsError = e instanceof Error ? e.message : String(e);
             analyticsSummary = null;
@@ -126,7 +128,7 @@
             try { parts.push(await readFile(ANALYTICS_PATH)); } catch { /* ignore */ }
             try { parts.push(await readFile(ANALYTICS_ROTATED_PATH)); } catch { /* ignore */ }
             const events = parseJsonl(parts.join("\n"));
-            const summary = computeAnalyticsSummary(events);
+            const summary = computeAnalyticsSummary(events, { currentToolConfig });
             const report = {
                 generatedAt: new Date().toISOString(),
                 summary,
@@ -174,6 +176,10 @@
 
     onMount(loadAnalyticsSummary);
 
+    $: if (currentToolConfig) {
+        void loadAnalyticsSummary();
+    }
+
     $: telemetryItems = buildTelemetryItems();
 </script>
 
@@ -183,29 +189,115 @@
             <div class="analytics-hint">{getLabel("analyticsLoading", "Loading analytics...")}</div>
         {:else if analyticsError}
             <div class="analytics-hint analytics-hint--error">{analyticsError}</div>
-        {:else if !analyticsSummary || analyticsSummary.totalCalls === 0}
-            <div class="analytics-hint">{getLabel("analyticsEmpty", "No analytics data yet. Start using MCP tools to see usage statistics.")}</div>
         {:else}
+            {#if !analyticsSummary || analyticsSummary.totalCalls === 0}
+                <div class="analytics-hint">{getLabel("analyticsEmpty", "No analytics data yet. Start using MCP tools to see usage statistics.")}</div>
+            {/if}
+
             <div class="analytics-grid">
                 <div class="analytics-card">
-                    <div class="analytics-card__value">{analyticsSummary.totalCalls}</div>
+                    <div class="analytics-card__value">{analyticsSummary?.totalCalls ?? 0}</div>
                     <div class="analytics-card__label">{getLabel("analyticsTotalCalls", "Total Calls")}</div>
                 </div>
                 <div class="analytics-card">
-                    <div class="analytics-card__value">{analyticsSummary.errorCalls}</div>
+                    <div class="analytics-card__value">
+                        {#if analyticsSummary?.tokenUsage?.cliAvgApproxTokens != null}
+                            ~{Math.round(analyticsSummary.tokenUsage.cliAvgApproxTokens)}
+                        {:else}
+                            —
+                        {/if}
+                    </div>
+                    <div class="analytics-card__label">{getLabel("analyticsCliAvgTokens", "CLI Avg Tokens")}</div>
+                </div>
+                <div class="analytics-card">
+                    <div class="analytics-card__value">
+                        {#if analyticsSummary?.tokenUsage?.mcpAvgApproxTokens != null}
+                            ~{Math.round(analyticsSummary.tokenUsage.mcpAvgApproxTokens)}
+                        {:else}
+                            —
+                        {/if}
+                    </div>
+                    <div class="analytics-card__label">{getLabel("analyticsMcpAvgTokens", "MCP Avg Tokens")}</div>
+                </div>
+                <div class="analytics-card">
+                    <div class="analytics-card__value">
+                        {#if analyticsSummary?.tokenUsage?.mcpInitialApproxTokens != null}
+                            ~{Math.round(analyticsSummary.tokenUsage.mcpInitialApproxTokens)}
+                        {:else}
+                            —
+                        {/if}
+                    </div>
+                    <div class="analytics-card__label">{getLabel("analyticsMcpFirstConnect", "MCP First Connect")}</div>
+                </div>
+                <div class="analytics-card">
+                    <div class="analytics-card__value">{analyticsSummary?.errorCalls ?? 0}</div>
                     <div class="analytics-card__label">{getLabel("analyticsErrors", "Errors")}</div>
                 </div>
                 <div class="analytics-card">
-                    <div class="analytics-card__value">{(analyticsSummary.errorRate * 100).toFixed(1)}%</div>
+                    <div class="analytics-card__value">{(((analyticsSummary?.errorRate ?? 0) * 100).toFixed(1))}%</div>
                     <div class="analytics-card__label">{getLabel("analyticsErrorRate", "Error Rate")}</div>
                 </div>
                 <div class="analytics-card">
-                    <div class="analytics-card__value">{Math.round(analyticsSummary.avgDurationMs)}ms</div>
+                    <div class="analytics-card__value">{Math.round(analyticsSummary?.avgDurationMs ?? 0)}ms</div>
                     <div class="analytics-card__label">{getLabel("analyticsAvgDuration", "Avg Duration")}</div>
                 </div>
             </div>
 
-            {#if analyticsSummary.topActions.length > 0}
+            <div class="analytics-block">
+                <div class="analytics-block__title">{getLabel("analyticsTokenUsage", "Token Usage")}</div>
+                <div class="analytics-list">
+                    <div class="analytics-list__item">
+                        <span class="analytics-list__name">{getLabel("analyticsCliAvgTokens", "CLI Avg Tokens")}</span>
+                        <span class="analytics-list__count">
+                            {#if analyticsSummary?.tokenUsage?.cliAvgApproxTokens != null}
+                                ~{Math.round(analyticsSummary.tokenUsage.cliAvgApproxTokens)}
+                            {:else}
+                                —
+                            {/if}
+                        </span>
+                        <span class="analytics-list__meta">
+                            {#if analyticsSummary?.tokenUsage?.cliMeasuredCalls}
+                                {analyticsSummary.tokenUsage.cliMeasuredCalls} call(s)
+                            {/if}
+                        </span>
+                    </div>
+                    <div class="analytics-list__item">
+                        <span class="analytics-list__name">{getLabel("analyticsMcpAvgTokens", "MCP Avg Tokens")}</span>
+                        <span class="analytics-list__count">
+                            {#if analyticsSummary?.tokenUsage?.mcpAvgApproxTokens != null}
+                                ~{Math.round(analyticsSummary.tokenUsage.mcpAvgApproxTokens)}
+                            {:else}
+                                —
+                            {/if}
+                        </span>
+                        <span class="analytics-list__meta">
+                            {#if analyticsSummary?.tokenUsage?.mcpMeasuredCalls}
+                                {analyticsSummary.tokenUsage.mcpMeasuredCalls} call(s)
+                            {/if}
+                        </span>
+                    </div>
+                    <div class="analytics-list__item">
+                        <span class="analytics-list__name">{getLabel("analyticsMcpFirstConnect", "MCP First Connect")}</span>
+                        <span class="analytics-list__count">
+                            {#if analyticsSummary?.tokenUsage?.mcpInitialApproxTokens != null}
+                                ~{Math.round(analyticsSummary.tokenUsage.mcpInitialApproxTokens)}
+                            {:else}
+                                —
+                            {/if}
+                        </span>
+                        <span class="analytics-list__meta">
+                            {#if analyticsSummary?.tokenUsage?.mcpInitialChars != null}
+                                {analyticsSummary.tokenUsage.mcpInitialChars} chars
+                            {/if}
+                        </span>
+                    </div>
+                </div>
+                <div class="analytics-note">
+                    {getLabel("analyticsTokenApproxHint", "Approximate token counts based on observed text length; MCP first-connection cost is shown separately from per-call averages.")}
+                </div>
+            </div>
+
+            {#if analyticsSummary && analyticsSummary.topActions.length > 0}
                 <div class="analytics-block">
                     <div class="analytics-block__title">{getLabel("analyticsTopActions", "Top Actions")}</div>
                     <div class="analytics-list">
@@ -220,7 +312,7 @@
                 </div>
             {/if}
 
-            {#if analyticsSummary.dailyTrend.length > 0}
+            {#if analyticsSummary && analyticsSummary.dailyTrend.length > 0}
                 <div class="analytics-block">
                     <div class="analytics-block__title">{getLabel("analyticsDailyTrend", "Daily Trend (last 7 days)")}</div>
                     <div class="analytics-list">
@@ -240,15 +332,15 @@
                 <div class="analytics-list">
                     <div class="analytics-list__item">
                         <span class="analytics-list__name">{getLabel("analyticsSourceCli", "cli")}</span>
-                        <span class="analytics-list__count">{analyticsSummary.transportDistribution.cli}</span>
+                        <span class="analytics-list__count">{analyticsSummary?.transportDistribution?.cli ?? 0}</span>
                     </div>
                     <div class="analytics-list__item">
                         <span class="analytics-list__name">{getLabel("analyticsSourceStdio", "stdio")}</span>
-                        <span class="analytics-list__count">{analyticsSummary.transportDistribution.stdio}</span>
+                        <span class="analytics-list__count">{analyticsSummary?.transportDistribution?.stdio ?? 0}</span>
                     </div>
                     <div class="analytics-list__item">
                         <span class="analytics-list__name">{getLabel("analyticsSourceHttp", "http")}</span>
-                        <span class="analytics-list__count">{analyticsSummary.transportDistribution.http}</span>
+                        <span class="analytics-list__count">{analyticsSummary?.transportDistribution?.http ?? 0}</span>
                     </div>
                 </div>
             </div>
@@ -376,6 +468,13 @@
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+    }
+
+    .analytics-note {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--b3-theme-on-surface-light);
+        line-height: 1.5;
     }
 
     .telemetry-section {
