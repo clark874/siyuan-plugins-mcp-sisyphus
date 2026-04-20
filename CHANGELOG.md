@@ -2,6 +2,12 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.3.2 - 2026-04-20
+
+- 修复设置面板加载时因跨 chunk 模块解析失败导致的配置初始化异常
+- 将 tool-config 与 telemetry-config 内联至 setting 目录，避免 re-export 依赖在插件环境中的加载问题
+- 同步调整配置一致性测试，确保 setting 与 mcp 两侧行为对齐
+
 ## v0.3.1 - 2026-04-20
 
 - CLI 调用链路接入完整 tool lifecycle，analytics 与 telemetry 事件同步持久化，猫猫挣米与调用统计在终端场景下即时生效

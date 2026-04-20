@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **最新版本：**`v0.3.1` — CLI 工具 `siyuan-sisyphus` 已上线 npm，全部 10 个聚合工具、115+ action 均可在终端直接调用。详见 [CHANGELOG.md](./CHANGELOG.md)。
+> **最新版本：**`v0.3.2` — 修复设置面板因跨 chunk 模块解析失败导致的配置初始化异常。详见 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 

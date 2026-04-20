@@ -2,7 +2,7 @@
 
 [English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 
-> **Latest:** `v0.3.1` — CLI tool `siyuan-sisyphus` is now available on npm. All 10 aggregated tools and 115+ actions are callable directly from the terminal. See [CHANGELOG.md](./CHANGELOG.md) for full history.
+> **Latest:** `v0.3.2` — Fixed a setting-panel config loading issue caused by cross-chunk module resolution in the SiYuan plugin environment. See [CHANGELOG.md](./CHANGELOG.md) for full history.
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
