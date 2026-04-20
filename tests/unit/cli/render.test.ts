@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ToolResult } from '@/mcp/tools/shared';
-import { renderCliError, renderToolResult } from '@/cli/render';
+import { extractPaginationInfo, renderCliError, renderToolResult } from '@/cli/render';
 
 function captureStdIO() {
     let stdout = '';
@@ -85,8 +85,59 @@ describe('cli/render', () => {
         expect(io.stdout).toContain('Items');
         expect(io.stdout).toContain('ID: doc-1 · Title: Daily Note · Path: /Daily Note');
         expect(io.stdout).toContain('Next Step');
-        expect(io.stdout).toContain('More pages are available');
+        expect(io.stdout).toContain('Enter/n for next page');
         io.restore();
+    });
+
+    it('shows the full MCP page for paginated output', () => {
+        const io = captureStdIO();
+        const data = Array.from({ length: 12 }, (_, index) => ({
+            id: `doc-${index + 1}`,
+            title: `Doc ${index + 1}`,
+            path: `/Doc ${index + 1}`,
+        }));
+        const result: ToolResult = {
+            content: [{
+                type: 'text',
+                text: JSON.stringify({
+                    data,
+                    total: 24,
+                    page: 1,
+                    pageCount: 2,
+                    pageSize: 12,
+                    hasNextPage: true,
+                }),
+            }],
+        };
+
+        const code = renderToolResult(result, { json: false, debug: false });
+
+        expect(code).toBe(0);
+        expect(io.stdout).toContain('ID: doc-12 · Title: Doc 12 · Path: /Doc 12');
+        expect(io.stdout).not.toContain('more item(s) not shown');
+        io.restore();
+    });
+
+    it('extracts pagination metadata from tool results', () => {
+        const result: ToolResult = {
+            content: [{
+                type: 'text',
+                text: JSON.stringify({
+                    data: [{ id: 'doc-1' }],
+                    total: 3,
+                    page: 2,
+                    pageCount: 3,
+                    pageSize: 1,
+                    hasNextPage: true,
+                }),
+            }],
+        };
+
+        expect(extractPaginationInfo(result)).toEqual({
+            page: 2,
+            pageCount: 3,
+            hasNextPage: true,
+        });
     });
 
     it('formats structured help payloads for terminal reading', () => {

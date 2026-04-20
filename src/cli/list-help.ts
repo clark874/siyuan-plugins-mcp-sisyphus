@@ -70,7 +70,11 @@ export async function runHelp(cli: ParsedArgs): Promise<number> {
     }
 
     const fileConfig = loadFileConfig(cli.configPath);
-    const resolved = resolveConfig(fileConfig, cli.url, cli.token);
+    const resolved = resolveConfig(fileConfig, {
+        cliUrl: cli.url,
+        cliToken: cli.token,
+        profile: cli.profile,
+    });
     applyConfigToEnv(resolved);
 
     const client = new SiYuanClient({ baseUrl: resolved.apiUrl });

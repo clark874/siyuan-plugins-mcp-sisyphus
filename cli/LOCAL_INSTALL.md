@@ -109,24 +109,40 @@ siyuan-sisyphus init
 
 按提示填：
 
+- Profile name：直接回车用默认 `default`
 - SiYuan API URL：直接回车用默认 `http://127.0.0.1:6806`
 - SiYuan API token：粘贴上一步复制的 token
+- Make active profile：直接回车设为当前默认 profile
 
 结果会写到 `~/.siyuan-sisyphus/config.json`（权限 `0600`，只有你自己可读）：
 
 ```bash
 cat ~/.siyuan-sisyphus/config.json
 # {
-#   "apiUrl": "http://127.0.0.1:6806",
-#   "token": "xxxxxxxxxxxxxxxx"
+#   "currentProfile": "default",
+#   "profiles": {
+#     "default": {
+#       "apiUrl": "http://127.0.0.1:6806",
+#       "token": "xxxxxxxxxxxxxxxx"
+#     }
+#   }
 # }
 ```
 
 之后所有命令都会自动读这个文件，不需要每次加 `--token`。
 
+如果你有多个 SiYuan 实例，可以保存多个 profile 并切换：
+
+```bash
+siyuan-sisyphus config set work --url http://127.0.0.1:6807 --token xxxxxxxxxxxxxxxx
+siyuan-sisyphus config list
+siyuan-sisyphus config use work
+siyuan-sisyphus --profile default notebook list  # 单次使用 default，不改变当前 profile
+```
+
 > 额外提醒：`siyuan-sisyphus` CLI 依赖已安装并启用的 `siyuan-plugins-mcp-sisyphus` 插件。首次使用前，请先在思源里打开该插件设置面板至少一次，并完成权限配置；否则 CLI 会直接提示缺少插件或插件尚未初始化。
 
-> 也可以完全不用配置文件，每次走环境变量 `SIYUAN_TOKEN=xxx siyuan-sisyphus ...` 或命令行 flag `siyuan-sisyphus --token xxx ...`。优先级：flag > 环境变量 > 配置文件 > 默认值。若旧的 `~/.siyuan-mcp/config.json` 仍在，CLI 也会兼容读取。
+> 也可以完全不用配置文件，每次走环境变量 `SIYUAN_TOKEN=xxx siyuan-sisyphus ...` 或命令行 flag `siyuan-sisyphus --token xxx ...`。优先级：`--url`/`--token` > `--profile` > 环境变量 > 当前配置 profile > 默认值。若旧的 `~/.siyuan-mcp/config.json` 仍在，CLI 也会兼容读取为 `default` profile。
 
 ---
 

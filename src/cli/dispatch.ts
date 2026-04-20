@@ -15,7 +15,9 @@ import type { ParsedArgs } from './args';
 import { PRIMARY_CLI_COMMAND } from './args';
 import { applyConfigToEnv, loadFileConfig, resolveConfig } from './config';
 import { mapFlagsToArgs } from './flag-mapper';
-import { renderCliError, renderToolResult } from './render';
+import { extractPaginationInfo, renderCliError, renderToolResult } from './render';
+
+import type { ToolResult } from '../mcp/tools/shared';
 
 export async function runDispatch(cli: ParsedArgs): Promise<number> {
     const { tool, action, rest } = cli;
@@ -35,7 +37,11 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
     }
 
     const fileConfig = loadFileConfig(cli.configPath);
-    const resolved = resolveConfig(fileConfig, cli.url, cli.token);
+    const resolved = resolveConfig(fileConfig, {
+        cliUrl: cli.url,
+        cliToken: cli.token,
+        profile: cli.profile,
+    });
     applyConfigToEnv(resolved);
 
     const client = new SiYuanClient({ baseUrl: resolved.apiUrl });
@@ -59,12 +65,21 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
             for (const w of warnings) process.stderr.write(`[warn] ${w}\n`);
         }
 
-        const payload = { action: normalizedAction, ...mappedArgs } as Record<string, unknown>;
-        const result = await runToolCall(
-            { client, category, name: tool, action: normalizedAction, args: payload },
-            () => module.callTool(client, payload, toolConfig[category], permMgr),
-        );
-        return renderToolResult(result, { json: cli.json, debug: cli.debug });
+        const basePayload = { action: normalizedAction, ...mappedArgs } as Record<string, unknown>;
+        const runPage = async (page?: number): Promise<ToolResult> => {
+            const payload = page === undefined ? basePayload : { ...basePayload, page };
+            return runToolCall(
+                { client, category, name: tool, action: normalizedAction, args: payload },
+                () => module.callTool(client, payload, toolConfig[category], permMgr),
+            );
+        };
+
+        const result = await runPage();
+        const code = renderToolResult(result, { json: cli.json, debug: cli.debug });
+        if (code !== 0 || cli.json) return code;
+
+        await runInteractivePaging(result, runPage, { json: cli.json, debug: cli.debug });
+        return code;
     } catch (error) {
         renderCliError(error, { debug: cli.debug });
         return 1;
@@ -75,6 +90,73 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
             process.env.SIYUAN_MCP_TRANSPORT = previousTransport;
         }
     }
+}
+
+async function runInteractivePaging(
+    initialResult: ToolResult,
+    runPage: (page?: number) => Promise<ToolResult>,
+    renderOptions: { json: boolean; debug: boolean },
+): Promise<void> {
+    if (!canUseInteractivePaging()) return;
+
+    let pagination = extractPaginationInfo(initialResult);
+    if (!pagination || pagination.pageCount <= 1) return;
+
+    const input = process.stdin;
+    const output = process.stdout;
+    const wasRaw = Boolean(input.isRaw);
+
+    try {
+        input.setRawMode?.(true);
+        input.resume();
+
+        while (pagination.pageCount > 1) {
+            output.write('\nPaging: Enter/n next, p previous, q quit › ');
+            const key = await readKey();
+            output.write('\n');
+
+            if (key === '\u0003' || key === '\u001b' || key.toLowerCase() === 'q') {
+                return;
+            }
+
+            const nextPage = resolveRequestedPage(key, pagination.page, pagination.pageCount);
+            if (nextPage === null) {
+                continue;
+            }
+
+            const result = await runPage(nextPage);
+            renderToolResult(result, renderOptions);
+            const nextPagination = extractPaginationInfo(result);
+            if (!nextPagination) return;
+            pagination = nextPagination;
+        }
+    } finally {
+        input.setRawMode?.(wasRaw);
+        input.pause();
+    }
+}
+
+function canUseInteractivePaging(): boolean {
+    return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+function resolveRequestedPage(key: string, page: number, pageCount: number): number | null {
+    const normalized = key.toLowerCase();
+    if ((key === '\r' || key === '\n' || normalized === 'n') && page < pageCount) {
+        return page + 1;
+    }
+    if (normalized === 'p' && page > 1) {
+        return page - 1;
+    }
+    return null;
+}
+
+function readKey(): Promise<string> {
+    return new Promise((resolve) => {
+        process.stdin.once('data', (chunk: Buffer | string) => {
+            resolve(String(chunk));
+        });
+    });
 }
 
 function resolveInputSchema(category: ToolCategory, config: ToolConfig): Record<string, unknown> {

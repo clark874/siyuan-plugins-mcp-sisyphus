@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 import type { ParsedArgs } from '@/cli/args';
-import { runList } from '@/cli/list-help';
+import { runHelp, runList } from '@/cli/list-help';
+import { TOOL_REGISTRY } from '@/mcp/tool-registry';
 
 function captureStdIO() {
     let stdout = '';
@@ -91,6 +95,40 @@ describe('cli/list-help', () => {
         expect(code).toBe(0);
         expect(io.stderr).toContain('Unknown tool "unknown-tool". Showing all tools instead.');
         expect(io.stdout).toContain('SiYuan tools');
+        io.restore();
+    });
+
+    it('uses a selected profile for help calls that reach SiYuan tooling', async () => {
+        const io = captureStdIO();
+        const dir = mkdtempSync(join(tmpdir(), 'sisyphus-cli-'));
+        const configPath = join(dir, 'config.json');
+        writeFileSync(configPath, JSON.stringify({
+            currentProfile: 'default',
+            profiles: {
+                default: { apiUrl: 'http://default', token: 'default-token' },
+                work: { apiUrl: 'http://work-help', token: 'help-token' },
+            },
+        }));
+
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.notebook, 'callTool').mockImplementationOnce(async (client) => {
+            expect(client.getBaseUrl()).toBe('http://work-help');
+            expect(client.getAuthHeaders()).toEqual({ Authorization: 'Token help-token' });
+            return { content: [{ type: 'text', text: '{"ok":true}' }] };
+        });
+
+        const code = await runHelp({
+            command: 'help',
+            tool: 'notebook',
+            rest: [],
+            configPath,
+            profile: 'work',
+            json: true,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(0);
+        expect(callToolSpy).toHaveBeenCalledTimes(1);
+        rmSync(dir, { recursive: true, force: true });
         io.restore();
     });
 });

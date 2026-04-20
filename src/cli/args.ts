@@ -1,6 +1,7 @@
 import minimist from 'minimist';
 
-export type Command = 'dispatch' | 'list' | 'help' | 'init' | 'show-help' | 'version';
+export type Command = 'dispatch' | 'list' | 'help' | 'init' | 'config' | 'show-help' | 'version';
+export type ConfigCommandAction = 'list' | 'get' | 'set' | 'use';
 
 export const PRIMARY_CLI_COMMAND = 'siyuan-sisyphus';
 export const CLI_COMMAND_ALIAS = 'siyuan';
@@ -9,8 +10,11 @@ export interface ParsedArgs {
     command: Command;
     tool?: string;
     action?: string;
+    configAction?: ConfigCommandAction;
+    configName?: string;
     rest: string[];
     configPath?: string;
+    profile?: string;
     url?: string;
     token?: string;
     json: boolean;
@@ -24,6 +28,7 @@ Commands:
   ${PRIMARY_CLI_COMMAND} list [tool]                          List tools or a tool's actions
   ${PRIMARY_CLI_COMMAND} help <tool> [action]                 Show terminal-friendly help
   ${PRIMARY_CLI_COMMAND} init                                 Create ~/.siyuan-sisyphus/config.json
+  ${PRIMARY_CLI_COMMAND} config <action> ...                  Manage saved SiYuan profiles
   ${PRIMARY_CLI_COMMAND} --help | -h                          Show this help
   ${PRIMARY_CLI_COMMAND} --version | -v                       Show version
 
@@ -35,13 +40,22 @@ Alias:
 
 Global options:
   --config <file>    Load config from <file> instead of ~/.siyuan-sisyphus/config.json
+  --profile <name>   Use a saved profile from config.json
   --url <url>        SiYuan API base URL (default http://127.0.0.1:6806)
   --token <token>    SiYuan API token
   --json             Emit compact JSON for scripts and pipes
   --debug            Include stack traces and extra diagnostics
 
+Paging:
+  Paginated results in an interactive terminal support Enter/n for next page,
+  p for previous page, and q/Esc/Ctrl+C to quit. Pipes and scripts should use
+  --page, --page-size, and --json explicitly.
+
 Examples:
   ${PRIMARY_CLI_COMMAND} notebook list
+  ${PRIMARY_CLI_COMMAND} --profile work notebook list
+  ${PRIMARY_CLI_COMMAND} config set work --url http://127.0.0.1:6807 --token xxx
+  ${PRIMARY_CLI_COMMAND} config use work
   ${PRIMARY_CLI_COMMAND} help document create
   ${PRIMARY_CLI_COMMAND} document create --notebook <id> --path "/Inbox/Test" --markdown "# Hello"
   ${PRIMARY_CLI_COMMAND} block append --parent-id <id> --data-type markdown --data "- item"
@@ -49,7 +63,7 @@ Examples:
   ${PRIMARY_CLI_COMMAND} document list-tree --notebook <id> --json | jq '.data[].title'
 
 Config precedence:
-  CLI flags > environment variables > config file > defaults
+  --url/--token > --profile > environment variables > active config profile > defaults
 
 Environment:
   SIYUAN_API_URL, SIYUAN_TOKEN
@@ -62,7 +76,7 @@ Flag naming:
 `;
 
 const GLOBAL_BOOLEAN = ['json', 'debug', 'help', 'version'];
-const GLOBAL_STRING = ['config', 'url', 'token'];
+const GLOBAL_STRING = ['config', 'profile', 'url', 'token'];
 
 export function parseArgs(argv: string[]): ParsedArgs {
     const parsed = minimist(argv, {
@@ -83,6 +97,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
             command: 'init',
             rest: [],
             configPath: parsed.config || undefined,
+            profile: parsed.profile || undefined,
             url: parsed.url || undefined,
             token: parsed.token || undefined,
             json: Boolean(parsed.json),
@@ -96,6 +111,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
             tool: typeof positional[1] === 'string' ? positional[1] : undefined,
             rest: [],
             configPath: parsed.config || undefined,
+            profile: parsed.profile || undefined,
             url: parsed.url || undefined,
             token: parsed.token || undefined,
             json: Boolean(parsed.json),
@@ -110,6 +126,30 @@ export function parseArgs(argv: string[]): ParsedArgs {
             action: typeof positional[2] === 'string' ? positional[2] : undefined,
             rest: [],
             configPath: parsed.config || undefined,
+            profile: parsed.profile || undefined,
+            url: parsed.url || undefined,
+            token: parsed.token || undefined,
+            json: Boolean(parsed.json),
+            debug: Boolean(parsed.debug),
+        };
+    }
+
+    if (first === 'config') {
+        const configAction = typeof positional[1] === 'string' ? positional[1] as ConfigCommandAction : undefined;
+        if (!configAction || !['list', 'get', 'set', 'use'].includes(configAction)) {
+            throw new Error(
+                `Missing or invalid config action. Try "${PRIMARY_CLI_COMMAND} config list", ` +
+                `"${PRIMARY_CLI_COMMAND} config get [name]", "${PRIMARY_CLI_COMMAND} config set <name> --url <url>", or ` +
+                `"${PRIMARY_CLI_COMMAND} config use <name>".`,
+            );
+        }
+        return {
+            command: 'config',
+            configAction,
+            configName: typeof positional[2] === 'string' ? positional[2] : undefined,
+            rest: [],
+            configPath: parsed.config || undefined,
+            profile: parsed.profile || undefined,
             url: parsed.url || undefined,
             token: parsed.token || undefined,
             json: Boolean(parsed.json),
@@ -138,6 +178,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
         action,
         rest,
         configPath: parsed.config || undefined,
+        profile: parsed.profile || undefined,
         url: parsed.url || undefined,
         token: parsed.token || undefined,
         json: Boolean(parsed.json),

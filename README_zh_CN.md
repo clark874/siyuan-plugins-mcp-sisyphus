@@ -94,12 +94,19 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 
 插件运行在思源内部，将思源能力暴露为 MCP Server，供外部 Agent 调用。
 
-### 支持的连接方式
+### 怎么选择连接方法
 
-| 场景 | 推荐方式 |
+先分清你要使用的是 **MCP** 还是 **CLI**：
+
+- **MCP 连接**：给 Claude Desktop、Cherry Studio、Cursor、Codex、OpenClaw 之类的 MCP 客户端使用
+- **CLI 连接**：给你自己在终端里执行 `siyuan-sisyphus ...` 命令使用
+
+### 不同思源安装场景的连接方式
+
+| 安装场景 | 推荐方式 |
 |------|---------|
-| 桌面端（Windows / macOS / Linux） | HTTP 或 stdio |
-| Docker / 远程部署 | stdio（必须） |
+| 桌面端（Windows / macOS / Linux） | HTTP 或 stdio 或 CLI |
+| Docker | stdio 或 CLI |
 
 插件设置页底部提供三段可直接复制的配置：HTTP 连接方式、mcp-remote 桥接、stdio 连接方式。
 

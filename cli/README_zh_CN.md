@@ -35,9 +35,10 @@ npx -p siyuan-sisyphus siyuan-sisyphus --help
 
 ```bash
 siyuan-sisyphus init
-# 按提示输入两个值（API URL + token）。这会写入 ~/.siyuan-sisyphus/config.json（权限 0600）。
+# 按提示输入 profile 名、API URL 和 token。这会写入 ~/.siyuan-sisyphus/config.json（权限 0600）。
 
 siyuan-sisyphus notebook list  # 验证连通性
+siyuan-sisyphus config list    # 查看已保存的 profile
 siyuan-sisyphus list           # 查看所有可用工具
 siyuan-sisyphus list block     # 查看某个工具下的所有 action
 siyuan-sisyphus help block append
@@ -50,6 +51,7 @@ siyuan-sisyphus <tool> <action> [--flag value ...]   执行任意 MCP 工具 act
 siyuan-sisyphus list [tool]                          列出所有工具，或某个工具的 action
 siyuan-sisyphus help <tool> [action]                 查看某个工具或 action 的详细帮助
 siyuan-sisyphus init                                 交互式初始化配置
+siyuan-sisyphus config list|get|set|use ...          管理已保存的 SiYuan profile
 siyuan-sisyphus --help | -h                          显示顶层帮助
 siyuan-sisyphus --version | -v                       显示版本号
 ```
@@ -68,16 +70,28 @@ siyuan-sisyphus --version | -v                       显示版本号
 | 参数 | 作用 |
 |---|---|
 | `--config <file>` | 从 `<file>` 加载配置，而不是 `~/.siyuan-sisyphus/config.json` |
+| `--profile <name>` | 本次调用使用指定的已保存 profile |
 | `--url <url>` | 覆盖 SiYuan API URL |
 | `--token <token>` | 覆盖 SiYuan API token |
 | `--json` | 输出紧凑的单行 JSON，便于和 `jq` 等脚本工具配合 |
 | `--debug` | 输出堆栈信息和被忽略 flag 的警告 |
+
+### 翻页
+
+分页结果沿用 MCP 工具的 `page` / `pageSize` 约定。在交互式终端中，人类可读输出会完整显示当前 MCP 页，并允许不切换到 JSON 也能翻页浏览：
+
+- 按 `Enter` 或 `n` 查看下一页。
+- 按 `p` 查看上一页。
+- 按 `q`、`Esc` 或 `Ctrl+C` 退出翻页。
+
+在管道和脚本场景中，请继续显式使用 `--page`、`--page-size` 和 `--json`。
 
 ## 示例
 
 ```bash
 # 笔记本
 siyuan-sisyphus notebook list
+siyuan-sisyphus --profile work notebook list
 siyuan-sisyphus notebook create --name "Work" --icon 1f4d4
 
 # 文档
@@ -92,6 +106,7 @@ siyuan-sisyphus block get-kramdown --id 20240318xyz
 
 # 搜索
 siyuan-sisyphus search fulltext --query "TODO" --page-size 20
+siyuan-sisyphus search fulltext --query "TODO" --page 2 --page-size 20
 siyuan-sisyphus search query-sql --stmt "SELECT id, content FROM blocks WHERE type='h' LIMIT 5"
 
 # 配合 jq 管道处理
@@ -101,7 +116,7 @@ siyuan-sisyphus document search-docs --notebook <id> --query "proposal" --json |
 
 ## 配置
 
-优先级：**CLI flag > 环境变量 > 配置文件 > 默认值**。
+优先级：**`--url`/`--token` > `--profile` > 环境变量 > 当前配置 profile > 默认值**。
 
 ### 环境变量
 
@@ -110,14 +125,35 @@ siyuan-sisyphus document search-docs --notebook <id> --query "proposal" --json |
 | `SIYUAN_API_URL` | SiYuan 基础 URL（默认 `http://127.0.0.1:6806`） |
 | `SIYUAN_TOKEN` | SiYuan API token |
 
+### Profile 管理命令
+
+```bash
+siyuan-sisyphus config list
+siyuan-sisyphus config set work --url http://127.0.0.1:6807 --token <siyuan-token>
+siyuan-sisyphus config use work
+siyuan-sisyphus config get work
+siyuan-sisyphus --profile default notebook list
+```
+
 ### 配置文件格式（`~/.siyuan-sisyphus/config.json`）
 
 ```json
 {
-  "apiUrl": "http://127.0.0.1:6806",
-  "token": "<siyuan-token>"
+  "currentProfile": "default",
+  "profiles": {
+    "default": {
+      "apiUrl": "http://127.0.0.1:6806",
+      "token": "<siyuan-token>"
+    },
+    "work": {
+      "apiUrl": "http://127.0.0.1:6807",
+      "token": "<siyuan-token>"
+    }
+  }
 }
 ```
+
+旧版顶层 `apiUrl` / `token` 单接口配置仍会被读取为 `default` profile。
 
 ## 与 SiYuan 插件的关系
 

@@ -35,9 +35,10 @@ npx -p siyuan-sisyphus siyuan-sisyphus --help
 
 ```bash
 siyuan-sisyphus init
-# …answer the two prompts (API URL + token). This writes ~/.siyuan-sisyphus/config.json (0600).
+# …answer the prompts (profile name + API URL + token). This writes ~/.siyuan-sisyphus/config.json (0600).
 
 siyuan-sisyphus notebook list  # verify connectivity
+siyuan-sisyphus config list    # see saved profiles
 siyuan-sisyphus list           # see all available tools
 siyuan-sisyphus list block     # see all actions for a tool
 siyuan-sisyphus help block append
@@ -50,6 +51,7 @@ siyuan-sisyphus <tool> <action> [--flag value ...]   Execute any MCP tool-action
 siyuan-sisyphus list [tool]                          List tools or a tool's actions
 siyuan-sisyphus help <tool> [action]                 Detailed help for a tool or action
 siyuan-sisyphus init                                 Interactive config setup
+siyuan-sisyphus config list|get|set|use ...          Manage saved SiYuan profiles
 siyuan-sisyphus --help | -h                          Top-level help
 siyuan-sisyphus --version | -v                       Print version
 ```
@@ -68,16 +70,28 @@ siyuan-sisyphus --version | -v                       Print version
 | Flag | Purpose |
 |---|---|
 | `--config <file>` | Load config from `<file>` instead of `~/.siyuan-sisyphus/config.json` |
+| `--profile <name>` | Use a saved profile for this invocation |
 | `--url <url>` | Override SiYuan API URL |
 | `--token <token>` | Override SiYuan API token |
 | `--json` | Emit compact single-line JSON (for scripting with `jq`, etc.) |
 | `--debug` | Include stack traces and ignored-flag warnings |
+
+### Paging
+
+Paginated results use the same `page` / `pageSize` contract as the MCP tools. In an interactive terminal, human-readable output shows the full current MCP page and lets you browse pages without switching to JSON:
+
+- Press `Enter` or `n` for the next page.
+- Press `p` for the previous page.
+- Press `q`, `Esc`, or `Ctrl+C` to quit paging.
+
+For pipes and scripts, keep pagination explicit with `--page`, `--page-size`, and `--json`.
 
 ## Examples
 
 ```bash
 # Notebooks
 siyuan-sisyphus notebook list
+siyuan-sisyphus --profile work notebook list
 siyuan-sisyphus notebook create --name "Work" --icon 1f4d4
 
 # Documents
@@ -92,6 +106,7 @@ siyuan-sisyphus block get-kramdown --id 20240318xyz
 
 # Search
 siyuan-sisyphus search fulltext --query "TODO" --page-size 20
+siyuan-sisyphus search fulltext --query "TODO" --page 2 --page-size 20
 siyuan-sisyphus search query-sql --stmt "SELECT id, content FROM blocks WHERE type='h' LIMIT 5"
 
 # Piping to jq
@@ -101,7 +116,7 @@ siyuan-sisyphus document search-docs --notebook <id> --query "proposal" --json |
 
 ## Configuration
 
-Precedence: **CLI flag > environment variable > config file > default**.
+Precedence: **`--url`/`--token` > `--profile` > environment variable > active config profile > default**.
 
 ### Environment variables
 
@@ -110,14 +125,35 @@ Precedence: **CLI flag > environment variable > config file > default**.
 | `SIYUAN_API_URL` | SiYuan base URL (default `http://127.0.0.1:6806`) |
 | `SIYUAN_TOKEN` | SiYuan API token |
 
+### Profile commands
+
+```bash
+siyuan-sisyphus config list
+siyuan-sisyphus config set work --url http://127.0.0.1:6807 --token <siyuan-token>
+siyuan-sisyphus config use work
+siyuan-sisyphus config get work
+siyuan-sisyphus --profile default notebook list
+```
+
 ### Config file shape (`~/.siyuan-sisyphus/config.json`)
 
 ```json
 {
-  "apiUrl": "http://127.0.0.1:6806",
-  "token": "<siyuan-token>"
+  "currentProfile": "default",
+  "profiles": {
+    "default": {
+      "apiUrl": "http://127.0.0.1:6806",
+      "token": "<siyuan-token>"
+    },
+    "work": {
+      "apiUrl": "http://127.0.0.1:6807",
+      "token": "<siyuan-token>"
+    }
+  }
 }
 ```
+
+Older single-endpoint files with top-level `apiUrl` and `token` are still read as the `default` profile.
 
 ## Relation to the SiYuan plugin
 

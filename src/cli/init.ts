@@ -1,8 +1,6 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { createInterface, type Interface } from 'node:readline';
 
-import { getDefaultConfigPath, type FileConfig } from './config';
+import { getDefaultConfigPath, getWritableConfigPath, loadFileConfig, normalizeFileConfig, saveNormalizedConfig, setProfile } from './config';
 import { writeHeading, writeHint, writeKeyValueRows, writeStatus } from './render';
 
 class Prompter {
@@ -36,17 +34,9 @@ class Prompter {
 }
 
 export async function runInit(configPath?: string): Promise<void> {
-    const target = configPath ?? getDefaultConfigPath();
-
-    if (existsSync(target)) {
-        const confirmer = new Prompter();
-        const confirm = (await confirmer.ask(`Config already exists at ${target}. Overwrite? [y/N] `)).toLowerCase();
-        confirmer.close();
-        if (confirm !== 'y' && confirm !== 'yes') {
-            writeStatus('warning', 'Aborted. Existing config was kept.');
-            return;
-        }
-    }
+    const target = getWritableConfigPath(configPath ?? getDefaultConfigPath());
+    const existingFileConfig = loadFileConfig(configPath);
+    const normalized = normalizeFileConfig(existingFileConfig);
 
     const p = new Prompter();
     try {
@@ -55,23 +45,33 @@ export async function runInit(configPath?: string): Promise<void> {
         writeHint('Tip', 'Press Enter to accept the default shown in brackets.');
         process.stdout.write('\n');
 
+        const profileName = (await p.ask(`Profile name [default]: `)) || 'default';
+        if (normalized.profiles[profileName]) {
+            const confirm = (await p.ask(`Profile "${profileName}" already exists. Overwrite it? [y/N] `)).toLowerCase();
+            if (confirm !== 'y' && confirm !== 'yes') {
+                writeStatus('warning', 'Aborted. Existing profile was kept.');
+                return;
+            }
+        }
+
         const apiUrl = (await p.ask('SiYuan API URL [http://127.0.0.1:6806]: ')) || 'http://127.0.0.1:6806';
         const token = await p.ask('SiYuan API token (find it in SiYuan > Settings > About): ');
+        const makeCurrentAnswer = (await p.ask(`Make "${profileName}" the active profile? [Y/n] `)).toLowerCase();
+        const makeCurrent = !makeCurrentAnswer || makeCurrentAnswer === 'y' || makeCurrentAnswer === 'yes';
 
-        const config: FileConfig = { apiUrl, token };
-
-        const dir = dirname(target);
-        if (!existsSync(dir)) mkdirSync(dir, { recursive: true, mode: 0o700 });
-        writeFileSync(target, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+        const config = setProfile(existingFileConfig, profileName, { apiUrl, token }, { makeCurrent });
+        saveNormalizedConfig(config, configPath);
         process.stdout.write('\n');
         writeStatus('success', 'Config written.');
         writeKeyValueRows([
             { key: 'path', value: target },
+            { key: 'profile', value: profileName },
+            { key: 'current', value: config.currentProfile },
             { key: 'apiUrl', value: apiUrl },
             { key: 'token', value: token ? 'configured' : 'empty' },
         ]);
         process.stdout.write('\n');
-        writeHint('Next', 'Run `siyuan-sisyphus notebook list` to verify the connection. (`siyuan` also works.)');
+        writeHint('Next', 'Run `siyuan-sisyphus notebook list` to verify the connection, or `siyuan-sisyphus config list` to inspect all profiles.');
     } finally {
         p.close();
     }

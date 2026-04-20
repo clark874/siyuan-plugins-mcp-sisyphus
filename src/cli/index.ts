@@ -1,4 +1,5 @@
 import { getHelpText, parseArgs } from './args';
+import { runConfigCommand } from './config-command';
 import { runDispatch } from './dispatch';
 import { runInit } from './init';
 import { runHelp, runList } from './list-help';
@@ -25,6 +26,8 @@ async function main(): Promise<number> {
         case 'init':
             await runInit(cli.configPath);
             return 0;
+        case 'config':
+            return runConfigCommand(cli);
         case 'list':
             return runList(cli);
         case 'help':

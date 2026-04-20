@@ -6,6 +6,12 @@ export interface RenderOptions {
     debug: boolean;
 }
 
+export interface PaginationInfo {
+    page: number;
+    pageCount: number;
+    hasNextPage: boolean;
+}
+
 type Tone = 'success' | 'info' | 'warning' | 'error' | 'muted';
 type OutputStream = Pick<NodeJS.WriteStream, 'write' | 'isTTY'>;
 
@@ -165,6 +171,38 @@ export function renderToolResult(result: ToolResult, options: RenderOptions): nu
     return 0;
 }
 
+export function extractPaginationInfo(result: ToolResult): PaginationInfo | null {
+    if (result.isError) return null;
+
+    const firstText = result.content[0]?.text ?? '';
+    let payload: unknown;
+    try {
+        payload = firstText ? JSON.parse(firstText) : null;
+    } catch {
+        return null;
+    }
+
+    payload = translatePresentationPayload(payload, 'cli');
+    if (!isObject(payload)) return null;
+
+    if (
+        !Array.isArray(payload.data)
+        || typeof payload.total !== 'number'
+        || typeof payload.page !== 'number'
+        || typeof payload.pageCount !== 'number'
+    ) {
+        return null;
+    }
+
+    return {
+        page: payload.page,
+        pageCount: payload.pageCount,
+        hasNextPage: typeof payload.hasNextPage === 'boolean'
+            ? payload.hasNextPage
+            : payload.page < payload.pageCount,
+    };
+}
+
 function emitJson(payload: unknown, isError?: boolean): number {
     process.stdout.write(JSON.stringify(payload) + '\n');
     return isError ? 1 : 0;
@@ -271,11 +309,11 @@ function renderPaginatedResult(obj: Record<string, unknown>, out: OutputStream):
         out,
     );
 
-    renderArrayBlock(data, 'Items', out);
+    renderArrayBlock(data, 'Items', out, { maxItems: data.length });
 
     if (obj.hasNextPage) {
         writeSection('Next Step', out);
-        writeHint('Tip', 'More pages are available. Re-run with `--page <n>`.', out);
+        writeHint('Tip', 'More pages are available. In a TTY, press Enter/n for next page, or re-run with `--page <n>`.', out);
     }
 }
 
@@ -335,7 +373,12 @@ function renderNamedValue(key: string, value: unknown, out: OutputStream): void 
     writeLine(out, `  ${formatScalar(value)}`);
 }
 
-function renderArrayBlock(values: unknown[], title: string, out: OutputStream): void {
+function renderArrayBlock(
+    values: unknown[],
+    title: string,
+    out: OutputStream,
+    options: { maxItems?: number } = {},
+): void {
     if (values.length === 0) {
         writeSection(title, out);
         writeMuted('  No items.', out);
@@ -344,7 +387,8 @@ function renderArrayBlock(values: unknown[], title: string, out: OutputStream): 
 
     writeSection(title, out);
 
-    const visible = values.slice(0, 10);
+    const maxItems = options.maxItems ?? 10;
+    const visible = values.slice(0, maxItems);
     for (const value of visible) {
         const summary = summarizeItem(value);
         if (summary) {

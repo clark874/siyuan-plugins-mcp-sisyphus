@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 import type { ParsedArgs } from '@/cli/args';
 import { runDispatch } from '@/cli/dispatch';
@@ -42,19 +45,98 @@ function okResult() {
 describe('cli/dispatch', () => {
     const stdoutTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
     const stderrTTY = Object.getOwnPropertyDescriptor(process.stderr, 'isTTY');
+    const stdinTTY = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+    const stdinSetRawMode = process.stdin.setRawMode;
 
     beforeEach(() => {
         Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: false });
         Object.defineProperty(process.stderr, 'isTTY', { configurable: true, value: false });
+        Object.defineProperty(process.stdin, 'isTTY', { configurable: true, value: false });
+        process.stdin.setRawMode = vi.fn();
         vi.spyOn(pluginCheck, 'ensureRequiredPluginInstalled').mockResolvedValue(undefined);
         vi.spyOn(PermissionManager.prototype, 'load').mockResolvedValue(undefined);
         delete process.env.SIYUAN_MCP_TRANSPORT;
+        delete process.env.SIYUAN_API_URL;
+        delete process.env.SIYUAN_TOKEN;
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
+        delete process.env.SIYUAN_API_URL;
+        delete process.env.SIYUAN_TOKEN;
         if (stdoutTTY) Object.defineProperty(process.stdout, 'isTTY', stdoutTTY);
         if (stderrTTY) Object.defineProperty(process.stderr, 'isTTY', stderrTTY);
+        if (stdinTTY) Object.defineProperty(process.stdin, 'isTTY', stdinTTY);
+        process.stdin.setRawMode = stdinSetRawMode;
+    });
+
+    it('uses the requested profile to configure the SiYuan client', async () => {
+        const io = captureStdIO();
+        const dir = mkdtempSync(join(tmpdir(), 'sisyphus-cli-'));
+        const configPath = join(dir, 'config.json');
+        writeFileSync(configPath, JSON.stringify({
+            currentProfile: 'default',
+            profiles: {
+                default: { apiUrl: 'http://default', token: 'default-token' },
+                work: { apiUrl: 'http://work', token: 'work-token' },
+            },
+        }));
+
+        vi.mocked(pluginCheck.ensureRequiredPluginInstalled).mockImplementationOnce(async (client) => {
+            expect(client.getBaseUrl()).toBe('http://work');
+            expect(client.getAuthHeaders()).toEqual({ Authorization: 'Token work-token' });
+        });
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.notebook, 'callTool').mockResolvedValue(okResult());
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'notebook',
+            action: 'list',
+            rest: [],
+            configPath,
+            profile: 'work',
+            json: true,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(0);
+        expect(callToolSpy).toHaveBeenCalledTimes(1);
+        rmSync(dir, { recursive: true, force: true });
+        io.restore();
+    });
+
+    it('uses the current profile when no profile is specified', async () => {
+        const io = captureStdIO();
+        const dir = mkdtempSync(join(tmpdir(), 'sisyphus-cli-'));
+        const configPath = join(dir, 'config.json');
+        writeFileSync(configPath, JSON.stringify({
+            currentProfile: 'work',
+            profiles: {
+                default: { apiUrl: 'http://default', token: 'default-token' },
+                work: { apiUrl: 'http://work-current', token: 'current-token' },
+            },
+        }));
+
+        vi.mocked(pluginCheck.ensureRequiredPluginInstalled).mockImplementationOnce(async (client) => {
+            expect(client.getBaseUrl()).toBe('http://work-current');
+            expect(client.getAuthHeaders()).toEqual({ Authorization: 'Token current-token' });
+        });
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.notebook, 'callTool').mockResolvedValue(okResult());
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'notebook',
+            action: 'list',
+            rest: [],
+            configPath,
+            json: true,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(0);
+        expect(callToolSpy).toHaveBeenCalledTimes(1);
+        rmSync(dir, { recursive: true, force: true });
+        io.restore();
     });
 
     it('passes kebab-case snake_case fields through to MCP payloads', async () => {
@@ -179,6 +261,153 @@ describe('cli/dispatch', () => {
         expect(code).toBe(0);
         expect(callToolSpy).toHaveBeenCalledTimes(1);
         expect(process.env.SIYUAN_MCP_TRANSPORT).toBeUndefined();
+        io.restore();
+    });
+
+    it('supports interactive next-page paging in a TTY', async () => {
+        const io = captureStdIO();
+        Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true });
+        Object.defineProperty(process.stdin, 'isTTY', { configurable: true, value: true });
+
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.search, 'callTool')
+            .mockResolvedValueOnce({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        data: [{ id: 'doc-1', title: 'Doc 1' }],
+                        total: 2,
+                        page: 1,
+                        pageCount: 2,
+                        pageSize: 1,
+                        hasNextPage: true,
+                    }),
+                }],
+            })
+            .mockResolvedValueOnce({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        data: [{ id: 'doc-2', title: 'Doc 2' }],
+                        total: 2,
+                        page: 2,
+                        pageCount: 2,
+                        pageSize: 1,
+                        hasNextPage: false,
+                    }),
+                }],
+            });
+
+        setTimeout(() => {
+            process.stdin.emit('data', 'n');
+            setTimeout(() => process.stdin.emit('data', 'q'), 0);
+        }, 0);
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'search',
+            action: 'fulltext',
+            rest: ['--query', 'todo'],
+            url: 'http://127.0.0.1:6806',
+            json: false,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(0);
+        expect(callToolSpy).toHaveBeenCalledTimes(2);
+        expect(callToolSpy.mock.calls[0]?.[1]).toMatchObject({ action: 'fulltext', query: 'todo' });
+        expect(callToolSpy.mock.calls[1]?.[1]).toMatchObject({ action: 'fulltext', query: 'todo', page: 2 });
+        expect(io.stdout).toContain('Paging: Enter/n next, p previous, q quit');
+        io.restore();
+    });
+
+    it('supports interactive previous-page paging without going below page one', async () => {
+        const io = captureStdIO();
+        Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true });
+        Object.defineProperty(process.stdin, 'isTTY', { configurable: true, value: true });
+
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.search, 'callTool')
+            .mockResolvedValueOnce({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        data: [{ id: 'doc-2', title: 'Doc 2' }],
+                        total: 2,
+                        page: 2,
+                        pageCount: 2,
+                        pageSize: 1,
+                        hasNextPage: false,
+                    }),
+                }],
+            })
+            .mockResolvedValueOnce({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        data: [{ id: 'doc-1', title: 'Doc 1' }],
+                        total: 2,
+                        page: 1,
+                        pageCount: 2,
+                        pageSize: 1,
+                        hasNextPage: true,
+                    }),
+                }],
+            });
+
+        setTimeout(() => {
+            process.stdin.emit('data', 'p');
+            setTimeout(() => process.stdin.emit('data', 'p'), 0);
+            setTimeout(() => process.stdin.emit('data', 'q'), 10);
+        }, 0);
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'search',
+            action: 'fulltext',
+            rest: ['--query', 'todo', '--page', '2'],
+            url: 'http://127.0.0.1:6806',
+            json: false,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(0);
+        expect(callToolSpy).toHaveBeenCalledTimes(2);
+        expect(callToolSpy.mock.calls[0]?.[1]).toMatchObject({ action: 'fulltext', query: 'todo', page: 2 });
+        expect(callToolSpy.mock.calls[1]?.[1]).toMatchObject({ action: 'fulltext', query: 'todo', page: 1 });
+        io.restore();
+    });
+
+    it('does not enter interactive paging for json output', async () => {
+        const io = captureStdIO();
+        Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true });
+        Object.defineProperty(process.stdin, 'isTTY', { configurable: true, value: true });
+
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.search, 'callTool').mockResolvedValue({
+            content: [{
+                type: 'text',
+                text: JSON.stringify({
+                    data: [{ id: 'doc-1', title: 'Doc 1' }],
+                    total: 2,
+                    page: 1,
+                    pageCount: 2,
+                    pageSize: 1,
+                    hasNextPage: true,
+                }),
+            }],
+        });
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'search',
+            action: 'fulltext',
+            rest: ['--query', 'todo'],
+            url: 'http://127.0.0.1:6806',
+            json: true,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(0);
+        expect(callToolSpy).toHaveBeenCalledTimes(1);
+        expect(io.stdout).not.toContain('Paging: Enter/n next, p previous, q quit');
         io.restore();
     });
 });

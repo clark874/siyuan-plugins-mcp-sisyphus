@@ -90,12 +90,19 @@ All 10 aggregated tools (`notebook`, `document`, `block`, `av`, `search`, `tag`,
 
 The plugin runs inside SiYuan and exposes SiYuan capabilities as an MCP Server for external agents.
 
-### Supported Connection Modes
+### How to choose a connection method
 
-| Scenario | Recommended Mode |
+First decide whether you want to use **MCP** or **CLI**:
+
+- **MCP Connection**: for MCP clients such as Claude Desktop, Cherry Studio, Cursor, Codex, and OpenClaw
+- **CLI Connection**: for running `siyuan-sisyphus ...` commands directly in a terminal
+
+### Connection Modes by SiYuan Installation Scenario
+
+| Installation Scenario | Recommended Mode |
 |----------|-----------------|
-| Desktop (Windows / macOS / Linux) | HTTP or stdio |
-| Docker / Remote deployment | stdio (required) |
+| Desktop (Windows / macOS / Linux) | HTTP or stdio or CLI |
+| Docker | stdio or CLI |
 
 The plugin settings page provides three ready-to-copy configuration snippets at the bottom: HTTP connection, mcp-remote bridge, and stdio connection.
 
