@@ -19,8 +19,8 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
     {
         action: 'render_attribute_view',
         schema: createActionSchema('render_attribute_view', {
-            id: { type: 'string', description: 'Attribute view ID' },
-            blockID: { type: 'string', description: 'Embedding block ID (required for view-specific rendering)' },
+            id: { type: 'string', description: 'Attribute view ID; omit only with createIfNotExist=true to let MCP generate one' },
+            blockID: { type: 'string', description: 'Embedding block ID; required when creating a new AV and used as the append target' },
             viewID: { type: 'string', description: 'View ID to render (optional, defaults to the current active view)' },
             page: { type: 'number', description: 'Page number (1-based), default 1' },
             pageSize: { type: 'number', description: 'Rows per page, default 48' },
@@ -34,8 +34,8 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
                     required: ['pageSize'],
                 },
             },
-            createIfNotExist: { type: 'boolean', description: 'Whether to create the AV if it does not exist. Default false.' },
-        }, ['id'], 'Render an attribute view with optional server-side paging, filtering, and view selection.'),
+            createIfNotExist: { type: 'boolean', description: 'Create and materialize the AV only when explicitly true; provide blockID when creating a new AV.' },
+        }, [], 'Render an attribute view with optional server-side paging, filtering, and view selection.'),
     },
     {
         action: 'get_attribute_view_keys',

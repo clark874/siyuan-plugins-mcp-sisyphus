@@ -2,7 +2,7 @@
 
 [English](./README.md) | [中文](./README_zh_CN.md)
 
-> ⚠️ **Prerequisite: This CLI requires the `siyuan-plugins-mcp-sisyphus` plugin from this repo.** Install and enable the plugin in SiYuan first, and configure permissions in the plugin settings panel, before the CLI can work.
+> ⚠️ **Prerequisite: This CLI requires the `siyuan-plugins-mcp-sisyphus` plugin from this repo.** Install and enable the plugin in SiYuan first, then open the plugin settings panel and configure permissions before running CLI tool commands. The CLI now checks this requirement and will fail fast if the plugin is missing or not initialized.
 
 Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (block, document, notebook, av, search, tag, file, system, flashcard, mascot) is exposed as a subcommand you can call directly from a shell.
 

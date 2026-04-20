@@ -1,6 +1,6 @@
 {
   "name": "siyuan-sisyphus",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Direct command-line control for SiYuan Note. Call any SiYuan MCP tool as a subcommand: `siyuan-sisyphus block append --parent-id ... --data \"...\"`.",
   "bin": {
     "siyuan-sisyphus": "./dist/cli.cjs",
@@ -31,7 +31,5 @@
   "bugs": {
     "url": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/issues"
   },
-  "dependencies": {
-    "siyuan-sisyphus": "^0.1.0"
-  }
+  "dependencies": {}
 }

@@ -1463,7 +1463,7 @@ Grouped attribute-view (database) operations.
 
 #### render_attribute_view
 
-**Description**: Render an attribute view with optional view, pagination, query, and group paging context.
+**Description**: Render an attribute view with optional view, pagination, query, and group paging context. When `createIfNotExist=true`, MCP can also create the AV and materialize its database block in the target document.
 
 **Permission Required**: Read
 
@@ -1471,14 +1471,14 @@ Grouped attribute-view (database) operations.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `id` | string | Yes | Attribute view ID |
-| `blockID` | string | No | Optional database block ID |
+| `id` | string | No | Attribute view ID; omit only when `createIfNotExist=true` to let MCP generate one |
+| `blockID` | string | No | Optional database block ID; required when creating a new AV |
 | `viewID` | string | No | Optional target view ID |
 | `page` | number | No | Page number (1-based) |
 | `pageSize` | number | No | Rows per page |
 | `query` | string | No | Optional row query |
 | `groupPaging` | object | No | Optional group paging map |
-| `createIfNotExist` | boolean | No | Create a default view if missing |
+| `createIfNotExist` | boolean | No | Create and materialize a default view only when explicitly true |
 
 #### get_attribute_view_keys
 

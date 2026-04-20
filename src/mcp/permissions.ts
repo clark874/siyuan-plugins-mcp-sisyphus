@@ -8,7 +8,7 @@ const LEGACY_NOTEBOOK_PERMISSION_MAP = {
     write: 'rw',
 } as const;
 
-const PERMISSIONS_API_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions';
+export const PERMISSIONS_API_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions';
 const DEBUG_PERMISSIONS = process.env.SIYUAN_MCP_DEBUG_PERMISSIONS === '1';
 
 function logPermissionDebug(...args: unknown[]) {

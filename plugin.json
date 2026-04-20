@@ -2,14 +2,14 @@
   "name": "siyuan-plugins-mcp-sisyphus",
   "author": "Taihong Yang",
   "url": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
-  "version": "0.2.10",
+  "version": "0.3.2",
   "minAppVersion": "2.9.0",
   "backends": ["windows", "linux", "darwin", "docker"],
   "frontends": ["desktop","browser-desktop","desktop-window"],
   "disabledInPublish": true,
   "displayName": {
-    "default": "SiYuan sisyphus",
-    "zh_CN": "思源 sisyphus"
+    "default": "SiYuan sisyphus MCP & CLI",
+    "zh_CN": "思源 sisyphus MCP & CLI"
   },
   "description": {
     "default": "Siyuan sisyphus enables AI Agents to operate your Siyuan with notebook-level permission control, covering most of Siyuan's functionality. Supports desktop and docker.",

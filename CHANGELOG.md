@@ -2,6 +2,31 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.3.2 - 2026-04-20
+
+- 修复设置面板加载时因跨 chunk 模块解析失败导致的配置初始化异常
+- 将 tool-config 与 telemetry-config 内联至 setting 目录，避免 re-export 依赖在插件环境中的加载问题
+- 同步调整配置一致性测试，确保 setting 与 mcp 两侧行为对齐
+
+## v0.3.1 - 2026-04-20
+
+- CLI 调用链路接入完整 tool lifecycle，analytics 与 telemetry 事件同步持久化，猫猫挣米与调用统计在终端场景下即时生效
+- 分析面板「传输方式」升级为「调用来源」，新增 CLI 分类并与 stdio / http 并列展示，国际化文案同步刷新
+- 移除 cli 包对 siyuan-sisyphus 的循环依赖，避免本地安装时的版本冲突
+- 配套更新文档结构、帮助资源与单元测试覆盖
+
+## v0.3.0 - 2026-04-18
+
+- CLI 工具 `siyuan-sisyphus` 预览版上线，发布至 npm，支持通过命令行直接调用全部 10 个聚合工具的 115+ action
+- 支持 `init` 交互式配置、`list` / `help` 命令查询工具与 action，以及全局 `--json` / `--debug` / `--config` / `--url` / `--token` 等 flag
+- 支持 kebab / camel / snake 混用 flag 命名、`--<key>-json` 侧车参数传入复杂对象与数组，以及通过 `jq` 管道处理 JSON 输出
+- 双语文档同步更新，在 README 开篇新增 CLI 简介与快速示例，插件介绍文案同步扩展为「插件 + CLI」双重定位
+
+## v0.2.11 - 2026-04-18
+
+- 修复并补全 AV（数据库块）创建能力：`av(action="render_attribute_view")` 新增 `createIfNotExist=true` 参数，支持在指定文档中创建新的数据库块，解决此前无法通过 MCP 新建数据库的问题
+- 配套更新权限校验逻辑、错误翻译规则、帮助文案、API 文档与单元测试覆盖
+
 ## v0.2.10 - 2026-04-16
 
 - 引入 `defineTool` 工厂统一所有聚合 tool 的定义模式，拆分设置面板为 HttpServer / Puppy / Telemetry / ToolCategories / UserRules 五大子面板，并新增遥测与分析模块，支持调用统计、错误率与耗时分布洞察

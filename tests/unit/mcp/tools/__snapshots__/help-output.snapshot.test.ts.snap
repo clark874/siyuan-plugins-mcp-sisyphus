@@ -15,10 +15,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/add_column",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -46,10 +46,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/add_rows",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -78,10 +78,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/batch_set_cells",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -105,10 +105,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/duplicate_block",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -131,10 +131,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/get",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -157,10 +157,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/get_attribute_view_filter_sort",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -183,10 +183,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/get_attribute_view_keys",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -209,10 +209,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/get_primary_key_values",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -235,10 +235,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/remove_column",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -264,10 +264,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/remove_rows",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -286,25 +286,22 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "action": "render_attribute_view",
         "example": {
           "action": "render_attribute_view",
-          "id": "20240318112233-abc123",
         },
         "fullDocResource": "siyuan://help/action/av/render_attribute_view",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
-        "hint": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context.",
-        "requiredFields": [
-          "id",
-        ],
+        "hint": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically.",
+        "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
-          "id",
+          "action only",
         ],
         "tool": "av",
       },
@@ -317,10 +314,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/search",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -346,10 +343,10 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "fullDocResource": "siyuan://help/action/av/set_cell",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+          "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
@@ -369,13 +366,13 @@ exports[`tool description and help outputs > matches the locked snapshot for all
     },
     "description": "🗃️ Grouped attribute-view (database) operations. Use the "action" field to select the operation.
 
-Common actions: get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, get_primary_key_values. Required fields: get: id; render_attribute_view: id; get_attribute_view_keys: id; get_attribute_view_filter_sort: id; search: keyword; get_primary_key_values: avID.
+Common actions: get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, get_primary_key_values. Required fields: get: id; render_attribute_view: no additional fields; get_attribute_view_keys: id; get_attribute_view_filter_sort: id; search: keyword; get_primary_key_values: avID.
 
 Additional actions: add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block. Read siyuan://help/action/av/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 av.get: required [id] | optional []
-av.render_attribute_view: required [id] | optional [blockID, viewID, page, pageSize, query, groupPaging, createIfNotExist]
+av.render_attribute_view: required [] | optional [id, blockID, viewID, page, pageSize, query, groupPaging, createIfNotExist]
 av.get_attribute_view_keys: required [id] | optional []
 av.get_attribute_view_filter_sort: required [id] | optional [blockID]
 av.search: required [keyword] | optional [excludes]
@@ -388,7 +385,7 @@ av.batch_set_cells: required [avID, items] | optional []
 av.duplicate_block: required [avID] | optional [previousID]
 av.get_primary_key_values: required [avID] | optional [keyword, page, pageSize]
 
-AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables. The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables. To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
     "overview": {
       "actionSummaries": {
         "add_column": "Use avID + keyName + keyType, and optionally keyID. MCP generates keyID automatically when omitted. Supported keyType values match the 16 SiYuan addable column types, including keyType="mSelect", keyType="mAsset", and keyType="lineNumber".",
@@ -401,7 +398,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "get_primary_key_values": "Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering.",
         "remove_column": "Use avID + keyID. removeRelationDest only matters for relation columns.",
         "remove_rows": "Use avID + srcIDs to remove rows from the AV.",
-        "render_attribute_view": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context.",
+        "render_attribute_view": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically.",
         "search": "Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.",
         "set_cell": "Use avID + rowID + columnID + valueType and the matching typed field. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. valueType="mAsset" accepts assets[] plus optional text markdown.",
       },
@@ -447,7 +444,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "requiresConfirmation": false,
         },
         "render_attribute_view": {
-          "hint": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context.",
+          "hint": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically.",
           "requiresConfirmation": false,
         },
         "search": {
@@ -479,10 +476,10 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
       "detailsHint": "Call av(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
         "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-        "The current MCP AV tool supports operating on existing AVs and duplicating database blocks, but it does not create a brand-new AV from scratch.",
+        "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize the NodeAttributeView block in the target document.",
         "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
         "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-        "AV permission checks are resolved from existing row/block context; a completely empty AV may be unreadable or unwritable until its owning context can be resolved.",
+        "AV permission checks are resolved from existing row/block context; for createIfNotExist=true, provide blockID so MCP can use the target document as creation and permission context.",
         "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
         "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
       ],

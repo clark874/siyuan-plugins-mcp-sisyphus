@@ -2,7 +2,7 @@
 
 [English](./README.md) | [中文](./README_zh_CN.md)
 
-> ⚠️ **前置要求：本 CLI 需要配合本仓库的 `siyuan-plugins-mcp-sisyphus` 插件使用。** 请先在 SiYuan 中安装并启用该插件，并在插件前端设置面板中配置权限后，CLI 才能正常使用。
+> ⚠️ **前置要求：本 CLI 需要配合本仓库的 `siyuan-plugins-mcp-sisyphus` 插件使用。** 请先在 SiYuan 中安装并启用该插件，然后打开插件设置面板完成权限配置后再执行 CLI 工具命令。CLI 现在会主动检查这一前置条件；如果插件未安装或尚未初始化，会直接提示并退出。
 
 这是一个用于直接通过命令行操作 [SiYuan Note](https://b3log.org/siyuan) 的 CLI。你可以把它理解成思源版的 `obsidian-cli`：每个 MCP 工具（`block`、`document`、`notebook`、`av`、`search`、`tag`、`file`、`system`、`flashcard`、`mascot`）都会暴露成可在 shell 中直接调用的子命令。
 

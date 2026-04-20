@@ -1463,7 +1463,7 @@ MCP 服务器返回的常见错误类型：
 
 #### render_attribute_view
 
-**描述**：按可选视图、分页、查询和分组分页上下文渲染属性视图。
+**描述**：按可选视图、分页、查询和分组分页上下文渲染属性视图；当 `createIfNotExist=true` 时，MCP 也会创建 AV 并将数据库块落到目标文档。
 
 **权限要求**：读权限
 
@@ -1471,14 +1471,14 @@ MCP 服务器返回的常见错误类型：
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| `id` | string | 是 | 属性视图 ID |
-| `blockID` | string | 否 | 可选数据库块 ID |
+| `id` | string | 否 | 属性视图 ID；仅当 `createIfNotExist=true` 时可省略，由 MCP 自动生成 |
+| `blockID` | string | 否 | 可选数据库块 ID；新建 AV 时必填 |
 | `viewID` | string | 否 | 可选目标视图 ID |
 | `page` | number | 否 | 页码（从 1 开始） |
 | `pageSize` | number | 否 | 每页行数 |
 | `query` | string | 否 | 可选行查询 |
 | `groupPaging` | object | 否 | 可选分组分页映射 |
-| `createIfNotExist` | boolean | 否 | 缺失时创建默认视图 |
+| `createIfNotExist` | boolean | 否 | 仅显式传 true 时创建并落库默认视图 |
 
 #### get_attribute_view_keys
 

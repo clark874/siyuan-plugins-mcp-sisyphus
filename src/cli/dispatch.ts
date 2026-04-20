@@ -8,6 +8,8 @@ import {
 } from '../mcp/config';
 import { PermissionManager } from '../mcp/permissions';
 import { TOOL_REGISTRY, resolveCategory } from '../mcp/tool-registry';
+import { runToolCall } from '../mcp/tool-lifecycle';
+import { ensureRequiredPluginInstalled } from './plugin-check';
 
 import type { ParsedArgs } from './args';
 import { PRIMARY_CLI_COMMAND } from './args';
@@ -39,32 +41,39 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
     const client = new SiYuanClient({ baseUrl: resolved.apiUrl });
     if (resolved.token) client.setToken(resolved.token);
 
-    const permMgr = new PermissionManager(client);
+    const previousTransport = process.env.SIYUAN_MCP_TRANSPORT;
+    process.env.SIYUAN_MCP_TRANSPORT = 'cli';
+
     try {
+        await ensureRequiredPluginInstalled(client);
+
+        const permMgr = new PermissionManager(client);
         await permMgr.load();
-    } catch {
-        // No permission file or server unreachable — treat as no restrictions.
-        // PermissionManager.get() returns 'rwd' for unknown notebook IDs,
-        // so an un-loaded map is equivalent to full access.
-    }
 
-    const toolConfig = buildPermissiveToolConfig();
-    const module = TOOL_REGISTRY[category];
-    const inputSchema = resolveInputSchema(category, toolConfig);
+        const toolConfig = buildPermissiveToolConfig();
+        const module = TOOL_REGISTRY[category];
+        const inputSchema = resolveInputSchema(category, toolConfig);
 
-    const { args: mappedArgs, warnings } = mapFlagsToArgs(rest, inputSchema);
-    if (warnings.length > 0 && cli.debug) {
-        for (const w of warnings) process.stderr.write(`[warn] ${w}\n`);
-    }
+        const { args: mappedArgs, warnings } = mapFlagsToArgs(rest, inputSchema);
+        if (warnings.length > 0 && cli.debug) {
+            for (const w of warnings) process.stderr.write(`[warn] ${w}\n`);
+        }
 
-    const payload = { action: normalizedAction, ...mappedArgs } as Record<string, unknown>;
-
-    try {
-        const result = await module.callTool(client, payload, toolConfig[category], permMgr);
+        const payload = { action: normalizedAction, ...mappedArgs } as Record<string, unknown>;
+        const result = await runToolCall(
+            { client, category, name: tool, action: normalizedAction, args: payload },
+            () => module.callTool(client, payload, toolConfig[category], permMgr),
+        );
         return renderToolResult(result, { json: cli.json, debug: cli.debug });
     } catch (error) {
         renderCliError(error, { debug: cli.debug });
         return 1;
+    } finally {
+        if (previousTransport === undefined) {
+            delete process.env.SIYUAN_MCP_TRANSPORT;
+        } else {
+            process.env.SIYUAN_MCP_TRANSPORT = previousTransport;
+        }
     }
 }
 

@@ -4,13 +4,13 @@ import {
     buildDefaultTelemetryConfig,
     normalizeTelemetryConfig,
     type TelemetryConfig,
-} from "../mcp/telemetry-config";
+} from "./telemetry-config";
 
 export {
     buildDefaultTelemetryConfig,
     normalizeTelemetryConfig,
     type TelemetryConfig,
-} from "../mcp/telemetry-config";
+} from "./telemetry-config";
 
 const CONFIG_STORAGE_KEY = "mcpToolsConfig";
 const PUPPY_SETTINGS_STORAGE_KEY = "puppySettings";

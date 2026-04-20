@@ -121,7 +121,7 @@ Critical anti-patterns — do NOT:
 - Use \`::: row\`, raw HTML \`<div>\`, or \`===\` separators as super block substitutes.
 - Confuse Markdown tables with database blocks, or bookmarks (block attributes) with tags (inline markdown).
 - Fake database blocks with Markdown tables when a real \`av\` workflow is required.
-- Claim that MCP created a brand-new real \`av\` block from scratch when the current AV tool version does not support that operation.
+- Claim that a real \`av\` block exists after only initializing AV metadata without materializing the NodeAttributeView block into the document tree.
 
 For the full layout guide with formatting inventory, distinctions, and daily heuristics, read siyuan://help/ai-layout-guide or call any tool with action=”help”.
 
