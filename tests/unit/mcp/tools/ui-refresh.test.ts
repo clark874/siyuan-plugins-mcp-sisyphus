@@ -6,9 +6,7 @@ import { callDocumentTool } from '@/mcp/tools/document';
 import { callNotebookTool } from '@/mcp/tools/notebook';
 import { callTagTool } from '@/mcp/tools/tag';
 
-vi.mock('@/mcp/runtime', () => ({
-    isPluginMode: vi.fn(() => true),
-}));
+
 
 vi.mock('@/mcp/tools/context', () => ({
     ensurePermissionForDocumentId: vi.fn(async (_client: unknown, _permMgr: unknown, id: string) => ({

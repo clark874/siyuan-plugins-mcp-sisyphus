@@ -1,6 +1,5 @@
 import type { SiYuanClient } from '../../api/client';
 import * as systemApi from '../../api/system';
-import { isPluginMode } from '../runtime';
 import type { ToolResult } from './shared';
 
 export type UiRefreshOperation =
@@ -71,7 +70,6 @@ export async function applyUiRefresh(
     operations: UiRefreshOperation[],
 ): Promise<ToolResult> {
     if (result.isError || operations.length === 0) return result;
-    if (!isPluginMode()) return result;
     if (!client || typeof (client as { request?: unknown }).request !== 'function') return result;
 
     const payload = parseJsonResult(result);

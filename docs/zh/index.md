@@ -50,6 +50,6 @@ SiYuan MCP Sisyphus 在这个仓库里同时提供两种产物：
 
 ## 相关页面
 
-- [项目 README](../../README_zh_CN.md)
-- [English Docs](../en/)
-- [架构洞察](../insights.md)
+- [项目 README](/README_zh_CN.md)
+- [English Docs](/)
+- [架构洞察](/insights.md)

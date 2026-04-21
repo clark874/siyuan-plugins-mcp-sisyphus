@@ -129,6 +129,9 @@ describe('av tool', () => {
             filters: [{ field: 'status' }],
             sorts: [{ field: 'updated' }],
         });
+
+        // Reset client.request so applyUiRefresh is skipped by default in AV tests
+        client.request = undefined;
     });
 
     it('exports batch_set_cells items with nested array item schemas intact', () => {
