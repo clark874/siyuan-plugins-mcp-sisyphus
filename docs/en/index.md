@@ -51,5 +51,5 @@ Use this path if you need to change tool handlers, API wrappers, build targets, 
 ## Related Pages
 
 - [Project README](../../README.md)
-- [中文文档](../zh/index.md)
+- [中文文档](../zh/)
 - [Architecture Notes](../insights.md)
