@@ -1,3 +1,7 @@
+---
+layout: home
+---
+
 # SiYuan MCP Sisyphus Documentation
 
 This site documents both deliverables in this repository:
@@ -5,16 +9,16 @@ This site documents both deliverables in this repository:
 - The SiYuan plugin that exposes an MCP server
 - The standalone CLI `siyuan-sisyphus`
 
-Choose a language first:
+## Choose a Language
 
-- [English docs](./en/index.md)
-- [中文文档](./zh/index.md)
+- [English](/)
+- [中文](./zh/)
 
 ## Quick Links
 
-- [Project README](../README.md)
-- [中文 README](../README_zh_CN.md)
-- [Changelog](../CHANGELOG.md)
+- [Project README](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md)
+- [中文 README](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
+- [Changelog](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/CHANGELOG.md)
 - [GitHub Issues](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/issues)
 
 ## Documentation Maintenance
@@ -26,6 +30,6 @@ Choose a language first:
 
 ## Version
 
-Current docs target: **v0.3.2**
+Current docs target: **v0.3.3**
 
-Last updated: 2026-04-20
+Last updated: 2026-04-21

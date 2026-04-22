@@ -1,15 +1,38 @@
+# IDE
 .idea
 .vscode
+
+# OS
 .DS_Store
-.claude/
-.sisyphus/
-*.zip
-pnpm-lock.yaml
-package-lock.json
+
+# Dependencies
 node_modules
+package-lock.json
+
+# Build output
 dev
 dist
 build
+
+# Logs
+*.log
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Coverage
+coverage/
+
+# Cache & temp
+cache/
 tmp
-siyuan
 .tmp
+*.zip
+*.tgz
+
+# Project specific
+.claude/
+.sisyphus/
+siyuan

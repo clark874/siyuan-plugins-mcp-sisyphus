@@ -164,7 +164,7 @@ CLI 和 SiYuan 插件（`siyuan-plugins-mcp-sisyphus`）底层共用同一套 to
 
 如果你之前使用的是旧配置路径 `~/.siyuan-mcp/config.json`，CLI 仍会把它作为兜底配置读取，直到你在 `~/.siyuan-sisyphus/config.json` 下创建新配置。
 
-如果插件里配置了笔记本级权限，CLI 也会遵守这些权限（它会通过 API 读取同一份 `/data/storage/petal/...` 配置）。不过，插件 UI 里被禁用的 action 仍然可以从 CLI 直接调用——CLI 默认假设输入命令的人知道自己在做什么。
+CLI 会遵守与 MCP 客户端相同的插件 UI 配置：被禁用的 tool/action 不会出现在 `list`/`help` 中，也不能被执行。笔记本级权限同样通过 API 读取同一份 `/data/storage/petal/...` 配置并强制执行。
 
 ## 许可证
 

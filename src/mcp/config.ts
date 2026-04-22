@@ -60,6 +60,8 @@ export type ToolConfig = {
     userRulesText: string;
 };
 
+export const MCP_TOOLS_CONFIG_API_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
+
 export const LEGACY_TOOL_TO_ACTION: Record<string, { category: ToolCategory; action: string }> = {
     list_notebooks: { category: 'notebook', action: 'list' },
     create_notebook: { category: 'notebook', action: 'create' },

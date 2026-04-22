@@ -8,7 +8,7 @@ Related pages:
 
 - [Deployment](./deployment.md)
 - [Troubleshooting](./troubleshooting.md)
-- [Chinese HTTPS Guide](../../zh/getting-started/https.md)
+- [Chinese HTTPS Guide](/zh/getting-started/https)
 
 ## Checklist
 

@@ -19,3 +19,9 @@ Related pages:
 - Human-readable vs storage path semantics
 - Common MCP error categories
 - One page per aggregated tool
+
+## How to Use This Section
+
+- **New users**: start with [Common Tasks](./common-tasks.md) for copy-paste examples
+- **Integrators**: read [Permissions](./permissions.md) and [Path Semantics](./path-semantics.md) before writing automation
+- **Troubleshooting**: check [Error Types](./error-types.md) when a call fails

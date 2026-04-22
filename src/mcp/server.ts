@@ -5,7 +5,11 @@ import { startHttpMcpServer, type TlsOptions } from './http-transport';
 import { buildServerInstructions } from './server-instructions';
 
 import { SiYuanClient } from '../api/client';
-import { buildDefaultToolConfig, normalizeToolConfig, type ToolConfig } from './config';
+<<<<<<< HEAD
+import { MCP_TOOLS_CONFIG_API_PATH, buildDefaultToolConfig, normalizeToolConfig, type ToolConfig } from './config';
+=======
+import { MCP_TOOLS_CONFIG_API_PATH, buildDefaultToolConfig, normalizeToolConfig, type ToolConfig } from './config';
+>>>>>>> main
 import { noopSchemaValidator } from './noop-schema-validator';
 import { PermissionManager } from './permissions';
 import { listHelpResources, listHelpResourceTemplates, readHelpResource } from './resources';
@@ -14,12 +18,9 @@ import { runToolCall } from './tool-lifecycle';
 
 export { buildServerInstructions } from './server-instructions';
 
-const PLUGIN_CONFIG_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
-
-
 async function tryReadConfigFromAPI(client: SiYuanClient): Promise<ToolConfig | null> {
     try {
-        const content = await client.readFile(PLUGIN_CONFIG_PATH);
+        const content = await client.readFile(MCP_TOOLS_CONFIG_API_PATH);
         if (content) {
             return normalizeToolConfig(JSON.parse(content));
         }

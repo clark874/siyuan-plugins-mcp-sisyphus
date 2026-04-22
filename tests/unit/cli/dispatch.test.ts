@@ -4,8 +4,10 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import type { ParsedArgs } from '@/cli/args';
+import { SiYuanClient } from '@/api/client';
 import { runDispatch } from '@/cli/dispatch';
 import * as pluginCheck from '@/cli/plugin-check';
+import { buildDefaultToolConfig } from '@/mcp/config';
 import { PermissionManager } from '@/mcp/permissions';
 import { runToolCall } from '@/mcp/tool-lifecycle';
 import { TOOL_REGISTRY } from '@/mcp/tool-registry';
@@ -54,6 +56,7 @@ describe('cli/dispatch', () => {
         Object.defineProperty(process.stdin, 'isTTY', { configurable: true, value: false });
         process.stdin.setRawMode = vi.fn();
         vi.spyOn(pluginCheck, 'ensureRequiredPluginInstalled').mockResolvedValue(undefined);
+        vi.spyOn(SiYuanClient.prototype, 'readFile').mockResolvedValue('');
         vi.spyOn(PermissionManager.prototype, 'load').mockResolvedValue(undefined);
         delete process.env.SIYUAN_MCP_TRANSPORT;
         delete process.env.SIYUAN_API_URL;
@@ -232,6 +235,51 @@ describe('cli/dispatch', () => {
         expect(code).toBe(1);
         expect(callToolSpy).not.toHaveBeenCalled();
         expect(io.stderr).toContain('requires the SiYuan plugin');
+        io.restore();
+    });
+
+    it('refuses to dispatch a tool disabled by the plugin UI config', async () => {
+        const io = captureStdIO();
+        const config = buildDefaultToolConfig();
+        config.mascot.enabled = false;
+        vi.spyOn(SiYuanClient.prototype, 'readFile').mockResolvedValueOnce(JSON.stringify(config));
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.mascot, 'callTool');
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'mascot',
+            action: 'buy',
+            rest: ['--item-id', 'milk'],
+            url: 'http://127.0.0.1:6806',
+            json: false,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(1);
+        expect(callToolSpy).not.toHaveBeenCalled();
+        expect(io.stdout).toContain('Tool "mascot" is disabled.');
+        io.restore();
+    });
+
+    it('returns action_disabled for an action disabled by the plugin UI config', async () => {
+        const io = captureStdIO();
+        const config = buildDefaultToolConfig();
+        config.mascot.actions.buy = false;
+        vi.spyOn(SiYuanClient.prototype, 'readFile').mockResolvedValueOnce(JSON.stringify(config));
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'mascot',
+            action: 'buy',
+            rest: ['--item-id', 'milk'],
+            url: 'http://127.0.0.1:6806',
+            json: false,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(1);
+        expect(io.stderr).toContain('[action_disabled]');
+        expect(io.stderr).toContain('Action "buy" is disabled for tool "mascot".');
         io.restore();
     });
 

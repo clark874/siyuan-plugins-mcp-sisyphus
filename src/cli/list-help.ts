@@ -1,17 +1,13 @@
-import { SiYuanClient } from '../api/client';
 import {
-    ACTIONS_BY_CATEGORY,
     TOOL_CATEGORIES,
-    buildDefaultToolConfig,
+    getEnabledActions,
     getActionTier,
     isDangerousAction,
 } from '../mcp/config';
-import { PermissionManager } from '../mcp/permissions';
 import { TOOL_REGISTRY, resolveCategory } from '../mcp/tool-registry';
 
 import type { ParsedArgs } from './args';
 import { PRIMARY_CLI_COMMAND } from './args';
-import { applyConfigToEnv, loadFileConfig, resolveConfig } from './config';
 import {
     renderCliError,
     renderToolResult,
@@ -20,18 +16,21 @@ import {
     writeHint,
     writeSection,
 } from './render';
+import { loadCliRuntimeState } from './runtime';
 
-export function runList(cli: ParsedArgs): number {
+export async function runList(cli: ParsedArgs): Promise<number> {
     const out = process.stdout;
     const toolFilter = cli.tool ? resolveCategory(cli.tool) : null;
+    const { toolConfig } = await loadCliRuntimeState(cli, { loadPermissions: false });
 
     if (!toolFilter) {
         if (cli.tool) {
             renderCliError(`Unknown tool "${cli.tool}". Showing all tools instead.`);
         }
+        const enabledTools = TOOL_CATEGORIES.filter((cat) => TOOL_REGISTRY[cat].listTools(toolConfig[cat]).length > 0);
         writeHeading('SiYuan tools', out);
-        writeBulletList(TOOL_CATEGORIES.map((cat) => {
-            const actions = ACTIONS_BY_CATEGORY[cat];
+        writeBulletList(enabledTools.map((cat) => {
+            const actions = getEnabledActions(toolConfig[cat]);
             const basicCount = actions.filter((action) => getActionTier(cat, action) === 'basic').length;
             const advancedCount = actions.length - basicCount;
             return `${cat} — ${actions.length} actions (${basicCount} common, ${advancedCount} advanced)`;
@@ -41,8 +40,13 @@ export function runList(cli: ParsedArgs): number {
         return 0;
     }
 
+    if (TOOL_REGISTRY[toolFilter].listTools(toolConfig[toolFilter]).length === 0) {
+        renderCliError(`Tool "${toolFilter}" is disabled.`);
+        return 1;
+    }
+
     writeHeading(`${toolFilter} actions`, out);
-    writeBulletList(ACTIONS_BY_CATEGORY[toolFilter].map((action) => {
+    writeBulletList(getEnabledActions(toolConfig[toolFilter]).map((action) => {
         const tier = getActionTier(toolFilter, action) === 'basic' ? 'common' : 'advanced';
         const safety = isDangerousAction(toolFilter, action) ? ' · confirmation required' : '';
         return `${action} — ${tier}${safety}`;
@@ -69,40 +73,23 @@ export async function runHelp(cli: ParsedArgs): Promise<number> {
         return 2;
     }
 
-    const fileConfig = loadFileConfig(cli.configPath);
-    const resolved = resolveConfig(fileConfig, {
-        cliUrl: cli.url,
-        cliToken: cli.token,
-        profile: cli.profile,
-    });
-    applyConfigToEnv(resolved);
-
-    const client = new SiYuanClient({ baseUrl: resolved.apiUrl });
-    if (resolved.token) client.setToken(resolved.token);
-
-    const permMgr = new PermissionManager(client);
-    // Don't bother loading permissions for a help-only call.
-
-    const toolConfig = buildPermissiveToolConfig();
-    const module = TOOL_REGISTRY[category];
-    const payload: Record<string, unknown> = { action: 'help' };
-    if (cli.action) payload.topic = cli.action;
-
     try {
+        const { client, toolConfig, permMgr } = await loadCliRuntimeState(cli, { loadPermissions: false });
+        if (!toolConfig[category].enabled) {
+            return renderToolResult({
+                content: [{ type: 'text', text: `Tool "${tool}" is disabled.` }],
+                isError: true,
+            }, { json: cli.json, debug: cli.debug });
+        }
+
+        const module = TOOL_REGISTRY[category];
+        const payload: Record<string, unknown> = { action: 'help' };
+        if (cli.action) payload.topic = cli.action;
+
         const result = await module.callTool(client, payload, toolConfig[category], permMgr);
         return renderToolResult(result, { json: cli.json, debug: cli.debug });
     } catch (error) {
         renderCliError(error, { debug: cli.debug });
         return 1;
     }
-}
-
-function buildPermissiveToolConfig() {
-    const base = buildDefaultToolConfig();
-    for (const cat of TOOL_CATEGORIES) {
-        const actions = ACTIONS_BY_CATEGORY[cat];
-        const record = base[cat].actions as Record<string, boolean>;
-        for (const action of actions) record[action] = true;
-    }
-    return base;
 }

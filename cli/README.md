@@ -164,7 +164,7 @@ The CLI and the SiYuan plugin (`siyuan-plugins-mcp-sisyphus`) share the same too
 
 If you already used the older config path `~/.siyuan-mcp/config.json`, the CLI still reads it as a fallback until you create a new config under `~/.siyuan-sisyphus/config.json`.
 
-If the plugin has notebook-level permissions configured, the CLI respects them (it reads the same `/data/storage/petal/...` configuration through the API). Any action disabled in the plugin UI is still runnable from the CLI — the CLI user is assumed to have full control over what they type.
+The CLI respects the same plugin UI configuration as MCP clients: disabled tools/actions are hidden from `list`/`help` and cannot be executed. Notebook-level permissions are also enforced by reading the same `/data/storage/petal/...` configuration through the API.
 
 ## License
 

@@ -2,7 +2,7 @@
 
 本文件记录项目的主要版本变更。
 
-## v0.3.3 - 2026-04-20
+## v0.3.3 - 2026-04-21
 
 - 修复并强化 AV（数据库块）的权限校验与 materialization 流程：写操作支持传入 `blockID` 做精确数据库块归属验证；新建 AV 后增加 mirror registration 轮询确认，避免后续写入因块未注册而失败
 - CLI 新增 `config` 命令，支持多 profile 管理（`list`/`get`/`set`/`use`），便于在多思源实例间快速切换

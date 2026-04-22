@@ -24,3 +24,7 @@ Related pages:
 - Environment variables and default ports
 - Docker, WSL, and LAN scenarios
 - Quick checks when tools are not visible or calls fail
+
+## Next Steps
+
+After setup, try the [Common Tasks](../reference/common-tasks.md) page for quick MCP/CLI examples.

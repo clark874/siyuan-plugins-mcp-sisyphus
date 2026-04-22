@@ -460,7 +460,7 @@
     "mcpStdioNote": "注意：stdio 每次通常只对应一个客户端连接；Docker 场景下也应优先使用它。",
     "cliGuideTitle": "CLI 连接",
     "cliGuideDesc": "CLI 直接通过 SiYuan HTTP API 连接，不依赖 MCP server。适合终端、脚本、自动化任务。",
-    "cliChooseDesc": "如果你不是在给 MCP 客户端配工具，而是想自己在终端里执行 `siyuan-sisyphus ...` 命令，就选 CLI。",
+    "cliChooseDesc": "相对来说会更轻量。",
     "cliPreviewBadge": "预览版",
     "cliGuideInstallTitle": "安装 CLI",
     "cliGuideInstallDesc": "全局安装已发布的命令行工具。",

@@ -422,7 +422,7 @@
     "mcpStdioNote": "Note: stdio usually serves one client connection at a time, and it should be preferred for Docker deployments.",
     "cliGuideTitle": "CLI Connection",
     "cliGuideDesc": "The CLI connects to SiYuan over the HTTP API directly and does not require the MCP server. Best for terminal, scripts, and automation.",
-    "cliChooseDesc": "If you are not configuring an MCP client and instead want to run `siyuan-sisyphus ...` commands yourself, choose CLI.",
+    "cliChooseDesc": "It's generally more lightweight.",
     "cliPreviewBadge": "Preview",
     "cliGuideInstallTitle": "Install CLI",
     "cliGuideInstallDesc": "Install the published command-line package globally.",
