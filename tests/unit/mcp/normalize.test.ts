@@ -63,7 +63,7 @@ describe('slimBlockFields', () => {
         const slim = slimBlockFields(full);
         expect(slim).toEqual({
             id: 'block1', type: 'NodeParagraph', box: 'nb1',
-            hPath: '/Folder/Doc', rootID: 'root1',
+            hPath: '/Folder/Doc', path: '/a/b.sy', rootID: 'root1', parentID: 'parent1',
             content: 'hello', markdown: '**hello**',
         });
     });
@@ -127,11 +127,12 @@ describe('slimSearchBlocks', () => {
         const blocks = [{
             id: 'b1', type: 'NodeParagraph', box: 'nb1', hPath: '/Doc',
             content: 'short <mark>hit</mark>', markdown: 'short **hit**',
-            path: '/a.sy', refs: null, children: null,
+            path: '/a.sy', parent_id: 'root', refs: null, children: null,
         }];
         const result = slimSearchBlocks(blocks);
         expect(result).toHaveLength(1);
-        expect(result[0]).not.toHaveProperty('path');
+        expect(result[0]).toHaveProperty('path', '/a.sy');
+        expect(result[0]).toHaveProperty('parent_id', 'root');
         expect(result[0]).not.toHaveProperty('refs');
         expect(result[0]).not.toHaveProperty('children');
     });

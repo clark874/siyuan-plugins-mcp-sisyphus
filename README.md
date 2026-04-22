@@ -1,6 +1,25 @@
 # SiYuan Sisyphus MCP & CLI
 
-[English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
+<p align="left">
+  <a href="https://www.npmjs.com/package/siyuan-sisyphus">
+    <img src="https://img.shields.io/npm/v/siyuan-sisyphus?style=flat-square&color=%23cb3837" alt="npm version">
+  </a>
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/yangtaihong59/siyuan-plugins-mcp-sisyphus?style=flat-square&color=%23007ec6" alt="license">
+  </a>
+  <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">
+    <img src="https://img.shields.io/badge/docs-VitePress-646cff?style=flat-square&logo=vitepress" alt="Documentation">
+  </a>
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/releases">
+    <img src="https://img.shields.io/github/v/release/yangtaihong59/siyuan-plugins-mcp-sisyphus?style=flat-square&color=%23007ec6" alt="GitHub release">
+  </a>
+</p>
+
+<p align="left">
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md">English</a> |
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md">中文</a> |
+  <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
+</p>
 
 > **Latest:** `v0.3.3` — CLI adds multi-profile config management, interactive paging, and a reorganized VitePress doc structure. See [CHANGELOG.md](./CHANGELOG.md) for full history.
 

@@ -1,6 +1,6 @@
-# SiYuan MCP Sisyphus 文档
+# SiYuan Sisyphus MCP & CLI 文档
 
-SiYuan MCP Sisyphus 在这个仓库里同时提供两种产物：
+SiYuan Sisyphus MCP & CLI 在这个仓库里同时提供两种产物：
 
 - 一个内嵌 MCP Server 的思源插件
 - 一个独立 CLI：`siyuan-sisyphus`
@@ -52,4 +52,4 @@ SiYuan MCP Sisyphus 在这个仓库里同时提供两种产物：
 
 - [项目 README](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
 - [English Docs](/)
-- [架构洞察](/insights.md)
+- [架构洞察](/zh/insights)

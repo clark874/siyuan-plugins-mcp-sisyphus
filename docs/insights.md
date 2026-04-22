@@ -1,4 +1,4 @@
-# SiYuan MCP Sisyphus Design & Implementation Insights
+# SiYuan Sisyphus MCP & CLI Design & Implementation Insights
 
 > Experience summary from multiple rounds of testing and iterative feedback.
 
@@ -327,7 +327,7 @@ document(action="get_doc", ...);  // should return permission_denied
 
 ## Summary
 
-SiYuan MCP Sisyphus is designed around these core principles:
+SiYuan Sisyphus MCP & CLI is designed around these core principles:
 
 1. **AI-first**: every decision considers AI usage scenarios
 2. **Progressive disclosure**: avoid information overload, support exploratory interaction

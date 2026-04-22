@@ -440,7 +440,7 @@ describe('tool result normalization', () => {
             stripHtml: true,
         }, enabledActions('fulltext'), permMgr);
 
-        expect(JSON.parse(result.content[0].text)).toEqual({
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
             data: [{ id: 'b1', content: 'before <mark>hit</mark> after', plainContent: 'before hit after', excerpt: 'before hit after' }],
             total: 1,
             page: 1,
@@ -449,6 +449,15 @@ describe('tool result normalization', () => {
             hasNextPage: false,
             matchedBlockCount: 1,
             matchedRootCount: 1,
+            returnedTotal: 1,
+            returnedPageCount: 1,
+            returnedHasNextPage: false,
+            kernelMatchedBlockCount: 1,
+            kernelMatchedRootCount: 1,
+            kernelPageCount: 1,
+            kernelHasNextPage: false,
+            showing: 1,
+            truncated: false,
         });
     });
 

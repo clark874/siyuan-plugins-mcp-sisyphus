@@ -1,6 +1,16 @@
 import * as searchApi from '../../../api/search';
 import type { SearchAction } from '../../config';
-import { expandTypeShortcodes, normalizeFullTextSearchResult, resolveSortAlias, resolveTypeRecord, slimSearchBlocks } from '../../normalize';
+import {
+    expandTypeShortcodes,
+    getAssetContentSortName,
+    getFulltextSortName,
+    getSearchMethodName,
+    normalizeSearchBlocksForAi,
+    resolveAssetContentSortAlias,
+    resolveSearchMethod,
+    resolveSortAlias,
+    resolveTypeRecord,
+} from '../../normalize';
 import {
     SearchAssetsSchema,
     SearchFindReplaceSchema,
@@ -16,7 +26,7 @@ import {
 } from '../../types';
 import { ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveNotebookForPath } from '../context';
 import type { ToolActionHandler } from '../define-tool';
-import { applyTruncation, createErrorResult, createJsonResult, createPaginatedResult, type ToolResult } from '../shared';
+import { applyTruncation, createErrorResult, createJsonResult, createPaginatedResult, type ToolResult, type TruncationMeta } from '../shared';
 import {
     createPartialMetadata,
     filterBacklinkResultByPermission,
@@ -30,6 +40,39 @@ const SEARCH_TOOL_NAME = 'search';
 
 type SearchFulltextArgs = ReturnType<(typeof SearchFulltextSchema)['parse']>;
 type SearchFulltextAssetContentArgs = ReturnType<(typeof SearchFulltextAssetContentSchema)['parse']>;
+type SearchFindReplaceArgs = ReturnType<(typeof SearchFindReplaceSchema)['parse']>;
+
+function isNonEmptyString(value: unknown): value is string {
+    return typeof value === 'string' && value.trim().length > 0;
+}
+
+function resolveAliasString(primary: string | undefined, alias: string | undefined): string | undefined {
+    return isNonEmptyString(alias) ? alias : primary;
+}
+
+function buildResolvedArgs(values: Record<string, unknown>): { resolvedArgs?: Record<string, unknown> } {
+    const filteredEntries = Object.entries(values).filter(([, value]) => value !== undefined);
+    if (filteredEntries.length === 0) return {};
+    return { resolvedArgs: Object.fromEntries(filteredEntries) };
+}
+
+function buildTruncationSummary(itemCount: number, meta?: TruncationMeta): { showing: number; truncated: boolean; hint?: string } {
+    return meta
+        ? {
+            showing: meta.showing,
+            truncated: meta.truncated,
+            hint: meta.hint,
+        }
+        : {
+            showing: itemCount,
+            truncated: false,
+        };
+}
+
+function normalizeReferencedBlocks(items: unknown[] | undefined): unknown[] {
+    if (!Array.isArray(items)) return [];
+    return normalizeSearchBlocksForAi(items);
+}
 
 function resolveFulltextTypes(parsed: SearchFulltextArgs): unknown {
     let resolvedTypes = parsed.types ? resolveTypeRecord(parsed.types) : parsed.types;
@@ -44,14 +87,6 @@ function resolveFulltextRequestPageSize(parsed: SearchFulltextArgs): number | un
     return parsed.parentId
         ? Math.min((parsed.pageSize ?? 32) * 3, 128)
         : parsed.pageSize;
-}
-
-function normalizeFulltextBlocks(normalized: unknown): Record<string, unknown> {
-    const normalizedObj = normalized as Record<string, unknown>;
-    if (Array.isArray(normalizedObj.blocks)) {
-        normalizedObj.blocks = slimSearchBlocks(normalizedObj.blocks as unknown[]);
-    }
-    return normalizedObj;
 }
 
 function applyFulltextParentIdFilter(normalizedObj: Record<string, unknown>, parentId: string): void {
@@ -74,61 +109,113 @@ function applyFulltextHasTagsFilter(normalizedObj: Record<string, unknown>, hasT
     normalizedObj.matchedBlockCount = (normalizedObj.blocks as unknown[]).length;
 }
 
-function createFulltextPaginatedResult(normalized: unknown, parsed: SearchFulltextArgs): ToolResult {
-    const normalizedObj = normalized as Record<string, unknown>;
+function resolveFulltextMethod(parsed: SearchFulltextArgs): { method?: number; methodName?: string } {
+    const method = resolveSearchMethod(parsed.methodName, parsed.method);
+    return {
+        ...(method !== undefined ? { method } : {}),
+        ...(method !== undefined ? { methodName: getSearchMethodName(method) } : {}),
+    };
+}
+
+function resolveFindReplaceMethod(parsed: SearchFindReplaceArgs): { method?: number; methodName?: string } {
+    const method = resolveSearchMethod(parsed.methodName, parsed.method);
+    return {
+        ...(method !== undefined ? { method } : {}),
+        ...(method !== undefined ? { methodName: getSearchMethodName(method) } : {}),
+    };
+}
+
+function resolveAssetContentMethod(parsed: SearchFulltextAssetContentArgs): { method?: number; methodName?: string } {
+    const method = resolveSearchMethod(parsed.methodName, parsed.method);
+    return {
+        ...(method !== undefined ? { method } : {}),
+        ...(method !== undefined ? { methodName: getSearchMethodName(method) } : {}),
+    };
+}
+
+function createFulltextPaginatedResult(
+    normalizedObj: Record<string, unknown>,
+    parsed: SearchFulltextArgs,
+    kernelMeta: { matchedBlockCount?: number; matchedRootCount?: number; pageCount?: number },
+    resolvedArgs?: Record<string, unknown>,
+): ToolResult {
     const blocks = Array.isArray(normalizedObj.blocks)
         ? normalizedObj.blocks as unknown[]
         : [];
-    const kernelRaw = normalized as Record<string, unknown>;
-    const kernelPageCount = typeof kernelRaw.pageCount === 'number'
-        ? kernelRaw.pageCount as number
-        : 1;
     const page = parsed.page ?? 1;
     const pageSize = parsed.pageSize ?? 32;
     const truncated = applyTruncation(blocks, 20, `Use page/pageSize parameters to paginate. Current page: ${page}.`);
-    const matchedBlockCount = typeof kernelRaw.matchedBlockCount === 'number'
-        ? kernelRaw.matchedBlockCount as number
-        : blocks.length;
-    const { blocks: _ignoredBlocks, pageCount: _ignoredPageCount, ...restRaw } = kernelRaw;
-    void _ignoredBlocks;
-    void _ignoredPageCount;
-    return createPaginatedResult(truncated.items, {
-        total: matchedBlockCount,
+    const returnedTotal = blocks.length;
+    const kernelPageCount = typeof kernelMeta.pageCount === 'number' ? kernelMeta.pageCount : 1;
+    const permissionFilteredCount = typeof normalizedObj.filteredOutBlockCount === 'number'
+        ? normalizedObj.filteredOutBlockCount as number
+        : 0;
+    const postFiltered = permissionFilteredCount > 0 || !!parsed.parentId || parsed.hasTags !== undefined;
+    const total = postFiltered
+        ? returnedTotal
+        : (typeof kernelMeta.matchedBlockCount === 'number' ? kernelMeta.matchedBlockCount : returnedTotal);
+    const pagination = {
+        total,
         page,
         pageSize,
-        pageCount: kernelPageCount,
-        hasNextPage: page < kernelPageCount,
-    }, {
+        pageCount: postFiltered ? 1 : kernelPageCount,
+        hasNextPage: postFiltered ? false : page < kernelPageCount,
+    };
+    const { blocks: _ignoredBlocks, pageCount: _ignoredPageCount, ...restRaw } = normalizedObj;
+    void _ignoredBlocks;
+    void _ignoredPageCount;
+
+    return createPaginatedResult(truncated.items, pagination, {
         ...restRaw,
-        ...(truncated.meta ? truncated.meta : {}),
-        ...(parsed.parentId && blocks.length === 0 ? {
+        ...createPartialMetadata(permissionFilteredCount),
+        ...buildTruncationSummary(returnedTotal, truncated.meta),
+        returnedTotal,
+        returnedPageCount: 1,
+        returnedHasNextPage: false,
+        ...(kernelMeta.matchedBlockCount !== undefined ? { kernelMatchedBlockCount: kernelMeta.matchedBlockCount } : {}),
+        ...(kernelMeta.matchedRootCount !== undefined ? { kernelMatchedRootCount: kernelMeta.matchedRootCount } : {}),
+        kernelPageCount,
+        kernelHasNextPage: page < kernelPageCount,
+        ...(postFiltered ? {
+            paginationMode: 'post_filtered_window',
+            pagingHint: 'kernel* pagination fields describe the raw SiYuan search page before permission and parent/tag post-filtering.',
+        } : {}),
+        ...(parsed.parentId && returnedTotal === 0 ? {
             warning: 'No matching blocks were found in the requested document subtree. If the content was just created or updated, SiYuan full-text indexing may still be catching up; retry shortly.',
         } : {}),
+        ...(resolvedArgs ? { resolvedArgs } : {}),
     });
 }
 
-function createSqlQueryResult(rows: unknown[], removedCount: number): ToolResult {
+function createSqlQueryResult(rows: unknown[], removedCount: number, resolvedArgs?: Record<string, unknown>): ToolResult {
     const truncated = applyTruncation(rows, 50, 'Add LIMIT and OFFSET to your SQL for pagination.');
     const total = rows.length;
-    return createPaginatedResult(truncated.items, {
+    return createJsonResult({
+        data: truncated.items,
         total,
-        page: 1,
-        pageSize: total,
-        pageCount: 1,
-        hasNextPage: false,
-    }, {
+        totalRows: total,
+        ...buildTruncationSummary(total, truncated.meta),
         ...createPartialMetadata(removedCount),
-        ...(truncated.meta ? truncated.meta : {}),
+        ...(resolvedArgs ? { resolvedArgs } : {}),
     });
 }
 
-function createFulltextAssetContentResult(typed: Record<string, unknown>, assetContents: unknown[], removedCount: number): ToolResult {
+function createFulltextAssetContentResult(
+    typed: Record<string, unknown>,
+    assetContents: unknown[],
+    removedCount: number,
+    resolvedArgs?: Record<string, unknown>,
+): ToolResult {
     const truncated = applyTruncation(assetContents, 20, 'Use page/pageSize parameters to paginate asset content results.');
+    const total = assetContents.length;
     return createJsonResult({
         ...typed,
         assetContents: truncated.items,
+        data: truncated.items,
+        total,
+        ...buildTruncationSummary(total, truncated.meta),
         ...createPartialMetadata(removedCount),
-        ...(truncated.meta ? truncated.meta : {}),
+        ...(resolvedArgs ? { resolvedArgs } : {}),
     });
 }
 
@@ -140,10 +227,11 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             if (denied) return denied;
         }
 
+        const resolvedMethod = resolveFulltextMethod(parsed);
         const resolvedOrderBy = resolveSortAlias(parsed.sortBy, parsed.orderBy);
         const result = await searchApi.fullTextSearchBlock(client, {
             query: parsed.query,
-            method: parsed.method,
+            method: resolvedMethod.method,
             types: resolveFulltextTypes(parsed),
             paths: parsed.paths,
             groupBy: parsed.groupBy,
@@ -152,8 +240,11 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             pageSize: resolveFulltextRequestPageSize(parsed),
         });
         const filtered = filterFullTextSearchResultByPermission(result, permMgr);
-        const normalized = normalizeFullTextSearchResult(filtered, parsed.stripHtml ?? false);
-        const normalizedObj = normalizeFulltextBlocks(normalized);
+        const filteredObj = filtered as Record<string, unknown>;
+        const normalizedObj: Record<string, unknown> = {
+            ...filteredObj,
+            blocks: normalizeReferencedBlocks(Array.isArray(filteredObj.blocks) ? filteredObj.blocks : []),
+        };
         if (parsed.parentId) {
             applyFulltextParentIdFilter(normalizedObj, parsed.parentId);
         }
@@ -162,47 +253,76 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             applyFulltextHasTagsFilter(normalizedObj, parsed.hasTags);
         }
 
-        return createFulltextPaginatedResult(normalized, parsed);
+        const shouldExposeResolvedArgs = parsed.methodName !== undefined || parsed.sortBy !== undefined;
+        const resolvedArgs = shouldExposeResolvedArgs
+            ? buildResolvedArgs({
+                query: parsed.query,
+                ...resolvedMethod,
+                ...(resolvedOrderBy !== undefined ? { orderBy: resolvedOrderBy } : {}),
+                ...(resolvedOrderBy !== undefined ? { sortBy: getFulltextSortName(resolvedOrderBy) } : {}),
+            }).resolvedArgs
+            : undefined;
+
+        return createFulltextPaginatedResult(normalizedObj, parsed, {
+            matchedBlockCount: typeof result.matchedBlockCount === 'number' ? result.matchedBlockCount : undefined,
+            matchedRootCount: typeof result.matchedRootCount === 'number' ? result.matchedRootCount : undefined,
+            pageCount: typeof (result as Record<string, unknown>).pageCount === 'number'
+                ? (result as Record<string, unknown>).pageCount as number
+                : undefined,
+        }, resolvedArgs);
     },
     query_sql: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchQuerySqlSchema.parse(rawArgs);
+        const stmt = resolveAliasString(parsed.stmt, parsed.sql);
         try {
-            assertReadOnlySql(parsed.stmt);
+            assertReadOnlySql(stmt ?? '');
         } catch (error) {
             return createErrorResult(
                 error,
                 { tool: SEARCH_TOOL_NAME, action: 'query_sql', rawArgs },
             );
         }
-        const result = await searchApi.querySQL(client, parsed.stmt);
+        const result = await searchApi.querySQL(client, stmt ?? '');
         const rows = Array.isArray(result) ? result : [];
         const filtered = await filterItemsByPermission(client, rows, permMgr);
-        return createSqlQueryResult(filtered.items, filtered.removedCount);
+        const resolvedArgs = parsed.sql !== undefined
+            ? buildResolvedArgs({ stmt }).resolvedArgs
+            : undefined;
+        return createSqlQueryResult(filtered.items, filtered.removedCount, resolvedArgs);
     },
     search_tag: async ({ client, rawArgs }) => {
         const parsed = SearchTagSchema.parse(rawArgs);
-        const result = await searchApi.searchTag(client, parsed.k);
+        const query = resolveAliasString(parsed.k, parsed.query) ?? '';
+        const result = await searchApi.searchTag(client, query);
         const typedResult = result && typeof result === 'object' ? result as Record<string, unknown> : {};
         const tags = Array.isArray(typedResult.tags) ? typedResult.tags : [];
+        const resolvedArgs = parsed.query !== undefined
+            ? buildResolvedArgs({ query }).resolvedArgs
+            : undefined;
         return createJsonResult({
             ...typedResult,
-            ...(parsed.k.trim().length > 0 && tags.length === 0 ? {
+            ...(resolvedArgs ? { resolvedArgs } : {}),
+            ...(query.trim().length > 0 && tags.length === 0 ? {
                 warning: 'No matching tags were found. If the tag was just created, SiYuan tag indexing may still be catching up; verify the markdown uses #tag# syntax and retry shortly.',
             } : {}),
         });
     },
     get_backlinks: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchGetBacklinksSchema.parse(rawArgs);
+        const scopeRootId = resolveAliasString(parsed.refTreeID, parsed.scopeRootId);
         const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
         if (denied) return denied;
         try {
-            const result = await getBacklinkDocWithFallback(client, parsed.id, parsed.keyword, parsed.refTreeID);
+            const result = await getBacklinkDocWithFallback(client, parsed.id, parsed.keyword, scopeRootId);
             const filtered = filterBacklinkResultByPermission(result, permMgr);
             return createJsonResult({
                 ...filtered,
+                backlinks: normalizeReferencedBlocks(Array.isArray(filtered.backlinks) ? filtered.backlinks : []),
+                backmentions: normalizeReferencedBlocks(Array.isArray(filtered.backmentions) ? filtered.backmentions : []),
                 ...(result.sourcePayloadMissing ? { sourcePayloadMissing: true } : {}),
                 ...(result.fallbackQuery ? { fallbackQuery: result.fallbackQuery } : {}),
                 ...(result.resultConfidence ? { resultConfidence: result.resultConfidence } : {}),
+                ...(parsed.scopeRootId !== undefined ? { resolvedArgs: { refTreeID: scopeRootId } } : {}),
                 ...(result.fallbackUsed ? { warning: 'SiYuan returned no backlink payload; SQL fallback results are shown.' } : {}),
             });
         } catch (error) {
@@ -213,6 +333,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
                     warning: 'SiYuan rejected part of the backlink query due to restricted notebooks; restricted results were omitted.',
                     partial: true,
                     reason: 'permission_filtered',
+                    permissionSummary: createPartialMetadata(1).permissionSummary,
                 });
             }
             throw error;
@@ -220,16 +341,19 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
     },
     get_backmentions: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchGetBackmentionsSchema.parse(rawArgs);
+        const scopeRootId = resolveAliasString(parsed.refTreeID, parsed.scopeRootId);
         const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
         if (denied) return denied;
         try {
-            const result = await getBackmentionDocWithFallback(client, parsed.id, parsed.keyword, parsed.refTreeID);
+            const result = await getBackmentionDocWithFallback(client, parsed.id, parsed.keyword, scopeRootId);
             const filtered = filterBacklinkResultByPermission(result, permMgr);
             return createJsonResult({
                 ...filtered,
+                backmentions: normalizeReferencedBlocks(Array.isArray(filtered.backmentions) ? filtered.backmentions : []),
                 ...(result.sourcePayloadMissing ? { sourcePayloadMissing: true } : {}),
                 ...(result.fallbackQuery ? { fallbackQuery: result.fallbackQuery } : {}),
                 ...(result.resultConfidence ? { resultConfidence: result.resultConfidence } : {}),
+                ...(parsed.scopeRootId !== undefined ? { resolvedArgs: { refTreeID: scopeRootId } } : {}),
                 ...(result.fallbackUsed ? { warning: 'SiYuan returned no backmention payload; SQL fallback results are shown.' } : {}),
             });
         } catch (error) {
@@ -239,6 +363,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
                     warning: 'SiYuan rejected part of the backmention query due to restricted notebooks; restricted results were omitted.',
                     partial: true,
                     reason: 'permission_filtered',
+                    permissionSummary: createPartialMetadata(1).permissionSummary,
                 });
             }
             throw error;
@@ -252,9 +377,14 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
         const typed = result && typeof result === 'object' ? result as Record<string, unknown> : {};
         const blocks = Array.isArray(typed.blocks) ? typed.blocks : [];
         const filtered = await filterItemsByPermission(client, blocks, permMgr);
+        const normalizedBlocks = normalizeReferencedBlocks(filtered.items);
         return createJsonResult({
             ...typed,
-            blocks: slimSearchBlocks(filtered.items),
+            blocks: normalizedBlocks,
+            data: normalizedBlocks,
+            total: normalizedBlocks.length,
+            showing: normalizedBlocks.length,
+            truncated: false,
             ...createPartialMetadata(filtered.removedCount),
         });
     },
@@ -272,7 +402,20 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
                 if (denied) return denied;
             }
         }
-        await searchApi.findReplace(client, parsed);
+        const resolvedMethod = resolveFindReplaceMethod(parsed);
+        const resolvedOrderBy = resolveSortAlias(parsed.sortBy, parsed.orderBy);
+        await searchApi.findReplace(client, {
+            k: parsed.k,
+            r: parsed.r,
+            ids: parsed.ids,
+            ...(parsed.paths ? { paths: parsed.paths } : {}),
+            ...(parsed.types ? { types: parsed.types } : {}),
+            ...(resolvedMethod.method !== undefined ? { method: resolvedMethod.method } : {}),
+            ...(resolvedOrderBy !== undefined ? { orderBy: resolvedOrderBy } : {}),
+            ...(parsed.groupBy !== undefined ? { groupBy: parsed.groupBy } : {}),
+            ...(parsed.replaceTypes ? { replaceTypes: parsed.replaceTypes } : {}),
+        });
+        const shouldExposeResolvedArgs = parsed.methodName !== undefined || parsed.sortBy !== undefined;
         return createJsonResult({
             success: true,
             replaced: true,
@@ -280,12 +423,26 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             k: parsed.k,
             r: parsed.r,
             ...(parsed.paths ? { paths: parsed.paths } : {}),
+            ...(shouldExposeResolvedArgs ? {
+                resolvedArgs: buildResolvedArgs({
+                    ...resolvedMethod,
+                    ...(resolvedOrderBy !== undefined ? { orderBy: resolvedOrderBy } : {}),
+                    ...(resolvedOrderBy !== undefined ? { sortBy: getFulltextSortName(resolvedOrderBy) } : {}),
+                }).resolvedArgs,
+            } : {}),
         });
     },
     search_assets: async ({ client, rawArgs }) => {
         const parsed = SearchAssetsSchema.parse(rawArgs);
-        const result = await searchApi.searchAsset(client, parsed.k, parsed.exts);
-        return createJsonResult(result);
+        const query = resolveAliasString(parsed.k, parsed.query) ?? '';
+        const result = await searchApi.searchAsset(client, query, parsed.exts);
+        if (parsed.query === undefined) {
+            return createJsonResult(result);
+        }
+        return createJsonResult({
+            ...(result && typeof result === 'object' && !Array.isArray(result) ? result as Record<string, unknown> : { data: result }),
+            resolvedArgs: { query },
+        });
     },
     get_asset_content: async ({ client, rawArgs }) => {
         const parsed = SearchGetAssetContentSchema.parse(rawArgs);
@@ -294,11 +451,28 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
     },
     fulltext_asset_content: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchFulltextAssetContentSchema.parse(rawArgs) as SearchFulltextAssetContentArgs;
-        const result = await searchApi.fullTextSearchAssetContent(client, parsed);
+        const resolvedMethod = resolveAssetContentMethod(parsed);
+        const resolvedOrderBy = resolveAssetContentSortAlias(parsed.sortBy, parsed.orderBy);
+        const result = await searchApi.fullTextSearchAssetContent(client, {
+            query: parsed.query,
+            ...(parsed.types ? { types: parsed.types } : {}),
+            ...(resolvedMethod.method !== undefined ? { method: resolvedMethod.method } : {}),
+            ...(resolvedOrderBy !== undefined ? { orderBy: resolvedOrderBy } : {}),
+            ...(parsed.page !== undefined ? { page: parsed.page } : {}),
+            ...(parsed.pageSize !== undefined ? { pageSize: parsed.pageSize } : {}),
+        });
         const typed = result && typeof result === 'object' ? result as Record<string, unknown> : {};
         const assetContents = Array.isArray(typed.assetContents) ? typed.assetContents : [];
         const filtered = await filterItemsByPermission(client, assetContents, permMgr);
-        return createFulltextAssetContentResult(typed, filtered.items, filtered.removedCount);
+        const shouldExposeResolvedArgs = parsed.methodName !== undefined || parsed.sortBy !== undefined;
+        return createFulltextAssetContentResult(typed, filtered.items, filtered.removedCount, shouldExposeResolvedArgs
+            ? buildResolvedArgs({
+                query: parsed.query,
+                ...resolvedMethod,
+                ...(resolvedOrderBy !== undefined ? { orderBy: resolvedOrderBy } : {}),
+                ...(resolvedOrderBy !== undefined ? { sortBy: getAssetContentSortName(resolvedOrderBy) } : {}),
+            }).resolvedArgs
+            : undefined);
     },
     list_invalid_refs: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchListInvalidRefsSchema.parse(rawArgs);
@@ -308,6 +482,17 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             matchedBlockCount?: number;
             matchedRootCount?: number;
         }, permMgr);
-        return createJsonResult(filtered);
+        const filteredObj = filtered as Record<string, unknown>;
+        const blocks = Array.isArray(filteredObj.blocks) ? filteredObj.blocks : [];
+        const normalizedBlocks = normalizeReferencedBlocks(blocks);
+        return createJsonResult({
+            ...filteredObj,
+            blocks: normalizedBlocks,
+            data: normalizedBlocks,
+            total: normalizedBlocks.length,
+            showing: normalizedBlocks.length,
+            truncated: false,
+            ...createPartialMetadata(typeof filteredObj.filteredOutBlockCount === 'number' ? filteredObj.filteredOutBlockCount as number : 0),
+        });
     },
 };

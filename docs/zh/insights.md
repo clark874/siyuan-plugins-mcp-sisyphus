@@ -1,4 +1,4 @@
-# SiYuan MCP Sisyphus 设计与实现洞察
+# SiYuan Sisyphus MCP & CLI 设计与实现洞察
 
 > 基于多轮体验测试和迭代反馈的经验总结
 
@@ -330,7 +330,7 @@ document(action="get_doc", ...);  // 应返回 permission_denied
 
 ## 总结
 
-SiYuan MCP Sisyphus 的设计遵循以下核心原则：
+SiYuan Sisyphus MCP & CLI 的设计遵循以下核心原则：
 
 1. **AI 优先**: 所有设计决策考虑 AI 使用场景
 2. **渐进披露**: 避免信息过载，支持探索式交互

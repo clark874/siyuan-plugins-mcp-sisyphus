@@ -29,6 +29,7 @@ export interface AggregatedToolOptions<Action extends string> {
     guidance?: string[];
     actionHints?: Partial<Record<Action, string>>;
     propertyDescriptionOverrides?: Record<string, string>;
+    guidanceInlineLimit?: number;
 }
 
 interface ToolErrorContext {
@@ -72,9 +73,11 @@ function buildEssentialGuidance<Action extends string>(
 ): string[] {
     const notes: string[] = [];
 
-    // Only include top 2 guidance lines (most critical context)
+    const guidanceInlineLimit = options.guidanceInlineLimit ?? 2;
+
+    // Only include the configured number of top guidance lines (most critical context)
     const guidance = options.guidance ?? [];
-    notes.push(...guidance.slice(0, 2));
+    notes.push(...guidance.slice(0, guidanceInlineLimit));
 
     const confirmationActions = actionList.filter((action) => isDangerousAction(category, action));
     if (confirmationActions.length > 0) {

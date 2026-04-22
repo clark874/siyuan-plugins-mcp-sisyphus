@@ -27,6 +27,11 @@ export function stripHtmlTags(value: string): string {
     return value.replace(HTML_TAG_PATTERN, '');
 }
 
+function normalizeAliasKey(value: string | undefined): string | undefined {
+    const normalized = value?.trim().toLowerCase();
+    return normalized ? normalized : undefined;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Type shortcode expansion                                          */
 /* ------------------------------------------------------------------ */
@@ -48,6 +53,21 @@ const TYPE_SHORTCODE_MAP: Record<string, string> = {
     video: 'video',
     audio: 'audio',
     widget: 'widget',
+};
+
+const SEARCH_METHOD_ALIAS_MAP: Record<string, number> = {
+    keyword: 0,
+    query: 1,
+    query_syntax: 1,
+    sql: 2,
+    regex: 3,
+};
+
+const SEARCH_METHOD_NAME_MAP: Record<number, string> = {
+    0: 'keyword',
+    1: 'query_syntax',
+    2: 'sql',
+    3: 'regex',
 };
 
 export function expandTypeShortcodes(shortcodes: string[]): Record<string, boolean> {
@@ -78,11 +98,24 @@ export function resolveTypeRecord(types: Record<string, boolean>): Record<string
     return resolved;
 }
 
+export function resolveSearchMethod(methodName: string | undefined, method: number | undefined): number | undefined {
+    const normalizedMethodName = normalizeAliasKey(methodName);
+    if (normalizedMethodName && normalizedMethodName in SEARCH_METHOD_ALIAS_MAP) {
+        return SEARCH_METHOD_ALIAS_MAP[normalizedMethodName];
+    }
+    return method;
+}
+
+export function getSearchMethodName(method: number | undefined): string | undefined {
+    if (method === undefined) return undefined;
+    return SEARCH_METHOD_NAME_MAP[method];
+}
+
 /* ------------------------------------------------------------------ */
 /*  Sort alias resolution                                             */
 /* ------------------------------------------------------------------ */
 
-const SORT_ALIAS_MAP: Record<string, number> = {
+const FULLTEXT_SORT_ALIAS_MAP: Record<string, number> = {
     relevance: 7,
     date: 4,
     updated_desc: 4,
@@ -92,11 +125,54 @@ const SORT_ALIAS_MAP: Record<string, number> = {
     type: 0,
 };
 
-export function resolveSortAlias(sortBy: string | undefined, orderBy: number | undefined): number | undefined {
-    if (sortBy && sortBy in SORT_ALIAS_MAP) {
-        return SORT_ALIAS_MAP[sortBy];
+const FULLTEXT_SORT_NAME_MAP: Record<number, string> = {
+    7: 'relevance',
+    4: 'updated_desc',
+    3: 'updated_asc',
+    2: 'created_desc',
+    1: 'created_asc',
+    0: 'type',
+};
+
+const ASSET_CONTENT_SORT_ALIAS_MAP: Record<string, number> = {
+    relevance: 0,
+    relevance_desc: 0,
+    relevance_asc: 1,
+    updated_asc: 2,
+    updated_desc: 3,
+};
+
+const ASSET_CONTENT_SORT_NAME_MAP: Record<number, string> = {
+    0: 'relevance_desc',
+    1: 'relevance_asc',
+    2: 'updated_asc',
+    3: 'updated_desc',
+};
+
+export function resolveSortAlias(
+    sortBy: string | undefined,
+    orderBy: number | undefined,
+    aliasMap: Record<string, number> = FULLTEXT_SORT_ALIAS_MAP,
+): number | undefined {
+    const normalizedSortBy = normalizeAliasKey(sortBy);
+    if (normalizedSortBy && normalizedSortBy in aliasMap) {
+        return aliasMap[normalizedSortBy];
     }
     return orderBy;
+}
+
+export function getFulltextSortName(orderBy: number | undefined): string | undefined {
+    if (orderBy === undefined) return undefined;
+    return FULLTEXT_SORT_NAME_MAP[orderBy];
+}
+
+export function resolveAssetContentSortAlias(sortBy: string | undefined, orderBy: number | undefined): number | undefined {
+    return resolveSortAlias(sortBy, orderBy, ASSET_CONTENT_SORT_ALIAS_MAP);
+}
+
+export function getAssetContentSortName(orderBy: number | undefined): string | undefined {
+    if (orderBy === undefined) return undefined;
+    return ASSET_CONTENT_SORT_NAME_MAP[orderBy];
 }
 
 export function normalizeFullTextSearchResult<T extends { blocks?: unknown[] }>(
@@ -135,6 +211,7 @@ const OPTIONAL_FIELDS = [
     'content', 'plainContent', 'markdown',
     'name', 'alias', 'memo', 'tag',
     'subType', 'subtype',
+    'path', 'parentID', 'parent_id',
     'rootID', 'root_id',
 ] as const;
 
@@ -228,4 +305,9 @@ export function slimSearchBlocks(blocks: unknown[]): unknown[] {
         }
         return slim;
     });
+}
+
+export function normalizeSearchBlocksForAi(blocks: unknown[]): unknown[] {
+    const normalized = normalizeFullTextSearchResult({ blocks }, true);
+    return slimSearchBlocks(Array.isArray(normalized.blocks) ? normalized.blocks : []);
 }

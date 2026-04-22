@@ -2,8 +2,8 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: 'SiYuan MCP Sisyphus',
-  description: 'Documentation for SiYuan MCP Sisyphus Plugin',
+  title: 'SiYuan Sisyphus MCP & CLI',
+  description: 'Documentation for SiYuan Sisyphus MCP & CLI Plugin',
   base: '/siyuan-plugins-mcp-sisyphus/',
 
   // 多语言配置
@@ -105,7 +105,7 @@ export default defineConfig({
                 { text: '路径语义', link: '/zh/reference/path-semantics' },
                 { text: '错误类型', link: '/zh/reference/error-types' },
                 { text: '工具索引', link: '/zh/reference/tools/' },
-                { text: '经验洞察', link: '/insights' },
+                { text: '经验洞察', link: '/zh/insights' },
               ],
             },
             {

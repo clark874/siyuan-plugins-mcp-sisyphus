@@ -1,6 +1,6 @@
-# SiYuan MCP Sisyphus Docs
+# SiYuan Sisyphus MCP & CLI Docs
 
-SiYuan MCP Sisyphus exposes SiYuan capabilities in two forms:
+SiYuan Sisyphus MCP & CLI exposes SiYuan capabilities in two forms:
 
 - A SiYuan plugin with an embedded MCP server
 - A standalone CLI: `siyuan-sisyphus`

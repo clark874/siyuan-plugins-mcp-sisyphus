@@ -24,12 +24,22 @@ export function createPartialMetadata(removedCount: number): {
     partial?: boolean;
     filteredOutCount?: number;
     reason?: 'permission_filtered';
+    permissionSummary?: {
+        filteredOutCount: number;
+        reason: 'permission_filtered';
+        suggestion: string;
+    };
 } {
     return removedCount > 0
         ? {
             partial: true,
             filteredOutCount: removedCount,
             reason: 'permission_filtered',
+            permissionSummary: {
+                filteredOutCount: removedCount,
+                reason: 'permission_filtered',
+                suggestion: 'Some results were hidden due to notebook permissions. Use notebook(action="get_permissions") to review access before retrying broader searches.',
+            },
         }
         : {};
 }

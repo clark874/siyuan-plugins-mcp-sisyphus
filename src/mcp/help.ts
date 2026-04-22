@@ -160,22 +160,28 @@ export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
 };
 
 export const SEARCH_GUIDANCE: string[] = [
-    'All search actions are read-only and do not modify any data.',
+    'All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.',
     'search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.',
+    'When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.',
     'The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.',
     'In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.',
     'Use search(action="fulltext") for natural language searches; use search(action="query_sql") for structured queries.',
-    'search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. sortBy ("relevance", "date") is a shorthand for numeric orderBy.',
+    'search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.',
     'search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.',
     'Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.',
 ];
 
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
-    fulltext: 'Pass a query string. Supports keyword, query syntax, SQL, and regex modes via the method parameter. Set stripHtml=true to add plain-text fields. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.',
-    query_sql: 'Execute a SELECT statement. Common tables: blocks, spans, assets. Always use LIMIT to control result size. MCP returns rows plus metadata such as rowCount and possible permission-filtering info.',
-    search_tag: 'Returns all tags matching the given keyword prefix. Real tags must be written as #tag# in markdown, and very recent tags may need a brief retry while indexing catches up.',
+    fulltext: 'Pass a query string. Supports keyword, query syntax, SQL, and regex modes via methodName (preferred) or method. fulltext now returns plainContent/excerpt by default. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.',
+    query_sql: 'Execute a SELECT statement. Common tables: blocks, spans, assets. Prefer sql over stmt when prompting an AI. Always use LIMIT to control result size. MCP returns data plus truncation and permission-filtering metadata when applicable.',
+    search_tag: 'Returns all tags matching the given keyword prefix. Prefer query over k when prompting an AI. Real tags must be written as #tag# in markdown, and very recent tags may need a brief retry while indexing catches up.',
     get_backlinks: 'Returns documents/blocks that contain a reference ((ref)) to the given block ID. Partial permission-filtered results include machine-readable metadata.',
     get_backmentions: 'Returns documents/blocks that mention the name of the given block (text mention, not ref link). Partial permission-filtered results include machine-readable metadata.',
+    search_refs: 'Returns block-level reference contexts for the target id. Use this when you need the surrounding block content, not just the document-level backlink list. beforeLen controls how much leading context is included in each hit.',
+    find_replace: 'This is the mutating exception inside the search tool. It performs content replacement after write-permission checks and still requires explicit user confirmation.',
+    search_assets: 'Searches asset filenames. Prefer query over k when prompting an AI. If you need OCR or indexed inner-text matches, use fulltext_asset_content instead.',
+    get_asset_content: 'Reads one asset-content record by id + query. Typical flow: first discover candidate asset-content ids with fulltext_asset_content, then call get_asset_content for the exact match you want to inspect.',
+    fulltext_asset_content: 'Searches indexed asset/OCR text. Prefer methodName and sortBy over numeric method/orderBy. Typical flow: use this to discover matching asset-content ids, then call get_asset_content for a specific record.',
 };
 
 export const TAG_ACTION_HINTS: Partial<Record<TagAction, string>> = {

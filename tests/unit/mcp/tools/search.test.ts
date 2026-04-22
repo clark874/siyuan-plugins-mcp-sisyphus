@@ -103,6 +103,133 @@ describe('search tool filtering', () => {
         expect(parseResult(result)).toEqual([{ path: 'assets/diagram.png' }]);
     });
 
+    it('accepts semantic aliases for fulltext and returns AI-friendly metadata', async () => {
+        const client = createMockClient({
+            request: async (endpoint: string, body: unknown) => {
+                if (endpoint === '/api/query/sql') {
+                    expect(body).toMatchObject({
+                        stmt: "SELECT id, root_id, box, path, hpath, content, type FROM blocks WHERE id = 'doc-1' LIMIT 1",
+                    });
+                    return [{
+                        id: 'doc-1',
+                        root_id: 'doc-1',
+                        box: 'allowed',
+                        path: '/doc-1.sy',
+                        hpath: '/Doc 1',
+                        content: 'Doc 1',
+                        type: 'd',
+                    }];
+                }
+                expect(endpoint).toBe('/api/search/fullTextSearchBlock');
+                expect(body).toMatchObject({
+                    query: 'child',
+                    method: 3,
+                    orderBy: 4,
+                    page: 1,
+                    pageSize: 90,
+                });
+                return {
+                    blocks: [
+                        {
+                            id: 'keep',
+                            box: 'allowed',
+                            rootID: 'doc-1',
+                            parent_id: 'doc-1',
+                            path: '/doc-1.sy',
+                            content: 'before <mark>child</mark> after',
+                            markdown: 'before child after',
+                        },
+                        {
+                            id: 'drop',
+                            box: 'allowed',
+                            rootID: 'doc-2',
+                            parent_id: 'doc-2',
+                            path: '/doc-2.sy',
+                            content: '<mark>child</mark> elsewhere',
+                            markdown: 'child elsewhere',
+                        },
+                    ],
+                    matchedBlockCount: 25,
+                    matchedRootCount: 2,
+                    pageCount: 3,
+                };
+            },
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'fulltext',
+            query: 'child',
+            methodName: 'regex',
+            sortBy: 'date',
+            parentId: 'doc-1',
+            page: 1,
+            pageSize: 30,
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.data).toHaveLength(1);
+        expect(parsed.data[0].plainContent).toBe('before child after');
+        expect(parsed.data[0].excerpt).toContain('before child after');
+        expect(parsed.data[0].path).toBe('/doc-1.sy');
+        expect(parsed.total).toBe(1);
+        expect(parsed.pageCount).toBe(1);
+        expect(parsed.returnedTotal).toBe(1);
+        expect(parsed.kernelMatchedBlockCount).toBe(25);
+        expect(parsed.kernelPageCount).toBe(3);
+        expect(parsed.kernelHasNextPage).toBe(true);
+        expect(parsed.paginationMode).toBe('post_filtered_window');
+        expect(parsed.resolvedArgs).toEqual({
+            query: 'child',
+            method: 3,
+            methodName: 'regex',
+            orderBy: 4,
+            sortBy: 'updated_desc',
+        });
+    });
+
+    it('accepts sql/query aliases and reports truncation metadata', async () => {
+        const rows = Array.from({ length: 60 }, (_, index) => ({
+            id: `row-${index + 1}`,
+            box: 'allowed',
+            content: `Row ${index + 1}`,
+        }));
+        const client = createMockClient({
+            request: async (endpoint: string, body: unknown) => {
+                expect(endpoint).toBe('/api/query/sql');
+                expect(body).toMatchObject({ stmt: 'SELECT * FROM blocks LIMIT 60' });
+                return rows;
+            },
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'query_sql',
+            sql: 'SELECT * FROM blocks LIMIT 60',
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.data).toHaveLength(50);
+        expect(parsed.total).toBe(60);
+        expect(parsed.totalRows).toBe(60);
+        expect(parsed.showing).toBe(50);
+        expect(parsed.truncated).toBe(true);
+        expect(parsed.hint).toContain('LIMIT and OFFSET');
+        expect(parsed.resolvedArgs).toEqual({ stmt: 'SELECT * FROM blocks LIMIT 60' });
+    });
+
     it('adds an indexing hint when tag search returns empty for a non-empty keyword', async () => {
         const client = createMockClient({
             request: async (endpoint: string, body: unknown) => {
@@ -128,6 +255,36 @@ describe('search tool filtering', () => {
             k: 'mcp-test-tag',
             tags: [],
             warning: 'No matching tags were found. If the tag was just created, SiYuan tag indexing may still be catching up; verify the markdown uses #tag# syntax and retry shortly.',
+        });
+    });
+
+    it('accepts query as an alias for tag search', async () => {
+        const client = createMockClient({
+            request: async (endpoint: string, body: unknown) => {
+                expect(endpoint).toBe('/api/search/searchTag');
+                expect(body).toMatchObject({ k: 'mcp-alias' });
+                return { k: 'mcp-alias', tags: [{ label: 'mcp-alias', count: 1 }] };
+            },
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'search_tag',
+            query: 'mcp-alias',
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        expect(parseResult(result)).toEqual({
+            k: 'mcp-alias',
+            tags: [{ label: 'mcp-alias', count: 1 }],
+            resolvedArgs: {
+                query: 'mcp-alias',
+            },
         });
     });
 });
