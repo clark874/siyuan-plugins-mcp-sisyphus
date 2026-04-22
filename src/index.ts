@@ -16,9 +16,9 @@ import {
     savePersistedToolConfig,
     type HttpServerSettings,
     type PuppySettings,
-} from "@/setting/tool-config-storage";
-import McpConfig from "@/setting/mcp-config.svelte";
-import ToolPuppy from "@/components/ToolPuppy.svelte";
+} from "@/ui/setting/tool-config-storage";
+import McpConfig from "@/ui/setting/mcp-config.svelte";
+import ToolPuppy from "@/ui/components/ToolPuppy.svelte";
 import { HttpServerLauncher } from "@/server-launcher";
 
 export default class SiyuanMCP extends Plugin {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { ensureRequiredPluginInstalled, REQUIRED_PLUGIN_MANIFEST_PATH } from '@/cli/plugin-check';
-import { PERMISSIONS_API_PATH } from '@/mcp/permissions';
+import { PERMISSIONS_API_PATH } from '@/core/permissions';
 
 describe('cli/plugin-check', () => {
     it('passes when plugin manifest exists and permissions storage is readable', async () => {

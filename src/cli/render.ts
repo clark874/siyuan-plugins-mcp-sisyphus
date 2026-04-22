@@ -1,5 +1,5 @@
-import type { ToolResult } from '../mcp/tools/shared';
-import { translatePresentationPayload, translatePresentationText } from '../presentation/invocation-format';
+import type { ToolResult } from '../tools/shared';
+import { translatePresentationPayload, translatePresentationText } from '../shared/invocation-format';
 
 export interface RenderOptions {
     json: boolean;

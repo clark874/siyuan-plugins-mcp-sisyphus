@@ -36,3 +36,6 @@ tmp
 .claude/
 .sisyphus/
 siyuan
+
+# Refactor artifacts
+archive/

@@ -4,8 +4,8 @@ import {
     buildDefaultToolConfig,
     normalizeToolConfig,
     type ToolConfig,
-} from '../mcp/config';
-import { PermissionManager } from '../mcp/permissions';
+} from '../core/config';
+import { PermissionManager } from '../core/permissions';
 import { applyConfigToEnv, loadFileConfig, resolveConfig } from './config';
 import { ensureRequiredPluginInstalled } from './plugin-check';
 

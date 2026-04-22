@@ -188,7 +188,7 @@ siyuan-plugins-mcp-sisyphus/
 | Target | 入口 | 产物 | 说明 |
 |--------|------|------|------|
 | `renderer` | `src/index.ts` | `dist/index.js` + `dist/index.css` | 插件 UI（SiYuan 加载） |
-| `server` | `src/mcp/server.ts` | `dist/mcp-server.cjs` | MCP Server（Node 进程） |
+| `server` | `src/core/server.ts` | `dist/mcp-server.cjs` | MCP Server（Node 进程） |
 | `cli` | `src/cli/index.ts` | `cli/dist/cli.cjs` | 独立 CLI（npm 发布） |
 
 **新增 target 必须在 `vite.config.ts` 的 `validTargets` 数组中登记。**
@@ -263,7 +263,7 @@ mascot      → 3  actions（get_balance, shop, buy）
 
 ### 工具定义模式（`defineTool`）
 
-每个工具文件（如 `src/mcp/tools/notebook.ts`）遵循统一工厂模式：
+每个工具文件（如 `src/tools/notebook.ts`）遵循统一工厂模式：
 
 1. 使用 `defineTool({ name, description, variants, handlers, actionSchema })` 定义。
 2. `variants`：每个 action 的 schema 变体（参数、必填字段、描述）。
@@ -317,13 +317,13 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 
 - 工具配置的唯一优先真相源是思源 API 中的文件：
   `/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig`
-- `src/mcp/config.ts` 中的 `normalizeToolConfig()` 支持从 legacy 扁平/数组格式迁移到当前嵌套格式。
+- `src/core/config.ts` 中的 `normalizeToolConfig()` 支持从 legacy 扁平/数组格式迁移到当前嵌套格式。
 - 服务端和插件 UI 都通过 `SiYuanClient.readFile()` / `writeFile()` 读写配置，确保 standalone / Docker / 远程场景的一致性。
 
 ### 权限模型
 
 - 每个 notebook 可配置四级权限：`rwd`（读写删）、`rw`（读写）、`r`（只读）、`none`（无访问）。
-- `PermissionManager` 在 `src/mcp/permissions.ts` 中实现，基于思源 API 读取的权限文件。
+- `PermissionManager` 在 `src/core/permissions.ts` 中实现，基于思源 API 读取的权限文件。
 - 危险动作（delete、remove、find_replace、upload_asset、set_permission 等）在 MCP 模式下要求用户确认（通过 MCP 资源或帮助文案提示）。
 
 ### 渐进式披露（Progressive Disclosure）
@@ -336,13 +336,13 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 
 ### 远程安全
 
-- **严禁**在 `src/api/` 或 `src/mcp/tools/` 中直接读写本地文件系统。
+- **严禁**在 `src/api/` 或 `src/tools/` 中直接读写本地文件系统。
 - 所有数据交互必须经过 `SiYuanClient` → 思源 HTTP API。
 - 唯一的例外是 CLI 配置（`~/.siyuan-sisyphus/config.json`）和构建脚本。
 
 ### UI 刷新
 
-- 修改笔记内容后应调用 `applyUiRefresh()`（`src/mcp/tools/ui-refresh.ts`），它会通过思源 `/api/ui/*` API 触发界面刷新。
+- 修改笔记内容后应调用 `applyUiRefresh()`（`src/tools/ui-refresh.ts`），它会通过思源 `/api/ui/*` API 触发界面刷新。
 - UI 刷新**默认在所有模式下开启**（插件、stdio、HTTP、CLI）。思源后端通过 WebSocket 广播刷新指令给所有已连接的前端客户端（包括 Electron 桌面端和浏览器端）。
 - 刷新失败不会影响主操作结果，错误会被捕获并记录在响应的 `uiRefresh.partialFailure` 中。
 
@@ -424,11 +424,11 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 ## 给 AI 编码代理的特别提醒
 
 1. **修改工具配置或 action 列表时**，必须同步更新：
-   - `src/mcp/config.ts`（`TOOL_CATEGORIES`、action 常量、`buildDefaultToolConfig()`）
-   - `src/mcp/tool-registry.ts`（注册表导入）
-   - `src/mcp/types.ts`（Zod schema）
-   - `src/mcp/help.ts`（帮助文案）
-   - `src/mcp/tools/` 下的对应工具文件（variants + handlers）
+   - `src/core/config.ts`（`TOOL_CATEGORIES`、action 常量、`buildDefaultToolConfig()`）
+   - `src/core/tool-registry.ts`（注册表导入）
+   - `src/core/types.ts`（Zod schema）
+   - `src/core/help.ts`（帮助文案）
+   - `src/tools/` 下的对应工具文件（variants + handlers）
    - 文档（README、docs/、API_MCP_MAPPING.md 等）
 
 2. **新增 Vite build target** 时，必须在 `vite.config.ts` 的 `validTargets` 数组中登记。

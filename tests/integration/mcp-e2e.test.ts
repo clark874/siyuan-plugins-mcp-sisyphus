@@ -5,7 +5,7 @@ import * as documentApi from '@/api/document';
 import * as blockApi from '@/api/block';
 import * as fileApi from '@/api/file';
 import * as searchApi from '@/api/search';
-import { PermissionManager } from '@/mcp/permissions';
+import { PermissionManager } from '@/core/permissions';
 
 describe('MCP End-to-End Flow', () => {
     let client: SiYuanClient;

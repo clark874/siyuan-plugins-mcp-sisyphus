@@ -6,13 +6,13 @@ vi.mock('siyuan', () => ({
     Dialog: class {},
 }), { virtual: true });
 
-vi.mock('@/setting/mcp-config.svelte', () => ({
+vi.mock('@/ui/setting/mcp-config.svelte', () => ({
     default: class {
         $destroy() {}
     },
 }));
 
-vi.mock('@/components/ToolPuppy.svelte', () => ({
+vi.mock('@/ui/components/ToolPuppy.svelte', () => ({
     default: class {
         constructor(_: unknown) {}
         $set(_: unknown) {}
@@ -21,7 +21,7 @@ vi.mock('@/components/ToolPuppy.svelte', () => ({
 }));
 
 import SiyuanMCP from '@/index';
-import type { HttpServerSettings } from '@/setting/tool-config-storage';
+import type { HttpServerSettings } from '@/ui/setting/tool-config-storage';
 import { HttpServerLauncher } from '@/server-launcher';
 
 describe('HTTP settings sync', () => {

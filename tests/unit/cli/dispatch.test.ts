@@ -7,12 +7,12 @@ import type { ParsedArgs } from '@/cli/args';
 import { SiYuanClient } from '@/api/client';
 import { runDispatch } from '@/cli/dispatch';
 import * as pluginCheck from '@/cli/plugin-check';
-import { buildDefaultToolConfig } from '@/mcp/config';
-import { PermissionManager } from '@/mcp/permissions';
-import { runToolCall } from '@/mcp/tool-lifecycle';
-import { TOOL_REGISTRY } from '@/mcp/tool-registry';
+import { buildDefaultToolConfig } from '@/core/config';
+import { PermissionManager } from '@/core/permissions';
+import { runToolCall } from '@/core/tool-lifecycle';
+import { TOOL_REGISTRY } from '@/core/tool-registry';
 
-vi.mock('@/mcp/tool-lifecycle', () => ({
+vi.mock('@/core/tool-lifecycle', () => ({
     runToolCall: vi.fn(async (_ctx: unknown, handler: () => Promise<unknown>) => handler()),
 }));
 

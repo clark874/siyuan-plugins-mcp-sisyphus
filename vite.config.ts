@@ -155,13 +155,13 @@ function createServerConfig() {
                 enforce: "pre" as const,
                 resolveId(id: string) {
                     if (id.endsWith("validation/ajv-provider.js") || id.endsWith("validation/ajv-provider")) {
-                        return resolve(__dirname, "src/mcp/noop-schema-validator.ts");
+                        return resolve(__dirname, "src/core/noops/noop-schema-validator.ts");
                     }
                     if (id.endsWith("experimental/tasks/server.js") || id.endsWith("experimental/tasks/server")) {
-                        return resolve(__dirname, "src/mcp/noop-experimental-tasks.ts");
+                        return resolve(__dirname, "src/core/noops/noop-experimental-tasks.ts");
                     }
                     if (id.endsWith("experimental/tasks/helpers.js") || id.endsWith("experimental/tasks/helpers")) {
-                        return resolve(__dirname, "src/mcp/noop-experimental-tasks.ts");
+                        return resolve(__dirname, "src/core/noops/noop-experimental-tasks.ts");
                     }
                     return null;
                 },
@@ -182,7 +182,7 @@ function createServerConfig() {
             minify: true,
             sourcemap: isSrcmap ? "inline" : false,
             lib: {
-                entry: resolve(__dirname, "src/mcp/server.ts"),
+                entry: resolve(__dirname, "src/core/server.ts"),
                 fileName: () => "mcp-server",
                 formats: ["cjs"],
             },
@@ -265,13 +265,13 @@ function createCliConfig() {
                 enforce: "pre" as const,
                 resolveId(id: string) {
                     if (id.endsWith("validation/ajv-provider.js") || id.endsWith("validation/ajv-provider")) {
-                        return resolve(__dirname, "src/mcp/noop-schema-validator.ts");
+                        return resolve(__dirname, "src/core/noops/noop-schema-validator.ts");
                     }
                     if (id.endsWith("experimental/tasks/server.js") || id.endsWith("experimental/tasks/server")) {
-                        return resolve(__dirname, "src/mcp/noop-experimental-tasks.ts");
+                        return resolve(__dirname, "src/core/noops/noop-experimental-tasks.ts");
                     }
                     if (id.endsWith("experimental/tasks/helpers.js") || id.endsWith("experimental/tasks/helpers")) {
-                        return resolve(__dirname, "src/mcp/noop-experimental-tasks.ts");
+                        return resolve(__dirname, "src/core/noops/noop-experimental-tasks.ts");
                     }
                     return null;
                 },

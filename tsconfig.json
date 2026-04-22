@@ -40,7 +40,7 @@
         // "baseUrl": "./src",
         "paths": {
             "@/*": ["./src/*"],
-            "@/libs/*": ["./src/libs/*"],
+            "@/shared/*": ["./src/shared/*"],
         }
     },
     "include": [
