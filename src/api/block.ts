@@ -1,6 +1,5 @@
 import { SiYuanClient } from './client';
 import type {
-    DataType,
     IReqAppendBlock,
     IReqDeleteBlock,
     IReqFoldBlock,
@@ -18,6 +17,7 @@ import type {
     IResGetDocInfo,
     IResInsertBlock,
 } from '../types/api';
+import type { DataType } from '../types/shared';
 
 /**
  * Insert a new block at the specified position

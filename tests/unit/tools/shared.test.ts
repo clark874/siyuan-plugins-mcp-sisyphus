@@ -1,16 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ZodError, z } from 'zod';
 import {
-    createActionSchema,
     getSchemaProperties,
     getSchemaRequired,
+    normalizeJsonSchema,
+} from '@/tools/schema-analyzer';
+import {
+    createActionSchema,
     createJsonResult,
     createErrorResult,
     createPaginatedResult,
     createPermissionDeniedResult,
     createDisabledActionResult,
     buildAggregatedTool,
-    normalizeJsonSchema,
     type JsonSchema,
     type ActionVariant,
 } from '@/tools/shared';

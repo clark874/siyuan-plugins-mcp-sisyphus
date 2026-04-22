@@ -5,8 +5,9 @@ import { startHttpMcpServer, type TlsOptions } from './http-transport';
 import { buildServerInstructions } from './server-instructions';
 
 import { SiYuanClient } from '../api/client';
-import { MCP_TOOLS_CONFIG_API_PATH, buildDefaultToolConfig, normalizeToolConfig, type ToolConfig } from './config';
+import { MCP_TOOLS_CONFIG_API_PATH, buildDefaultToolConfig, normalizeToolConfig, warnLegacyToolConfigOnce, type ToolConfig } from './config';
 import { noopSchemaValidator } from './noops/noop-schema-validator';
+
 import { PermissionManager } from './permissions';
 import { listHelpResources, listHelpResourceTemplates, readHelpResource } from './resources';
 import { listAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
@@ -18,7 +19,9 @@ async function tryReadConfigFromAPI(client: SiYuanClient): Promise<ToolConfig | 
     try {
         const content = await client.readFile(MCP_TOOLS_CONFIG_API_PATH);
         if (content) {
-            return normalizeToolConfig(JSON.parse(content));
+            const raw = JSON.parse(content);
+            warnLegacyToolConfigOnce(raw, { source: `SiYuan API file "${MCP_TOOLS_CONFIG_API_PATH}"` });
+            return normalizeToolConfig(raw);
         }
     } catch {
         // Ignore missing or invalid config files.
@@ -176,6 +179,7 @@ export async function startMcpServer() {
             port,
             token: process.env.SIYUAN_MCP_TOKEN || undefined,
             path: process.env.SIYUAN_MCP_PATH || '/mcp',
+            serverFactory: createSiYuanServer,
             tls,
         });
         return;

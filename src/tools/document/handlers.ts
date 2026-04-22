@@ -36,19 +36,17 @@ import {
     resolveMoveTargetNotebook,
     resolveNotebookForPath,
 } from '../context';
+import type { ToolActionHandler } from '../define-tool';
 import { filterBacklinkResultByPermission, filterItemsByPermissionAndPath } from '../search';
 import { createJsonResult, createPermissionDeniedResult, createSetIconReminder, paginate, type ToolResult } from '../shared';
 import { applyUiRefresh } from '../ui-refresh';
+import { sleep } from '../../shared/async';
 
 const GET_HPATH_INDEXING_RETRY_DELAYS_MS = [120, 240];
 
 function isIndexingError(error: unknown): boolean {
     return error instanceof Error
         && /SiYuan API error:\s*-1\s*-\s*indexing/i.test(error.message);
-}
-
-async function sleep(ms: number): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function getHPathByIdWithRetry(client: SiYuanClient, id: string): Promise<string> {
@@ -232,14 +230,6 @@ async function filterSearchDocsResult(
         pathFilteredOutCount: 0,
     };
 }
-
-interface DocumentHandlerContext {
-    client: SiYuanClient;
-    permMgr: PermissionManager;
-    rawArgs: Record<string, unknown>;
-}
-
-type DocumentActionHandler = (ctx: DocumentHandlerContext) => Promise<ToolResult>;
 
 const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentCreateSchema.parse(rawArgs);

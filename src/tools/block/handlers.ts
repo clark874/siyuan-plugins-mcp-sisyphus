@@ -32,6 +32,7 @@ import {
     BlockWordCountSchema,
 } from '../../core/types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from '../context';
+import type { ToolActionHandler } from '../define-tool';
 import { filterItemsByPermission } from '../search';
 import { isMissingBlockError } from '../errorTranslation';
 import { createJsonResult, createPaginatedResult, createWriteSuccessResult, paginate, type ToolResult } from '../shared';
@@ -194,14 +195,6 @@ function createUpdateResult(
 
     return createJsonResult(payload);
 }
-
-interface BlockHandlerContext {
-    client: SiYuanClient;
-    permMgr: PermissionManager;
-    rawArgs: Record<string, unknown>;
-}
-
-type BlockActionHandler = (ctx: BlockHandlerContext) => Promise<ToolResult>;
 
 const handleInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockInsertSchema.parse(rawArgs);

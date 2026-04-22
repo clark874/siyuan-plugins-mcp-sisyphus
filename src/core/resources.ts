@@ -11,18 +11,21 @@ import {
     isKnownAction,
     isKnownToolCategory,
 } from './help';
-import { BLOCK_VARIANTS } from '@/tools/block';
-import { AV_VARIANTS } from '@/tools/av';
-import { DOCUMENT_VARIANTS } from '@/tools/document';
-import { FILE_VARIANTS } from '@/tools/file';
-import { NOTEBOOK_VARIANTS } from '@/tools/notebook';
-import { SEARCH_VARIANTS } from '@/tools/search';
-import { SYSTEM_VARIANTS } from '@/tools/system';
-import { TAG_VARIANTS } from '@/tools/tag';
-import { FLASHCARD_VARIANTS } from '@/tools/flashcard';
-import { MASCOT_VARIANTS } from '@/tools/mascot';
+import {
+    AV_VARIANTS,
+    BLOCK_VARIANTS,
+    DOCUMENT_VARIANTS,
+    FILE_VARIANTS,
+    FLASHCARD_VARIANTS,
+    MASCOT_VARIANTS,
+    NOTEBOOK_VARIANTS,
+    SEARCH_VARIANTS,
+    SYSTEM_VARIANTS,
+    TAG_VARIANTS,
+} from '@/tools/index';
 import type { ActionVariant } from '@/tools/shared';
 import { buildActionExamplesMarkdown, buildShapeSummaryMarkdown } from '@/tools/help-render';
+
 
 interface HelpResourceDefinition {
     uri: string;

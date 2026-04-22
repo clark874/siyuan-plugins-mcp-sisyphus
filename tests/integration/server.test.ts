@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { resetToolConfigWarningStateForTests } from '@/core/config';
 import { buildServerInstructions, createSiYuanServer } from '@/core/server';
+
 
 describe('MCP Server Integration', () => {
     let client: Client;
     let storedFiles: Record<string, string>;
 
     beforeEach(async () => {
+        resetToolConfigWarningStateForTests();
         global.fetch = vi.fn();
         process.env.SIYUAN_TOKEN = 'test-token';
         storedFiles = {
@@ -118,6 +121,20 @@ describe('MCP Server Integration', () => {
             expect(tools.map(t => t.name)).toContain('document');
 
             await envIgnoredClient.close();
+        });
+
+        it('warns once when API config is still in the legacy format', async () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify({
+                notebook: ['list', 'rename'],
+                remove_document: true,
+            });
+
+            await createSiYuanServer();
+            await createSiYuanServer();
+
+            expect(warnSpy).toHaveBeenCalledTimes(1);
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Detected legacy tool config format'));
         });
 
         it('elevates user custom rules in server instructions when configured', () => {

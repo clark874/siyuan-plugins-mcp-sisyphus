@@ -3,16 +3,29 @@ import { TOOL_CATEGORIES, type ToolCategory, type ToolConfig } from './config';
 import type { PermissionManager } from './permissions';
 import type { ToolResult } from '@/tools/shared';
 
-import { callAvTool, listAvTools } from '@/tools/av';
-import { callBlockTool, listBlockTools } from '@/tools/block';
-import { callDocumentTool, listDocumentTools } from '@/tools/document';
-import { callFileTool, listFileTools } from '@/tools/file';
-import { callFlashcardTool, listFlashcardTools } from '@/tools/flashcard';
-import { callMascotTool, listMascotTools } from '@/tools/mascot';
-import { callNotebookTool, listNotebookTools } from '@/tools/notebook';
-import { callSearchTool, listSearchTools } from '@/tools/search';
-import { callSystemTool, listSystemTools } from '@/tools/system';
-import { callTagTool, listTagTools } from '@/tools/tag';
+import {
+    callAvTool,
+    callBlockTool,
+    callDocumentTool,
+    callFileTool,
+    callFlashcardTool,
+    callMascotTool,
+    callNotebookTool,
+    callSearchTool,
+    callSystemTool,
+    callTagTool,
+    listAvTools,
+    listBlockTools,
+    listDocumentTools,
+    listFileTools,
+    listFlashcardTools,
+    listMascotTools,
+    listNotebookTools,
+    listSearchTools,
+    listSystemTools,
+    listTagTools,
+} from '@/tools/index';
+
 
 /**
  * Minimal tool descriptor as consumed by the MCP ListTools response.

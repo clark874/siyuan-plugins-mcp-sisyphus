@@ -61,122 +61,7 @@ export type ToolConfig = {
 };
 
 export const MCP_TOOLS_CONFIG_API_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
-
-export const LEGACY_TOOL_TO_ACTION: Record<string, { category: ToolCategory; action: string }> = {
-    list_notebooks: { category: 'notebook', action: 'list' },
-    create_notebook: { category: 'notebook', action: 'create' },
-    open_notebook: { category: 'notebook', action: 'set_open_state' },
-    close_notebook: { category: 'notebook', action: 'set_open_state' },
-    remove_notebook: { category: 'notebook', action: 'remove' },
-    rename_notebook: { category: 'notebook', action: 'rename' },
-    get_notebook_conf: { category: 'notebook', action: 'get_conf' },
-    set_notebook_conf: { category: 'notebook', action: 'set_conf' },
-
-    create_document: { category: 'document', action: 'create' },
-    rename_document: { category: 'document', action: 'rename' },
-    rename_document_by_id: { category: 'document', action: 'rename' },
-    remove_document: { category: 'document', action: 'remove' },
-    remove_document_by_id: { category: 'document', action: 'remove' },
-    move_documents: { category: 'document', action: 'move' },
-    move_documents_by_id: { category: 'document', action: 'move' },
-    get_document_path: { category: 'document', action: 'get_path' },
-    get_hpath_by_path: { category: 'document', action: 'get_hpath' },
-    get_hpath_by_id: { category: 'document', action: 'get_hpath' },
-    get_ids_by_hpath: { category: 'document', action: 'get_ids' },
-    list_doc_tree: { category: 'document', action: 'list_tree' },
-    search_docs: { category: 'document', action: 'search_docs' },
-    get_doc: { category: 'document', action: 'get_doc' },
-    create_daily_note: { category: 'document', action: 'create_daily_note' },
-    duplicate_doc: { category: 'document', action: 'duplicate' },
-    remove_docs: { category: 'document', action: 'remove_batch' },
-    create_empty_doc: { category: 'document', action: 'create_empty' },
-    heading_to_doc: { category: 'document', action: 'heading_to_doc' },
-    doc_to_heading: { category: 'document', action: 'doc_to_heading' },
-
-    insert_block: { category: 'block', action: 'insert' },
-    prepend_block: { category: 'block', action: 'prepend' },
-    append_block: { category: 'block', action: 'append' },
-    update_block: { category: 'block', action: 'update' },
-    delete_block: { category: 'block', action: 'delete' },
-    move_block: { category: 'block', action: 'move' },
-    fold_block: { category: 'block', action: 'set_fold_state' },
-    unfold_block: { category: 'block', action: 'set_fold_state' },
-    get_block_kramdown: { category: 'block', action: 'get_kramdown' },
-    get_child_blocks: { category: 'block', action: 'get_children' },
-    transfer_block_ref: { category: 'block', action: 'transfer_ref' },
-    set_block_attrs: { category: 'block', action: 'set_attrs' },
-    get_block_attrs: { category: 'block', action: 'get_attrs' },
-    check_block_exist: { category: 'block', action: 'exists' },
-    get_block_info: { category: 'block', action: 'info' },
-    get_block_breadcrumb: { category: 'block', action: 'breadcrumb' },
-    get_block_dom: { category: 'block', action: 'dom' },
-    get_recent_updated_blocks: { category: 'block', action: 'recent_updated' },
-    get_blocks_word_count: { category: 'block', action: 'word_count' },
-    batch_insert_block: { category: 'block', action: 'batch_insert' },
-    batch_update_block: { category: 'block', action: 'batch_update' },
-    append_daily_note_block: { category: 'block', action: 'append_daily_note' },
-    prepend_daily_note_block: { category: 'block', action: 'prepend_daily_note' },
-    get_doc_info: { category: 'block', action: 'doc_info' },
-    get_docs_info: { category: 'block', action: 'docs_info' },
-
-    get_attribute_view: { category: 'av', action: 'get' },
-    render_attribute_view: { category: 'av', action: 'render_attribute_view' },
-    get_attribute_view_keys: { category: 'av', action: 'get_attribute_view_keys' },
-    get_attribute_view_filter_sort: { category: 'av', action: 'get_attribute_view_filter_sort' },
-    search_attribute_view: { category: 'av', action: 'search' },
-    add_attribute_view_blocks: { category: 'av', action: 'add_rows' },
-    remove_attribute_view_blocks: { category: 'av', action: 'remove_rows' },
-    add_attribute_view_key: { category: 'av', action: 'add_column' },
-    remove_attribute_view_key: { category: 'av', action: 'remove_column' },
-    set_attribute_view_block_attr: { category: 'av', action: 'set_cell' },
-    batch_set_attribute_view_block_attrs: { category: 'av', action: 'batch_set_cells' },
-    duplicate_attribute_view_block: { category: 'av', action: 'duplicate_block' },
-    get_attribute_view_primary_key_values: { category: 'av', action: 'get_primary_key_values' },
-
-    upload_asset: { category: 'file', action: 'upload_asset' },
-    render_template: { category: 'file', action: 'render_template' },
-    render_sprig: { category: 'file', action: 'render_sprig' },
-    export_md_content: { category: 'file', action: 'export_md' },
-    export_resources: { category: 'file', action: 'export_resources' },
-    get_unused_assets: { category: 'file', action: 'list_unused_assets' },
-    get_doc_assets: { category: 'file', action: 'get_doc_assets' },
-    get_doc_image_assets: { category: 'file', action: 'get_doc_assets' },
-    get_image_ocr_text: { category: 'file', action: 'get_image_ocr_text' },
-    remove_unused_assets: { category: 'file', action: 'remove_unused_assets' },
-    rename_asset: { category: 'file', action: 'rename_asset' },
-    delete_asset: { category: 'file', action: 'delete_asset' },
-    set_image_alpha: { category: 'file', action: 'set_image_alpha' },
-    search_ref_block: { category: 'search', action: 'search_refs' },
-    find_replace: { category: 'search', action: 'find_replace' },
-    search_asset: { category: 'search', action: 'search_assets' },
-    get_asset_content: { category: 'search', action: 'get_asset_content' },
-    full_text_search_asset_content: { category: 'search', action: 'fulltext_asset_content' },
-    list_invalid_block_refs: { category: 'search', action: 'list_invalid_refs' },
-    push_msg: { category: 'system', action: 'push_msg' },
-    push_err_msg: { category: 'system', action: 'push_err_msg' },
-    get_version: { category: 'system', action: 'get_version' },
-    get_current_time: { category: 'system', action: 'get_current_time' },
-    get_tag: { category: 'tag', action: 'list' },
-    rename_tag: { category: 'tag', action: 'rename' },
-    remove_tag: { category: 'tag', action: 'remove' },
-    get_workspace_info: { category: 'system', action: 'workspace_info' },
-    get_network: { category: 'system', action: 'network' },
-    get_changelog: { category: 'system', action: 'changelog' },
-    get_system_conf: { category: 'system', action: 'conf' },
-    get_sys_fonts: { category: 'system', action: 'sys_fonts' },
-    get_boot_progress: { category: 'system', action: 'boot_progress' },
-    list_flashcards: { category: 'flashcard', action: 'list_cards' },
-    get_flashcard_decks: { category: 'flashcard', action: 'get_decks' },
-    get_flashcard_cards: { category: 'flashcard', action: 'get_cards' },
-    review_flashcard: { category: 'flashcard', action: 'review_card' },
-    skip_flashcard_review: { category: 'flashcard', action: 'skip_review_card' },
-    create_flashcard: { category: 'flashcard', action: 'create_card' },
-    add_flashcard: { category: 'flashcard', action: 'add_card' },
-    remove_flashcard: { category: 'flashcard', action: 'remove_card' },
-    get_mascot_balance: { category: 'mascot', action: 'get_balance' },
-    get_mascot_shop: { category: 'mascot', action: 'shop' },
-    buy_mascot_item: { category: 'mascot', action: 'buy' },
-};
+const EMITTED_TOOL_CONFIG_WARNINGS = new Set<string>();
 
 export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolActionMap[Category][] } = {
     notebook: NOTEBOOK_ACTIONS,
@@ -343,83 +228,78 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function collectLegacyToolConfigSignals(raw: Record<string, unknown>): string[] {
+    const signals: string[] = [];
+
+    for (const category of TOOL_CATEGORIES) {
+        const value = raw[category];
+        if (typeof value === 'boolean') {
+            signals.push(`${category}=<boolean>`);
+            continue;
+        }
+        if (Array.isArray(value)) {
+            signals.push(`${category}=[...]`);
+        }
+    }
+
+    const flatActionKeys = Object.entries(raw)
+        .filter(([key, value]) => key !== 'userRulesText' && !TOOL_CATEGORIES.includes(key as ToolCategory) && typeof value === 'boolean')
+        .map(([key]) => key);
+    if (flatActionKeys.length > 0) {
+        const preview = flatActionKeys.slice(0, 3).join(', ');
+        signals.push(flatActionKeys.length > 3 ? `${preview}, ...` : preview);
+    }
+
+    return signals;
+}
+
+export function getLegacyToolConfigWarning(raw: unknown, source = 'mcpToolsConfig'): string | null {
+    if (!isRecord(raw)) return null;
+
+    const signals = collectLegacyToolConfigSignals(raw);
+    if (signals.length === 0) return null;
+
+    return [
+        `[MCP] Detected legacy tool config format in ${source}.`,
+        'Only nested { category: { enabled, actions } } config is supported now.',
+        'Legacy keys are ignored and defaults may be used instead.',
+        'Open MCP settings and save once to rewrite the config.',
+        `Detected legacy fields: ${signals.join('; ')}`,
+    ].join(' ');
+}
+
+export function emitToolConfigWarningOnce(
+    warning: string | null | undefined,
+    warn: (message: string) => void = (message) => console.warn(message),
+): string | null {
+    if (!warning) return null;
+    if (EMITTED_TOOL_CONFIG_WARNINGS.has(warning)) return warning;
+    EMITTED_TOOL_CONFIG_WARNINGS.add(warning);
+    warn(warning);
+    return warning;
+}
+
+export function warnLegacyToolConfigOnce(
+    raw: unknown,
+    options: {
+        source?: string;
+        warn?: (message: string) => void;
+    } = {},
+): string | null {
+    const warning = getLegacyToolConfigWarning(raw, options.source);
+    return emitToolConfigWarningOnce(warning, options.warn);
+}
+
+export function resetToolConfigWarningStateForTests(): void {
+    EMITTED_TOOL_CONFIG_WARNINGS.clear();
+}
+
 function normalizeUploadLargeFileThresholdMB(value: unknown): number {
     if (typeof value !== 'number' || !Number.isFinite(value)) return 10;
     const normalized = Math.floor(value);
     if (normalized < 1) return 1;
     if (normalized > 1024) return 1024;
     return normalized;
-}
-
-function setActionValue(config: ToolConfig, category: ToolCategory, action: string, enabled: boolean) {
-    if (action in config[category].actions) {
-        config[category].actions[action as ToolActionMap[typeof category]] = enabled;
-    }
-}
-
-function resolveActionName(category: ToolCategory, candidate: string): string | null {
-    if ((ACTIONS_BY_CATEGORY[category] as readonly string[]).includes(candidate)) {
-        return candidate;
-    }
-    const legacy = LEGACY_TOOL_TO_ACTION[candidate];
-    if (legacy?.category === category) {
-        return legacy.action;
-    }
-    return null;
-}
-
-function applyLegacyFlatConfig(config: ToolConfig, raw: Record<string, unknown>) {
-    const grouped = new Map<string, boolean[]>();
-
-    for (const [key, value] of Object.entries(raw)) {
-        if (typeof value !== 'boolean') continue;
-        const mapping = LEGACY_TOOL_TO_ACTION[key];
-        if (!mapping) continue;
-        const groupKey = `${mapping.category}:${mapping.action}`;
-        const current = grouped.get(groupKey) ?? [];
-        current.push(value);
-        grouped.set(groupKey, current);
-    }
-
-    for (const category of TOOL_CATEGORIES) {
-        const categoryGroups = [...grouped.entries()].filter(([groupKey]) => groupKey.startsWith(`${category}:`));
-        if (categoryGroups.length === 0) continue;
-
-        for (const action of ACTIONS_BY_CATEGORY[category]) {
-            config[category].actions[action] = false;
-        }
-
-        for (const [groupKey, values] of categoryGroups) {
-            const action = groupKey.split(':')[1];
-            setActionValue(config, category, action, values.some(Boolean));
-        }
-
-        config[category].enabled = getEnabledActions(config[category]).length > 0;
-    }
-}
-
-function applyLegacyCategoryConfig(config: ToolConfig, raw: Record<string, unknown>) {
-    for (const category of TOOL_CATEGORIES) {
-        const categoryValue = raw[category];
-        if (typeof categoryValue === 'boolean') {
-            config[category].enabled = categoryValue;
-            continue;
-        }
-
-        if (!Array.isArray(categoryValue)) continue;
-
-        for (const action of ACTIONS_BY_CATEGORY[category]) {
-            config[category].actions[action] = false;
-        }
-
-        for (const entry of categoryValue) {
-            if (typeof entry !== 'string') continue;
-            const action = resolveActionName(category, entry);
-            if (action) setActionValue(config, category, action, true);
-        }
-
-        config[category].enabled = getEnabledActions(config[category]).length > 0;
-    }
 }
 
 function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
@@ -450,22 +330,7 @@ export function normalizeToolConfig(raw: unknown): ToolConfig {
     const config = buildDefaultToolConfig();
     if (!isRecord(raw)) return config;
 
-    if (typeof raw.userRulesText === 'string') {
-        config.userRulesText = raw.userRulesText;
-    }
-
-    const hasNestedConfig = TOOL_CATEGORIES.some(
-        cat => isRecord(raw[cat]) && isRecord((raw[cat] as Record<string, unknown>).actions),
-    );
-
-    if (hasNestedConfig) {
-        // Nested config is the canonical format — ignore legacy keys
-        applyNestedConfig(config, raw);
-    } else {
-        // No nested config found — migrate from legacy formats
-        applyLegacyCategoryConfig(config, raw);
-        applyLegacyFlatConfig(config, raw);
-    }
+    applyNestedConfig(config, raw);
 
     for (const category of TOOL_CATEGORIES) {
         if (!config[category].enabled) continue;

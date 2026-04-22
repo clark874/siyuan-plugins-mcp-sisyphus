@@ -5,8 +5,6 @@ import type { Socket } from 'node:net';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 
-import { createSiYuanServer } from './server';
-
 export interface TlsOptions {
     /** Path to PEM-encoded certificate file */
     certFile: string;
@@ -21,6 +19,7 @@ export interface HttpServerOptions {
     port: number;
     token?: string;
     path?: string;
+    serverFactory?: ServerFactory;
     /** When provided, the server starts in HTTPS mode using these TLS credentials */
     tls?: TlsOptions;
 }
@@ -36,6 +35,8 @@ interface SessionEntry {
     server: Server;
     transport: StreamableHTTPServerTransport;
 }
+
+export type ServerFactory = () => Promise<Server>;
 
 const PARENT_WATCH_INTERVAL_MS = 2000;
 const SOCKET_DRAIN_TIMEOUT_MS = 1000;
@@ -73,6 +74,10 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
     let shuttingDown = false;
     let watchdogTimer: NodeJS.Timeout | null = null;
     const isTls = Boolean(opts.tls);
+    const createServer = opts.serverFactory ?? (async () => {
+        const { createSiYuanServer } = await import('./server');
+        return createSiYuanServer();
+    });
 
     const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
         try {
@@ -107,7 +112,7 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
                 const transport = new StreamableHTTPServerTransport({
                     sessionIdGenerator: () => randomUUID(),
                 });
-                const server = await createSiYuanServer();
+                const server = await createServer();
                 await server.connect(transport);
 
                 transport.onclose = () => {

@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS } from "./config";
+import type { NotebookConf } from "../types/shared";
 
-const NotebookConfSchema = z.object({
+const NotebookConfSchema: z.ZodType<Partial<NotebookConf>> = z.object({
     name: z.string().optional(),
     closed: z.boolean().optional(),
     refCreateSavePath: z.string().optional(),

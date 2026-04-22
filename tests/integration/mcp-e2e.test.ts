@@ -4,6 +4,7 @@ import * as notebookApi from '@/api/notebook';
 import * as documentApi from '@/api/document';
 import * as blockApi from '@/api/block';
 import * as fileApi from '@/api/file';
+import * as templateApi from '@/api/template';
 import * as searchApi from '@/api/search';
 import { PermissionManager } from '@/core/permissions';
 
@@ -199,7 +200,7 @@ describe('MCP End-to-End Flow', () => {
                 json: async () => ({ code: 0, msg: 'success', data: templateData }),
             } as Response);
 
-            const result = await fileApi.renderTemplate(client, { id: 'tpl123' });
+            const result = await templateApi.renderTemplate(client, 'tpl123', '/path/to/template');
             expect(result).toEqual(templateData);
         });
     });

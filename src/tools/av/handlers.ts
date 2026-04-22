@@ -20,17 +20,13 @@ import {
     AvSetCellSchema,
 } from '../../core/types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocumentContextById, resolveResultItemContext } from '../context';
+import type { ToolActionHandler, ToolHandlerContext } from '../define-tool';
 import { isMissingBlockError, translateError } from '../errorTranslation';
 import { createJsonResult, createPaginatedResult, createWriteSuccessResult, type ToolResult } from '../shared';
 import { applyUiRefresh } from '../ui-refresh';
+import { sleep } from '../../shared/async';
 
 const AV_TOOL_NAME = 'av';
-
-interface AvHandlerContext {
-    client: SiYuanClient;
-    permMgr: PermissionManager;
-    rawArgs: Record<string, unknown>;
-}
 
 function generateSiYuanNodeId(now = new Date()): string {
     const pad = (value: number, length = 2) => String(value).padStart(length, '0');
@@ -262,12 +258,6 @@ function createAddRowsSyncTimeoutResult(
         }],
         isError: true,
     };
-}
-
-function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    });
 }
 
 function resolveAddedRows(rowLookup: AvRowLookup, blockIDs: string[]): AddRowsResolution {
@@ -845,7 +835,7 @@ function buildStrongCellValue(
     }
 }
 
-async function handleGet({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleGet({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvGetSchema.parse(rawArgs);
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
     if (denied) return denied;
@@ -863,7 +853,7 @@ async function handleGet({ client, permMgr, rawArgs }: AvHandlerContext): Promis
     });
 }
 
-async function handleSearch({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleSearch({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvSearchSchema.parse(rawArgs);
     const response = await avApi.searchAttributeView(client, parsed.keyword, parsed.excludes);
     const kernelResults = Array.isArray(response.results) ? response.results : [];
@@ -904,7 +894,7 @@ async function handleSearch({ client, permMgr, rawArgs }: AvHandlerContext): Pro
     });
 }
 
-async function handleRenderAttributeView({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleRenderAttributeView({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvRenderAttributeViewSchema.parse(rawArgs);
     const creationTime = new Date();
     const idWasGenerated = !parsed.id;
@@ -991,7 +981,7 @@ async function handleRenderAttributeView({ client, permMgr, rawArgs }: AvHandler
         : result;
 }
 
-async function handleGetAttributeViewKeys({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleGetAttributeViewKeys({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvGetAttributeViewKeysSchema.parse(rawArgs);
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
     if (denied) return denied;
@@ -1010,7 +1000,7 @@ async function handleGetAttributeViewKeys({ client, permMgr, rawArgs }: AvHandle
     });
 }
 
-async function handleGetAttributeViewFilterSort({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleGetAttributeViewFilterSort({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvGetAttributeViewFilterSortSchema.parse(rawArgs);
     const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
     if (denied) return denied;
@@ -1027,7 +1017,7 @@ async function handleGetAttributeViewFilterSort({ client, permMgr, rawArgs }: Av
     });
 }
 
-async function handleAddRows({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleAddRows({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvAddRowsSchema.parse(rawArgs);
     const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'add_rows' });
     if (denied) return denied;
@@ -1068,7 +1058,7 @@ async function handleAddRows({ client, permMgr, rawArgs }: AvHandlerContext): Pr
     }), [{ type: 'reloadAttributeView', id: parsed.avID }]);
 }
 
-async function handleRemoveRows({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleRemoveRows({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvRemoveRowsSchema.parse(rawArgs);
     const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'remove_rows' });
     if (denied) return denied;
@@ -1082,7 +1072,7 @@ async function handleRemoveRows({ client, permMgr, rawArgs }: AvHandlerContext):
     }), [{ type: 'reloadAttributeView', id: parsed.avID }]);
 }
 
-async function handleAddColumn({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleAddColumn({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvAddColumnSchema.parse(rawArgs);
     const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'add_column' });
     if (denied) return denied;
@@ -1101,7 +1091,7 @@ async function handleAddColumn({ client, permMgr, rawArgs }: AvHandlerContext): 
     }), [{ type: 'reloadAttributeView', id: parsed.avID }]);
 }
 
-async function handleRemoveColumn({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleRemoveColumn({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvRemoveColumnSchema.parse(rawArgs);
     const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'remove_column' });
     if (denied) return denied;
@@ -1116,7 +1106,7 @@ async function handleRemoveColumn({ client, permMgr, rawArgs }: AvHandlerContext
     }), [{ type: 'reloadAttributeView', id: parsed.avID }]);
 }
 
-async function handleSetCell({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleSetCell({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvSetCellSchema.parse(rawArgs);
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'set_cell' });
     if (denied) return denied;
@@ -1140,7 +1130,7 @@ async function handleSetCell({ client, permMgr, rawArgs }: AvHandlerContext): Pr
     }, response), [{ type: 'reloadAttributeView', id: parsed.avID }]);
 }
 
-async function handleBatchSetCells({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleBatchSetCells({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvBatchSetCellsSchema.parse(rawArgs);
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'batch_set_cells' });
     if (denied) return denied;
@@ -1162,7 +1152,7 @@ async function handleBatchSetCells({ client, permMgr, rawArgs }: AvHandlerContex
     }), [{ type: 'reloadAttributeView', id: parsed.avID }]);
 }
 
-async function handleDuplicateBlock({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvDuplicateBlockSchema.parse(rawArgs);
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write');
     if (denied) return denied;
@@ -1306,7 +1296,7 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: AvHandlerConte
     ]);
 }
 
-async function handleGetPrimaryKeyValues({ client, permMgr, rawArgs }: AvHandlerContext): Promise<ToolResult> {
+async function handleGetPrimaryKeyValues({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvGetPrimaryKeyValuesSchema.parse(rawArgs);
     const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'read');
     if (denied) return denied;
@@ -1353,7 +1343,7 @@ async function handleGetPrimaryKeyValues({ client, permMgr, rawArgs }: AvHandler
     });
 }
 
-export const AV_ACTION_HANDLERS: Record<AvAction, (context: AvHandlerContext) => Promise<ToolResult>> = {
+export const AV_ACTION_HANDLERS: Record<AvAction, ToolActionHandler> = {
     get: handleGet,
     render_attribute_view: handleRenderAttributeView,
     get_attribute_view_keys: handleGetAttributeViewKeys,

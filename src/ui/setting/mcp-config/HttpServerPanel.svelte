@@ -230,37 +230,31 @@
 
         <section class="http-overview" aria-labelledby="connection-overview-title">
             <div id="connection-overview-title" class="http-overview-title">{getLabel("connectionOverviewTitle", "先看这里")}</div>
-            <div class="http-overview-text">{getLabel("connectionOverviewDesc", "这里分为 MCP 和 CLI 两种连接方式。")}</div>
-            <div class="http-choice-list">
-                <div>{getLabel("connectionOverviewMcp", "MCP：供支持 MCP 的客户端连接思源。")}</div>
-                <div>{getLabel("connectionOverviewCli", "CLI：供终端或脚本直接执行 siyuan-sisyphus 命令。")}</div>
+            <div class="http-choice-card">
+                <table class="http-choice-table">
+                    <thead>
+                        <tr>
+                            <th>{getLabel("connectionTableScene", "场景")}</th>
+                            <th>{getLabel("connectionTableRecommended", "推荐方式")}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{getLabel("connectionTableDesktop", "桌面端（Windows / macOS / Linux）")}</td>
+                            <td>{getLabel("connectionTableDesktopModes", "HTTP 或 stdio 或 CLI")}</td>
+                        </tr>
+                        <tr>
+                            <td>{getLabel("connectionTableRemote", "Docker / 远程部署")}</td>
+                            <td>{getLabel("connectionTableRemoteModes", "stdio 或 CLI")}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 
         <details class="http-guide">
             <summary>{getLabel("mcpGuideTitle", "MCP 连接")}</summary>
             <div class="http-guide-content">
-                <div class="http-guide-intro">{getLabel("mcpGuideDesc", "不同场景推荐的连接方式如下：")}</div>
-                <div class="http-choice-card">
-                    <table class="http-choice-table">
-                        <thead>
-                            <tr>
-                                <th>{getLabel("connectionTableScene", "场景")}</th>
-                                <th>{getLabel("connectionTableRecommended", "推荐方式")}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>{getLabel("connectionTableDesktop", "桌面端（Windows / macOS / Linux）")}</td>
-                                <td>{getLabel("connectionTableDesktopModes", "HTTP 或 stdio 或 CLI")}</td>
-                            </tr>
-                            <tr>
-                                <td>{getLabel("connectionTableRemote", "Docker / 远程部署")}</td>
-                                <td>{getLabel("connectionTableRemoteModes", "stdio 或 CLI")}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
 
                 <details class="http-subproject">
                     <summary>{getLabel("httpClientSnippet", "HTTP/HTTPS 连接")}</summary>

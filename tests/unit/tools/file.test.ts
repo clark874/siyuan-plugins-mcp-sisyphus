@@ -6,13 +6,20 @@ import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
 
 vi.mock('@/api/file', () => ({
+    exportResources: vi.fn(),
     getUnusedAssets: vi.fn(),
     getDocAssets: vi.fn(),
     getDocImageAssets: vi.fn(),
     getImageOCRText: vi.fn(),
 }));
 
+vi.mock('@/api/template', () => ({
+    renderTemplate: vi.fn(),
+    renderSprig: vi.fn(),
+}));
+
 vi.mock('@/tools/context', () => ({
+
     ensurePermissionForDocumentId: vi.fn(async () => ({
         context: { documentId: 'doc-1', notebook: 'nb-1', path: '/doc-1.sy' },
         denied: null,
@@ -25,11 +32,13 @@ describe('file tool asset actions', () => {
 
     beforeEach(async () => {
         const fileApi = await import('@/api/file');
+        vi.mocked(fileApi.exportResources).mockReset();
         vi.mocked(fileApi.getUnusedAssets).mockReset();
         vi.mocked(fileApi.getDocAssets).mockReset();
         vi.mocked(fileApi.getDocImageAssets).mockReset();
         vi.mocked(fileApi.getImageOCRText).mockReset();
 
+        vi.mocked(fileApi.exportResources).mockResolvedValue({ path: '/temp/export.zip' });
         vi.mocked(fileApi.getUnusedAssets).mockResolvedValue(['assets/orphan.png']);
         vi.mocked(fileApi.getDocAssets).mockResolvedValue(['assets/manual.pdf', 'assets/cover.png']);
         vi.mocked(fileApi.getDocImageAssets).mockResolvedValue(['assets/cover.png']);
@@ -96,6 +105,29 @@ describe('file tool asset actions', () => {
         expect(parseResult(result)).toEqual({
             path: 'assets/cover.png',
             text: 'recognized text',
+        });
+    });
+
+    it('exports resources to a local outputPath and reports the written byte count', async () => {
+        const fs = (await import('node:fs')).default;
+        const readFileBinary = vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]));
+        const localClient = createMockClient({ readFileBinary });
+        const mkdirSpy = vi.spyOn(fs, 'mkdirSync').mockImplementation((() => undefined) as typeof fs.mkdirSync);
+        const writeSpy = vi.spyOn(fs, 'writeFileSync').mockImplementation((() => undefined) as typeof fs.writeFileSync);
+
+        const result = await callFileTool(localClient, {
+            action: 'export_resources',
+            paths: ['assets/demo.txt'],
+            outputPath: 'tmp/export.zip',
+        }, config.file, {} as never);
+
+        expect(readFileBinary).toHaveBeenCalledWith('/temp/export.zip');
+        expect(mkdirSpy).toHaveBeenCalled();
+        expect(writeSpy).toHaveBeenCalled();
+        expect(parseResult(result)).toEqual({
+            path: '/temp/export.zip',
+            outputPath: expect.stringMatching(/[\\/]tmp[\\/]export\.zip$/),
+            bytes: 3,
         });
     });
 });

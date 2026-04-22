@@ -1,11 +1,8 @@
-import type { SiYuanClient } from '../api/client';
-import * as fileApi from '../api/file';
-import * as systemApi from '../api/system';
-import type { CategoryToolConfig, SystemAction } from '../core/config';
-import { SYSTEM_ACTION_HINTS, SYSTEM_GUIDANCE } from '../core/help';
-import type { PermissionManager } from '../core/permissions';
+import type { SiYuanClient } from '../../api/client';
+import * as notificationApi from '../../api/notification';
+import * as systemApi from '../../api/system';
+import type { SystemAction } from '../../core/config';
 import {
-    SystemActionSchema,
     SystemBootProgressSchema,
     SystemChangelogSchema,
     SystemConfSchema,
@@ -16,70 +13,9 @@ import {
     SystemPushMsgSchema,
     SystemSysFontsSchema,
     SystemWorkspaceInfoSchema,
-} from '../core/types';
-import { defineTool } from './define-tool';
-import { createActionSchema, createJsonResult, type ActionVariant, type ToolResult } from './shared';
-
-export const SYSTEM_TOOL_NAME = 'system';
-
-export const SYSTEM_VARIANTS: ActionVariant<SystemAction>[] = [
-    {
-        action: 'workspace_info',
-        schema: createActionSchema('workspace_info', {}, [], 'Get SiYuan workspace metadata. High-risk: exposes the absolute workspace path.'),
-    },
-    {
-        action: 'network',
-        schema: createActionSchema('network', {}, [], 'Get current network proxy information.'),
-    },
-    {
-        action: 'changelog',
-        schema: createActionSchema('changelog', {}, [], 'Get the current version changelog HTML when available.'),
-    },
-    {
-        action: 'conf',
-        schema: createActionSchema('conf', {
-            mode: { type: 'string', enum: ['summary', 'get'], description: 'Read mode: "summary" returns a navigable overview, "get" reads a specific key path' },
-            keyPath: { type: 'string', description: 'Dot/bracket path to a specific config field, e.g. "conf.appearance.mode" or "conf.langs[0]"' },
-            maxDepth: { type: 'number', description: 'Maximum object traversal depth for summary/get responses' },
-            maxItems: { type: 'number', description: 'Maximum keys/items to include per level' },
-        }, [], 'Get masked system configuration with summary-first progressive reading.'),
-    },
-    {
-        action: 'sys_fonts',
-        schema: createActionSchema('sys_fonts', {
-            mode: { type: 'string', enum: ['summary', 'list'], description: 'Read mode: "summary" returns counts and samples, "list" returns paginated items' },
-            offset: { type: 'number', description: 'Pagination offset for list mode' },
-            limit: { type: 'number', description: 'Pagination size for list mode' },
-            query: { type: 'string', description: 'Optional keyword filter for font names' },
-        }, [], 'List available system fonts with summary-first paginated reading.'),
-    },
-    {
-        action: 'boot_progress',
-        schema: createActionSchema('boot_progress', {}, [], 'Get boot progress details.'),
-    },
-    {
-        action: 'push_msg',
-        schema: createActionSchema('push_msg', {
-            msg: { type: 'string', description: 'Message content' },
-            timeout: { type: 'number', description: 'Display timeout in milliseconds' },
-        }, ['msg'], 'Push a notification message.'),
-    },
-    {
-        action: 'push_err_msg',
-        schema: createActionSchema('push_err_msg', {
-            msg: { type: 'string', description: 'Error message content' },
-            timeout: { type: 'number', description: 'Display timeout in milliseconds' },
-        }, ['msg'], 'Push an error notification message.'),
-    },
-    {
-        action: 'get_version',
-        schema: createActionSchema('get_version', {}, [], 'Get the SiYuan system version.'),
-    },
-    {
-        action: 'get_current_time',
-        schema: createActionSchema('get_current_time', {}, [], 'Get the current system time.'),
-    },
-];
+} from '../../core/types';
+import type { ToolActionHandler } from '../define-tool';
+import { createJsonResult, type ToolResult } from '../shared';
 
 const DEFAULT_CONF_MAX_DEPTH = 1;
 const DEFAULT_CONF_MAX_ITEMS = 12;
@@ -273,77 +209,74 @@ function buildFontsResponse(raw: unknown, mode: 'summary' | 'list', offset: numb
     };
 }
 
-const systemTool = defineTool<SystemAction>({
-    name: 'system',
-    description: '🖥️ Grouped system and notification operations.',
-    variants: SYSTEM_VARIANTS,
-    actionSchema: SystemActionSchema,
-    aggregateOptions: {
-        guidance: SYSTEM_GUIDANCE,
-        actionHints: SYSTEM_ACTION_HINTS,
-    },
-    handlers: {
-        workspace_info: async ({ client, rawArgs }) => {
-            SystemWorkspaceInfoSchema.parse(rawArgs);
-            return createJsonResult(await systemApi.getWorkspaceInfo(client));
-        },
-        network: async ({ client, rawArgs }) => {
-            SystemNetworkSchema.parse(rawArgs);
-            return createJsonResult(await systemApi.getNetwork(client));
-        },
-        changelog: async ({ client, rawArgs }) => {
-            SystemChangelogSchema.parse(rawArgs);
-            return createJsonResult(await systemApi.getChangelog(client));
-        },
-        conf: async ({ client, rawArgs }) => {
-            const parsed = SystemConfSchema.parse(rawArgs);
-            const rawConf = await systemApi.getConf(client);
-            const mode = parsed.mode ?? 'summary';
-            const maxDepth = clampInteger(parsed.maxDepth, DEFAULT_CONF_MAX_DEPTH, 0, 5);
-            const maxItems = clampInteger(parsed.maxItems, DEFAULT_CONF_MAX_ITEMS, 1, 100);
-            return createJsonResult(buildConfResponse(rawConf, mode, parsed.keyPath, maxDepth, maxItems));
-        },
-        sys_fonts: async ({ client, rawArgs }) => {
-            const parsed = SystemSysFontsSchema.parse(rawArgs);
-            const rawFonts = await systemApi.getSysFonts(client);
-            const mode = parsed.mode ?? 'summary';
-            const offset = clampInteger(parsed.offset, 0, 0, Number.MAX_SAFE_INTEGER);
-            const limit = clampInteger(parsed.limit, DEFAULT_FONT_LIST_LIMIT, 1, MAX_FONT_LIST_LIMIT);
-            return createJsonResult(buildFontsResponse(rawFonts, mode, offset, limit, parsed.query));
-        },
-        boot_progress: async ({ client, rawArgs }) => {
-            SystemBootProgressSchema.parse(rawArgs);
-            return createJsonResult(await systemApi.getBootProgress(client));
-        },
-        push_msg: async ({ client, rawArgs }) => {
-            const parsed = SystemPushMsgSchema.parse(rawArgs);
-            return createJsonResult(await fileApi.pushMsg(client, parsed.msg, parsed.timeout));
-        },
-        push_err_msg: async ({ client, rawArgs }) => {
-            const parsed = SystemPushErrMsgSchema.parse(rawArgs);
-            return createJsonResult(await fileApi.pushErrMsg(client, parsed.msg, parsed.timeout));
-        },
-        get_version: async ({ client, rawArgs }) => {
-            SystemGetVersionSchema.parse(rawArgs);
-            return createJsonResult({ version: await fileApi.getVersion(client) });
-        },
-        get_current_time: async ({ client, rawArgs }) => {
-            SystemGetCurrentTimeSchema.parse(rawArgs);
-            const currentTime = await fileApi.getCurrentTime(client);
-            return createJsonResult({ currentTime, iso: new Date(currentTime).toISOString() });
-        },
-    },
-});
+const handleWorkspaceInfo: ToolActionHandler = async ({ client, rawArgs }) => {
+    SystemWorkspaceInfoSchema.parse(rawArgs);
+    return createJsonResult(await systemApi.getWorkspaceInfo(client));
+};
 
-export function listSystemTools(config: CategoryToolConfig<SystemAction>) {
-    return systemTool.listTools(config);
-}
+const handleNetwork: ToolActionHandler = async ({ client, rawArgs }) => {
+    SystemNetworkSchema.parse(rawArgs);
+    return createJsonResult(await systemApi.getNetwork(client));
+};
 
-export function callSystemTool(
-    client: SiYuanClient,
-    args: Record<string, unknown> | undefined,
-    config: CategoryToolConfig<SystemAction>,
-    _permMgr: PermissionManager,
-): Promise<ToolResult> {
-    return systemTool.callTool(client, args, config, _permMgr);
-}
+const handleChangelog: ToolActionHandler = async ({ client, rawArgs }) => {
+    SystemChangelogSchema.parse(rawArgs);
+    return createJsonResult(await systemApi.getChangelog(client));
+};
+
+const handleConf: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemConfSchema.parse(rawArgs);
+    const rawConf = await systemApi.getConf(client);
+    const mode = parsed.mode ?? 'summary';
+    const maxDepth = clampInteger(parsed.maxDepth, DEFAULT_CONF_MAX_DEPTH, 0, 5);
+    const maxItems = clampInteger(parsed.maxItems, DEFAULT_CONF_MAX_ITEMS, 1, 100);
+    return createJsonResult(buildConfResponse(rawConf, mode, parsed.keyPath, maxDepth, maxItems));
+};
+
+const handleSysFonts: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemSysFontsSchema.parse(rawArgs);
+    const rawFonts = await systemApi.getSysFonts(client);
+    const mode = parsed.mode ?? 'summary';
+    const offset = clampInteger(parsed.offset, 0, 0, Number.MAX_SAFE_INTEGER);
+    const limit = clampInteger(parsed.limit, DEFAULT_FONT_LIST_LIMIT, 1, MAX_FONT_LIST_LIMIT);
+    return createJsonResult(buildFontsResponse(rawFonts, mode, offset, limit, parsed.query));
+};
+
+const handleBootProgress: ToolActionHandler = async ({ client, rawArgs }) => {
+    SystemBootProgressSchema.parse(rawArgs);
+    return createJsonResult(await systemApi.getBootProgress(client));
+};
+
+const handlePushMsg: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemPushMsgSchema.parse(rawArgs);
+    return createJsonResult(await notificationApi.pushMsg(client, parsed.msg, parsed.timeout));
+};
+
+const handlePushErrMsg: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemPushErrMsgSchema.parse(rawArgs);
+    return createJsonResult(await notificationApi.pushErrMsg(client, parsed.msg, parsed.timeout));
+};
+
+const handleGetVersion: ToolActionHandler = async ({ client, rawArgs }) => {
+    SystemGetVersionSchema.parse(rawArgs);
+    return createJsonResult({ version: await systemApi.getVersion(client) });
+};
+
+const handleGetCurrentTime: ToolActionHandler = async ({ client, rawArgs }) => {
+    SystemGetCurrentTimeSchema.parse(rawArgs);
+    const currentTime = await systemApi.getCurrentTime(client);
+    return createJsonResult({ currentTime, iso: new Date(currentTime).toISOString() });
+};
+
+export const SYSTEM_ACTION_HANDLERS: Record<SystemAction, ToolActionHandler> = {
+    workspace_info: handleWorkspaceInfo,
+    network: handleNetwork,
+    changelog: handleChangelog,
+    conf: handleConf,
+    sys_fonts: handleSysFonts,
+    boot_progress: handleBootProgress,
+    push_msg: handlePushMsg,
+    push_err_msg: handlePushErrMsg,
+    get_version: handleGetVersion,
+    get_current_time: handleGetCurrentTime,
+};

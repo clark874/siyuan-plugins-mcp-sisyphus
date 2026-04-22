@@ -4,6 +4,12 @@ import * as mcpConfig from '@/core/config';
 import * as settingConfig from '@/ui/setting/tool-config';
 
 describe('setting and mcp config stay behaviorally aligned', () => {
+    it('re-exports the mcp config helpers directly', () => {
+        expect(settingConfig.buildDefaultToolConfig).toBe(mcpConfig.buildDefaultToolConfig);
+        expect(settingConfig.normalizeToolConfig).toBe(mcpConfig.normalizeToolConfig);
+        expect(settingConfig.isDangerousAction).toBe(mcpConfig.isDangerousAction);
+    });
+
     it('keeps defaults aligned', () => {
         expect(settingConfig.buildDefaultToolConfig()).toEqual(mcpConfig.buildDefaultToolConfig());
     });
@@ -20,10 +26,9 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(settingConfig.SYSTEM_ACTIONS).toEqual(mcpConfig.SYSTEM_ACTIONS);
         expect(settingConfig.FLASHCARD_ACTIONS).toEqual(mcpConfig.FLASHCARD_ACTIONS);
         expect(settingConfig.MASCOT_ACTIONS).toEqual(mcpConfig.MASCOT_ACTIONS);
-        expect(settingConfig.LEGACY_TOOL_TO_ACTION).toEqual(mcpConfig.LEGACY_TOOL_TO_ACTION);
     });
 
-    it('keeps normalization aligned for nested and legacy shapes', () => {
+    it('keeps normalization aligned for nested shapes', () => {
         const samples: unknown[] = [
             undefined,
             {
@@ -42,17 +47,6 @@ describe('setting and mcp config stay behaviorally aligned', () => {
                         remove_card: false,
                     },
                 },
-            },
-            {
-                notebook: ['list', 'rename'],
-                file: ['upload_asset', 'render_sprig'],
-                remove_document: true,
-                find_replace: false,
-            },
-            {
-                create_document: true,
-                rename_tag: true,
-                remove_tag: false,
             },
         ];
 

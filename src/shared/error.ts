@@ -1,8 +1,6 @@
-export interface SiYuanResponse<T = any> {
-    code: number;
-    msg: string;
-    data: T;
-}
+import type { SiYuanResponse } from '../types/shared';
+
+export type { SiYuanResponse } from '../types/shared';
 
 export class SiYuanError extends Error {
     code: number;

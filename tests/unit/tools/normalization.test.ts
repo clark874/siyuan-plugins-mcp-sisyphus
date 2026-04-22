@@ -19,7 +19,11 @@ vi.mock('@/tools/context', () => ({
 vi.mock('@/api/file', () => ({
     uploadAsset: vi.fn(),
     exportMdContent: vi.fn(),
+}));
+
+vi.mock('@/api/template', () => ({
     renderTemplate: vi.fn(),
+    renderSprig: vi.fn(),
 }));
 
 vi.mock('@/api/document', () => ({
@@ -60,7 +64,8 @@ describe('tool result normalization', () => {
 
         vi.mocked(fileApi.uploadAsset).mockReset();
         vi.mocked(fileApi.exportMdContent).mockReset();
-        vi.mocked(fileApi.renderTemplate).mockReset();
+        const templateApi = await import('@/api/template');
+        vi.mocked(templateApi.renderTemplate).mockReset();
         vi.mocked(documentApi.getDoc).mockReset();
         vi.mocked(documentApi.getHPathByID).mockReset();
         vi.mocked(attributeApi.setBlockAttrs).mockReset();
@@ -93,12 +98,12 @@ describe('tool result normalization', () => {
 
     it('uploads an asset from localFilePath', async () => {
         const fileApi = await import('@/api/file');
-        const fs = await import('fs');
-        vi.spyOn(fs.default, 'existsSync').mockReturnValue(true);
-        vi.spyOn(fs.default, 'statSync').mockReturnValue({
+        const fs = (await import('node:fs')).default;
+        vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+        vi.spyOn(fs, 'statSync').mockReturnValue({
             isFile: () => true,
         } as any);
-        vi.spyOn(fs.default, 'readFileSync').mockReturnValue(new Uint8Array([65, 66, 67]) as any);
+        vi.spyOn(fs, 'readFileSync').mockReturnValue(new Uint8Array([65, 66, 67]) as any);
         vi.mocked(fileApi.uploadAsset).mockResolvedValue({
             errFiles: [],
             succMap: { 'demo.txt': '/assets/demo.txt' },
@@ -138,9 +143,9 @@ describe('tool result normalization', () => {
 
     it('stops oversized uploads until the user explicitly confirms', async () => {
         const fileApi = await import('@/api/file');
-        const fs = await import('fs');
-        vi.spyOn(fs.default, 'existsSync').mockReturnValue(true);
-        vi.spyOn(fs.default, 'statSync').mockReturnValue({
+        const fs = (await import('node:fs')).default;
+        vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+        vi.spyOn(fs, 'statSync').mockReturnValue({
             isFile: () => true,
             size: 10 * 1024 * 1024 + 1,
         } as any);
@@ -166,13 +171,13 @@ describe('tool result normalization', () => {
 
     it('allows oversized uploads after explicit confirmation', async () => {
         const fileApi = await import('@/api/file');
-        const fs = await import('fs');
-        vi.spyOn(fs.default, 'existsSync').mockReturnValue(true);
-        vi.spyOn(fs.default, 'statSync').mockReturnValue({
+        const fs = (await import('node:fs')).default;
+        vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+        vi.spyOn(fs, 'statSync').mockReturnValue({
             isFile: () => true,
             size: 10 * 1024 * 1024 + 1,
         } as any);
-        vi.spyOn(fs.default, 'readFileSync').mockReturnValue(new Uint8Array([70]) as any);
+        vi.spyOn(fs, 'readFileSync').mockReturnValue(new Uint8Array([70]) as any);
         vi.mocked(fileApi.uploadAsset).mockResolvedValue({
             errFiles: [],
             succMap: { 'huge.bin': '/assets/huge.bin' },
@@ -197,9 +202,9 @@ describe('tool result normalization', () => {
 
     it('uses the configured large upload threshold from file tool config', async () => {
         const fileApi = await import('@/api/file');
-        const fs = await import('fs');
-        vi.spyOn(fs.default, 'existsSync').mockReturnValue(true);
-        vi.spyOn(fs.default, 'statSync').mockReturnValue({
+        const fs = (await import('node:fs')).default;
+        vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+        vi.spyOn(fs, 'statSync').mockReturnValue({
             isFile: () => true,
             size: 2 * 1024 * 1024,
         } as any);
@@ -262,8 +267,8 @@ describe('tool result normalization', () => {
     });
 
     it('returns a workspace-specific error for render_template paths outside the workspace', async () => {
-        const fileApi = await import('@/api/file');
-        vi.mocked(fileApi.renderTemplate).mockRejectedValue(new Error('Path [/tmp/siyuan.tpl] is not in workspace'));
+        const templateApi = await import('@/api/template');
+        vi.mocked(templateApi.renderTemplate).mockRejectedValue(new Error('Path [/tmp/siyuan.tpl] is not in workspace'));
 
         const result = await callFileTool(client, {
             action: 'render_template',

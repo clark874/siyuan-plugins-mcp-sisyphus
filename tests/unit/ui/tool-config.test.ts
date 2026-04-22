@@ -134,4 +134,16 @@ describe('setting tool config', () => {
         expect(configWithRules.userRulesText).toBe('Always prefer setting icons after create.');
         expect(configWithoutRules.userRulesText).toBe('创建文档/日记后主动设图标');
     });
+
+    it('ignores legacy flat and category config formats', () => {
+        const config = normalizeToolConfig({
+            notebook: ['list', 'rename'],
+            file: ['upload_asset', 'render_sprig'],
+            remove_document: true,
+            find_replace: false,
+        });
+        const defaults = buildDefaultToolConfig();
+
+        expect(config).toEqual(defaults);
+    });
 });

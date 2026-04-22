@@ -5,9 +5,10 @@ import {
     isDangerousAction,
 } from '../core/config';
 import { TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
+import { PRIMARY_CLI_COMMAND } from '../shared/constants';
+
 
 import type { ParsedArgs } from './args';
-import { PRIMARY_CLI_COMMAND } from './args';
 import {
     renderCliError,
     renderToolResult,

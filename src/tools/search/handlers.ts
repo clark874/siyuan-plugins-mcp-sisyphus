@@ -41,6 +41,10 @@ const SEARCH_TOOL_NAME = 'search';
 type SearchFulltextArgs = ReturnType<(typeof SearchFulltextSchema)['parse']>;
 type SearchFulltextAssetContentArgs = ReturnType<(typeof SearchFulltextAssetContentSchema)['parse']>;
 type SearchFindReplaceArgs = ReturnType<(typeof SearchFindReplaceSchema)['parse']>;
+type SearchMethodArgs = {
+    method?: number;
+    methodName?: string;
+};
 
 function isNonEmptyString(value: unknown): value is string {
     return typeof value === 'string' && value.trim().length > 0;
@@ -109,23 +113,7 @@ function applyFulltextHasTagsFilter(normalizedObj: Record<string, unknown>, hasT
     normalizedObj.matchedBlockCount = (normalizedObj.blocks as unknown[]).length;
 }
 
-function resolveFulltextMethod(parsed: SearchFulltextArgs): { method?: number; methodName?: string } {
-    const method = resolveSearchMethod(parsed.methodName, parsed.method);
-    return {
-        ...(method !== undefined ? { method } : {}),
-        ...(method !== undefined ? { methodName: getSearchMethodName(method) } : {}),
-    };
-}
-
-function resolveFindReplaceMethod(parsed: SearchFindReplaceArgs): { method?: number; methodName?: string } {
-    const method = resolveSearchMethod(parsed.methodName, parsed.method);
-    return {
-        ...(method !== undefined ? { method } : {}),
-        ...(method !== undefined ? { methodName: getSearchMethodName(method) } : {}),
-    };
-}
-
-function resolveAssetContentMethod(parsed: SearchFulltextAssetContentArgs): { method?: number; methodName?: string } {
+function resolveSearchMethodMeta(parsed: SearchMethodArgs): { method?: number; methodName?: string } {
     const method = resolveSearchMethod(parsed.methodName, parsed.method);
     return {
         ...(method !== undefined ? { method } : {}),
@@ -227,7 +215,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             if (denied) return denied;
         }
 
-        const resolvedMethod = resolveFulltextMethod(parsed);
+        const resolvedMethod = resolveSearchMethodMeta(parsed);
         const resolvedOrderBy = resolveSortAlias(parsed.sortBy, parsed.orderBy);
         const result = await searchApi.fullTextSearchBlock(client, {
             query: parsed.query,
@@ -402,7 +390,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
                 if (denied) return denied;
             }
         }
-        const resolvedMethod = resolveFindReplaceMethod(parsed);
+        const resolvedMethod = resolveSearchMethodMeta(parsed);
         const resolvedOrderBy = resolveSortAlias(parsed.sortBy, parsed.orderBy);
         await searchApi.findReplace(client, {
             k: parsed.k,
@@ -451,7 +439,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
     },
     fulltext_asset_content: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchFulltextAssetContentSchema.parse(rawArgs) as SearchFulltextAssetContentArgs;
-        const resolvedMethod = resolveAssetContentMethod(parsed);
+        const resolvedMethod = resolveSearchMethodMeta(parsed);
         const resolvedOrderBy = resolveAssetContentSortAlias(parsed.sortBy, parsed.orderBy);
         const result = await searchApi.fullTextSearchAssetContent(client, {
             query: parsed.query,

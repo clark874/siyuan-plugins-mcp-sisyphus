@@ -36,7 +36,7 @@
 **关键约束**：
 - 所有产物为 **CommonJS (CJS)**。
 - 插件在 Electron 渲染进程以 CJS 运行；MCP Server 以 Node 进程运行；CLI 为自包含 CJS bundle。
-- **必须兼容远程场景**：任何读写操作都经过思源 HTTP API（`http://127.0.0.1:6806` 或用户配置地址），**禁止直接访问本地文件系统**（除 CLI 配置读写外）。
+- **必须兼容远程场景**：任何读写操作都经过思源 HTTP API（`http://127.0.0.1:6806` 或用户配置地址），**禁止直接访问本地文件系统**。特许例外仅有两处：① CLI 自身配置（`~/.siyuan-sisyphus/config.json`）；② 上传/下载/导出类 action（如 `upload_asset`、`export_resources`），因 SiYuan API 不支持流式二进制传输，必须通过本地文件系统中转。
 
 ---
 
@@ -338,7 +338,9 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 
 - **严禁**在 `src/api/` 或 `src/tools/` 中直接读写本地文件系统。
 - 所有数据交互必须经过 `SiYuanClient` → 思源 HTTP API。
-- 唯一的例外是 CLI 配置（`~/.siyuan-sisyphus/config.json`）和构建脚本。
+- 特许例外仅有两处：
+  1. **CLI 自身配置**：`~/.siyuan-sisyphus/config.json` 及构建脚本的本地读写。
+  2. **上传/下载/导出类 action**：如 `upload_asset`、`export_resources`，因 SiYuan API 不支持流式二进制传输，必须通过本地文件系统中转。新增此类例外必须经过评审并在代码中显式标注。
 
 ### UI 刷新
 
@@ -437,7 +439,7 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 
 4. **关联到 SiYuan 时使用 `pnpm make-link`**，它会在思源插件目录创建指向 `dev/` 的符号链接。
 
-5. **不要假设本地文件系统可访问**：即使是 standalone 模式，配置也应通过 `SiYuanClient.readFile()` / `writeFile()` 走思源 API。唯一的例外是 CLI 自身配置（`~/.siyuan-sisyphus/config.json`）。
+5. **不要假设本地文件系统可访问**：即使是 standalone 模式，配置也应通过 `SiYuanClient.readFile()` / `writeFile()` 走思源 API。特许例外仅有两处：① CLI 自身配置（`~/.siyuan-sisyphus/config.json`）；② 上传/下载/导出类 action（如 `upload_asset`、`export_resources`），因必须通过本地文件系统中转二进制数据。新增例外必须经过评审。
 
 6. **保持 CLI 与插件行为一致**：如果某个能力在插件侧可用，CLI 侧也应通过同一 `callTool()` 路径暴露，避免逻辑分叉。
 

@@ -1,4 +1,4 @@
-import { SiYuanClient } from './client';
+import type { SiYuanClient } from './client';
 
 export async function getWorkspaceInfo(client: SiYuanClient): Promise<unknown> {
     return client.request('/api/system/getWorkspaceInfo', {});
@@ -22,6 +22,14 @@ export async function getSysFonts(client: SiYuanClient): Promise<unknown> {
 
 export async function getBootProgress(client: SiYuanClient): Promise<{ progress: number; details: string }> {
     return client.request<{ progress: number; details: string }>('/api/system/bootProgress', {});
+}
+
+export async function getVersion(client: SiYuanClient): Promise<string> {
+    return client.request<string>('/api/system/version');
+}
+
+export async function getCurrentTime(client: SiYuanClient): Promise<number> {
+    return client.request<number>('/api/system/currentTime');
 }
 
 export async function reloadUI(client: SiYuanClient): Promise<null> {

@@ -11,14 +11,16 @@ import {
     hasValidHttpTlsFiles,
     loadPersistedHttpServerSettings,
     loadPersistedPuppySettings,
-    loadPersistedToolConfig,
+    loadPersistedToolConfigState,
     savePersistedHttpServerSettings,
     savePersistedToolConfig,
     type HttpServerSettings,
     type PuppySettings,
 } from "@/ui/setting/tool-config-storage";
+import { emitToolConfigWarningOnce } from "@/core/config";
 import McpConfig from "@/ui/setting/mcp-config.svelte";
 import ToolPuppy from "@/ui/components/ToolPuppy.svelte";
+
 import { HttpServerLauncher } from "@/server-launcher";
 
 export default class SiyuanMCP extends Plugin {
@@ -30,7 +32,13 @@ export default class SiyuanMCP extends Plugin {
     public httpLauncher: HttpServerLauncher | null = null;
 
     async onload() {
-        const normalized = await loadPersistedToolConfig(this);
+        const { config: normalized, warning } = await loadPersistedToolConfigState(this);
+        if (warning) {
+            emitToolConfigWarningOnce(warning, (message) => {
+                console.warn(message);
+                showMessage(message);
+            });
+        }
         await savePersistedToolConfig(normalized, this);
         this.puppySettings = await loadPersistedPuppySettings(this);
         this.puppyVisible = this.puppySettings.visible;

@@ -1,4 +1,5 @@
-import { PRIMARY_CLI_COMMAND } from '../cli/args';
+import { PRIMARY_CLI_COMMAND } from '../shared/constants';
+import { isActionHelpPayload, isHelpIndexPayload } from './help-payload';
 
 export type PresentationTarget = 'mcp' | 'cli';
 
@@ -330,16 +331,4 @@ function toKebab(value: string): string {
 
 function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isHelpIndexPayload(value: Record<string, unknown>): boolean {
-    return typeof value.tool === 'string'
-        && (Array.isArray(value.commonActions) || Array.isArray(value.advancedActions))
-        && value.action === undefined;
-}
-
-function isActionHelpPayload(value: Record<string, unknown>): boolean {
-    return typeof value.tool === 'string'
-        && typeof value.action === 'string'
-        && (value.example !== undefined || Array.isArray(value.shapes));
 }

@@ -1,4 +1,4 @@
-import { normalizeToolConfig, type ToolConfig } from "./tool-config";
+import { getLegacyToolConfigWarning, normalizeToolConfig, type ToolConfig } from "./tool-config";
 import {
     TELEMETRY_CONFIG_STORAGE_KEY,
     buildDefaultTelemetryConfig,
@@ -24,6 +24,11 @@ type PluginStorage = {
     loadData?: (storageName: string) => Promise<unknown>;
     saveData?: (storageName: string, content: unknown) => Promise<void>;
 };
+
+export interface ToolConfigLoadState {
+    config: ToolConfig;
+    warning: string | null;
+}
 
 export interface PuppySettings {
     visible: boolean;
@@ -63,9 +68,16 @@ export function normalizePuppySettings(raw: unknown): PuppySettings {
     };
 }
 
-export async function loadPersistedToolConfig(plugin?: PluginStorage): Promise<ToolConfig> {
+export async function loadPersistedToolConfigState(plugin?: PluginStorage): Promise<ToolConfigLoadState> {
     const raw = await plugin?.loadData?.(CONFIG_STORAGE_KEY);
-    return normalizeToolConfig(raw);
+    return {
+        config: normalizeToolConfig(raw),
+        warning: getLegacyToolConfigWarning(raw, `plugin storage "${CONFIG_STORAGE_KEY}"`),
+    };
+}
+
+export async function loadPersistedToolConfig(plugin?: PluginStorage): Promise<ToolConfig> {
+    return (await loadPersistedToolConfigState(plugin)).config;
 }
 
 export async function savePersistedToolConfig(config: ToolConfig, plugin?: PluginStorage): Promise<ToolConfig> {

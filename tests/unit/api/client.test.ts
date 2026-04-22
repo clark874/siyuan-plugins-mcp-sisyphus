@@ -167,6 +167,19 @@ describe('SiYuanClient', () => {
         });
     });
 
+    describe('readFileBinary', () => {
+        it('should read binary file content successfully', async () => {
+            const bytes = new Uint8Array([65, 66, 67]);
+            mockFetch.mockResolvedValue({
+                ok: true,
+                arrayBuffer: async () => bytes.buffer.slice(0),
+            } as Response);
+
+            const result = await client.readFileBinary('/data/test.bin');
+            expect(Array.from(result)).toEqual([65, 66, 67]);
+        });
+    });
+
     describe('writeFile', () => {
         it('should write file content successfully', async () => {
             mockFetch.mockResolvedValue({
@@ -210,6 +223,36 @@ describe('SiYuanClient', () => {
 
             const timeoutClient = new SiYuanClient({ timeout: 5 });
             await expect(timeoutClient.writeFile('/data/test.txt', 'content')).rejects.toThrow('timeout');
+        });
+    });
+
+    describe('requestFormData', () => {
+        it('should make successful multipart requests without forcing a content type', async () => {
+            const mockData = { errFiles: [], succMap: { 'demo.txt': '/assets/demo.txt' } };
+            mockFetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({ code: 0, msg: 'success', data: mockData }),
+            } as Response);
+
+            const formData = new FormData();
+            formData.append('assetsDirPath', '/assets/');
+            client.setToken('upload-token');
+
+            const result = await client.requestFormData('/api/asset/upload', formData);
+
+            expect(result).toEqual(mockData);
+            const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+            expect(init.headers).toEqual({ Authorization: 'Token upload-token' });
+            expect(init.body).toBe(formData);
+        });
+
+        it('should surface API errors for multipart requests', async () => {
+            mockFetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({ code: 1, msg: 'Upload failed', data: null }),
+            } as Response);
+
+            await expect(client.requestFormData('/api/asset/upload', new FormData())).rejects.toThrow('SiYuan API error: 1');
         });
     });
 });
