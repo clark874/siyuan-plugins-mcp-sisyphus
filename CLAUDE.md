@@ -88,14 +88,14 @@ pnpm make-link        # 创建开发链接到 SiYuan 插件目录
 - **输出格式**：CommonJS (CJS)
 - **多入口编译**：
   - `src/index.ts` → `dist/index.js`
-  - `src/mcp/server.ts` → `dist/mcp-server.cjs`
+  - `src/core/server.ts` → `dist/mcp-server.cjs`
 - **路径别名**：`@/*` 映射到 `src/*`
 - **自动打包**：每次生产构建自动生成 `package.zip`
 
 ### 提醒
 1. 开发时使用 `pnpm dev` 而不是 `pnpm build`
 2. 关联到 SiYuan 时使用 `pnpm make-link`
-3. MCP 服务器代码在 `src/mcp/` 下，编译产物为 `dist/mcp-server.cjs`
+3. MCP 服务器代码在 `src/core/` 下，编译产物为 `dist/mcp-server.cjs`
 4. 注意需要兼容远程场景，任何读写操作都必须经过 SiYuan API，不能直接访问本地文件系统
 
 ## 独立 CLI 子包（2026-04-18 首次发布，2026-04-18 重构为直接操作模式）

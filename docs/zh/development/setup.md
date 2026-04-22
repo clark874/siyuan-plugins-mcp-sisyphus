@@ -21,8 +21,8 @@ pnpm install
 ## 项目结构
 
 - `src/index.ts`: 插件入口
-- `src/mcp/server.ts`: MCP 服务入口
-- `src/mcp/tools/`: 工具实现
+- `src/core/server.ts`: MCP 服务入口
+- `src/tools/`: 工具实现
 - `src/cli/`: CLI 入口与派发
 - `src/api/`: SiYuan API 封装
 - `tests/`: unit / integration / smoke 测试

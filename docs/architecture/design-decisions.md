@@ -153,19 +153,19 @@ Independent implementations would cause code duplication, inconsistent behavior,
 ```
 Shared layers:
 ├── src/api/client.ts           SiYuanClient
-├── src/mcp/tool-registry.ts    TOOL_REGISTRY
-├── src/mcp/tool-lifecycle.ts   runToolCall (puppy/analytics/telemetry)
-├── src/mcp/config.ts           buildDefaultToolConfig, ACTIONS_BY_CATEGORY
-├── src/mcp/permissions.ts      PermissionManager
-├── src/mcp/tools/*.ts          All tool implementations
-└── src/presentation/invocation-format.ts  Dual-mode presentation unification
+├── src/core/tool-registry.ts    TOOL_REGISTRY
+├── src/core/tool-lifecycle.ts   runToolCall (puppy/analytics/telemetry)
+├── src/core/config.ts           buildDefaultToolConfig, ACTIONS_BY_CATEGORY
+├── src/core/permissions.ts      PermissionManager
+├── src/tools/*/index.ts          All tool implementations
+└── src/shared/invocation-format.ts  Dual-mode presentation unification
 
 Layers CLI does NOT use:
 ├── @modelcontextprotocol/sdk   Does not start MCP server
-├── src/mcp/server.ts           Skips ListTools/CallTool handlers
-├── src/mcp/http-transport.ts   Does not start HTTP server
-├── src/mcp/resources.ts        Does not expose MCP Resources
-├── src/mcp/server-instructions.ts  No instructions
+├── src/core/server.ts           Skips ListTools/CallTool handlers
+├── src/core/http-transport.ts   Does not start HTTP server
+├── src/core/resources.ts        Does not expose MCP Resources
+├── src/core/server-instructions.ts  No instructions
 └── src/index.ts                Skips plugin lifecycle
 ```
 
@@ -177,7 +177,7 @@ Layers CLI does NOT use:
 ### Current Outcome
 
 - CLI output `cli.cjs` is a self-contained bundle with no `node_modules` dependency
-- Tool bug fixes only need to change one place (`src/mcp/tools/`), fixing both plugin and CLI simultaneously
+- Tool bug fixes only need to change one place (`src/tools/`), fixing both plugin and CLI simultaneously
 - CLI behavior is 100% consistent with the plugin (except config source and tool toggle defaults)
 
 ---

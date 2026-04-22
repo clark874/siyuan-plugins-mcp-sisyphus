@@ -196,6 +196,99 @@ function createUpdateResult(
     return createJsonResult(payload);
 }
 
+function createBatchInsertAnchorValidationResult(itemIndex: number): ToolResult {
+    return {
+        content: [{
+            type: 'text',
+            text: JSON.stringify({
+                error: {
+                    type: 'validation_error',
+                    tool: 'block',
+                    action: 'batch_insert',
+                    message: 'Invalid arguments for block(action="batch_insert").',
+                    fields: [{
+                        path: `blocks[${itemIndex}].previousID`,
+                        message: 'Provide nextID, previousID, or parentID for each block, or set a batch-level parentID/previousID/nextID.',
+                    }],
+                },
+            }, null, 2),
+        }],
+        isError: true,
+    };
+}
+
+function normalizeBatchInsertBlocks(
+    blocks: Array<{
+        dataType: 'markdown' | 'dom';
+        data: string;
+        nextID?: string;
+        previousID?: string;
+        parentID?: string;
+    }>,
+    defaults: {
+        nextID?: string;
+        previousID?: string;
+        parentID?: string;
+    },
+): Array<{
+    dataType: 'markdown' | 'dom';
+    data: string;
+    nextID?: string;
+    previousID?: string;
+    parentID?: string;
+}> {
+    return blocks.map((block) => ({
+        ...block,
+        nextID: block.nextID ?? defaults.nextID,
+        previousID: block.previousID ?? defaults.previousID,
+        parentID: block.parentID ?? defaults.parentID,
+    }));
+}
+
+function extractBatchInsertCreatedBlockIds(rawResult: unknown): string[] {
+    const batches = Array.isArray(rawResult) ? rawResult : [rawResult];
+    const ids: string[] = [];
+
+    for (const batch of batches) {
+        if (!batch || typeof batch !== 'object') continue;
+        const doOperations = (batch as { doOperations?: unknown }).doOperations;
+        if (!Array.isArray(doOperations)) continue;
+
+        for (const operation of doOperations) {
+            if (!operation || typeof operation !== 'object') continue;
+            const id = (operation as { id?: unknown }).id;
+            if (typeof id === 'string' && id.length > 0 && !ids.includes(id)) {
+                ids.push(id);
+            }
+        }
+    }
+
+    return ids;
+}
+
+function createBatchInsertVerificationErrorResult(
+    blockCount: number,
+    transactions: unknown,
+): ToolResult {
+    return {
+        content: [{
+            type: 'text',
+            text: JSON.stringify({
+                error: {
+                    type: 'api_error',
+                    tool: 'block',
+                    action: 'batch_insert',
+                    reason: 'empty_transaction_result',
+                    message: `SiYuan accepted batch_insert for ${blockCount} block(s), but returned no created block IDs.`,
+                    hint: 'Check that each item includes nextID, previousID, or parentID, or provide one batch-level parentID/previousID/nextID, then retry. MCP now rejects no-op batch_insert responses instead of reporting success.',
+                    transactions,
+                },
+            }, null, 2),
+        }],
+        isError: true,
+    };
+}
+
 const handleInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockInsertSchema.parse(rawArgs);
     const refId = parsed.nextID || parsed.previousID || parsed.parentID;
@@ -429,19 +522,29 @@ const handleWordCount: BlockActionHandler = async ({ client, permMgr, rawArgs })
 
 const handleBatchInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockBatchInsertSchema.parse(rawArgs);
+    const normalizedBlocks = normalizeBatchInsertBlocks(parsed.blocks, {
+        parentID: parsed.parentID,
+        previousID: parsed.previousID,
+        nextID: parsed.nextID,
+    });
     const reloadIds = new Set<string>();
-    for (const block of parsed.blocks) {
+    for (const [index, block] of normalizedBlocks.entries()) {
         const refId = block.nextID || block.previousID || block.parentID;
-        if (!refId) continue;
+        if (!refId) return createBatchInsertAnchorValidationResult(index);
         const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, refId, 'write');
         if (denied) return denied;
         reloadIds.add(context.documentId);
     }
-    const result = await blockApi.batchInsertBlock(client, parsed.blocks);
+    const result = await blockApi.batchInsertBlock(client, normalizedBlocks);
+    const createdBlockIds = extractBatchInsertCreatedBlockIds(result);
+    if (createdBlockIds.length === 0) {
+        return createBatchInsertVerificationErrorResult(normalizedBlocks.length, result);
+    }
     return applyUiRefresh(client, createJsonResult({
         success: true,
         action: 'batch_insert',
-        count: parsed.blocks.length,
+        count: normalizedBlocks.length,
+        createdBlockIDs: createdBlockIds,
         transactions: result,
     }), [...reloadIds].map((id) => ({ type: 'reloadProtyle' as const, id })));
 };

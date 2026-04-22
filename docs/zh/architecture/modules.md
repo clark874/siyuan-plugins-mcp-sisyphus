@@ -11,7 +11,7 @@
 ```
 src/
 ├── index.ts                  # 插件生命周期入口
-├── mcp/
+├── core/                     # MCP Server 核心（原 src/mcp/）
 │   ├── server.ts             # MCP Server 创建与 Handler 注册
 │   ├── http-transport.ts     # HTTP/S MCP 传输层
 │   ├── tool-registry.ts      # 10 个聚合工具的静态注册表
@@ -21,27 +21,61 @@ src/
 │   ├── types.ts              # Zod Schema 定义中心
 │   ├── analytics.ts          # Analytics 事件读写
 │   ├── telemetry.ts          # 遥测数据聚合与上报
+│   ├── telemetry-config.ts   # 遥测配置 schema
 │   ├── puppy-state.ts        # Mascot 状态管理
 │   ├── token-usage.ts        # Token 近似计算
 │   ├── runtime.ts            # 运行时环境检测
+│   ├── process.ts            # 进程管理辅助
 │   ├── resources.ts          # MCP Resource 注册（帮助文档）
 │   ├── server-instructions.ts# MCP Server instructions 构建
 │   ├── help.ts               # 帮助文案中心
-│   ├── tools/
-│   │   ├── define-tool.ts    # 工具工厂
-│   │   ├── shared.ts         # 共享基础设施
-│   │   ├── context.ts        # 权限上下文解析
-│   │   ├── notebook.ts       # notebook 工具实现
-│   │   ├── document.ts       # document 工具实现
-│   │   ├── block.ts          # block 工具实现
-│   │   ├── av.ts             # av 工具实现
-│   │   ├── file.ts           # file 工具实现
-│   │   ├── search.ts         # search 工具实现
-│   │   ├── tag.ts            # tag 工具实现
-│   │   ├── system.ts         # system 工具实现
-│   │   ├── flashcard.ts      # flashcard 工具实现
-│   │   └── mascot.ts         # mascot 工具实现
-│   └── ... (其他辅助文件)
+│   ├── normalize.ts          # 请求参数归一化
+│   └── noops/                # MCP SDK 重模块的 no-op shim
+│       ├── noop-schema-validator.ts
+│       └── noop-experimental-tasks.ts
+├── tools/                    # 10 个聚合工具的实现（原 src/mcp/tools/）
+│   ├── index.ts              # Barrel export：统一导出所有工具
+│   ├── types.ts              # 工具层共享类型
+│   ├── define-tool.ts        # 工具工厂
+│   ├── shared.ts             # 共享基础设施
+│   ├── schema-builder.ts     # 聚合 ToolDescriptor schema 拼装
+│   ├── schema-analyzer.ts    # schema 分析与描述裁剪
+│   ├── result-factory.ts     # 标准结果工厂
+│   ├── pagination.ts         # 分页工具
+│   ├── context.ts            # 权限上下文解析
+│   ├── errorTranslation.ts   # 思源错误码 → 用户友好文案
+│   ├── validation.ts         # 参数校验辅助
+│   ├── ui-refresh.ts         # 触发思源 UI 刷新
+│   ├── help-render.ts        # help action 输出渲染
+│   ├── help-router.ts        # help 路由分发
+│   ├── notebook/             # notebook 工具
+│   │   ├── index.ts          # variants + list/call 导出
+│   │   └── handlers.ts       # 业务 handler
+│   ├── document/             # document 工具
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── block/                # block 工具
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── av/                   # av（数据库）工具
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── search/               # search 工具
+│   │   ├── index.ts
+│   │   ├── handlers.ts
+│   │   ├── sql-builder.ts    # SQL 查询构建辅助
+│   │   └── permission-filter.ts # 搜索结果权限过滤
+│   ├── file/                 # file 工具
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── system/               # system 工具
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── flashcard/            # flashcard 工具
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── tag.ts                # tag 工具（扁平）
+│   └── mascot.ts             # mascot 工具（扁平）
 ├── cli/
 │   ├── index.ts              # CLI 程序入口
 │   ├── args.ts               # 命令行参数解析
@@ -65,21 +99,34 @@ src/
 │   ├── tag.ts                # 标签 API 封装
 │   ├── flashcard.ts          # 闪卡 API 封装
 │   ├── transaction.ts        # 事务 API 封装
-│   └── attribute.ts          # 块属性 API 封装
-├── setting/
-│   ├── tool-config.ts        # 配置 schema 与归一化
-│   ├── tool-config-storage.ts# 配置持久化（loadData/saveData）
-│   ├── telemetry-config.ts   # 遥测配置 schema
-│   └── mcp-config.svelte     # 设置面板主组件
-├── components/               # Svelte UI 组件（Puppy 吉祥物系统）
-├── presentation/
-│   └── invocation-format.ts  # MCP/CLI 双模式呈现统一
-├── libs/
+│   ├── notification.ts       # 通知 API 封装
+│   └── template.ts           # 模板 API 封装
+├── ui/                       # UI 层（原 src/components/ + src/setting/）
+│   ├── components/           # Svelte UI 组件（Puppy 吉祥物系统）
+│   │   ├── ToolPuppy.svelte
+│   │   ├── Puppy*.svelte
+│   │   └── puppy-*.ts
+│   ├── setting/              # 插件设置面板
+│   │   ├── mcp-config.svelte
+│   │   ├── mcp-config/*.svelte
+│   │   ├── tool-config-storage.ts
+│   │   ├── tool-config.ts
+│   │   └── telemetry-config.ts
+│   └── shared/               # UI 共享组件
+│       ├── setting-panel.svelte
+│       └── Form/             # 表单原子组件
+├── shared/                   # 通用工具库（原 src/libs/ + src/presentation/）
 │   ├── error.ts              # 错误类型与错误码映射
-│   └── promise-pool.ts       # 并发限制 Promise 池
+│   ├── promise-pool.ts       # 并发限制 Promise 池
+│   ├── async.ts              # 异步工具
+│   ├── constants.ts          # 共享常量
+│   ├── help-payload.ts       # Help 负载构建
+│   ├── invocation-format.ts  # MCP/CLI 双模式呈现统一
+│   └── index.d.ts            # 共享类型声明
 └── types/
     ├── api.d.ts              # SiYuan API 请求/响应类型
-    └── index.d.ts            # 核心类型别名与 Block 结构
+    ├── index.d.ts            # 核心类型别名与 Block 结构
+    └── shared.ts             # 跨层共享类型
 ```
 
 ---
@@ -104,7 +151,7 @@ src/
 
 ---
 
-## 2. MCP Server：`src/mcp/server.ts`
+## 2. MCP Server：`src/core/server.ts`
 
 **职责**：创建 MCP `Server` 实例，注册 5 个 handler，管理 transport 模式（stdio / HTTP），加载配置与权限。
 
@@ -130,7 +177,7 @@ src/
 
 ---
 
-## 3. 工具注册表：`src/mcp/tool-registry.ts`
+## 3. 工具注册表：`src/core/tool-registry.ts`
 
 **职责**：维护静态 `TOOL_REGISTRY` 映射表，将 10 个 category 统一收敛为 `ToolModule` 接口。
 
@@ -158,11 +205,11 @@ interface ToolModule {
 - **类型擦除**：每个 tool 模块的精确类型签名在注册时通过 `as` 做受控加宽，使 registry 可统一迭代
 - **工厂收敛**：每个 category 内部使用 `defineTool()` 工厂生成 `{ listTools, callTool }`
 
-**依赖**：各 `tools/{category}.ts` 模块
+**依赖**：各 `tools/{category}/index.ts` + `tools/{category}/handlers.ts` 模块
 
 ---
 
-## 4. 工具生命周期：`src/mcp/tool-lifecycle.ts`
+## 4. 工具生命周期：`src/core/tool-lifecycle.ts`
 
 **职责**：在工具调用外层注入 AOP 切面——puppy 事件、analytics 记录、telemetry 触发。
 
@@ -205,7 +252,7 @@ runToolCall(ctx, handler)
 
 ---
 
-## 5. 权限管理：`src/mcp/permissions.ts`
+## 5. 权限管理：`src/core/permissions.ts`
 
 **职责**：笔记本级四级权限的读取、校验、持久化。
 
@@ -228,7 +275,7 @@ runToolCall(ctx, handler)
 
 ---
 
-## 6. 工具配置：`src/mcp/config.ts`
+## 6. 工具配置：`src/core/config.ts`
 
 **职责**：ToolConfig 的完整 schema 定义、默认值生成、多格式兼容迁移。
 
@@ -263,7 +310,7 @@ type ToolConfig = {
 
 ---
 
-## 7. 工具工厂与共享层：`src/mcp/tools/`
+## 7. 工具工厂与共享层：`src/tools/`
 
 ### `define-tool.ts` — 工具工厂
 
@@ -291,7 +338,7 @@ type ToolConfig = {
 
 ---
 
-## 8. HTTP 传输层：`src/mcp/http-transport.ts`
+## 8. HTTP 传输层：`src/core/http-transport.ts`
 
 **职责**：基于 `@modelcontextprotocol/sdk/server/streamableHttp.js` 实现 Streamable HTTP MCP Server。
 
@@ -410,7 +457,7 @@ CLI flag (--url / --token)
 
 ---
 
-## 11. 设置模块：`src/setting/`
+## 11. 设置模块：`src/ui/setting/`
 
 ### `tool-config.ts` — Schema 定义
 
@@ -443,7 +490,7 @@ CLI flag (--url / --token)
 
 ---
 
-## 12. 吉祥物系统：`src/components/`
+## 12. 吉祥物系统：`src/ui/components/`
 
 **架构**：Puppy 不直接调用 JS API，而是通过**轮询 JSON 事件文件**（`puppyEvents.json`）与 MCP server 解耦通信。
 
@@ -455,14 +502,14 @@ CLI flag (--url / --token)
 | `PuppyBubble.svelte` | 气泡与特效层：文字气泡、工资卡气泡、爱心爆发、喂食道具 |
 | `PuppyResultOverlay.svelte` | 结果/危险状态 SVG 叠加：红叉、感叹号、错误角标 |
 | `puppy-polling.ts` | `createJsonFilePoller`：定时 POST `/api/file/getFile` 读取 `puppyEvents.json` |
-| `puppy-state.ts` | `src/mcp/` 中的状态管理：`totalCalls`、`balance`、`earn/spend/writeEvent` |
+| `puppy-state.ts` | `src/core/` 中的状态管理：`totalCalls`、`balance`、`earn/spend/writeEvent` |
 | `puppy-position.ts` | `localStorage` 读写 Puppy 屏幕坐标 |
 | `puppy-drag.ts` | 拖拽会话状态机：区分 click 与 drag |
 | `puppy-test-mode.ts` | `createTestModeRunner`：定时随机选取 action，模拟状态流转 |
 
 ---
 
-## 13. 表示层：`src/presentation/invocation-format.ts`
+## 13. 表示层：`src/shared/invocation-format.ts`
 
 **职责**：将 MCP 风格的工具调用表示转换为 CLI 风格的命令行表示，实现**双模式呈现统一**。
 
@@ -476,7 +523,7 @@ CLI flag (--url / --token)
 
 ---
 
-## 14. 工具库：`src/libs/`
+## 14. 工具库：`src/shared/`
 
 | 文件 | 职责 |
 |------|------|

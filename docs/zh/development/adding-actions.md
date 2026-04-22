@@ -6,7 +6,7 @@
 
 ## 工作流
 
-1. 在 `src/mcp/config.ts` 中加入 action
+1. 在 `src/core/config.ts` 中加入 action
 2. 定义或扩展 action schema
 3. 在工具描述层加入对应 action variant
 4. 实现 handler

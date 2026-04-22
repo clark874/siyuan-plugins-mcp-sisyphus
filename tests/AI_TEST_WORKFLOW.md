@@ -950,17 +950,27 @@
 {
   "tool": "block",
   "action": "batch_insert",
-  "parentID": "$DOC_ID_1",
-  "dataType": "markdown",
-  "datas": [
-    "批量块 1：MCP 批量插入测试",
-    "批量块 2：继续批量插入",
-    "批量块 3：批量插入完成"
+  "blocks": [
+    {
+      "dataType": "markdown",
+      "data": "批量块 1：MCP 批量插入测试",
+      "parentID": "$DOC_ID_1"
+    },
+    {
+      "dataType": "markdown",
+      "data": "批量块 2：继续批量插入",
+      "parentID": "$DOC_ID_1"
+    },
+    {
+      "dataType": "markdown",
+      "data": "批量块 3：批量插入完成",
+      "parentID": "$DOC_ID_1"
+    }
   ]
 }
 ```
 
-**通过条件：** 响应包含 3 个新块的 ID。
+**通过条件：** 响应包含 `createdBlockIDs`，且至少出现 3 个新块 ID。
 **记录：** `$BATCH_BLOCK_IDS = [id1, id2, id3]`
 
 ---

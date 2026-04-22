@@ -133,6 +133,7 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
     dom: 'Returns rendered DOM, useful for preview-style consumers.',
     recent_updated: 'Returns recent updates across the workspace, then MCP filters unreadable notebooks and applies count when provided. documents is the primary user-facing summary; items remains the raw block stream.',
     word_count: 'Provide one or more block IDs to receive aggregate stat data.',
+    batch_insert: 'Use blocks[]. Common case: pass one top-level parentID, previousID, or nextID as the batch default, and each block item only needs dataType + data. When blocks need different anchors, put parentID/previousID/nextID inside each block item instead. On success, MCP returns createdBlockIDs and rejects no-op kernel responses instead of reporting fake success.',
 };
 
 export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {

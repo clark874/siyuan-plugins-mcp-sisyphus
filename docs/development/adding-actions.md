@@ -6,7 +6,7 @@ When to read this page: you are extending one existing aggregated tool.
 
 ## Workflow
 
-1. Add the action to `src/mcp/config.ts`
+1. Add the action to `src/core/config.ts`
 2. Define or extend the action schema
 3. Add the action variant to the tool description layer
 4. Implement the handler

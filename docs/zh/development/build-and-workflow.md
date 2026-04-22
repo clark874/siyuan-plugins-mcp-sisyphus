@@ -7,7 +7,7 @@
 ## 构建目标
 
 - `renderer` -> `src/index.ts`
-- `server` -> `src/mcp/server.ts`
+- `server` -> `src/core/server.ts`
 - `cli` -> `src/cli/index.ts`
 
 ## 常用命令

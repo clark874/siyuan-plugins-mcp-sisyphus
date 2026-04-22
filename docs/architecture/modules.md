@@ -11,7 +11,7 @@ Use case: You need to know which file to modify for a specific feature, or trace
 ```
 src/
 ├── index.ts                  # Plugin lifecycle entry
-├── mcp/
+├── core/                     # MCP Server core (formerly src/mcp/)
 │   ├── server.ts             # MCP Server creation & handler registration
 │   ├── http-transport.ts     # HTTP/S MCP transport layer
 │   ├── tool-registry.ts      # Static registry of 10 aggregated tools
@@ -21,27 +21,61 @@ src/
 │   ├── types.ts              # Zod Schema definitions center
 │   ├── analytics.ts          # Analytics event read/write
 │   ├── telemetry.ts          # Telemetry aggregation & reporting
+│   ├── telemetry-config.ts   # Telemetry config schema
 │   ├── puppy-state.ts        # Mascot state management
 │   ├── token-usage.ts        # Token approximation
 │   ├── runtime.ts            # Runtime environment detection
+│   ├── process.ts            # Process management helpers
 │   ├── resources.ts          # MCP Resource registration (help docs)
 │   ├── server-instructions.ts# MCP Server instructions builder
 │   ├── help.ts               # Help text center
-│   ├── tools/
-│   │   ├── define-tool.ts    # Tool factory
-│   │   ├── shared.ts         # Shared infrastructure
-│   │   ├── context.ts        # Permission context resolution
-│   │   ├── notebook.ts       # notebook tool implementation
-│   │   ├── document.ts       # document tool implementation
-│   │   ├── block.ts          # block tool implementation
-│   │   ├── av.ts             # av tool implementation
-│   │   ├── file.ts           # file tool implementation
-│   │   ├── search.ts         # search tool implementation
-│   │   ├── tag.ts            # tag tool implementation
-│   │   ├── system.ts         # system tool implementation
-│   │   ├── flashcard.ts      # flashcard tool implementation
-│   │   └── mascot.ts         # mascot tool implementation
-│   └── ... (other helpers)
+│   ├── normalize.ts          # Request parameter normalization
+│   └── noops/                # No-op shims for heavy MCP SDK modules
+│       ├── noop-schema-validator.ts
+│       └── noop-experimental-tasks.ts
+├── tools/                    # 10 aggregated tool implementations (formerly src/mcp/tools/)
+│   ├── index.ts              # Barrel export: re-exports all tool modules
+│   ├── types.ts              # Shared types for the tool layer
+│   ├── define-tool.ts        # Tool factory
+│   ├── shared.ts             # Shared infrastructure
+│   ├── schema-builder.ts     # Aggregated ToolDescriptor schema assembly
+│   ├── schema-analyzer.ts    # Schema analysis & description trimming
+│   ├── result-factory.ts     # Standard result factory (JSON / paginated / error)
+│   ├── pagination.ts         # Pagination utilities
+│   ├── context.ts            # Permission context resolution
+│   ├── errorTranslation.ts   # SiYuan error code → user-friendly text
+│   ├── validation.ts         # Parameter validation helpers
+│   ├── ui-refresh.ts         # Trigger SiYuan UI refresh
+│   ├── help-render.ts        # Help action output rendering
+│   ├── help-router.ts        # Help routing dispatcher
+│   ├── notebook/             # notebook tool
+│   │   ├── index.ts          # variants + list/call exports
+│   │   └── handlers.ts       # business handlers
+│   ├── document/             # document tool
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── block/                # block tool
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── av/                   # av (database) tool
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── search/               # search tool
+│   │   ├── index.ts
+│   │   ├── handlers.ts
+│   │   ├── sql-builder.ts    # SQL query builder helper
+│   │   └── permission-filter.ts # Search result permission filtering
+│   ├── file/                 # file tool
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── system/               # system tool
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── flashcard/            # flashcard tool
+│   │   ├── index.ts
+│   │   └── handlers.ts
+│   ├── tag.ts                # tag tool (flat)
+│   └── mascot.ts             # mascot tool (flat)
 ├── cli/
 │   ├── index.ts              # CLI program entry
 │   ├── args.ts               # Command-line argument parsing
@@ -65,21 +99,34 @@ src/
 │   ├── tag.ts                # Tag API wrapper
 │   ├── flashcard.ts          # Flashcard API wrapper
 │   ├── transaction.ts        # Transaction API wrapper
-│   └── attribute.ts          # Block attribute API wrapper
-├── setting/
-│   ├── tool-config.ts        # Config schema & normalization
-│   ├── tool-config-storage.ts# Config persistence (loadData/saveData)
-│   ├── telemetry-config.ts   # Telemetry config schema
-│   └── mcp-config.svelte     # Settings panel main component
-├── components/               # Svelte UI components (Puppy mascot system)
-├── presentation/
-│   └── invocation-format.ts  # Dual-mode presentation unification (MCP/CLI)
-├── libs/
+│   ├── notification.ts       # Notification API wrapper
+│   └── template.ts           # Template API wrapper
+├── ui/                       # UI layer (formerly src/components/ + src/setting/)
+│   ├── components/           # Svelte UI components (Puppy mascot system)
+│   │   ├── ToolPuppy.svelte
+│   │   ├── Puppy*.svelte
+│   │   └── puppy-*.ts
+│   ├── setting/              # Plugin settings panel
+│   │   ├── mcp-config.svelte
+│   │   ├── mcp-config/*.svelte
+│   │   ├── tool-config-storage.ts
+│   │   ├── tool-config.ts
+│   │   └── telemetry-config.ts
+│   └── shared/               # Shared UI components
+│       ├── setting-panel.svelte
+│       └── Form/             # Form atoms (form-input, form-wrap, index)
+├── shared/                   # Shared utilities (formerly src/libs/ + src/presentation/)
 │   ├── error.ts              # Error types & error code mapping
-│   └── promise-pool.ts       # Concurrency-limited Promise pool
+│   ├── promise-pool.ts       # Concurrency-limited Promise pool
+│   ├── async.ts              # Async utilities
+│   ├── constants.ts          # Shared constants
+│   ├── help-payload.ts       # Help payload builder
+│   ├── invocation-format.ts  # Dual-mode presentation unification (MCP/CLI)
+│   └── index.d.ts            # Shared type declarations
 └── types/
     ├── api.d.ts              # SiYuan API request/response types
-    └── index.d.ts            # Core type aliases & Block structure
+    ├── index.d.ts            # Core type aliases & Block structure
+    └── shared.ts             # Cross-layer shared types
 ```
 
 ---
@@ -104,7 +151,7 @@ src/
 
 ---
 
-## 2. MCP Server: `src/mcp/server.ts`
+## 2. MCP Server: `src/core/server.ts`
 
 **Responsibility**: Create MCP `Server` instance, register 5 handlers, manage transport modes (stdio / HTTP), load config & permissions.
 
@@ -130,7 +177,7 @@ src/
 
 ---
 
-## 3. Tool Registry: `src/mcp/tool-registry.ts`
+## 3. Tool Registry: `src/core/tool-registry.ts`
 
 **Responsibility**: Maintain static `TOOL_REGISTRY` mapping table, converging 10 categories into the `ToolModule` interface.
 
@@ -158,11 +205,11 @@ interface ToolModule {
 - **Type erasure**: Each tool module's precise type signature is widened via `as` at registration time, allowing uniform registry iteration
 - **Factory convergence**: Each category internally uses `defineTool()` factory to generate `{ listTools, callTool }`
 
-**Dependencies**: Individual `tools/{category}.ts` modules
+**Dependencies**: Individual `tools/{category}/index.ts` + `tools/{category}/handlers.ts` modules
 
 ---
 
-## 4. Tool Lifecycle: `src/mcp/tool-lifecycle.ts`
+## 4. Tool Lifecycle: `src/core/tool-lifecycle.ts`
 
 **Responsibility**: Inject AOP aspects around tool calls — puppy events, analytics recording, telemetry triggering.
 
@@ -205,7 +252,7 @@ runToolCall(ctx, handler)
 
 ---
 
-## 5. Permission Management: `src/mcp/permissions.ts`
+## 5. Permission Management: `src/core/permissions.ts`
 
 **Responsibility**: Notebook-level 4-tier permission reading, validation, and persistence.
 
@@ -228,7 +275,7 @@ runToolCall(ctx, handler)
 
 ---
 
-## 6. Tool Config: `src/mcp/config.ts`
+## 6. Tool Config: `src/core/config.ts`
 
 **Responsibility**: Complete ToolConfig schema definition, default generation, multi-format compatibility migration.
 
@@ -263,7 +310,7 @@ type ToolConfig = {
 
 ---
 
-## 7. Tool Factory & Shared Layer: `src/mcp/tools/`
+## 7. Tool Factory & Shared Layer: `src/tools/`
 
 ### `define-tool.ts` — Tool Factory
 
@@ -291,7 +338,7 @@ Converges `variants + handlers + actionSchema` into standard `{ listTools, callT
 
 ---
 
-## 8. HTTP Transport: `src/mcp/http-transport.ts`
+## 8. HTTP Transport: `src/core/http-transport.ts`
 
 **Responsibility**: Streamable HTTP MCP Server implementation based on `@modelcontextprotocol/sdk/server/streamableHttp.js`.
 
@@ -410,7 +457,7 @@ All business modules export **pure functions** taking `client: SiYuanClient` as 
 
 ---
 
-## 11. Settings Module: `src/setting/`
+## 11. Settings Module: `src/ui/setting/`
 
 ### `tool-config.ts` — Schema Definition
 
@@ -443,7 +490,7 @@ All `load*` functions perform defensive `normalize*` conversion.
 
 ---
 
-## 12. Mascot System: `src/components/`
+## 12. Mascot System: `src/ui/components/`
 
 **Architecture**: Puppy does not directly call JS APIs. Instead, it communicates with the MCP server via **polling JSON event files** (`puppyEvents.json`) for decoupling.
 
@@ -455,14 +502,14 @@ All `load*` functions perform defensive `normalize*` conversion.
 | `PuppyBubble.svelte` | Bubble & effects layer: text bubbles, wage card bubbles, heart bursts (`❤`), feeding props |
 | `PuppyResultOverlay.svelte` | Result/danger state SVG overlay: red X, exclamation mark, error badge |
 | `puppy-polling.ts` | `createJsonFilePoller`: periodically POST `/api/file/getFile` to read `puppyEvents.json` |
-| `puppy-state.ts` | State management in `src/mcp/`: `totalCalls`, `balance`, `earn/spend/writeEvent` |
+| `puppy-state.ts` | State management in `src/core/`: `totalCalls`, `balance`, `earn/spend/writeEvent` |
 | `puppy-position.ts` | `localStorage` read/write for Puppy screen coordinates |
 | `puppy-drag.ts` | Drag session state machine: distinguish click vs drag |
 | `puppy-test-mode.ts` | `createTestModeRunner`: periodically random action selection, simulating state transitions |
 
 ---
 
-## 13. Presentation Layer: `src/presentation/invocation-format.ts`
+## 13. Presentation Layer: `src/shared/invocation-format.ts`
 
 **Responsibility**: Convert MCP-style tool invocation representation into CLI-style command line representation, achieving **dual-mode presentation unification**.
 
@@ -476,7 +523,7 @@ All `load*` functions perform defensive `normalize*` conversion.
 
 ---
 
-## 14. Utilities: `src/libs/`
+## 14. Utilities: `src/shared/`
 
 | File | Responsibility |
 |------|---------------|

@@ -480,7 +480,19 @@ const BlockBatchUpdateItemSchema = z.object({
 
 export const BlockBatchInsertSchema = z.object({
     action: z.literal("batch_insert"),
+    parentID: z.string().optional().describe("Batch default parent block or document ID"),
+    previousID: z.string().optional().describe("Batch default previous block ID"),
+    nextID: z.string().optional().describe("Batch default next block ID"),
     blocks: z.array(BlockBatchInsertItemSchema).min(1).describe("Blocks to insert"),
+}).superRefine((value, ctx) => {
+    value.blocks.forEach((block, index) => {
+        if (block.nextID || block.previousID || block.parentID || value.nextID || value.previousID || value.parentID) return;
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["blocks", index, "previousID"],
+            message: "Provide nextID, previousID, or parentID for each block, or set a batch-level parentID/previousID/nextID.",
+        });
+    });
 });
 
 export const BlockBatchUpdateSchema = z.object({

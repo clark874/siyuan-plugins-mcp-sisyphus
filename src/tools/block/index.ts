@@ -142,11 +142,15 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
     {
         action: 'batch_insert',
         schema: createActionSchema('batch_insert', {
+            parentID: { type: 'string', description: 'Batch default parent block or document ID applied to items that omit their own anchor' },
+            previousID: { type: 'string', description: 'Batch default previous block ID applied to items that omit their own anchor' },
+            nextID: { type: 'string', description: 'Batch default next block ID applied to items that omit their own anchor' },
             blocks: {
                 type: 'array',
-                description: 'Blocks to insert',
+                description: 'Blocks to insert. Each block item must include dataType + data. When all blocks share the same anchor, pass parentID, previousID, or nextID once at the top level.',
                 items: {
                     type: 'object',
+                    description: 'One block insertion request. Item-level parentID, previousID, or nextID overrides any batch-level default.',
                     additionalProperties: false,
                     properties: {
                         dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
@@ -158,7 +162,29 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
                     required: ['dataType', 'data'],
                 },
             },
-        }, ['blocks'], 'Insert multiple blocks in one request.'),
+        }, ['blocks', 'parentID'], 'Insert multiple blocks in one request. Common case: provide one top-level parentID shared by every block.'),
+    },
+    {
+        action: 'batch_insert',
+        schema: createActionSchema('batch_insert', {
+            blocks: {
+                type: 'array',
+                description: 'Blocks to insert. Each block item must include dataType + data + at least one of parentID, previousID, or nextID when no batch-level anchor is provided.',
+                items: {
+                    type: 'object',
+                    description: 'One block insertion request with its own explicit anchor.',
+                    additionalProperties: false,
+                    properties: {
+                        dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
+                        data: { type: 'string', description: 'Block content' },
+                        nextID: { type: 'string', description: 'Next block ID' },
+                        previousID: { type: 'string', description: 'Previous block ID' },
+                        parentID: { type: 'string', description: 'Parent block or document ID' },
+                    },
+                    required: ['dataType', 'data', 'parentID'],
+                },
+            },
+        }, ['blocks'], 'Alternative batch_insert form: put parentID directly inside each block item when anchors differ per block.'),
     },
     {
         action: 'batch_update',

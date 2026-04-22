@@ -114,6 +114,8 @@ describe('UI refresh integration', () => {
     const avConfig = {
         enabled: true,
         actions: {
+            add_rows: true,
+            add_column: true,
             set_cell: true,
         },
     } as const;
@@ -125,6 +127,7 @@ describe('UI refresh integration', () => {
         const notebookApi = await import('@/api/notebook');
         const tagApi = await import('@/api/tag');
         const avApi = await import('@/api/av');
+        const context = await import('@/tools/context');
 
         vi.mocked(blockApi.appendBlock).mockReset();
         vi.mocked(blockApi.updateBlock).mockReset();
@@ -134,8 +137,11 @@ describe('UI refresh integration', () => {
         vi.mocked(notebookApi.setNotebookIcon).mockReset();
         vi.mocked(tagApi.renameTag).mockReset();
         vi.mocked(avApi.getAttributeView).mockReset();
+        vi.mocked(avApi.addAttributeViewBlocks).mockReset();
+        vi.mocked(avApi.addAttributeViewKey).mockReset();
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockReset();
         vi.mocked(avApi.setAttributeViewBlockAttr).mockReset();
+        vi.mocked(context.resolveDocumentContextById).mockReset();
 
         vi.mocked(blockApi.appendBlock).mockResolvedValue([{ doOperations: [{ id: 'block-new' }] }] as never);
         vi.mocked(blockApi.updateBlock).mockResolvedValue({ updated: '20260408010101' } as never);
@@ -143,6 +149,8 @@ describe('UI refresh integration', () => {
         vi.mocked(notebookApi.createNotebook).mockResolvedValue({ notebook: { id: 'nb-new', name: 'New Notebook' } } as never);
         vi.mocked(notebookApi.setNotebookIcon).mockResolvedValue(null as never);
         vi.mocked(tagApi.renameTag).mockResolvedValue(null);
+        vi.mocked(avApi.addAttributeViewBlocks).mockResolvedValue(null);
+        vi.mocked(avApi.addAttributeViewKey).mockResolvedValue(null);
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockResolvedValue({ refDefs: [] });
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -156,6 +164,11 @@ describe('UI refresh integration', () => {
             },
         });
         vi.mocked(avApi.setAttributeViewBlockAttr).mockResolvedValue({ value: { type: 'text' } });
+        vi.mocked(context.resolveDocumentContextById).mockImplementation(async (_client: unknown, id: string) => ({
+            documentId: id && id.startsWith('doc-') ? id : 'doc-1',
+            notebook: 'nb-1',
+            path: '/doc-1.sy',
+        }));
     });
 
     it('reloads protyle after block update', async () => {
@@ -323,7 +336,79 @@ describe('UI refresh integration', () => {
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadTag', {});
     });
 
-    it('reloads attribute view after av set_cell', async () => {
+    it('reloads protyle after av set_cell when the owning document can be resolved', async () => {
+        const result = await callAvTool(client, {
+            action: 'set_cell',
+            avID: 'av-1',
+            rowID: 'row-1',
+            columnID: 'col-1',
+            valueType: 'text',
+            text: 'hello',
+        }, avConfig as never, permMgr);
+
+        const parsed = parseResult(result);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadProtyle', id: 'doc-1' }]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
+    });
+
+    it('reloads protyle after av add_column when the owning document can be resolved', async () => {
+        const result = await callAvTool(client, {
+            action: 'add_column',
+            avID: 'av-1',
+            keyID: 'col-1',
+            keyName: 'Status',
+            keyType: 'text',
+        }, avConfig as never, permMgr);
+
+        const parsed = parseResult(result);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadProtyle', id: 'doc-1' }]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
+    });
+
+    it('reloads protyle after av add_rows when the owning document can be resolved', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.getAttributeView)
+            .mockResolvedValueOnce({
+                av: {
+                    id: 'av-1',
+                    keyValues: [
+                        {
+                            key: { type: 'block' },
+                            values: [{ id: 'value-existing', blockID: 'row-existing', block: { id: 'block-1' } }],
+                        },
+                    ],
+                },
+            })
+            .mockResolvedValueOnce({
+                av: {
+                    id: 'av-1',
+                    keyValues: [
+                        {
+                            key: { type: 'block' },
+                            values: [
+                                { id: 'value-existing', blockID: 'row-existing', block: { id: 'block-1' } },
+                                { id: 'value-new', blockID: 'row-new', block: { id: 'block-new' } },
+                            ],
+                        },
+                    ],
+                },
+            });
+
+        const result = await callAvTool(client, {
+            action: 'add_rows',
+            avID: 'av-1',
+            blockIDs: ['block-new'],
+        }, avConfig as never, permMgr);
+
+        const parsed = parseResult(result);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadProtyle', id: 'doc-1' }]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
+    });
+
+    it('falls back to attribute-view refresh when the owning document cannot be resolved', async () => {
+        const context = await import('@/tools/context');
+        vi.mocked(context.resolveDocumentContextById).mockRejectedValue(new Error('document context unavailable'));
+
         const result = await callAvTool(client, {
             action: 'set_cell',
             avID: 'av-1',

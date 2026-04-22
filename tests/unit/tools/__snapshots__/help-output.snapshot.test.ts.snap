@@ -557,14 +557,25 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
       },
       "batch_insert": {
         "action": "batch_insert",
-        "example": {
-          "action": "batch_insert",
-          "blocks": [
-            {
-              "dataType": "markdown",
-            },
-          ],
-        },
+        "example": [
+          {
+            "action": "batch_insert",
+            "blocks": [
+              {
+                "dataType": "markdown",
+              },
+            ],
+            "parentID": "20240318112233-abc123",
+          },
+          {
+            "action": "batch_insert",
+            "blocks": [
+              {
+                "dataType": "markdown",
+              },
+            ],
+          },
+        ],
         "fullDocResource": "siyuan://help/action/block/batch_insert",
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
@@ -576,11 +587,19 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "block(action="recent_updated") is read-only; MCP filters unreadable notebooks first and then applies count.",
           "block(action="recent_updated") now presents the document-grouped summary as the primary user-facing view while keeping the raw block stream for advanced consumers.",
         ],
+        "hint": "Use blocks[]. Common case: pass one top-level parentID, previousID, or nextID as the batch default, and each block item only needs dataType + data. When blocks need different anchors, put parentID/previousID/nextID inside each block item instead. On success, MCP returns createdBlockIDs and rejects no-op kernel responses instead of reporting fake success.",
         "requiredFields": [
-          "blocks",
+          [
+            "parentID",
+            "blocks",
+          ],
+          [
+            "blocks",
+          ],
         ],
         "requiresConfirmation": false,
         "shapes": [
+          "parentID + blocks",
           "blocks",
         ],
         "tool": "block",
@@ -1198,7 +1217,7 @@ block.breadcrumb: required [id] | optional [excludeTypes]
 block.dom: required [id] | optional []
 block.recent_updated: required [] | optional [count]
 block.word_count: required [ids] | optional []
-block.batch_insert: required [blocks] | optional []
+block.batch_insert: required [parentID, blocks] | optional [previousID, nextID]
 block.batch_update: required [blocks] | optional []
 block.append_daily_note: required [notebook, dataType, data] | optional []
 block.prepend_daily_note: required [notebook, dataType, data] | optional []
@@ -1210,7 +1229,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
       "actionSummaries": {
         "append": "parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Prefer append when you need to add multi-line markdown, tables, or multiple new blocks. Use #tag# syntax in markdown when you want SiYuan to register a real tag.",
         "append_daily_note": "requires: notebook, dataType, data",
-        "batch_insert": "requires: blocks",
+        "batch_insert": "Use blocks[]. Common case: pass one top-level parentID, previousID, or nextID as the batch default, and each block item only needs dataType + data. When blocks need different anchors, put parentID/previousID/nextID inside each block item instead. On success, MCP returns createdBlockIDs and rejects no-op kernel responses instead of reporting fake success.",
         "batch_update": "requires: blocks",
         "breadcrumb": "Optional excludeTypes removes matching block types from the breadcrumb.",
         "delete": "This action requires explicit user confirmation.",
@@ -1242,6 +1261,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "requiresConfirmation": false,
         },
         "batch_insert": {
+          "hint": "Use blocks[]. Common case: pass one top-level parentID, previousID, or nextID as the batch default, and each block item only needs dataType + data. When blocks need different anchors, put parentID/previousID/nextID inside each block item instead. On success, MCP returns createdBlockIDs and rejects no-op kernel responses instead of reporting fake success.",
           "requiresConfirmation": false,
         },
         "batch_update": {

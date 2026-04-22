@@ -23,7 +23,7 @@ import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocu
 import type { ToolActionHandler, ToolHandlerContext } from '../define-tool';
 import { isMissingBlockError, translateError } from '../errorTranslation';
 import { createJsonResult, createPaginatedResult, createWriteSuccessResult, type ToolResult } from '../shared';
-import { applyUiRefresh } from '../ui-refresh';
+import { applyUiRefresh, type UiRefreshOperation } from '../ui-refresh';
 import { sleep } from '../../shared/async';
 
 const AV_TOOL_NAME = 'av';
@@ -621,6 +621,41 @@ async function resolveAvOwningBlockId(
     return candidateBlockIDs[0];
 }
 
+async function resolveAvWriteRefreshOperations(
+    client: SiYuanClient,
+    avID: string,
+    avData: unknown,
+    explicitBlockID?: string,
+): Promise<UiRefreshOperation[]> {
+    const candidateBlockIDs: string[] = [];
+    if (explicitBlockID) {
+        candidateBlockIDs.push(explicitBlockID);
+    }
+
+    try {
+        const owningBlockID = await resolveAvOwningBlockId(client, avID, avData);
+        if (owningBlockID && !candidateBlockIDs.includes(owningBlockID)) {
+            candidateBlockIDs.push(owningBlockID);
+        }
+    } catch {
+        // Keep refresh best-effort even if owning-block discovery fails.
+    }
+
+    for (const candidateBlockID of candidateBlockIDs) {
+        try {
+            const context = await resolveDocumentContextById(client, candidateBlockID);
+            if (context.documentId) {
+                return [{ type: 'reloadProtyle', id: context.documentId }];
+            }
+        } catch {
+            // Best-effort only: fall back to AV-scoped refresh if the owning document
+            // cannot be resolved after a successful write.
+        }
+    }
+
+    return [{ type: 'reloadAttributeView', id: avID }];
+}
+
 async function filterAvSearchResultsByPermission(
     client: SiYuanClient,
     permMgr: PermissionManager,
@@ -1019,7 +1054,7 @@ async function handleGetAttributeViewFilterSort({ client, permMgr, rawArgs }: To
 
 async function handleAddRows({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvAddRowsSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'add_rows' });
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'add_rows' });
     if (denied) return denied;
 
     if (parsed.blockIDs.length === 0) {
@@ -1049,32 +1084,34 @@ async function handleAddRows({ client, permMgr, rawArgs }: ToolHandlerContext): 
         return createAddRowsSyncTimeoutResult(parsed.avID, parsed.blockIDs, resolution);
     }
 
+    const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'add_rows',
         avID: parsed.avID,
         blockIDs: parsed.blockIDs,
         rows: resolution.rows,
         added: parsed.blockIDs.length,
-    }), [{ type: 'reloadAttributeView', id: parsed.avID }]);
+    }), refreshOperations);
 }
 
 async function handleRemoveRows({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvRemoveRowsSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'remove_rows' });
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'remove_rows' });
     if (denied) return denied;
 
     await avApi.removeAttributeViewBlocks(client, parsed.avID, parsed.srcIDs);
+    const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'remove_rows',
         avID: parsed.avID,
         srcIDs: parsed.srcIDs,
         removed: parsed.srcIDs.length,
-    }), [{ type: 'reloadAttributeView', id: parsed.avID }]);
+    }), refreshOperations);
 }
 
 async function handleAddColumn({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvAddColumnSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'add_column' });
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'add_column' });
     if (denied) return denied;
 
     const keyID = parsed.keyID ?? generateSiYuanNodeId();
@@ -1082,28 +1119,30 @@ async function handleAddColumn({ client, permMgr, rawArgs }: ToolHandlerContext)
         ...parsed,
         keyID,
     });
+    const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'add_column',
         avID: parsed.avID,
         keyID,
         keyName: parsed.keyName,
         keyType: parsed.keyType,
-    }), [{ type: 'reloadAttributeView', id: parsed.avID }]);
+    }), refreshOperations);
 }
 
 async function handleRemoveColumn({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvRemoveColumnSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'remove_column' });
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'remove_column' });
     if (denied) return denied;
     const keyID = parsed.keyID ?? parsed.columnID!;
 
     await avApi.removeAttributeViewKey(client, parsed.avID, keyID, parsed.removeRelationDest);
+    const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'remove_column',
         avID: parsed.avID,
         keyID,
         removeRelationDest: parsed.removeRelationDest ?? false,
-    }), [{ type: 'reloadAttributeView', id: parsed.avID }]);
+    }), refreshOperations);
 }
 
 async function handleSetCell({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
@@ -1121,13 +1160,14 @@ async function handleSetCell({ client, permMgr, rawArgs }: ToolHandlerContext): 
         value,
     });
 
+    const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'set_cell',
         avID: parsed.avID,
         rowID: parsed.rowID,
         columnID: parsed.columnID,
         valueType: parsed.valueType,
-    }, response), [{ type: 'reloadAttributeView', id: parsed.avID }]);
+    }, response), refreshOperations);
 }
 
 async function handleBatchSetCells({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
@@ -1145,11 +1185,12 @@ async function handleBatchSetCells({ client, permMgr, rawArgs }: ToolHandlerCont
     }
     await avApi.batchSetAttributeViewBlockAttrs(client, parsed.avID, values);
 
+    const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'batch_set_cells',
         avID: parsed.avID,
         updated: parsed.items.length,
-    }), [{ type: 'reloadAttributeView', id: parsed.avID }]);
+    }), refreshOperations);
 }
 
 async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {

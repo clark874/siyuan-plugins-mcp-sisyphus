@@ -430,7 +430,8 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
    - `src/core/tool-registry.ts`（注册表导入）
    - `src/core/types.ts`（Zod schema）
    - `src/core/help.ts`（帮助文案）
-   - `src/tools/` 下的对应工具文件（variants + handlers）
+   - `src/tools/` 下的对应工具目录或文件（`index.ts` 中的 variants + `handlers.ts`）
+   - `src/tools/index.ts`（如有新增工具，需 barrel export）
    - 文档（README、docs/、API_MCP_MAPPING.md 等）
 
 2. **新增 Vite build target** 时，必须在 `vite.config.ts` 的 `validTargets` 数组中登记。

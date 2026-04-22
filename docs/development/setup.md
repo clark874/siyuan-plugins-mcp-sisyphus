@@ -21,8 +21,8 @@ pnpm install
 ## Project Layout
 
 - `src/index.ts`: plugin entry
-- `src/mcp/server.ts`: MCP server entry
-- `src/mcp/tools/`: tool implementations
+- `src/core/server.ts`: MCP server entry
+- `src/tools/`: tool implementations
 - `src/cli/`: CLI entry and dispatch
 - `src/api/`: SiYuan API wrappers
 - `tests/`: unit, integration, smoke tests
