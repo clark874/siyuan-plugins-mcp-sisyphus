@@ -234,8 +234,8 @@
                 <table class="http-choice-table">
                     <thead>
                         <tr>
-                            <th>{getLabel("connectionTableScene", "场景")}</th>
-                            <th>{getLabel("connectionTableRecommended", "推荐方式")}</th>
+                            <th>{getLabel("connectionTableScene", "思源安装方式")}</th>
+                            <th>{getLabel("connectionTableRecommended", "推荐连接方式")}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -244,8 +244,12 @@
                             <td>{getLabel("connectionTableDesktopModes", "HTTP 或 stdio 或 CLI")}</td>
                         </tr>
                         <tr>
-                            <td>{getLabel("connectionTableRemote", "Docker / 远程部署")}</td>
+                            <td>{getLabel("connectionTableRemote", "Docker")}</td>
                             <td>{getLabel("connectionTableRemoteModes", "stdio 或 CLI")}</td>
+                        </tr>
+                        <tr>
+                            <td>{getLabel("connectionTableMobile", "手机端")}</td>
+                            <td>{getLabel("connectionTableMobileModes", "CLI")}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -653,6 +657,38 @@
             border: 1px solid var(--b3-theme-primary-light, var(--b3-theme-primary));
             border-radius: 10px;
             vertical-align: middle;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .http-server-section {
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .http-token-input,
+        .http-path-input {
+            min-width: auto;
+            width: 100%;
+        }
+
+        .http-choice-table {
+            font-size: 12px;
+
+            th,
+            td {
+                padding: 6px 8px;
+            }
+        }
+
+        .http-field {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+
+        .http-label {
+            min-width: auto;
         }
     }
 </style>

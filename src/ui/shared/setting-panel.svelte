@@ -204,4 +204,26 @@
             width: auto;
         }
     }
+
+    @media (max-width: 768px) {
+        .config__input-group {
+            align-items: stretch;
+            min-width: auto;
+            width: 100%;
+        }
+
+        .config__main-input {
+            justify-content: flex-end;
+            width: 100%;
+        }
+
+        .config__child-input {
+            justify-content: flex-end;
+            width: 100%;
+        }
+
+        .config__inline-group {
+            flex-wrap: wrap;
+        }
+    }
 </style>

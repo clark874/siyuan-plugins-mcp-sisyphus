@@ -50,4 +50,18 @@
     .item-wrap.b3-label:not(:last-child) {
         border-bottom: 1px solid var(--b3-border-color);
     }
+
+    @media (max-width: 768px) {
+        .item-wrap.fn__flex {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+        }
+        .item-wrap.fn__flex > .fn__space {
+            display: none;
+        }
+        .item-wrap.fn__flex input.b3-switch {
+            align-self: flex-end;
+        }
+    }
 </style>

@@ -15,8 +15,8 @@ export function loadPuppyPosition(windowWidth: number, windowHeight: number): Pu
     }
 
     return {
-        x: windowWidth - 110,
-        y: windowHeight - 148,
+        x: 20,
+        y: 20,
     };
 }
 

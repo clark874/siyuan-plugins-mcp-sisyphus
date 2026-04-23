@@ -24,6 +24,16 @@
     import TelemetryPanel from "./mcp-config/TelemetryPanel.svelte";
     import ToolCategoriesPanel from "./mcp-config/ToolCategoriesPanel.svelte";
     import UserRulesPanel from "./mcp-config/UserRulesPanel.svelte";
+    import {
+        CATEGORY_TAB_DEFS,
+        HTTP_GROUP_KEY,
+        ICON_SVGS,
+        PERM_GROUP_KEY,
+        PUPPY_GROUP_KEY,
+        ANALYTICS_GROUP_KEY,
+        USER_RULES_GROUP_KEY,
+        type TabItem,
+    } from "./mcp-config-tabs";
 
     export let plugin: any;
 
@@ -38,33 +48,16 @@
     interface NotebookInfo { id: string; name: string; }
     interface ChangeEvent { key: string; value: any; }
 
-    const USER_RULES_GROUP_KEY = "User Rules";
     const USER_RULES_GROUP_LABEL = "User Rules";
-    const PUPPY_GROUP_KEY = "Mascot";
-    const PUPPY_GROUP_LABEL = "🐾 Mascot";
-    const PERM_GROUP_KEY = "Permissions";
-    const PERM_GROUP_LABEL = "🔒 Permissions";
-    const HTTP_GROUP_KEY = "Connection Config";
-    const ANALYTICS_GROUP_KEY = "analyticsGroupTitle";
+    const PUPPY_GROUP_LABEL = "Mascot";
+    const PERM_GROUP_LABEL = "Permissions";
     const ANALYTICS_GROUP_LABEL = "Usage Stats";
-
-    const CATEGORY_TABS: Array<{ category: Exclude<ToolCategory, "mascot">; icon: string; groupKey: string }> = [
-        { category: "notebook", icon: "📚", groupKey: "Notebooks" },
-        { category: "document", icon: "📝", groupKey: "Documents" },
-        { category: "block", icon: "🧱", groupKey: "Blocks" },
-        { category: "av", icon: "🗃️", groupKey: "Databases" },
-        { category: "file", icon: "📁", groupKey: "Files" },
-        { category: "search", icon: "🔍", groupKey: "Search" },
-        { category: "tag", icon: "🏷️", groupKey: "Tags" },
-        { category: "system", icon: "🖥️", groupKey: "System" },
-        { category: "flashcard", icon: "🃏", groupKey: "Flashcards" },
-    ];
 
     let config: ToolConfig = buildDefaultToolConfig();
     let httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
     let puppySettings: PuppySettings = buildDefaultPuppySettings();
     let telemetryConfig: TelemetryConfig = buildDefaultTelemetryConfig();
-    let focusGroup = `🌐 ${HTTP_GROUP_KEY}`;
+    let focusGroup = "";
     let notebooks: NotebookInfo[] = [];
     let permissions: Record<string, NotebookPermission> = {};
     let permLoading = true;
@@ -81,19 +74,26 @@
         return 'none';
     };
 
-    $: userRulesGroupLabel = `🧭 ${getLabel(USER_RULES_GROUP_KEY, USER_RULES_GROUP_LABEL)}`;
-    $: puppyGroupLabel = `🐾 ${getLabel(PUPPY_GROUP_KEY, PUPPY_GROUP_LABEL)}`;
-    $: permGroupLabel = `🔒 ${getLabel(PERM_GROUP_KEY, PERM_GROUP_LABEL)}`;
-    $: httpGroupLabel = `🌐 ${getLabel("httpServerTitle", HTTP_GROUP_KEY)}`;
-    $: analyticsGroupLabel = `📊 ${getLabel(ANALYTICS_GROUP_KEY, ANALYTICS_GROUP_LABEL)}`;
-    $: groups = [
-        httpGroupLabel,
-        permGroupLabel,
-        ...CATEGORY_TABS.map((group) => `${group.icon} ${getLabel(group.groupKey, group.groupKey)}`),
-        puppyGroupLabel,
-        analyticsGroupLabel,
-        userRulesGroupLabel,
+    $: httpGroupLabel = getLabel("httpServerTitle", HTTP_GROUP_KEY);
+    $: permGroupLabel = getLabel(PERM_GROUP_KEY, PERM_GROUP_LABEL);
+    $: puppyGroupLabel = getLabel(PUPPY_GROUP_KEY, PUPPY_GROUP_LABEL);
+    $: analyticsGroupLabel = getLabel(ANALYTICS_GROUP_KEY, ANALYTICS_GROUP_LABEL);
+    $: userRulesGroupLabel = getLabel(USER_RULES_GROUP_KEY, USER_RULES_GROUP_LABEL);
+
+    $: tabItems = [
+        { id: HTTP_GROUP_KEY, label: httpGroupLabel, iconSvg: ICON_SVGS.globe },
+        { id: PERM_GROUP_KEY, label: permGroupLabel, iconSvg: ICON_SVGS.lock },
+        ...CATEGORY_TAB_DEFS.map((def) => ({
+            id: def.groupKey,
+            label: getLabel(def.groupKey, def.groupKey),
+            iconSvg: ICON_SVGS[def.iconKey],
+        })),
+        { id: PUPPY_GROUP_KEY, label: puppyGroupLabel, iconSvg: ICON_SVGS.paw },
+        { id: ANALYTICS_GROUP_KEY, label: analyticsGroupLabel, iconSvg: ICON_SVGS.barChart },
+        { id: USER_RULES_GROUP_KEY, label: userRulesGroupLabel, iconSvg: ICON_SVGS.compass },
     ];
+
+    $: groups = tabItems.map((t) => t.label);
     $: if (!groups.includes(focusGroup)) {
         focusGroup = groups[0];
     }
@@ -309,22 +309,25 @@
         await persistTelemetryConfig();
         showMessage(plugin?.i18n?.mcpConfigReset || "🔄 MCP Tools configuration reset to defaults");
     }
+
+
 </script>
 
 <div class="fn__flex-1 fn__flex config__panel">
     <ul class="b3-tab-bar b3-list b3-list--background">
-        {#each groups as group}
+        {#each tabItems as tab}
             <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
             <li
                 data-name="mcp-config"
-                class:b3-list-item--focus={group === focusGroup}
+                class:b3-list-item--focus={tab.label === focusGroup}
                 class="b3-list-item"
                 on:click={() => {
-                    focusGroup = group;
+                    focusGroup = tab.label;
                 }}
                 on:keydown={() => {}}
             >
-                <span class="b3-list-item__text">{group}</span>
+                <span class="b3-list-item__icon mcp-tab-icon">{@html tab.iconSvg}</span>
+                <span class="b3-list-item__text">{tab.label}</span>
             </li>
         {/each}
     </ul>
@@ -352,5 +355,61 @@
         overflow-y: auto;
         overflow-x: hidden;
         scroll-behavior: smooth;
+    }
+
+    @media (max-width: 768px) {
+        .config__panel {
+            flex-direction: column;
+        }
+
+        .config__panel > ul {
+            flex-shrink: 0;
+            max-height: none;
+            overflow-x: hidden;
+            overflow-y: hidden;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            border-bottom: 1px solid var(--b3-border-color);
+            padding: 4px 0;
+        }
+
+        .config__panel > ul > li {
+            padding: 0.25rem 0.4rem;
+            margin: 0 2px;
+            flex-shrink: 0;
+        }
+
+        .config__panel > ul .b3-list-item__text {
+            display: none !important;
+        }
+
+        .config__panel > ul .mcp-tab-icon {
+            margin-right: 0;
+        }
+
+        .config__panel > ul .mcp-tab-icon :global(svg) {
+            width: 20px;
+            height: 20px;
+        }
+
+        .config__tab-wrap {
+            max-height: none;
+            flex: 1;
+            overflow-y: auto;
+        }
+    }
+
+    .mcp-tab-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 8px;
+        color: var(--b3-theme-on-background);
+    }
+
+    .mcp-tab-icon :global(svg) {
+        width: 18px;
+        height: 18px;
     }
 </style>

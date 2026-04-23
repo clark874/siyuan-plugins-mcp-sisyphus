@@ -224,6 +224,14 @@
         e.preventDefault();
     }
 
+    function onTouchStart(e: TouchEvent) {
+        const touch = e.touches[0];
+        if (!touch) return;
+        dragSession = startDrag(touch.clientX, touch.clientY, posX, posY);
+        setPointerState('pointer-down');
+        e.preventDefault();
+    }
+
     function onMouseMove(e: MouseEvent) {
         if (!dragSession) return;
         const moved = moveDrag(dragSession, e.clientX, e.clientY);
@@ -231,6 +239,18 @@
         posX = moved.posX;
         posY = moved.posY;
         setPointerState(moved.pointerState);
+    }
+
+    function onTouchMove(e: TouchEvent) {
+        if (!dragSession) return;
+        const touch = e.touches[0];
+        if (!touch) return;
+        const moved = moveDrag(dragSession, touch.clientX, touch.clientY);
+        dragSession = moved.session;
+        posX = moved.posX;
+        posY = moved.posY;
+        setPointerState(moved.pointerState);
+        e.preventDefault();
     }
 
     function triggerPettingHeart() {
@@ -255,6 +275,10 @@
         }
         dragSession = null;
         setPointerState('pointer-release');
+    }
+
+    function onTouchEnd() {
+        onMouseUp();
     }
 
     function setIdle() {
@@ -373,6 +397,8 @@
         startBlink();
         window.addEventListener('mousemove', onMouseMove);
         window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onTouchEnd);
         syncTestMode();
         scheduleIdleMotion();
     });
@@ -390,8 +416,16 @@
         clearTimeout(resultTimer);
         window.removeEventListener('mousemove', onMouseMove);
         window.removeEventListener('mouseup', onMouseUp);
+        window.removeEventListener('touchmove', onTouchMove);
+        window.removeEventListener('touchend', onTouchEnd);
     });
 
+    function resetToDefaultPosition() {
+        posX = 20;
+        posY = 20;
+    }
+
+    let prevVisible = visible;
     $: isSleeping = state === 'idle' && idleMotion === 'sleep';
     $: if (mounted) {
         if (visible && !testModeEnabled) {
@@ -402,6 +436,10 @@
                 clearTransientDisplayState();
             }
         }
+        if (visible && !prevVisible) {
+            resetToDefaultPosition();
+        }
+        prevVisible = visible;
     }
     $: eyeState = isSleeping ? 'blink' :
         blinking ? 'blink' :
@@ -450,6 +488,7 @@
     class="sy-puppy {containerClass} {idleMotionClass} {pointerClass} {toolClass} {wageCardClass}"
     style="left: {posX}px; top: {posY}px;"
     on:mousedown={onMouseDown}
+    on:touchstart={onTouchStart}
     role="status"
     aria-label="Tool call status"
 >
@@ -481,6 +520,7 @@
         z-index: 9999;
         cursor: grab;
         user-select: none;
+        touch-action: none;
     }
 
     .sy-puppy:active {

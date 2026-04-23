@@ -127,10 +127,11 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 
 ### 不同思源安装场景的连接方式
 
-| 安装场景 | 推荐方式 |
+| 思源安装方式 | 推荐连接方式 |
 |------|---------|
 | 桌面端（Windows / macOS / Linux） | HTTP 或 stdio 或 CLI |
 | Docker | stdio 或 CLI |
+| 手机端 | CLI |
 
 插件设置页底部提供三段可直接复制的配置：HTTP 连接方式、mcp-remote 桥接、stdio 连接方式。
 

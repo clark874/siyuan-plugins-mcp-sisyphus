@@ -123,10 +123,11 @@ First decide whether you want to use **MCP** or **CLI**:
 
 ### Connection Modes by SiYuan Installation Scenario
 
-| Installation Scenario | Recommended Mode |
+| SiYuan Installation | Recommended Connection |
 |----------|-----------------|
 | Desktop (Windows / macOS / Linux) | HTTP or stdio or CLI |
 | Docker | stdio or CLI |
+| Mobile | CLI |
 
 The plugin settings page provides three ready-to-copy configuration snippets at the bottom: HTTP connection, mcp-remote bridge, and stdio connection.
 
