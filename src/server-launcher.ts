@@ -237,14 +237,36 @@ export class HttpServerLauncher {
             this.emit();
         });
 
-        child.on("exit", (code, signal) => {
-            const detail = code === 0
-                ? undefined
-                : `exited code=${code ?? "null"} signal=${signal ?? "null"}`;
+        child.on("close", (code, signal) => {
+            // Use 'close' instead of 'exit' so all stdout/stderr data has been
+            // received before we snapshot the final state.
+            const startedAt = this.status.startedAt;
+            const lifetime = startedAt ? Date.now() - startedAt : Infinity;
+            const shortLived = lifetime < 3000; // < 3s is suspicious
+
+            let detail: string | undefined;
+            if (code === 0 && !shortLived) {
+                detail = undefined; // normal graceful exit
+            } else if (code === 0 && shortLived) {
+                detail = `exited code=0 signal=${signal ?? "null"} (short-lived: ${lifetime}ms — possible watchdog false-positive or silent failure)`;
+            } else {
+                detail = `exited code=${code ?? "null"} signal=${signal ?? "null"}`;
+            }
+
             this.status = { ...this.status, running: false, lastError: detail };
             this.child = null;
             this.emit();
         });
+
+        // Wait briefly to catch fast-failures (missing script, syntax error,
+        // module resolution failure, watchdog false-positive, etc.).
+        // Events must be registered *before* this await.
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        const cp = this.child as unknown as { exitCode: number | null; signalCode: string | null } | null;
+        if (!cp || cp.exitCode !== null || cp.signalCode !== null) {
+            const reason = this.status.lastError || "HTTP server process exited immediately after spawn";
+            throw new Error(reason);
+        }
     }
 
     async stop(): Promise<void> {
@@ -366,7 +388,11 @@ export class HttpServerLauncher {
         try {
             process.kill(pid, 0);
             return true;
-        } catch {
+        } catch (err: any) {
+            // EPERM / EACCES = process exists but we lack permission to signal it.
+            if (err.code === 'EPERM' || err.code === 'EACCES') {
+                return true;
+            }
             return false;
         }
     }

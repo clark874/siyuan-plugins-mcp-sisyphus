@@ -242,8 +242,14 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
             let parentAlive = true;
             try {
                 process.kill(parentPid, 0);
-            } catch {
-                parentAlive = false;
+            } catch (err: any) {
+                // EPERM / EACCES = process exists but we lack permission to signal it.
+                // ESRCH = process does not exist. Only treat "not found" as dead.
+                if (err.code === 'EPERM' || err.code === 'EACCES') {
+                    parentAlive = true;
+                } else {
+                    parentAlive = false;
+                }
             }
             if (parentChanged || !parentAlive) {
                 void shutdown(`parent process ${parentPid} is gone`, 0);
