@@ -19,15 +19,15 @@ If you want to expose a new set of SiYuan API capabilities to MCP clients, follo
    - Follow the pure function style: `export async function newAction(client: SiYuanClient, ...) { ... }`
    - Add request/response types in `src/types/api.d.ts`
 
-2. **Config Definition** (`src/mcp/config.ts`)
+2. **Config Definition** (`src/core/config.ts`)
    - Add the new category name to the `ToolCategory` union type
    - Define the action list in `ACTIONS_BY_CATEGORY`
    - Set defaults in `buildDefaultToolConfig()`
    - (Optional) Mark `basic` / `advanced` in `ACTION_TIERS`
    - (Optional) Add destructive actions to `DANGEROUS_ACTIONS`
 
-3. **Tool Implementation** (`src/mcp/tools/`)
-   - Create `src/mcp/tools/{category}.ts`
+3. **Tool Implementation** (`src/tools/`)
+   - Create `src/tools/{category}/index.ts` + `src/tools/{category}/handlers.ts`
    - Use the `defineTool()` factory:
      ```typescript
      export const { listTools: listXxxTools, callTool: callXxxTool } = defineTool({
@@ -39,20 +39,20 @@ If you want to expose a new set of SiYuan API capabilities to MCP clients, follo
    - Each variant contains: `action` (name), `description`, `schema` (Zod), `handler` (business logic)
    - For permission checks in handlers, use `tools/context.ts`: `ensurePermissionForDocumentId` / `ensurePermissionForNotebook`
 
-4. **Registry Registration** (`src/mcp/tool-registry.ts`)
+4. **Registry Registration** (`src/core/tool-registry.ts`)
    - Add entry to `TOOL_REGISTRY`:
      ```typescript
      xxx: { category: 'xxx', listTools: listXxxTools, callTool: callXxxTool }
      ```
 
-5. **Help Text** (`src/mcp/help.ts`)
+5. **Help Text** (`src/core/help.ts`)
    - Add guidance text for the category
    - Add hints for each action
 
-6. **Resource Registration** (`src/mcp/resources.ts`, optional)
+6. **Resource Registration** (`src/core/resources.ts`, optional)
    - If dynamic help resources are needed, add routing in `readHelpResource()`
 
-7. **Settings Panel** (`src/setting/mcp-config.svelte` and sub-panels)
+7. **Settings Panel** (`src/ui/setting/mcp-config.svelte` and sub-panels)
    - Add category checkbox in `ToolCategoriesPanel`
    - Add corresponding i18n text
 
@@ -70,7 +70,7 @@ If you want to expose a new set of SiYuan API capabilities to MCP clients, follo
 ```
 api/{category}.ts  →  types/api.d.ts
      ↓
-tools/{category}.ts → define-tool.ts → shared.ts → config.ts + help.ts + types.ts
+tools/{category}/index.ts → define-tool.ts → shared.ts → config.ts + help.ts + types.ts
      ↓
 tool-registry.ts
      ↓
@@ -84,9 +84,9 @@ resources.ts (optional)
 If you are only adding a new action to an existing category, the steps are greatly simplified:
 
 1. **API Wrapper**: Add function in corresponding `src/api/{category}.ts`
-2. **Config Definition**: Add action name to `ACTIONS_BY_CATEGORY[category]` in `src/mcp/config.ts`
-3. **Tool Implementation**: Add variant to `variants` array in corresponding `src/mcp/tools/{category}.ts`
-4. **Help Text**: Add action hint in `src/mcp/help.ts`
+2. **Config Definition**: Add action name to `ACTIONS_BY_CATEGORY[category]` in `src/core/config.ts`
+3. **Tool Implementation**: Add variant to `variants` array in corresponding `src/tools/{category}/index.ts`
+4. **Help Text**: Add action hint in `src/core/help.ts`
 5. **Testing**: Cover new action in `tests/unit/mcp/tools/{category}.test.ts`
 6. **Documentation**: Update corresponding reference page and `API_MCP_MAPPING.md`
 
@@ -100,10 +100,10 @@ MCP Resources are static or dynamic help documents that AI clients can fetch via
 
 #### Adding Static Resources
 
-In `src/mcp/resources.ts`:
+In `src/core/resources.ts`:
 1. Add resource metadata in `listHelpResources()`
 2. Add URI matching branch in `readHelpResource()`
-3. Define resource content text in `src/mcp/help.ts`
+3. Define resource content text in `src/core/help.ts`
 
 #### Adding Dynamic Resource Templates
 
@@ -121,7 +121,7 @@ CLI result rendering is in `src/cli/render.ts`. To support new payload types:
 2. Implement corresponding render function (refer to existing `renderArrayPayload()` / `renderPaginatedPayload()` etc.)
 3. Ensure the payload can be properly `JSON.stringify`ed in `--json` mode
 
-**Note**: When adding rendering logic, also update `src/presentation/invocation-format.ts` to ensure help text consistency between MCP and CLI modes.
+**Note**: When adding rendering logic, also update `src/shared/invocation-format.ts` to ensure help text consistency between MCP and CLI modes.
 
 ---
 
@@ -131,16 +131,16 @@ The settings panel uses Svelte components integrated with SiYuan native UI (`b3-
 
 #### Adding New Config Fields
 
-1. Define new field in `src/setting/tool-config.ts` or related schema file
-2. Add `loadXxx()` / `saveXxx()` in `src/setting/tool-config-storage.ts`
-3. Add key prefix routing in `src/setting/mcp-config.svelte`'s `onChanged` dispatcher
+1. Define new field in `src/ui/setting/tool-config.ts` or related schema file
+2. Add `loadXxx()` / `saveXxx()` in `src/ui/setting/tool-config-storage.ts`
+3. Add key prefix routing in `src/ui/setting/mcp-config.svelte`'s `onChanged` dispatcher
 4. Add UI control in corresponding sub-panel component
 5. Load new config in `src/index.ts` `onload()`
 
 #### Adding New Sub-panels
 
-1. Create new Svelte component under `src/setting/mcp-config/`
-2. Register new panel in `src/setting/mcp-config.svelte`'s tab-bar and content area
+1. Create new Svelte component under `src/ui/setting/mcp-config/`
+2. Register new panel in `src/ui/setting/mcp-config.svelte`'s tab-bar and content area
 3. Add i18n text to `dev/i18n/` and `public/i18n/`
 
 ---
@@ -149,9 +149,9 @@ The settings panel uses Svelte components integrated with SiYuan native UI (`b3-
 
 Currently supports stdio and HTTP/S. To add new transports:
 
-1. Create transport implementation file under `src/mcp/` (e.g. `websocket-transport.ts`)
+1. Create transport implementation file under `src/core/` (e.g. `websocket-transport.ts`)
 2. Implement the Transport interface from MCP SDK
-3. Add new transport mode branch in `src/mcp/server.ts` `startMcpServer()`
+3. Add new transport mode branch in `src/core/server.ts` `startMcpServer()`
 4. Add configuration UI in settings panel `HttpServerPanel` (or create new panel)
 5. Update documentation for new transport usage
 
@@ -174,7 +174,7 @@ Currently supports stdio and HTTP/S. To add new transports:
 | Constraint | Description |
 |-----------|-------------|
 | **Do not modify TOOL_REGISTRY static structure** | Keep `Record<ToolCategory, ToolModule>` compile-time deterministic; do not introduce dynamic scanning or reflection |
-| **Do not break Zod Schema consistency** | Schemas in `src/mcp/types.ts` must align with action lists in `config.ts` and variant schemas in `tools/{category}.ts` |
+| **Do not break Zod Schema consistency** | Schemas in `src/core/types.ts` must align with action lists in `config.ts` and variant schemas in `tools/{category}/index.ts` |
 | **Do not introduce global state** | `SiYuanClient`, `PermissionManager` etc. should be passed as parameters; do not store in module-level variables (CLI and plugin may have multiple instances) |
 | **Maintain CJS output format** | All artifacts in Vite config are CommonJS; do not introduce ESM-only dependencies |
 | **Keep Node built-ins external** | Preserve Node built-in modules in server/cli Rollup external; do not bundle them |
@@ -183,7 +183,7 @@ Currently supports stdio and HTTP/S. To add new transports:
 
 | Constraint | Description |
 |-----------|-------------|
-| **Tool docs must align with config action lists** | Action lists in `docs/zh|en/reference/tools/{category}.md` must fully match `ACTIONS_BY_CATEGORY` in `src/mcp/config.ts` |
+| **Tool docs must align with config action lists** | Action lists in `docs/zh|en/reference/tools/{category}.md` must fully match `ACTIONS_BY_CATEGORY` in `src/core/config.ts` |
 | **Bilingual sync** | All doc changes must update both `zh/` and `en/` versions |
 | **API mapping docs must be updated** | New actions must update `API_MCP_MAPPING.md` and `API_COMPLETE_MAPPING.md` |
 

@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.3.4 - 2026-04-26
+
+- AV 工具 `add_rows` 支持通过 `primaryKeyTexts` 直接添加 detached 游离行，无需绑定现有内容块；`batch_set_cells` 修复 cell value 构建方式，确保批量写入正确生效
+- Search 工具 `query_sql` 的只读校验全面升级，新增完整 SQL 词法分析器，能正确穿透注释、字符串字面量、WITH RECURSIVE / MATERIALIZED CTE 等复杂语法，彻底阻断 mutation 注入
+- Flashcard 工具 `review_card` 的 `reviewedCards` schema 收紧为带 `cardID` 必填字段的结构体，与思源内核读取行为一致
+- MCP Server 配置缓存 TTL 从 30s 降至 1s，降低设置面板修改后的生效延迟
+- CLI 包版本同步提升至 v0.1.5，文档与单元测试同步刷新
+
 ## v0.3.3 - 2026-04-21
 
 - 修复并强化 AV（数据库块）的权限校验与 materialization 流程：写操作支持传入 `blockID` 做精确数据库块归属验证；新建 AV 后增加 mirror registration 轮询确认，避免后续写入因块未注册而失败

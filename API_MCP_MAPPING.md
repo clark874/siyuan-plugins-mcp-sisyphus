@@ -28,10 +28,10 @@
 ### 关键源码位置
 
 - 思源 HTTP 客户端：`src/api/client.ts`
-- MCP 服务入口：`src/mcp/server.ts`
-- tool / action 配置：`src/mcp/config.ts`
-- action 参数校验：`src/mcp/types.ts`
-- MCP tool 处理器：`src/mcp/tools/`
+- MCP 服务入口：`src/core/server.ts`
+- tool / action 配置：`src/core/config.ts`
+- action 参数校验：`src/core/types.ts`
+- MCP tool 处理器：`src/tools/`
 - HTTP wrapper：`src/api/`
 
 ## 运行时入口
@@ -96,8 +96,8 @@
 | `get_conf` | `POST /api/notebook/getNotebookConf` | `src/api/notebook.ts` | 需要读权限 |
 | `set_conf` | `POST /api/notebook/setNotebookConf` | `src/api/notebook.ts` | 需要写权限（`rw` / `rwd`） |
 | `set_icon` | `POST /api/notebook/setNotebookIcon` | `src/api/notebook.ts` | 需要写权限（`rw` / `rwd`） |
-| `get_permissions` | 插件本地逻辑 | `src/mcp/tools/notebook.ts` | 读取插件维护的权限状态 |
-| `set_permission` | 插件本地逻辑 | `src/mcp/tools/notebook.ts` | 写入插件维护的权限状态 |
+| `get_permissions` | 插件本地逻辑 | `src/tools/notebook/index.ts` | 读取插件维护的权限状态 |
+| `set_permission` | 插件本地逻辑 | `src/tools/notebook/index.ts` | 写入插件维护的权限状态 |
 | `get_child_docs` | `POST /api/filetree/listDocsByPath` | `src/api/document.ts` | 固定读取笔记本根目录 `/`，并先校验笔记本存在性以返回更明确错误 |
 
 ## `document`
@@ -229,10 +229,10 @@
 | `conf` | `POST /api/system/getConf` | `src/api/system.ts` | 返回脱敏配置 |
 | `sys_fonts` | `POST /api/system/getSysFonts` | `src/api/system.ts` | 只读 |
 | `boot_progress` | `POST /api/system/bootProgress` | `src/api/system.ts` | 只读 |
-| `push_msg` | `POST /api/notification/pushMsg` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 普通通知 |
-| `push_err_msg` | `POST /api/notification/pushErrMsg` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 错误通知 |
-| `get_version` | `POST /api/system/version` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 只读 |
-| `get_current_time` | `POST /api/system/currentTime` | `src/api/file.ts` / `src/mcp/tools/system.ts` | 只读 |
+| `push_msg` | `POST /api/notification/pushMsg` | `src/api/file.ts` / `src/tools/system/index.ts` | 普通通知 |
+| `push_err_msg` | `POST /api/notification/pushErrMsg` | `src/api/file.ts` / `src/tools/system/index.ts` | 错误通知 |
+| `get_version` | `POST /api/system/version` | `src/api/file.ts` / `src/tools/system/index.ts` | 只读 |
+| `get_current_time` | `POST /api/system/currentTime` | `src/api/file.ts` / `src/tools/system/index.ts` | 只读 |
 
 ## `flashcard`
 
@@ -256,7 +256,7 @@
 | `get_attribute_view_keys` | `POST /api/av/getAttributeViewKeys` | `src/api/av.ts` | 获取属性视图键列表 |
 | `get_attribute_view_filter_sort` | `POST /api/av/getAttributeViewFilterSort` | `src/api/av.ts` | 获取属性视图过滤排序条件 |
 | `search` | `POST /api/av/searchAttributeView` | `src/api/av.ts` | 搜索属性视图 |
-| `add_rows` | `POST /api/av/addAttributeViewBlocks` | `src/api/av.ts` | 添加行(绑定已有块) |
+| `add_rows` | `POST /api/av/addAttributeViewBlocks` | `src/api/av.ts` | 添加行（绑定已有块或纯文本 detached 主键） |
 | `remove_rows` | `POST /api/av/removeAttributeViewBlocks` | `src/api/av.ts` | 移除行 |
 | `add_column` | `POST /api/av/addAttributeViewKey` | `src/api/av.ts` | 添加列/字段 |
 | `remove_column` | `POST /api/av/removeAttributeViewKey` | `src/api/av.ts` | 移除列/字段 |
@@ -269,9 +269,9 @@
 
 | MCP action | 思源 HTTP API | Wrapper | 说明 |
 |---|---|---|---|
-| `get_balance` | 本地状态 (`puppy_stats`) | `src/mcp/puppy-state.ts` | 获取吉祥物金币余额和统计 |
-| `shop` | 本地常量 | `src/mcp/tools/mascot.ts` | 获取商店物品列表 |
-| `buy` | 本地状态更新 | `src/mcp/puppy-state.ts` | 购买商店物品 |
+| `get_balance` | 本地状态 (`puppy_stats`) | `src/core/puppy-state.ts` | 获取吉祥物金币余额和统计 |
+| `shop` | 本地常量 | `src/tools/mascot.ts` | 获取商店物品列表 |
+| `buy` | 本地状态更新 | `src/core/puppy-state.ts` | 购买商店物品 |
 
 **说明**: mascot tool 使用本地状态管理，不直接调用思源 HTTP API。每次 MCP 工具调用会自动获得 1 个金币奖励。
 
@@ -281,7 +281,7 @@
 
 - 每个 tool 都必须带 `action`
 - 当前设计是"聚合 tool + action 分发"，不是"一条 HTTP API 对应一个 MCP tool"
-- 参数校验定义在 `src/mcp/types.ts`
+- 参数校验定义在 `src/core/types.ts`
 
 ### 重要形态示例
 

@@ -153,19 +153,19 @@ Layer 3: 完整参考文档（docs/ 站点）
 ```
 共用的层：
 ├── src/api/client.ts           SiYuanClient
-├── src/mcp/tool-registry.ts    TOOL_REGISTRY
-├── src/mcp/tool-lifecycle.ts   runToolCall (puppy/analytics/telemetry)
-├── src/mcp/config.ts           buildDefaultToolConfig, ACTIONS_BY_CATEGORY
-├── src/mcp/permissions.ts      PermissionManager
-├── src/mcp/tools/*.ts          所有 tool 实现
-└── src/presentation/invocation-format.ts  双模式呈现统一
+├── src/core/tool-registry.ts    TOOL_REGISTRY
+├── src/core/tool-lifecycle.ts   runToolCall (puppy/analytics/telemetry)
+├── src/core/config.ts           buildDefaultToolConfig, ACTIONS_BY_CATEGORY
+├── src/core/permissions.ts      PermissionManager
+├── src/tools/*/index.ts          所有 tool 实现
+└── src/shared/invocation-format.ts  双模式呈现统一
 
 CLI 不经过的层：
 ├── @modelcontextprotocol/sdk   不启动 MCP server
-├── src/mcp/server.ts           不走 ListTools/CallTool handler
-├── src/mcp/http-transport.ts   不启动 HTTP server
-├── src/mcp/resources.ts        不暴露 MCP Resources
-├── src/mcp/server-instructions.ts  无 instructions
+├── src/core/server.ts           不走 ListTools/CallTool handler
+├── src/core/http-transport.ts   不启动 HTTP server
+├── src/core/resources.ts        不暴露 MCP Resources
+├── src/core/server-instructions.ts  无 instructions
 └── src/index.ts                不走插件生命周期
 ```
 
@@ -177,7 +177,7 @@ CLI 不经过的层：
 ### 当前结果
 
 - CLI 产物 `cli.cjs` 是自包含 bundle，不依赖 `node_modules`
-- 工具 bug 修复只需改一处（`src/mcp/tools/`），同时修复插件和 CLI
+- 工具 bug 修复只需改一处（`src/tools/`），同时修复插件和 CLI
 - CLI 行为与插件保持一致；差异仅在外层协议和终端渲染方式
 
 ---

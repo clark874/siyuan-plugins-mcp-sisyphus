@@ -1,5 +1,6 @@
 import { SiYuanClient } from './client';
-import type { Notebook, NotebookConf, IReslsNotebooks, IResCreateNotebook, IResGetNotebookConf, IResSetNotebookConf, IReqSetNotebookIcon } from '../types/api';
+import type { IReslsNotebooks, IResCreateNotebook, IResGetNotebookConf, IResSetNotebookConf, IReqSetNotebookIcon } from '../types/api';
+import type { NotebookConf } from '../types/shared';
 
 /**
  * List all notebooks

@@ -40,25 +40,6 @@ interface IResReadDir {
     name: string;
 }
 
-interface IResExportMdContent {
-    hPath: string;
-    content: string;
-}
-
-interface IResBootProgress {
-    progress: number;
-    details: string;
-}
-
-interface IResForwardProxy {
-    body: string;
-    contentType: string;
-    elapsed: number;
-    headers: { [key: string]: string };
-    status: number;
-    url: string;
-}
-
 interface IResExportResources {
     path: string;
 }
@@ -211,8 +192,8 @@ interface IReqUpload {
 }
 
 type BlockId = string;
-type BlockType = 'd' | 'p' | 'h' | 's' | 'l' | 'i' | 'b' | 'q' | 'c' | 'm' | 't' | 'toc' | 'html' | 'video' | 'audio' | 'widget' | 'task' | 'code' | 'bookmark' | 'formula';
-type BlockSubType = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'u' | 'o' | 'li' | 'hr';
+type BlockType = 'd' | 'p' | 'query_embed' | 'l' | 'i' | 'h' | 'iframe' | 'tb' | 'b' | 's' | 'c' | 'widget' | 't' | 'html' | 'm' | 'av' | 'audio' | 'q' | 'toc' | 'video' | 'task' | 'code' | 'bookmark' | 'formula';
+type BlockSubType = 'd1' | 'd2' | 's1' | 's2' | 's3' | 't1' | 't2' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'table' | 'task' | 'toggle' | 'latex' | 'quote' | 'html' | 'code' | 'footnote' | 'cite' | 'collection' | 'bookmark' | 'attachment' | 'comment' | 'mindmap' | 'spreadsheet' | 'calendar' | 'image' | 'audio' | 'video' | 'other' | 'u' | 'o' | 'li' | 'hr';
 type DataType = 'markdown' | 'dom';
 
 interface doOperation {

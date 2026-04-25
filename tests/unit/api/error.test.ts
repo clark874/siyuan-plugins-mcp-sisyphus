@@ -5,7 +5,7 @@ import {
     createError,
     createErrorFromCode,
     getErrorDescription,
-} from '@/libs/error';
+} from '@/shared/error';
 
 describe('SiYuanError', () => {
     it('should create error with correct properties', () => {

@@ -1,13 +1,11 @@
+import type { SiYuanResponse } from '../types/shared';
+
 export interface SiYuanClientConfig {
     baseUrl?: string;
     timeout?: number;
 }
 
-export interface SiYuanResponse<T = any> {
-    code: number;
-    msg: string;
-    data: T;
-}
+export type { SiYuanResponse } from '../types/shared';
 
 export class SiYuanClient {
     private baseUrl: string;
@@ -58,21 +56,31 @@ export class SiYuanClient {
         }
     }
 
-    async readFile(path: string): Promise<string> {
-        const response = await this.fetchWithTimeout(`${this.baseUrl}/api/file/getFile`, {
+    private async readRemoteFile(path: string): Promise<Response> {
+        return this.fetchWithTimeout(`${this.baseUrl}/api/file/getFile`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
             body: JSON.stringify({ path }),
         });
+    }
+
+    private async readData<T>(url: string, init: RequestInit): Promise<T> {
+        const response = await this.fetchWithTimeout(url, init);
+        const result: SiYuanResponse<T> = await response.json();
+        if (result.code !== 0) {
+            throw new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
+        }
+
+        return result.data;
+    }
+
+    async readFile(path: string): Promise<string> {
+        const response = await this.readRemoteFile(path);
         return await response.text();
     }
 
     async readFileBinary(path: string): Promise<Uint8Array> {
-        const response = await this.fetchWithTimeout(`${this.baseUrl}/api/file/getFile`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
-            body: JSON.stringify({ path }),
-        });
+        const response = await this.readRemoteFile(path);
         return new Uint8Array(await response.arrayBuffer());
     }
 
@@ -84,30 +92,23 @@ export class SiYuanClient {
         formData.append('modTime', String(Date.now()));
         formData.append('file', file);
 
-        const response = await this.fetchWithTimeout(`${this.baseUrl}/api/file/putFile`, {
+        await this.requestFormData<null>('/api/file/putFile', formData);
+    }
+
+    async requestFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+        // Do not set Content-Type manually for FormData: fetch must add the multipart boundary.
+        return this.readData<T>(`${this.baseUrl}${endpoint}`, {
             method: 'POST',
             headers: this.getAuthHeaders(),
             body: formData,
         });
-
-        const result: SiYuanResponse = await response.json();
-        if (result.code !== 0) {
-            throw new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
-        }
     }
 
     async request<T>(endpoint: string, data?: object): Promise<T> {
-        const response = await this.fetchWithTimeout(`${this.baseUrl}${endpoint}`, {
+        return this.readData<T>(`${this.baseUrl}${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
             body: JSON.stringify(data ?? {}),
         });
-
-        const result: SiYuanResponse<T> = await response.json();
-        if (result.code !== 0) {
-            throw new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
-        }
-
-        return result.data;
     }
 }

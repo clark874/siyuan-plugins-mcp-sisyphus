@@ -3,9 +3,10 @@ import {
     MCP_TOOLS_CONFIG_API_PATH,
     buildDefaultToolConfig,
     normalizeToolConfig,
+    warnLegacyToolConfigOnce,
     type ToolConfig,
-} from '../mcp/config';
-import { PermissionManager } from '../mcp/permissions';
+} from '../core/config';
+import { PermissionManager } from '../core/permissions';
 import { applyConfigToEnv, loadFileConfig, resolveConfig } from './config';
 import { ensureRequiredPluginInstalled } from './plugin-check';
 
@@ -46,7 +47,11 @@ export async function loadCliRuntimeState(
 async function loadToolConfigFromAPI(client: SiYuanClient): Promise<ToolConfig> {
     try {
         const content = await client.readFile(MCP_TOOLS_CONFIG_API_PATH);
-        return content ? normalizeToolConfig(JSON.parse(content)) : buildDefaultToolConfig();
+        if (!content) return buildDefaultToolConfig();
+
+        const raw = JSON.parse(content);
+        warnLegacyToolConfigOnce(raw, { source: `SiYuan API file "${MCP_TOOLS_CONFIG_API_PATH}"` });
+        return normalizeToolConfig(raw);
     } catch {
         return buildDefaultToolConfig();
     }

@@ -1,40 +1,57 @@
 # SiYuan AI Interface Test Manual
 
-这是一份给 AI 执行的**统一接口测试手册**。
+这是一份给 AI 执行的**统一接口测试手册**，用于用 `CLI` 或 `MCP` 对同一套 SiYuan 能力做一致性验证。
+
+它吸收了 `tests/AI_TEST_WORKFLOW.md` 的“可执行流程”写法，但保持**接口无关**：
+
+- `AI_INTERFACE_TEST.md`：统一入口，适合整轮回归、CLI/MCP 对照、人工监督执行
+- `tests/AI_TEST_WORKFLOW.md`：更偏 MCP 单接口的长流程细化参考
+
+如两份文档与**当前工具 schema**不一致，以当前工具 contract 为准；不要照搬旧别名或过时参数。
+
+---
+
+## 1. 目标与总原则
 
 目标：让 AI 在测试开始时先确认本轮测试走 `CLI` 还是 `MCP`，然后**全程只使用这一种连接方式**去操作同一个 SiYuan，测试动作、断言标准、清理要求保持一致。
 
----
+必须遵守：
 
-## 1. 总规则
-
-1. 测试开始前必须先确认：`TEST_MODE=CLI` 或 `TEST_MODE=MCP`
-2. 一旦选定，本轮只允许使用这一种连接方式
-3. 两种模式测试的业务动作完全一致，差别只在调用入口：
-   - `CLI`：`siyuan-sisyphus <tool> <action> ...`
-   - `MCP`：`tool(action="...")`
-4. 只能操作本轮新建的测试对象
-5. 每一步都要记录：
+1. 测试开始前先确定并输出：`TEST_MODE=CLI` 或 `TEST_MODE=MCP`
+2. 一旦选定，本轮**不得切换接口**
+3. 只能操作本轮新建的测试对象，不得修改或删除用户已有对象
+4. 每一步都要记录：
    - 连接方式
-   - tool / action
-   - 参数
+   - `tool` / `action`
+   - 参数或命令
    - 返回摘要
    - 结论：`PASS` / `FAIL` / `BLOCKED`
-6. 删除、移动、权限修改等高风险动作，只能针对本轮测试对象执行
-7. 测试结束后必须清理测试对象
+5. 删除、移动、权限修改、批量替换、上传文件等高风险动作，只能针对本轮测试对象执行
+6. 测试结束后必须清理测试对象；若清理失败，必须明确列出残留对象
+7. 如果环境不满足前置条件，应标记 `BLOCKED`，不得臆造成功结果
+8. 若接口返回 `partial: true`、`reason: "permission_filtered"`、`filteredOutCount > 0`，应按“权限过滤”语义判断，不得误判为接口故障
 
 ---
 
-## 2. 测试模式选择
+## 2. 测试模式选择与调用映射
 
-AI 在正式执行前必须先输出其中之一：
+### 2.1 模式选择
+
+AI 在正式执行前必须先确认本轮模式：
 
 - `TEST_MODE=CLI`
 - `TEST_MODE=MCP`
 
-如果用户没有指定，必须先询问用户要测哪一种。
+如果用户没有指定，应先询问用户要测哪一种。
 
-### 2.1 调用映射示例
+### 2.2 统一语义，不同入口
+
+同一个业务动作，在两种模式下的语义必须一致，只是入口不同：
+
+- `CLI`：`siyuan-sisyphus <tool> <action> ...` 或 `siyuan <tool> <action> ...`
+- `MCP`：`tool(action="...")`
+
+### 2.3 调用映射示例
 
 同一动作：创建文档。
 
@@ -55,6 +72,48 @@ AI 在正式执行前必须先输出其中之一：
 ```bash
 siyuan-sisyphus document create --notebook <id> --path "/Inbox/Test Doc" --markdown "hello"
 ```
+
+同一动作：设置笔记本权限。
+
+#### MCP
+
+```json
+{
+  "tool": "notebook",
+  "action": "set_permission",
+  "notebook": "<id>",
+  "permission": "rw"
+}
+```
+
+#### CLI
+
+```bash
+siyuan-sisyphus notebook set-permission --notebook <id> --permission rw
+```
+
+提示：CLI 常用 `kebab-case`，MCP 使用 schema 中的 `snake_case` action 名称。
+
+同一动作：添加 detached AV 行。
+
+#### MCP
+
+```json
+{
+  "tool": "av",
+  "action": "add_rows",
+  "avID": "<av-id>",
+  "primaryKeyTexts": ["Plain text row"]
+}
+```
+
+#### CLI
+
+```bash
+siyuan-sisyphus av add-rows --av-id <av-id> --primary-key-texts "Plain text row"
+```
+
+如需固定某个数据库块视图，可额外传 `blockID` / `--block-id`。
 
 ---
 
@@ -78,29 +137,41 @@ siyuan-sisyphus document create --notebook <id> --path "/Inbox/Test Doc" --markd
 - 工具与 action 是否可见
 - 基础读写链路是否正常
 - 路径与树结构语义是否正确
-- 权限拦截是否正确
+- 笔记本权限模型是否正确
 - 搜索 / 标签 / 系统接口是否正常
-- flashcard 的只读发现与条件式写链路
-- AV 的创建、读写、搜索、复制链路
+- flashcard 的只读发现链路与条件式写链路
+- AV 的创建、读写、复制、删除链路
 - 清理是否完整
 
 ---
 
 ## 4. 执行前检查
 
-### 4.1 `CLI` 模式检查
+### 4.1 通用前置条件
+
+开始前必须确认：
+
+- SiYuan 正在运行且 API 可访问
+- 当前接口已完成认证（token / profile / MCP 连接）
+- 至少有一个可读的已打开笔记本
+- 本轮允许创建并删除测试笔记本、测试文档和测试块
+- AI 有能力记录并回放本轮创建对象的 ID / 路径 / 标签
+
+如任一条件不满足，停止测试并报告失败原因。
+
+### 4.2 `CLI` 模式检查
 
 必须确认：
 
 - `siyuan-sisyphus` 或 `siyuan` 命令可执行
-- 已配置 `apiUrl` / `token`，或用户允许使用 `--url` / `--token`
+- 已配置 `apiUrl` / `token`，或用户允许通过 flag 指定
 - 能成功执行：
 
 ```bash
 siyuan-sisyphus system get-version
 ```
 
-### 4.2 `MCP` 模式检查
+### 4.3 `MCP` 模式检查
 
 必须确认：
 
@@ -115,7 +186,7 @@ siyuan-sisyphus system get-version
 }
 ```
 
-### 4.3 工具可见性
+### 4.4 工具可见性
 
 必须能看到以下工具：
 
@@ -130,33 +201,192 @@ siyuan-sisyphus system get-version
 - `flashcard`
 - `mascot`
 
+如果工具缺失：
+
+- 无法连接或无法列工具：`BLOCKED`
+- 工具注册异常或描述缺失：`FAIL`
+
 ---
 
-## 5. 核心测试流程
+## 5. 状态追踪变量
+
+在执行过程中，应把以下变量记录在内存或测试日志中，后续步骤会引用它们。
+
+| 变量名 | 必填 | 说明 |
+| --- | --- | --- |
+| `$TEST_MODE` | 是 | `CLI` 或 `MCP` |
+| `$TEST_TS` | 是 | 时间戳，建议用于所有测试对象命名 |
+| `$TEST_TAG` | 是 | 本轮唯一测试标签，如 `#ai-interface-test-<timestamp>#` |
+| `$TEST_NB_ID` | 是 | 主测试笔记本 ID |
+| `$TEST_NB_NAME` | 是 | 主测试笔记本名称 |
+| `$ROOT_DOC_PATH` | 是 | 主测试文档的人类可读路径 |
+| `$ROOT_DOC_ID` | 是 | 主测试文档 ID |
+| `$ROOT_DOC_STORAGE_PATH` | 是 | 主测试文档存储路径（来自 `document.get_path`） |
+| `$CHILD_DOC_PATH` | 是 | 子文档的人类可读路径 |
+| `$CHILD_DOC_ID` | 是 | 子文档 ID |
+| `$CHILD_DOC_STORAGE_PATH` | 建议 | 子文档存储路径 |
+| `$BLOCK_ID_1` | 是 | 主测试块 ID |
+| `$BLOCK_ID_2` | 建议 | 第二个测试块 ID |
+| `$TAGGED_BLOCK_ID` | 建议 | 带唯一标签/关键字的块 ID |
+| `$AV_BLOCK_ID` | 是 | 本轮创建的数据库块 ID |
+| `$AV_ID` | 是 | 本轮创建的属性视图 ID |
+| `$AV_ROW_IDS` | 建议 | `add_rows` 返回的真实行 ID 列表 |
+| `$AV_DETACHED_ROW_ID` | 建议 | 使用 `primaryKeyTexts` 创建的 detached 行 ID |
+| `$AV_COLUMN_ID` | 建议 | 本轮新增测试列 ID |
+| `$AV_DUPLICATE_BLOCK_ID` | 建议 | `duplicate_block` 生成的数据库块 ID |
+| `$ORIGINAL_PERMISSION` | 是 | 主测试笔记本原始权限；若未显式配置，按 `rwd` 记录 |
+| `$TEMP_DELETE_DOC_PATH` | 建议 | 专门用于删除权限测试的文档路径 |
+| `$TEMP_DELETE_DOC_STORAGE_PATH` | 建议 | 对应存储路径 |
+| `$FILTER_VISIBLE_NB_ID` | 条件 | 用于权限过滤专项的“可见”对照笔记本 ID |
+| `$FILTER_HIDDEN_NB_ID` | 条件 | 用于权限过滤专项的“受限”笔记本 ID；通常可复用 `$TEST_NB_ID` |
+| `$FILTER_KEYWORD` | 条件 | 用于搜索过滤验证的唯一关键字 |
+| `$CARD_BLOCK_ID` | 条件 | 闪卡测试块 ID |
+| `$REVIEW_CARD_ID` | 条件 | 用于复习的闪卡 ID |
+| `$PROMPT_GAP_LOG` | 是 | 本轮所有“首次误调用、报错后才修正”的记录列表，用于反向改进 MCP 工具提示词 |
+
+---
+
+## 6. 记录格式与结论定义
+
+### 6.1 每一步至少记录
+
+- 步骤号
+- `TEST_MODE`
+- `tool`
+- `action`
+- 参数或 CLI 命令
+- 新产生或消费的变量
+- 关键返回摘要
+- 结论：`PASS` / `FAIL` / `BLOCKED`
+- 如果发生误调用：记录首次错误调用、错误摘要、修正后的调用、根因判断
+
+### 6.2 结论定义
+
+| 结论 | 含义 |
+| --- | --- |
+| `PASS` | 接口行为符合预期，包括成功结果和“预期的权限拒绝/确认拒绝” |
+| `FAIL` | 接口行为与预期不符，或返回结构明显异常 |
+| `BLOCKED` | 环境前提不足、真实资源缺失、需要用户额外授权，导致无法继续 |
+| `MISS` | 本轮未覆盖该 action，仅在最终覆盖矩阵中使用 |
+
+### 6.3 权限相关判定规则
+
+- 写/删类操作：权限不足时返回 `permission_denied`（或等价错误）属于 `PASS`
+- 搜索/列表类操作：权限不足时返回部分结果，并携带 `partial: true`、`reason: "permission_filtered"`、`filteredOutCount` 属于 `PASS`
+- 如果本应被拒绝的写/删操作成功执行，则为 `FAIL`
+- 如果本应可读的对象在 `rwd` / `rw` / `r` 下读失败，则为 `FAIL`
+
+### 6.4 误调用与提示词缺口记录
+
+测试过程中的失败不只用于判断接口是否可用，也要用于改进 MCP 暴露给 AI 的提示质量。凡是出现“AI 先按错误参数 / 错误 action / 错误语义调用，看到报错后才改对”的情况，都必须记录到 `$PROMPT_GAP_LOG`。
+
+必须记录的字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `tool` | 聚合工具名 |
+| `action` | 目标 action；如果 action 写错，也要记录错误 action |
+| `wrong_call` | 首次错误调用的关键参数或 CLI 命令 |
+| `error_summary` | 返回的错误摘要，不需要粘贴完整堆栈 |
+| `fixed_call` | 修正后成功或更接近正确语义的调用 |
+| `why_ai_got_it_wrong` | AI 为什么会误判：字段名不清、必填/可选不清、ID 类型不清、旧别名干扰、帮助文案不足等 |
+| `mcp_prompt_suggestion` | 建议修改的 tool description、action hint、schema description、help 文档或示例 |
+
+以下情况必须记录：
+
+- action 名称混用，例如 CLI kebab-case 与 MCP snake_case 混淆
+- 把 human-readable path 与 storage path 用错
+- 把 source block ID、cell value ID、row item ID 混用
+- 把可选参数误认为必填，或把必填参数误认为可省略
+- 把危险动作确认、权限拒绝、permission filtered 误判为接口故障
+- 看了错误响应才知道应该调用 `help`、资源文档或另一个 action
+
+以下情况不必记录为提示词缺口：
+
+- 网络中断、SiYuan 未启动、token 错误等纯环境问题
+- 用户临时改变测试范围导致的调用调整
+- 已经由当前文档明确要求“预期失败”的权限验证
+
+---
+
+## 7. 建议覆盖策略
+
+建议按下表区分“必测 / 建议测 / 条件测”。
+
+| 工具 | 必测 | 建议测 | 条件测 / 高风险 |
+| --- | --- | --- | --- |
+| `system` | `get_version`、`get_current_time`、`conf` | `boot_progress`、`sys_fonts`、`network`、`changelog` | `workspace_info`、`push_msg`、`push_err_msg` |
+| `notebook` | `list`、`create`、`rename`、`get_conf`、`get_child_docs`、`set_open_state`、`get_permissions`、`set_permission`、`remove` | `set_icon`、`set_conf` | 仅对本轮测试笔记本改权限 |
+| `document` | `create`、`get_path`、`get_hpath`、`get_ids`、`get_child_docs`、`list_tree`、`search_docs`、`get_doc`、`remove` | `get_child_blocks`、`duplicate`、`create_empty` | `move`、`remove_batch`、`create_daily_note` |
+| `block` | `append`、`prepend`、`insert`、`update`、`get_children`、`get_kramdown`、`get_attrs`、`set_attrs`、`exists`、`info`、`word_count`、`breadcrumb`、`dom`、`delete` | `batch_insert`、`batch_update`、`recent_updated`、`transfer_ref` | `move`、`set_fold_state` |
+| `search` / `tag` | `fulltext`、`query_sql`、`search_tag`、`get_backlinks` 或 `get_backmentions`、`tag.list` | `search_refs`、`search_assets`、`get_asset_content`、`fulltext_asset_content`、`tag.rename` | `find_replace`、`tag.remove` |
+| `file` | `render_sprig`、`export_md`、`get_doc_assets` | `render_template`、`get_image_ocr_text` | `upload_asset`、`export_resources`、`remove_unused_assets`、`delete_asset` |
+| `flashcard` | `get_decks`、`list_cards`、`get_cards` | `create_card`、`add_card`、`review_card`、`skip_review_card`；`review_card.reviewedCards` 参数校验 | `remove_card` |
+| `mascot` | `get_balance` | `shop` | `buy` |
+| `av` | `render_attribute_view`、`get`、`get_attribute_view_keys`、`get_attribute_view_filter_sort`、`search`、`get_primary_key_values`、`add_rows`、`add_column`、`set_cell`、`batch_set_cells`、`duplicate_block`、`remove_rows`、`remove_column` | `add_rows.primaryKeyTexts` detached 行、空 `add_rows` no-op | 只在本轮创建的真实 AV 上执行 |
+
+---
+
+## 8. 核心测试流程
 
 以下流程对 `CLI` 和 `MCP` 完全一致，只是调用入口不同。
 
-### 5.1 system
+### 8.1 System（系统）
 
 至少执行：
 
 - `system.get_version`
 - `system.get_current_time`
-- `system.conf`
+- `system.conf`（建议 `mode="summary"`）
 
-### 5.2 notebook
+建议补充：
+
+- `system.boot_progress`
+- `system.sys_fonts`
+- `system.network`
+- `system.changelog`
+
+条件执行：
+
+- `system.push_msg`
+- `system.push_err_msg`
+- `system.workspace_info`（高风险，仅在用户允许时）
+
+通过标准：
+
+- `get_version` 返回可识别版本字段
+- `get_current_time` 返回时间或时间戳
+- `conf` 返回配置摘要或指定键值
+- 其余动作返回结构自洽、无异常
+
+### 8.2 Notebook（笔记本）
 
 至少执行：
 
-- `notebook.list`
-- `notebook.create`
-- `notebook.rename`
-- `notebook.get_conf`
-- `notebook.get_child_docs`
-- `notebook.set_open_state`
-- `notebook.remove`
+1. `notebook.list`
+2. `notebook.create`
+3. `notebook.rename`
+4. `notebook.get_conf`
+5. `notebook.get_child_docs`
+6. `notebook.set_open_state`（关闭再打开）
+7. `notebook.get_permissions`
+8. `notebook.set_permission`
+9. `notebook.remove`
 
-### 5.3 document
+要求验证：
+
+- 创建后，`list` 能看到 `$TEST_NB_ID`
+- `rename` 后名称变化可见
+- 新建笔记本初始 `get_child_docs` 应为空或结构合理的空结果
+- `get_permissions` 中若未显式出现 `$TEST_NB_ID`，应记录 `$ORIGINAL_PERMISSION=rwd`
+- 删除前必须确认没有把权限停留在 `r` / `none`
+
+建议命名：
+
+- 测试笔记本：`AI Interface Test <timestamp>`
+- 重命名后：`AI Interface Test <timestamp> Renamed`
+
+### 8.3 Document（文档）
 
 至少执行：
 
@@ -172,11 +402,20 @@ siyuan-sisyphus system get-version
 
 要求验证：
 
-- `create.path` 使用人类可读路径
-- `get_path` 返回存储路径
-- `get_child_docs` 只返回直属子项
+- `create.path` 使用人类可读路径，如 `/AI Interface Root <timestamp>`
+- `get_path` 返回存储路径，如 `/<doc>.sy`
+- `get_ids` 使用人类可读路径查询
+- `document.remove` / `document.rename` 需要先通过 `document.get_path` 拿到存储路径，再按当前 schema 传 `notebook + path`
+- `get_child_docs` 只返回直属子文档
+- `search_docs` 是标题级搜索，不是全文搜索
 
-### 5.4 block
+推荐最小文档集：
+
+1. 主测试文档 `$ROOT_DOC_ID`
+2. 子文档 `$CHILD_DOC_ID`
+3. 一个用于删除验证的临时文档 `$TEMP_DELETE_DOC_PATH`
+
+### 8.4 Block（块）
 
 至少执行：
 
@@ -195,53 +434,83 @@ siyuan-sisyphus system get-version
 - `block.dom`
 - `block.delete`
 
-如当前环境稳定，也建议覆盖：
+建议补充：
 
-- `block.move`
-- `block.set_fold_state`
-- `block.transfer_ref`
 - `block.batch_insert`
 - `block.batch_update`
 - `block.recent_updated`
+- `block.transfer_ref`
 
-### 5.5 search / tag
+条件执行：
+
+- `block.move`
+- `block.set_fold_state`
+
+要求验证：
+
+- 至少有一个块写入唯一关键字和测试标签，以支撑 `search` / `tag` 用例
+- `set_attrs` 后再次 `get_attrs` 能看到更新
+- `exists` 与 `delete` 结果前后一致
+- `word_count` 对传入的 `ids` 数组返回统计结构
+- `block.set_fold_state` 是当前工具名，不要使用旧的 `fold` / `unfold` 别名
+
+### 8.5 Search / Tag / File / Flashcard / Mascot
+
+#### Search
 
 至少执行：
 
 - `search.fulltext`
-- `search.query_sql`（只测 `SELECT`）
+- `search.query_sql`（只测 `SELECT` / `WITH`）
 - `search.search_tag`
 - `search.get_backlinks` 或 `search.get_backmentions`
-- `tag.list`
-- `tag.rename`
-- `tag.remove`
 
 要求验证：
 
-- 唯一关键字能被全文搜索到
-- `query_sql` 非 `SELECT` 语句应被拒绝
-- 标签重命名、删除语义正确
+- 用唯一关键字命中本轮测试文档或测试块
+- `query_sql` 必须带 `LIMIT`
+- `query_sql` 只允许单条 `SELECT`，或主语句为 `SELECT` 的 `WITH` / `WITH RECURSIVE` CTE
+- 非 `SELECT` / `WITH` 语句应被拒绝；`WITH ... DELETE/UPDATE/INSERT`、`SELECT ...; DELETE ...` 这类隐藏写入也应在请求 SiYuan 前被拒绝
+- SQL 字符串字面量和注释中的 `DELETE` / `UPDATE` 等词不应误触发拒绝
+- 当存在权限过滤时，检查 `partial` / `reason` / `filteredOutCount`
 
-### 5.6 file
+#### Tag
+
+至少执行：
+
+- `tag.list`
+
+建议执行：
+
+- `tag.rename`
+- `tag.remove`
+
+要求：
+
+- 只操作本轮测试标签 `$TEST_TAG`
+- `rename` / `remove` 后应再次验证列表或搜索结果
+
+#### File
 
 优先覆盖低风险 action：
 
-- `file.render_template`
 - `file.render_sprig`
 - `file.export_md`
 - `file.get_doc_assets`
 
-`upload_asset` / `export_resources` 仅在本轮确有测试资源且不会动到用户本地文件时执行。
+建议补充：
 
-### 5.7 mascot
+- `file.render_template`
+- `file.get_image_ocr_text`
 
-至少执行：
+仅在满足真实测试条件时执行：
 
-- `mascot.get_balance`
-- `mascot.shop`
-- `mascot.buy`（仅当余额足够且安全）
+- `file.upload_asset`
+- `file.export_resources`
+- `file.remove_unused_assets`
+- `file.delete_asset`
 
-### 5.8 flashcard
+#### Flashcard
 
 优先执行只读链路：
 
@@ -249,33 +518,57 @@ siyuan-sisyphus system get-version
 - `flashcard.list_cards`
 - `flashcard.get_cards`
 
-只有已经拿到真实 `deckID` / `cardID` 时，才允许执行：
+只有在已经拿到真实 `deckID` / `cardID`，且确认不会污染用户数据时，才允许执行：
 
+- `flashcard.create_card`
 - `flashcard.add_card`
 - `flashcard.review_card`
 - `flashcard.skip_review_card`
 - `flashcard.remove_card`
 
+`review_card` 补充验证：
+
+- 基础调用必须使用 `deckID + cardID + rating`
+- 如传 `reviewedCards`，数组中每个对象都必须包含 `cardID`
+- `reviewedCards: [{ cardID: "...", ... }]` 应透传给内核
+- `reviewedCards: [{ id: "..." }]` 这类缺少 `cardID` 的参数应被 schema 拒绝，且不应调用内核复习接口
+
+#### Mascot
+
+至少执行：
+
+- `mascot.get_balance`
+
+建议执行：
+
+- `mascot.shop`
+
+只有余额足够且安全时才执行：
+
+- `mascot.buy`
+
 ---
 
-## 6. AV / 数据库专项规则
+## 9. AV / 数据库专项规则
 
-### 6.1 主测试路径
+AV 测试必须走**本轮创建真实 AV** 的主路径，不得把“复制已有数据库”当作主测试流程。
 
-AV 测试必须由 AI 在本轮测试中**自己创建真实 AV 块**，不得把“复制已有数据库”当作主路径。
+### 9.1 主测试路径
 
 标准起手动作必须是：
 
 - `av.render_attribute_view`
 - 参数必须包含 `blockID` + `createIfNotExist=true`
-- 可省略 `id`，让 MCP/CLI 自动生成 `avID`
+- `id` 可省略，让系统自动生成 `avID`
 
 创建成功后，必须立即记录两个标识：
 
-- `AV_ID`：返回中的 `avID` / `id`
-- `AV_BLOCK_ID`：返回中的 materialized `blockID`
+- `$AV_ID`：返回中的 `avID` / `id`
+- `$AV_BLOCK_ID`：materialized 数据库块 ID
 
-后续所有 AV 写操作都应优先显式携带 `AV_BLOCK_ID` 作为权限上下文，尤其是：
+后续 AV 写操作通常只需要 `avID=$AV_ID`。当前实现会根据 AV 的 mirror database block 或 AV 结构自动解析权限上下文与刷新目标；`blockID` 是可选的精确上下文参数，只在需要固定某个数据库块视图、指定 view/group 插入语义，或刚创建 AV 后 mirror 注册尚未收敛导致自动解析失败时再传。
+
+以下写操作都应验证“省略 `blockID` 也能正常工作”；如需排查上下文歧义，再补测显式 `blockID=$AV_BLOCK_ID`：
 
 - `add_rows`
 - `add_column`
@@ -284,9 +577,7 @@ AV 测试必须由 AI 在本轮测试中**自己创建真实 AV 块**，不得�
 - `set_cell`
 - `batch_set_cells`
 
-这一步是本项目当前 AV 测试的标准写法，不允许省略。
-
-### 6.2 标准调用链路
+### 9.2 标准调用链路
 
 AI 必须在自己创建的 AV 上完成以下动作链路：
 
@@ -297,169 +588,336 @@ AI 必须在自己创建的 AV 上完成以下动作链路：
 5. `search`
 6. `get_primary_key_values`
 7. 创建 3 个普通块，准备绑定为数据库行
-8. `add_rows`
+8. `add_rows`，分别覆盖绑定块行与 detached 纯文本主键行
 9. `add_column`
 10. `set_cell`
 11. `batch_set_cells`
 12. `duplicate_block`
 13. `remove_rows`
 14. `remove_column`
+15. 可选：空 `add_rows` no-op 验证
 
-推荐按以下参数模式执行：
+推荐参数模式：
 
-- `render_attribute_view`：创建本轮测试 AV，拿到 `AV_ID` 与 `AV_BLOCK_ID`
-- `add_rows`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`、`blockIDs=[...]`
-- `add_column`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`
-- `set_cell`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`
-- `batch_set_cells`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`
-- `remove_rows`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`
-- `remove_column`：使用 `avID=AV_ID`、`blockID=AV_BLOCK_ID`
+- `render_attribute_view`：创建本轮测试 AV，拿到 `$AV_ID` 与 `$AV_BLOCK_ID`
+- `add_rows` 绑定块行：优先使用 `avID=$AV_ID`、`blockIDs=[...]`；如需固定数据库块视图，再补 `blockID=$AV_BLOCK_ID`
+- `add_rows` detached 行：优先使用 `avID=$AV_ID`、`primaryKeyTexts=["AI detached row <timestamp>"]`；如需固定数据库块视图，再补 `blockID=$AV_BLOCK_ID`
+- `add_rows` 空 no-op：仅传 `avID=$AV_ID`，且不传 `blockIDs` / `primaryKeyTexts`；应返回 `skipped: true`
+- `add_column`：优先只传 `avID=$AV_ID`
+- `set_cell`：优先只传 `avID=$AV_ID`
+- `batch_set_cells`：优先只传 `avID=$AV_ID`
+- `remove_rows`：优先只传 `avID=$AV_ID`
+- `remove_column`：优先只传 `avID=$AV_ID`
 
-### 6.3 通过标准
-
-可以参考下面这组标准结果来判断是否通过：
+### 9.3 通过标准
 
 | 动作 | 通过标准 |
 | --- | --- |
 | `render_attribute_view` | 成功创建 AV 块，并返回新的 `avID` 与 materialized `blockID` |
 | `get` | 能获取完整 AV 结构 |
-| `get_attribute_view_keys` | 初始至少返回 `主键(block)`、`单选(select)` 两列 |
-| `get_attribute_view_filter_sort` | 能返回当前筛选 / 排序信息；空数组也算通过 |
-| `search` | 能正常返回搜索结果或合理的空结果说明 |
-| `get_primary_key_values` | 能返回当前主键值列表 |
-| `add_rows` | 成功添加 3 行，并在响应中拿到对应 `rowID` |
-| `add_column` | 成功新增一列，例如 `备注(text)` |
-| `set_cell` | 能成功给第一行写入单元格值 |
-| `batch_set_cells` | 能成功批量给多行写入值 |
-| `duplicate_block` | 能复制出一个新的 AV 块，并返回新的 `avID` |
+| `get_attribute_view_keys` | 初始至少返回主键列；额外列视环境而定 |
+| `get_attribute_view_filter_sort` | 能返回当前筛选 / 排序信息；空结构也算通过 |
+| `search` | 能正常返回搜索结果或合理空结果 |
+| `get_primary_key_values` | 能返回主键值列表 |
+| `add_rows` | 成功添加绑定块行，并拿到真实 `rowID` |
+| `add_rows.primaryKeyTexts` | 成功添加 detached 纯文本主键行，返回 `primaryKeyTexts` 与对应 `rowID` |
+| 空 `add_rows` | 不报错，返回 `skipped: true`、`added: 0`，说明未提供 `blockIDs` 或 `primaryKeyTexts` |
+| `add_column` | 成功新增测试列，例如文本列 |
+| `set_cell` | 能给指定行写入单元格值 |
+| `batch_set_cells` | 能批量写入值 |
+| `duplicate_block` | 能复制出新的 AV 块 |
 | `remove_rows` | 能删除指定测试行 |
 | `remove_column` | 能删除本轮新增测试列 |
 
-下面这个实际案例可以作为参考验收结果：
-
-| 动作 | 示例结果 |
-| --- | --- |
-| `render_attribute_view` | 创建 AV 块成功（示例 `avID: 20260420234836-a2uhpwt`） |
-| `get` | 获取到完整 AV 结构，包含 3 行 2 列 |
-| `get_attribute_view_keys` | 返回 2 列：主键(block)、单选(select) |
-| `get_attribute_view_filter_sort` | 返回空筛选 / 排序 |
-| `search` | 搜索 `表格` 返回空，并给出合理提示 |
-| `get_primary_key_values` | 返回 3 个主键值：行 1、行 2、行 3 |
-| `add_rows` | 成功添加 3 行 |
-| `add_column` | 新增 `备注` 列（示例 `keyID: 20260420234938-3ofgulm`） |
-| `set_cell` | 第一行备注被设为 `测试备注` |
-| `batch_set_cells` | 三行单选列分别设为 `选项A`、`选项B`、`选项C` |
-| `duplicate_block` | 复制出一个新的 AV 块（示例 `avID: 20260420234949-753pglm`） |
-| `remove_rows` | 删除第三行 |
-| `remove_column` | 删除 `备注` 列 |
-
-最终状态的标准描述应类似：
-
-- 原 AV 剩余 2 行
-- 保留 2 列：`主键`、`单选`
-- 旁边多出一个复制出的 AV 块
-
-### 6.4 AV 强约束
+### 9.4 AV 强约束
 
 AI 不得：
 
 - 把“复制已有数据库”当作 AV 主测试路径
-- 跳过 `render_attribute_view(createIfNotExist=true, blockID=...)` 这一步
-- 创建 AV 后不记录 `AV_ID` 与 `AV_BLOCK_ID`
-- 在 `add_column`、`set_cell`、`batch_set_cells`、`remove_rows`、`remove_column` 时省略 `blockID`
+- 跳过 `render_attribute_view(createIfNotExist=true, blockID=...)`
+- 创建 AV 后不记录 `$AV_ID` 与 `$AV_BLOCK_ID`
+- 把 AV 写操作误判为必须传 `blockID`；除创建/显式上下文验证外，应优先覆盖省略 `blockID` 的路径
 - 用 Markdown 表格冒充真实 AV
-- 用普通块或 DOM 片段冒充数据库块
 - 在没有真实 `rowID` 的情况下伪造 `set_cell` / `batch_set_cells` 成功
-- 把空结果或提示性结果误判为接口失败，只要返回语义自洽即可
-
-### 6.5 AV 建议顺序
-
-1. 创建本轮测试文档或块，作为 AV 创建目标
-2. 执行 `av.render_attribute_view`，带 `createIfNotExist=true`
-3. 记录 `AV_ID`
-4. 记录 `AV_BLOCK_ID`
-5. 执行 `av.get`
-6. `av.get_attribute_view_keys`
-7. `av.get_attribute_view_filter_sort`
-8. `av.search`
-9. `av.get_primary_key_values`
-10. 创建 3 个测试块
-11. `av.add_rows`
-12. 从响应中记录真实 `rowID`
-13. `av.add_column`
-14. `av.set_cell`
-15. `av.batch_set_cells`
-16. `av.duplicate_block`
-17. `av.remove_rows`
-18. `av.remove_column`
-19. 删除复制出的测试 AV 块
-20. 删除原始测试 AV 块
+- 把绑定块 ID、单元格 value ID、source block ID 当作 `rowID` 传给 `set_cell` / `batch_set_cells`
+- 把空结果或提示性结果误判为接口失败
 
 ---
 
-## 7. 权限测试
+## 10. 笔记本权限模型专项
 
-如当前环境允许，建议对**本轮测试笔记本**做一轮最小权限验证：
+这一节是本手册的**必测重点**。必须增强验证，不再只做“最小只读/无权限试探”。
 
-1. 读取当前权限配置
-2. 改成只读或无权限
-3. 验证读/写动作被拒绝
-4. 恢复原权限
+### 10.1 权限模型
 
-禁止把用户已有笔记本拿来做破坏性权限测试。
+| 权限 | 读 | 写 | 删 |
+| --- | --- | --- | --- |
+| `rwd` | 允许 | 允许 | 允许 |
+| `rw` | 允许 | 允许 | 不允许 |
+| `r` | 允许 | 不允许 | 不允许 |
+| `none` | 不允许 | 不允许 | 不允许 |
+
+补充规则：
+
+- 未配置的笔记本默认视为 `rwd`
+- 权限变更通过 `notebook.set_permission` 生效于后续调用
+- CLI 模式下，命令发出即视为用户确认；MCP 模式下，权限修改属于高风险动作
+- 删除权限与写权限不同：`rw` 允许写，但不允许删除
+
+### 10.2 执行边界
+
+权限测试必须只针对**本轮测试笔记本**执行：
+
+- 允许：新建测试笔记本、在其内部读写删、调整其权限、恢复其权限
+- 禁止：对用户已有笔记本做权限降级或破坏性测试
+- 建议：在降级权限前，先完成主数据准备（主文档、子文档、测试块、临时删除文档、AV 初建）
+
+### 10.3 权限测试前准备
+
+在开始权限矩阵前，必须先完成：
+
+1. `notebook.get_permissions`，记录 `$ORIGINAL_PERMISSION`
+   - 如果没有 `$TEST_NB_ID` 的显式条目，记录为 `rwd`
+2. 确保存在以下可复用对象：
+   - `$ROOT_DOC_ID`
+   - `$ROOT_DOC_STORAGE_PATH`
+   - `$BLOCK_ID_1`
+   - `$TEMP_DELETE_DOC_STORAGE_PATH`
+3. 为搜索过滤专项准备一个唯一关键字 `$FILTER_KEYWORD`
+4. 如要验证“部分过滤”，建议再创建一个**始终保持可读**的对照笔记本 `$FILTER_VISIBLE_NB_ID`
+
+### 10.4 `rwd`：全权限基线
+
+必须验证：
+
+- 读成功：
+  - `notebook.get_conf`
+  - `document.get_doc`
+  - `block.get_kramdown`
+- 写成功：
+  - `document.create` 或 `block.append`
+  - `block.set_attrs`
+- 删成功：
+  - `document.remove` 删除本轮临时文档（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
+  - 或 `block.delete` 删除本轮测试块
+
+通过标准：
+
+- `get_permissions` 确认当前为 `rwd`
+- 读/写/删动作均按预期成功
+
+### 10.5 `rw`：可读可写，不可删
+
+步骤：
+
+1. `notebook.set_permission(permission="rw")`
+2. 再次 `get_permissions` 确认 `$TEST_NB_ID=rw`
+3. 执行读验证
+4. 执行写验证
+5. 执行删验证（应失败）
+
+建议验证动作：
+
+- 读成功：`document.get_doc`、`block.get_children`
+- 写成功：`block.append`、`document.create`
+- 删失败：
+  - `document.remove`（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
+  - `block.delete`
+  - `document.move` 或 `block.move` 也可作为补充，因为移动通常需要更高权限边界
+
+通过标准：
+
+- 读成功
+- 写成功
+- 删被拒绝，且返回 `permission_denied` 或等价权限错误
+
+### 10.6 `r`：只读，不可写，不可删
+
+步骤：
+
+1. `notebook.set_permission(permission="r")`
+2. 再次 `get_permissions` 确认 `$TEST_NB_ID=r`
+3. 执行读验证
+4. 执行写验证（应失败）
+5. 执行删验证（应失败）
+
+建议验证动作：
+
+- 读成功：`notebook.get_conf`、`document.get_doc`、`block.get_kramdown`
+- 写失败：
+  - `document.create`
+  - `block.append`
+  - `block.update`
+  - `block.set_attrs`
+  - AV 写动作可作为补充失败验证
+- 删失败：
+  - `document.remove`（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
+  - `block.delete`
+
+通过标准：
+
+- 读成功
+- 所有写/删动作被拒绝
+
+### 10.7 `none`：无读写删权限
+
+步骤：
+
+1. `notebook.set_permission(permission="none")`
+2. 再次 `get_permissions` 确认 `$TEST_NB_ID=none`
+3. 执行读验证（应失败）
+4. 执行写验证（应失败）
+5. 执行删验证（应失败）
+
+建议验证动作：
+
+- 读失败：
+  - `notebook.get_conf`
+  - `notebook.get_child_docs`
+  - `document.get_path`
+  - `document.get_doc`
+  - `block.get_children`
+  - `block.get_kramdown`
+  - `block.get_attrs`
+- 写失败：
+  - `document.create`
+  - `block.append`
+  - `block.update`
+- 删失败：
+  - `document.remove`（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
+  - `block.delete`
+
+通过标准：
+
+- 所有读/写/删动作被拒绝
+- 不得把“完全被拒绝”误判为系统异常
+
+### 10.8 权限过滤专项：验证 `permission_filtered`
+
+这是对权限模型的增强检查，建议至少做一次。
+
+#### 推荐做法
+
+构造两个笔记本共享同一唯一关键字：
+
+- 可见笔记本：保持 `rwd`
+- 受限笔记本：使用 `$TEST_NB_ID`，切到 `none` 或 `r`
+
+然后在两个笔记本中都创建包含 `$FILTER_KEYWORD` 的测试内容，再执行搜索类动作。
+
+#### 最稳妥的验证顺序
+
+1. 在可见笔记本创建一条包含 `$FILTER_KEYWORD` 的文档或块
+2. 在受限笔记本创建一条包含相同 `$FILTER_KEYWORD` 的文档或块
+3. 把受限笔记本权限降为 `none`
+4. 运行：
+   - `search.query_sql`，例如对 `blocks` 做 `SELECT ... LIKE '%<keyword>%' LIMIT ...`
+   - 推荐再运行 `search.fulltext`
+5. 观察返回：
+   - 可见笔记本中的结果仍能看到
+   - 受限笔记本中的结果被过滤掉
+   - 返回中出现 `partial: true`
+   - 返回中出现 `reason: "permission_filtered"`
+   - 返回中出现 `filteredOutCount >= 1`
+
+#### 判定规则
+
+以下都应判为 `PASS`：
+
+- 结果被裁剪，但元数据明确说明是权限过滤
+- 仅返回可见笔记本的数据，并标明过滤计数
+
+以下判为 `FAIL`：
+
+- 受限笔记本数据仍泄露
+- 所有结果被吞掉但没有说明权限过滤，且上下文显示本应存在可见结果
+- 本应被过滤的结果仍被完整返回
+
+注意：`fulltext` 受索引时延影响，如果刚写入内容没被搜到，可以短暂重试一次；若仍不稳定，标记 `BLOCKED` 并说明“索引尚未收敛”。
+
+### 10.9 权限恢复
+
+权限专项结束后，必须恢复：
+
+1. 优先恢复 `$ORIGINAL_PERMISSION`
+2. 若原始值无法可靠识别，恢复到 `rwd`
+3. 恢复后再次执行一个读动作和一个写动作，确认权限恢复生效
+
+建议恢复验证：
+
+- 读：`document.get_doc`
+- 写：`block.append`
+
+如恢复失败：
+
+- 本轮测试不得宣称 `CLEAN`
+- 清理结论必须为 `DIRTY`
+- 必须列出当前仍受限且无法清理的对象
 
 ---
 
-## 8. 命名约定
-
-统一使用带时间戳的测试名：
-
-- 测试笔记本：`AI Interface Test <timestamp>`
-- 测试文档：`AI Interface Root <timestamp>`
-- 测试标签：`#ai-interface-test-<timestamp>#`
-- AV 测试名：`AI AV Test <timestamp>`
-- AV 测试列：`AI Text <timestamp>`
-- AV 测试值：`AI interface value <timestamp>`
-
----
-
-## 9. 清理要求
+## 11. 清理要求
 
 测试结束后必须确认：
 
-1. 删除本轮创建的测试块
-2. 删除本轮创建的测试文档
-3. 删除本轮创建或复制出的测试 AV / 数据库块
-4. 删除本轮新增的 AV 行与列
-5. 删除本轮测试标签
-6. 恢复测试期间修改过的权限
+1. 恢复测试期间修改过的权限
+2. 删除本轮创建的测试块
+3. 删除本轮创建的测试文档与子文档
+4. 删除本轮创建或复制出的测试 AV / 数据库块
+5. 删除本轮新增的 AV 行与列
+6. 删除本轮测试标签
 7. 删除本轮测试笔记本
+8. 如果创建了权限过滤对照笔记本，也必须删除
+
+建议清理顺序：
+
+1. 恢复权限到 `$ORIGINAL_PERMISSION` 或 `rwd`
+2. 删除 AV 复制块、测试列、测试行
+3. 删除临时测试块
+4. 删除子文档、主文档、临时删除文档
+5. 删除对照笔记本中的测试对象
+6. 删除主测试笔记本和对照笔记本
+7. 最后再验证 `notebook.list` 中不再包含测试笔记本
 
 若清理失败，必须明确列出残留对象，不得谎称“清理完成”。
 
 ---
 
-## 10. 最终报告格式
+## 12. 最终报告格式
 
 最终报告必须包含：
 
-### 10.1 头信息
+### 12.1 头信息
 
 - `TEST_MODE=CLI` 或 `TEST_MODE=MCP`
 - 测试时间
-- 目标版本（如果能获取）
+- 目标版本（如能获取）
+- 连接环境摘要（如 CLI profile / MCP server）
 
-### 10.2 步骤结果表
+### 12.2 变量快照
+
+至少列出：
+
+- `$TEST_NB_ID`
+- `$ROOT_DOC_ID`
+- `$CHILD_DOC_ID`
+- `$AV_ID`
+- `$AV_BLOCK_ID`
+- `$AV_DETACHED_ROW_ID`（如覆盖 detached 行）
+- `$ORIGINAL_PERMISSION`
+- 如使用：`$FILTER_VISIBLE_NB_ID`、`$FILTER_KEYWORD`
+
+### 12.3 步骤结果表
 
 每一步包含：
 
 - 步骤号
-- tool
-- action
+- `tool`
+- `action`
 - `PASS` / `FAIL` / `BLOCKED`
 - 关键返回摘要
 
-### 10.3 覆盖矩阵
+### 12.4 覆盖矩阵
 
 对每个 action 标记：
 
@@ -468,24 +926,62 @@ AI 不得：
 - `BLOCKED`
 - `MISS`
 
-### 10.4 问题汇总
+### 12.5 权限矩阵结果
+
+至少单列：
+
+- `rwd`：读 / 写 / 删
+- `rw`：读 / 写 / 删
+- `r`：读 / 写 / 删
+- `none`：读 / 写 / 删
+- `permission_filtered` 专项：是否验证通过
+- 权限恢复：是否验证通过
+
+### 12.6 问题汇总
 
 至少区分：
 
 - 真实缺陷
 - 环境限制
-- 符合预期
+- 符合预期的拒绝 / 过滤行为
 
-### 10.5 清理结论
+### 12.7 MCP 提示词缺口与建议修改
+
+必须单列本轮 `$PROMPT_GAP_LOG`。如果没有误调用，也要写“未发现”。
+
+每条记录至少包含：
+
+- 误调用的 `tool/action`
+- 首次错误调用摘要
+- 报错摘要
+- 修正后的调用摘要
+- 判断为 MCP 提示不足的原因
+- 建议改动位置，例如：
+  - `src/core/help.ts` 的 action hint
+  - `src/core/types.ts` 的 schema description
+  - `src/tools/<tool>/index.ts` 的 variant description
+  - `docs/reference/tools/*.md`
+  - `server-instructions` 或 tool description 的全局约束
+
+输出建议时要具体到“应新增/改写什么信息”，不要只写“优化提示词”。例如：
+
+- “`av.add_rows` 的描述应明确 `primaryKeyTexts` 用于 detached 行，`blockID` 不是常规必填。”
+- “`av.set_cell` 的 `rowID` 描述应再次强调使用 `value.blockID` / `add_rows.rows[].rowID`，不是源块 ID 或 value ID。”
+- “`document.remove` 示例应明确使用 storage path，而不是创建时的人类可读 path。”
+
+### 12.8 清理结论
 
 - `CLEAN`
 - `DIRTY`
 
+如为 `DIRTY`，必须列出残留对象 ID / 路径 / 笔记本。
+
 ---
 
-## 11. 一句话执行提示
+## 13. 一句话执行提示
 
 可以直接给 AI 这样的指令：
 
 - `请按 AI_INTERFACE_TEST.md，用 CLI 模式完整测试，只测 CLI，不要切到 MCP。`
 - `请按 AI_INTERFACE_TEST.md，用 MCP 模式完整测试，只测 MCP，不要切到 CLI。`
+- `请按 AI_INTERFACE_TEST.md，重点做笔记本权限模型专项，并验证 permission_filtered 元数据。`

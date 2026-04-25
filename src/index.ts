@@ -11,14 +11,16 @@ import {
     hasValidHttpTlsFiles,
     loadPersistedHttpServerSettings,
     loadPersistedPuppySettings,
-    loadPersistedToolConfig,
+    loadPersistedToolConfigState,
     savePersistedHttpServerSettings,
     savePersistedToolConfig,
     type HttpServerSettings,
     type PuppySettings,
-} from "@/setting/tool-config-storage";
-import McpConfig from "@/setting/mcp-config.svelte";
-import ToolPuppy from "@/components/ToolPuppy.svelte";
+} from "@/ui/setting/tool-config-storage";
+import { emitToolConfigWarningOnce } from "@/core/config";
+import McpConfig from "@/ui/setting/mcp-config.svelte";
+import ToolPuppy from "@/ui/components/ToolPuppy.svelte";
+
 import { HttpServerLauncher } from "@/server-launcher";
 
 export default class SiyuanMCP extends Plugin {
@@ -30,7 +32,13 @@ export default class SiyuanMCP extends Plugin {
     public httpLauncher: HttpServerLauncher | null = null;
 
     async onload() {
-        const normalized = await loadPersistedToolConfig(this);
+        const { config: normalized, warning } = await loadPersistedToolConfigState(this);
+        if (warning) {
+            emitToolConfigWarningOnce(warning, (message) => {
+                console.warn(message);
+                showMessage(message);
+            });
+        }
         await savePersistedToolConfig(normalized, this);
         this.puppySettings = await loadPersistedPuppySettings(this);
         this.puppyVisible = this.puppySettings.visible;
@@ -165,6 +173,63 @@ export default class SiyuanMCP extends Plugin {
      * A custom setting pannel provided by svelte
      */
     openSetting(): void {
+        const isMobileEnv = typeof window !== "undefined" && (
+            (window as any)?.siyuan?.config?.system?.os === "android" ||
+            (window as any)?.siyuan?.config?.system?.os === "ios" ||
+            /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        );
+
+        if (isMobileEnv && document.getElementById("model")) {
+            const modelElement = document.getElementById("model");
+            modelElement.style.transform = "translateY(0px)";
+            modelElement.style.zIndex = (++(window as any).siyuan.zIndex).toString();
+            const iconElement = modelElement.querySelector(".toolbar__icon");
+            if (iconElement) {
+                iconElement.classList.add("fn__none");
+            }
+            const titleElement = modelElement.querySelector(".toolbar__text") as HTMLElement;
+            if (titleElement) {
+                titleElement.textContent = this.i18n.mcpToolsSettingTitle;
+                titleElement.style.display = "block";
+                titleElement.style.overflow = "visible";
+                titleElement.style.width = "100%";
+                titleElement.style.textAlign = "center";
+                titleElement.style.color = "var(--b3-theme-on-background)";
+            }
+            const modelMainElement = modelElement.querySelector("#modelMain") as HTMLElement;
+            modelMainElement.innerHTML = `<div id="SettingPanel" style="height: 100%;"></div>`;
+
+            let pannel = new McpConfig({
+                target: modelMainElement.querySelector("#SettingPanel"),
+                props: { plugin: this }
+            });
+
+            const closeBtn = document.getElementById("modelClose");
+            const onClose = () => {
+                pannel.$destroy();
+                modelMainElement.innerHTML = "";
+                if (closeBtn) {
+                    closeBtn.removeEventListener("click", onClose);
+                }
+            };
+            if (closeBtn) {
+                closeBtn.addEventListener("click", onClose);
+            }
+
+            // Also observe #modelMain in case other code clears it before close button is clicked
+            const observer = new MutationObserver(() => {
+                if (!modelMainElement.querySelector("#SettingPanel")) {
+                    pannel.$destroy();
+                    observer.disconnect();
+                    if (closeBtn) {
+                        closeBtn.removeEventListener("click", onClose);
+                    }
+                }
+            });
+            observer.observe(modelMainElement, { childList: true });
+            return;
+        }
+
         let dialog = new Dialog({
             title: this.i18n.mcpToolsSettingTitle,
             content: `<div id="SettingPanel" style="height: 100%;"></div>`,

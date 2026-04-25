@@ -1,8 +1,27 @@
 # SiYuan Sisyphus MCP & CLI
 
-[English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
+<p align="left">
+  <a href="https://www.npmjs.com/package/siyuan-sisyphus">
+    <img src="https://img.shields.io/npm/v/siyuan-sisyphus?style=flat-square&color=%23cb3837" alt="npm version">
+  </a>
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/yangtaihong59/siyuan-plugins-mcp-sisyphus?style=flat-square&color=%23007ec6" alt="license">
+  </a>
+  <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">
+    <img src="https://img.shields.io/badge/docs-VitePress-646cff?style=flat-square&logo=vitepress" alt="Documentation">
+  </a>
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/releases">
+    <img src="https://img.shields.io/github/v/release/yangtaihong59/siyuan-plugins-mcp-sisyphus?style=flat-square&color=%23007ec6" alt="GitHub release">
+  </a>
+</p>
 
-> **Latest:** `v0.3.3` — CLI adds multi-profile config management, interactive paging, and a reorganized VitePress doc structure. See [CHANGELOG.md](./CHANGELOG.md) for full history.
+<p align="left">
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md">English</a> |
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md">中文</a> |
+  <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
+</p>
+
+> **Latest:** `v0.3.4` — AV `add_rows` gains detached-row support via `primaryKeyTexts`; SQL read-only guard is now a full lexer; flashcard `review_card` schema tightened. See [CHANGELOG.md](./CHANGELOG.md) for full history.
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
@@ -104,10 +123,11 @@ First decide whether you want to use **MCP** or **CLI**:
 
 ### Connection Modes by SiYuan Installation Scenario
 
-| Installation Scenario | Recommended Mode |
+| SiYuan Installation | Recommended Connection |
 |----------|-----------------|
 | Desktop (Windows / macOS / Linux) | HTTP or stdio or CLI |
 | Docker | stdio or CLI |
+| Mobile | CLI |
 
 The plugin settings page provides three ready-to-copy configuration snippets at the bottom: HTTP connection, mcp-remote bridge, and stdio connection.
 
@@ -292,7 +312,7 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | `get_attribute_view_keys` | Return attribute view column info |
 | `get_attribute_view_filter_sort` | Return filter and sort config for a view |
 | `search` | Search attribute views by keyword |
-| `add_rows` | Bind existing blocks as database rows |
+| `add_rows` | Add bound block rows or detached plain-text primary-key rows |
 | `remove_rows` | Remove bound rows from an attribute view |
 | `add_column` | Add a database column |
 | `remove_column` | Remove a column from an attribute view |

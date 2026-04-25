@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ToolResult } from '@/mcp/tools/shared';
+import type { ToolResult } from '@/tools/shared';
 import { extractPaginationInfo, renderCliError, renderToolResult } from '@/cli/render';
 
 function captureStdIO() {

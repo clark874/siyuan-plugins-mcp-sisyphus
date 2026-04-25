@@ -19,15 +19,15 @@
    - 遵循纯函数风格：`export async function newAction(client: SiYuanClient, ...) { ... }`
    - 在 `src/types/api.d.ts` 中补充请求/响应类型
 
-2. **配置定义**（`src/mcp/config.ts`）
+2. **配置定义**（`src/core/config.ts`）
    - 在 `ToolCategory` 联合类型中新增 category 名
    - 在 `ACTIONS_BY_CATEGORY` 中定义该 category 的 action 列表
    - 在 `buildDefaultToolConfig()` 中设置默认值
    - （可选）在 `ACTION_TIERS` 中标注 `basic` / `advanced`
    - （可选）若有高危 action，加入 `DANGEROUS_ACTIONS`
 
-3. **工具实现**（`src/mcp/tools/`）
-   - 新建 `src/mcp/tools/{category}.ts`
+3. **工具实现**（`src/tools/`）
+   - 新建 `src/tools/{category}/index.ts` + `src/tools/{category}/handlers.ts`
    - 使用 `defineTool()` 工厂定义工具：
      ```typescript
      export const { listTools: listXxxTools, callTool: callXxxTool } = defineTool({
@@ -39,20 +39,20 @@
    - 每个 variant 包含：`action`（动作名）、`description`（描述）、`schema`（Zod schema）、`handler`（业务逻辑）
    - handler 中需要权限检查时，使用 `tools/context.ts` 中的 `ensurePermissionForDocumentId` / `ensurePermissionForNotebook`
 
-4. **注册表注册**（`src/mcp/tool-registry.ts`）
+4. **注册表注册**（`src/core/tool-registry.ts`）
    - 在 `TOOL_REGISTRY` 中新增条目：
      ```typescript
      xxx: { category: 'xxx', listTools: listXxxTools, callTool: callXxxTool }
      ```
 
-5. **帮助文案**（`src/mcp/help.ts`）
+5. **帮助文案**（`src/core/help.ts`）
    - 添加该 category 的 guidance 文本
    - 为每个 action 添加 hint
 
-6. **Resource 注册**（`src/mcp/resources.ts`，可选）
+6. **Resource 注册**（`src/core/resources.ts`，可选）
    - 若需要动态 help 资源，在 `readHelpResource()` 中添加路由
 
-7. **设置面板**（`src/setting/mcp-config.svelte` 及子面板）
+7. **设置面板**（`src/ui/setting/mcp-config.svelte` 及子面板）
    - 在 `ToolCategoriesPanel` 中新增 category 的 checkbox
    - 添加对应的 i18n 文本
 
@@ -70,7 +70,7 @@
 ```
 api/{category}.ts  →  types/api.d.ts
      ↓
-tools/{category}.ts → define-tool.ts → shared.ts → config.ts + help.ts + types.ts
+tools/{category}/index.ts → define-tool.ts → shared.ts → config.ts + help.ts + types.ts
      ↓
 tool-registry.ts
      ↓
@@ -84,9 +84,9 @@ resources.ts (可选)
 如果只是为已有 category 增加新 action，步骤大幅简化：
 
 1. **API 封装**：在对应 `src/api/{category}.ts` 中添加函数
-2. **配置定义**：在 `src/mcp/config.ts` 的 `ACTIONS_BY_CATEGORY[category]` 中新增 action 名
-3. **工具实现**：在对应 `src/mcp/tools/{category}.ts` 的 `variants` 数组中新增 variant
-4. **帮助文案**：在 `src/mcp/help.ts` 中添加 action hint
+2. **配置定义**：在 `src/core/config.ts` 的 `ACTIONS_BY_CATEGORY[category]` 中新增 action 名
+3. **工具实现**：在对应 `src/tools/{category}/index.ts` 的 `variants` 数组中新增 variant
+4. **帮助文案**：在 `src/core/help.ts` 中添加 action hint
 5. **测试**：在 `tests/unit/mcp/tools/{category}.test.ts` 中覆盖新 action
 6. **文档**：更新对应参考页和 `API_MCP_MAPPING.md`
 
@@ -100,10 +100,10 @@ MCP Resources 是静态或动态的帮助文档，AI 客户端可通过 `ReadRes
 
 #### 新增静态资源
 
-在 `src/mcp/resources.ts` 中：
+在 `src/core/resources.ts` 中：
 1. 在 `listHelpResources()` 中新增资源元数据
 2. 在 `readHelpResource()` 中新增 URI 匹配分支
-3. 在 `src/mcp/help.ts` 中定义资源内容文本
+3. 在 `src/core/help.ts` 中定义资源内容文本
 
 #### 新增动态资源模板
 
@@ -121,7 +121,7 @@ CLI 的结果渲染在 `src/cli/render.ts` 中。如需支持新的 payload 类�
 2. 实现对应的渲染函数（参考现有的 `renderArrayPayload()` / `renderPaginatedPayload()` 等）
 3. 确保 `--json` 模式下该 payload 能被 `JSON.stringify` 正确处理
 
-**注意**：新增渲染逻辑时，应同时更新 `src/presentation/invocation-format.ts`，确保 MCP 和 CLI 模式下的帮助文本保持一致。
+**注意**：新增渲染逻辑时，应同时更新 `src/shared/invocation-format.ts`，确保 MCP 和 CLI 模式下的帮助文本保持一致。
 
 ---
 
@@ -131,16 +131,16 @@ CLI 的结果渲染在 `src/cli/render.ts` 中。如需支持新的 payload 类�
 
 #### 新增配置项
 
-1. 在 `src/setting/tool-config.ts` 或相关 schema 文件中定义新字段
-2. 在 `src/setting/tool-config-storage.ts` 中添加 `loadXxx()` / `saveXxx()` 函数
-3. 在 `src/setting/mcp-config.svelte` 的 `onChanged` 分发器中添加 key 前缀路由
+1. 在 `src/ui/setting/tool-config.ts` 或相关 schema 文件中定义新字段
+2. 在 `src/ui/setting/tool-config-storage.ts` 中添加 `loadXxx()` / `saveXxx()` 函数
+3. 在 `src/ui/setting/mcp-config.svelte` 的 `onChanged` 分发器中添加 key 前缀路由
 4. 在对应子面板组件中添加 UI 控件
 5. 在 `src/index.ts` 的 `onload()` 中加载新配置
 
 #### 新增子面板
 
-1. 在 `src/setting/mcp-config/` 下新建 Svelte 组件
-2. 在 `src/setting/mcp-config.svelte` 的 tab-bar 和 content 区域中注册新面板
+1. 在 `src/ui/setting/mcp-config/` 下新建 Svelte 组件
+2. 在 `src/ui/setting/mcp-config.svelte` 的 tab-bar 和 content 区域中注册新面板
 3. 添加 i18n 文本到 `dev/i18n/` 和 `public/i18n/`
 
 ---
@@ -149,9 +149,9 @@ CLI 的结果渲染在 `src/cli/render.ts` 中。如需支持新的 payload 类�
 
 当前支持 stdio 和 HTTP/S。如需新增传输方式：
 
-1. 在 `src/mcp/` 下新建传输实现文件（如 `websocket-transport.ts`）
+1. 在 `src/core/` 下新建传输实现文件（如 `websocket-transport.ts`）
 2. 实现 MCP SDK 的 Transport 接口
-3. 在 `src/mcp/server.ts` 的 `startMcpServer()` 中新增 transport mode 分支
+3. 在 `src/core/server.ts` 的 `startMcpServer()` 中新增 transport mode 分支
 4. 在设置面板 `HttpServerPanel`（或新建面板）中添加配置 UI
 5. 更新文档说明新传输方式的使用方法
 
@@ -174,7 +174,7 @@ CLI 的结果渲染在 `src/cli/render.ts` 中。如需支持新的 payload 类�
 | 约束 | 说明 |
 |------|------|
 | **不要修改 TOOL_REGISTRY 的静态结构** | 保持 `Record<ToolCategory, ToolModule>` 的编译期确定性，不要引入动态扫描或反射 |
-| **不要破坏 Zod Schema 的一致性** | `src/mcp/types.ts` 中的 schema 必须与 `config.ts` 中的 action 列表和 `tools/{category}.ts` 中的 variant schema 保持一致 |
+| **不要破坏 Zod Schema 的一致性** | `src/core/types.ts` 中的 schema 必须与 `config.ts` 中的 action 列表和 `tools/{category}/index.ts` 中的 variant schema 保持一致 |
 | **不要引入全局状态** | `SiYuanClient`、`PermissionManager` 等应作为参数传递，不要保存在模块级变量中（CLI 和插件可能同时存在多个实例） |
 | **保持 CJS 输出格式** | Vite 配置中所有产物都是 CommonJS，不要引入 ESM-only 依赖 |
 | **Node 内置模块保持 external** | server/cli 的 Rollup external 中保留 Node 内置模块，不要打包进 bundle |
@@ -183,7 +183,7 @@ CLI 的结果渲染在 `src/cli/render.ts` 中。如需支持新的 payload 类�
 
 | 约束 | 说明 |
 |------|------|
-| **Tool docs 必须与 config action 列表对齐** | `docs/zh|en/reference/tools/{category}.md` 中的 action 列表必须与 `src/mcp/config.ts` 中的 `ACTIONS_BY_CATEGORY` 完全一致 |
+| **Tool docs 必须与 config action 列表对齐** | `docs/zh|en/reference/tools/{category}.md` 中的 action 列表必须与 `src/core/config.ts` 中的 `ACTIONS_BY_CATEGORY` 完全一致 |
 | **双语同步** | 所有文档变更必须同时更新 `zh/` 和 `en/` 版本 |
 | **API 映射文档必须同步更新** | 新增 action 必须更新 `API_MCP_MAPPING.md` 和 `API_COMPLETE_MAPPING.md` |
 

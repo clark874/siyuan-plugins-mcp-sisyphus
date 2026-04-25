@@ -1,0 +1,338 @@
+import type { SiYuanClient } from '../../api/client';
+import * as searchApi from '../../api/search';
+import { escapeSqlString } from '../context';
+
+function escapeSqlLike(value: string): string {
+    return value
+        .replace(/\0/g, '')
+        .replace(/\\/g, '\\\\')
+        .replace(/%/g, '\\%')
+        .replace(/_/g, '\\_')
+        .replace(/'/g, "''");
+}
+
+function hasBacklinkPayload(result: unknown): result is { backlinks?: unknown[]; backmentions?: unknown[] } {
+    return !!result && typeof result === 'object';
+}
+
+const READ_ONLY_SQL_ERROR = 'Only SELECT statements and WITH CTEs whose main statement is SELECT are allowed. Mutation queries (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE) are forbidden.';
+
+function maskSqlLiteralsAndComments(stmt: string): string {
+    let result = '';
+    let index = 0;
+
+    while (index < stmt.length) {
+        const current = stmt[index];
+        const next = stmt[index + 1];
+
+        if (current === '-' && next === '-') {
+            result += '  ';
+            index += 2;
+            while (index < stmt.length && stmt[index] !== '\n') {
+                result += ' ';
+                index += 1;
+            }
+            continue;
+        }
+
+        if (current === '/' && next === '*') {
+            result += '  ';
+            index += 2;
+            while (index < stmt.length) {
+                if (stmt[index] === '*' && stmt[index + 1] === '/') {
+                    result += '  ';
+                    index += 2;
+                    break;
+                }
+                result += stmt[index] === '\n' ? '\n' : ' ';
+                index += 1;
+            }
+            continue;
+        }
+
+        if (current === '\'' || current === '"' || current === '`') {
+            const quote = current;
+            result += ' ';
+            index += 1;
+            while (index < stmt.length) {
+                const char = stmt[index];
+                result += char === '\n' ? '\n' : ' ';
+                index += 1;
+                if (char === quote) {
+                    if ((quote === '\'' || quote === '"') && stmt[index] === quote) {
+                        result += ' ';
+                        index += 1;
+                        continue;
+                    }
+                    break;
+                }
+            }
+            continue;
+        }
+
+        if (current === '[') {
+            result += ' ';
+            index += 1;
+            while (index < stmt.length) {
+                const char = stmt[index];
+                result += char === '\n' ? '\n' : ' ';
+                index += 1;
+                if (char === ']') break;
+            }
+            continue;
+        }
+
+        result += current;
+        index += 1;
+    }
+
+    return result;
+}
+
+function skipWhitespace(value: string, index: number): number {
+    while (index < value.length && /\s/.test(value[index])) index += 1;
+    return index;
+}
+
+function readKeyword(value: string, index: number): { keyword: string; end: number } | null {
+    const start = skipWhitespace(value, index);
+    const match = /^[A-Za-z_][A-Za-z0-9_]*/.exec(value.slice(start));
+    if (!match) return null;
+    return { keyword: match[0].toUpperCase(), end: start + match[0].length };
+}
+
+function skipIdentifier(value: string, index: number): number {
+    const start = skipWhitespace(value, index);
+    const match = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(value.slice(start));
+    if (!match) throw new Error(READ_ONLY_SQL_ERROR);
+    return start + match[0].length;
+}
+
+function skipBalancedParens(value: string, index: number): number {
+    const start = skipWhitespace(value, index);
+    if (value[start] !== '(') throw new Error(READ_ONLY_SQL_ERROR);
+
+    let depth = 0;
+    for (let cursor = start; cursor < value.length; cursor += 1) {
+        if (value[cursor] === '(') depth += 1;
+        if (value[cursor] === ')') {
+            depth -= 1;
+            if (depth === 0) return cursor + 1;
+        }
+    }
+
+    throw new Error(READ_ONLY_SQL_ERROR);
+}
+
+function assertNoAdditionalStatements(masked: string): void {
+    const firstSemicolon = masked.indexOf(';');
+    if (firstSemicolon < 0) return;
+    if (masked.slice(firstSemicolon + 1).trim().length > 0) {
+        throw new Error(READ_ONLY_SQL_ERROR);
+    }
+}
+
+function assertReadOnlyWithSql(masked: string, withEnd: number): void {
+    let index = skipWhitespace(masked, withEnd);
+    const maybeRecursive = readKeyword(masked, index);
+    if (maybeRecursive?.keyword === 'RECURSIVE') {
+        index = maybeRecursive.end;
+    }
+
+    while (index < masked.length) {
+        index = skipIdentifier(masked, index);
+        index = skipWhitespace(masked, index);
+
+        if (masked[index] === '(') {
+            index = skipBalancedParens(masked, index);
+            index = skipWhitespace(masked, index);
+        }
+
+        const asKeyword = readKeyword(masked, index);
+        if (asKeyword?.keyword !== 'AS') throw new Error(READ_ONLY_SQL_ERROR);
+        index = skipWhitespace(masked, asKeyword.end);
+
+        const materializedKeyword = readKeyword(masked, index);
+        if (materializedKeyword?.keyword === 'MATERIALIZED') {
+            index = skipWhitespace(masked, materializedKeyword.end);
+        } else if (materializedKeyword?.keyword === 'NOT') {
+            const nextKeyword = readKeyword(masked, materializedKeyword.end);
+            if (nextKeyword?.keyword !== 'MATERIALIZED') throw new Error(READ_ONLY_SQL_ERROR);
+            index = skipWhitespace(masked, nextKeyword.end);
+        }
+
+        index = skipBalancedParens(masked, index);
+        index = skipWhitespace(masked, index);
+
+        if (masked[index] === ',') {
+            index += 1;
+            continue;
+        }
+
+        const mainStatement = readKeyword(masked, index);
+        if (mainStatement?.keyword !== 'SELECT') {
+            throw new Error(READ_ONLY_SQL_ERROR);
+        }
+        return;
+    }
+
+    throw new Error(READ_ONLY_SQL_ERROR);
+}
+
+export function assertReadOnlySql(stmt: string): void {
+    const masked = maskSqlLiteralsAndComments(stmt).trim();
+    assertNoAdditionalStatements(masked);
+
+    const firstWord = readKeyword(masked, 0);
+    if (firstWord?.keyword === 'SELECT') {
+        return;
+    }
+    if (firstWord?.keyword === 'WITH') {
+        assertReadOnlyWithSql(masked, firstWord.end);
+        return;
+    }
+
+    throw new Error(READ_ONLY_SQL_ERROR);
+}
+
+async function getBlockLabel(client: SiYuanClient, id: string): Promise<string | undefined> {
+    const rows = await searchApi.querySQL(
+        client,
+        `SELECT content, name FROM blocks WHERE id = '${escapeSqlString(id)}' LIMIT 1`,
+    );
+    const row = Array.isArray(rows) && rows[0] && typeof rows[0] === 'object'
+        ? rows[0] as Record<string, unknown>
+        : null;
+    if (!row) return undefined;
+
+    const label = [row.content, row.name].find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    return label?.trim();
+}
+
+async function queryFallbackBacklinkRows(
+    client: SiYuanClient,
+    id: string,
+    keyword?: string,
+    refTreeID?: string,
+): Promise<unknown[]> {
+    const escapedId = escapeSqlString(id);
+    const filters = [
+        "s.type = 'textmark block-ref'",
+        `instr(s.markdown, '${escapedId}') > 0`,
+    ];
+    if (refTreeID) {
+        filters.push(`s.root_id = '${escapeSqlString(refTreeID)}'`);
+    }
+    if (keyword && keyword.trim()) {
+        filters.push(`b.content LIKE '%${escapeSqlLike(keyword.trim())}%' ESCAPE '\\'`);
+    }
+
+    return searchApi.querySQL(
+        client,
+        `
+        SELECT
+            s.block_id AS id,
+            s.root_id,
+            s.box,
+            s.path,
+            b.hpath,
+            b.type,
+            b.content,
+            b.markdown
+        FROM spans s
+        LEFT JOIN blocks b ON b.id = s.block_id
+        WHERE ${filters.join(' AND ')}
+        ORDER BY b.updated DESC
+        LIMIT 200
+        `.trim(),
+    );
+}
+
+async function queryFallbackBackmentionRows(
+    client: SiYuanClient,
+    id: string,
+    keyword?: string,
+    refTreeID?: string,
+): Promise<unknown[]> {
+    const label = await getBlockLabel(client, id);
+    if (!label) return [];
+
+    const filters = [
+        `id != '${escapeSqlString(id)}'`,
+        `instr(content, '${escapeSqlString(label)}') > 0`,
+    ];
+    if (refTreeID) {
+        filters.push(`root_id = '${escapeSqlString(refTreeID)}'`);
+    }
+    if (keyword && keyword.trim()) {
+        filters.push(`instr(content, '${escapeSqlString(keyword.trim())}') > 0`);
+    }
+
+    return searchApi.querySQL(
+        client,
+        `
+        SELECT
+            id,
+            root_id,
+            box,
+            path,
+            hpath,
+            type,
+            content,
+            markdown
+        FROM blocks
+        WHERE ${filters.join(' AND ')}
+        ORDER BY updated DESC
+        LIMIT 200
+        `.trim(),
+    );
+}
+
+export async function getBacklinkDocWithFallback(
+    client: SiYuanClient,
+    id: string,
+    keyword?: string,
+    refTreeID?: string,
+): Promise<{ backlinks: unknown[]; backmentions: unknown[]; fallbackUsed?: boolean; sourcePayloadMissing?: boolean; fallbackQuery?: 'sql'; resultConfidence?: 'fallback' }> {
+    const result = await searchApi.getBacklinkDoc(client, id, keyword, refTreeID);
+    if (hasBacklinkPayload(result) && (Array.isArray(result.backlinks) || Array.isArray(result.backmentions))) {
+        return {
+            backlinks: Array.isArray(result.backlinks) ? result.backlinks : [],
+            backmentions: Array.isArray(result.backmentions) ? result.backmentions : [],
+        };
+    }
+
+    const [backlinks, backmentions] = await Promise.all([
+        queryFallbackBacklinkRows(client, id, keyword, refTreeID),
+        queryFallbackBackmentionRows(client, id, keyword, refTreeID),
+    ]);
+    return {
+        backlinks,
+        backmentions,
+        fallbackUsed: true,
+        sourcePayloadMissing: true,
+        fallbackQuery: 'sql',
+        resultConfidence: 'fallback',
+    };
+}
+
+export async function getBackmentionDocWithFallback(
+    client: SiYuanClient,
+    id: string,
+    keyword?: string,
+    refTreeID?: string,
+): Promise<{ backmentions: unknown[]; fallbackUsed?: boolean; sourcePayloadMissing?: boolean; fallbackQuery?: 'sql'; resultConfidence?: 'fallback' }> {
+    const result = await searchApi.getBackmentionDoc(client, id, keyword, refTreeID);
+    if (result && typeof result === 'object' && Array.isArray((result as { backmentions?: unknown[] }).backmentions)) {
+        return { backmentions: (result as { backmentions: unknown[] }).backmentions };
+    }
+
+    const backmentions = await queryFallbackBackmentionRows(client, id, keyword, refTreeID);
+    return {
+        backmentions,
+        fallbackUsed: true,
+        sourcePayloadMissing: true,
+        fallbackQuery: 'sql',
+        resultConfidence: 'fallback',
+    };
+}

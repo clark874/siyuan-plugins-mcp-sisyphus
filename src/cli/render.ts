@@ -1,5 +1,7 @@
-import type { ToolResult } from '../mcp/tools/shared';
-import { translatePresentationPayload, translatePresentationText } from '../presentation/invocation-format';
+import type { ToolResult } from '../core/tools/shared';
+import { isActionHelpPayload, isHelpIndexPayload } from '../shared/help-payload';
+import { translatePresentationPayload, translatePresentationText } from '../shared/invocation-format';
+
 
 export interface RenderOptions {
     json: boolean;
@@ -611,16 +613,4 @@ function isScalar(value: unknown): value is string | number | boolean | null {
 
 function isObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isHelpIndexPayload(value: Record<string, unknown>): boolean {
-    return typeof value.tool === 'string'
-        && (Array.isArray(value.commonActions) || Array.isArray(value.advancedActions))
-        && value.action === undefined;
-}
-
-function isActionHelpPayload(value: Record<string, unknown>): boolean {
-    return typeof value.tool === 'string'
-        && typeof value.action === 'string'
-        && (value.example !== undefined || Array.isArray(value.shapes));
 }

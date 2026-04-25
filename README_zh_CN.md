@@ -1,8 +1,27 @@
 # SiYuan Sisyphus MCP & CLI
 
-[English](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md) | [中文](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
+<p align="left">
+  <a href="https://www.npmjs.com/package/siyuan-sisyphus">
+    <img src="https://img.shields.io/npm/v/siyuan-sisyphus?style=flat-square&color=%23cb3837" alt="npm version">
+  </a>
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/LICENSE">
+    <img src="https://img.shields.io/github/license/yangtaihong59/siyuan-plugins-mcp-sisyphus?style=flat-square&color=%23007ec6" alt="license">
+  </a>
+  <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">
+    <img src="https://img.shields.io/badge/docs-VitePress-646cff?style=flat-square&logo=vitepress" alt="Documentation">
+  </a>
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/releases">
+    <img src="https://img.shields.io/github/v/release/yangtaihong59/siyuan-plugins-mcp-sisyphus?style=flat-square&color=%23007ec6" alt="GitHub release">
+  </a>
+</p>
 
-> **最新版本：**`v0.3.3` — CLI 新增多 profile 配置管理、交互式分页浏览，文档站点重组为细分结构。详见 [CHANGELOG.md](./CHANGELOG.md)。
+<p align="left">
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README.md">English</a> |
+  <a href="https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md">中文</a> |
+  <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
+</p>
+
+> **最新版本：**`v0.3.4` — AV `add_rows` 支持通过 `primaryKeyTexts` 直接添加 detached 游离行；SQL 只读校验升级为完整词法分析器；flashcard `review_card` schema 收紧。详见 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
@@ -108,10 +127,11 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 
 ### 不同思源安装场景的连接方式
 
-| 安装场景 | 推荐方式 |
+| 思源安装方式 | 推荐连接方式 |
 |------|---------|
 | 桌面端（Windows / macOS / Linux） | HTTP 或 stdio 或 CLI |
 | Docker | stdio 或 CLI |
+| 手机端 | CLI |
 
 插件设置页底部提供三段可直接复制的配置：HTTP 连接方式、mcp-remote 桥接、stdio 连接方式。
 
@@ -296,7 +316,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `get_attribute_view_keys` | 返回属性视图的列信息 |
 | `get_attribute_view_filter_sort` | 返回视图的筛选与排序配置 |
 | `search` | 按关键词搜索属性视图 |
-| `add_rows` | 将已有块绑定为数据库行 |
+| `add_rows` | 添加绑定块行，或添加纯文本主键的 detached 行 |
 | `remove_rows` | 从属性视图中移除已绑定的行 |
 | `add_column` | 新增数据库列 |
 | `remove_column` | 删除属性视图中的一列 |

@@ -2,7 +2,7 @@
 layout: home
 ---
 
-# SiYuan MCP Sisyphus Documentation
+# SiYuan Sisyphus MCP & CLI Documentation
 
 This site documents both deliverables in this repository:
 

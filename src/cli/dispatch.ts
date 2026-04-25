@@ -3,17 +3,18 @@ import {
     TOOL_CATEGORIES,
     type ToolCategory,
     type ToolConfig,
-} from '../mcp/config';
-import { TOOL_REGISTRY, resolveCategory } from '../mcp/tool-registry';
-import { runToolCall } from '../mcp/tool-lifecycle';
+} from '../core/config';
+import { TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
+import { runToolCall } from '../core/tool-lifecycle';
+import { PRIMARY_CLI_COMMAND } from '../shared/constants';
+
 
 import type { ParsedArgs } from './args';
-import { PRIMARY_CLI_COMMAND } from './args';
 import { mapFlagsToArgs } from './flag-mapper';
 import { extractPaginationInfo, renderCliError, renderToolResult } from './render';
 import { loadCliRuntimeState } from './runtime';
 
-import type { ToolResult } from '../mcp/tools/shared';
+import type { ToolResult } from '../tools/shared';
 
 export async function runDispatch(cli: ParsedArgs): Promise<number> {
     const { tool, action, rest } = cli;

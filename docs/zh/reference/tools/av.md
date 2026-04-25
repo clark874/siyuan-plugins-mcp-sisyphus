@@ -55,6 +55,8 @@ CLI：
 ```bash
 siyuan av get --id <attribute-view-id>
 siyuan av add-column --av-id <attribute-view-id> --key-name Status --key-type select
+siyuan av add-rows --av-id <attribute-view-id> --block-ids <block-id>
+siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "纯文本行"
 ```
 
 ## Action 列表

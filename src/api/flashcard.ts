@@ -56,7 +56,7 @@ export async function reviewRiffCard(
     deckID: string,
     cardID: string,
     rating: number,
-    reviewedCards?: unknown,
+    reviewedCards?: Array<{ cardID: string; [key: string]: unknown }>,
 ): Promise<unknown> {
     return client.request('/api/riff/reviewRiffCard', {
         deckID,

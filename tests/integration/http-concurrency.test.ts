@@ -4,7 +4,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { startHttpMcpServer, type HttpMcpServerHandle } from '@/mcp/http-transport';
+import { createSiYuanServer } from '@/core/server';
+import { startHttpMcpServer, type HttpMcpServerHandle } from '@/core/http-transport';
+
 
 const TOOL_CONFIG_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
 const PERMISSIONS_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions';
@@ -126,6 +128,7 @@ describe('HTTP MCP concurrency', () => {
             port,
             token: 'http-test-token',
             path: '/mcp',
+            serverFactory: createSiYuanServer,
         });
 
         const serverUrl = new URL(`http://127.0.0.1:${serverHandle.port}${serverHandle.path}`);
@@ -180,6 +183,7 @@ describe('HTTP MCP concurrency', () => {
             port,
             token: 'http-test-token',
             path: '/mcp',
+            serverFactory: createSiYuanServer,
         });
 
         const serverUrl = new URL(`http://127.0.0.1:${serverHandle.port}${serverHandle.path}`);

@@ -1,6 +1,6 @@
 {
     "toolSettingsChangelogTitle": "更新日志",
-    "toolSettingsChangelogText": "🎉现在覆盖思源桌面、docker多种安装方式兼容；提供MCP/CLI两种连接方式",
+    "toolSettingsChangelogText": "🎉现在覆盖思源桌面、docker、移动端多种安装方式兼容；提供MCP/CLI两种连接方式",
     "addTopBarIcon": "使用插件添加一个顶栏按钮",
     "cancel": "取消",
     "save": "保存",

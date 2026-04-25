@@ -1,10 +1,11 @@
 import minimist from 'minimist';
 
+import { CLI_COMMAND_ALIAS, PRIMARY_CLI_COMMAND } from '../shared/constants';
+
 export type Command = 'dispatch' | 'list' | 'help' | 'init' | 'config' | 'show-help' | 'version';
 export type ConfigCommandAction = 'list' | 'get' | 'set' | 'use';
 
-export const PRIMARY_CLI_COMMAND = 'siyuan-sisyphus';
-export const CLI_COMMAND_ALIAS = 'siyuan';
+export { PRIMARY_CLI_COMMAND, CLI_COMMAND_ALIAS } from '../shared/constants';
 
 export interface ParsedArgs {
     command: Command;
@@ -192,7 +193,7 @@ function blank(command: Command): ParsedArgs {
 
 /**
  * Return argv with the first two positionals (tool + action) and the four
- * global flags (--config / --url / --token / --json / --debug / --help / --version)
+ * global flags (--config / --profile / --url / --token / --json / --debug / --help / --version)
  * stripped. The remainder goes to the schema-aware tool-flag parser.
  */
 function extractToolRest(argv: string[]): string[] {

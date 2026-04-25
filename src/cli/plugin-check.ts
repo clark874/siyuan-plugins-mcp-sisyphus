@@ -1,5 +1,5 @@
 import type { SiYuanClient } from '../api/client';
-import { PERMISSIONS_API_PATH } from '../mcp/permissions';
+import { PERMISSIONS_API_PATH } from '../core/permissions';
 
 export const REQUIRED_PLUGIN_NAME = 'siyuan-plugins-mcp-sisyphus';
 export const REQUIRED_PLUGIN_MANIFEST_PATH = `/data/plugins/${REQUIRED_PLUGIN_NAME}/plugin.json`;

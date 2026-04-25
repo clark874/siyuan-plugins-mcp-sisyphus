@@ -6,13 +6,13 @@ vi.mock('siyuan', () => ({
     Dialog: class {},
 }), { virtual: true });
 
-vi.mock('@/setting/mcp-config.svelte', () => ({
+vi.mock('@/ui/setting/mcp-config.svelte', () => ({
     default: class {
         $destroy() {}
     },
 }));
 
-vi.mock('@/components/ToolPuppy.svelte', () => ({
+vi.mock('@/ui/components/ToolPuppy.svelte', () => ({
     default: class {
         constructor(_: unknown) {}
         $set(_: unknown) {}
@@ -21,8 +21,11 @@ vi.mock('@/components/ToolPuppy.svelte', () => ({
 }));
 
 import SiyuanMCP from '@/index';
-import type { HttpServerSettings } from '@/setting/tool-config-storage';
+import { resetToolConfigWarningStateForTests } from '@/core/config';
+import type { HttpServerSettings } from '@/ui/setting/tool-config-storage';
+
 import { HttpServerLauncher } from '@/server-launcher';
+import { showMessage } from 'siyuan';
 
 describe('HTTP settings sync', () => {
     let plugin: SiyuanMCP;
@@ -32,6 +35,8 @@ describe('HTTP settings sync', () => {
     let launcherStop: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
+        resetToolConfigWarningStateForTests();
+        vi.mocked(showMessage).mockClear();
         plugin = new SiyuanMCP();
         loadData = vi.fn().mockResolvedValue(undefined);
         saveData = vi.fn().mockResolvedValue(undefined);
@@ -194,5 +199,24 @@ describe('HTTP settings sync', () => {
             port: 36806,
             siyuanToken: 'siyuan-token',
         }));
+    });
+
+    it('shows a one-time warning when persisted tool config uses the legacy format', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        loadData.mockImplementation(async (storageName: string) => {
+            if (storageName === 'mcpToolsConfig') {
+                return {
+                    notebook: ['list', 'rename'],
+                    remove_document: true,
+                };
+            }
+            return undefined;
+        });
+
+        await plugin.onload();
+        await plugin.onload();
+
+        expect(showMessage).toHaveBeenCalledTimes(1);
+        expect(showMessage).toHaveBeenCalledWith(expect.stringContaining('Detected legacy tool config format'));
     });
 });

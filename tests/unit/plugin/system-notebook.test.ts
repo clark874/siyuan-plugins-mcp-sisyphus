@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { CategoryToolConfig } from '@/mcp/config';
-import { callNotebookTool } from '@/mcp/tools/notebook';
-import { callSystemTool } from '@/mcp/tools/system';
+import type { CategoryToolConfig } from '@/core/config';
+import { callNotebookTool } from '@/tools/notebook';
+import { callSystemTool } from '@/tools/system';
 
 import * as notebookApi from '@/api/notebook';
 import * as systemApi from '@/api/system';
-import * as contextTools from '@/mcp/tools/context';
+import * as contextTools from '@/tools/context';
 
 import { parseResult } from '../../helpers/parse-result';
 
