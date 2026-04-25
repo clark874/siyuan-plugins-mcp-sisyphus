@@ -256,7 +256,7 @@
 | `get_attribute_view_keys` | `POST /api/av/getAttributeViewKeys` | `src/api/av.ts` | 获取属性视图键列表 |
 | `get_attribute_view_filter_sort` | `POST /api/av/getAttributeViewFilterSort` | `src/api/av.ts` | 获取属性视图过滤排序条件 |
 | `search` | `POST /api/av/searchAttributeView` | `src/api/av.ts` | 搜索属性视图 |
-| `add_rows` | `POST /api/av/addAttributeViewBlocks` | `src/api/av.ts` | 添加行(绑定已有块) |
+| `add_rows` | `POST /api/av/addAttributeViewBlocks` | `src/api/av.ts` | 添加行（绑定已有块或纯文本 detached 主键） |
 | `remove_rows` | `POST /api/av/removeAttributeViewBlocks` | `src/api/av.ts` | 移除行 |
 | `add_column` | `POST /api/av/addAttributeViewKey` | `src/api/av.ts` | 添加列/字段 |
 | `remove_column` | `POST /api/av/removeAttributeViewKey` | `src/api/av.ts` | 移除列/字段 |

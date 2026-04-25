@@ -77,8 +77,9 @@ type AvRowLookup = {
 };
 
 type AddRowsResolution = {
-    rows: Array<{ blockID: string; rowID?: string; rowIDs?: string[]; status?: 'resolved' | 'missing' | 'ambiguous' }>;
+    rows: Array<{ blockID?: string; primaryKeyText?: string; rowID?: string; rowIDs?: string[]; status?: 'resolved' | 'missing' | 'ambiguous' }>;
     unresolvedBlockIDs: string[];
+    unresolvedRowIDs?: string[];
 };
 
 const ADD_ROWS_POLL_ATTEMPTS = 6;
@@ -237,6 +238,7 @@ function createAddRowsSyncTimeoutResult(
     avID: string,
     blockIDs: string[],
     resolution: AddRowsResolution,
+    primaryKeyTexts: string[] = [],
 ): ToolResult {
     return {
         content: [{
@@ -249,9 +251,11 @@ function createAddRowsSyncTimeoutResult(
                     reason: 'row_id_sync_timeout',
                     message: `Added rows to attribute view "${avID}", but MCP could not observe writable row item IDs before the sync timeout expired.`,
                     avID,
-                    blockIDs,
+                    ...(blockIDs.length > 0 ? { blockIDs } : {}),
+                    ...(primaryKeyTexts.length > 0 ? { primaryKeyTexts } : {}),
                     rows: resolution.rows,
-                    unresolvedBlockIDs: resolution.unresolvedBlockIDs,
+                    ...(resolution.unresolvedBlockIDs.length > 0 ? { unresolvedBlockIDs: resolution.unresolvedBlockIDs } : {}),
+                    ...(resolution.unresolvedRowIDs && resolution.unresolvedRowIDs.length > 0 ? { unresolvedRowIDs: resolution.unresolvedRowIDs } : {}),
                     hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cell after add_rows returns rows[].rowID.',
                 },
             }, null, 2),
@@ -277,20 +281,47 @@ function resolveAddedRows(rowLookup: AvRowLookup, blockIDs: string[]): AddRowsRe
     return { rows, unresolvedBlockIDs };
 }
 
+function resolveDetachedRows(
+    rowLookup: AvRowLookup,
+    rows: Array<{ primaryKeyText: string; rowID: string }>,
+): AddRowsResolution {
+    const resolvedRows = rows.map((row) => (
+        rowLookup.rowIDs.has(row.rowID)
+            ? row
+            : { ...row, status: 'missing' as const }
+    ));
+    const unresolvedRowIDs = resolvedRows
+        .filter((row) => 'status' in row && row.status === 'missing')
+        .map((row) => row.rowID);
+    return { rows: resolvedRows, unresolvedBlockIDs: [], unresolvedRowIDs };
+}
+
 async function waitForAddedRows(
     client: SiYuanClient,
     avID: string,
     blockIDs: string[],
+    detachedRows: Array<{ primaryKeyText: string; rowID: string }> = [],
 ): Promise<AddRowsResolution> {
     let lastResolution: AddRowsResolution = {
-        rows: blockIDs.map((blockID) => ({ blockID })),
+        rows: [
+            ...blockIDs.map((blockID) => ({ blockID })),
+            ...detachedRows,
+        ],
         unresolvedBlockIDs: [...blockIDs],
+        unresolvedRowIDs: detachedRows.map((row) => row.rowID),
     };
 
     for (let attempt = 0; attempt < ADD_ROWS_POLL_ATTEMPTS; attempt += 1) {
         const refreshed = await avApi.getAttributeView(client, avID);
-        lastResolution = resolveAddedRows(extractAvRowLookup(refreshed.av), blockIDs);
-        if (lastResolution.unresolvedBlockIDs.length === 0) {
+        const rowLookup = extractAvRowLookup(refreshed.av);
+        const boundResolution = resolveAddedRows(rowLookup, blockIDs);
+        const detachedResolution = resolveDetachedRows(rowLookup, detachedRows);
+        lastResolution = {
+            rows: [...boundResolution.rows, ...detachedResolution.rows],
+            unresolvedBlockIDs: boundResolution.unresolvedBlockIDs,
+            unresolvedRowIDs: detachedResolution.unresolvedRowIDs,
+        };
+        if (lastResolution.unresolvedBlockIDs.length === 0 && (!lastResolution.unresolvedRowIDs || lastResolution.unresolvedRowIDs.length === 0)) {
             return lastResolution;
         }
         if (attempt < ADD_ROWS_POLL_ATTEMPTS - 1) {
@@ -870,6 +901,21 @@ function buildStrongCellValue(
     }
 }
 
+function buildBatchCellValue(
+    columnID: string,
+    rowID: string,
+    input: StrongCellValueInput,
+): Record<string, unknown> {
+    const value = buildStrongCellValue(columnID, rowID, input);
+    delete value.keyID;
+    delete value.blockID;
+    return {
+        keyID: columnID,
+        itemID: rowID,
+        value,
+    };
+}
+
 async function handleGet({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvGetSchema.parse(rawArgs);
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
@@ -1042,7 +1088,7 @@ async function handleGetAttributeViewFilterSort({ client, permMgr, rawArgs }: To
 
     const response = await avApi.getAttributeViewFilterSort(client, {
         id: parsed.id,
-        ...(parsed.blockID ? { blockID: parsed.blockID } : {}),
+        blockID: parsed.blockID ?? '',
     });
 
     return createJsonResult({
@@ -1057,17 +1103,26 @@ async function handleAddRows({ client, permMgr, rawArgs }: ToolHandlerContext): 
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'add_rows' });
     if (denied) return denied;
 
-    if (parsed.blockIDs.length === 0) {
+    const blockIDs = parsed.blockIDs ?? [];
+    const primaryKeyTexts = parsed.primaryKeyTexts ?? [];
+    if (blockIDs.length === 0 && primaryKeyTexts.length === 0) {
         return createWriteSuccessResult({
             action: 'add_rows',
             avID: parsed.avID,
             blockIDs: [],
+            primaryKeyTexts: [],
             rows: [],
             added: 0,
             skipped: true,
-            message: 'No blockIDs were provided, so no rows were added.',
+            message: 'No blockIDs or primaryKeyTexts were provided, so no rows were added.',
         });
     }
+
+    const detachedRows = primaryKeyTexts.map((primaryKeyText) => ({
+        primaryKeyText,
+        rowID: generateSiYuanNodeId(),
+        srcID: generateSiYuanNodeId(),
+    }));
 
     await avApi.addAttributeViewBlocks(client, {
         avID: parsed.avID,
@@ -1076,21 +1131,35 @@ async function handleAddRows({ client, permMgr, rawArgs }: ToolHandlerContext): 
         groupID: parsed.groupID,
         previousID: parsed.previousID,
         ignoreDefaultFill: parsed.ignoreDefaultFill,
-        srcs: parsed.blockIDs.map((id) => ({ id, isDetached: false })),
+        srcs: [
+            ...blockIDs.map((id) => ({ id, isDetached: false })),
+            ...detachedRows.map((row) => ({
+                itemID: row.rowID,
+                id: row.srcID,
+                isDetached: true,
+                content: row.primaryKeyText,
+            })),
+        ],
     });
 
-    const resolution = await waitForAddedRows(client, parsed.avID, parsed.blockIDs);
-    if (resolution.unresolvedBlockIDs.length > 0) {
-        return createAddRowsSyncTimeoutResult(parsed.avID, parsed.blockIDs, resolution);
+    const resolution = await waitForAddedRows(
+        client,
+        parsed.avID,
+        blockIDs,
+        detachedRows.map((row) => ({ primaryKeyText: row.primaryKeyText, rowID: row.rowID })),
+    );
+    if (resolution.unresolvedBlockIDs.length > 0 || (resolution.unresolvedRowIDs && resolution.unresolvedRowIDs.length > 0)) {
+        return createAddRowsSyncTimeoutResult(parsed.avID, blockIDs, resolution, primaryKeyTexts);
     }
 
     const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'add_rows',
         avID: parsed.avID,
-        blockIDs: parsed.blockIDs,
+        ...(blockIDs.length > 0 ? { blockIDs } : {}),
+        ...(primaryKeyTexts.length > 0 ? { primaryKeyTexts } : {}),
         rows: resolution.rows,
-        added: parsed.blockIDs.length,
+        added: blockIDs.length + primaryKeyTexts.length,
     }), refreshOperations);
 }
 
@@ -1181,7 +1250,7 @@ async function handleBatchSetCells({ client, permMgr, rawArgs }: ToolHandlerCont
         const item = parsed.items[index];
         const validatedRowID = validateRowIdForAv(parsed.avID, 'batch_set_cells', rowLookup, item.rowID, index);
         if (!validatedRowID.ok) return validatedRowID.result;
-        values.push(buildStrongCellValue(item.columnID, validatedRowID.rowID, item));
+        values.push(buildBatchCellValue(item.columnID, validatedRowID.rowID, item));
     }
     await avApi.batchSetAttributeViewBlockAttrs(client, parsed.avID, values);
 

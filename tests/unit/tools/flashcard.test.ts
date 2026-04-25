@@ -441,6 +441,44 @@ describe('flashcard tool', () => {
         expect(skipResult.content[0].text).toContain('requires a concrete deckID');
     });
 
+    it('passes reviewedCards with cardID through to the kernel review API', async () => {
+        const api = await import('@/api/flashcard');
+        vi.mocked(api.reviewRiffCard).mockResolvedValue(null);
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'review_card',
+            deckID: 'deck-1',
+            cardID: 'card-2',
+            rating: 3,
+            reviewedCards: [{ cardID: 'card-1', rating: 2 }],
+        }, enabledActions as any, {} as any);
+
+        expect(result.isError).toBeUndefined();
+        expect(vi.mocked(api.reviewRiffCard)).toHaveBeenCalledWith(
+            expect.anything(),
+            'deck-1',
+            'card-2',
+            3,
+            [{ cardID: 'card-1', rating: 2 }],
+        );
+    });
+
+    it('rejects reviewedCards entries without cardID before calling the kernel', async () => {
+        const api = await import('@/api/flashcard');
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'review_card',
+            deckID: 'deck-1',
+            cardID: 'card-2',
+            rating: 3,
+            reviewedCards: [{ id: 'card-1' }],
+        }, enabledActions as any, {} as any);
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('reviewedCards[0].cardID is required');
+        expect(vi.mocked(api.reviewRiffCard)).not.toHaveBeenCalled();
+    });
+
     it('returns structured help including remove_card danger hint', async () => {
         const result = await callFlashcardTool({} as any, { action: 'help' }, enabledActions as any, {} as any);
         const payload = JSON.parse(result.content[0].text);

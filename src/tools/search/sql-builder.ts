@@ -15,12 +15,184 @@ function hasBacklinkPayload(result: unknown): result is { backlinks?: unknown[];
     return !!result && typeof result === 'object';
 }
 
-export function assertReadOnlySql(stmt: string): void {
-    const trimmed = stmt.trim();
-    const firstWord = trimmed.split(/\s+/)[0]?.toUpperCase();
-    if (firstWord !== 'SELECT' && firstWord !== 'WITH') {
-        throw new Error('Only SELECT and WITH (CTE) statements are allowed. Mutation queries (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE) are forbidden.');
+const READ_ONLY_SQL_ERROR = 'Only SELECT statements and WITH CTEs whose main statement is SELECT are allowed. Mutation queries (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE) are forbidden.';
+
+function maskSqlLiteralsAndComments(stmt: string): string {
+    let result = '';
+    let index = 0;
+
+    while (index < stmt.length) {
+        const current = stmt[index];
+        const next = stmt[index + 1];
+
+        if (current === '-' && next === '-') {
+            result += '  ';
+            index += 2;
+            while (index < stmt.length && stmt[index] !== '\n') {
+                result += ' ';
+                index += 1;
+            }
+            continue;
+        }
+
+        if (current === '/' && next === '*') {
+            result += '  ';
+            index += 2;
+            while (index < stmt.length) {
+                if (stmt[index] === '*' && stmt[index + 1] === '/') {
+                    result += '  ';
+                    index += 2;
+                    break;
+                }
+                result += stmt[index] === '\n' ? '\n' : ' ';
+                index += 1;
+            }
+            continue;
+        }
+
+        if (current === '\'' || current === '"' || current === '`') {
+            const quote = current;
+            result += ' ';
+            index += 1;
+            while (index < stmt.length) {
+                const char = stmt[index];
+                result += char === '\n' ? '\n' : ' ';
+                index += 1;
+                if (char === quote) {
+                    if ((quote === '\'' || quote === '"') && stmt[index] === quote) {
+                        result += ' ';
+                        index += 1;
+                        continue;
+                    }
+                    break;
+                }
+            }
+            continue;
+        }
+
+        if (current === '[') {
+            result += ' ';
+            index += 1;
+            while (index < stmt.length) {
+                const char = stmt[index];
+                result += char === '\n' ? '\n' : ' ';
+                index += 1;
+                if (char === ']') break;
+            }
+            continue;
+        }
+
+        result += current;
+        index += 1;
     }
+
+    return result;
+}
+
+function skipWhitespace(value: string, index: number): number {
+    while (index < value.length && /\s/.test(value[index])) index += 1;
+    return index;
+}
+
+function readKeyword(value: string, index: number): { keyword: string; end: number } | null {
+    const start = skipWhitespace(value, index);
+    const match = /^[A-Za-z_][A-Za-z0-9_]*/.exec(value.slice(start));
+    if (!match) return null;
+    return { keyword: match[0].toUpperCase(), end: start + match[0].length };
+}
+
+function skipIdentifier(value: string, index: number): number {
+    const start = skipWhitespace(value, index);
+    const match = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(value.slice(start));
+    if (!match) throw new Error(READ_ONLY_SQL_ERROR);
+    return start + match[0].length;
+}
+
+function skipBalancedParens(value: string, index: number): number {
+    const start = skipWhitespace(value, index);
+    if (value[start] !== '(') throw new Error(READ_ONLY_SQL_ERROR);
+
+    let depth = 0;
+    for (let cursor = start; cursor < value.length; cursor += 1) {
+        if (value[cursor] === '(') depth += 1;
+        if (value[cursor] === ')') {
+            depth -= 1;
+            if (depth === 0) return cursor + 1;
+        }
+    }
+
+    throw new Error(READ_ONLY_SQL_ERROR);
+}
+
+function assertNoAdditionalStatements(masked: string): void {
+    const firstSemicolon = masked.indexOf(';');
+    if (firstSemicolon < 0) return;
+    if (masked.slice(firstSemicolon + 1).trim().length > 0) {
+        throw new Error(READ_ONLY_SQL_ERROR);
+    }
+}
+
+function assertReadOnlyWithSql(masked: string, withEnd: number): void {
+    let index = skipWhitespace(masked, withEnd);
+    const maybeRecursive = readKeyword(masked, index);
+    if (maybeRecursive?.keyword === 'RECURSIVE') {
+        index = maybeRecursive.end;
+    }
+
+    while (index < masked.length) {
+        index = skipIdentifier(masked, index);
+        index = skipWhitespace(masked, index);
+
+        if (masked[index] === '(') {
+            index = skipBalancedParens(masked, index);
+            index = skipWhitespace(masked, index);
+        }
+
+        const asKeyword = readKeyword(masked, index);
+        if (asKeyword?.keyword !== 'AS') throw new Error(READ_ONLY_SQL_ERROR);
+        index = skipWhitespace(masked, asKeyword.end);
+
+        const materializedKeyword = readKeyword(masked, index);
+        if (materializedKeyword?.keyword === 'MATERIALIZED') {
+            index = skipWhitespace(masked, materializedKeyword.end);
+        } else if (materializedKeyword?.keyword === 'NOT') {
+            const nextKeyword = readKeyword(masked, materializedKeyword.end);
+            if (nextKeyword?.keyword !== 'MATERIALIZED') throw new Error(READ_ONLY_SQL_ERROR);
+            index = skipWhitespace(masked, nextKeyword.end);
+        }
+
+        index = skipBalancedParens(masked, index);
+        index = skipWhitespace(masked, index);
+
+        if (masked[index] === ',') {
+            index += 1;
+            continue;
+        }
+
+        const mainStatement = readKeyword(masked, index);
+        if (mainStatement?.keyword !== 'SELECT') {
+            throw new Error(READ_ONLY_SQL_ERROR);
+        }
+        return;
+    }
+
+    throw new Error(READ_ONLY_SQL_ERROR);
+}
+
+export function assertReadOnlySql(stmt: string): void {
+    const masked = maskSqlLiteralsAndComments(stmt).trim();
+    assertNoAdditionalStatements(masked);
+
+    const firstWord = readKeyword(masked, 0);
+    if (firstWord?.keyword === 'SELECT') {
+        return;
+    }
+    if (firstWord?.keyword === 'WITH') {
+        assertReadOnlyWithSql(masked, firstWord.end);
+        return;
+    }
+
+    throw new Error(READ_ONLY_SQL_ERROR);
 }
 
 async function getBlockLabel(client: SiYuanClient, id: string): Promise<string | undefined> {

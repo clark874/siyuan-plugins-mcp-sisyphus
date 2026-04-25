@@ -39,9 +39,6 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "example": {
           "action": "add_rows",
           "avID": "<avID>",
-          "blockIDs": [
-            "<blockIDsItem>",
-          ],
         },
         "fullDocResource": "siyuan://help/action/av/add_rows",
         "guidance": [
@@ -53,14 +50,13 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
-        "hint": "Use avID + blockIDs to add existing blocks as rows. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP now polls briefly after insertion and only reports success when each source blockID resolves to exactly one writable rowID. To add a row with initial cell values, follow add_rows with av(action="batch_set_cells", avID, items=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows (each blockID maps to exactly one rowID).",
+        "hint": "Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="batch_set_cells", avID, items=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.",
         "requiredFields": [
           "avID",
-          "blockIDs",
         ],
         "requiresConfirmation": false,
         "shapes": [
-          "avID + blockIDs",
+          "avID",
         ],
         "tool": "av",
       },
@@ -376,7 +372,7 @@ av.render_attribute_view: required [] | optional [id, blockID, viewID, page, pag
 av.get_attribute_view_keys: required [id] | optional []
 av.get_attribute_view_filter_sort: required [id] | optional [blockID]
 av.search: required [keyword] | optional [excludes]
-av.add_rows: required [avID, blockIDs] | optional [blockID, viewID, groupID, previousID, ignoreDefaultFill]
+av.add_rows: required [avID] | optional [blockID, viewID, groupID, previousID, ignoreDefaultFill, blockIDs, primaryKeyTexts]
 av.remove_rows: required [avID, srcIDs] | optional [blockID]
 av.add_column: required [avID, keyName, keyType] | optional [blockID, keyID, keyIcon, previousKeyID]
 av.remove_column: required [avID] | optional [blockID, keyID, columnID, removeRelationDest]
@@ -389,7 +385,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
     "overview": {
       "actionSummaries": {
         "add_column": "Use avID + keyName + keyType, and optionally keyID or blockID. MCP generates keyID automatically when omitted. Supported keyType values match the 16 SiYuan addable column types, including keyType="mSelect", keyType="mAsset", and keyType="lineNumber". Optional blockID must be a registered database block for this AV if you need to pin a specific block view.",
-        "add_rows": "Use avID + blockIDs to add existing blocks as rows. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP now polls briefly after insertion and only reports success when each source blockID resolves to exactly one writable rowID. To add a row with initial cell values, follow add_rows with av(action="batch_set_cells", avID, items=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows (each blockID maps to exactly one rowID).",
+        "add_rows": "Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="batch_set_cells", avID, items=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.",
         "batch_set_cells": "Use avID + items[]. Each item requires rowID + columnID + valueType and its matching typed field. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. MCP rejects cell value IDs and source block IDs, and suggests the matching row item ID when it can. valueType="mAsset" accepts assets[].",
         "duplicate_block": "MCP first calls the kernel duplicate API, then inserts the duplicated NodeAttributeView block into the document tree. By default it inserts after the source database block; provide previousID to override the insertion target.",
         "get": "Use an attribute view ID. Returns the full AV payload after permission checks.",
@@ -408,7 +404,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "requiresConfirmation": false,
         },
         "add_rows": {
-          "hint": "Use avID + blockIDs to add existing blocks as rows. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP now polls briefly after insertion and only reports success when each source blockID resolves to exactly one writable rowID. To add a row with initial cell values, follow add_rows with av(action="batch_set_cells", avID, items=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows (each blockID maps to exactly one rowID).",
+          "hint": "Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="batch_set_cells", avID, items=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.",
           "requiresConfirmation": false,
         },
         "batch_set_cells": {
@@ -2716,7 +2712,7 @@ file(action="upload_asset") reads a local file path and uploads that file into S
           "add_card and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.",
           "flashcard(action="remove_card") requires explicit user confirmation before execution.",
         ],
-        "hint": "Use deckID + cardID + rating. reviewedCards is optional and passed through to the kernel as-is.",
+        "hint": "Use deckID + cardID + rating. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.",
         "requiredFields": [
           "deckID",
           "cardID",
@@ -2782,7 +2778,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
         "get_decks": "Returns available flashcard decks so the caller can discover deckID values.",
         "list_cards": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID.",
         "remove_card": "Use deckID + blockIDs to remove existing blocks from a deck. This action requires explicit user confirmation.",
-        "review_card": "Use deckID + cardID + rating. reviewedCards is optional and passed through to the kernel as-is.",
+        "review_card": "Use deckID + cardID + rating. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.",
         "skip_review_card": "Use deckID + cardID to skip the current card in a review flow.",
       },
       "actions": {
@@ -2811,7 +2807,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "requiresConfirmation": true,
         },
         "review_card": {
-          "hint": "Use deckID + cardID + rating. reviewedCards is optional and passed through to the kernel as-is.",
+          "hint": "Use deckID + cardID + rating. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.",
           "requiresConfirmation": false,
         },
         "skip_review_card": {

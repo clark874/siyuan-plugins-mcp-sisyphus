@@ -313,7 +313,9 @@ export const FlashcardReviewCardSchema = z.object({
     deckID: z.string().describe("Deck ID"),
     cardID: z.string().describe("Card ID"),
     rating: z.number().describe("Review rating passed through to the kernel"),
-    reviewedCards: z.array(z.record(z.string(), z.unknown())).optional().describe("Optional reviewedCards payload passed through to the kernel"),
+    reviewedCards: z.array(z.object({
+        cardID: z.string().describe("Reviewed card ID"),
+    }).passthrough()).optional().describe("Optional already-reviewed cards; SiYuan reads reviewedCards[].cardID"),
 });
 
 export const FlashcardSkipReviewCardSchema = z.object({
@@ -617,7 +619,8 @@ export const AvSearchSchema = z.object({
 export const AvAddRowsSchema = z.object({
     action: z.literal("add_rows"),
     avID: z.string().describe("Attribute view ID"),
-    blockIDs: z.array(z.string()).describe("Existing block IDs to add as rows"),
+    blockIDs: z.array(z.string()).optional().describe("Existing block IDs to add as bound rows"),
+    primaryKeyTexts: z.array(z.string()).optional().describe("Plain-text primary key values to add as detached rows"),
     blockID: z.string().optional().describe("Optional database block ID used to pin a specific database-block view context"),
     viewID: z.string().optional().describe("Optional target view ID"),
     groupID: z.string().optional().describe("Optional target group ID"),

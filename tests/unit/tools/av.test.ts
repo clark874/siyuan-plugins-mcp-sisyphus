@@ -283,10 +283,12 @@ describe('av tool', () => {
 
         expect(vi.mocked(avApi.batchSetAttributeViewBlockAttrs)).toHaveBeenCalledWith(client, 'av-1', [{
             keyID: 'col-cover',
-            blockID: 'row-1',
-            type: 'mAsset',
-            text: { content: '![封面](assets/cover.png)' },
-            mAsset: [{ type: 'image', name: '封面', content: 'assets/cover.png' }],
+            itemID: 'row-1',
+            value: {
+                type: 'mAsset',
+                text: { content: '![封面](assets/cover.png)' },
+                mAsset: [{ type: 'image', name: '封面', content: 'assets/cover.png' }],
+            },
         }]);
 
         expect(JSON.parse(result.content[0].text)).toEqual({
@@ -1214,10 +1216,11 @@ describe('av tool', () => {
             action: 'add_rows',
             avID: 'av-1',
             blockIDs: [],
+            primaryKeyTexts: [],
             rows: [],
             added: 0,
             skipped: true,
-            message: 'No blockIDs were provided, so no rows were added.',
+            message: 'No blockIDs or primaryKeyTexts were provided, so no rows were added.',
         });
     });
 
@@ -1280,6 +1283,69 @@ describe('av tool', () => {
                 { blockID: 'block-b', rowID: 'row-b' },
             ],
             added: 2,
+        });
+    });
+
+    it('adds detached rows when primaryKeyTexts are provided', async () => {
+        const avApi = await import('@/api/av');
+        let addPayload: Parameters<typeof avApi.addAttributeViewBlocks>[1] | undefined;
+        vi.mocked(avApi.addAttributeViewBlocks).mockImplementation(async (_clientArg, payload) => {
+            addPayload = payload;
+            return null;
+        });
+        vi.mocked(avApi.getAttributeView).mockImplementation(async () => {
+            const detachedSrc = addPayload?.srcs[0] as { itemID?: string; content?: string } | undefined;
+            return {
+                av: {
+                    id: 'av-1',
+                    keyValues: [
+                        {
+                            key: { type: 'block' },
+                            values: detachedSrc ? [
+                                {
+                                    id: 'value-detached',
+                                    blockID: detachedSrc.itemID,
+                                    isDetached: true,
+                                    block: { content: detachedSrc.content },
+                                },
+                            ] : [
+                                { id: 'value-existing', blockID: 'row-existing', block: { id: 'block-existing' } },
+                            ],
+                        },
+                    ],
+                },
+            };
+        });
+
+        const result = await callAvTool(client, {
+            action: 'add_rows',
+            avID: 'av-1',
+            primaryKeyTexts: ['saaa'],
+        }, enabledActions('add_rows'), permMgr);
+
+        expect(addPayload).toEqual({
+            avID: 'av-1',
+            blockID: undefined,
+            viewID: undefined,
+            groupID: undefined,
+            previousID: undefined,
+            ignoreDefaultFill: undefined,
+            srcs: [
+                {
+                    itemID: expect.stringMatching(/^\d{14}-[a-z0-9]{7}$/),
+                    id: expect.stringMatching(/^\d{14}-[a-z0-9]{7}$/),
+                    isDetached: true,
+                    content: 'saaa',
+                },
+            ],
+        });
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            success: true,
+            action: 'add_rows',
+            avID: 'av-1',
+            primaryKeyTexts: ['saaa'],
+            rows: [{ primaryKeyText: 'saaa', rowID: (addPayload?.srcs[0] as { itemID: string }).itemID }],
+            added: 1,
         });
     });
 
@@ -1550,15 +1616,19 @@ describe('av tool', () => {
             [
                 {
                     keyID: 'col-text',
-                    blockID: 'row-1',
-                    type: 'text',
-                    text: { content: '早餐' },
+                    itemID: 'row-1',
+                    value: {
+                        type: 'text',
+                        text: { content: '早餐' },
+                    },
                 },
                 {
                     keyID: 'col-check',
-                    blockID: 'row-2',
-                    type: 'checkbox',
-                    checkbox: { checked: true },
+                    itemID: 'row-2',
+                    value: {
+                        type: 'checkbox',
+                        checkbox: { checked: true },
+                    },
                 },
             ],
         );
@@ -1611,15 +1681,19 @@ describe('av tool', () => {
             [
                 {
                     keyID: 'col-text',
-                    blockID: 'row-1',
-                    type: 'text',
-                    text: { content: '早餐' },
+                    itemID: 'row-1',
+                    value: {
+                        type: 'text',
+                        text: { content: '早餐' },
+                    },
                 },
                 {
                     keyID: 'col-check',
-                    blockID: 'row-2',
-                    type: 'checkbox',
-                    checkbox: { checked: true },
+                    itemID: 'row-2',
+                    value: {
+                        type: 'checkbox',
+                        checkbox: { checked: true },
+                    },
                 },
             ],
         );
@@ -2293,6 +2367,7 @@ describe('av tool', () => {
     });
 
     it('returns attribute view filters and sorts', async () => {
+        const avApi = await import('@/api/av');
         const result = await callAvTool(client, {
             action: 'get_attribute_view_filter_sort',
             id: 'av-1',
@@ -2304,6 +2379,24 @@ describe('av tool', () => {
             blockID: 'block-av-1',
             filters: [{ field: 'status' }],
             sorts: [{ field: 'updated' }],
+        });
+        expect(vi.mocked(avApi.getAttributeViewFilterSort)).toHaveBeenCalledWith(client, {
+            id: 'av-1',
+            blockID: 'block-av-1',
+        });
+    });
+
+    it('passes an empty blockID for attribute view filters and sorts when omitted', async () => {
+        const avApi = await import('@/api/av');
+        const result = await callAvTool(client, {
+            action: 'get_attribute_view_filter_sort',
+            id: 'av-1',
+        }, enabledActions('get_attribute_view_filter_sort'), permMgr);
+
+        expect(result.isError).toBeUndefined();
+        expect(vi.mocked(avApi.getAttributeViewFilterSort)).toHaveBeenCalledWith(client, {
+            id: 'av-1',
+            blockID: '',
         });
     });
 

@@ -75,7 +75,12 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
                 items: { type: 'string' },
                 description: 'IDs of content blocks to bind as new rows',
             },
-        }, ['avID', 'blockIDs'], 'Add rows (bound to content blocks) to a database.'),
+            primaryKeyTexts: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Plain-text primary key values to add as detached rows',
+            },
+        }, ['avID'], 'Add bound block rows or detached plain-text primary-key rows to a database.'),
     },
     {
         action: 'remove_rows',

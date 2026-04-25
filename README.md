@@ -312,7 +312,7 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | `get_attribute_view_keys` | Return attribute view column info |
 | `get_attribute_view_filter_sort` | Return filter and sort config for a view |
 | `search` | Search attribute views by keyword |
-| `add_rows` | Bind existing blocks as database rows |
+| `add_rows` | Add bound block rows or detached plain-text primary-key rows |
 | `remove_rows` | Remove bound rows from an attribute view |
 | `add_column` | Add a database column |
 | `remove_column` | Remove a column from an attribute view |

@@ -36,7 +36,16 @@ export const FLASHCARD_VARIANTS: ActionVariant<FlashcardAction>[] = [
             deckID: { type: 'string', description: 'Deck ID' },
             cardID: { type: 'string', description: 'Card ID' },
             rating: { type: 'number', description: 'Review rating passed through to the kernel' },
-            reviewedCards: { type: 'array', items: { type: 'object' }, description: 'Optional reviewedCards payload passed through to the kernel' },
+            reviewedCards: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: { cardID: { type: 'string', description: 'Reviewed card ID' } },
+                    required: ['cardID'],
+                    additionalProperties: true,
+                },
+                description: 'Optional already-reviewed cards; SiYuan reads reviewedCards[].cardID',
+            },
         }, ['deckID', 'cardID', 'rating'], 'Submit a review result for one flashcard.'),
     },
     {

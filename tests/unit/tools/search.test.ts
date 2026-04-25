@@ -3,8 +3,64 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildDefaultToolConfig } from '@/core/config';
 import { normalizeFullTextSearchResult } from '@/core/normalize';
 import { callSearchTool, filterBacklinkResultByPermission, filterFullTextSearchResultByPermission, listSearchTools } from '@/tools/search';
+import { assertReadOnlySql } from '@/tools/search/sql-builder';
 import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
+
+describe('search SQL read-only guard', () => {
+    it('allows SELECT and WITH queries whose main statement is SELECT', () => {
+        expect(() => assertReadOnlySql('SELECT * FROM blocks LIMIT 1')).not.toThrow();
+        expect(() => assertReadOnlySql(`
+            WITH recent AS (
+                SELECT id FROM blocks WHERE content LIKE 'DELETE is just text'
+            )
+            SELECT * FROM recent LIMIT 10;
+        `)).not.toThrow();
+        expect(() => assertReadOnlySql(`
+            -- leading comments are ignored
+            WITH RECURSIVE tree(id) AS NOT MATERIALIZED (
+                SELECT id FROM blocks WHERE id = 'root'
+                UNION ALL
+                SELECT b.id FROM blocks b JOIN tree t ON b.parent_id = t.id
+            )
+            SELECT id FROM tree LIMIT 20
+        `)).not.toThrow();
+    });
+
+    it('rejects mutation statements hidden behind WITH CTEs or additional statements', () => {
+        const forbidden = [
+            'WITH doomed AS (SELECT id FROM blocks LIMIT 1) DELETE FROM blocks WHERE id IN doomed',
+            'WITH renamed AS (SELECT id FROM blocks LIMIT 1) UPDATE blocks SET content = "x"',
+            'WITH copied AS (SELECT id FROM blocks LIMIT 1) INSERT INTO blocks(id) SELECT id FROM copied',
+            'SELECT * FROM blocks LIMIT 1; DELETE FROM blocks WHERE id = "x"',
+        ];
+
+        for (const stmt of forbidden) {
+            expect(() => assertReadOnlySql(stmt)).toThrow(/Only SELECT statements/);
+        }
+    });
+
+    it('blocks unsafe CTE SQL before calling the SiYuan query endpoint', async () => {
+        const request = vi.fn();
+        const client = createMockClient({ request });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'query_sql',
+            stmt: 'WITH doomed AS (SELECT id FROM blocks LIMIT 1) DELETE FROM blocks WHERE id IN doomed',
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.error.message).toMatch(/Only SELECT statements/);
+        expect(request).not.toHaveBeenCalled();
+    });
+});
 
 describe('search tool filtering', () => {
     it('filters fulltext search results by notebook permission and preserves plainContent', () => {

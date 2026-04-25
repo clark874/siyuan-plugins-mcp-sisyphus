@@ -94,6 +94,27 @@ siyuan-sisyphus notebook set-permission --notebook <id> --permission rw
 
 提示：CLI 常用 `kebab-case`，MCP 使用 schema 中的 `snake_case` action 名称。
 
+同一动作：添加 detached AV 行。
+
+#### MCP
+
+```json
+{
+  "tool": "av",
+  "action": "add_rows",
+  "avID": "<av-id>",
+  "primaryKeyTexts": ["Plain text row"]
+}
+```
+
+#### CLI
+
+```bash
+siyuan-sisyphus av add-rows --av-id <av-id> --primary-key-texts "Plain text row"
+```
+
+如需固定某个数据库块视图，可额外传 `blockID` / `--block-id`。
+
 ---
 
 ## 3. 覆盖范围
@@ -210,6 +231,7 @@ siyuan-sisyphus system get-version
 | `$AV_BLOCK_ID` | 是 | 本轮创建的数据库块 ID |
 | `$AV_ID` | 是 | 本轮创建的属性视图 ID |
 | `$AV_ROW_IDS` | 建议 | `add_rows` 返回的真实行 ID 列表 |
+| `$AV_DETACHED_ROW_ID` | 建议 | 使用 `primaryKeyTexts` 创建的 detached 行 ID |
 | `$AV_COLUMN_ID` | 建议 | 本轮新增测试列 ID |
 | `$AV_DUPLICATE_BLOCK_ID` | 建议 | `duplicate_block` 生成的数据库块 ID |
 | `$ORIGINAL_PERMISSION` | 是 | 主测试笔记本原始权限；若未显式配置，按 `rwd` 记录 |
@@ -220,6 +242,7 @@ siyuan-sisyphus system get-version
 | `$FILTER_KEYWORD` | 条件 | 用于搜索过滤验证的唯一关键字 |
 | `$CARD_BLOCK_ID` | 条件 | 闪卡测试块 ID |
 | `$REVIEW_CARD_ID` | 条件 | 用于复习的闪卡 ID |
+| `$PROMPT_GAP_LOG` | 是 | 本轮所有“首次误调用、报错后才修正”的记录列表，用于反向改进 MCP 工具提示词 |
 
 ---
 
@@ -235,6 +258,7 @@ siyuan-sisyphus system get-version
 - 新产生或消费的变量
 - 关键返回摘要
 - 结论：`PASS` / `FAIL` / `BLOCKED`
+- 如果发生误调用：记录首次错误调用、错误摘要、修正后的调用、根因判断
 
 ### 6.2 结论定义
 
@@ -252,6 +276,37 @@ siyuan-sisyphus system get-version
 - 如果本应被拒绝的写/删操作成功执行，则为 `FAIL`
 - 如果本应可读的对象在 `rwd` / `rw` / `r` 下读失败，则为 `FAIL`
 
+### 6.4 误调用与提示词缺口记录
+
+测试过程中的失败不只用于判断接口是否可用，也要用于改进 MCP 暴露给 AI 的提示质量。凡是出现“AI 先按错误参数 / 错误 action / 错误语义调用，看到报错后才改对”的情况，都必须记录到 `$PROMPT_GAP_LOG`。
+
+必须记录的字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `tool` | 聚合工具名 |
+| `action` | 目标 action；如果 action 写错，也要记录错误 action |
+| `wrong_call` | 首次错误调用的关键参数或 CLI 命令 |
+| `error_summary` | 返回的错误摘要，不需要粘贴完整堆栈 |
+| `fixed_call` | 修正后成功或更接近正确语义的调用 |
+| `why_ai_got_it_wrong` | AI 为什么会误判：字段名不清、必填/可选不清、ID 类型不清、旧别名干扰、帮助文案不足等 |
+| `mcp_prompt_suggestion` | 建议修改的 tool description、action hint、schema description、help 文档或示例 |
+
+以下情况必须记录：
+
+- action 名称混用，例如 CLI kebab-case 与 MCP snake_case 混淆
+- 把 human-readable path 与 storage path 用错
+- 把 source block ID、cell value ID、row item ID 混用
+- 把可选参数误认为必填，或把必填参数误认为可省略
+- 把危险动作确认、权限拒绝、permission filtered 误判为接口故障
+- 看了错误响应才知道应该调用 `help`、资源文档或另一个 action
+
+以下情况不必记录为提示词缺口：
+
+- 网络中断、SiYuan 未启动、token 错误等纯环境问题
+- 用户临时改变测试范围导致的调用调整
+- 已经由当前文档明确要求“预期失败”的权限验证
+
 ---
 
 ## 7. 建议覆盖策略
@@ -266,9 +321,9 @@ siyuan-sisyphus system get-version
 | `block` | `append`、`prepend`、`insert`、`update`、`get_children`、`get_kramdown`、`get_attrs`、`set_attrs`、`exists`、`info`、`word_count`、`breadcrumb`、`dom`、`delete` | `batch_insert`、`batch_update`、`recent_updated`、`transfer_ref` | `move`、`set_fold_state` |
 | `search` / `tag` | `fulltext`、`query_sql`、`search_tag`、`get_backlinks` 或 `get_backmentions`、`tag.list` | `search_refs`、`search_assets`、`get_asset_content`、`fulltext_asset_content`、`tag.rename` | `find_replace`、`tag.remove` |
 | `file` | `render_sprig`、`export_md`、`get_doc_assets` | `render_template`、`get_image_ocr_text` | `upload_asset`、`export_resources`、`remove_unused_assets`、`delete_asset` |
-| `flashcard` | `get_decks`、`list_cards`、`get_cards` | `create_card`、`add_card`、`review_card`、`skip_review_card` | `remove_card` |
+| `flashcard` | `get_decks`、`list_cards`、`get_cards` | `create_card`、`add_card`、`review_card`、`skip_review_card`；`review_card.reviewedCards` 参数校验 | `remove_card` |
 | `mascot` | `get_balance` | `shop` | `buy` |
-| `av` | `render_attribute_view`、`get`、`get_attribute_view_keys`、`get_attribute_view_filter_sort`、`search`、`get_primary_key_values`、`add_rows`、`add_column`、`set_cell`、`batch_set_cells`、`duplicate_block`、`remove_rows`、`remove_column` | 无 | 只在本轮创建的真实 AV 上执行 |
+| `av` | `render_attribute_view`、`get`、`get_attribute_view_keys`、`get_attribute_view_filter_sort`、`search`、`get_primary_key_values`、`add_rows`、`add_column`、`set_cell`、`batch_set_cells`、`duplicate_block`、`remove_rows`、`remove_column` | `add_rows.primaryKeyTexts` detached 行、空 `add_rows` no-op | 只在本轮创建的真实 AV 上执行 |
 
 ---
 
@@ -414,7 +469,9 @@ siyuan-sisyphus system get-version
 
 - 用唯一关键字命中本轮测试文档或测试块
 - `query_sql` 必须带 `LIMIT`
-- 非 `SELECT` / `WITH` 语句应被拒绝
+- `query_sql` 只允许单条 `SELECT`，或主语句为 `SELECT` 的 `WITH` / `WITH RECURSIVE` CTE
+- 非 `SELECT` / `WITH` 语句应被拒绝；`WITH ... DELETE/UPDATE/INSERT`、`SELECT ...; DELETE ...` 这类隐藏写入也应在请求 SiYuan 前被拒绝
+- SQL 字符串字面量和注释中的 `DELETE` / `UPDATE` 等词不应误触发拒绝
 - 当存在权限过滤时，检查 `partial` / `reason` / `filteredOutCount`
 
 #### Tag
@@ -469,6 +526,13 @@ siyuan-sisyphus system get-version
 - `flashcard.skip_review_card`
 - `flashcard.remove_card`
 
+`review_card` 补充验证：
+
+- 基础调用必须使用 `deckID + cardID + rating`
+- 如传 `reviewedCards`，数组中每个对象都必须包含 `cardID`
+- `reviewedCards: [{ cardID: "...", ... }]` 应透传给内核
+- `reviewedCards: [{ id: "..." }]` 这类缺少 `cardID` 的参数应被 schema 拒绝，且不应调用内核复习接口
+
 #### Mascot
 
 至少执行：
@@ -502,7 +566,9 @@ AV 测试必须走**本轮创建真实 AV** 的主路径，不得把“复制已
 - `$AV_ID`：返回中的 `avID` / `id`
 - `$AV_BLOCK_ID`：materialized 数据库块 ID
 
-后续所有 AV 写操作都应优先显式携带 `blockID=$AV_BLOCK_ID` 作为权限上下文，尤其是：
+后续 AV 写操作通常只需要 `avID=$AV_ID`。当前实现会根据 AV 的 mirror database block 或 AV 结构自动解析权限上下文与刷新目标；`blockID` 是可选的精确上下文参数，只在需要固定某个数据库块视图、指定 view/group 插入语义，或刚创建 AV 后 mirror 注册尚未收敛导致自动解析失败时再传。
+
+以下写操作都应验证“省略 `blockID` 也能正常工作”；如需排查上下文歧义，再补测显式 `blockID=$AV_BLOCK_ID`：
 
 - `add_rows`
 - `add_column`
@@ -522,23 +588,26 @@ AI 必须在自己创建的 AV 上完成以下动作链路：
 5. `search`
 6. `get_primary_key_values`
 7. 创建 3 个普通块，准备绑定为数据库行
-8. `add_rows`
+8. `add_rows`，分别覆盖绑定块行与 detached 纯文本主键行
 9. `add_column`
 10. `set_cell`
 11. `batch_set_cells`
 12. `duplicate_block`
 13. `remove_rows`
 14. `remove_column`
+15. 可选：空 `add_rows` no-op 验证
 
 推荐参数模式：
 
 - `render_attribute_view`：创建本轮测试 AV，拿到 `$AV_ID` 与 `$AV_BLOCK_ID`
-- `add_rows`：使用 `avID=$AV_ID`、`blockID=$AV_BLOCK_ID`
-- `add_column`：使用 `avID=$AV_ID`、`blockID=$AV_BLOCK_ID`
-- `set_cell`：使用 `avID=$AV_ID`、`blockID=$AV_BLOCK_ID`
-- `batch_set_cells`：使用 `avID=$AV_ID`、`blockID=$AV_BLOCK_ID`
-- `remove_rows`：使用 `avID=$AV_ID`、`blockID=$AV_BLOCK_ID`
-- `remove_column`：使用 `avID=$AV_ID`、`blockID=$AV_BLOCK_ID`
+- `add_rows` 绑定块行：优先使用 `avID=$AV_ID`、`blockIDs=[...]`；如需固定数据库块视图，再补 `blockID=$AV_BLOCK_ID`
+- `add_rows` detached 行：优先使用 `avID=$AV_ID`、`primaryKeyTexts=["AI detached row <timestamp>"]`；如需固定数据库块视图，再补 `blockID=$AV_BLOCK_ID`
+- `add_rows` 空 no-op：仅传 `avID=$AV_ID`，且不传 `blockIDs` / `primaryKeyTexts`；应返回 `skipped: true`
+- `add_column`：优先只传 `avID=$AV_ID`
+- `set_cell`：优先只传 `avID=$AV_ID`
+- `batch_set_cells`：优先只传 `avID=$AV_ID`
+- `remove_rows`：优先只传 `avID=$AV_ID`
+- `remove_column`：优先只传 `avID=$AV_ID`
 
 ### 9.3 通过标准
 
@@ -550,7 +619,9 @@ AI 必须在自己创建的 AV 上完成以下动作链路：
 | `get_attribute_view_filter_sort` | 能返回当前筛选 / 排序信息；空结构也算通过 |
 | `search` | 能正常返回搜索结果或合理空结果 |
 | `get_primary_key_values` | 能返回主键值列表 |
-| `add_rows` | 成功添加测试行，并拿到真实 `rowID` |
+| `add_rows` | 成功添加绑定块行，并拿到真实 `rowID` |
+| `add_rows.primaryKeyTexts` | 成功添加 detached 纯文本主键行，返回 `primaryKeyTexts` 与对应 `rowID` |
+| 空 `add_rows` | 不报错，返回 `skipped: true`、`added: 0`，说明未提供 `blockIDs` 或 `primaryKeyTexts` |
 | `add_column` | 成功新增测试列，例如文本列 |
 | `set_cell` | 能给指定行写入单元格值 |
 | `batch_set_cells` | 能批量写入值 |
@@ -565,9 +636,10 @@ AI 不得：
 - 把“复制已有数据库”当作 AV 主测试路径
 - 跳过 `render_attribute_view(createIfNotExist=true, blockID=...)`
 - 创建 AV 后不记录 `$AV_ID` 与 `$AV_BLOCK_ID`
-- 在写操作时省略 `blockID`
+- 把 AV 写操作误判为必须传 `blockID`；除创建/显式上下文验证外，应优先覆盖省略 `blockID` 的路径
 - 用 Markdown 表格冒充真实 AV
 - 在没有真实 `rowID` 的情况下伪造 `set_cell` / `batch_set_cells` 成功
+- 把绑定块 ID、单元格 value ID、source block ID 当作 `rowID` 传给 `set_cell` / `batch_set_cells`
 - 把空结果或提示性结果误判为接口失败
 
 ---
@@ -831,6 +903,7 @@ AI 不得：
 - `$CHILD_DOC_ID`
 - `$AV_ID`
 - `$AV_BLOCK_ID`
+- `$AV_DETACHED_ROW_ID`（如覆盖 detached 行）
 - `$ORIGINAL_PERMISSION`
 - 如使用：`$FILTER_VISIBLE_NB_ID`、`$FILTER_KEYWORD`
 
@@ -872,7 +945,31 @@ AI 不得：
 - 环境限制
 - 符合预期的拒绝 / 过滤行为
 
-### 12.7 清理结论
+### 12.7 MCP 提示词缺口与建议修改
+
+必须单列本轮 `$PROMPT_GAP_LOG`。如果没有误调用，也要写“未发现”。
+
+每条记录至少包含：
+
+- 误调用的 `tool/action`
+- 首次错误调用摘要
+- 报错摘要
+- 修正后的调用摘要
+- 判断为 MCP 提示不足的原因
+- 建议改动位置，例如：
+  - `src/core/help.ts` 的 action hint
+  - `src/core/types.ts` 的 schema description
+  - `src/tools/<tool>/index.ts` 的 variant description
+  - `docs/reference/tools/*.md`
+  - `server-instructions` 或 tool description 的全局约束
+
+输出建议时要具体到“应新增/改写什么信息”，不要只写“优化提示词”。例如：
+
+- “`av.add_rows` 的描述应明确 `primaryKeyTexts` 用于 detached 行，`blockID` 不是常规必填。”
+- “`av.set_cell` 的 `rowID` 描述应再次强调使用 `value.blockID` / `add_rows.rows[].rowID`，不是源块 ID 或 value ID。”
+- “`document.remove` 示例应明确使用 storage path，而不是创建时的人类可读 path。”
+
+### 12.8 清理结论
 
 - `CLEAN`
 - `DIRTY`

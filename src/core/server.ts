@@ -29,7 +29,7 @@ async function tryReadConfigFromAPI(client: SiYuanClient): Promise<ToolConfig | 
     return null;
 }
 
-const CONFIG_TTL_MS = 30_000;
+const CONFIG_TTL_MS = 1_000;
 
 async function initSiYuanClient(): Promise<SiYuanClient> {
     const client = new SiYuanClient();
