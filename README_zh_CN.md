@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
 </p>
 
-> **最新版本：**`v0.3.3` — CLI 新增多 profile 配置管理、交互式分页浏览，文档站点重组为细分结构。详见 [CHANGELOG.md](./CHANGELOG.md)。
+> **最新版本：**`v0.3.4` — AV `add_rows` 支持通过 `primaryKeyTexts` 直接添加 detached 游离行；SQL 只读校验升级为完整词法分析器；flashcard `review_card` schema 收紧。详见 [CHANGELOG.md](./CHANGELOG.md)。
 
 > 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
