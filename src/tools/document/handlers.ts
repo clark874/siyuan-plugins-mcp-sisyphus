@@ -39,6 +39,7 @@ import { sleep } from '../../shared/async';
 type DocumentActionHandler = ToolActionHandler;
 
 const GET_HPATH_INDEXING_RETRY_DELAYS_MS = [120, 240];
+const GET_IDS_BY_HPATH_RETRY_DELAYS_MS = [120, 240, 480];
 
 const DEFAULT_DOCUMENT_RESOLVE_INCLUDE = ['path', 'hpath'] as const;
 
@@ -91,6 +92,21 @@ function normalizeDocumentCoverSource(source: string): { source: string; titleIm
 function normalizeChildDocPath(parentPath: string, title: string): string {
     const normalizedParent = parentPath === '/' ? '' : parentPath.replace(/\/+$/, '');
     return `${normalizedParent}/${title.replace(/^\/+/, '')}`;
+}
+
+async function getFirstIdByHPathWithRetry(client: SiYuanClient, hPath: string, notebook: string): Promise<string | undefined> {
+    for (let attempt = 0; attempt <= GET_IDS_BY_HPATH_RETRY_DELAYS_MS.length; attempt += 1) {
+        try {
+            const ids = await documentApi.getIDsByHPath(client, hPath, notebook);
+            if (ids[0]) return ids[0];
+        } catch {
+            // SiYuan hpath lookup can lag immediately after create; retry below.
+        }
+        if (attempt < GET_IDS_BY_HPATH_RETRY_DELAYS_MS.length) {
+            await sleep(GET_IDS_BY_HPATH_RETRY_DELAYS_MS[attempt]);
+        }
+    }
+    return undefined;
 }
 
 function truncateTreeByDepth(nodes: unknown, maxDepth: number, currentDepth = 0): unknown {
@@ -241,10 +257,19 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         return createPermissionDeniedResult(parsed.notebook, permMgr.get(parsed.notebook), 'write');
     }
     const markdown = parsed.markdown ?? '';
-    const docId = parsed.path
-        ? await documentApi.createDoc(client, parsed.notebook, parsed.path, markdown)
-        : (await documentApi.createEmptyDoc(client, parsed.notebook, parsed.parentPath!, parsed.title!, markdown, parsed.sorts)).id;
     const path = parsed.path ?? normalizeChildDocPath(parsed.parentPath!, parsed.title!);
+    let docId: string;
+    let createWarning: string | undefined;
+    if (parsed.path) {
+        docId = await documentApi.createDoc(client, parsed.notebook, parsed.path, markdown);
+    } else {
+        const rawCreateResult = await documentApi.createEmptyDoc(client, parsed.notebook, parsed.parentPath!, parsed.title!, markdown, parsed.sorts);
+        const resolvedId = await getFirstIdByHPathWithRetry(client, path, parsed.notebook);
+        docId = resolvedId ?? rawCreateResult.id;
+        if (!resolvedId) {
+            createWarning = `Created document at "${path}", but MCP could not resolve its block ID from the human-readable path before the indexing timeout. The returned id is the raw SiYuan createDoc response and may need document(action="lookup", notebook, hpath=...) retry.`;
+        }
+    }
     if (parsed.icon) {
         await attributeApi.setBlockAttrs(client, docId, { icon: parsed.icon });
     }
@@ -255,6 +280,7 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         ...(parsed.parentPath ? { parentPath: parsed.parentPath } : {}),
         ...(parsed.title ? { title: parsed.title } : {}),
         id: docId,
+        ...(createWarning ? { warning: createWarning } : {}),
         iconHint: createSetIconReminder('document', Boolean(parsed.icon)),
     }), parsed.icon
         ? [{ type: 'reloadIcon' }]

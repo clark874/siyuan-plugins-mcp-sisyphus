@@ -16,7 +16,7 @@ export interface ToolResult {
     isError?: boolean;
 }
 
-export type JsonSchema = Record<string, unknown>;
+export type JsonSchema = Record<string, any>;
 
 export interface ActionVariant<Action extends string> {
     action: Action;
@@ -167,9 +167,9 @@ function withActionDiscriminator<Action extends string>(variant: ActionVariant<A
 }
 
 function createLoosePropertySchema(schema: JsonSchema): JsonSchema {
-    const loose: JsonSchema = {};
-    if (typeof schema.description === 'string') loose.description = schema.description;
-    if (typeof schema.title === 'string') loose.title = schema.title;
+    const loose: JsonSchema = { ...schema };
+    delete loose.const;
+    delete loose.required;
     return loose;
 }
 
@@ -379,6 +379,7 @@ export function buildAggregatedTool<Action extends string>(
         properties: {
             action: {
                 type: 'string',
+                enum: [...enabledActions, 'help'],
                 description: `Action to perform. Supported values: ${enabledActions.join(', ')}. Use action="help" for the action index, or action="help" with topic="<actionName>" for per-action details.${confirmationActions.length > 0 ? ` User confirmation is required before calling: ${confirmationActions.join(', ')}.` : ''}`,
             },
             ...createLooseInputProperties(mergedProperties),

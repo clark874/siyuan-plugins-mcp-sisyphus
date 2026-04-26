@@ -1,4 +1,4 @@
-type JsonSchema = Record<string, unknown>;
+type JsonSchema = Record<string, any>;
 
 type SchemaVariant<Action extends string = string> = {
     action: Action;

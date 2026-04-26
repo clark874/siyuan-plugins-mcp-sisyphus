@@ -1,4 +1,4 @@
-import type { ToolResult } from '../core/tools/shared';
+import type { ToolResult } from '../tools/shared';
 import { isActionHelpPayload, isHelpIndexPayload } from '../shared/help-payload';
 import { translatePresentationPayload, translatePresentationText } from '../shared/invocation-format';
 
@@ -287,7 +287,8 @@ function renderSuccessPayload(payload: unknown): void {
         return;
     }
 
-    if (Array.isArray(obj.data) && typeof obj.total === 'number' && typeof obj.page === 'number') {
+    const maybePaginated = obj as Record<string, any>;
+    if (Array.isArray(maybePaginated.data) && typeof maybePaginated.total === 'number' && typeof maybePaginated.page === 'number') {
         renderPaginatedResult(obj, out);
         return;
     }

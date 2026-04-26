@@ -24,9 +24,9 @@ import { AV_ACTION_HANDLERS } from './handlers';
 export const AV_TOOL_NAME = 'av';
 
 export const AV_VARIANTS: ActionVariant<AvAction>[] = [
-    createZodActionVariant('get', AvGetSchema, 'Get the full attribute view payload by AV ID.'),
-    createZodActionVariant('render', AvRenderSchema, 'Render an attribute view with optional server-side paging, filtering, and view selection.'),
-    createZodActionVariant('get_attribute_view_keys', AvGetAttributeViewKeysSchema, 'Get the column (key) definitions of an attribute view.'),
+    createZodActionVariant('get', AvGetSchema, 'Get the full attribute view payload by AV ID; pass blockID for a newly created empty AV if avID-only permission resolution has not settled.'),
+    createZodActionVariant('render', AvRenderSchema, 'Render an attribute view with optional paging/filtering; when creating a new AV, keep the returned blockID for explicit context until registration settles.'),
+    createZodActionVariant('get_attribute_view_keys', AvGetAttributeViewKeysSchema, 'Get the column (key) definitions of an attribute view; pass blockID for a newly created empty AV if needed.'),
     createZodActionVariant('get_attribute_view_filter_sort', AvGetAttributeViewFilterSortSchema, 'Get filter and sort settings for an attribute view.'),
     createZodActionVariant('search', AvSearchSchema, 'Search attribute views by name or primary-key values.'),
     createZodActionVariant('add_rows', AvAddRowsSchema, 'Add bound block rows or detached plain-text primary-key rows to a database.'),
@@ -35,7 +35,7 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
     createZodActionVariant('remove_column', AvRemoveColumnSchema, 'Remove a column from a database.'),
     createZodActionVariant('set_cells', AvSetCellsSchema, 'Set one or more cell values in a database. Provide cells/items, or pass rowID + columnID + valueType for a single-cell write.'),
     createZodActionVariant('duplicate', AvDuplicateSchema, 'Duplicate an attribute view and insert it into the document tree.'),
-    createZodActionVariant('get_primary_key_values', AvGetPrimaryKeyValuesSchema, 'Get primary key values for an attribute view.'),
+    createZodActionVariant('get_primary_key_values', AvGetPrimaryKeyValuesSchema, 'Get primary key values for an attribute view; pass blockID for a newly created empty AV if needed.'),
 ];
 
 const avTool = defineTool<AvAction>({

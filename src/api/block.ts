@@ -24,19 +24,21 @@ import type { DataType } from '../types/shared';
  */
 export async function insertBlock(
     client: SiYuanClient,
-    dataType: DataType,
-    data: string,
+    dataType: DataType | IReqInsertBlock,
+    data?: string,
     nextID?: string,
     previousID?: string,
     parentID?: string
 ): Promise<IResInsertBlock> {
-    const request: IReqInsertBlock = {
-        dataType,
-        data,
-        nextID,
-        previousID,
-        parentID,
-    };
+    const request: IReqInsertBlock = typeof dataType === 'object'
+        ? dataType
+        : {
+            dataType,
+            data: data ?? '',
+            nextID,
+            previousID,
+            parentID,
+        };
     return client.request<IResInsertBlock>('/api/block/insertBlock', request);
 }
 

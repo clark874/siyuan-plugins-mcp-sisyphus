@@ -144,6 +144,14 @@ describe('av tool', () => {
         expect(properties?.cells?.items?.properties?.assets?.items?.properties?.content?.type).toBe('string');
     });
 
+    it('publishes JSON types for render creation parameters', () => {
+        const [tool] = listAvTools(enabledActions('render'));
+
+        expect(tool.inputSchema.properties.createIfNotExist.type).toBe('boolean');
+        expect(tool.inputSchema.properties.groupPaging.type).toBe('object');
+        expect(tool.inputSchema.properties.page.type).toBe('integer');
+    });
+
     it('maps typed set_cells input into the kernel value payload', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({

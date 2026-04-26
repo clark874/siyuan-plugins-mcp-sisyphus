@@ -39,7 +39,7 @@ export type ToolActionMap = {
 
 export interface CategoryToolConfig<Action extends string = string> {
     enabled: boolean;
-    actions: Record<Action, boolean>;
+    actions: Partial<Record<Action, boolean>>;
 }
 
 export interface FileCategoryToolConfig<Action extends string = string> extends CategoryToolConfig<Action> {

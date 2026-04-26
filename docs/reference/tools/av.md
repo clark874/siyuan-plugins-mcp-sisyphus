@@ -22,6 +22,7 @@ Related pages:
 ## Parameters and Semantics
 
 - `render` can also create and materialize an AV when `createIfNotExist=true` and `blockID` is provided.
+- Keep the `blockID` returned by `render(createIfNotExist=true)`. If a newly created empty AV later reports that permission scope cannot be resolved from `avID` alone, pass that `blockID` explicitly on AV reads/writes until the AV has row data or mirror registration has settled.
 - `set_cells` is typed by `valueType` and accepts either single-cell fields or a `cells` / `items` array.
 - `rowID` refers to the row item ID, not the source block ID.
 - `duplicate` duplicates the attribute view definition and can insert the duplicated database block after `previousID`.

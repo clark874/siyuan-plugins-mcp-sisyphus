@@ -3,11 +3,11 @@ import { SiYuanClient } from '@/api/client';
 
 describe('SiYuanClient', () => {
     let client: SiYuanClient;
-    let mockFetch: ReturnType<typeof vi.fn>;
+    let mockFetch: any;
 
     beforeEach(() => {
         mockFetch = vi.fn();
-        global.fetch = mockFetch;
+        global.fetch = mockFetch as typeof fetch;
         client = new SiYuanClient({
             baseUrl: 'http://127.0.0.1:6806',
             timeout: 5000,

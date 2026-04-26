@@ -1,5 +1,28 @@
-export class Plugin {}
+export class Plugin {
+    name = 'siyuan-plugins-mcp-sisyphus';
+    i18n: Record<string, string> = {};
 
-export class Dialog {}
+    constructor(_options?: unknown) {}
 
-export function showMessage(): void {}
+    loadData(_name: string): Promise<unknown> {
+        return Promise.resolve(undefined);
+    }
+
+    saveData(_name: string, _data: unknown): Promise<void> {
+        return Promise.resolve();
+    }
+
+    removeData(_name: string): Promise<void> {
+        return Promise.resolve();
+    }
+}
+
+export class Dialog {
+    element: HTMLElement;
+
+    constructor(_options?: unknown) {
+        this.element = document.createElement('div');
+    }
+}
+
+export function showMessage(_message?: string, _timeout?: number, _type?: string): void {}

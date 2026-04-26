@@ -30,6 +30,16 @@ describe('block tool', () => {
         expect(actionDescription).toContain('docs_info');
     });
 
+    it('publishes JSON types for object and array parameters', () => {
+        const config = buildDefaultToolConfig();
+        const [tool] = listBlockTools(config.block);
+
+        expect(tool.inputSchema.properties.attrs.type).toBe('object');
+        expect(tool.inputSchema.properties.attrs.additionalProperties).toEqual({ type: 'string' });
+        expect(tool.inputSchema.properties.ids.type).toBe('array');
+        expect(tool.inputSchema.properties.ids.items).toEqual({ type: 'string' });
+    });
+
     it('documents insert anchors inside each block item', () => {
         const config = buildDefaultToolConfig();
         const [tool] = listBlockTools(config.block);

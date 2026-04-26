@@ -18,13 +18,14 @@ describe('system tool schemas', () => {
         expect(notify?.schema.properties?.level?.enum).toEqual(['info', 'error']);
     });
 
-    it('publishes loose system parameters plus strict internal branches', () => {
+    it('publishes typed system parameters plus strict internal branches', () => {
         const [tool] = listSystemTools(buildDefaultToolConfig().system);
         const schema = tool.inputSchema;
         const notifyBranch = schema['x-sisyphus-actionSchemas']?.find((branch) => branch.properties?.action?.const === 'notify');
 
         expect(schema.properties?.msg).toBeDefined();
-        expect(schema.properties?.msg?.type).toBeUndefined();
+        expect(schema.properties?.msg?.type).toBe('string');
+        expect(schema.properties?.timeout?.type).toBe('number');
         expect(notifyBranch?.properties?.msg?.description).toBe('Message content');
         expect(notifyBranch?.properties?.level?.enum).toEqual(['info', 'error']);
         expect(notifyBranch?.additionalProperties).toBe(false);

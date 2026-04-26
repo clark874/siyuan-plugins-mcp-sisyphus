@@ -10,7 +10,7 @@ import { PermissionManager } from '@/core/permissions';
 
 describe('MCP End-to-End Flow', () => {
     let client: SiYuanClient;
-    let mockFetch: ReturnType<typeof vi.fn>;
+    let mockFetch: any;
 
     const jsonResponse = (payload: unknown): Response => ({
         ok: true,
@@ -20,7 +20,7 @@ describe('MCP End-to-End Flow', () => {
 
     beforeEach(() => {
         mockFetch = vi.fn();
-        global.fetch = mockFetch;
+        global.fetch = mockFetch as typeof fetch;
 
         client = new SiYuanClient({
             baseUrl: 'http://127.0.0.1:6806',
@@ -181,7 +181,7 @@ describe('MCP End-to-End Flow', () => {
             mockFetch.mockResolvedValue({
                 ok: true,
                 text: async () => JSON.stringify({ nb1: 'r' }),
-            } as Response);
+            } as unknown as Response);
 
             const permMgr = new PermissionManager(client);
             await permMgr.load();
@@ -194,7 +194,7 @@ describe('MCP End-to-End Flow', () => {
             mockFetch.mockResolvedValue({
                 ok: true,
                 text: async () => JSON.stringify({ nb1: 'none' }),
-            } as Response);
+            } as unknown as Response);
 
             const permMgr = new PermissionManager(client);
             await permMgr.load();
@@ -256,7 +256,7 @@ describe('MCP End-to-End Flow', () => {
             mockFetch.mockResolvedValue({
                 ok: true,
                 json: async () => { throw new SyntaxError('Unexpected token'); },
-            } as Response);
+            } as unknown as Response);
 
             await expect(notebookApi.listNotebooks(client)).rejects.toThrow();
         });

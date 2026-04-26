@@ -35,7 +35,7 @@ const tagTool = defineTool<TagAction>({
             const keyword = parsed.query ?? parsed.keyword;
             if (keyword && keyword.trim().length > 0) {
                 const result = await searchApi.searchTag(client, keyword);
-                const typedResult = result && typeof result === 'object' ? result as Record<string, unknown> : {};
+                const typedResult = result && typeof result === 'object' ? result as unknown as Record<string, unknown> : {};
                 const tags = Array.isArray(typedResult.tags) ? typedResult.tags : [];
                 return createJsonResult({
                     ...typedResult,

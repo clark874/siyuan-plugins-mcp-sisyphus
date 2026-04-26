@@ -272,14 +272,14 @@ describe('buildAggregatedTool', () => {
         expect(result[0].description).toContain('create');
     });
 
-    it('publishes loose action-specific properties at the top level', () => {
+    it('publishes typed action-specific properties at the top level without strict branches', () => {
         const result = buildAggregatedTool('notebook', 'Test tool', mockConfig, variants);
         const schema = result[0].inputSchema;
 
         expect(schema.properties?.id).toBeDefined();
-        expect(schema.properties?.id?.type).toBeUndefined();
+        expect(schema.properties?.id?.type).toBe('string');
         expect(schema.properties?.name).toBeDefined();
-        expect(schema.properties?.name?.type).toBeUndefined();
+        expect(schema.properties?.name?.type).toBe('string');
         expect(schema.properties?.topic).toBeDefined();
         expect(schema.oneOf).toBeUndefined();
         expect(schema.additionalProperties).toBe(true);
@@ -394,9 +394,9 @@ describe('mergePropertySchemas annotations', () => {
         const result = buildAggregatedTool('block', 'Test', { enabled: true, actions: { append: true, update: true } }, variants);
         const schema = result[0].inputSchema;
         expect(schema.properties?.data).toBeDefined();
-        expect(schema.properties?.data?.type).toBeUndefined();
+        expect(schema.properties?.data?.type).toBe('string');
         expect(schema.properties?.parentID).toBeDefined();
-        expect(schema.properties?.parentID?.type).toBeUndefined();
+        expect(schema.properties?.parentID?.type).toBe('string');
         expect(schema['x-sisyphus-actionSchemas']?.[0].properties?.parentID).toBeDefined();
         expect(schema['x-sisyphus-actionSchemas']?.[1].properties?.data).toBeDefined();
     });

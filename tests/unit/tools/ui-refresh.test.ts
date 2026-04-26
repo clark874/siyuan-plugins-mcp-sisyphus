@@ -69,7 +69,7 @@ import { parseResult } from '../../helpers/parse-result';
 describe('UI refresh integration', () => {
     const client = {
         request: vi.fn(async () => null),
-    } as never;
+    } as any;
 
     const permMgr = {
         reload: vi.fn(async () => undefined),

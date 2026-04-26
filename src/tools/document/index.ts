@@ -27,7 +27,7 @@ import { DOCUMENT_ACTION_HANDLERS } from './handlers';
 export const DOCUMENT_TOOL_NAME = 'document';
 
 export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
-    createZodActionVariant('create', DocumentCreateSchema, 'Create a new document. Provide either path, or parentPath + title.'),
+    createZodActionVariant('create', DocumentCreateSchema, 'Create a new document. Prefer path for child documents; parentPath + title is supported and MCP resolves the real document ID after creation.'),
     createZodActionVariant('lookup', DocumentLookupSchema, 'Look up document IDs, storage paths, human-readable paths, and document metadata from one document reference.'),
     createZodActionVariant('rename', DocumentRenameSchema, 'Rename a document'),
     createZodActionVariant('remove', DocumentRemoveSchema, 'Delete a document'),

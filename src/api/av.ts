@@ -142,6 +142,6 @@ export async function getAttributeViewPrimaryKeyValues(
         page?: number;
         pageSize?: number;
     },
-): Promise<{ name: string; blockIDs: string[]; rows: unknown[] }> {
-    return client.request<{ name: string; blockIDs: string[]; rows: unknown[] }>('/api/av/getAttributeViewPrimaryKeyValues', payload);
+): Promise<{ name: string; blockIDs: string[]; rows: any }> {
+    return client.request<{ name: string; blockIDs: string[]; rows: any }>('/api/av/getAttributeViewPrimaryKeyValues', payload);
 }

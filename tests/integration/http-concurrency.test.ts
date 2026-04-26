@@ -40,7 +40,7 @@ async function getAvailablePort(): Promise<number> {
 }
 
 function parseToolResultText(result: Awaited<ReturnType<Client['callTool']>>): unknown {
-    const text = result.content?.find((item) => item.type === 'text')?.text ?? '';
+    const text = (result.content as Array<{ type: string; text?: string }> | undefined)?.find((item) => item.type === 'text')?.text ?? '';
     try {
         return JSON.parse(text);
     } catch {

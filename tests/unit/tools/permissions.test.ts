@@ -452,6 +452,28 @@ describe('tool permission and filtering behavior', () => {
         expect(parsed.iconHint).toContain('Unicode hex code string');
     });
 
+    it('resolves the real ID after parentPath + title document creation', async () => {
+        vi.spyOn(documentApi, 'createEmptyDoc').mockResolvedValue({ id: 'AI Interface Root 202604270724' });
+        vi.spyOn(documentApi, 'getIDsByHPath').mockResolvedValue(['doc-real']);
+
+        const result = await callDocumentTool({} as never, {
+            action: 'create',
+            notebook: 'allowed',
+            parentPath: '/AI Interface Root 202604270724',
+            title: 'Child Doc 202604270724',
+            markdown: '# Test',
+        }, documentConfig, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(documentApi.getIDsByHPath).toHaveBeenCalledWith(
+            expect.anything(),
+            '/AI Interface Root 202604270724/Child Doc 202604270724',
+            'allowed',
+        );
+        expect(parsed.id).toBe('doc-real');
+        expect(parsed.warning).toBeUndefined();
+    });
+
     it('adds an icon reminder to daily note create results', async () => {
         vi.spyOn(documentApi, 'createDailyNote').mockResolvedValue({
             id: 'daily-1',

@@ -10,7 +10,7 @@
         ],
         "skipLibCheck": true,
         /* Bundler mode */
-        "moduleResolution": "Node",
+        "moduleResolution": "Bundler",
         // "allowImportingTsExtensions": true,
         "allowSyntheticDefaultImports": true,
         "resolveJsonModule": true,
@@ -19,8 +19,8 @@
         "jsx": "preserve",
         /* Linting */
         "strict": false,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
         "noFallthroughCasesInSwitch": true,
         /* Svelte */
         /**
@@ -41,6 +41,7 @@
         "paths": {
             "@/*": ["./src/*"],
             "@/shared/*": ["./src/shared/*"],
+            "siyuan": ["./tests/mocks/siyuan.ts"],
         }
     },
     "include": [

@@ -16,6 +16,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
@@ -44,6 +45,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
@@ -70,6 +72,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
@@ -96,13 +99,14 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
-        "hint": "Use an attribute view ID. Returns the full AV payload after permission checks.",
+        "hint": "Use an attribute view ID. Returns the full AV payload after permission checks. For a newly created empty AV, pass blockID if avID-only permission resolution reports that the database has no resolvable owning block context.",
         "requiredFields": [
           "id",
         ],
@@ -122,6 +126,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
@@ -148,13 +153,14 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
-        "hint": "Use id to return database keys/columns for a block-bound attribute view.",
+        "hint": "Use id to return database keys/columns for a block-bound attribute view. For a newly created empty AV, pass blockID if avID-only permission resolution cannot find an owning block context.",
         "requiredFields": [
           "id",
         ],
@@ -174,13 +180,14 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
-        "hint": "Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering.",
+        "hint": "Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering. For a newly created empty AV, pass blockID if avID-only permission resolution cannot find an owning block context.",
         "requiredFields": [
           "avID",
         ],
@@ -200,6 +207,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
@@ -229,6 +237,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
@@ -255,13 +264,14 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
-        "hint": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically. The returned materialized blockID identifies the registered database block if you need to pin a specific block view later.",
+        "hint": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically. Keep the returned materialized blockID; if the next AV read/write cannot resolve permission scope by avID yet, pass this blockID explicitly until the AV has row data or mirror registration settles.",
         "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
@@ -279,6 +289,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
@@ -305,6 +316,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+          "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
@@ -348,13 +360,13 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "add_column": "Use avID + keyName + keyType, and optionally keyID or blockID. MCP generates keyID automatically when omitted. Supported keyType values match the 16 SiYuan addable column types, including keyType="mSelect", keyType="mAsset", and keyType="lineNumber". Optional blockID must be a registered database block for this AV if you need to pin a specific block view.",
         "add_rows": "Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="set_cells", avID, cells=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.",
         "duplicate": "MCP first calls the kernel duplicate API, then inserts the duplicated NodeAttributeView block into the document tree. By default it inserts after the source database block; provide previousID to override the insertion target.",
-        "get": "Use an attribute view ID. Returns the full AV payload after permission checks.",
+        "get": "Use an attribute view ID. Returns the full AV payload after permission checks. For a newly created empty AV, pass blockID if avID-only permission resolution reports that the database has no resolvable owning block context.",
         "get_attribute_view_filter_sort": "Use id + blockID to return the filters and sorts applied to that database block view.",
-        "get_attribute_view_keys": "Use id to return database keys/columns for a block-bound attribute view.",
-        "get_primary_key_values": "Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering.",
+        "get_attribute_view_keys": "Use id to return database keys/columns for a block-bound attribute view. For a newly created empty AV, pass blockID if avID-only permission resolution cannot find an owning block context.",
+        "get_primary_key_values": "Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering. For a newly created empty AV, pass blockID if avID-only permission resolution cannot find an owning block context.",
         "remove_column": "Use avID + keyID, and optionally blockID to target a specific registered database block. removeRelationDest only matters for relation columns.",
         "remove_rows": "Use avID + srcIDs to remove rows from the AV. Optional blockID pins a specific registered database block when you need explicit block-view context.",
-        "render": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically. The returned materialized blockID identifies the registered database block if you need to pin a specific block view later.",
+        "render": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically. Keep the returned materialized blockID; if the next AV read/write cannot resolve permission scope by avID yet, pass this blockID explicitly until the AV has row data or mirror registration settles.",
         "search": "Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.",
         "set_cells": "Use avID + cells[]. Each item requires rowID + columnID + valueType and its matching typed field. For a single-cell write, pass rowID + columnID + valueType directly. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[].",
       },
@@ -372,7 +384,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "requiresConfirmation": false,
         },
         "get": {
-          "hint": "Use an attribute view ID. Returns the full AV payload after permission checks.",
+          "hint": "Use an attribute view ID. Returns the full AV payload after permission checks. For a newly created empty AV, pass blockID if avID-only permission resolution reports that the database has no resolvable owning block context.",
           "requiresConfirmation": false,
         },
         "get_attribute_view_filter_sort": {
@@ -380,11 +392,11 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "requiresConfirmation": false,
         },
         "get_attribute_view_keys": {
-          "hint": "Use id to return database keys/columns for a block-bound attribute view.",
+          "hint": "Use id to return database keys/columns for a block-bound attribute view. For a newly created empty AV, pass blockID if avID-only permission resolution cannot find an owning block context.",
           "requiresConfirmation": false,
         },
         "get_primary_key_values": {
-          "hint": "Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering.",
+          "hint": "Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering. For a newly created empty AV, pass blockID if avID-only permission resolution cannot find an owning block context.",
           "requiresConfirmation": false,
         },
         "remove_column": {
@@ -396,7 +408,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "requiresConfirmation": false,
         },
         "render": {
-          "hint": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically. The returned materialized blockID identifies the registered database block if you need to pin a specific block view later.",
+          "hint": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically. Keep the returned materialized blockID; if the next AV read/write cannot resolve permission scope by avID yet, pass this blockID explicitly until the AV has row data or mirror registration settles.",
           "requiresConfirmation": false,
         },
         "search": {
@@ -428,6 +440,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
       "guidance": [
         "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
         "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
+        "If a newly created empty AV later reports that MCP cannot resolve notebook permission scope by avID, pass the returned materialized blockID explicitly on the next AV write/read until the AV has row data or mirror registration has settled.",
         "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
         "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
         "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
@@ -1148,7 +1161,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/create",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1157,7 +1170,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "For recently created documents, document(action="lookup", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
           "document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
-        "hint": "Use notebook plus either path, or parentPath + title. markdown is optional and defaults to empty.",
+        "hint": "Use notebook plus path for the most reliable child-document creation flow. parentPath + title is supported, but SiYuan may return a non-ID raw value, so MCP resolves the real document ID by hpath after creation. markdown is optional and defaults to empty.",
         "requiredFields": [
           "notebook",
         ],
@@ -1175,7 +1188,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/create_daily_note",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1203,7 +1216,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/doc_to_heading",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1230,7 +1243,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/duplicate",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1256,7 +1269,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/get_child_blocks",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1283,7 +1296,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/get_child_docs",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1310,7 +1323,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/get_doc",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1338,7 +1351,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/heading_to_doc",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1366,7 +1379,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/list_tree",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1393,7 +1406,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/lookup",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1417,7 +1430,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/move",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1441,7 +1454,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/remove",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1466,7 +1479,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/rename",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1494,7 +1507,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/search_docs",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1525,7 +1538,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/set_attr",
         "guidance": [
-          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1569,10 +1582,10 @@ document.duplicate: required [id] | optional []
 document.heading_to_doc: required [headingID, targetNotebook] | optional [targetPath, previousPath]
 document.doc_to_heading: required [srcID, targetID] | optional [after]
 
-document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title. Other document actions that use notebook + path expect storage paths returned by document(action="lookup"). Requires user confirmation before: remove, move.",
+document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it. Other document actions that use notebook + path expect storage paths returned by document(action="lookup"). Requires user confirmation before: remove, move.",
     "overview": {
       "actionSummaries": {
-        "create": "Use notebook plus either path, or parentPath + title. markdown is optional and defaults to empty.",
+        "create": "Use notebook plus path for the most reliable child-document creation flow. parentPath + title is supported, but SiYuan may return a non-ID raw value, so MCP resolves the real document ID by hpath after creation. markdown is optional and defaults to empty.",
         "create_daily_note": "Use a notebook ID and optionally pass app for downstream SiYuan event routing. When the user asks for a diary, journal entry, daily log, or today’s note in a notebook, prefer this action over manually creating a path and then appending content.",
         "doc_to_heading": "requires: srcID, targetID",
         "duplicate": "requires: id",
@@ -1590,7 +1603,7 @@ document(action="create") creates both non-empty and empty documents. Provide ei
       },
       "actions": {
         "create": {
-          "hint": "Use notebook plus either path, or parentPath + title. markdown is optional and defaults to empty.",
+          "hint": "Use notebook plus path for the most reliable child-document creation flow. parentPath + title is supported, but SiYuan may return a non-ID raw value, so MCP resolves the real document ID by hpath after creation. markdown is optional and defaults to empty.",
           "requiresConfirmation": false,
         },
         "create_daily_note": {
@@ -1668,7 +1681,7 @@ document(action="create") creates both non-empty and empty documents. Provide ei
       ],
       "detailsHint": "Call document(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
-        "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+        "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
         "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
         "A safe path-based workflow is lookup -> rename/remove/move.",
         "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",

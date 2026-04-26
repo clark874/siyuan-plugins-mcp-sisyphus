@@ -75,13 +75,13 @@ function normalizeReferencedBlocks(items: unknown[] | undefined): unknown[] {
     return normalizeSearchBlocksForAi(items);
 }
 
-function resolveFulltextTypes(parsed: SearchFulltextArgs): unknown {
+function resolveFulltextTypes(parsed: SearchFulltextArgs): Record<string, boolean> | undefined {
     let resolvedTypes = parsed.types ? resolveTypeRecord(parsed.types) : parsed.types;
     if (parsed.typeShortcodes && parsed.typeShortcodes.length > 0) {
         const expanded = expandTypeShortcodes(parsed.typeShortcodes);
         resolvedTypes = { ...expanded, ...resolvedTypes };
     }
-    return resolvedTypes;
+    return resolvedTypes as Record<string, boolean> | undefined;
 }
 
 function resolveFulltextRequestPageSize(parsed: SearchFulltextArgs): number | undefined {
@@ -225,7 +225,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             pageSize: resolveFulltextRequestPageSize(parsed),
         });
         const filtered = filterFullTextSearchResultByPermission(result, permMgr);
-        const filteredObj = filtered as Record<string, unknown>;
+        const filteredObj = filtered as unknown as Record<string, unknown>;
         const normalizedObj: Record<string, unknown> = {
             ...filteredObj,
             blocks: normalizeReferencedBlocks(Array.isArray(filteredObj.blocks) ? filteredObj.blocks : []),
@@ -251,8 +251,8 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
         return createFulltextPaginatedResult(normalizedObj, parsed, {
             matchedBlockCount: typeof result.matchedBlockCount === 'number' ? result.matchedBlockCount : undefined,
             matchedRootCount: typeof result.matchedRootCount === 'number' ? result.matchedRootCount : undefined,
-            pageCount: typeof (result as Record<string, unknown>).pageCount === 'number'
-                ? (result as Record<string, unknown>).pageCount as number
+            pageCount: typeof (result as unknown as Record<string, unknown>).pageCount === 'number'
+                ? (result as unknown as Record<string, unknown>).pageCount as number
                 : undefined,
         }, resolvedArgs);
     },
@@ -427,7 +427,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             matchedBlockCount?: number;
             matchedRootCount?: number;
         }, permMgr);
-        const filteredObj = filtered as Record<string, unknown>;
+        const filteredObj = filtered as unknown as Record<string, unknown>;
         const blocks = Array.isArray(filteredObj.blocks) ? filteredObj.blocks : [];
         const normalizedBlocks = normalizeReferencedBlocks(blocks);
         return createJsonResult({

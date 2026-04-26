@@ -17,7 +17,7 @@ describe('notebook tool schemas', () => {
         expect(getChildDocs?.schema.properties?.page?.exclusiveMinimum).toBe(0);
     });
 
-    it('publishes loose notebook parameters plus strict internal branches', () => {
+    it('publishes typed notebook parameters plus strict internal branches', () => {
         const config = buildDefaultToolConfig().notebook;
         config.actions.set_permission = true;
         const [tool] = listNotebookTools(config);
@@ -27,10 +27,11 @@ describe('notebook tool schemas', () => {
         const setPermissionBranch = branches?.find((branch) => branch.properties?.action?.const === 'set_permission');
 
         expect(schema.properties?.name).toBeDefined();
-        expect(schema.properties?.name?.type).toBeUndefined();
+        expect(schema.properties?.name?.type).toBe('string');
+        expect(schema.properties?.opened?.type).toBe('boolean');
         expect(createBranch?.properties?.name?.description).toBe('Notebook name');
         expect(createBranch?.required).toEqual(['action', 'name']);
-        expect(schema.properties?.permission?.type).toBeUndefined();
+        expect(schema.properties?.permission?.type).toBe('string');
         expect(setPermissionBranch?.properties?.permission?.enum).toEqual(['none', 'r', 'rw', 'rwd']);
         expect(setPermissionBranch?.properties?.permission?.description).toContain('"rwd" allows read, write, and delete');
         expect(setPermissionBranch?.additionalProperties).toBe(false);

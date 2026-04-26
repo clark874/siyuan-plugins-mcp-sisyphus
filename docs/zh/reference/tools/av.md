@@ -22,6 +22,7 @@
 ## 参数与语义
 
 - `render` 在 `createIfNotExist=true` 且传入 `blockID` 时，也可创建并实体化 AV。
+- 保留 `render(createIfNotExist=true)` 返回的 `blockID`。如果新建空 AV 后仅用 `avID` 读取或写入时报权限范围无法解析，请在后续 AV 读写中显式传入该 `blockID`，直到 AV 有行数据或 mirror 注册完成。
 - `set_cells` 由 `valueType` 决定值类型，既支持单格字段，也支持 `cells` / `items` 数组。
 - `rowID` 指行 item ID，不是源块 ID。
 - `duplicate` 会复制属性视图定义，也可通过 `previousID` 指定复制出的数据库块插入位置。

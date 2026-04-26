@@ -4,7 +4,7 @@ vi.mock('siyuan', () => ({
     Plugin: class {},
     showMessage: vi.fn(),
     Dialog: class {},
-}), { virtual: true });
+}));
 
 vi.mock('@/ui/setting/mcp-config.svelte', () => ({
     default: class {

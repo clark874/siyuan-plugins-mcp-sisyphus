@@ -54,7 +54,7 @@ export async function getNotebookConf(client: SiYuanClient, notebook: string): P
 /**
  * Set notebook configuration
  */
-export async function setNotebookConf(client: SiYuanClient, notebook: string, conf: NotebookConf): Promise<IResSetNotebookConf> {
+export async function setNotebookConf(client: SiYuanClient, notebook: string, conf: Partial<NotebookConf>): Promise<IResSetNotebookConf> {
     return client.request<IResSetNotebookConf>('/api/notebook/setNotebookConf', { notebook, conf });
 }
 

@@ -13,13 +13,13 @@ describe('tag tool schemas', () => {
         expect(rename?.schema.additionalProperties).toBe(false);
     });
 
-    it('publishes loose tag parameters plus strict internal branches', () => {
+    it('publishes typed tag parameters plus strict internal branches', () => {
         const [tool] = listTagTools(buildDefaultToolConfig().tag);
         const schema = tool.inputSchema;
         const renameBranch = schema['x-sisyphus-actionSchemas']?.find((branch) => branch.properties?.action?.const === 'rename');
 
         expect(schema.properties?.oldLabel).toBeDefined();
-        expect(schema.properties?.oldLabel?.type).toBeUndefined();
+        expect(schema.properties?.oldLabel?.type).toBe('string');
         expect(renameBranch?.properties?.oldLabel?.description).toBe('Existing tag label');
         expect(renameBranch?.required).toEqual(['action', 'oldLabel', 'newLabel']);
     });
