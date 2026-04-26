@@ -25,6 +25,8 @@
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
+This plugin provides an easy-to-use frontend settings panel and a secure, fine-grained permission model, ensuring that both CLI and MCP can only operate within the boundaries you allow.
+
 This project provides **two ways to connect SiYuan Note to the outside world**, sharing the same capabilities (reading notes, searching, editing content, working with databases, exporting resources, etc.):
 
 - **CLI tool `siyuan-sisyphus`**: Drive SiYuan directly from your terminal or scripts without an MCP client.
@@ -90,7 +92,10 @@ A standalone command-line tool [`siyuan-sisyphus`](./cli/README.md) that connect
 ### Install CLI
 
 ```bash
+# Install CLI
 npm i -g siyuan-sisyphus
+# Configure API URL and token
+siyuan-sisyphus init
 ```
 
 ### Usage Examples
