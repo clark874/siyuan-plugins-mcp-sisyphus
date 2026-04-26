@@ -11,6 +11,7 @@ vi.mock('@/api/file', () => ({
     getDocAssets: vi.fn(),
     getDocImageAssets: vi.fn(),
     getImageOCRText: vi.fn(),
+    deleteAsset: vi.fn(),
 }));
 
 vi.mock('@/api/template', () => ({
@@ -37,12 +38,14 @@ describe('file tool asset actions', () => {
         vi.mocked(fileApi.getDocAssets).mockReset();
         vi.mocked(fileApi.getDocImageAssets).mockReset();
         vi.mocked(fileApi.getImageOCRText).mockReset();
+        vi.mocked(fileApi.deleteAsset).mockReset();
 
         vi.mocked(fileApi.exportResources).mockResolvedValue({ path: '/temp/export.zip' });
         vi.mocked(fileApi.getUnusedAssets).mockResolvedValue(['assets/orphan.png']);
         vi.mocked(fileApi.getDocAssets).mockResolvedValue(['assets/manual.pdf', 'assets/cover.png']);
         vi.mocked(fileApi.getDocImageAssets).mockResolvedValue(['assets/cover.png']);
         vi.mocked(fileApi.getImageOCRText).mockResolvedValue({ text: 'recognized text' });
+        vi.mocked(fileApi.deleteAsset).mockResolvedValue(null);
     });
 
     it('exposes asset management actions in the grouped schema', () => {
@@ -53,7 +56,6 @@ describe('file tool asset actions', () => {
         expect(tool.inputSchema.properties.action.enum).toContain('remove_unused_assets');
         expect(tool.inputSchema.properties.action.enum).toContain('rename_asset');
         expect(tool.inputSchema.properties.action.enum).toContain('delete_asset');
-        expect(tool.inputSchema.properties.action.enum).toContain('set_image_alpha');
     });
 
     it('calls unused assets endpoint', async () => {
@@ -105,6 +107,39 @@ describe('file tool asset actions', () => {
         expect(parseResult(result)).toEqual({
             path: 'assets/cover.png',
             text: 'recognized text',
+        });
+    });
+
+    it('treats an empty delete asset response as success', async () => {
+        const fileApi = await import('@/api/file');
+        vi.mocked(fileApi.deleteAsset).mockResolvedValueOnce(null);
+
+        const result = await callFileTool(client, {
+            action: 'delete_asset',
+            path: 'assets/old.png',
+        }, config.file, {} as never);
+
+        expect(fileApi.deleteAsset).toHaveBeenCalledWith(client, 'assets/old.png');
+        expect(parseResult(result)).toEqual({
+            success: true,
+            path: 'assets/old.png',
+        });
+    });
+
+    it('preserves extra fields from delete asset responses', async () => {
+        const fileApi = await import('@/api/file');
+        vi.mocked(fileApi.deleteAsset).mockResolvedValueOnce({ removed: true, affected: 1 });
+
+        const result = await callFileTool(client, {
+            action: 'delete_asset',
+            path: 'assets/old.png',
+        }, config.file, {} as never);
+
+        expect(parseResult(result)).toEqual({
+            success: true,
+            path: 'assets/old.png',
+            removed: true,
+            affected: 1,
         });
     });
 

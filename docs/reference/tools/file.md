@@ -45,6 +45,29 @@ MCP:
 }
 ```
 
+Template rendering syntax:
+
+```json
+{
+  "action": "render",
+  "engine": "template",
+  "id": "<doc-id>",
+  "path": "/path/to/siyuan/data/templates/report.md"
+}
+```
+
+`engine="template"` renders a workspace template file. Inside the template, use SiYuan delimiters such as `.action{.title}`, `.action{.id}`, `.action{.name}`, and `.action{.alias}`; placeholders like `{{.title}}` are not replaced by this engine.
+
+```json
+{
+  "action": "render",
+  "engine": "sprig",
+  "template": "Today: {{ now | date \"2006-01-02\" }}"
+}
+```
+
+`engine="sprig"` renders an inline string with `{{...}}` syntax and Sprig functions, but it has no document context.
+
 CLI:
 
 ```bash

@@ -17,13 +17,11 @@ import {
     DocumentHeadingToDocSchema,
     DocumentListTreeSchema,
     DocumentMoveSchema,
-    DocumentRemoveBatchSchema,
+    DocumentLookupSchema,
     DocumentRemoveSchema,
-    DocumentResolveSchema,
     DocumentRenameSchema,
     DocumentSearchDocsSchema,
-    DocumentSetCoverSchema,
-    DocumentSetIconSchema,
+    DocumentSetAttrSchema,
 } from '../../core/types';
 import {
     ensurePermissionForDocumentId,
@@ -35,7 +33,7 @@ import {
 import type { ToolActionHandler } from '../define-tool';
 import { filterBacklinkResultByPermission, filterItemsByPermissionAndPath } from '../search';
 import { createJsonResult, createPermissionDeniedResult, createSetIconReminder } from '../shared';
-import { applyUiRefresh } from '../ui-refresh';
+import { applyUiRefresh, type UiRefreshOperation } from '../ui-refresh';
 import { sleep } from '../../shared/async';
 
 type DocumentActionHandler = ToolActionHandler;
@@ -266,8 +264,8 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         ]);
 };
 
-const handleResolve: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentResolveSchema.parse(rawArgs);
+const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentLookupSchema.parse(rawArgs);
     const hpathInput = parsed.hpath ?? parsed.hPath;
     const include = new Set(parsed.include ?? DEFAULT_DOCUMENT_RESOLVE_INCLUDE);
     const result: Record<string, unknown> = {
@@ -363,6 +361,37 @@ const handleRename: DocumentActionHandler = async ({ client, permMgr, rawArgs })
 
 const handleRemove: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentRemoveSchema.parse(rawArgs);
+    if (parsed.ids) {
+        const reloadIds: string[] = [];
+        for (const id of parsed.ids) {
+            const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, id, 'delete');
+            if (denied) return denied;
+            reloadIds.push(context.documentId);
+        }
+        for (const id of parsed.ids) {
+            await documentApi.removeDocByID(client, id);
+        }
+        return applyUiRefresh(client, createJsonResult({ success: true, ids: parsed.ids, count: parsed.ids.length }), [
+            ...reloadIds.map((id) => ({ type: 'reloadProtyle' as const, id })),
+            { type: 'reloadFiletree' },
+        ]);
+    }
+    if (parsed.paths) {
+        for (const path of parsed.paths) {
+            const notebook = await resolveNotebookForPath(client, path);
+            if (!notebook) {
+                throw new Error(`Unable to resolve notebook for storage path "${path}" while checking permissions.`);
+            }
+            const denied = await ensurePermissionForNotebook(permMgr, notebook, 'delete');
+            if (denied) return denied;
+        }
+        await documentApi.removeDocs(client, parsed.paths);
+        return applyUiRefresh(client, createJsonResult({
+            success: true,
+            paths: parsed.paths,
+            count: parsed.paths.length,
+        }), [{ type: 'reloadFiletree' }]);
+    }
     if (parsed.id) {
         const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'delete');
         if (denied) return denied;
@@ -441,31 +470,33 @@ const handleGetChildDocs: DocumentActionHandler = async ({ client, permMgr, rawA
     return createJsonResult(result);
 };
 
-const handleSetIcon: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentSetIconSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
-    if (denied) return denied;
-    await attributeApi.setBlockAttrs(client, parsed.id, { icon: parsed.icon });
-    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, icon: parsed.icon }), [{ type: 'reloadIcon' }]);
-};
-
-const handleSetCover: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentSetCoverSchema.parse(rawArgs);
+const handleSetAttr: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentSetAttrSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
     if (denied) return denied;
-    const source = parsed.source;
-    if (!source) {
-        await attributeApi.setBlockAttrs(client, parsed.id, { 'title-img': '' });
-        return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, cleared: true }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    const attrs: Record<string, string> = {};
+    const response: Record<string, unknown> = { success: true, id: parsed.id };
+    const operations: UiRefreshOperation[] = [];
+    if (parsed.attrs.icon !== undefined) {
+        attrs.icon = parsed.attrs.icon;
+        response.icon = parsed.attrs.icon;
+        operations.push({ type: 'reloadIcon' }, { type: 'reloadFiletree' });
     }
-    const normalized = normalizeDocumentCoverSource(source);
-    await attributeApi.setBlockAttrs(client, parsed.id, { 'title-img': normalized.titleImg });
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        id: parsed.id,
-        source: normalized.source,
-        titleImg: normalized.titleImg,
-    }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    if (parsed.attrs.cover !== undefined) {
+        const source = parsed.attrs.cover;
+        if (!source) {
+            attrs['title-img'] = '';
+            response.clearedCover = true;
+        } else {
+            const normalized = normalizeDocumentCoverSource(source);
+            attrs['title-img'] = normalized.titleImg;
+            response.cover = normalized.source;
+            response.titleImg = normalized.titleImg;
+        }
+        operations.push({ type: 'reloadProtyle', id: context.documentId }, { type: 'reloadFiletree' });
+    }
+    await attributeApi.setBlockAttrs(client, parsed.id, attrs);
+    return applyUiRefresh(client, createJsonResult(response), operations);
 };
 
 const handleListTree: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -579,24 +610,6 @@ const handleDuplicate: DocumentActionHandler = async ({ client, permMgr, rawArgs
     ]);
 };
 
-const handleRemoveBatch: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentRemoveBatchSchema.parse(rawArgs);
-    for (const path of parsed.paths) {
-        const notebook = await resolveNotebookForPath(client, path);
-        if (!notebook) {
-            throw new Error(`Unable to resolve notebook for storage path "${path}" while checking permissions.`);
-        }
-        const denied = await ensurePermissionForNotebook(permMgr, notebook, 'delete');
-        if (denied) return denied;
-    }
-    await documentApi.removeDocs(client, parsed.paths);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        paths: parsed.paths,
-        count: parsed.paths.length,
-    }), [{ type: 'reloadFiletree' }]);
-};
-
 const handleHeadingToDoc: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentHeadingToDocSchema.parse(rawArgs);
     const source = await ensurePermissionForDocumentId(client, permMgr, parsed.headingID, 'write');
@@ -638,20 +651,18 @@ const handleDocToHeading: DocumentActionHandler = async ({ client, permMgr, rawA
 
 export const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = {
     create: handleCreate,
-    resolve: handleResolve,
+    lookup: handleLookup,
     rename: handleRename,
     remove: handleRemove,
     move: handleMove,
     get_child_blocks: handleGetChildBlocks,
     get_child_docs: handleGetChildDocs,
-    set_icon: handleSetIcon,
-    set_cover: handleSetCover,
+    set_attr: handleSetAttr,
     list_tree: handleListTree,
     search_docs: handleSearchDocs,
     get_doc: handleGetDoc,
     create_daily_note: handleCreateDailyNote,
     duplicate: handleDuplicate,
-    remove_batch: handleRemoveBatch,
     heading_to_doc: handleHeadingToDoc,
     doc_to_heading: handleDocToHeading,
 };

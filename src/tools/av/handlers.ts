@@ -7,12 +7,12 @@ import type { PermissionManager } from '../../core/permissions';
 import {
     AvAddColumnSchema,
     AvAddRowsSchema,
-    AvDuplicateBlockSchema,
+    AvDuplicateSchema,
     AvGetAttributeViewFilterSortSchema,
     AvGetAttributeViewKeysSchema,
     AvGetPrimaryKeyValuesSchema,
     AvGetSchema,
-    AvRenderAttributeViewSchema,
+    AvRenderSchema,
     AvRemoveColumnSchema,
     AvRemoveRowsSchema,
     AvSearchSchema,
@@ -591,7 +591,7 @@ function isMissingAttributeViewError(error: unknown): boolean {
     return error instanceof Error && translateError(error)?.code === 'av_not_found';
 }
 
-async function ensurePermissionForRenderAttributeView(
+async function ensurePermissionForRender(
     client: SiYuanClient,
     permMgr: PermissionManager,
     parsed: {
@@ -630,7 +630,7 @@ async function ensurePermissionForRenderAttributeView(
     }
 
     if (!parsed.id) {
-        throw new Error('av(action="render_attribute_view") requires id unless createIfNotExist=true is provided.');
+        throw new Error('av(action="render") requires id unless createIfNotExist=true is provided.');
     }
 
     try {
@@ -992,12 +992,12 @@ async function handleSearch({ client, permMgr, rawArgs }: ToolHandlerContext): P
     });
 }
 
-async function handleRenderAttributeView({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
-    const parsed = AvRenderAttributeViewSchema.parse(rawArgs);
+async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
+    const parsed = AvRenderSchema.parse(rawArgs);
     const creationTime = new Date();
     const idWasGenerated = !parsed.id;
     const effectiveAvID = parsed.id ?? generateSiYuanNodeId(creationTime);
-    const permission = await ensurePermissionForRenderAttributeView(client, permMgr, parsed, effectiveAvID, idWasGenerated);
+    const permission = await ensurePermissionForRender(client, permMgr, parsed, effectiveAvID, idWasGenerated);
     if (permission.denied) return permission.denied;
 
     const response = await avApi.renderAttributeView(client, {
@@ -1290,8 +1290,8 @@ async function handleSetCells({ client, permMgr, rawArgs }: ToolHandlerContext):
     }), refreshOperations);
 }
 
-async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
-    const parsed = AvDuplicateBlockSchema.parse(rawArgs);
+async function handleDuplicate({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
+    const parsed = AvDuplicateSchema.parse(rawArgs);
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write');
     if (denied) return denied;
 
@@ -1304,7 +1304,7 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
                     error: {
                         type: 'internal_error',
                         tool: AV_TOOL_NAME,
-                        action: 'duplicate_block',
+                        action: 'duplicate',
                         reason: 'duplicate_identifiers_missing',
                         message: `Duplicate AV returned incomplete identifiers for source "${parsed.avID}".`,
                         sourceAvID: parsed.avID,
@@ -1326,7 +1326,7 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
                     error: {
                         type: 'internal_error',
                         tool: AV_TOOL_NAME,
-                        action: 'duplicate_block',
+                        action: 'duplicate',
                         reason: 'duplicate_insert_target_unresolved',
                         message: `Duplicated AV identifiers were prepared for source "${parsed.avID}", but MCP could not resolve a database block insertion target.`,
                         sourceAvID: parsed.avID,
@@ -1367,7 +1367,7 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
                     error: {
                         type: 'internal_error',
                         tool: AV_TOOL_NAME,
-                        action: 'duplicate_block',
+                        action: 'duplicate',
                         reason: 'duplicate_insert_failed',
                         message: normalized.message,
                         sourceAvID: parsed.avID,
@@ -1400,7 +1400,7 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
                     error: {
                         type: 'internal_error',
                         tool: AV_TOOL_NAME,
-                        action: 'duplicate_block',
+                        action: 'duplicate',
                         reason: 'duplicate_insert_verification_failed',
                         message: `Duplicated AV insertion finished, but MCP could not verify the materialized result for block "${response.blockID}".`,
                         sourceAvID: parsed.avID,
@@ -1421,7 +1421,7 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
     }
 
     return applyUiRefresh(client, createWriteSuccessResult({
-        action: 'duplicate_block',
+        action: 'duplicate',
         sourceAvID: parsed.avID,
         prepared: true,
         materialized: true,
@@ -1483,7 +1483,7 @@ async function handleGetPrimaryKeyValues({ client, permMgr, rawArgs }: ToolHandl
 
 export const AV_ACTION_HANDLERS: Record<AvAction, ToolActionHandler> = {
     get: handleGet,
-    render_attribute_view: handleRenderAttributeView,
+    render: handleRender,
     get_attribute_view_keys: handleGetAttributeViewKeys,
     get_attribute_view_filter_sort: handleGetAttributeViewFilterSort,
     search: handleSearch,
@@ -1492,6 +1492,6 @@ export const AV_ACTION_HANDLERS: Record<AvAction, ToolActionHandler> = {
     add_column: handleAddColumn,
     remove_column: handleRemoveColumn,
     set_cells: handleSetCells,
-    duplicate_block: handleDuplicateBlock,
+    duplicate: handleDuplicate,
     get_primary_key_values: handleGetPrimaryKeyValues,
 };

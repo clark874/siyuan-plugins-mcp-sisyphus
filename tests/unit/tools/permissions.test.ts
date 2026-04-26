@@ -12,18 +12,17 @@ import * as contextTools from '@/tools/context';
 
 import { parseResult } from '../../helpers/parse-result';
 
-const searchConfig: CategoryToolConfig<'fulltext' | 'query_sql' | 'search_tag' | 'get_backlinks' | 'get_backmentions'> = {
+const searchConfig: CategoryToolConfig<'fulltext' | 'query_sql' | 'get_backlinks' | 'search_refs'> = {
     enabled: true,
     actions: {
         fulltext: true,
         query_sql: true,
-        search_tag: true,
         get_backlinks: true,
-        get_backmentions: true,
+        search_refs: true,
     },
 };
 
-const blockConfig: CategoryToolConfig<'insert' | 'prepend' | 'append' | 'update' | 'delete' | 'move' | 'fold' | 'unfold' | 'get_kramdown' | 'get_children' | 'transfer_ref' | 'set_attrs' | 'get_attrs' | 'exists' | 'info' | 'breadcrumb' | 'dom' | 'recent_updated' | 'word_count'> = {
+const blockConfig: CategoryToolConfig<'insert' | 'prepend' | 'append' | 'update' | 'delete' | 'move' | 'set_fold_state' | 'get_kramdown' | 'get_children' | 'transfer_references' | 'set_attrs' | 'get_attrs' | 'info' | 'breadcrumb' | 'dom' | 'recent_updated' | 'word_count'> = {
     enabled: true,
     actions: {
         insert: true,
@@ -32,14 +31,12 @@ const blockConfig: CategoryToolConfig<'insert' | 'prepend' | 'append' | 'update'
         update: true,
         delete: true,
         move: true,
-        fold: true,
-        unfold: true,
+        set_fold_state: true,
         get_kramdown: true,
         get_children: true,
-        transfer_ref: true,
+        transfer_references: true,
         set_attrs: true,
         get_attrs: true,
-        exists: true,
         info: true,
         breadcrumb: true,
         dom: true,
@@ -48,19 +45,17 @@ const blockConfig: CategoryToolConfig<'insert' | 'prepend' | 'append' | 'update'
     },
 };
 
-const documentConfig: CategoryToolConfig<'create' | 'resolve' | 'rename' | 'remove' | 'move' | 'get_child_blocks' | 'get_child_docs' | 'set_icon' | 'set_cover' | 'clear_cover' | 'list_tree' | 'search_docs' | 'get_doc' | 'create_daily_note'> = {
+const documentConfig: CategoryToolConfig<'create' | 'lookup' | 'rename' | 'remove' | 'move' | 'get_child_blocks' | 'get_child_docs' | 'set_attr' | 'list_tree' | 'search_docs' | 'get_doc' | 'create_daily_note'> = {
     enabled: true,
     actions: {
         create: true,
         rename: true,
         remove: true,
         move: true,
-        resolve: true,
+        lookup: true,
         get_child_blocks: true,
         get_child_docs: true,
-        set_icon: true,
-        set_cover: true,
-        clear_cover: true,
+        set_attr: true,
         list_tree: true,
         search_docs: true,
         get_doc: true,
@@ -167,6 +162,7 @@ describe('tool permission and filtering behavior', () => {
         const result = await callSearchTool({} as never, {
             action: 'get_backlinks',
             id: 'root-doc',
+            mode: 'links',
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);
 
@@ -225,6 +221,7 @@ describe('tool permission and filtering behavior', () => {
             path: '/root-doc.sy',
         });
         vi.spyOn(searchApi, 'getBacklinkDoc').mockResolvedValue(null as never);
+        vi.spyOn(searchApi, 'getBackmentionDoc').mockResolvedValue(null as never);
 
         const result = await callSearchTool({} as never, {
             action: 'get_backlinks',
@@ -281,8 +278,9 @@ describe('tool permission and filtering behavior', () => {
         vi.spyOn(searchApi, 'getBackmentionDoc').mockResolvedValue(null as never);
 
         const result = await callSearchTool({} as never, {
-            action: 'get_backmentions',
+            action: 'get_backlinks',
             id: 'target-block',
+            mode: 'mentions',
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);
 
@@ -304,7 +302,7 @@ describe('tool permission and filtering behavior', () => {
             .mockResolvedValueOnce('/Projects/New Doc');
 
         const result = await callDocumentTool({} as never, {
-            action: 'resolve',
+            action: 'lookup',
             id: 'doc-1',
             include: ['hpath'],
         }, documentConfig, permMgr as never);
@@ -345,6 +343,7 @@ describe('tool permission and filtering behavior', () => {
         const result = await callSearchTool({} as never, {
             action: 'get_backlinks',
             id: 'doc-in-allowed',
+            mode: 'links',
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);
 

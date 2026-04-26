@@ -23,13 +23,13 @@ export const NOTEBOOK_GUIDANCE: string[] = [
 
 export const DOCUMENT_GUIDANCE: string[] = [
     'document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.',
-    'Other document actions that use notebook + path expect storage paths returned by document(action="resolve").',
-    'A safe path-based workflow is resolve -> rename/remove/move.',
+    'Other document actions that use notebook + path expect storage paths returned by document(action="lookup").',
+    'A safe path-based workflow is lookup -> rename/remove/move.',
     'document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.',
-    'document(action="set_cover") is a semantic wrapper around the document root block\'s "title-img" attribute. Omit source to clear the cover.',
+    'document(action="set_attr") updates document metadata such as icon and cover; use attrs.cover=null or an empty string to clear the cover.',
     'document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.',
-    'For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.',
-    'document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.',
+    'For recently created documents, document(action="lookup", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.',
+    'document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.',
 ];
 
 export const BLOCK_GUIDANCE: string[] = [
@@ -45,7 +45,7 @@ export const BLOCK_GUIDANCE: string[] = [
 
 export const AV_GUIDANCE: string[] = [
     'AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.',
-    'To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.',
+    'To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.',
     'Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").',
     'For cell writes, rowID must be the database row item ID stored in each AV value\'s blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.',
     'AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.',
@@ -58,14 +58,16 @@ export const FILE_GUIDANCE: string[] = [
     'If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.',
     'file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.',
     'file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.',
-    'file(action="render_template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.',
+    'file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.',
+    'file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.',
+    'file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.',
 ];
 
 export const TAG_GUIDANCE: string[] = [
     'Tag actions operate across the whole workspace rather than a single notebook.',
     'There is no direct create action for tags; tags are created by writing #tag# into block markdown content.',
     'tag(action="remove") requires explicit user confirmation before execution.',
-    'Recently written tags may appear with a short indexing delay in search_tag or tag list results; retry briefly before treating that as a failure.',
+    'Recently written tags may appear with a short indexing delay in tag list/search results; retry briefly before treating that as a failure.',
 ];
 
 export const SYSTEM_GUIDANCE: string[] = [
@@ -73,7 +75,6 @@ export const SYSTEM_GUIDANCE: string[] = [
     'system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.',
     'system(action="conf") returns masked configuration, not raw secrets.',
     'Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].',
-    'Use system(action="sys_fonts", mode="summary") first, then mode="list" with offset/limit/query for paginated inspection.',
 ];
 
 export const FLASHCARD_GUIDANCE: string[] = [
@@ -82,7 +83,7 @@ export const FLASHCARD_GUIDANCE: string[] = [
     'get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.',
     'Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.',
     'create_card writes the "custom-riff-decks" binding first, then calls the riff add-card registration step.',
-    'add_card and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.',
+    'create_card(mode="attach") and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.',
     'flashcard(action="remove_card") requires explicit user confirmation before execution.',
 ];
 
@@ -102,14 +103,13 @@ export const NOTEBOOK_ACTION_HINTS: Partial<Record<NotebookAction, string>> = {
 
 export const DOCUMENT_ACTION_HINTS: Partial<Record<DocumentAction, string>> = {
     create: 'Use notebook plus either path, or parentPath + title. markdown is optional and defaults to empty.',
-    resolve: 'Resolve one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.',
+    lookup: 'Look up one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.',
     rename: 'Use either id + title or notebook + path + title.',
     remove: 'Use either id or notebook + path. This action requires explicit user confirmation.',
     move: 'Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.',
     get_child_blocks: 'Use a document ID. Returns direct child blocks only.',
     get_child_docs: 'Use a document ID. Returns direct child documents only.',
-    set_icon: 'Use a document ID + icon. Prefer a Unicode hex code string such as "1f4d4" for 📔; raw emoji characters may not render correctly.',
-    set_cover: 'Use a document ID + source, where source is either an http(s) URL or a SiYuan asset path like /assets/foo.png. MCP stores it in the "title-img" attribute. Omit source to clear the cover.',
+    set_attr: 'Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it.',
     list_tree: 'Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.',
     search_docs: 'Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.',
     get_doc: 'Use a document ID. mode="markdown" returns clean Markdown content and supports page/pageSize for long documents; mode="html" uses the current focus view. For structured reading, prefer get_child_blocks.',
@@ -126,18 +126,17 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
     move: 'Provide id plus previousID, parentID, or both to describe the destination. On success, MCP returns a structured success object instead of SiYuan\'s raw null. This action requires explicit user confirmation.',
     set_fold_state: 'Use a foldable block ID + folded (true to fold, false to unfold).',
     get_children: 'Accepts both document IDs and block IDs. Returns direct child blocks. Use page/pageSize to paginate when there are many children.',
-    exists: 'Returns a boolean existence check for a block ID.',
     info: 'Returns root document positioning metadata for a block.',
     breadcrumb: 'Optional excludeTypes removes matching block types from the breadcrumb.',
     dom: 'Returns rendered DOM, useful for preview-style consumers.',
     recent_updated: 'Returns recent updates across the workspace, then MCP filters unreadable notebooks and applies count when provided. documents is the primary user-facing summary; items remains the raw block stream.',
     word_count: 'Provide one or more block IDs to receive aggregate stat data.',
-    batch_insert: 'Use blocks[]. Common case: pass one top-level parentID, previousID, or nextID as the batch default, and each block item only needs dataType + data. When blocks need different anchors, put parentID/previousID/nextID inside each block item instead. On success, MCP returns createdBlockIDs and rejects no-op kernel responses instead of reporting fake success.',
+    add_to_daily_note: 'Use notebook + dataType + data + position ("append" or "prepend") to add content to today’s daily note.',
 };
 
 export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
     get: 'Use an attribute view ID. Returns the full AV payload after permission checks.',
-    render_attribute_view: 'Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically. The returned materialized blockID identifies the registered database block if you need to pin a specific block view later.',
+    render: 'Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically. The returned materialized blockID identifies the registered database block if you need to pin a specific block view later.',
     get_attribute_view_keys: 'Use id to return database keys/columns for a block-bound attribute view.',
     get_attribute_view_filter_sort: 'Use id + blockID to return the filters and sorts applied to that database block view.',
     search: 'Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.',
@@ -146,13 +145,13 @@ export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
     add_column: 'Use avID + keyName + keyType, and optionally keyID or blockID. MCP generates keyID automatically when omitted. Supported keyType values match the 16 SiYuan addable column types, including keyType="mSelect", keyType="mAsset", and keyType="lineNumber". Optional blockID must be a registered database block for this AV if you need to pin a specific block view.',
     remove_column: 'Use avID + keyID, and optionally blockID to target a specific registered database block. removeRelationDest only matters for relation columns.',
     set_cells: 'Use avID + cells[]. Each item requires rowID + columnID + valueType and its matching typed field. For a single-cell write, pass rowID + columnID + valueType directly. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[].',
-    duplicate_block: 'MCP first calls the kernel duplicate API, then inserts the duplicated NodeAttributeView block into the document tree. By default it inserts after the source database block; provide previousID to override the insertion target.',
+    duplicate: 'MCP first calls the kernel duplicate API, then inserts the duplicated NodeAttributeView block into the document tree. By default it inserts after the source database block; provide previousID to override the insertion target.',
     get_primary_key_values: 'Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering.',
 };
 
 export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
     upload_asset: 'Use assetsDirPath + localFilePath to read a local file and upload it into SiYuan assets. This action reads the local filesystem and requires explicit user confirmation. Files larger than the configured large-upload threshold (10 MB by default) must be stopped, confirmed by the user, and retried with confirmLargeFile=true.',
-    render_template: 'Use id + path, where path points to a template file inside the SiYuan workspace. Local filesystem paths outside the workspace are rejected by the kernel.',
+    render: 'Use engine="template" with id + path for a workspace template; that engine uses .action{...} delimiters and exposes limited document fields such as id/title/name/alias. Use engine="sprig" with inline template for {{...}} syntax; Sprig has functions but no document context.',
     export_resources: 'Provide one or more existing resource paths. Asset paths like assets/foo.txt are normalized to /data/assets/foo.txt before export. Set outputPath to also copy the exported ZIP to a local filesystem path. Using outputPath is high-risk and requires explicit user confirmation.',
     get_doc_assets: 'Use a document ID to list assets referenced by the document after read-permission checks. Use assetType="image" to return only image assets.',
     get_image_ocr_text: 'Use an asset path to read stored OCR text. If path is omitted, SiYuan returns an empty text payload.',
@@ -173,18 +172,15 @@ export const SEARCH_GUIDANCE: string[] = [
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     fulltext: 'Pass a query string. Supports keyword, query syntax, SQL, and regex modes via methodName (preferred) or method. fulltext now returns plainContent/excerpt by default. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.',
     query_sql: 'Execute a SELECT statement. Common tables: blocks, spans, assets. Prefer sql over stmt when prompting an AI. Always use LIMIT to control result size. MCP returns data plus truncation and permission-filtering metadata when applicable.',
-    search_tag: 'Returns all tags matching the given keyword prefix. Prefer query over k when prompting an AI. Real tags must be written as #tag# in markdown, and very recent tags may need a brief retry while indexing catches up.',
-    get_backlinks: 'Returns documents/blocks that contain a reference ((ref)) to the given block ID. Partial permission-filtered results include machine-readable metadata.',
-    get_backmentions: 'Returns documents/blocks that mention the name of the given block (text mention, not ref link). Partial permission-filtered results include machine-readable metadata.',
+    get_backlinks: 'Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". Partial permission-filtered results include machine-readable metadata.',
     search_refs: 'Returns block-level reference contexts for the target id. Use this when you need the surrounding block content, not just the document-level backlink list. beforeLen controls how much leading context is included in each hit.',
     find_replace: 'This is the mutating exception inside the search tool. It performs content replacement after write-permission checks and still requires explicit user confirmation.',
     search_assets: 'Searches asset filenames. Prefer query over k when prompting an AI. If you need OCR or indexed inner-text matches, use fulltext_asset_content instead.',
-    get_asset_content: 'Reads one asset-content record by id + query. Typical flow: first discover candidate asset-content ids with fulltext_asset_content, then call get_asset_content for the exact match you want to inspect.',
-    fulltext_asset_content: 'Searches indexed asset/OCR text. Prefer methodName and sortBy over numeric method/orderBy. Typical flow: use this to discover matching asset-content ids, then call get_asset_content for a specific record.',
+    fulltext_asset_content: 'Searches indexed asset/OCR text. Prefer methodName and sortBy over numeric method/orderBy. Provide assetId for an exact asset-content lookup.',
 };
 
 export const TAG_ACTION_HINTS: Partial<Record<TagAction, string>> = {
-    list: 'Optional sort, ignoreMaxListHint, and app are passed through to SiYuan.',
+    list: 'Optional keyword/query searches tags; sort, ignoreMaxListHint, and app are passed through to SiYuan for plain listing.',
     rename: 'Renames a workspace tag label everywhere it appears.',
     remove: 'Deletes a workspace tag label. This action requires explicit user confirmation.',
 };
@@ -192,12 +188,8 @@ export const TAG_ACTION_HINTS: Partial<Record<TagAction, string>> = {
 export const SYSTEM_ACTION_HINTS: Partial<Record<SystemAction, string>> = {
     workspace_info: 'Returns workspace path metadata and current SiYuan version. High-risk: leaks the absolute workspace path; disabled by default and requires explicit user confirmation.',
     network: 'Returns masked proxy information only.',
-    changelog: 'Returns show/html fields for the current version changelog when available.',
     conf: 'Defaults to a navigable summary. Use mode="get" with keyPath to read one config field or subtree at a time, e.g. conf.appearance.mode or conf.langs[0].',
-    sys_fonts: 'Defaults to a summary. Use mode="list" with offset/limit/query to page through font names.',
-    boot_progress: 'Returns progress plus human-readable details.',
-    push_msg: 'Show a notification in the SiYuan UI. Optional timeout is in milliseconds.',
-    push_err_msg: 'Show an error notification in the SiYuan UI. Optional timeout is in milliseconds.',
+    notify: 'Show an info or error notification in the SiYuan UI. Optional timeout is in milliseconds.',
     get_version: 'Returns the current SiYuan version as {version}.',
     get_current_time: 'Returns the current system time as {currentTime} epoch milliseconds and {iso} ISO 8601 text.',
 };
@@ -206,10 +198,8 @@ export const FLASHCARD_ACTION_HINTS: Partial<Record<FlashcardAction, string>> = 
     list_cards: 'Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID.',
     get_decks: 'Returns available flashcard decks so the caller can discover deckID values.',
     get_cards: 'Use deckID + optional page/pageSize to list all cards in a deck (regardless of due state). Use empty string deckID to query across all decks. Returns cards, total count, and pageCount.',
-    review_card: 'Use deckID + cardID + rating. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.',
-    skip_review_card: 'Use deckID + cardID to skip the current card in a review flow.',
-    create_card: 'Use deckID + blockIDs to turn existing blocks into flashcards. MCP writes custom-riff-decks first, then registers the riff cards.',
-    add_card: 'Use deckID + blockIDs for the lower-level riff registration step. If you want the block to become a real flashcard end-to-end, prefer create_card.',
+    review_card: 'Use deckID + cardID + rating, or pass skip=true to skip. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.',
+    create_card: 'Use deckID + blockIDs to turn existing blocks into flashcards. mode="full" writes custom-riff-decks first; mode="attach" only registers existing blocks.',
     remove_card: 'Use deckID + blockIDs to remove existing blocks from a deck. This action requires explicit user confirmation.',
 };
 

@@ -66,7 +66,20 @@ export class SiYuanClient {
 
     private async readData<T>(url: string, init: RequestInit): Promise<T> {
         const response = await this.fetchWithTimeout(url, init);
-        const result: SiYuanResponse<T> = await response.json();
+        const rawText = await response.text();
+        if (rawText.trim() === '') {
+            return null as T;
+        }
+
+        let result: SiYuanResponse<T>;
+        try {
+            result = JSON.parse(rawText) as SiYuanResponse<T>;
+        } catch {
+            const snippet = rawText.length > 200 ? `${rawText.slice(0, 200)}...` : rawText;
+            const status = [response.status, response.statusText].filter(Boolean).join(' ');
+            throw new Error(`Invalid SiYuan API response from ${url}${status ? ` (HTTP ${status})` : ''}: ${snippet}`);
+        }
+
         if (result.code !== 0) {
             throw new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
         }

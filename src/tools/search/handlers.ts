@@ -16,13 +16,10 @@ import {
     SearchFindReplaceSchema,
     SearchFulltextAssetContentSchema,
     SearchFulltextSchema,
-    SearchGetAssetContentSchema,
     SearchGetBacklinksSchema,
-    SearchGetBackmentionsSchema,
     SearchListInvalidRefsSchema,
     SearchQuerySqlSchema,
     SearchRefsSchema,
-    SearchTagSchema,
 } from '../../core/types';
 import { ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveNotebookForPath } from '../context';
 import type { ToolActionHandler } from '../define-tool';
@@ -278,77 +275,38 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             : undefined;
         return createSqlQueryResult(filtered.items, filtered.removedCount, resolvedArgs);
     },
-    search_tag: async ({ client, rawArgs }) => {
-        const parsed = SearchTagSchema.parse(rawArgs);
-        const query = resolveAliasString(parsed.k, parsed.query) ?? '';
-        const result = await searchApi.searchTag(client, query);
-        const typedResult = result && typeof result === 'object' ? result as Record<string, unknown> : {};
-        const tags = Array.isArray(typedResult.tags) ? typedResult.tags : [];
-        const resolvedArgs = parsed.query !== undefined
-            ? buildResolvedArgs({ query }).resolvedArgs
-            : undefined;
-        return createJsonResult({
-            ...typedResult,
-            ...(resolvedArgs ? { resolvedArgs } : {}),
-            ...(query.trim().length > 0 && tags.length === 0 ? {
-                warning: 'No matching tags were found. If the tag was just created, SiYuan tag indexing may still be catching up; verify the markdown uses #tag# syntax and retry shortly.',
-            } : {}),
-        });
-    },
     get_backlinks: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchGetBacklinksSchema.parse(rawArgs);
         const scopeRootId = resolveAliasString(parsed.refTreeID, parsed.scopeRootId);
+        const mode = parsed.mode ?? 'both';
         const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
         if (denied) return denied;
         try {
-            const result = await getBacklinkDocWithFallback(client, parsed.id, parsed.keyword, scopeRootId);
+            const linkResult = mode !== 'mentions'
+                ? await getBacklinkDocWithFallback(client, parsed.id, parsed.keyword, scopeRootId)
+                : {};
+            const mentionResult = mode !== 'links'
+                ? await getBackmentionDocWithFallback(client, parsed.id, parsed.keyword, scopeRootId)
+                : {};
+            const result = { ...(linkResult as Record<string, unknown>), ...(mentionResult as Record<string, unknown>) };
             const filtered = filterBacklinkResultByPermission(result, permMgr);
             return createJsonResult({
                 ...filtered,
-                backlinks: normalizeReferencedBlocks(Array.isArray(filtered.backlinks) ? filtered.backlinks : []),
-                backmentions: normalizeReferencedBlocks(Array.isArray(filtered.backmentions) ? filtered.backmentions : []),
+                mode,
+                backlinks: mode !== 'mentions' ? normalizeReferencedBlocks(Array.isArray(filtered.backlinks) ? filtered.backlinks : []) : [],
+                backmentions: mode !== 'links' ? normalizeReferencedBlocks(Array.isArray(filtered.backmentions) ? filtered.backmentions : []) : [],
                 ...(result.sourcePayloadMissing ? { sourcePayloadMissing: true } : {}),
                 ...(result.fallbackQuery ? { fallbackQuery: result.fallbackQuery } : {}),
                 ...(result.resultConfidence ? { resultConfidence: result.resultConfidence } : {}),
                 ...(parsed.scopeRootId !== undefined ? { resolvedArgs: { refTreeID: scopeRootId } } : {}),
-                ...(result.fallbackUsed ? { warning: 'SiYuan returned no backlink payload; SQL fallback results are shown.' } : {}),
+                ...(result.fallbackUsed ? { warning: 'SiYuan returned no backlink/backmention payload; SQL fallback results are shown.' } : {}),
             });
         } catch (error) {
             if (isPermissionRelatedApiError(error)) {
                 return createJsonResult({
                     backlinks: [],
                     backmentions: [],
-                    warning: 'SiYuan rejected part of the backlink query due to restricted notebooks; restricted results were omitted.',
-                    partial: true,
-                    reason: 'permission_filtered',
-                    permissionSummary: createPartialMetadata(1).permissionSummary,
-                });
-            }
-            throw error;
-        }
-    },
-    get_backmentions: async ({ client, permMgr, rawArgs }) => {
-        const parsed = SearchGetBackmentionsSchema.parse(rawArgs);
-        const scopeRootId = resolveAliasString(parsed.refTreeID, parsed.scopeRootId);
-        const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
-        if (denied) return denied;
-        try {
-            const result = await getBackmentionDocWithFallback(client, parsed.id, parsed.keyword, scopeRootId);
-            const filtered = filterBacklinkResultByPermission(result, permMgr);
-            return createJsonResult({
-                ...filtered,
-                backmentions: normalizeReferencedBlocks(Array.isArray(filtered.backmentions) ? filtered.backmentions : []),
-                ...(result.sourcePayloadMissing ? { sourcePayloadMissing: true } : {}),
-                ...(result.fallbackQuery ? { fallbackQuery: result.fallbackQuery } : {}),
-                ...(result.resultConfidence ? { resultConfidence: result.resultConfidence } : {}),
-                ...(parsed.scopeRootId !== undefined ? { resolvedArgs: { refTreeID: scopeRootId } } : {}),
-                ...(result.fallbackUsed ? { warning: 'SiYuan returned no backmention payload; SQL fallback results are shown.' } : {}),
-            });
-        } catch (error) {
-            if (isPermissionRelatedApiError(error)) {
-                return createJsonResult({
-                    backmentions: [],
-                    warning: 'SiYuan rejected part of the backmention query due to restricted notebooks; restricted results were omitted.',
+                    warning: 'SiYuan rejected part of the backlink/backmention query due to restricted notebooks; restricted results were omitted.',
                     partial: true,
                     reason: 'permission_filtered',
                     permissionSummary: createPartialMetadata(1).permissionSummary,
@@ -432,17 +390,16 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             resolvedArgs: { query },
         });
     },
-    get_asset_content: async ({ client, rawArgs }) => {
-        const parsed = SearchGetAssetContentSchema.parse(rawArgs);
-        const result = await searchApi.getAssetContent(client, parsed.id, parsed.query, parsed.queryMethod ?? 0);
-        return createJsonResult(result);
-    },
     fulltext_asset_content: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchFulltextAssetContentSchema.parse(rawArgs) as SearchFulltextAssetContentArgs;
+        if (parsed.assetId) {
+            const result = await searchApi.getAssetContent(client, parsed.assetId, parsed.query ?? '', parsed.queryMethod ?? 0);
+            return createJsonResult(result);
+        }
         const resolvedMethod = resolveSearchMethodMeta(parsed);
         const resolvedOrderBy = resolveAssetContentSortAlias(parsed.sortBy, parsed.orderBy);
         const result = await searchApi.fullTextSearchAssetContent(client, {
-            query: parsed.query,
+            query: parsed.query!,
             ...(parsed.types ? { types: parsed.types } : {}),
             ...(resolvedMethod.method !== undefined ? { method: resolvedMethod.method } : {}),
             ...(resolvedOrderBy !== undefined ? { orderBy: resolvedOrderBy } : {}),

@@ -66,6 +66,44 @@ export function createActionSchema(
     };
 }
 
+function withActionDiscriminator<Action extends string>(variant: ActionVariant<Action>): JsonSchema {
+    const properties = {
+        action: {
+            type: 'string',
+            const: variant.action,
+            description: 'Action to perform',
+        },
+        ...getSchemaProperties(variant.schema),
+    };
+    return normalizeJsonSchema({
+        ...variant.schema,
+        type: 'object',
+        additionalProperties: false,
+        properties,
+        required: Array.from(new Set(['action', ...getSchemaRequired(variant.schema)])),
+    });
+}
+
+function buildHelpActionSchema(enabledActions: string[]): JsonSchema {
+    return {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+            action: {
+                type: 'string',
+                const: 'help',
+                description: 'Show help for this tool or one action.',
+            },
+            topic: {
+                type: 'string',
+                enum: ['overview', ...enabledActions],
+                description: 'Optional action name to inspect; omit or use "overview" for the action index.',
+            },
+        },
+        required: ['action'],
+    };
+}
+
 function buildEssentialGuidance<Action extends string>(
     category: ToolCategory,
     actionList: Action[],
@@ -237,16 +275,19 @@ export function buildAggregatedTool<Action extends string>(
         description: fullDescription,
         inputSchema: normalizeJsonSchema({
             type: 'object',
-            additionalProperties: false,
             properties: {
                 action: {
                     type: 'string',
                     enum: [...enabledActions, 'help'],
                     description: `Action to perform. Supported values: ${enabledActions.join(', ')}. Use action="help" for the action index, or action="help" with topic="<actionName>" for per-action details.${confirmationActions.length > 0 ? ` User confirmation is required before calling: ${confirmationActions.join(', ')}.` : ''}`,
                 },
-                ...mergedProperties,
+                topic: mergedProperties.topic,
             },
             required: ['action'],
+            oneOf: [
+                ...enabledVariants.map((variant) => withActionDiscriminator(variant)),
+                buildHelpActionSchema(enabledActions),
+            ],
         }),
     }];
 }

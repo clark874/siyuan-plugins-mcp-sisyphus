@@ -19,17 +19,13 @@ export const FILE_VARIANTS: ActionVariant<FileAction>[] = [
         }, ['assetsDirPath', 'localFilePath'], 'Read a local file and upload it to the specified assets directory.'),
     },
     {
-        action: 'render_template',
-        schema: createActionSchema('render_template', {
-            id: { type: 'string', description: 'Document ID for template context' },
-            path: { type: 'string', description: 'Template file path inside the SiYuan workspace (not an arbitrary local filesystem path)' },
-        }, ['id', 'path'], 'Render a template with document context.'),
-    },
-    {
-        action: 'render_sprig',
-        schema: createActionSchema('render_sprig', {
-            template: { type: 'string', description: 'Sprig template content' },
-        }, ['template'], 'Render a Sprig template.'),
+        action: 'render',
+        schema: createActionSchema('render', {
+            engine: { type: 'string', enum: ['template', 'sprig'], description: 'Template engine to use' },
+            id: { type: 'string', description: 'Document ID for the limited template context when engine=template' },
+            path: { type: 'string', description: 'Workspace template file path when engine=template; use .action{.title}, not {{.title}}' },
+            template: { type: 'string', description: 'Inline Sprig template content when engine=sprig; uses {{...}} syntax without document context' },
+        }, ['engine'], 'Render a SiYuan workspace template (.action{.title}) or an inline Sprig template ({{...}}).'),
     },
     {
         action: 'export_md',
@@ -78,13 +74,6 @@ export const FILE_VARIANTS: ActionVariant<FileAction>[] = [
         schema: createActionSchema('delete_asset', {
             path: { type: 'string', description: 'Asset path to delete' },
         }, ['path'], 'Delete an asset file.'),
-    },
-    {
-        action: 'set_image_alpha',
-        schema: createActionSchema('set_image_alpha', {
-            path: { type: 'string', description: 'Asset path to update' },
-            alpha: { type: 'number', description: 'Alpha value passed through to SiYuan' },
-        }, ['path', 'alpha'], 'Set image alpha for an asset.'),
     },
 ];
 

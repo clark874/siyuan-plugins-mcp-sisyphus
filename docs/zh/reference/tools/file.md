@@ -45,6 +45,29 @@ MCP：
 }
 ```
 
+模板渲染语法：
+
+```json
+{
+  "action": "render",
+  "engine": "template",
+  "id": "<doc-id>",
+  "path": "/path/to/siyuan/data/templates/report.md"
+}
+```
+
+`engine="template"` 渲染工作空间模板文件，模板内使用 SiYuan 分隔符，例如 `.action{.title}`、`.action{.id}`、`.action{.name}`、`.action{.alias}`；不会替换 `{{.title}}` 这类占位符。
+
+```json
+{
+  "action": "render",
+  "engine": "sprig",
+  "template": "Today: {{ now | date \"2006-01-02\" }}"
+}
+```
+
+`engine="sprig"` 渲染内联字符串，使用 `{{...}}` 语法和 Sprig 函数，但没有文档上下文。
+
 CLI：
 
 ```bash

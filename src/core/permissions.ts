@@ -44,19 +44,6 @@ function normalizePermissionsRecord(value: unknown): Record<string, NotebookPerm
     );
 }
 
-function hasPermissionRecordChanged(rawValue: unknown, normalizedValue: Record<string, NotebookPermission>): boolean {
-    if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
-        return false;
-    }
-
-    const rawEntries = Object.entries(rawValue);
-    if (rawEntries.length !== Object.keys(normalizedValue).length) {
-        return true;
-    }
-
-    return rawEntries.some(([notebookId, permission]) => normalizedValue[notebookId] !== permission);
-}
-
 export class PermissionManager {
     private permissions: Record<string, NotebookPermission> = {};
     private client: SiYuanClient | null = null;
@@ -105,9 +92,6 @@ export class PermissionManager {
 
         this.permissions = normalizePermissionsRecord(rawPermissions);
         this.loaded = true;
-        if (hasPermissionRecordChanged(rawPermissions, this.permissions)) {
-            await this.save();
-        }
         logPermissionDebug('Permissions loaded from API:', Object.keys(this.permissions).length, 'entries');
     }
 
@@ -131,7 +115,7 @@ export class PermissionManager {
 
     get(notebookId: string): NotebookPermission {
         const permission = this.permissions[notebookId];
-        return isNotebookPermission(permission) ? permission : 'rwd';
+        return isNotebookPermission(permission) ? permission : 'r';
     }
 
     async set(notebookId: string, perm: NotebookPermission): Promise<void> {

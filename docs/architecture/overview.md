@@ -55,7 +55,7 @@ This repository produces two independently usable products:
 | **Config source** | Plugin settings panel → SiYuan storage | CLI profile + plugin UI config from SiYuan storage |
 | **Tool toggles** | User fine-controls each action via UI | Same UI-controlled tool/action toggles |
 | **Mascot UI** | Yes (Svelte component mounted to DOM) | No |
-| **Permission mgmt** | Reads from SiYuan storage | Same `PermissionManager`; unconfigured notebooks default to `rwd` |
+| **Permission mgmt** | Reads from SiYuan storage | Same `PermissionManager`; unconfigured notebooks default to `r` (read-only) |
 | **Use case** | AI client integration, daily continuous use | Scripting, CI/CD, quick queries |
 
 Both products **share the same core**: `TOOL_REGISTRY`, `SiYuanClient`, `PermissionManager`, `tool-lifecycle`, and all `src/api/*` wrappers. The differences are only in the outer packaging (MCP Server vs CLI argument parsing) and config persistence.

@@ -136,9 +136,12 @@ describe('av tool', () => {
 
     it('exports set_cells cells with nested array item schemas intact', () => {
         const [tool] = listAvTools(enabledActions('set_cells'));
+        const setCellsSchema = (tool.inputSchema.oneOf as Array<{ properties?: Record<string, any> }>)
+            .find((schema) => schema.properties?.action?.const === 'set_cells');
+        const properties = setCellsSchema?.properties;
 
-        expect(tool.inputSchema.properties?.cells?.items?.properties?.options?.items).toEqual({ type: 'string' });
-        expect(tool.inputSchema.properties?.cells?.items?.properties?.assets?.items?.properties?.content?.type).toBe('string');
+        expect(properties?.cells?.items?.properties?.options?.items).toEqual({ type: 'string' });
+        expect(properties?.cells?.items?.properties?.assets?.items?.properties?.content?.type).toBe('string');
     });
 
     it('maps typed set_cells input into the kernel value payload', async () => {
@@ -1779,9 +1782,9 @@ describe('av tool', () => {
             });
 
         const result = await callAvTool(client, {
-            action: 'duplicate_block',
+            action: 'duplicate',
             avID: 'av-1',
-        }, enabledActions('duplicate_block'), permMgr);
+        }, enabledActions('duplicate'), permMgr);
 
         expect(vi.mocked(transactionApi.performTransactions)).toHaveBeenCalledWith(client, [{
             doOperations: [{
@@ -1800,7 +1803,7 @@ describe('av tool', () => {
             success: true,
             avID: 'av-copy',
             blockID: 'block-copy',
-            action: 'duplicate_block',
+            action: 'duplicate',
             sourceAvID: 'av-1',
             prepared: true,
             materialized: true,
@@ -1835,9 +1838,9 @@ describe('av tool', () => {
             });
 
         const result = await callAvTool(client, {
-            action: 'duplicate_block',
+            action: 'duplicate',
             avID: 'av-1',
-        }, enabledActions('duplicate_block'), permMgr);
+        }, enabledActions('duplicate'), permMgr);
 
         expect(vi.mocked(transactionApi.performTransactions)).toHaveBeenCalledWith(client, [{
             doOperations: [{
@@ -1856,7 +1859,7 @@ describe('av tool', () => {
             success: true,
             avID: 'av-copy',
             blockID: 'block-copy',
-            action: 'duplicate_block',
+            action: 'duplicate',
             sourceAvID: 'av-1',
             prepared: true,
             materialized: true,
@@ -1894,10 +1897,10 @@ describe('av tool', () => {
             });
 
         const result = await callAvTool(client, {
-            action: 'duplicate_block',
+            action: 'duplicate',
             avID: 'av-1',
             previousID: 'prev-1',
-        }, enabledActions('duplicate_block'), permMgr);
+        }, enabledActions('duplicate'), permMgr);
 
         expect(vi.mocked(transactionApi.performTransactions)).toHaveBeenCalledWith(client, [{
             doOperations: [{
@@ -1916,7 +1919,7 @@ describe('av tool', () => {
             success: true,
             avID: 'av-copy',
             blockID: 'block-copy',
-            action: 'duplicate_block',
+            action: 'duplicate',
             sourceAvID: 'av-1',
             prepared: true,
             materialized: true,
@@ -1926,7 +1929,7 @@ describe('av tool', () => {
         });
     });
 
-    it('fails duplicate_block when the inserted duplicate cannot be verified', async () => {
+    it('fails duplicate when the inserted duplicate cannot be verified', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
         vi.mocked(avApi.duplicateAttributeViewBlock).mockResolvedValue({
@@ -1954,16 +1957,16 @@ describe('av tool', () => {
         vi.mocked(blockApi.checkBlockExist).mockResolvedValue(false);
 
         const result = await callAvTool(client, {
-            action: 'duplicate_block',
+            action: 'duplicate',
             avID: 'av-1',
             previousID: 'prev-1',
-        }, enabledActions('duplicate_block'), permMgr);
+        }, enabledActions('duplicate'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             error: {
                 type: 'internal_error',
                 tool: 'av',
-                action: 'duplicate_block',
+                action: 'duplicate',
                 reason: 'duplicate_insert_verification_failed',
                 message: 'Duplicated AV insertion finished, but MCP could not verify the materialized result for block "block-copy".',
                 sourceAvID: 'av-1',
@@ -2018,11 +2021,11 @@ describe('av tool', () => {
 
     it('renders an attribute view with optional context', async () => {
         const result = await callAvTool(client, {
-            action: 'render_attribute_view',
+            action: 'render',
             id: 'av-1',
             viewID: 'view-1',
             page: 2,
-        }, enabledActions('render_attribute_view'), permMgr);
+        }, enabledActions('render'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             data: [],
@@ -2041,16 +2044,16 @@ describe('av tool', () => {
     it('requires id when createIfNotExist is not enabled', async () => {
         const avApi = await import('@/api/av');
         const result = await callAvTool(client, {
-            action: 'render_attribute_view',
+            action: 'render',
             blockID: 'target-doc',
-        }, enabledActions('render_attribute_view'), permMgr);
+        }, enabledActions('render'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             error: {
                 type: 'internal_error',
                 tool: 'av',
-                action: 'render_attribute_view',
-                message: 'av(action="render_attribute_view") requires id unless createIfNotExist=true is provided.',
+                action: 'render',
+                message: 'av(action="render") requires id unless createIfNotExist=true is provided.',
             },
         });
         expect(vi.mocked(avApi.renderAttributeView)).not.toHaveBeenCalled();
@@ -2083,11 +2086,11 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'render_attribute_view',
+            action: 'render',
             id: 'av-new',
             blockID: 'target-doc',
             createIfNotExist: true,
-        }, enabledActions('render_attribute_view'), permMgr);
+        }, enabledActions('render'), permMgr);
 
         expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'target-doc', 'write');
         expect(vi.mocked(avApi.renderAttributeView)).toHaveBeenCalledWith(client, {
@@ -2144,10 +2147,10 @@ describe('av tool', () => {
             .mockResolvedValueOnce({ refDefs: [{ refID: 'av-block-new' }] });
 
         const result = await callAvTool(client, {
-            action: 'render_attribute_view',
+            action: 'render',
             blockID: 'target-doc',
             createIfNotExist: true,
-        }, enabledActions('render_attribute_view'), permMgr);
+        }, enabledActions('render'), permMgr);
 
         const renderPayload = vi.mocked(avApi.renderAttributeView).mock.calls[0][1];
         expect(renderPayload.id).toMatch(/^\d{14}-[a-z0-9]{7}$/);
@@ -2194,11 +2197,11 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'render_attribute_view',
+            action: 'render',
             id: 'av-missing',
             blockID: 'target-doc',
             createIfNotExist: true,
-        }, enabledActions('render_attribute_view'), permMgr);
+        }, enabledActions('render'), permMgr);
 
         expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'target-doc', 'write');
         expect(vi.mocked(avApi.renderAttributeView)).toHaveBeenCalled();
@@ -2235,11 +2238,11 @@ describe('av tool', () => {
             });
 
             const pending = callAvTool(client, {
-                action: 'render_attribute_view',
+                action: 'render',
                 id: 'av-stuck',
                 blockID: 'target-doc',
                 createIfNotExist: true,
-            }, enabledActions('render_attribute_view'), permMgr);
+            }, enabledActions('render'), permMgr);
 
             await vi.advanceTimersByTimeAsync(300 * 6);
             const result = await pending;
@@ -2288,11 +2291,11 @@ describe('av tool', () => {
         } as { context: { documentId: string; notebook: string; path: string }; denied: ToolResult | null });
 
         const result = await callAvTool(client, {
-            action: 'render_attribute_view',
+            action: 'render',
             id: 'av-new',
             blockID: 'blocked-doc',
             createIfNotExist: true,
-        }, enabledActions('render_attribute_view'), permMgr);
+        }, enabledActions('render'), permMgr);
 
         expect(result).toBe(deniedResult);
         expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'blocked-doc', 'write');
@@ -2311,16 +2314,16 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'render_attribute_view',
+            action: 'render',
             id: 'av-new',
             createIfNotExist: true,
-        }, enabledActions('render_attribute_view'), permMgr);
+        }, enabledActions('render'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             error: {
                 type: 'internal_error',
                 tool: 'av',
-                action: 'render_attribute_view',
+                action: 'render',
                 message: 'Unable to create or render attribute view "av-new" because createIfNotExist=true requires blockID to resolve notebook permission scope.',
             },
         });

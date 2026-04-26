@@ -16,7 +16,22 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
             nextID: { type: 'string', description: 'Next block ID' },
             previousID: { type: 'string', description: 'Previous block ID' },
             parentID: { type: 'string', description: 'Parent block or document ID' },
-        }, ['dataType', 'data'], 'Insert a new block at the specified position.'),
+            blocks: {
+                type: 'array',
+                description: 'Blocks to insert. Item-level anchors override top-level parentID/previousID/nextID.',
+                items: {
+                    type: 'object',
+                    properties: {
+                        dataType: { type: 'string', enum: ['markdown', 'dom'] },
+                        data: { type: 'string' },
+                        nextID: { type: 'string' },
+                        previousID: { type: 'string' },
+                        parentID: { type: 'string' },
+                    },
+                    required: ['dataType', 'data'],
+                },
+            },
+        }, [], 'Insert one or more blocks at the specified position.'),
     },
     {
         action: 'prepend',
@@ -40,7 +55,20 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
             dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
             data: { type: 'string', description: 'New block content' },
             id: { type: 'string', description: 'Block ID' },
-        }, ['dataType', 'data', 'id'], 'Update block content.'),
+            items: {
+                type: 'array',
+                description: 'Blocks to update',
+                items: {
+                    type: 'object',
+                    properties: {
+                        id: { type: 'string' },
+                        dataType: { type: 'string', enum: ['markdown', 'dom'] },
+                        data: { type: 'string' },
+                    },
+                    required: ['id', 'dataType', 'data'],
+                },
+            },
+        }, [], 'Update one or more blocks.'),
     },
     {
         action: 'delete',
@@ -78,8 +106,8 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
         }, ['id'], 'Get child blocks of a parent with pagination support.'),
     },
     {
-        action: 'transfer_ref',
-        schema: createActionSchema('transfer_ref', {
+        action: 'transfer_references',
+        schema: createActionSchema('transfer_references', {
             fromID: { type: 'string', description: 'Source block ID' },
             toID: { type: 'string', description: 'Target block ID' },
             refIDs: { type: 'array', items: { type: 'string' }, description: 'Reference block IDs' },
@@ -101,12 +129,6 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
         schema: createActionSchema('get_attrs', {
             id: { type: 'string', description: 'Block ID' },
         }, ['id'], 'Get block attributes.'),
-    },
-    {
-        action: 'exists',
-        schema: createActionSchema('exists', {
-            id: { type: 'string', description: 'Block ID' },
-        }, ['id'], 'Check whether a block exists.'),
     },
     {
         action: 'info',
@@ -140,97 +162,19 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
         }, ['ids'], 'Get word-count statistics for blocks.'),
     },
     {
-        action: 'batch_insert',
-        schema: createActionSchema('batch_insert', {
-            parentID: { type: 'string', description: 'Batch default parent block or document ID applied to items that omit their own anchor' },
-            previousID: { type: 'string', description: 'Batch default previous block ID applied to items that omit their own anchor' },
-            nextID: { type: 'string', description: 'Batch default next block ID applied to items that omit their own anchor' },
-            blocks: {
-                type: 'array',
-                description: 'Blocks to insert. Each block item must include dataType + data. When all blocks share the same anchor, pass parentID, previousID, or nextID once at the top level.',
-                items: {
-                    type: 'object',
-                    description: 'One block insertion request. Item-level parentID, previousID, or nextID overrides any batch-level default.',
-                    additionalProperties: false,
-                    properties: {
-                        dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
-                        data: { type: 'string', description: 'Block content' },
-                        nextID: { type: 'string', description: 'Next block ID' },
-                        previousID: { type: 'string', description: 'Previous block ID' },
-                        parentID: { type: 'string', description: 'Parent block or document ID' },
-                    },
-                    required: ['dataType', 'data'],
-                },
-            },
-        }, ['blocks', 'parentID'], 'Insert multiple blocks in one request. Common case: provide one top-level parentID shared by every block.'),
-    },
-    {
-        action: 'batch_insert',
-        schema: createActionSchema('batch_insert', {
-            blocks: {
-                type: 'array',
-                description: 'Blocks to insert. Each block item must include dataType + data + at least one of parentID, previousID, or nextID when no batch-level anchor is provided.',
-                items: {
-                    type: 'object',
-                    description: 'One block insertion request with its own explicit anchor.',
-                    additionalProperties: false,
-                    properties: {
-                        dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
-                        data: { type: 'string', description: 'Block content' },
-                        nextID: { type: 'string', description: 'Next block ID' },
-                        previousID: { type: 'string', description: 'Previous block ID' },
-                        parentID: { type: 'string', description: 'Parent block or document ID' },
-                    },
-                    required: ['dataType', 'data', 'parentID'],
-                },
-            },
-        }, ['blocks'], 'Alternative batch_insert form: put parentID directly inside each block item when anchors differ per block.'),
-    },
-    {
-        action: 'batch_update',
-        schema: createActionSchema('batch_update', {
-            blocks: {
-                type: 'array',
-                description: 'Blocks to update',
-                items: {
-                    type: 'object',
-                    additionalProperties: false,
-                    properties: {
-                        id: { type: 'string', description: 'Block ID' },
-                        dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
-                        data: { type: 'string', description: 'Replacement block content' },
-                    },
-                    required: ['id', 'dataType', 'data'],
-                },
-            },
-        }, ['blocks'], 'Update multiple blocks in one request.'),
-    },
-    {
-        action: 'append_daily_note',
-        schema: createActionSchema('append_daily_note', {
+        action: 'add_to_daily_note',
+        schema: createActionSchema('add_to_daily_note', {
             notebook: { type: 'string', description: 'Notebook ID' },
             dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
             data: { type: 'string', description: 'Block content' },
-        }, ['notebook', 'dataType', 'data'], 'Append a block to today\u2019s daily note, creating the note if needed.'),
-    },
-    {
-        action: 'prepend_daily_note',
-        schema: createActionSchema('prepend_daily_note', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            dataType: { type: 'string', enum: ['markdown', 'dom'], description: 'Data format' },
-            data: { type: 'string', description: 'Block content' },
-        }, ['notebook', 'dataType', 'data'], 'Prepend a block to today\u2019s daily note, creating the note if needed.'),
-    },
-    {
-        action: 'doc_info',
-        schema: createActionSchema('doc_info', {
-            id: { type: 'string', description: 'Block ID or document ID' },
-        }, ['id'], 'Get owning document info for a block or document ID.'),
+            position: { type: 'string', enum: ['append', 'prepend'], description: 'Where to add content in the daily note' },
+        }, ['notebook', 'dataType', 'data', 'position'], 'Add a block to today\'s daily note, creating the note if needed.'),
     },
     {
         action: 'docs_info',
         schema: createActionSchema('docs_info', {
             ids: { type: 'array', items: { type: 'string' }, description: 'Document IDs' },
+            id: { type: 'string', description: 'Single document or block ID' },
             refCount: { type: 'boolean', description: 'When true, include reference counts' },
             av: { type: 'boolean', description: 'When true, include AV metadata' },
         }, ['ids'], 'Get document info for multiple documents.'),

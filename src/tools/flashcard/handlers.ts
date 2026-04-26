@@ -3,18 +3,18 @@ import * as attributeApi from '../../api/block';
 import * as flashcardApi from '../../api/flashcard';
 import type { FlashcardAction } from '../../core/config';
 import {
-    FlashcardAddCardSchema,
     FlashcardCreateCardSchema,
     FlashcardGetCardsSchema,
     FlashcardGetDecksSchema,
     FlashcardListCardsSchema,
     FlashcardRemoveCardSchema,
     FlashcardReviewCardSchema,
-    FlashcardSkipReviewCardSchema,
 } from '../../core/types';
 import type { ToolActionHandler } from '../define-tool';
 import { createJsonResult } from '../shared';
 import { sleep } from '../../shared/async';
+
+type FlashcardActionHandler = ToolActionHandler;
 
 const BUILTIN_DECK_ID = '20230218211946-2kw8jgx';
 const NODE_ATTR_RIFF_DECKS = 'custom-riff-decks';
@@ -87,7 +87,7 @@ async function bindBlocksToDeck(client: SiYuanClient, blockIDs: string[], deckID
     }
 }
 
-async function verifyFlashcardBindings(client: SiYuanClient, blockIDs: string[], deckID: string, action: 'create_card' | 'add_card'): Promise<void> {
+async function verifyFlashcardBindings(client: SiYuanClient, blockIDs: string[], deckID: string, action: 'create_card'): Promise<void> {
     for (const blockID of blockIDs) {
         const attrs = await getBlockAttrsSafe(client, blockID);
         const deckIDs = normalizeDeckBinding(attrs[NODE_ATTR_RIFF_DECKS]);
@@ -119,7 +119,7 @@ async function verifyFlashcardDeckRecords(
     client: SiYuanClient,
     blockIDs: string[],
     mode: 'present' | 'absent',
-    action: 'create_card' | 'add_card' | 'remove_card',
+    action: 'create_card' | 'remove_card',
 ): Promise<void> {
     const expected = new Set(blockIDs);
     for (let attempt = 0; attempt < FLASHCARD_BINDING_VERIFY_ATTEMPTS; attempt += 1) {
@@ -246,27 +246,23 @@ const handleReviewCard: FlashcardActionHandler = async ({ client, rawArgs }) => 
     if (parsed.deckID === '') {
         throw new Error('flashcard/review_card requires a concrete deckID. Use flashcard/get_cards first to resolve the card deck, then retry.');
     }
-    const result = await flashcardApi.reviewRiffCard(client, parsed.deckID, parsed.cardID, parsed.rating, parsed.reviewedCards);
+    if (parsed.skip === true) {
+        const result = await flashcardApi.skipReviewRiffCard(client, parsed.deckID, parsed.cardID);
+        return createJsonResult({
+            action: 'review_card',
+            skip: true,
+            deckID: parsed.deckID,
+            cardID: parsed.cardID,
+            result,
+        });
+    }
+    const result = await flashcardApi.reviewRiffCard(client, parsed.deckID, parsed.cardID, parsed.rating!, parsed.reviewedCards);
     return createJsonResult({
         action: 'review_card',
         deckID: parsed.deckID,
         cardID: parsed.cardID,
-        rating: parsed.rating,
+        rating: parsed.rating!,
         ...(parsed.reviewedCards !== undefined ? { reviewedCards: parsed.reviewedCards } : {}),
-        result,
-    });
-};
-
-const handleSkipReviewCard: FlashcardActionHandler = async ({ client, rawArgs }) => {
-    const parsed = FlashcardSkipReviewCardSchema.parse(rawArgs);
-    if (parsed.deckID === '') {
-        throw new Error('flashcard/skip_review_card requires a concrete deckID. Use flashcard/get_cards first to resolve the card deck, then retry.');
-    }
-    const result = await flashcardApi.skipReviewRiffCard(client, parsed.deckID, parsed.cardID);
-    return createJsonResult({
-        action: 'skip_review_card',
-        deckID: parsed.deckID,
-        cardID: parsed.cardID,
         result,
     });
 };
@@ -275,30 +271,20 @@ const handleCreateCard: FlashcardActionHandler = async ({ client, rawArgs }) => 
     const parsed = FlashcardCreateCardSchema.parse(rawArgs);
     const deckID = normalizeWritableDeckID(parsed.deckID);
     await ensureFlashcardTargetsWritable(client, parsed.blockIDs);
-    await bindBlocksToDeck(client, parsed.blockIDs, deckID);
+    const mode = parsed.mode ?? 'full';
+    if (mode === 'full') {
+        await bindBlocksToDeck(client, parsed.blockIDs, deckID);
+    }
     const result = await flashcardApi.addRiffCards(client, deckID, parsed.blockIDs);
-    await verifyFlashcardBindings(client, parsed.blockIDs, deckID, 'create_card');
-    await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'present', 'create_card');
-    return createJsonResult({
-        action: 'create_card',
-        deckID: parsed.deckID,
-        effectiveDeckID: deckID,
-        blockIDs: parsed.blockIDs,
-        result,
-    });
-};
-
-const handleAddCard: FlashcardActionHandler = async ({ client, rawArgs }) => {
-    const parsed = FlashcardAddCardSchema.parse(rawArgs);
-    const deckID = normalizeWritableDeckID(parsed.deckID);
-    await ensureFlashcardTargetsWritable(client, parsed.blockIDs);
-    const result = await flashcardApi.addRiffCards(client, deckID, parsed.blockIDs);
-    await verifyFlashcardBindings(client, parsed.blockIDs, deckID, 'add_card');
-    if (deckID === BUILTIN_DECK_ID) {
-        await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'present', 'add_card');
+    if (mode === 'full') {
+        await verifyFlashcardBindings(client, parsed.blockIDs, deckID, 'create_card');
+    }
+    if (mode === 'full' || deckID === BUILTIN_DECK_ID) {
+        await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'present', 'create_card');
     }
     return createJsonResult({
-        action: 'add_card',
+        action: 'create_card',
+        mode,
         deckID: parsed.deckID,
         effectiveDeckID: deckID,
         blockIDs: parsed.blockIDs,
@@ -327,8 +313,6 @@ export const FLASHCARD_ACTION_HANDLERS: Record<FlashcardAction, FlashcardActionH
     get_decks: handleGetDecks,
     get_cards: handleGetCards,
     review_card: handleReviewCard,
-    skip_review_card: handleSkipReviewCard,
     create_card: handleCreateCard,
-    add_card: handleAddCard,
     remove_card: handleRemoveCard,
 };

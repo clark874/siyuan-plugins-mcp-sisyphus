@@ -44,29 +44,14 @@ export const SEARCH_VARIANTS: ActionVariant<SearchAction>[] = [
         }, ['stmt'], 'Execute a read-only SQL query against the database.'),
     },
     {
-        action: 'search_tag',
-        schema: createActionSchema('search_tag', {
-            k: { type: 'string', description: 'Legacy tag keyword field' },
-            query: { type: 'string', description: 'Semantic alias for k. Overrides k if both are provided.' },
-        }, ['k'], 'Search for tags matching a keyword.'),
-    },
-    {
         action: 'get_backlinks',
         schema: createActionSchema('get_backlinks', {
             id: { type: 'string', description: 'Block or document ID to find backlinks for' },
             keyword: { type: 'string', description: 'Filter backlinks by keyword' },
             refTreeID: { type: 'string', description: 'Optional document tree ID to narrow backlink scope' },
             scopeRootId: { type: 'string', description: 'Semantic alias for refTreeID. Overrides refTreeID if both are provided.' },
-        }, ['id'], 'Find documents/blocks that link to the given block.'),
-    },
-    {
-        action: 'get_backmentions',
-        schema: createActionSchema('get_backmentions', {
-            id: { type: 'string', description: 'Block or document ID to find backmentions for' },
-            keyword: { type: 'string', description: 'Filter backmentions by keyword' },
-            refTreeID: { type: 'string', description: 'Optional document tree ID to narrow backmention scope' },
-            scopeRootId: { type: 'string', description: 'Semantic alias for refTreeID. Overrides refTreeID if both are provided.' },
-        }, ['id'], 'Find documents/blocks that mention the given block name.'),
+            mode: { type: 'string', enum: ['links', 'mentions', 'both'], description: 'Result mode; default both' },
+        }, ['id'], 'Find documents/blocks that link to or mention the given block.'),
     },
     {
         action: 'search_refs',
@@ -105,17 +90,11 @@ export const SEARCH_VARIANTS: ActionVariant<SearchAction>[] = [
         }, ['k'], 'Search asset files by filename.'),
     },
     {
-        action: 'get_asset_content',
-        schema: createActionSchema('get_asset_content', {
-            id: { type: 'string', description: 'Asset content ID' },
-            query: { type: 'string', description: 'Matched query text' },
-            queryMethod: { type: 'number', description: 'Query method: 0=keyword, 1=query syntax, 2=SQL, 3=regex' },
-        }, ['id', 'query'], 'Get a specific asset-content record.'),
-    },
-    {
         action: 'fulltext_asset_content',
         schema: createActionSchema('fulltext_asset_content', {
             query: { type: 'string', description: 'Search query string' },
+            assetId: { type: 'string', description: 'Asset content ID for exact lookup' },
+            queryMethod: { type: 'number', description: 'Query method for assetId lookup' },
             types: { type: 'object', additionalProperties: { type: 'boolean' }, description: 'Asset type filter' },
             method: { type: 'number', description: 'Search method: 0=keyword, 1=query syntax, 2=SQL, 3=regex' },
             methodName: { type: 'string', enum: ['keyword', 'query', 'query_syntax', 'sql', 'regex'], description: 'Semantic alias for method. Overrides method if both are provided.' },

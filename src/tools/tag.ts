@@ -1,4 +1,5 @@
 import * as tagApi from '../api/tag';
+import * as searchApi from '../api/search';
 import type { TagAction } from '../core/config';
 import { TAG_ACTION_HINTS, TAG_GUIDANCE } from '../core/help';
 import {
@@ -18,6 +19,8 @@ export const TAG_VARIANTS: ActionVariant<TagAction>[] = [
         action: 'list',
         schema: createActionSchema('list', {
             sort: { type: 'number', description: 'Optional tag sort mode' },
+            keyword: { type: 'string', description: 'Optional keyword used to search/filter tags' },
+            query: { type: 'string', description: 'Alias for keyword' },
             ignoreMaxListHint: { type: 'boolean', description: 'Ignore SiYuan max list hint' },
             app: { type: 'string', description: 'Optional app identifier passed through to SiYuan' },
         }, [], 'List tags in the workspace.'),
@@ -49,6 +52,19 @@ const tagTool = defineTool<TagAction>({
     handlers: {
         list: async ({ client, rawArgs }) => {
             const parsed = TagListSchema.parse(rawArgs);
+            const keyword = parsed.query ?? parsed.keyword;
+            if (keyword && keyword.trim().length > 0) {
+                const result = await searchApi.searchTag(client, keyword);
+                const typedResult = result && typeof result === 'object' ? result as Record<string, unknown> : {};
+                const tags = Array.isArray(typedResult.tags) ? typedResult.tags : [];
+                return createJsonResult({
+                    ...typedResult,
+                    resolvedArgs: { keyword },
+                    ...(tags.length === 0 ? {
+                        warning: 'No matching tags were found. If the tag was just created, SiYuan tag indexing may still be catching up; verify the markdown uses #tag# syntax and retry shortly.',
+                    } : {}),
+                });
+            }
             const result = await tagApi.listTags(client, parsed);
             return createJsonResult(result);
         },

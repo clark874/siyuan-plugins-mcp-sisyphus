@@ -17,8 +17,8 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
         }, ['id'], 'Get the full attribute view payload by AV ID.'),
     },
     {
-        action: 'render_attribute_view',
-        schema: createActionSchema('render_attribute_view', {
+        action: 'render',
+        schema: createActionSchema('render', {
             id: { type: 'string', description: 'Attribute view ID; omit only with createIfNotExist=true to let MCP generate one' },
             blockID: { type: 'string', description: 'Embedding block ID; required when creating a new AV and used as the append target' },
             viewID: { type: 'string', description: 'View ID to render (optional, defaults to the current active view)' },
@@ -190,8 +190,8 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
         }, ['avID'], 'Set one or more cell values in a database. Provide cells/items, or pass rowID + columnID + valueType for a single-cell write.'),
     },
     {
-        action: 'duplicate_block',
-        schema: createActionSchema('duplicate_block', {
+        action: 'duplicate',
+        schema: createActionSchema('duplicate', {
             avID: { type: 'string', description: 'Source attribute view ID to duplicate' },
             previousID: { type: 'string', description: 'Block ID after which to insert the duplicate (optional, auto-resolved)' },
         }, ['avID'], 'Duplicate an attribute view and insert it into the document tree.'),

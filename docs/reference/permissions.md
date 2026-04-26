@@ -20,7 +20,7 @@ Related pages:
 
 Notes:
 
-- New notebooks default to `rwd` unless configured otherwise
+- New notebooks default to `r` (read-only) unless configured otherwise
 - Permissions are managed through `notebook(action="set_permission")`
 - Changes apply to subsequent calls immediately
 

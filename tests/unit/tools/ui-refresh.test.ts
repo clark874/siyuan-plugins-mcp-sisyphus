@@ -92,7 +92,7 @@ describe('UI refresh integration', () => {
         enabled: true,
         actions: {
             create: true,
-            set_icon: true,
+            set_attr: true,
         },
     } as const;
 
@@ -228,33 +228,33 @@ describe('UI refresh integration', () => {
         expect(parsed.uiRefresh.partialFailure).toEqual([{ type: 'reloadProtyle', id: 'doc-1', message: 'reload failed' }]);
     });
 
-    it('reloads icon UI after document set_icon', async () => {
+    it('reloads icon UI after document set_attr icon', async () => {
         const result = await callDocumentTool(client, {
-            action: 'set_icon',
+            action: 'set_attr',
             id: 'doc-1',
-            icon: '1f4d4',
+            attrs: { icon: '1f4d4' },
         }, documentConfig as never, permMgr);
 
         const parsed = parseResult(result);
-        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }, { type: 'reloadFiletree' }]);
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadIcon', {});
     });
 
-    it('keeps document set_icon successful when icon refresh fails', async () => {
+    it('keeps document set_attr icon successful when icon refresh fails', async () => {
         client.request = vi.fn(async (endpoint: string) => {
             if (endpoint === '/api/ui/reloadIcon') throw new Error('icon reload failed');
             return null;
         });
 
         const result = await callDocumentTool(client, {
-            action: 'set_icon',
+            action: 'set_attr',
             id: 'doc-1',
-            icon: '1f4d4',
+            attrs: { icon: '1f4d4' },
         }, documentConfig as never, permMgr);
 
         const parsed = parseResult(result);
         expect(parsed.success).toBe(true);
-        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }, { type: 'reloadFiletree' }]);
         expect(parsed.uiRefresh.partialFailure).toEqual([{ type: 'reloadIcon', message: 'icon reload failed' }]);
     });
 

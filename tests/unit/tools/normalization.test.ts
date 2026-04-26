@@ -266,21 +266,22 @@ describe('tool result normalization', () => {
         });
     });
 
-    it('returns a workspace-specific error for render_template paths outside the workspace', async () => {
+    it('returns a workspace-specific error for template render paths outside the workspace', async () => {
         const templateApi = await import('@/api/template');
         vi.mocked(templateApi.renderTemplate).mockRejectedValue(new Error('Path [/tmp/siyuan.tpl] is not in workspace'));
 
         const result = await callFileTool(client, {
-            action: 'render_template',
+            action: 'render',
+            engine: 'template',
             id: 'doc-1',
             path: '/tmp/siyuan.tpl',
-        }, enabledActions('render_template'), permMgr);
+        }, enabledActions('render'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             error: {
                 type: 'api_error',
                 tool: 'file',
-                action: 'render_template',
+                action: 'render',
                 message: 'Path [/tmp/siyuan.tpl] is not in workspace',
                 reason: 'path_not_in_workspace',
                 workspacePathRequired: true,
@@ -390,41 +391,90 @@ describe('tool result normalization', () => {
 
     it('normalizes document cover sources into title-img attributes', async () => {
         const attributeApi = await import('@/api/block');
+        const refreshClient = { request: vi.fn().mockResolvedValue(null) } as any;
 
-        const result = await callDocumentTool(client, {
-            action: 'set_cover',
+        const result = await callDocumentTool(refreshClient, {
+            action: 'set_attr',
             id: 'doc-1',
-            source: ' /assets/covers/demo "cover".png ',
-        }, enabledActions('set_cover'), permMgr);
+            attrs: { cover: ' /assets/covers/demo "cover".png ' },
+        }, enabledActions('set_attr'), permMgr);
 
-        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(client, 'doc-1', {
+        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(refreshClient, 'doc-1', {
             'title-img': 'background-image:url("/assets/covers/demo \\"cover\\".png");',
         });
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
             id: 'doc-1',
-            source: '/assets/covers/demo "cover".png',
+            cover: '/assets/covers/demo "cover".png',
             titleImg: 'background-image:url("/assets/covers/demo \\"cover\\".png");',
+            uiRefresh: {
+                applied: true,
+                operations: [
+                    { type: 'reloadProtyle', id: 'doc-1' },
+                    { type: 'reloadFiletree' },
+                ],
+            },
         });
+        expect(refreshClient.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
+        expect(refreshClient.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
     });
 
     it('clears document cover attributes', async () => {
         const attributeApi = await import('@/api/block');
+        const refreshClient = { request: vi.fn().mockResolvedValue(null) } as any;
 
-        const result = await callDocumentTool(client, {
-            action: 'set_cover',
+        const result = await callDocumentTool(refreshClient, {
+            action: 'set_attr',
             id: 'doc-1',
-            source: '',
-        }, enabledActions('set_cover'), permMgr);
+            attrs: { cover: '' },
+        }, enabledActions('set_attr'), permMgr);
 
-        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(client, 'doc-1', {
+        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(refreshClient, 'doc-1', {
             'title-img': '',
         });
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
             id: 'doc-1',
-            cleared: true,
+            clearedCover: true,
+            uiRefresh: {
+                applied: true,
+                operations: [
+                    { type: 'reloadProtyle', id: 'doc-1' },
+                    { type: 'reloadFiletree' },
+                ],
+            },
         });
+        expect(refreshClient.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
+        expect(refreshClient.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
+    });
+
+    it('refreshes icon cache and file tree for document icon changes', async () => {
+        const attributeApi = await import('@/api/block');
+        const refreshClient = { request: vi.fn().mockResolvedValue(null) } as any;
+
+        const result = await callDocumentTool(refreshClient, {
+            action: 'set_attr',
+            id: 'doc-1',
+            attrs: { icon: '1f4d8' },
+        }, enabledActions('set_attr'), permMgr);
+
+        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(refreshClient, 'doc-1', {
+            icon: '1f4d8',
+        });
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            success: true,
+            id: 'doc-1',
+            icon: '1f4d8',
+            uiRefresh: {
+                applied: true,
+                operations: [
+                    { type: 'reloadIcon' },
+                    { type: 'reloadFiletree' },
+                ],
+            },
+        });
+        expect(refreshClient.request).toHaveBeenCalledWith('/api/ui/reloadIcon', {});
+        expect(refreshClient.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
     });
 
     it('adds plainContent when search.fulltext stripHtml is enabled', async () => {

@@ -36,6 +36,7 @@ export const FLASHCARD_VARIANTS: ActionVariant<FlashcardAction>[] = [
             deckID: { type: 'string', description: 'Deck ID' },
             cardID: { type: 'string', description: 'Card ID' },
             rating: { type: 'number', description: 'Review rating passed through to the kernel' },
+            skip: { type: 'boolean', description: 'When true, skip the current card instead of submitting a rating' },
             reviewedCards: {
                 type: 'array',
                 items: {
@@ -46,28 +47,15 @@ export const FLASHCARD_VARIANTS: ActionVariant<FlashcardAction>[] = [
                 },
                 description: 'Optional already-reviewed cards; SiYuan reads reviewedCards[].cardID',
             },
-        }, ['deckID', 'cardID', 'rating'], 'Submit a review result for one flashcard.'),
-    },
-    {
-        action: 'skip_review_card',
-        schema: createActionSchema('skip_review_card', {
-            deckID: { type: 'string', description: 'Deck ID' },
-            cardID: { type: 'string', description: 'Card ID' },
-        }, ['deckID', 'cardID'], 'Skip the current flashcard in a review flow.'),
+        }, ['deckID', 'cardID'], 'Submit a review result or skip one flashcard.'),
     },
     {
         action: 'create_card',
         schema: createActionSchema('create_card', {
             deckID: { type: 'string', description: 'Deck ID' },
             blockIDs: { type: 'array', items: { type: 'string' }, description: 'Existing block IDs to turn into flashcards' },
-        }, ['deckID', 'blockIDs'], 'Turn existing blocks into flashcards by writing deck attrs and registering riff cards.'),
-    },
-    {
-        action: 'add_card',
-        schema: createActionSchema('add_card', {
-            deckID: { type: 'string', description: 'Deck ID' },
-            blockIDs: { type: 'array', items: { type: 'string' }, description: 'Existing block IDs to add as flashcards' },
-        }, ['deckID', 'blockIDs'], 'Add existing blocks to a flashcard deck.'),
+            mode: { type: 'string', enum: ['full', 'attach'], description: 'full writes deck attrs and registers cards; attach only registers existing blocks' },
+        }, ['deckID', 'blockIDs'], 'Turn existing blocks into flashcards or attach existing blocks to a deck.'),
     },
     {
         action: 'remove_card',

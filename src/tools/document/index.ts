@@ -23,25 +23,25 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
         }, ['notebook'], 'Create a new document. Provide either path, or parentPath + title.'),
     },
     {
-        action: 'resolve',
-        schema: createActionSchema('resolve', {
-            id: { type: 'string', description: 'Document ID to resolve' },
+        action: 'lookup',
+        schema: createActionSchema('lookup', {
+            id: { type: 'string', description: 'Document ID to look up' },
             notebook: { type: 'string', description: 'Notebook ID, required with path or hpath' },
-            path: { type: 'string', description: 'Storage path to resolve when notebook is provided' },
-            hpath: { type: 'string', description: 'Human-readable path to resolve when notebook is provided' },
+            path: { type: 'string', description: 'Storage path to look up when notebook is provided' },
+            hpath: { type: 'string', description: 'Human-readable path to look up when notebook is provided' },
             hPath: { type: 'string', description: 'Alias for hpath' },
             include: {
                 type: 'array',
                 items: { type: 'string', enum: ['id', 'ids', 'path', 'hpath', 'docInfo'] },
                 description: 'Fields to include: id, ids, path, hpath, docInfo',
             },
-        }, [], 'Resolve document IDs, storage paths, human-readable paths, and document metadata from one document reference.'),
+        }, [], 'Look up document IDs, storage paths, human-readable paths, and document metadata from one document reference.'),
     },
     {
         action: 'rename',
         schema: createActionSchema('rename', {
             notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path resolved with document(action="resolve")' },
+            path: { type: 'string', description: 'Storage path resolved with document(action="lookup")' },
             title: { type: 'string', description: 'New document title' },
         }, ['notebook', 'path', 'title'], 'Rename a document'),
     },
@@ -49,7 +49,7 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
         action: 'remove',
         schema: createActionSchema('remove', {
             notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path resolved with document(action="resolve")' },
+            path: { type: 'string', description: 'Storage path resolved with document(action="lookup")' },
         }, ['notebook', 'path'], 'Delete a document'),
     },
     {
@@ -77,18 +77,19 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
         }, ['id'], 'Get child documents'),
     },
     {
-        action: 'set_icon',
-        schema: createActionSchema('set_icon', {
+        action: 'set_attr',
+        schema: createActionSchema('set_attr', {
             id: { type: 'string', description: 'Document ID' },
-            icon: { type: 'string', description: 'Icon (Unicode hex or emoji)' },
-        }, ['id', 'icon'], 'Set document icon'),
-    },
-    {
-        action: 'set_cover',
-        schema: createActionSchema('set_cover', {
-            id: { type: 'string', description: 'Document ID' },
-            source: { type: 'string', description: 'Image URL or asset path' },
-        }, ['id'], 'Set document cover image'),
+            attrs: {
+                type: 'object',
+                properties: {
+                    icon: { type: 'string', description: 'Icon (Unicode hex or emoji)' },
+                    cover: { description: 'Image URL or asset path; null or empty string clears the cover' },
+                },
+                additionalProperties: false,
+                description: 'Document metadata attributes',
+            },
+        }, ['id', 'attrs'], 'Set document metadata such as icon and cover image.'),
     },
     {
         action: 'list_tree',
@@ -128,12 +129,6 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
         }, ['id'], 'Duplicate a document'),
     },
     {
-        action: 'remove_batch',
-        schema: createActionSchema('remove_batch', {
-            paths: { type: 'array', items: { type: 'string' }, description: 'Storage paths to remove' },
-        }, ['paths'], 'Delete multiple documents'),
-    },
-    {
         action: 'heading_to_doc',
         schema: createActionSchema('heading_to_doc', {
             headingID: { type: 'string', description: 'Heading block ID to convert' },
@@ -158,9 +153,9 @@ const documentTool = defineTool<DocumentAction>({
         guidance: DOCUMENT_GUIDANCE,
         actionHints: DOCUMENT_ACTION_HINTS,
         propertyDescriptionOverrides: {
-            path: 'Path value. For action="create", use a human-readable target path such as /Inbox/Weekly Note. For path-based rename/remove/move, use a storage path returned by document(action="resolve").',
-            fromPaths: 'Source storage paths returned by document(action="resolve").',
-            toPath: 'Target storage path. Use the storage path of an existing destination document returned by document(action="resolve").',
+            path: 'Path value. For action="create", use a human-readable target path such as /Inbox/Weekly Note. For path-based rename/remove/move, use a storage path returned by document(action="lookup").',
+            fromPaths: 'Source storage paths returned by document(action="lookup").',
+            toPath: 'Target storage path. Use the storage path of an existing destination document returned by document(action="lookup").',
         },
     },
     handlers: DOCUMENT_ACTION_HANDLERS,

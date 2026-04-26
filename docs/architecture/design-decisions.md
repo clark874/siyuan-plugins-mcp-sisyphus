@@ -114,12 +114,12 @@ Adopt **notebook-level 4-tier permissions**:
 | `none` | Completely blocked | Sensitive notebooks |
 | `r` | Read-only | Reference notebooks |
 | `rw` | Read-write (no delete) | Daily work notebooks |
-| `rwd` | Full permission (default) | Trusted areas |
+| `rwd` | Full permission | Trusted areas |
 
 **Implementation details**:
 - Permission file stored at `/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions`
 - Read/write via SiYuan API, never directly accessing local filesystem
-- Unconfigured notebooks default to `rwd` (backward compatible, avoids breaking existing experience)
+- Unconfigured notebooks default to `r` (read-only) so missing permission entries do not grant write/delete access
 - Permission checks are **explicitly called** by business handlers, not unified middleware (different actions have different needs)
 
 ### Rejected Alternatives

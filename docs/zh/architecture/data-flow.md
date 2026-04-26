@@ -211,7 +211,7 @@ Step 7: 渲染
 | 工具开关 | 用户精细控制 | 同一份 UI 配置 |
 | 危险动作 | 依赖 LLM 自律 | 用户主动输入即视为确认 |
 | analytics | fire-and-forget | 同步等待落盘 |
-| 权限默认 | 未配置 notebook 默认 `rwd` | 同一套 `PermissionManager` 行为 |
+| 权限默认 | 未配置 notebook 默认 `r`（只读） | 同一套 `PermissionManager` 行为 |
 | 结果渲染 | MCP JSON | 人类可读 / `--json` |
 
 ---

@@ -3,19 +3,13 @@ import * as attributeApi from '../../api/block';
 import * as blockApi from '../../api/block';
 import type { BlockAction } from '../../core/config';
 import { normalizeKramdownResult, stripZeroWidthChars } from '../../core/normalize';
-import type { PermissionManager } from '../../core/permissions';
 import {
-    BlockActionSchema,
+    BlockAddToDailyNoteSchema,
     BlockAppendSchema,
-    BlockAppendDailyNoteSchema,
-    BlockBatchInsertSchema,
-    BlockBatchUpdateSchema,
     BlockBreadcrumbSchema,
     BlockDeleteSchema,
-    BlockDocInfoSchema,
     BlockDomSchema,
     BlockDocsInfoSchema,
-    BlockExistsSchema,
     BlockSetFoldStateSchema,
     BlockGetAttrsSchema,
     BlockGetChildrenSchema,
@@ -24,17 +18,15 @@ import {
     BlockInsertSchema,
     BlockMoveSchema,
     BlockPrependSchema,
-    BlockPrependDailyNoteSchema,
     BlockRecentUpdatedSchema,
     BlockSetAttrsSchema,
-    BlockTransferRefSchema,
+    BlockTransferReferencesSchema,
     BlockUpdateSchema,
     BlockWordCountSchema,
 } from '../../core/types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from '../context';
 import type { ToolActionHandler } from '../define-tool';
 import { filterItemsByPermission } from '../search';
-import { isMissingBlockError } from '../errorTranslation';
 import { createJsonResult, createPaginatedResult, createWriteSuccessResult, paginate, type ToolResult } from '../shared';
 import { applyUiRefresh } from '../ui-refresh';
 
@@ -54,6 +46,8 @@ type RecentUpdatedDocumentSummary = {
         path?: string;
     }>;
 };
+
+type BlockActionHandler = ToolActionHandler;
 
 function isLowLevelRecentBlockType(value: unknown): boolean {
     if (typeof value !== 'string') return false;
@@ -204,8 +198,8 @@ function createBatchInsertAnchorValidationResult(itemIndex: number): ToolResult 
                 error: {
                     type: 'validation_error',
                     tool: 'block',
-                    action: 'batch_insert',
-                    message: 'Invalid arguments for block(action="batch_insert").',
+                    action: 'insert',
+                    message: 'Invalid arguments for block(action="insert").',
                     fields: [{
                         path: `blocks[${itemIndex}].previousID`,
                         message: 'Provide nextID, previousID, or parentID for each block, or set a batch-level parentID/previousID/nextID.',
@@ -277,10 +271,10 @@ function createBatchInsertVerificationErrorResult(
                 error: {
                     type: 'api_error',
                     tool: 'block',
-                    action: 'batch_insert',
+                    action: 'insert',
                     reason: 'empty_transaction_result',
-                    message: `SiYuan accepted batch_insert for ${blockCount} block(s), but returned no created block IDs.`,
-                    hint: 'Check that each item includes nextID, previousID, or parentID, or provide one batch-level parentID/previousID/nextID, then retry. MCP now rejects no-op batch_insert responses instead of reporting success.',
+                    message: `SiYuan accepted insert for ${blockCount} block(s), but returned no created block IDs.`,
+                    hint: 'Check that each item includes nextID, previousID, or parentID, or provide one batch-level parentID/previousID/nextID, then retry. MCP now rejects no-op insert responses instead of reporting success.',
                     transactions,
                 },
             }, null, 2),
@@ -291,6 +285,33 @@ function createBatchInsertVerificationErrorResult(
 
 const handleInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockInsertSchema.parse(rawArgs);
+    if (parsed.blocks) {
+        const normalizedBlocks = normalizeBatchInsertBlocks(parsed.blocks, {
+            parentID: parsed.parentID,
+            previousID: parsed.previousID,
+            nextID: parsed.nextID,
+        });
+        const reloadIds = new Set<string>();
+        for (const [index, block] of normalizedBlocks.entries()) {
+            const refId = block.nextID || block.previousID || block.parentID;
+            if (!refId) return createBatchInsertAnchorValidationResult(index);
+            const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, refId, 'write');
+            if (denied) return denied;
+            reloadIds.add(context.documentId);
+        }
+        const result = await blockApi.batchInsertBlock(client, normalizedBlocks);
+        const createdBlockIds = extractBatchInsertCreatedBlockIds(result);
+        if (createdBlockIds.length === 0) {
+            return createBatchInsertVerificationErrorResult(normalizedBlocks.length, result);
+        }
+        return applyUiRefresh(client, createJsonResult({
+            success: true,
+            action: 'insert',
+            count: normalizedBlocks.length,
+            createdBlockIDs: createdBlockIds,
+            transactions: result,
+        }), [...reloadIds].map((id) => ({ type: 'reloadProtyle' as const, id })));
+    }
     const refId = parsed.nextID || parsed.previousID || parsed.parentID;
     let targetDocumentId: string | undefined;
     if (refId) {
@@ -298,10 +319,10 @@ const handleInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
         if (denied) return denied;
         targetDocumentId = context.documentId;
     }
-    const result = await blockApi.insertBlock(client, parsed.dataType, parsed.data, parsed.nextID, parsed.previousID, parsed.parentID);
+    const result = await blockApi.insertBlock(client, parsed.dataType!, parsed.data!, parsed.nextID, parsed.previousID, parsed.parentID);
     return applyUiRefresh(client, createSlimWriteResult(result, {
         action: 'insert',
-        dataType: parsed.dataType,
+        dataType: parsed.dataType!,
         parentID: parsed.parentID,
         previousID: parsed.previousID,
         nextID: parsed.nextID,
@@ -334,13 +355,28 @@ const handleAppend: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
 
 const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockUpdateSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
+    if (parsed.items) {
+        const reloadIds = new Set<string>();
+        for (const block of parsed.items) {
+            const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, block.id, 'write');
+            if (denied) return denied;
+            reloadIds.add(context.documentId);
+        }
+        const result = await blockApi.batchUpdateBlock(client, parsed.items);
+        return applyUiRefresh(client, createJsonResult({
+            success: true,
+            action: 'update',
+            count: parsed.items.length,
+            transactions: result,
+        }), [...reloadIds].map((id) => ({ type: 'reloadProtyle' as const, id })));
+    }
+    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id!, 'write');
     if (denied) return denied;
-    const result = await blockApi.updateBlock(client, parsed.dataType, parsed.data, parsed.id);
+    const result = await blockApi.updateBlock(client, parsed.dataType!, parsed.data!, parsed.id!);
     return applyUiRefresh(client, createUpdateResult(result, {
-        id: parsed.id,
-        dataType: parsed.dataType,
-        data: parsed.data,
+        id: parsed.id!,
+        dataType: parsed.dataType!,
+        data: parsed.data!,
     }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
@@ -417,8 +453,8 @@ const handleGetChildren: BlockActionHandler = async ({ client, permMgr, rawArgs 
     });
 };
 
-const handleTransferRef: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockTransferRefSchema.parse(rawArgs);
+const handleTransferReferences: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockTransferReferencesSchema.parse(rawArgs);
     const source = await ensurePermissionForDocumentId(client, permMgr, parsed.fromID, 'write');
     if (source.denied) return source.denied;
     const target = await ensurePermissionForDocumentId(client, permMgr, parsed.toID, 'write');
@@ -444,21 +480,6 @@ const handleGetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) 
     if (denied) return denied;
     const result = await attributeApi.getBlockAttrs(client, parsed.id);
     return createJsonResult(result);
-};
-
-const handleExists: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockExistsSchema.parse(rawArgs);
-    try {
-        const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
-        if (denied) return denied;
-    } catch (err) {
-        if (isMissingBlockError(err)) {
-            return createJsonResult({ id: parsed.id, exists: false });
-        }
-        throw err;
-    }
-    const exists = await blockApi.checkBlockExist(client, parsed.id);
-    return createJsonResult({ id: parsed.id, exists });
 };
 
 const handleInfo: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -520,95 +541,31 @@ const handleWordCount: BlockActionHandler = async ({ client, permMgr, rawArgs })
     return createJsonResult(result);
 };
 
-const handleBatchInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockBatchInsertSchema.parse(rawArgs);
-    const normalizedBlocks = normalizeBatchInsertBlocks(parsed.blocks, {
-        parentID: parsed.parentID,
-        previousID: parsed.previousID,
-        nextID: parsed.nextID,
-    });
-    const reloadIds = new Set<string>();
-    for (const [index, block] of normalizedBlocks.entries()) {
-        const refId = block.nextID || block.previousID || block.parentID;
-        if (!refId) return createBatchInsertAnchorValidationResult(index);
-        const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, refId, 'write');
-        if (denied) return denied;
-        reloadIds.add(context.documentId);
-    }
-    const result = await blockApi.batchInsertBlock(client, normalizedBlocks);
-    const createdBlockIds = extractBatchInsertCreatedBlockIds(result);
-    if (createdBlockIds.length === 0) {
-        return createBatchInsertVerificationErrorResult(normalizedBlocks.length, result);
-    }
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        action: 'batch_insert',
-        count: normalizedBlocks.length,
-        createdBlockIDs: createdBlockIds,
-        transactions: result,
-    }), [...reloadIds].map((id) => ({ type: 'reloadProtyle' as const, id })));
-};
-
-const handleBatchUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockBatchUpdateSchema.parse(rawArgs);
-    const reloadIds = new Set<string>();
-    for (const block of parsed.blocks) {
-        const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, block.id, 'write');
-        if (denied) return denied;
-        reloadIds.add(context.documentId);
-    }
-    const result = await blockApi.batchUpdateBlock(client, parsed.blocks);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        action: 'batch_update',
-        count: parsed.blocks.length,
-        transactions: result,
-    }), [...reloadIds].map((id) => ({ type: 'reloadProtyle' as const, id })));
-};
-
-const handleAppendDailyNote: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockAppendDailyNoteSchema.parse(rawArgs);
+const handleAddToDailyNote: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockAddToDailyNoteSchema.parse(rawArgs);
     const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
     if (denied) return denied;
-    const result = await blockApi.appendDailyNoteBlock(client, parsed.notebook, parsed.dataType, parsed.data);
+    const result = parsed.position === 'append'
+        ? await blockApi.appendDailyNoteBlock(client, parsed.notebook, parsed.dataType, parsed.data)
+        : await blockApi.prependDailyNoteBlock(client, parsed.notebook, parsed.dataType, parsed.data);
     return applyUiRefresh(client, createJsonResult({
         success: true,
-        action: 'append_daily_note',
+        action: 'add_to_daily_note',
         notebook: parsed.notebook,
         dataType: parsed.dataType,
+        position: parsed.position,
         transactions: result,
     }), [{ type: 'reloadFiletree' }]);
-};
-
-const handlePrependDailyNote: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockPrependDailyNoteSchema.parse(rawArgs);
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
-    if (denied) return denied;
-    const result = await blockApi.prependDailyNoteBlock(client, parsed.notebook, parsed.dataType, parsed.data);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        action: 'prepend_daily_note',
-        notebook: parsed.notebook,
-        dataType: parsed.dataType,
-        transactions: result,
-    }), [{ type: 'reloadFiletree' }]);
-};
-
-const handleDocInfo: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockDocInfoSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
-    if (denied) return denied;
-    const result = await blockApi.getDocInfo(client, parsed.id);
-    return createJsonResult(result);
 };
 
 const handleDocsInfo: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockDocsInfoSchema.parse(rawArgs);
-    for (const id of parsed.ids) {
+    const ids = parsed.ids ?? [parsed.id!];
+    for (const id of ids) {
         const { denied } = await ensurePermissionForDocumentId(client, permMgr, id, 'read');
         if (denied) return denied;
     }
-    const result = await blockApi.getDocsInfo(client, parsed.ids, parsed.refCount ?? false, parsed.av ?? false);
+    const result = await blockApi.getDocsInfo(client, ids, parsed.refCount ?? false, parsed.av ?? false);
     return createJsonResult(result);
 };
 
@@ -622,19 +579,14 @@ export const BLOCK_ACTION_HANDLERS: Record<BlockAction, BlockActionHandler> = {
     set_fold_state: handleSetFoldState,
     get_kramdown: handleGetKramdown,
     get_children: handleGetChildren,
-    transfer_ref: handleTransferRef,
+    transfer_references: handleTransferReferences,
     set_attrs: handleSetAttrs,
     get_attrs: handleGetAttrs,
-    exists: handleExists,
     info: handleInfo,
     breadcrumb: handleBreadcrumb,
     dom: handleDom,
     recent_updated: handleRecentUpdated,
     word_count: handleWordCount,
-    batch_insert: handleBatchInsert,
-    batch_update: handleBatchUpdate,
-    append_daily_note: handleAppendDailyNote,
-    prepend_daily_note: handlePrependDailyNote,
-    doc_info: handleDocInfo,
+    add_to_daily_note: handleAddToDailyNote,
     docs_info: handleDocsInfo,
 };

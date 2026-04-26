@@ -251,12 +251,26 @@ describe('buildAggregatedTool', () => {
         expect(result[0].description).toContain('create');
     });
 
-    it('should include merged properties from all variants', () => {
+    it('should keep action-specific properties in oneOf branches', () => {
         const result = buildAggregatedTool('notebook', 'Test tool', mockConfig, variants);
         const schema = result[0].inputSchema;
 
-        expect(schema.properties?.id).toBeDefined();
-        expect(schema.properties?.name).toBeDefined();
+        expect(schema.properties?.id).toBeUndefined();
+        expect(schema.properties?.name).toBeUndefined();
+        expect(schema.oneOf).toHaveLength(3);
+        expect(schema.oneOf?.[0].properties?.id).toBeDefined();
+        expect(schema.oneOf?.[1].properties?.name).toBeDefined();
+        expect(schema.oneOf?.[2].properties?.topic).toBeDefined();
+    });
+
+    it('adds action discriminators to oneOf branches', () => {
+        const result = buildAggregatedTool('notebook', 'Test tool', mockConfig, variants);
+        const schema = result[0].inputSchema;
+
+        expect(schema.oneOf?.[0].properties?.action?.const).toBe('list');
+        expect(schema.oneOf?.[0].required).toContain('action');
+        expect(schema.oneOf?.[1].properties?.action?.const).toBe('create');
+        expect(schema.oneOf?.[2].properties?.action?.const).toBe('help');
     });
 
     it('should handle guidance option', () => {
@@ -305,7 +319,7 @@ describe('buildAggregatedTool', () => {
         }, nestedVariants);
 
         const schema = result[0].inputSchema;
-        expect(schema.properties?.items?.items?.properties?.tags?.items).toEqual({ type: 'string' });
+        expect(schema.oneOf?.[0].properties?.items?.items?.properties?.tags?.items).toEqual({ type: 'string' });
     });
 });
 
@@ -348,17 +362,17 @@ describe('createPaginatedResult', () => {
 });
 
 describe('mergePropertySchemas annotations', () => {
-    it('annotates each merged property with Required by / Optional in per action', () => {
+    it('does not expose action-specific fields at the top level', () => {
         const variants: ActionVariant<string>[] = [
             { action: 'append', schema: { type: 'object', properties: { parentID: { type: 'string', description: 'Parent ID' }, data: { type: 'string' } }, required: ['parentID', 'data'] } },
             { action: 'update', schema: { type: 'object', properties: { id: { type: 'string' }, data: { type: 'string' } }, required: ['id', 'data'] } },
         ];
         const result = buildAggregatedTool('block', 'Test', { enabled: true, actions: { append: true, update: true } }, variants);
         const schema = result[0].inputSchema;
-        const dataDesc = schema.properties?.data?.description as string;
-        expect(dataDesc).toContain('Required by: append, update');
-        const parentDesc = schema.properties?.parentID?.description as string;
-        expect(parentDesc).toContain('Required by: append');
+        expect(schema.properties?.data).toBeUndefined();
+        expect(schema.properties?.parentID).toBeUndefined();
+        expect(schema.oneOf?.[0].properties?.parentID).toBeDefined();
+        expect(schema.oneOf?.[1].properties?.data).toBeDefined();
     });
 
     it('includes Parameter contract block in tool description', () => {

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildDefaultToolConfig } from '@/core/config';
 import { normalizeFullTextSearchResult } from '@/core/normalize';
 import { callSearchTool, filterBacklinkResultByPermission, filterFullTextSearchResultByPermission, listSearchTools } from '@/tools/search';
+import { callTagTool } from '@/tools/tag';
 import { assertReadOnlySql } from '@/tools/search/sql-builder';
 import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
@@ -302,14 +303,15 @@ describe('search tool filtering', () => {
             get: () => 'rwd',
         };
 
-        const result = await callSearchTool(client, {
-            action: 'search_tag',
-            k: 'mcp-test-tag',
-        }, buildDefaultToolConfig().search, permMgr as never);
+        const result = await callTagTool(client, {
+            action: 'list',
+            keyword: 'mcp-test-tag',
+        }, buildDefaultToolConfig().tag, permMgr as never);
 
         expect(parseResult(result)).toEqual({
             k: 'mcp-test-tag',
             tags: [],
+            resolvedArgs: { keyword: 'mcp-test-tag' },
             warning: 'No matching tags were found. If the tag was just created, SiYuan tag indexing may still be catching up; verify the markdown uses #tag# syntax and retry shortly.',
         });
     });
@@ -330,16 +332,16 @@ describe('search tool filtering', () => {
             get: () => 'rwd',
         };
 
-        const result = await callSearchTool(client, {
-            action: 'search_tag',
+        const result = await callTagTool(client, {
+            action: 'list',
             query: 'mcp-alias',
-        }, buildDefaultToolConfig().search, permMgr as never);
+        }, buildDefaultToolConfig().tag, permMgr as never);
 
         expect(parseResult(result)).toEqual({
             k: 'mcp-alias',
             tags: [{ label: 'mcp-alias', count: 1 }],
             resolvedArgs: {
-                query: 'mcp-alias',
+                keyword: 'mcp-alias',
             },
         });
     });

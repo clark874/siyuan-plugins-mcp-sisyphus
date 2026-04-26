@@ -307,7 +307,7 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 - 配置优先级：CLI flag > 环境变量 > `~/.siyuan-sisyphus/config.json` > 默认值。
 - Flag 命名：kebab/camel 都接受（`--parent-id` 与 `--parentID` 等价）；布尔 `--flag` / `--no-flag`；复杂对象用 `--<key>-json '<json>'`。
 - 危险动作在 CLI 下**不做二次确认**——用户主动输入命令即是确认。
-- PermissionManager 在 CLI 启动时尝试读取权限文件，读失败则视为空 map，未显式配置的 notebook 默认 `rwd`。
+- PermissionManager 在 CLI 启动时尝试读取权限文件，读失败则视为空 map，未显式配置的 notebook 默认 `r`（只读）。
 
 ---
 

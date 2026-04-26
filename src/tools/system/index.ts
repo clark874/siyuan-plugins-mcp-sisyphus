@@ -19,10 +19,6 @@ export const SYSTEM_VARIANTS: ActionVariant<SystemAction>[] = [
         schema: createActionSchema('network', {}, [], 'Get current network proxy information.'),
     },
     {
-        action: 'changelog',
-        schema: createActionSchema('changelog', {}, [], 'Get the current version changelog HTML when available.'),
-    },
-    {
         action: 'conf',
         schema: createActionSchema('conf', {
             mode: { type: 'string', enum: ['summary', 'get'], description: 'Read mode: "summary" returns a navigable overview, "get" reads a specific key path' },
@@ -32,31 +28,12 @@ export const SYSTEM_VARIANTS: ActionVariant<SystemAction>[] = [
         }, [], 'Get masked system configuration with summary-first progressive reading.'),
     },
     {
-        action: 'sys_fonts',
-        schema: createActionSchema('sys_fonts', {
-            mode: { type: 'string', enum: ['summary', 'list'], description: 'Read mode: "summary" returns counts and samples, "list" returns paginated items' },
-            offset: { type: 'number', description: 'Pagination offset for list mode' },
-            limit: { type: 'number', description: 'Pagination size for list mode' },
-            query: { type: 'string', description: 'Optional keyword filter for font names' },
-        }, [], 'List available system fonts with summary-first paginated reading.'),
-    },
-    {
-        action: 'boot_progress',
-        schema: createActionSchema('boot_progress', {}, [], 'Get boot progress details.'),
-    },
-    {
-        action: 'push_msg',
-        schema: createActionSchema('push_msg', {
+        action: 'notify',
+        schema: createActionSchema('notify', {
             msg: { type: 'string', description: 'Message content' },
+            level: { type: 'string', enum: ['info', 'error'], description: 'Notification level' },
             timeout: { type: 'number', description: 'Display timeout in milliseconds' },
-        }, ['msg'], 'Push a notification message.'),
-    },
-    {
-        action: 'push_err_msg',
-        schema: createActionSchema('push_err_msg', {
-            msg: { type: 'string', description: 'Error message content' },
-            timeout: { type: 'number', description: 'Display timeout in milliseconds' },
-        }, ['msg'], 'Push an error notification message.'),
+        }, ['msg', 'level'], 'Push a notification message.'),
     },
     {
         action: 'get_version',

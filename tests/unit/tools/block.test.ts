@@ -20,22 +20,24 @@ describe('block tool', () => {
         expect(isMissingBlockError(new Error('some other error'))).toBe(false);
     });
 
-    it('exposes new batch and daily-note actions in the grouped schema', () => {
+    it('exposes merged batch and daily-note actions in the grouped schema', () => {
         const config = buildDefaultToolConfig();
         const [tool] = listBlockTools(config.block);
-        expect(tool.inputSchema.properties.action.enum).toContain('batch_insert');
-        expect(tool.inputSchema.properties.action.enum).toContain('batch_update');
-        expect(tool.inputSchema.properties.action.enum).toContain('append_daily_note');
+        expect(tool.inputSchema.properties.action.enum).toContain('insert');
+        expect(tool.inputSchema.properties.action.enum).toContain('update');
+        expect(tool.inputSchema.properties.action.enum).toContain('add_to_daily_note');
         expect(tool.inputSchema.properties.action.enum).toContain('docs_info');
     });
 
-    it('documents batch_insert anchors inside each block item', () => {
+    it('documents insert anchors inside each block item', () => {
         const config = buildDefaultToolConfig();
         const [tool] = listBlockTools(config.block);
-        const properties = tool.inputSchema.properties as Record<string, unknown>;
+        const insertSchema = (tool.inputSchema.oneOf as Array<{ properties?: Record<string, any> }>)
+            .find((schema) => schema.properties?.action?.const === 'insert');
+        const properties = insertSchema?.properties as Record<string, unknown>;
         const batchInsertBlocks = properties.blocks as Record<string, unknown>;
 
-        expect(batchInsertBlocks.description).toContain('top level');
+        expect(batchInsertBlocks.description).toContain('top-level');
     });
 
     it('calls append daily note block endpoint', async () => {
@@ -48,20 +50,21 @@ describe('block tool', () => {
         });
 
         const result = await callBlockTool(client, {
-            action: 'append_daily_note',
+            action: 'add_to_daily_note',
             notebook: 'nb',
             dataType: 'markdown',
             data: 'hello',
+            position: 'append',
         }, buildDefaultToolConfig().block, permMgr as never);
 
         expect(parseResult(result).success).toBe(true);
     });
 
-    it('rejects batch_insert when any block is missing parentID, previousID, and nextID', async () => {
+    it('rejects batched insert when any block is missing parentID, previousID, and nextID', async () => {
         const client = createMockClient();
 
         const result = await callBlockTool(client, {
-            action: 'batch_insert',
+            action: 'insert',
             blocks: [
                 { dataType: 'markdown', data: 'valid', parentID: 'doc-1' },
                 { dataType: 'markdown', data: 'invalid' },
@@ -71,20 +74,20 @@ describe('block tool', () => {
         expect(parseResult(result)).toEqual({
             error: {
                 type: 'validation_error',
-                message: 'Invalid arguments for block(action="batch_insert").',
+                message: 'Invalid arguments for block(action="insert").',
                 tool: 'block',
-                action: 'batch_insert',
-                hint: 'Use blocks[]. Common case: pass one top-level parentID, previousID, or nextID as the batch default, and each block item only needs dataType + data. When blocks need different anchors, put parentID/previousID/nextID inside each block item instead. On success, MCP returns createdBlockIDs and rejects no-op kernel responses instead of reporting fake success.',
+                action: 'insert',
+                hint: 'nextID inserts BEFORE that block; previousID inserts AFTER that block. Provide at least one of nextID, previousID, or parentID. Returns a slim success object with the created block ID. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
                 fields: [{
                     path: 'blocks[1].previousID',
-                    message: 'Provide nextID, previousID, or parentID for each block, or set a batch-level parentID/previousID/nextID.',
+                    message: 'Provide nextID, previousID, or parentID for each block, or set a top-level parentID/previousID/nextID.',
                 }],
             },
         });
         expect(client.request).not.toHaveBeenCalled();
     });
 
-    it('inherits a top-level parentID for every batch_insert item', async () => {
+    it('inherits a top-level parentID for every batched insert item', async () => {
         const client = createMockClient({
             request: vi.fn(async (endpoint: string, body: unknown) => {
                 if (endpoint === '/api/query/sql') {
@@ -122,7 +125,7 @@ describe('block tool', () => {
         });
 
         const result = await callBlockTool(client, {
-            action: 'batch_insert',
+            action: 'insert',
             parentID: 'doc-1',
             blocks: [
                 { dataType: 'markdown', data: 'Block A' },
@@ -132,7 +135,7 @@ describe('block tool', () => {
 
         expect(parseResult(result)).toEqual({
             success: true,
-            action: 'batch_insert',
+            action: 'insert',
             count: 2,
             createdBlockIDs: ['block-a', 'block-b'],
             transactions: [{
@@ -149,7 +152,7 @@ describe('block tool', () => {
         });
     });
 
-    it('fails batch_insert when SiYuan returns a no-op transaction payload', async () => {
+    it('fails batched insert when SiYuan returns a no-op transaction payload', async () => {
         const client = createMockClient({
             request: vi.fn(async (endpoint: string) => {
                 if (endpoint === '/api/query/sql') {
@@ -172,14 +175,14 @@ describe('block tool', () => {
                     }];
                 }
                 if (endpoint === '/api/ui/reloadProtyle') {
-                    throw new Error('reloadProtyle should not be called for a failed batch_insert');
+                    throw new Error('reloadProtyle should not be called for a failed insert');
                 }
                 throw new Error(`Unexpected endpoint: ${endpoint}`);
             }),
         });
 
         const result = await callBlockTool(client, {
-            action: 'batch_insert',
+            action: 'insert',
             blocks: [
                 { dataType: 'markdown', data: 'Block A', parentID: 'doc-1' },
             ],
@@ -189,10 +192,10 @@ describe('block tool', () => {
             error: {
                 type: 'api_error',
                 tool: 'block',
-                action: 'batch_insert',
+                action: 'insert',
                 reason: 'empty_transaction_result',
-                message: 'SiYuan accepted batch_insert for 1 block(s), but returned no created block IDs.',
-                hint: 'Check that each item includes nextID, previousID, or parentID, or provide one batch-level parentID/previousID/nextID, then retry. MCP now rejects no-op batch_insert responses instead of reporting success.',
+                message: 'SiYuan accepted insert for 1 block(s), but returned no created block IDs.',
+                hint: 'Check that each item includes nextID, previousID, or parentID, or provide one batch-level parentID/previousID/nextID, then retry. MCP now rejects no-op insert responses instead of reporting success.',
                 transactions: [{
                     doOperations: [
                         { action: 'insert', id: '', parentID: '', rootID: '' },

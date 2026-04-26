@@ -7,9 +7,9 @@ describe('document tool extended actions', () => {
     it('exposes filetree enhancement actions in the grouped schema', () => {
         const config = buildDefaultToolConfig();
         const [tool] = listDocumentTools(config.document);
-        expect(tool.inputSchema.properties.action.enum).toContain('resolve');
+        expect(tool.inputSchema.properties.action.enum).toContain('lookup');
         expect(tool.inputSchema.properties.action.enum).toContain('duplicate');
-        expect(tool.inputSchema.properties.action.enum).toContain('remove_batch');
+        expect(tool.inputSchema.properties.action.enum).not.toContain('remove');
         expect(tool.inputSchema.properties.action.enum).not.toContain('create_empty');
         expect(tool.inputSchema.properties.action.enum).not.toContain('get_path');
         expect(tool.inputSchema.properties.action.enum).not.toContain('get_hpath');

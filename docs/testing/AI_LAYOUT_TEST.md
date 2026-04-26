@@ -222,6 +222,6 @@
 
 建议修改必须具体，例如：
 
-- “`av.render_attribute_view` 的帮助应说明创建 AV 时 `blockID` 是父级插入块；后续 AV 写操作通常可只传 `avID`。”
+- “`av.render` 的帮助应说明创建 AV 时 `blockID` 是父级插入块；后续 AV 写操作通常可只传 `avID`。”
 - “`flashcard.create_card` 的帮助应说明它登记的是已有块，不会自动把普通问答段落变成卡片内容。”
 - “可渲染图形相关帮助应明确哪些内容适合 code block，哪些需要思源原生图形块或嵌入块。”
