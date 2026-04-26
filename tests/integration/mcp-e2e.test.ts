@@ -12,6 +12,12 @@ describe('MCP End-to-End Flow', () => {
     let client: SiYuanClient;
     let mockFetch: ReturnType<typeof vi.fn>;
 
+    const jsonResponse = (payload: unknown): Response => ({
+        ok: true,
+        text: async () => JSON.stringify(payload),
+        json: async () => payload,
+    } as Response);
+
     beforeEach(() => {
         mockFetch = vi.fn();
         global.fetch = mockFetch;
@@ -31,10 +37,7 @@ describe('MCP End-to-End Flow', () => {
                 ],
             };
 
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: notebooksData }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: notebooksData }));
 
             const result = await notebookApi.listNotebooks(client);
             expect(result).toEqual(notebooksData);
@@ -44,20 +47,14 @@ describe('MCP End-to-End Flow', () => {
         it('should create notebook and return result', async () => {
             const createdData = { notebook: 'nb-new' };
 
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: createdData }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: createdData }));
 
             const result = await notebookApi.createNotebook(client, 'New Notebook');
             expect(result).toEqual(createdData);
         });
 
         it('should handle notebook not found error', async () => {
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 3, msg: 'Data not found', data: null }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 3, msg: 'Data not found', data: null }));
 
             await expect(notebookApi.openNotebook(client, 'non-existent')).rejects.toThrow();
         });
@@ -71,10 +68,7 @@ describe('MCP End-to-End Flow', () => {
                 hPath: '/Test Document',
             };
 
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: docData }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: docData }));
 
             const result = await documentApi.createDoc(client, 'nb1', '/Test Document', '');
             expect(result).toEqual(docData);
@@ -87,10 +81,7 @@ describe('MCP End-to-End Flow', () => {
                 path: '/Parent/Child.sy',
             };
 
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: pathData }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: pathData }));
 
             const result = await documentApi.getPathByID(client, 'doc123');
             expect(result).toEqual(pathData);
@@ -98,10 +89,7 @@ describe('MCP End-to-End Flow', () => {
         });
 
         it('should rename document', async () => {
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: null }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: null }));
 
             await expect(documentApi.renameDoc(client, 'nb1', '/Old Name.sy', 'New Name')).resolves.not.toThrow();
         });
@@ -111,10 +99,7 @@ describe('MCP End-to-End Flow', () => {
         it('should insert block successfully', async () => {
             const blockData = [{ id: 'block123', content: 'Test content' }];
 
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: blockData }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: blockData }));
 
             const result = await blockApi.insertBlock(client, {
                 dataType: 'markdown',
@@ -131,10 +116,7 @@ describe('MCP End-to-End Flow', () => {
                 { id: 'child2', type: 'p', content: 'Child 2' },
             ];
 
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: childrenData }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: childrenData }));
 
             const result = await blockApi.getChildBlocks(client, 'parent123');
             expect(result).toHaveLength(2);
@@ -142,10 +124,7 @@ describe('MCP End-to-End Flow', () => {
 
         it('should delete block', async () => {
             const deleteData = [{ id: 'block123', content: 'deleted' }];
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: deleteData }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: deleteData }));
 
             const result = await blockApi.deleteBlock(client, 'block123');
             expect(result).toEqual(deleteData);
@@ -163,10 +142,7 @@ describe('MCP End-to-End Flow', () => {
                 matchedBlockCount: 2,
             };
 
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: searchData }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: searchData }));
 
             const result = await searchApi.fullTextSearchBlock(client, { query: 'test' });
             expect(result.blocks).toHaveLength(2);
@@ -181,10 +157,7 @@ describe('MCP End-to-End Flow', () => {
                 ],
             };
 
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: tagsData }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: tagsData }));
 
             const result = await searchApi.searchTag(client, 'tag');
             expect(result.tags).toHaveLength(2);
@@ -195,10 +168,7 @@ describe('MCP End-to-End Flow', () => {
         it('should render template', async () => {
             const templateData = { content: 'Rendered content' };
 
-            mockFetch.mockResolvedValue({
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: templateData }),
-            } as Response);
+            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: templateData }));
 
             const result = await templateApi.renderTemplate(client, 'tpl123', '/path/to/template');
             expect(result).toEqual(templateData);

@@ -99,7 +99,10 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMap
 
 function collectInputProperties(inputSchema: JsonSchema): Record<string, JsonSchema> {
     const props: Record<string, JsonSchema> = { ...((inputSchema.properties ?? {}) as Record<string, JsonSchema>) };
-    const branches = Array.isArray(inputSchema.oneOf)
+    const internalBranches = inputSchema['x-sisyphus-actionSchemas'];
+    const branches = Array.isArray(internalBranches)
+        ? internalBranches
+        : Array.isArray(inputSchema.oneOf)
         ? inputSchema.oneOf
         : Array.isArray(inputSchema.anyOf)
             ? inputSchema.anyOf

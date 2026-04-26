@@ -10,7 +10,7 @@ import {
     MascotShopSchema,
 } from '../core/types';
 import { defineTool } from './define-tool';
-import { createActionSchema, createJsonResult, type ActionVariant, type ToolResult } from './shared';
+import { createJsonResult, createZodActionVariant, type ActionVariant, type ToolResult } from './shared';
 
 export const MASCOT_TOOL_NAME = 'mascot';
 export const SHOP_ITEMS = [
@@ -30,20 +30,9 @@ function getShopItem(itemId: string) {
 }
 
 export const MASCOT_VARIANTS: ActionVariant<MascotAction>[] = [
-    {
-        action: 'get_balance',
-        schema: createActionSchema('get_balance', {}, [], 'Get the mascot balance. Every successful MCP tool call earns 1 coin.'),
-    },
-    {
-        action: 'shop',
-        schema: createActionSchema('shop', {}, [], 'List the mascot shop inventory.'),
-    },
-    {
-        action: 'buy',
-        schema: createActionSchema('buy', {
-            item_id: { type: 'string', description: 'Stable shop item ID returned by mascot(action="shop")' },
-        }, ['item_id'], 'Buy one item from the mascot shop.'),
-    },
+    createZodActionVariant('get_balance', MascotGetBalanceSchema, 'Get the mascot balance. Every successful MCP tool call earns 1 coin.'),
+    createZodActionVariant('shop', MascotShopSchema, 'List the mascot shop inventory.'),
+    createZodActionVariant('buy', MascotBuySchema, 'Buy one item from the mascot shop.'),
 ];
 
 const mascotTool = defineTool<MascotAction>({

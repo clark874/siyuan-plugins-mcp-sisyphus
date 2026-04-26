@@ -12,7 +12,7 @@ describe('puppy tool visuals helpers', () => {
         expect(resolveActionState('search')).toBe('reading');
         expect(resolveActionState('get_primary_key_values')).toBe('reading');
         expect(resolveActionState('set_cells')).toBe('writing');
-        expect(resolveActionState('duplicate_block')).toBe('writing');
+        expect(resolveActionState('duplicate')).toBe('writing');
     });
 
     it('maps mascot actions into reading and writing states', () => {

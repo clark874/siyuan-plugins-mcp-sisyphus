@@ -2,146 +2,46 @@ import type { SiYuanClient } from '../../api/client';
 import type { DocumentAction, CategoryToolConfig } from '../../core/config';
 import { DOCUMENT_ACTION_HINTS, DOCUMENT_GUIDANCE } from '../../core/help';
 import type { PermissionManager } from '../../core/permissions';
-import { DocumentActionSchema } from '../../core/types';
+import {
+    DocumentActionSchema,
+    DocumentCreateDailyNoteSchema,
+    DocumentCreateSchema,
+    DocumentDocToHeadingSchema,
+    DocumentDuplicateSchema,
+    DocumentGetChildBlocksSchema,
+    DocumentGetChildDocsSchema,
+    DocumentGetDocSchema,
+    DocumentHeadingToDocSchema,
+    DocumentListTreeSchema,
+    DocumentLookupSchema,
+    DocumentMoveSchema,
+    DocumentRemoveSchema,
+    DocumentRenameSchema,
+    DocumentSearchDocsSchema,
+    DocumentSetAttrSchema,
+} from '../../core/types';
 import { defineTool } from '../define-tool';
-import { createActionSchema, type ActionVariant, type ToolResult } from '../shared';
+import { createZodActionVariant, type ActionVariant, type ToolResult } from '../shared';
 import { DOCUMENT_ACTION_HANDLERS } from './handlers';
 
 export const DOCUMENT_TOOL_NAME = 'document';
 
 export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
-    {
-        action: 'create',
-        schema: createActionSchema('create', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Human-readable target path like /Inbox/Weekly Note' },
-            parentPath: { type: 'string', description: 'Parent human-readable path for title-based creation' },
-            title: { type: 'string', description: 'Document title when creating under parentPath' },
-            markdown: { type: 'string', description: 'Initial markdown content, defaults to empty' },
-            sorts: { type: 'array', items: { type: 'string' }, description: 'Optional sorting path segments passed through to SiYuan for parentPath + title creation' },
-            icon: { type: 'string', description: 'Document icon (optional)' },
-        }, ['notebook'], 'Create a new document. Provide either path, or parentPath + title.'),
-    },
-    {
-        action: 'lookup',
-        schema: createActionSchema('lookup', {
-            id: { type: 'string', description: 'Document ID to look up' },
-            notebook: { type: 'string', description: 'Notebook ID, required with path or hpath' },
-            path: { type: 'string', description: 'Storage path to look up when notebook is provided' },
-            hpath: { type: 'string', description: 'Human-readable path to look up when notebook is provided' },
-            hPath: { type: 'string', description: 'Alias for hpath' },
-            include: {
-                type: 'array',
-                items: { type: 'string', enum: ['id', 'ids', 'path', 'hpath', 'docInfo'] },
-                description: 'Fields to include: id, ids, path, hpath, docInfo',
-            },
-        }, [], 'Look up document IDs, storage paths, human-readable paths, and document metadata from one document reference.'),
-    },
-    {
-        action: 'rename',
-        schema: createActionSchema('rename', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path resolved with document(action="lookup")' },
-            title: { type: 'string', description: 'New document title' },
-        }, ['notebook', 'path', 'title'], 'Rename a document'),
-    },
-    {
-        action: 'remove',
-        schema: createActionSchema('remove', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path resolved with document(action="lookup")' },
-        }, ['notebook', 'path'], 'Delete a document'),
-    },
-    {
-        action: 'move',
-        schema: createActionSchema('move', {
-            notebook: { type: 'string', description: 'Source notebook ID' },
-            path: { type: 'string', description: 'Source storage path' },
-            toNotebook: { type: 'string', description: 'Target notebook ID (optional, defaults to source)' },
-            toPath: { type: 'string', description: 'Target storage path (optional, defaults to source)' },
-            fromIDs: { type: 'array', items: { type: 'string' }, description: 'Source document IDs (alternative to notebook+path)' },
-            fromPaths: { type: 'array', items: { type: 'string' }, description: 'Source storage paths (alternative to notebook+path)' },
-            toID: { type: 'string', description: 'Target document or notebook ID (alternative)' },
-        }, ['notebook', 'path'], 'Move a document to another location'),
-    },
-    {
-        action: 'get_child_blocks',
-        schema: createActionSchema('get_child_blocks', {
-            id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'Get top-level blocks of a document'),
-    },
-    {
-        action: 'get_child_docs',
-        schema: createActionSchema('get_child_docs', {
-            id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'Get child documents'),
-    },
-    {
-        action: 'set_attr',
-        schema: createActionSchema('set_attr', {
-            id: { type: 'string', description: 'Document ID' },
-            attrs: {
-                type: 'object',
-                properties: {
-                    icon: { type: 'string', description: 'Icon (Unicode hex or emoji)' },
-                    cover: { description: 'Image URL or asset path; null or empty string clears the cover' },
-                },
-                additionalProperties: false,
-                description: 'Document metadata attributes',
-            },
-        }, ['id', 'attrs'], 'Set document metadata such as icon and cover image.'),
-    },
-    {
-        action: 'list_tree',
-        schema: createActionSchema('list_tree', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Root path' },
-            maxDepth: { type: 'number', description: 'Max depth (default 3)' },
-        }, ['notebook'], 'Get document tree'),
-    },
-    {
-        action: 'search_docs',
-        schema: createActionSchema('search_docs', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            query: { type: 'string', description: 'Search keyword' },
-        }, ['notebook', 'query'], 'Search documents by title'),
-    },
-    {
-        action: 'get_doc',
-        schema: createActionSchema('get_doc', {
-            id: { type: 'string', description: 'Document ID' },
-            mode: { type: 'string', enum: ['markdown', 'html'], description: 'Return format (default markdown)' },
-            size: { type: 'number', description: 'Max content size hint' },
-            page: { type: 'number', description: 'Page number for markdown pagination (1-based)' },
-            pageSize: { type: 'number', description: 'Characters per page for pagination (default 8000)' },
-        }, ['id'], 'Get full document content'),
-    },
-    {
-        action: 'create_daily_note',
-        schema: createActionSchema('create_daily_note', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-        }, ['notebook'], 'Create or open today\'s daily note'),
-    },
-    {
-        action: 'duplicate',
-        schema: createActionSchema('duplicate', {
-            id: { type: 'string', description: 'Source document ID' },
-        }, ['id'], 'Duplicate a document'),
-    },
-    {
-        action: 'heading_to_doc',
-        schema: createActionSchema('heading_to_doc', {
-            headingID: { type: 'string', description: 'Heading block ID to convert' },
-        }, ['headingID'], 'Convert a heading to a separate document'),
-    },
-    {
-        action: 'doc_to_heading',
-        schema: createActionSchema('doc_to_heading', {
-            srcID: { type: 'string', description: 'Source document ID' },
-            targetID: { type: 'string', description: 'Target document ID' },
-            after: { type: 'boolean', description: 'Insert after (default before)' },
-        }, ['srcID', 'targetID'], 'Merge a document into another as a heading'),
-    },
+    createZodActionVariant('create', DocumentCreateSchema, 'Create a new document. Provide either path, or parentPath + title.'),
+    createZodActionVariant('lookup', DocumentLookupSchema, 'Look up document IDs, storage paths, human-readable paths, and document metadata from one document reference.'),
+    createZodActionVariant('rename', DocumentRenameSchema, 'Rename a document'),
+    createZodActionVariant('remove', DocumentRemoveSchema, 'Delete a document'),
+    createZodActionVariant('move', DocumentMoveSchema, 'Move a document to another location'),
+    createZodActionVariant('get_child_blocks', DocumentGetChildBlocksSchema, 'Get top-level blocks of a document'),
+    createZodActionVariant('get_child_docs', DocumentGetChildDocsSchema, 'Get child documents'),
+    createZodActionVariant('set_attr', DocumentSetAttrSchema, 'Set document metadata such as icon and cover image.'),
+    createZodActionVariant('list_tree', DocumentListTreeSchema, 'Get document tree'),
+    createZodActionVariant('search_docs', DocumentSearchDocsSchema, 'Search documents by title'),
+    createZodActionVariant('get_doc', DocumentGetDocSchema, 'Get full document content'),
+    createZodActionVariant('create_daily_note', DocumentCreateDailyNoteSchema, 'Create or open today\'s daily note'),
+    createZodActionVariant('duplicate', DocumentDuplicateSchema, 'Duplicate a document'),
+    createZodActionVariant('heading_to_doc', DocumentHeadingToDocSchema, 'Convert a heading to a separate document'),
+    createZodActionVariant('doc_to_heading', DocumentDocToHeadingSchema, 'Merge a document into another as a heading'),
 ];
 
 const documentTool = defineTool<DocumentAction>({

@@ -246,7 +246,7 @@
             return [{
                 type: "hint",
                 key: "perm__hint",
-                value: permLoading ? "Loading notebooks..." : "No notebooks found.",
+                value: permLoading ? getLabel("mcpPermLoading", "Loading notebooks...") : getLabel("mcpPermEmpty", "No notebooks found."),
                 title: "",
                 description: "",
             }];

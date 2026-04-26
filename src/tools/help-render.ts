@@ -86,6 +86,8 @@ export function buildExampleValue(fieldName: string, schema: JsonSchema): unknow
             return { 'custom-mcp': 'demo' };
         case 'conf':
             return { closed: false };
+        case 'permission':
+            return 'none';
         case 'query':
             return 'search keyword';
         case 'stmt':

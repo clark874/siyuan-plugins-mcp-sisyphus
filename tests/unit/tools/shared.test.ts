@@ -7,6 +7,7 @@ import {
 } from '@/tools/schema-analyzer';
 import {
     createActionSchema,
+    createZodActionVariant,
     createJsonResult,
     createErrorResult,
     createPaginatedResult,
@@ -43,6 +44,26 @@ describe('createActionSchema', () => {
 
         expect(schema.properties?.action?.const).toBe('empty');
         expect(schema.required).toEqual(['action']);
+    });
+});
+
+describe('createZodActionVariant', () => {
+    it('derives JSON Schema from a Zod action schema', () => {
+        const variant = createZodActionVariant('rename', z.object({
+            action: z.literal('rename'),
+            oldLabel: z.string().describe('Existing tag label'),
+            newLabel: z.string().describe('New tag label'),
+            dryRun: z.boolean().optional().describe('Preview only'),
+        }), 'Rename a tag.');
+
+        expect(variant.action).toBe('rename');
+        expect(variant.schema.description).toBe('Rename a tag.');
+        expect(variant.schema.additionalProperties).toBe(false);
+        expect(variant.schema.properties?.action).toEqual({ type: 'string', const: 'rename' });
+        expect(variant.schema.properties?.oldLabel?.description).toBe('Existing tag label');
+        expect(variant.schema.properties?.dryRun?.type).toBe('boolean');
+        expect(variant.schema.required).toEqual(['action', 'oldLabel', 'newLabel']);
+        expect(variant.schema.$schema).toBeUndefined();
     });
 });
 
@@ -240,7 +261,7 @@ describe('buildAggregatedTool', () => {
 
         expect(result).toHaveLength(1);
         expect(result[0].name).toBe('notebook');
-        expect(result[0].inputSchema.properties?.action?.enum).toEqual(['list', 'create', 'help']);
+        expect(result[0].inputSchema.properties?.action?.description).toContain('list, create');
     });
 
     it('should include description with action list', () => {
@@ -251,26 +272,29 @@ describe('buildAggregatedTool', () => {
         expect(result[0].description).toContain('create');
     });
 
-    it('should keep action-specific properties in oneOf branches', () => {
+    it('publishes loose action-specific properties at the top level', () => {
         const result = buildAggregatedTool('notebook', 'Test tool', mockConfig, variants);
         const schema = result[0].inputSchema;
 
-        expect(schema.properties?.id).toBeUndefined();
-        expect(schema.properties?.name).toBeUndefined();
-        expect(schema.oneOf).toHaveLength(3);
-        expect(schema.oneOf?.[0].properties?.id).toBeDefined();
-        expect(schema.oneOf?.[1].properties?.name).toBeDefined();
-        expect(schema.oneOf?.[2].properties?.topic).toBeDefined();
+        expect(schema.properties?.id).toBeDefined();
+        expect(schema.properties?.id?.type).toBeUndefined();
+        expect(schema.properties?.name).toBeDefined();
+        expect(schema.properties?.name?.type).toBeUndefined();
+        expect(schema.properties?.topic).toBeDefined();
+        expect(schema.oneOf).toBeUndefined();
+        expect(schema.additionalProperties).toBe(true);
+        expect(JSON.stringify(schema)).not.toContain('x-sisyphus-actionSchemas');
     });
 
-    it('adds action discriminators to oneOf branches', () => {
+    it('keeps strict action schemas for internal consumers', () => {
         const result = buildAggregatedTool('notebook', 'Test tool', mockConfig, variants);
         const schema = result[0].inputSchema;
+        const branches = schema['x-sisyphus-actionSchemas'];
 
-        expect(schema.oneOf?.[0].properties?.action?.const).toBe('list');
-        expect(schema.oneOf?.[0].required).toContain('action');
-        expect(schema.oneOf?.[1].properties?.action?.const).toBe('create');
-        expect(schema.oneOf?.[2].properties?.action?.const).toBe('help');
+        expect(branches?.[0].properties?.action?.const).toBe('list');
+        expect(branches?.[0].required).toContain('action');
+        expect(branches?.[1].properties?.action?.const).toBe('create');
+        expect(branches?.[2].properties?.action?.const).toBe('help');
     });
 
     it('should handle guidance option', () => {
@@ -319,7 +343,7 @@ describe('buildAggregatedTool', () => {
         }, nestedVariants);
 
         const schema = result[0].inputSchema;
-        expect(schema.oneOf?.[0].properties?.items?.items?.properties?.tags?.items).toEqual({ type: 'string' });
+        expect(schema['x-sisyphus-actionSchemas']?.[0].properties?.items?.items?.properties?.tags?.items).toEqual({ type: 'string' });
     });
 });
 
@@ -369,10 +393,12 @@ describe('mergePropertySchemas annotations', () => {
         ];
         const result = buildAggregatedTool('block', 'Test', { enabled: true, actions: { append: true, update: true } }, variants);
         const schema = result[0].inputSchema;
-        expect(schema.properties?.data).toBeUndefined();
-        expect(schema.properties?.parentID).toBeUndefined();
-        expect(schema.oneOf?.[0].properties?.parentID).toBeDefined();
-        expect(schema.oneOf?.[1].properties?.data).toBeDefined();
+        expect(schema.properties?.data).toBeDefined();
+        expect(schema.properties?.data?.type).toBeUndefined();
+        expect(schema.properties?.parentID).toBeDefined();
+        expect(schema.properties?.parentID?.type).toBeUndefined();
+        expect(schema['x-sisyphus-actionSchemas']?.[0].properties?.parentID).toBeDefined();
+        expect(schema['x-sisyphus-actionSchemas']?.[1].properties?.data).toBeDefined();
     });
 
     it('includes Parameter contract block in tool description', () => {

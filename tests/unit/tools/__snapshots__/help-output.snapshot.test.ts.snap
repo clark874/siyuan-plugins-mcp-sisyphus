@@ -10,7 +10,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "action": "add_column",
           "avID": "<avID>",
           "keyName": "<keyName>",
-          "keyType": "<keyType>",
+          "keyType": "text",
         },
         "fullDocResource": "siyuan://help/action/av/add_column",
         "guidance": [
@@ -334,11 +334,11 @@ av.render: required [] | optional [id, blockID, viewID, page, pageSize, query, g
 av.get_attribute_view_keys: required [id] | optional []
 av.get_attribute_view_filter_sort: required [id] | optional [blockID]
 av.search: required [keyword] | optional [excludes]
-av.add_rows: required [avID] | optional [blockID, viewID, groupID, previousID, ignoreDefaultFill, blockIDs, primaryKeyTexts]
+av.add_rows: required [avID] | optional [blockIDs, primaryKeyTexts, blockID, viewID, groupID, previousID, ignoreDefaultFill]
 av.remove_rows: required [avID, srcIDs] | optional [blockID]
 av.add_column: required [avID, keyName, keyType] | optional [blockID, keyID, keyIcon, previousKeyID]
 av.remove_column: required [avID] | optional [blockID, keyID, columnID, removeRelationDest]
-av.set_cells: required [avID] | optional [blockID, cells, items, rowID, columnID, valueType, text, number, checked, option, options, relationBlockIDs, url, email, phone, assets]
+av.set_cells: required [avID] | optional [blockID, cells, items, rowID, columnID, valueType, text, number, numberFormat, date, endDate, includeTime, checked, option, options, relationBlockIDs, url, email, phone, assets]
 av.duplicate: required [avID] | optional [previousID]
 av.get_primary_key_values: required [avID] | optional [keyword, page, pageSize]
 
@@ -567,9 +567,6 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "action": "docs_info",
         "example": {
           "action": "docs_info",
-          "ids": [
-            "<idsItem>",
-          ],
         },
         "fullDocResource": "siyuan://help/action/block/docs_info",
         "guidance": [
@@ -582,12 +579,10 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "block(action="recent_updated") is read-only; MCP filters unreadable notebooks first and then applies count.",
           "block(action="recent_updated") now presents the document-grouped summary as the primary user-facing view while keeping the raw block stream for advanced consumers.",
         ],
-        "requiredFields": [
-          "ids",
-        ],
+        "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
-          "ids",
+          "action only",
         ],
         "tool": "block",
       },
@@ -997,7 +992,7 @@ block.dom: required [id] | optional []
 block.recent_updated: required [] | optional [count]
 block.word_count: required [ids] | optional []
 block.add_to_daily_note: required [notebook, dataType, data, position] | optional []
-block.docs_info: required [ids] | optional [id, refCount, av]
+block.docs_info: required [] | optional [id, ids, refCount, av]
 
 block(action="prepend") or block(action="append") with a document ID targets the document start or end. block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content. Requires user confirmation before: delete, move.",
     "overview": {
@@ -1006,7 +1001,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "append": "parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Prefer append when you need to add multi-line markdown, tables, or multiple new blocks. Use #tag# syntax in markdown when you want SiYuan to register a real tag.",
         "breadcrumb": "Optional excludeTypes removes matching block types from the breadcrumb.",
         "delete": "This action requires explicit user confirmation.",
-        "docs_info": "requires: ids",
+        "docs_info": "no extra fields",
         "dom": "Returns rendered DOM, useful for preview-style consumers.",
         "get_attrs": "requires: id",
         "get_children": "Accepts both document IDs and block IDs. Returns direct child blocks. Use page/pageSize to paginate when there are many children.",
@@ -1339,6 +1334,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "example": {
           "action": "heading_to_doc",
           "headingID": "<headingID>",
+          "targetNotebook": "<targetNotebook>",
         },
         "fullDocResource": "siyuan://help/action/document/heading_to_doc",
         "guidance": [
@@ -1353,10 +1349,11 @@ block(action="prepend") or block(action="append") with a document ID targets the
         ],
         "requiredFields": [
           "headingID",
+          "targetNotebook",
         ],
         "requiresConfirmation": false,
         "shapes": [
-          "headingID",
+          "headingID + targetNotebook",
         ],
         "tool": "document",
       },
@@ -1365,6 +1362,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "example": {
           "action": "list_tree",
           "notebook": "20210808180117-czj9bvb",
+          "path": "/20240318112233-abc123.sy",
         },
         "fullDocResource": "siyuan://help/action/document/list_tree",
         "guidance": [
@@ -1380,10 +1378,11 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "hint": "Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.",
         "requiredFields": [
           "notebook",
+          "path",
         ],
         "requiresConfirmation": false,
         "shapes": [
-          "notebook",
+          "notebook + path",
         ],
         "tool": "document",
       },
@@ -1415,8 +1414,6 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "action": "move",
         "example": {
           "action": "move",
-          "notebook": "20210808180117-czj9bvb",
-          "path": "/20240318112233-abc123.sy",
         },
         "fullDocResource": "siyuan://help/action/document/move",
         "guidance": [
@@ -1430,13 +1427,10 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.",
-        "requiredFields": [
-          "notebook",
-          "path",
-        ],
+        "requiredFields": [],
         "requiresConfirmation": true,
         "shapes": [
-          "notebook + path",
+          "action only",
         ],
         "tool": "document",
       },
@@ -1444,8 +1438,6 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "action": "remove",
         "example": {
           "action": "remove",
-          "notebook": "20210808180117-czj9bvb",
-          "path": "/20240318112233-abc123.sy",
         },
         "fullDocResource": "siyuan://help/action/document/remove",
         "guidance": [
@@ -1459,13 +1451,10 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use either id or notebook + path. This action requires explicit user confirmation.",
-        "requiredFields": [
-          "notebook",
-          "path",
-        ],
+        "requiredFields": [],
         "requiresConfirmation": true,
         "shapes": [
-          "notebook + path",
+          "action only",
         ],
         "tool": "document",
       },
@@ -1473,8 +1462,6 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "action": "rename",
         "example": {
           "action": "rename",
-          "notebook": "20210808180117-czj9bvb",
-          "path": "/20240318112233-abc123.sy",
           "title": "Weekly Notes",
         },
         "fullDocResource": "siyuan://help/action/document/rename",
@@ -1490,13 +1477,11 @@ block(action="prepend") or block(action="append") with a document ID targets the
         ],
         "hint": "Use either id + title or notebook + path + title.",
         "requiredFields": [
-          "notebook",
-          "path",
           "title",
         ],
         "requiresConfirmation": false,
         "shapes": [
-          "notebook + path + title",
+          "title",
         ],
         "tool": "document",
       },
@@ -1563,25 +1548,25 @@ block(action="prepend") or block(action="append") with a document ID targets the
     },
     "description": "📝 Grouped document operations. Use the "action" field to select the operation.
 
-Common actions: create, lookup, rename, get_child_blocks, get_child_docs, search_docs, get_doc. Required fields: create: notebook; lookup: no additional fields; rename: notebook, path, title; get_child_blocks: id; get_child_docs: id; search_docs: notebook, query; get_doc: id.
+Common actions: create, lookup, rename, get_child_blocks, get_child_docs, search_docs, get_doc. Required fields: create: notebook; lookup: no additional fields; rename: title; get_child_blocks: id; get_child_docs: id; search_docs: notebook, query; get_doc: id.
 
 Additional actions: remove, move, set_attr, list_tree, create_daily_note, duplicate, heading_to_doc, doc_to_heading. Read siyuan://help/action/document/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 document.create: required [notebook] | optional [path, parentPath, title, markdown, sorts, icon]
 document.lookup: required [] | optional [id, notebook, path, hpath, hPath, include]
-document.rename: required [notebook, path, title] | optional []
-document.remove: required [notebook, path] | optional []
-document.move: required [notebook, path] | optional [toNotebook, toPath, fromIDs, fromPaths, toID]
+document.rename: required [title] | optional [id, notebook, path]
+document.remove: required [] | optional [ids, paths, id, notebook, path]
+document.move: required [] | optional [fromPaths, toNotebook, toPath, fromIDs, toID]
 document.get_child_blocks: required [id] | optional []
 document.get_child_docs: required [id] | optional []
 document.set_attr: required [id, attrs] | optional []
-document.list_tree: required [notebook] | optional [path, maxDepth]
-document.search_docs: required [notebook, query] | optional []
+document.list_tree: required [notebook, path] | optional [maxDepth]
+document.search_docs: required [notebook, query] | optional [path]
 document.get_doc: required [id] | optional [mode, size, page, pageSize]
-document.create_daily_note: required [notebook] | optional []
+document.create_daily_note: required [notebook] | optional [app]
 document.duplicate: required [id] | optional []
-document.heading_to_doc: required [headingID] | optional []
+document.heading_to_doc: required [headingID, targetNotebook] | optional [targetPath, previousPath]
 document.doc_to_heading: required [srcID, targetID] | optional [after]
 
 document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title. Other document actions that use notebook + path expect storage paths returned by document(action="lookup"). Requires user confirmation before: remove, move.",
@@ -1594,7 +1579,7 @@ document(action="create") creates both non-empty and empty documents. Provide ei
         "get_child_blocks": "Use a document ID. Returns direct child blocks only.",
         "get_child_docs": "Use a document ID. Returns direct child documents only.",
         "get_doc": "Use a document ID. mode="markdown" returns clean Markdown content and supports page/pageSize for long documents; mode="html" uses the current focus view. For structured reading, prefer get_child_blocks.",
-        "heading_to_doc": "requires: headingID",
+        "heading_to_doc": "requires: headingID, targetNotebook",
         "list_tree": "Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.",
         "lookup": "Look up one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.",
         "move": "Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.",
@@ -2878,7 +2863,6 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "action": "fulltext_asset_content",
         "example": {
           "action": "fulltext_asset_content",
-          "query": "search keyword",
         },
         "fullDocResource": "siyuan://help/action/search/fulltext_asset_content",
         "guidance": [
@@ -2893,12 +2877,10 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Searches indexed asset/OCR text. Prefer methodName and sortBy over numeric method/orderBy. Provide assetId for an exact asset-content lookup.",
-        "requiredFields": [
-          "query",
-        ],
+        "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
-          "query",
+          "action only",
         ],
         "tool": "search",
       },
@@ -2958,7 +2940,6 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "action": "query_sql",
         "example": {
           "action": "query_sql",
-          "stmt": "SELECT * FROM blocks WHERE content LIKE '%keyword%' LIMIT 20",
         },
         "fullDocResource": "siyuan://help/action/search/query_sql",
         "guidance": [
@@ -2973,12 +2954,10 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Execute a SELECT statement. Common tables: blocks, spans, assets. Prefer sql over stmt when prompting an AI. Always use LIMIT to control result size. MCP returns data plus truncation and permission-filtering metadata when applicable.",
-        "requiredFields": [
-          "stmt",
-        ],
+        "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
-          "stmt",
+          "action only",
         ],
         "tool": "search",
       },
@@ -2986,7 +2965,6 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "action": "search_assets",
         "example": {
           "action": "search_assets",
-          "k": "todo",
         },
         "fullDocResource": "siyuan://help/action/search/search_assets",
         "guidance": [
@@ -3001,12 +2979,10 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Searches asset filenames. Prefer query over k when prompting an AI. If you need OCR or indexed inner-text matches, use fulltext_asset_content instead.",
-        "requiredFields": [
-          "k",
-        ],
+        "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
-          "k",
+          "action only",
         ],
         "tool": "search",
       },
@@ -3041,18 +3017,18 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
     },
     "description": "🔍 Grouped search and query operations. Use the "action" field to select the operation.
 
-Common actions: fulltext, query_sql, get_backlinks. Required fields: fulltext: query; query_sql: stmt; get_backlinks: id.
+Common actions: fulltext, query_sql, get_backlinks. Required fields: fulltext: query; query_sql: no additional fields; get_backlinks: id.
 
 Additional actions: search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs. Read siyuan://help/action/search/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 search.fulltext: required [query] | optional [method, methodName, types, typeShortcodes, paths, groupBy, orderBy, sortBy, page, pageSize, parentId, hasTags, stripHtml]
-search.query_sql: required [stmt] | optional [sql]
+search.query_sql: required [] | optional [stmt, sql]
 search.get_backlinks: required [id] | optional [keyword, refTreeID, scopeRootId, mode]
 search.search_refs: required [id] | optional [rootID, k, beforeLen, isSquareBrackets, isDatabase, reqId]
 search.find_replace: required [k, r, ids] | optional [paths, types, method, methodName, orderBy, sortBy, groupBy, replaceTypes]
-search.search_assets: required [k] | optional [query, exts]
-search.fulltext_asset_content: required [query] | optional [assetId, queryMethod, types, method, methodName, orderBy, sortBy, page, pageSize]
+search.search_assets: required [] | optional [k, query, exts]
+search.fulltext_asset_content: required [] | optional [query, assetId, queryMethod, types, method, methodName, orderBy, sortBy, page, pageSize]
 search.list_invalid_refs: required [] | optional [page, pageSize]
 
 All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation. search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission. When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query. The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated. In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget. Requires user confirmation before: find_replace.",
@@ -3421,7 +3397,7 @@ Common actions: list, rename. Required fields: list: no additional fields; renam
 Additional actions: remove. Read siyuan://help/action/tag/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
-tag.list: required [] | optional [sort, keyword, query, ignoreMaxListHint, app]
+tag.list: required [] | optional [keyword, query, sort, ignoreMaxListHint, app]
 tag.rename: required [oldLabel, newLabel] | optional []
 tag.remove: required [label] | optional []
 

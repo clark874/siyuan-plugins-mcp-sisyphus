@@ -13,6 +13,72 @@
     export let getLabel: (key: string, fallback: string) => string;
 
     const CLI_COMMAND = "siyuan-sisyphus";
+    const MCP_SERVER_NAME = "siyuan-sisyphus";
+    const MCP_CLIENT_PRESETS = [
+        {
+            id: "claude-code",
+            titleKey: "mcpPresetClaudeCodeTitle",
+            titleFallback: "Claude Code",
+            descKey: "mcpPresetClaudeCodeDesc",
+            descFallback: "Copy .mcp.json / mcpServers JSON for Claude Code.",
+        },
+        {
+            id: "kimi",
+            titleKey: "mcpPresetKimiTitle",
+            titleFallback: "Kimi Code",
+            descKey: "mcpPresetKimiDesc",
+            descFallback: "Copy ~/.kimi/mcp.json compatible configuration.",
+        },
+        {
+            id: "opencode",
+            titleKey: "mcpPresetOpenCodeTitle",
+            titleFallback: "opencode",
+            descKey: "mcpPresetOpenCodeDesc",
+            descFallback: "Copy opencode.jsonc mcp configuration.",
+        },
+        {
+            id: "codex",
+            titleKey: "mcpPresetCodexTitle",
+            titleFallback: "Codex CLI",
+            descKey: "mcpPresetCodexDesc",
+            descFallback: "Copy ~/.codex/config.toml mcp_servers configuration.",
+        },
+        {
+            id: "cherry-studio",
+            titleKey: "mcpPresetCherryTitle",
+            titleFallback: "Cherry Studio",
+            descKey: "mcpPresetCherryDesc",
+            descFallback: "Copy fields for Settings -> MCP Server -> Add server.",
+        },
+        {
+            id: "cc-switch",
+            titleKey: "mcpPresetCcSwitchTitle",
+            titleFallback: "cc-switch",
+            descKey: "mcpPresetCcSwitchDesc",
+            descFallback: "Copy cc-switch server-map JSON.",
+        },
+        {
+            id: "generic-json",
+            titleKey: "mcpPresetGenericTitle",
+            titleFallback: "Cursor / generic JSON",
+            descKey: "mcpPresetGenericDesc",
+            descFallback: "Copy the common mcpServers JSON used by many MCP clients.",
+        },
+    ] as const;
+    type McpClientPresetId = (typeof MCP_CLIENT_PRESETS)[number]["id"];
+    const MCP_TRANSPORT_PRESETS = [
+        {
+            id: "http",
+            titleKey: "mcpTransportHttpTitle",
+            titleFallback: "HTTP/HTTPS",
+        },
+        {
+            id: "stdio",
+            titleKey: "mcpTransportStdioTitle",
+            titleFallback: "stdio",
+        },
+    ] as const;
+    type McpTransportId = (typeof MCP_TRANSPORT_PRESETS)[number]["id"];
     const CLI_SNIPPETS = [
         {
             titleKey: "cliGuideInstallTitle",
@@ -50,6 +116,8 @@
     let httpBusy = false;
     let httpUnsubStatus: (() => void) | null = null;
     let httpUnsubLogs: (() => void) | null = null;
+    let selectedMcpClientPreset: McpClientPresetId = "claude-code";
+    let selectedMcpTransport: McpTransportId = "http";
     $: changelogTitle = getLabel("toolSettingsChangelogTitle", "更新日志");
     $: changelogText = getLabel("toolSettingsChangelogText", "连接设置现按 MCP / CLI 分组，MCP 下再区分 HTTP/HTTPS 与 stdio。");
 
@@ -105,34 +173,139 @@
         return false;
     }
 
-    function generateClientSnippet(s: HttpServerSettings, mode: "direct" | "stdio" | "bridge"): string {
+    function getHttpMcpUrl(s: HttpServerSettings): string {
         const scheme = s.tlsEnabled ? "https" : "http";
-        const url = `${scheme}://${s.host}:${s.port}/mcp`;
-        if (mode === "direct") {
-            const headers = s.authEnabled ? { Authorization: `Bearer ${s.token}` } : undefined;
-            const obj: any = { mcpServers: { siyuan: { type: "http", url } } };
-            if (headers) obj.mcpServers.siyuan.headers = headers;
+        return `${scheme}://${s.host}:${s.port}/mcp`;
+    }
+
+    function getHttpAuthHeaders(s: HttpServerSettings): Record<string, string> | undefined {
+        return s.authEnabled ? { Authorization: `Bearer ${s.token}` } : undefined;
+    }
+
+    function getStdioServerConfig() {
+        return {
+            command: "node",
+            args: [getWorkspaceScriptPath()],
+            env: {
+                SIYUAN_API_URL: "http://127.0.0.1:6806",
+                SIYUAN_TOKEN: getSiYuanApiToken(),
+            },
+        };
+    }
+
+    function generateClientSnippet(s: HttpServerSettings, mode: McpTransportId): string {
+        const url = getHttpMcpUrl(s);
+        if (mode === "http") {
+            const headers = getHttpAuthHeaders(s);
+            const obj: any = { mcpServers: { [MCP_SERVER_NAME]: { type: "http", url } } };
+            if (headers) obj.mcpServers[MCP_SERVER_NAME].headers = headers;
             return JSON.stringify(obj, null, 2);
         }
-        if (mode === "bridge") {
-            const args = ["mcp-remote", url];
-            if (s.authEnabled) {
-                args.push("--header", `Authorization: Bearer ${s.token}`);
-            }
-            return JSON.stringify({ mcpServers: { siyuan: { command: "npx", args } } }, null, 2);
+        return JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: getStdioServerConfig() } }, null, 2);
+    }
+
+    function tomlString(value: string): string {
+        return JSON.stringify(value);
+    }
+
+    function generateCodexConfig(s: HttpServerSettings, transport: McpTransportId): string {
+        if (transport === "stdio") {
+            const stdio = getStdioServerConfig();
+            return [
+                `[mcp_servers.${MCP_SERVER_NAME}]`,
+                `command = ${tomlString(stdio.command)}`,
+                `args = [${stdio.args.map(tomlString).join(", ")}]`,
+                `env = { "SIYUAN_API_URL" = ${tomlString(stdio.env.SIYUAN_API_URL)}, "SIYUAN_TOKEN" = ${tomlString(stdio.env.SIYUAN_TOKEN)} }`,
+                "enabled = true",
+            ].join("\n");
+        }
+        const lines = [
+            `[mcp_servers.${MCP_SERVER_NAME}]`,
+            `url = ${tomlString(getHttpMcpUrl(s))}`,
+            "enabled = true",
+        ];
+        if (s.authEnabled) {
+            lines.push(`http_headers = { "Authorization" = ${tomlString(`Bearer ${s.token}`)} }`);
+        }
+        return lines.join("\n");
+    }
+
+    function generateKimiConfig(s: HttpServerSettings, transport: McpTransportId): string {
+        if (transport === "stdio") {
+            return generateClientSnippet(s, "stdio");
+        }
+        const server: any = { url: getHttpMcpUrl(s) };
+        const headers = getHttpAuthHeaders(s);
+        if (headers) server.headers = headers;
+        return JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: server } }, null, 2);
+    }
+
+    function generateOpenCodeConfig(s: HttpServerSettings, transport: McpTransportId): string {
+        const stdio = getStdioServerConfig();
+        const command = transport === "http"
+            ? ["npx", "mcp-remote", getHttpMcpUrl(s)]
+            : [stdio.command, ...stdio.args];
+        if (transport === "http" && s.authEnabled) {
+            command.push("--header", `Authorization: Bearer ${s.token}`);
+        }
+        const server: any = {
+            type: "local",
+            command,
+            enabled: true,
+        };
+        if (transport === "stdio") {
+            server.environment = stdio.env;
         }
         return JSON.stringify({
-            mcpServers: {
-                siyuan: {
-                    command: "node",
-                    args: [getWorkspaceScriptPath()],
-                    env: {
-                        SIYUAN_API_URL: "http://127.0.0.1:6806",
-                        SIYUAN_TOKEN: getSiYuanApiToken(),
-                    },
-                },
-            },
+            $schema: "https://opencode.ai/config.json",
+            mcp: { [MCP_SERVER_NAME]: server },
         }, null, 2);
+    }
+
+    function generateCherryStudioConfig(s: HttpServerSettings, transport: McpTransportId): string {
+        if (transport === "http") {
+            const lines = [
+                `Name: ${MCP_SERVER_NAME}`,
+                "Type: HTTP",
+                `URL: ${getHttpMcpUrl(s)}`,
+            ];
+            if (s.authEnabled) {
+                lines.push("Headers:", `Authorization: Bearer ${s.token}`);
+            }
+            return lines.join("\n");
+        }
+        const stdio = getStdioServerConfig();
+        return [
+            `Name: ${MCP_SERVER_NAME}`,
+            "Type: STDIO",
+            `Command: ${stdio.command}`,
+            `Parameters: ${stdio.args.join(" ")}`,
+            "Environment:",
+            `SIYUAN_API_URL=${stdio.env.SIYUAN_API_URL}`,
+            `SIYUAN_TOKEN=${stdio.env.SIYUAN_TOKEN}`,
+        ].join("\n");
+    }
+
+    function generateCcSwitchConfig(s: HttpServerSettings, transport: McpTransportId): string {
+        if (transport === "stdio") {
+            return JSON.stringify({ [MCP_SERVER_NAME]: getStdioServerConfig() }, null, 2);
+        }
+        const server: any = {
+            type: "http",
+            url: getHttpMcpUrl(s),
+        };
+        const headers = getHttpAuthHeaders(s);
+        if (headers) server.headers = headers;
+        return JSON.stringify({ [MCP_SERVER_NAME]: server }, null, 2);
+    }
+
+    function generatePresetSnippet(s: HttpServerSettings, preset: McpClientPresetId, transport: McpTransportId): string {
+        if (preset === "kimi") return generateKimiConfig(s, transport);
+        if (preset === "opencode") return generateOpenCodeConfig(s, transport);
+        if (preset === "codex") return generateCodexConfig(s, transport);
+        if (preset === "cherry-studio") return generateCherryStudioConfig(s, transport);
+        if (preset === "cc-switch") return generateCcSwitchConfig(s, transport);
+        return generateClientSnippet(s, transport);
     }
 
     async function copyText(text: string) {
@@ -260,8 +433,48 @@
             <summary>{getLabel("mcpGuideTitle", "MCP 连接")}</summary>
             <div class="http-guide-content">
 
+                <div class="mcp-client-presets">
+                    <div class="mcp-client-presets-title">{getLabel("mcpClientPresetsTitle", "常用客户端配置")}</div>
+                    <div class="mcp-client-preset-row">
+                        <label class="mcp-client-preset-select">
+                            <span class="http-label">{getLabel("mcpClientPresetSelectLabel", "客户端")}</span>
+                            <select class="b3-select" bind:value={selectedMcpClientPreset}>
+                                {#each MCP_CLIENT_PRESETS as preset}
+                                    <option value={preset.id}>{getLabel(preset.titleKey, preset.titleFallback)}</option>
+                                {/each}
+                            </select>
+                        </label>
+                        <label class="mcp-client-preset-select">
+                            <span class="http-label">{getLabel("mcpTransportSelectLabel", "连接方式")}</span>
+                            <select class="b3-select" bind:value={selectedMcpTransport}>
+                                {#each MCP_TRANSPORT_PRESETS as transport}
+                                    <option value={transport.id}>{getLabel(transport.titleKey, transport.titleFallback)}</option>
+                                {/each}
+                            </select>
+                        </label>
+                        <button class="b3-button b3-button--outline" on:click={() => copyText(generatePresetSnippet(httpSettings, selectedMcpClientPreset, selectedMcpTransport))}>
+                            {getLabel("mcpClientPresetCopy", "复制配置")}
+                        </button>
+                    </div>
+                    <pre>{generatePresetSnippet(httpSettings, selectedMcpClientPreset, selectedMcpTransport)}</pre>
+                    <div class="http-note">
+                        {#each MCP_CLIENT_PRESETS as preset}
+                            {#if preset.id === selectedMcpClientPreset}
+                                {getLabel(preset.descKey, preset.descFallback)}
+                            {/if}
+                        {/each}
+                    </div>
+                    <div class="http-note">{getLabel("mcpClientPresetsNote", "先选择客户端和连接方式，再复制对应格式。HTTP/HTTPS 会使用当前服务地址；stdio 会使用当前思源插件目录下的 mcp-server.cjs。")}</div>
+                </div>
+
                 <details class="http-subproject">
-                    <summary>{getLabel("httpClientSnippet", "HTTP/HTTPS 连接")}</summary>
+                    <summary class="http-subproject-summary">
+                        <span>{getLabel("httpClientSnippet", "HTTP/HTTPS 连接")}</span>
+                        <span class="http-summary-status">
+                            <span class="http-status-dot" class:running={httpStatus.running}></span>
+                            {httpStatus.running ? getLabel("httpStatusRunning", "Running") : getLabel("httpStatusStopped", "Stopped")}
+                        </span>
+                    </summary>
                     <div class="http-guide-content">
                         <div class="http-guide-intro">{getLabel("mcpHttpGuideDesc", "适合桌面端直连、WSL、局域网和跨机器访问。开启 TLS 后就是 HTTPS。")}</div>
 
@@ -351,30 +564,6 @@
                             <div class="http-warning">{getLabel("httpWarnExposedNoAuth", "⚠️ Bound to a non-loopback address with auth disabled. Other devices on the network can access your SiYuan workspace.")}</div>
                         {/if}
 
-                        <details class="http-snippet">
-                            <summary>{getLabel("httpClientSnippetDirect", "直连配置")}</summary>
-                            <pre>{generateClientSnippet(httpSettings, "direct")}</pre>
-                            <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "direct"))}>{getLabel("httpCopy", "Copy")}</button>
-                        </details>
-
-                        <details class="http-snippet">
-                            <summary>{getLabel("httpClientSnippetBridge", "mcp-remote Bridge")}</summary>
-                            <pre>{generateClientSnippet(httpSettings, "bridge")}</pre>
-                            <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "bridge"))}>{getLabel("httpCopy", "Copy")}</button>
-                        </details>
-                    </div>
-                </details>
-
-                <details class="http-subproject">
-                    <summary>{getLabel("httpClientSnippetRemote", "stdio 连接")}</summary>
-                    <div class="http-guide-content">
-                        <div class="http-guide-intro">{getLabel("mcpStdioGuideDesc", "适合 Docker / 远程部署，或客户端只能以 stdio 启动 MCP 进程的场景。")}</div>
-                        <details class="http-snippet">
-                            <summary>{getLabel("stdioClientSnippetTitle", "stdio 配置")}</summary>
-                            <pre>{generateClientSnippet(httpSettings, "stdio")}</pre>
-                            <button class="b3-button b3-button--outline" on:click={() => copyText(generateClientSnippet(httpSettings, "stdio"))}>{getLabel("httpCopy", "Copy")}</button>
-                        </details>
-                        <div class="http-note">{getLabel("mcpStdioNote", "注意：stdio 每次通常只对应一个客户端连接；Docker 场景下也应优先使用它。")}</div>
                     </div>
                 </details>
 
@@ -588,6 +777,43 @@
             font-weight: 600;
         }
 
+        .http-subproject-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .http-subproject-summary::before {
+            content: "";
+            display: inline-block;
+            width: 0;
+            height: 0;
+            margin-right: 2px;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            border-left: 6px solid var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+            transition: transform 0.15s ease;
+        }
+
+        .http-subproject[open] > .http-subproject-summary::before {
+            transform: rotate(90deg);
+        }
+
+        .http-subproject-summary > span:first-child {
+            margin-right: auto;
+        }
+
+        .http-summary-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+            font-size: 12px;
+            font-weight: 500;
+        }
+
         .http-choice-table {
             width: 100%;
             border-collapse: collapse;
@@ -622,6 +848,43 @@
         .http-note {
             color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
             line-height: 1.6;
+        }
+
+        .mcp-client-presets {
+            background: var(--b3-theme-surface);
+            border-radius: 4px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .mcp-client-presets-title {
+            color: var(--b3-theme-primary);
+            font-weight: 600;
+        }
+
+        .mcp-client-preset-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .mcp-client-preset-select {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mcp-client-presets pre {
+            margin: 0;
+            padding: 8px;
+            background: var(--b3-theme-background);
+            border-radius: 3px;
+            overflow: auto;
+            max-height: 220px;
+            font-size: 12px;
         }
 
         .cli-snippet {
@@ -689,6 +952,21 @@
 
         .http-label {
             min-width: auto;
+        }
+
+        .mcp-client-preset-row,
+        .mcp-client-preset-select {
+            width: 100%;
+            align-items: flex-start;
+        }
+
+        .mcp-client-preset-select {
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .mcp-client-preset-select select {
+            width: 100%;
         }
     }
 </style>

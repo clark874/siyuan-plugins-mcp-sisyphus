@@ -11,6 +11,12 @@ import { startHttpMcpServer, type HttpMcpServerHandle } from '@/core/http-transp
 const TOOL_CONFIG_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
 const PERMISSIONS_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions';
 
+const jsonResponse = (payload: unknown): Response => ({
+    ok: true,
+    text: async () => JSON.stringify(payload),
+    json: async () => payload,
+} as Response);
+
 async function getAvailablePort(): Promise<number> {
     return await new Promise((resolve, reject) => {
         const server = createServer();
@@ -73,31 +79,19 @@ describe('HTTP MCP concurrency', () => {
                 const filePath = String(formData.get('path') ?? '');
                 const file = formData.get('file');
                 storedFiles[filePath] = file instanceof File ? await file.text() : String(file ?? '');
-                return {
-                    ok: true,
-                    json: async () => ({ code: 0, msg: 'success', data: null }),
-                } as Response;
+                return jsonResponse({ code: 0, msg: 'success', data: null });
             }
 
             if (urlStr.includes('/api/system/version')) {
-                return {
-                    ok: true,
-                    json: async () => ({ code: 0, msg: 'success', data: '3.1.0' }),
-                } as Response;
+                return jsonResponse({ code: 0, msg: 'success', data: '3.1.0' });
             }
 
             if (urlStr.includes('/api/system/currentTime')) {
-                return {
-                    ok: true,
-                    json: async () => ({ code: 0, msg: 'success', data: 1712640000000 }),
-                } as Response;
+                return jsonResponse({ code: 0, msg: 'success', data: 1712640000000 });
             }
 
             if (urlStr.startsWith('http://127.0.0.1:6806/')) {
-                return {
-                    ok: true,
-                    json: async () => ({ code: 0, msg: 'success', data: {} }),
-                } as Response;
+                return jsonResponse({ code: 0, msg: 'success', data: {} });
             }
 
             return originalFetch(url, init);

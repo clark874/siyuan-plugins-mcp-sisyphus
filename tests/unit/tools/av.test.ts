@@ -136,7 +136,7 @@ describe('av tool', () => {
 
     it('exports set_cells cells with nested array item schemas intact', () => {
         const [tool] = listAvTools(enabledActions('set_cells'));
-        const setCellsSchema = (tool.inputSchema.oneOf as Array<{ properties?: Record<string, any> }>)
+        const setCellsSchema = (tool.inputSchema['x-sisyphus-actionSchemas'] as Array<{ properties?: Record<string, any> }>)
             .find((schema) => schema.properties?.action?.const === 'set_cells');
         const properties = setCellsSchema?.properties;
 

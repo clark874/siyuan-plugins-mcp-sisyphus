@@ -129,10 +129,11 @@ describe('search tool filtering', () => {
     it('exposes high-priority search actions in the grouped schema', () => {
         const config = buildDefaultToolConfig();
         const [tool] = listSearchTools(config.search);
-        expect(tool.inputSchema.properties.action.enum).toContain('search_refs');
-        expect(tool.inputSchema.properties.action.enum).toContain('find_replace');
-        expect(tool.inputSchema.properties.action.enum).toContain('search_assets');
-        expect(tool.inputSchema.properties.action.enum).toContain('list_invalid_refs');
+        const actionDescription = tool.inputSchema.properties.action.description;
+        expect(actionDescription).toContain('search_refs');
+        expect(actionDescription).toContain('find_replace');
+        expect(actionDescription).toContain('search_assets');
+        expect(actionDescription).toContain('list_invalid_refs');
     });
 
     it('calls search asset endpoint', async () => {

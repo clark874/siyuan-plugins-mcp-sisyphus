@@ -131,7 +131,7 @@ export const NotebookGetPermissionsSchema = z.object({
 export const NotebookSetPermissionSchema = z.object({
     action: z.literal("set_permission"),
     notebook: z.string().describe("Notebook ID"),
-    permission: z.enum(["none", "r", "rw", "rwd"]).describe('Permission level: "none" blocks all access, "r" allows read only, "rw" allows read and write without delete, "rwd" allows read, write, and delete (default for new notebooks)'),
+    permission: z.enum(["none", "r", "rw", "rwd"]).describe('Permission level: "none" blocks all access, "r" allows read only, "rw" allows read and write without delete, "rwd" allows read, write, and delete'),
 });
 
 export const NotebookGetChildDocsSchema = z.object({
@@ -396,7 +396,7 @@ export const BlockInsertSchema = z.object({
         nextID: z.string().optional().describe("Next block ID"),
         previousID: z.string().optional().describe("Previous block ID"),
         parentID: z.string().optional().describe("Parent block or document ID"),
-    })).min(1).optional().describe("Blocks to insert"),
+    })).min(1).optional().describe("Blocks to insert. Item-level anchors override top-level parentID/previousID/nextID."),
 }).superRefine((value, ctx) => {
     const batch = Array.isArray(value.blocks);
     if (batch) {

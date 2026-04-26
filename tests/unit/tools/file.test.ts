@@ -50,12 +50,13 @@ describe('file tool asset actions', () => {
 
     it('exposes asset management actions in the grouped schema', () => {
         const [tool] = listFileTools(config.file);
-        expect(tool.inputSchema.properties.action.enum).toContain('list_unused_assets');
-        expect(tool.inputSchema.properties.action.enum).toContain('get_doc_assets');
-        expect(tool.inputSchema.properties.action.enum).toContain('get_image_ocr_text');
-        expect(tool.inputSchema.properties.action.enum).toContain('remove_unused_assets');
-        expect(tool.inputSchema.properties.action.enum).toContain('rename_asset');
-        expect(tool.inputSchema.properties.action.enum).toContain('delete_asset');
+        const actionDescription = tool.inputSchema.properties.action.description;
+        expect(actionDescription).toContain('list_unused_assets');
+        expect(actionDescription).toContain('get_doc_assets');
+        expect(actionDescription).toContain('get_image_ocr_text');
+        expect(actionDescription).toContain('remove_unused_assets');
+        expect(actionDescription).toContain('rename_asset');
+        expect(actionDescription).toContain('delete_asset');
     });
 
     it('calls unused assets endpoint', async () => {

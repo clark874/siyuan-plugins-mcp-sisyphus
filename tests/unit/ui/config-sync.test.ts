@@ -38,7 +38,7 @@ describe('setting and mcp config stay behaviorally aligned', () => {
                     uploadLargeFileThresholdMB: 27.7,
                     actions: {
                         upload_asset: false,
-                        render_template: true,
+                        render: true,
                     },
                 },
                 flashcard: {

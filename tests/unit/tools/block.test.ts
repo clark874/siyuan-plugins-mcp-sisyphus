@@ -23,16 +23,17 @@ describe('block tool', () => {
     it('exposes merged batch and daily-note actions in the grouped schema', () => {
         const config = buildDefaultToolConfig();
         const [tool] = listBlockTools(config.block);
-        expect(tool.inputSchema.properties.action.enum).toContain('insert');
-        expect(tool.inputSchema.properties.action.enum).toContain('update');
-        expect(tool.inputSchema.properties.action.enum).toContain('add_to_daily_note');
-        expect(tool.inputSchema.properties.action.enum).toContain('docs_info');
+        const actionDescription = tool.inputSchema.properties.action.description;
+        expect(actionDescription).toContain('insert');
+        expect(actionDescription).toContain('update');
+        expect(actionDescription).toContain('add_to_daily_note');
+        expect(actionDescription).toContain('docs_info');
     });
 
     it('documents insert anchors inside each block item', () => {
         const config = buildDefaultToolConfig();
         const [tool] = listBlockTools(config.block);
-        const insertSchema = (tool.inputSchema.oneOf as Array<{ properties?: Record<string, any> }>)
+        const insertSchema = (tool.inputSchema['x-sisyphus-actionSchemas'] as Array<{ properties?: Record<string, any> }>)
             .find((schema) => schema.properties?.action?.const === 'insert');
         const properties = insertSchema?.properties as Record<string, unknown>;
         const batchInsertBlocks = properties.blocks as Record<string, unknown>;
