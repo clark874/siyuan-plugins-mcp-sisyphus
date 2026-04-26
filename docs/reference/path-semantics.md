@@ -14,7 +14,7 @@ Related pages:
 Used by:
 
 - `document(action="create")`
-- `document(action="resolve", hpath=...)`
+- `document(action="lookup", hpath=...)`
 
 Format:
 
@@ -32,7 +32,7 @@ Used by:
 - `document(action="rename")`
 - `document(action="remove")`
 - `document(action="move")`
-- `document(action="resolve", path=...)`
+- `document(action="lookup", path=...)`
 - `document(action="list_tree")`
 
 Format:
@@ -42,9 +42,9 @@ Format:
 Rules:
 
 - Represents the real file storage location
-- Obtain it through `document(action="resolve", id=..., include=["path"])`
+- Obtain it through `document(action="lookup", id=..., include="path")`
 
 ## Safe Workflow
 
-1. Call `document(action="resolve", id=..., include=["path"])`
+1. Call `document(action="lookup", id=..., include="path")`
 2. Reuse the returned storage path in follow-up operations

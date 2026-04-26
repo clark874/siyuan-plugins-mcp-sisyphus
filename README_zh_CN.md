@@ -229,13 +229,13 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | 工具 | 能力范围 |
 |------|---------|
 | `notebook` | 笔记本的增删改查、打开/关闭、图标、权限管理 |
-| `document` | 文档创建、移动、删除、查询、树结构、日记、图标/头图 |
-| `block` | 块级读写、属性、折叠、移动、批量操作、字数统计 |
+| `document` | 文档创建、移动、删除、查找、树结构、日记、元数据 |
+| `block` | 块级读写、属性、折叠、移动、引用、字数统计 |
 | `av` | 属性视图（数据库）的读写、行列操作、单元格更新、搜索 |
 | `file` | 资源上传、导出、模板渲染、未引用资源清理、OCR |
-| `search` | 全文搜索、SQL 查询、反链、标签搜索、查找替换 |
+| `search` | 全文搜索、SQL 查询、反链、引用搜索、资源搜索、查找替换 |
 | `tag` | 标签的列出、重命名、删除 |
-| `system` | 版本、时间、通知、配置摘要、系统字体 |
+| `system` | 版本、时间、通知、配置摘要、网络与工作区状态 |
 | `flashcard` | 闪卡列出、复习、制卡、移卡 |
 | `mascot` | 猫猫余额、商店、购买 |
 
@@ -261,20 +261,18 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | Action | 说明 |
 |--------|------|
 | `create` | 创建文档，支持 Markdown 内容 |
+| `lookup` | 解析文档 ID、存储路径、人类可读路径与元数据 |
 | `rename` | 重命名文档 |
 | `remove` | 删除文档 |
 | `move` | 移动文档 |
-| `resolve` | 解析文档 ID、存储路径、人类可读路径与元数据 |
-| `set_icon` | 设置文档/文件夹图标 |
-| `set_cover` | 设置或清除文档头图 |
 | `get_child_blocks` | 获取文档的直属子块 |
 | `get_child_docs` | 获取文档的直属子文档 |
+| `set_attr` | 设置文档元数据属性 |
 | `list_tree` | 列出指定笔记本路径下的文档树 |
 | `search_docs` | 按标题关键词搜索文档 |
 | `get_doc` | 按 ID 获取文档内容与元数据 |
 | `create_daily_note` | 为笔记本创建或返回今日日记 |
 | `duplicate` | 复制已有文档 |
-| `remove_batch` | 按存储路径批量删除文档（需确认） |
 | `heading_to_doc` | 将标题块转换为文档 |
 | `doc_to_heading` | 将文档转换为目标文档下的标题 |
 
@@ -289,19 +287,14 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `set_fold_state` | 折叠/展开可折叠块 |
 | `get_kramdown` | 获取块的 kramdown 格式内容 |
 | `get_children` | 获取直属子块 |
-| `transfer_ref` | 转移块引用 |
+| `transfer_references` | 转移块引用 |
 | `set_attrs` / `get_attrs` | 设置或获取块属性（含闪卡自定义属性） |
-| `exists` | 检查块是否存在 |
 | `info` | 获取块所在根文档元数据 |
 | `breadcrumb` | 获取块的面包屑路径 |
 | `dom` | 获取块的渲染 DOM |
 | `recent_updated` | 列出最近更新内容 |
 | `word_count` | 获取块的字数统计 |
-| `batch_insert` | 批量插入块 |
-| `batch_update` | 批量更新块 |
-| `append_daily_note` | 创建或打开今日日记后追加块 |
-| `prepend_daily_note` | 创建或打开今日日记后前插块 |
-| `doc_info` | 获取块或文档所在文档信息 |
+| `add_to_daily_note` | 向今日日记添加内容 |
 | `docs_info` | 批量获取文档信息 |
 
 #### `av`
@@ -309,7 +302,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | Action | 说明 |
 |--------|------|
 | `get` | 按 `id` 读取属性视图（数据库） |
-| `render_attribute_view` | 渲染数据库视图，支持 `createIfNotExist` |
+| `render` | 渲染数据库视图，支持 `createIfNotExist` |
 | `get_attribute_view_keys` | 返回属性视图的列信息 |
 | `get_attribute_view_filter_sort` | 返回视图的筛选与排序配置 |
 | `search` | 按关键词搜索属性视图 |
@@ -318,7 +311,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `add_column` | 新增数据库列 |
 | `remove_column` | 删除属性视图中的一列 |
 | `set_cells` | 更新一个或多个单元格 |
-| `duplicate_block` | 复制底层数据库块 |
+| `duplicate` | 复制属性视图定义 |
 | `get_primary_key_values` | 获取主键列对应的行数据 |
 
 #### `file`
@@ -326,8 +319,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | Action | 说明 |
 |--------|------|
 | `upload_asset` | 上传本地资源文件（需确认；超过 10MB 需额外确认） |
-| `render_template` | 使用文档上下文渲染模板 |
-| `render_sprig` | 渲染 Sprig 模板 |
+| `render` | 渲染思源模板文件或内联 Sprig 模板 |
 | `export_md` | 导出文档为 Markdown |
 | `export_resources` | 导出资源为 ZIP（写本地需确认） |
 | `list_unused_assets` | 列出未被引用的资源文件 |
@@ -336,21 +328,17 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `remove_unused_assets` | 删除全部未被引用的资源文件 |
 | `rename_asset` | 重命名资源文件 |
 | `delete_asset` | 删除资源文件 |
-| `set_image_alpha` | 更新图片资源透明度 |
 
 #### `search`
 
 | Action | 说明 |
 |--------|------|
 | `fulltext` | 全文搜索 |
-| `query_sql` | 执行只读 SQL（仅 SELECT / WITH） |
-| `search_tag` | 按关键词搜索标签 |
+| `query_sql` | 执行只读 SQL（仅 SELECT） |
 | `get_backlinks` | 查找引用指定块的文档/块 |
-| `get_backmentions` | 查找提及指定块名称的文档/块 |
 | `search_refs` | 搜索引用指定块或文档的块 |
 | `find_replace` | 查找替换文本（需确认） |
 | `search_assets` | 按文件名搜索资源文件 |
-| `get_asset_content` | 获取单个资源内容索引记录 |
 | `fulltext_asset_content` | 全文搜索已索引的资源内容 |
 | `list_invalid_refs` | 列出无效块引用 |
 
@@ -366,14 +354,12 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 
 | Action | 说明 |
 |--------|------|
-| `push_msg` / `push_err_msg` | 推送普通/错误通知 |
-| `get_version` / `get_current_time` | 获取版本号或当前时间 |
-| `workspace_info` | 获取工作区元数据（默认关闭） |
+| `workspace_info` | 获取工作区元数据（需确认） |
 | `network` | 获取脱敏后的网络代理信息 |
-| `changelog` | 获取当前版本更新日志 |
 | `conf` | 获取脱敏后的系统配置 |
-| `sys_fonts` | 列出系统字体 |
-| `boot_progress` | 获取启动进度详情 |
+| `notify` | 显示思源通知 |
+| `get_version` | 获取思源版本号 |
+| `get_current_time` | 获取当前思源服务时间 |
 
 #### `flashcard`
 
@@ -383,9 +369,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `get_decks` | 列出可用闪卡卡包 |
 | `get_cards` | 分页列出卡包中的全部卡片 |
 | `review_card` | 提交复习结果 |
-| `skip_review_card` | 跳过当前闪卡 |
 | `create_card` | 将已有块转成闪卡 |
-| `add_card` | 对绑定卡包的块执行 riff 加卡注册 |
 | `remove_card` | 将块从卡包中移除（需确认） |
 
 #### `mascot`

@@ -32,7 +32,6 @@ These actions require explicit user confirmation:
 - `notebook.set_permission`
 - `document.remove`
 - `document.move`
-- `document.remove_batch`
 - `block.delete`
 - `block.move`
 - `file.upload_asset`

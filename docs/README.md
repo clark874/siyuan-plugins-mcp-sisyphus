@@ -30,6 +30,6 @@ This site documents both deliverables in this repository:
 
 ## Version
 
-Current docs target: **v0.3.3**
+Current docs target: **v0.3.4**
 
-Last updated: 2026-04-21
+Last updated: 2026-04-27

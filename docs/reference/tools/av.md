@@ -13,22 +13,23 @@ Related pages:
 
 | Group | Actions |
 |------|---------|
-| Read | `get`, `render_attribute_view`, `get_attribute_view_keys`, `get_attribute_view_filter_sort`, `search`, `get_primary_key_values` |
+| Read | `get`, `render`, `get_attribute_view_keys`, `get_attribute_view_filter_sort`, `search`, `get_primary_key_values` |
 | Row operations | `add_rows`, `remove_rows` |
 | Column operations | `add_column`, `remove_column` |
 | Cell updates | `set_cells` |
-| Structure | `duplicate_block` |
+| Structure | `duplicate` |
 
 ## Parameters and Semantics
 
-- `render_attribute_view` can also create and materialize an AV when `createIfNotExist=true`
-- `set_cells` is typed by `valueType` and accepts either single-cell fields or a `cells` array
-- `rowID` refers to the row item ID, not the source block ID
+- `render` can also create and materialize an AV when `createIfNotExist=true` and `blockID` is provided.
+- `set_cells` is typed by `valueType` and accepts either single-cell fields or a `cells` / `items` array.
+- `rowID` refers to the row item ID, not the source block ID.
+- `duplicate` duplicates the attribute view definition and can insert the duplicated database block after `previousID`.
 
 ## Safety Rules
 
-- AV operations are real database operations, not Markdown table edits
-- Use `av` for structured data instead of faking database behavior in Markdown
+- AV operations are real database operations, not Markdown table edits.
+- Use `av` for structured data instead of faking database behavior in Markdown.
 
 ## Examples
 
@@ -62,7 +63,7 @@ siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "Plain text r
 ## Action List
 
 - `get`
-- `render_attribute_view`
+- `render`
 - `get_attribute_view_keys`
 - `get_attribute_view_filter_sort`
 - `search`
@@ -71,5 +72,5 @@ siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "Plain text r
 - `add_column`
 - `remove_column`
 - `set_cells`
-- `duplicate_block`
+- `duplicate`
 - `get_primary_key_values`
