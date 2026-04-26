@@ -14,16 +14,34 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
         action: 'create',
         schema: createActionSchema('create', {
             notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Document path like /Inbox/Weekly Note' },
-            markdown: { type: 'string', description: 'Initial markdown content (optional)' },
+            path: { type: 'string', description: 'Human-readable target path like /Inbox/Weekly Note' },
+            parentPath: { type: 'string', description: 'Parent human-readable path for title-based creation' },
+            title: { type: 'string', description: 'Document title when creating under parentPath' },
+            markdown: { type: 'string', description: 'Initial markdown content, defaults to empty' },
+            sorts: { type: 'array', items: { type: 'string' }, description: 'Optional sorting path segments passed through to SiYuan for parentPath + title creation' },
             icon: { type: 'string', description: 'Document icon (optional)' },
-        }, ['notebook', 'path'], 'Create a new document'),
+        }, ['notebook'], 'Create a new document. Provide either path, or parentPath + title.'),
+    },
+    {
+        action: 'resolve',
+        schema: createActionSchema('resolve', {
+            id: { type: 'string', description: 'Document ID to resolve' },
+            notebook: { type: 'string', description: 'Notebook ID, required with path or hpath' },
+            path: { type: 'string', description: 'Storage path to resolve when notebook is provided' },
+            hpath: { type: 'string', description: 'Human-readable path to resolve when notebook is provided' },
+            hPath: { type: 'string', description: 'Alias for hpath' },
+            include: {
+                type: 'array',
+                items: { type: 'string', enum: ['id', 'ids', 'path', 'hpath', 'docInfo'] },
+                description: 'Fields to include: id, ids, path, hpath, docInfo',
+            },
+        }, [], 'Resolve document IDs, storage paths, human-readable paths, and document metadata from one document reference.'),
     },
     {
         action: 'rename',
         schema: createActionSchema('rename', {
             notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path (from get_path)' },
+            path: { type: 'string', description: 'Storage path resolved with document(action="resolve")' },
             title: { type: 'string', description: 'New document title' },
         }, ['notebook', 'path', 'title'], 'Rename a document'),
     },
@@ -31,7 +49,7 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
         action: 'remove',
         schema: createActionSchema('remove', {
             notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path (from get_path)' },
+            path: { type: 'string', description: 'Storage path resolved with document(action="resolve")' },
         }, ['notebook', 'path'], 'Delete a document'),
     },
     {
@@ -45,27 +63,6 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
             fromPaths: { type: 'array', items: { type: 'string' }, description: 'Source storage paths (alternative to notebook+path)' },
             toID: { type: 'string', description: 'Target document or notebook ID (alternative)' },
         }, ['notebook', 'path'], 'Move a document to another location'),
-    },
-    {
-        action: 'get_path',
-        schema: createActionSchema('get_path', {
-            id: { type: 'string', description: 'Document ID' },
-        }, ['id'], 'Get the storage path of a document by its ID'),
-    },
-    {
-        action: 'get_hpath',
-        schema: createActionSchema('get_hpath', {
-            id: { type: 'string', description: 'Document ID' },
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Storage path' },
-        }, [], 'Get the human-readable path of a document'),
-    },
-    {
-        action: 'get_ids',
-        schema: createActionSchema('get_ids', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Human-readable path like /Inbox/Week' },
-        }, ['notebook', 'path'], 'Get document IDs matching a path pattern'),
     },
     {
         action: 'get_child_blocks',
@@ -137,13 +134,6 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
         }, ['paths'], 'Delete multiple documents'),
     },
     {
-        action: 'create_empty',
-        schema: createActionSchema('create_empty', {
-            notebook: { type: 'string', description: 'Notebook ID' },
-            path: { type: 'string', description: 'Human-readable path' },
-        }, ['notebook', 'path'], 'Create an empty document'),
-    },
-    {
         action: 'heading_to_doc',
         schema: createActionSchema('heading_to_doc', {
             headingID: { type: 'string', description: 'Heading block ID to convert' },
@@ -168,9 +158,9 @@ const documentTool = defineTool<DocumentAction>({
         guidance: DOCUMENT_GUIDANCE,
         actionHints: DOCUMENT_ACTION_HINTS,
         propertyDescriptionOverrides: {
-            path: 'Path value. For action="create", use a human-readable target path such as /Inbox/Weekly Note. For other document actions that use notebook + path, use a storage path returned by document(action="get_path").',
-            fromPaths: 'Source storage paths returned by document(action="get_path").',
-            toPath: 'Target storage path. Use the storage path of an existing destination document returned by document(action="get_path").',
+            path: 'Path value. For action="create", use a human-readable target path such as /Inbox/Weekly Note. For path-based rename/remove/move, use a storage path returned by document(action="resolve").',
+            fromPaths: 'Source storage paths returned by document(action="resolve").',
+            toPath: 'Target storage path. Use the storage path of an existing destination document returned by document(action="resolve").',
         },
     },
     handlers: DOCUMENT_ACTION_HANDLERS,

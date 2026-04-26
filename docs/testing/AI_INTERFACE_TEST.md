@@ -221,7 +221,7 @@ siyuan-sisyphus system get-version
 | `$TEST_NB_NAME` | 是 | 主测试笔记本名称 |
 | `$ROOT_DOC_PATH` | 是 | 主测试文档的人类可读路径 |
 | `$ROOT_DOC_ID` | 是 | 主测试文档 ID |
-| `$ROOT_DOC_STORAGE_PATH` | 是 | 主测试文档存储路径（来自 `document.get_path`） |
+| `$ROOT_DOC_STORAGE_PATH` | 是 | 主测试文档存储路径（来自 `document.resolve`） |
 | `$CHILD_DOC_PATH` | 是 | 子文档的人类可读路径 |
 | `$CHILD_DOC_ID` | 是 | 子文档 ID |
 | `$CHILD_DOC_STORAGE_PATH` | 建议 | 子文档存储路径 |
@@ -317,13 +317,13 @@ siyuan-sisyphus system get-version
 | --- | --- | --- | --- |
 | `system` | `get_version`、`get_current_time`、`conf` | `boot_progress`、`sys_fonts`、`network`、`changelog` | `workspace_info`、`push_msg`、`push_err_msg` |
 | `notebook` | `list`、`create`、`rename`、`get_conf`、`get_child_docs`、`set_open_state`、`get_permissions`、`set_permission`、`remove` | `set_icon`、`set_conf` | 仅对本轮测试笔记本改权限 |
-| `document` | `create`、`get_path`、`get_hpath`、`get_ids`、`get_child_docs`、`list_tree`、`search_docs`、`get_doc`、`remove` | `get_child_blocks`、`duplicate`、`create_empty` | `move`、`remove_batch`、`create_daily_note` |
+| `document` | `create`、`resolve`、`get_child_docs`、`list_tree`、`search_docs`、`get_doc`、`remove` | `get_child_blocks`、`duplicate` | `move`、`remove_batch`、`create_daily_note` |
 | `block` | `append`、`prepend`、`insert`、`update`、`get_children`、`get_kramdown`、`get_attrs`、`set_attrs`、`exists`、`info`、`word_count`、`breadcrumb`、`dom`、`delete` | `batch_insert`、`batch_update`、`recent_updated`、`transfer_ref` | `move`、`set_fold_state` |
 | `search` / `tag` | `fulltext`、`query_sql`、`search_tag`、`get_backlinks` 或 `get_backmentions`、`tag.list` | `search_refs`、`search_assets`、`get_asset_content`、`fulltext_asset_content`、`tag.rename` | `find_replace`、`tag.remove` |
 | `file` | `render_sprig`、`export_md`、`get_doc_assets` | `render_template`、`get_image_ocr_text` | `upload_asset`、`export_resources`、`remove_unused_assets`、`delete_asset` |
 | `flashcard` | `get_decks`、`list_cards`、`get_cards` | `create_card`、`add_card`、`review_card`、`skip_review_card`；`review_card.reviewedCards` 参数校验 | `remove_card` |
 | `mascot` | `get_balance` | `shop` | `buy` |
-| `av` | `render_attribute_view`、`get`、`get_attribute_view_keys`、`get_attribute_view_filter_sort`、`search`、`get_primary_key_values`、`add_rows`、`add_column`、`set_cell`、`batch_set_cells`、`duplicate_block`、`remove_rows`、`remove_column` | `add_rows.primaryKeyTexts` detached 行、空 `add_rows` no-op | 只在本轮创建的真实 AV 上执行 |
+| `av` | `render_attribute_view`、`get`、`get_attribute_view_keys`、`get_attribute_view_filter_sort`、`search`、`get_primary_key_values`、`add_rows`、`add_column`、`set_cells`、`duplicate_block`、`remove_rows`、`remove_column` | `add_rows.primaryKeyTexts` detached 行、空 `add_rows` no-op | 只在本轮创建的真实 AV 上执行 |
 
 ---
 
@@ -391,9 +391,7 @@ siyuan-sisyphus system get-version
 至少执行：
 
 - `document.create`
-- `document.get_path`
-- `document.get_hpath`
-- `document.get_ids`
+- `document.resolve`
 - `document.get_child_docs`
 - `document.list_tree`
 - `document.search_docs`
@@ -403,9 +401,8 @@ siyuan-sisyphus system get-version
 要求验证：
 
 - `create.path` 使用人类可读路径，如 `/AI Interface Root <timestamp>`
-- `get_path` 返回存储路径，如 `/<doc>.sy`
-- `get_ids` 使用人类可读路径查询
-- `document.remove` / `document.rename` 需要先通过 `document.get_path` 拿到存储路径，再按当前 schema 传 `notebook + path`
+- `resolve` 返回存储路径，如 `/<doc>.sy`，也可返回层级路径和 ID
+- `document.remove` / `document.rename` 需要先通过 `document.resolve` 拿到存储路径，再按当前 schema 传 `notebook + path`
 - `get_child_docs` 只返回直属子文档
 - `search_docs` 是标题级搜索，不是全文搜索
 
@@ -574,8 +571,7 @@ AV 测试必须走**本轮创建真实 AV** 的主路径，不得把“复制已
 - `add_column`
 - `remove_rows`
 - `remove_column`
-- `set_cell`
-- `batch_set_cells`
+- `set_cells`
 
 ### 9.2 标准调用链路
 
@@ -590,8 +586,8 @@ AI 必须在自己创建的 AV 上完成以下动作链路：
 7. 创建 3 个普通块，准备绑定为数据库行
 8. `add_rows`，分别覆盖绑定块行与 detached 纯文本主键行
 9. `add_column`
-10. `set_cell`
-11. `batch_set_cells`
+10. `set_cells` 单格写入
+11. `set_cells` 批量写入
 12. `duplicate_block`
 13. `remove_rows`
 14. `remove_column`
@@ -604,8 +600,7 @@ AI 必须在自己创建的 AV 上完成以下动作链路：
 - `add_rows` detached 行：优先使用 `avID=$AV_ID`、`primaryKeyTexts=["AI detached row <timestamp>"]`；如需固定数据库块视图，再补 `blockID=$AV_BLOCK_ID`
 - `add_rows` 空 no-op：仅传 `avID=$AV_ID`，且不传 `blockIDs` / `primaryKeyTexts`；应返回 `skipped: true`
 - `add_column`：优先只传 `avID=$AV_ID`
-- `set_cell`：优先只传 `avID=$AV_ID`
-- `batch_set_cells`：优先只传 `avID=$AV_ID`
+- `set_cells`：优先只传 `avID=$AV_ID`
 - `remove_rows`：优先只传 `avID=$AV_ID`
 - `remove_column`：优先只传 `avID=$AV_ID`
 
@@ -623,8 +618,7 @@ AI 必须在自己创建的 AV 上完成以下动作链路：
 | `add_rows.primaryKeyTexts` | 成功添加 detached 纯文本主键行，返回 `primaryKeyTexts` 与对应 `rowID` |
 | 空 `add_rows` | 不报错，返回 `skipped: true`、`added: 0`，说明未提供 `blockIDs` 或 `primaryKeyTexts` |
 | `add_column` | 成功新增测试列，例如文本列 |
-| `set_cell` | 能给指定行写入单元格值 |
-| `batch_set_cells` | 能批量写入值 |
+| `set_cells` | 能给指定行写入单元格值，也能批量写入值 |
 | `duplicate_block` | 能复制出新的 AV 块 |
 | `remove_rows` | 能删除指定测试行 |
 | `remove_column` | 能删除本轮新增测试列 |
@@ -638,8 +632,8 @@ AI 不得：
 - 创建 AV 后不记录 `$AV_ID` 与 `$AV_BLOCK_ID`
 - 把 AV 写操作误判为必须传 `blockID`；除创建/显式上下文验证外，应优先覆盖省略 `blockID` 的路径
 - 用 Markdown 表格冒充真实 AV
-- 在没有真实 `rowID` 的情况下伪造 `set_cell` / `batch_set_cells` 成功
-- 把绑定块 ID、单元格 value ID、source block ID 当作 `rowID` 传给 `set_cell` / `batch_set_cells`
+- 在没有真实 `rowID` 的情况下伪造 `set_cells` 成功
+- 把绑定块 ID、单元格 value ID、source block ID 当作 `rowID` 传给 `set_cells`
 - 把空结果或提示性结果误判为接口失败
 
 ---
@@ -774,7 +768,7 @@ AI 不得：
 - 读失败：
   - `notebook.get_conf`
   - `notebook.get_child_docs`
-  - `document.get_path`
+  - `document.resolve`
   - `document.get_doc`
   - `block.get_children`
   - `block.get_kramdown`
@@ -966,7 +960,7 @@ AI 不得：
 输出建议时要具体到“应新增/改写什么信息”，不要只写“优化提示词”。例如：
 
 - “`av.add_rows` 的描述应明确 `primaryKeyTexts` 用于 detached 行，`blockID` 不是常规必填。”
-- “`av.set_cell` 的 `rowID` 描述应再次强调使用 `value.blockID` / `add_rows.rows[].rowID`，不是源块 ID 或 value ID。”
+- “`av.set_cells` 的 `rowID` 描述应再次强调使用 `value.blockID` / `add_rows.rows[].rowID`，不是源块 ID 或 value ID。”
 - “`document.remove` 示例应明确使用 storage path，而不是创建时的人类可读 path。”
 
 ### 12.8 清理结论

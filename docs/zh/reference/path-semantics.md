@@ -14,7 +14,7 @@
 用于：
 
 - `document(action="create")`
-- `document(action="get_ids")`
+- `document(action="resolve", hpath=...)`
 
 格式：
 
@@ -32,7 +32,7 @@
 - `document(action="rename")`
 - `document(action="remove")`
 - `document(action="move")`
-- `document(action="get_hpath")`
+- `document(action="resolve", path=...)`
 - `document(action="list_tree")`
 
 格式：
@@ -42,9 +42,9 @@
 规则：
 
 - 表示真实文件存储位置
-- 通过 `document(action="get_path", id=...)` 获取
+- 通过 `document(action="resolve", id=..., include=["path"])` 获取
 
 ## 安全工作流
 
-1. 先调用 `document(action="get_path", id=...)`
+1. 先调用 `document(action="resolve", id=..., include=["path"])`
 2. 在后续操作里复用返回的存储路径

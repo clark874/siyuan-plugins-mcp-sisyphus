@@ -23,7 +23,7 @@ Each tool takes an `action` parameter in MCP mode. In CLI mode the action is the
 
 1. **Choose entrypoint**: MCP for AI-client tool calls; CLI for shell/script use.
 2. **Explore**: `notebook(action="list")`, `system(action="get_version")`, or `siyuan notebook list`.
-3. **Locate**: `document(action="get_path" | "get_hpath" | "get_ids")`.
+3. **Locate**: `document(action="resolve")`.
 4. **Write**: `document(action="create" | "rename" | "move")`, `block(action="append" | "update" | ...)`.
 5. **Verify**: `document(action="get_child_blocks")` or `block(action="get_children")`.
 
@@ -104,10 +104,10 @@ In CLI mode, user-entered commands are treated as confirmation; do not add extra
 
 | Type | Used by | Example |
 |------|---------|---------|
-| **Human-readable** | `document.create`, `document.get_ids` | `/Inbox/Weekly Note` |
-| **Storage path** | `document.rename`, `document.remove`, `document.move`, `document.get_hpath` (with notebook+path) | `/20240318112233-abc123.sy` |
+| **Human-readable** | `document.create`, `document.resolve` (with notebook+hpath) | `/Inbox/Weekly Note` |
+| **Storage path** | `document.rename`, `document.remove`, `document.move`, `document.resolve` (with notebook+path) | `/20240318112233-abc123.sy` |
 
-Safe workflow: `document(action="get_path", id=...)` first, then reuse the returned storage path.
+Safe workflow: `document(action="resolve", id=..., include=["path"])` first, then reuse the returned storage path.
 
 ### Tag creation
 
@@ -125,7 +125,7 @@ When operating SiYuan attribute views (`av`), prefer this workflow:
 2. Create source docs/blocks with `document(action="create")`, or prepare detached primary-key text values
 3. Bind existing blocks as rows with `av(action="add_rows", blockIDs=[...])`, or create detached rows with `primaryKeyTexts`
 4. Fetch the AV with `av(action="get")`
-5. Fill cells with `av(action="set_cell")` or `av(action="batch_set_cells")`
+5. Fill cells with `av(action="set_cells")`
 
 ### Important distinctions
 
@@ -139,7 +139,7 @@ When operating SiYuan attribute views (`av`), prefer this workflow:
 ### Parameter gotchas
 
 - `av(action="add_rows")` requires either `blockIDs` or `primaryKeyTexts`.
-- `av(action="set_cell")` and `av(action="batch_set_cells")` use `columnID`, **not** `keyID`.
+- `av(action="set_cells")` uses `columnID`, **not** `keyID`.
 - Even if `av(action="get")` returns column metadata under a field named `key`, write operations still require `columnID`.
 
 ### Practical notes
@@ -148,7 +148,7 @@ When operating SiYuan attribute views (`av`), prefer this workflow:
 - If you need to re-read manually, call `av(action="get")` to map each row binding back to its source block:
   - inspect `keyValues[].values[].block.id` for the bound source block
   - inspect `keyValues[].values[].blockID` for the writable row item ID
-- `set_cell` / `batch_set_cells` reject cell `value.id` and source `block.id`, and return a suggested writable `rowID` when MCP can detect the mismatch.
+- `set_cells` rejects cell `value.id` and source `block.id`, and returns a suggested writable `rowID` when MCP can detect the mismatch.
 - Date values should use ISO strings, for example `2026-04-06T00:00:00+08:00`.
 
 ### Minimal examples
@@ -164,10 +164,10 @@ av(action="add_rows", avID="...", blockIDs=["行1-blockID", "行2-blockID"])
 av(action="add_rows", avID="...", primaryKeyTexts=["行1", "行2"])
 
 // 3) set a single cell with row itemId + columnID
-av(action="set_cell", rowID="itemId", columnID="...", valueType="text", text="xxx")
+av(action="set_cells", rowID="itemId", columnID="...", valueType="text", text="xxx")
 
 // 4) batch update cells with columnID
-av(action="batch_set_cells", items=[
+av(action="set_cells", cells=[
   { rowID: "itemId", columnID: "...", valueType: "text", text: "xxx" }
 ])
 ```

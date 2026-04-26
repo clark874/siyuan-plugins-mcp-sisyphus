@@ -58,7 +58,7 @@ const ERROR_RULES: ErrorRule[] = [
             /document .*not found/i,
             /文档不存在/,
         ],
-        hint: 'Resolve the document via document(action="get_path") or search(action="search_docs").',
+        hint: 'Resolve the document via document(action="resolve") or search(action="search_docs").',
     },
     {
         code: 'av_not_found',

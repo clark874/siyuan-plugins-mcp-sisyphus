@@ -144,9 +144,61 @@ export const NotebookGetChildDocsSchema = z.object({
 export const DocumentCreateSchema = z.object({
     action: z.literal("create"),
     notebook: z.string().describe("Notebook ID"),
-    path: z.string().describe("Human-readable target path, must start with / (e.g., /foo/bar). Parent paths must already exist."),
-    markdown: z.string().describe("Markdown content"),
+    path: z.string().optional().describe("Human-readable target path, must start with / (e.g., /foo/bar). Parent paths must already exist."),
+    parentPath: z.string().optional().describe("Parent human-readable path for title-based creation, must start with /"),
+    title: z.string().optional().describe("Document title when creating under parentPath"),
+    markdown: z.string().optional().describe("Markdown content, defaults to empty"),
+    sorts: z.array(z.string()).optional().describe("Optional sorting path segments passed through to SiYuan for parentPath + title creation"),
     icon: z.string().optional().describe("Optional document icon. Prefer a Unicode hex code string such as '1f4d4' for 📔 instead of a raw emoji character."),
+}).superRefine((value, ctx) => {
+    const hasPath = typeof value.path === "string";
+    const hasTitleMode = typeof value.parentPath === "string" || typeof value.title === "string";
+
+    if (hasPath && hasTitleMode) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide either path, or parentPath + title, not both.",
+            path: ["path"],
+        });
+        return;
+    }
+
+    if (!hasPath && (!value.parentPath || !value.title)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide path, or provide both parentPath and title.",
+            path: ["path"],
+        });
+    }
+});
+
+const DocumentResolveIncludeSchema = z.enum(["id", "ids", "path", "hpath", "docInfo"]);
+
+export const DocumentResolveSchema = z.object({
+    action: z.literal("resolve"),
+    id: z.string().optional().describe("Document ID to resolve"),
+    notebook: z.string().optional().describe("Notebook ID, required with path or hpath"),
+    path: z.string().optional().describe("Storage path to resolve when notebook is provided"),
+    hpath: z.string().optional().describe("Human-readable path to resolve when notebook is provided"),
+    hPath: z.string().optional().describe("Alias for hpath"),
+    include: z.array(DocumentResolveIncludeSchema).optional().describe('Fields to include: "id", "ids", "path", "hpath", "docInfo"'),
+}).superRefine((value, ctx) => {
+    const hpath = value.hpath ?? value.hPath;
+    const sourceCount = [value.id, value.path, hpath].filter((field) => typeof field === "string").length;
+    if (sourceCount !== 1) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide exactly one source: id, notebook + path, or notebook + hpath.",
+            path: ["id"],
+        });
+    }
+    if (!value.id && !value.notebook) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "notebook is required when resolving path or hpath.",
+            path: ["notebook"],
+        });
+    }
 });
 
 export const DocumentRenameSchema = z.object({
@@ -161,21 +213,6 @@ export const DocumentRemoveSchema = z.object({
 export const DocumentMoveSchema = z.object({
     action: z.literal("move"),
 }).and(DocumentMoveReferenceSchema);
-
-export const DocumentGetPathSchema = z.object({
-    action: z.literal("get_path"),
-    id: z.string().describe("Document ID"),
-});
-
-export const DocumentGetHPathSchema = z.object({
-    action: z.literal("get_hpath"),
-}).and(DocumentPathReferenceSchema);
-
-export const DocumentGetIdsSchema = z.object({
-    action: z.literal("get_ids"),
-    path: z.string().describe("Human-readable path (e.g., /foo/bar)"),
-    notebook: z.string().describe("Notebook ID"),
-});
 
 export const DocumentGetChildBlocksSchema = z.object({
     action: z.literal("get_child_blocks"),
@@ -236,15 +273,6 @@ export const DocumentDuplicateSchema = z.object({
 export const DocumentRemoveBatchSchema = z.object({
     action: z.literal("remove_batch"),
     paths: z.array(z.string()).min(1).describe("One or more storage paths to remove in batch"),
-});
-
-export const DocumentCreateEmptySchema = z.object({
-    action: z.literal("create_empty"),
-    notebook: z.string().describe("Notebook ID"),
-    path: z.string().describe("Parent human-readable path, must start with /"),
-    title: z.string().describe("New document title"),
-    markdown: z.string().optional().describe("Optional initial markdown content, defaults to empty"),
-    sorts: z.array(z.string()).optional().describe("Optional sorting path segments passed through to SiYuan"),
 });
 
 export const DocumentHeadingToDocSchema = z.object({
@@ -536,7 +564,7 @@ const AvAssetItemSchema = z.object({
     name: z.string().optional().describe("Optional display name"),
 });
 
-const AvSetCellValueFieldsSchema = z.object({
+const AvSetCellValueFieldsBaseSchema = z.object({
     valueType: AvValueTypeSchema.describe("Cell value type"),
     text: z.string().optional().describe("Text value for valueType=text"),
     number: z.number().optional().describe("Number value for valueType=number"),
@@ -552,7 +580,9 @@ const AvSetCellValueFieldsSchema = z.object({
     email: z.string().optional().describe("Email value for valueType=email"),
     phone: z.string().optional().describe("Phone value for valueType=phone"),
     assets: z.array(AvAssetItemSchema).optional().describe("Asset entries for valueType=mAsset"),
-}).superRefine((value, ctx) => {
+});
+
+const AvSetCellValueFieldsSchema = AvSetCellValueFieldsBaseSchema.superRefine((value, ctx) => {
     const fieldByType: Record<z.infer<typeof AvValueTypeSchema>, keyof typeof value> = {
         text: "text",
         number: "number",
@@ -663,19 +693,51 @@ export const AvRemoveColumnSchema = z.object({
     }
 });
 
-export const AvSetCellSchema = z.object({
-    action: z.literal("set_cell"),
+export const AvSetCellsSchema = z.object({
+    action: z.literal("set_cells"),
     avID: z.string().describe("Attribute view ID"),
     blockID: z.string().optional().describe("Registered database block ID for explicit database-block context"),
-    rowID: z.string().describe("Row item ID"),
-    columnID: z.string().describe("Column key ID"),
-}).and(AvSetCellValueFieldsSchema);
+    cells: z.array(AvCellUpdateItemSchema).min(1).optional().describe("Cell updates"),
+    items: z.array(AvCellUpdateItemSchema).min(1).optional().describe("Alias for cells"),
+    rowID: z.string().optional().describe("Single-cell row item ID"),
+    columnID: z.string().optional().describe("Single-cell column key ID"),
+}).and(AvSetCellValueFieldsBaseSchema.partial()).superRefine((value, ctx) => {
+    const cells = value.cells ?? value.items;
+    const hasCells = Array.isArray(cells);
+    const hasSingle = typeof value.rowID === "string" || typeof value.columnID === "string" || typeof value.valueType === "string";
 
-export const AvBatchSetCellsSchema = z.object({
-    action: z.literal("batch_set_cells"),
-    avID: z.string().describe("Attribute view ID"),
-    blockID: z.string().optional().describe("Registered database block ID for explicit database-block context"),
-    items: z.array(AvCellUpdateItemSchema).min(1).describe("Batch cell updates"),
+    if (hasCells && hasSingle) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide either cells/items or single-cell fields, not both.",
+            path: ["cells"],
+        });
+        return;
+    }
+
+    if (!hasCells) {
+        if (!value.rowID) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "rowID is required for single-cell set_cells calls.", path: ["rowID"] });
+        }
+        if (!value.columnID) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "columnID is required for single-cell set_cells calls.", path: ["columnID"] });
+        }
+        if (!value.valueType) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "valueType is required for single-cell set_cells calls.", path: ["valueType"] });
+            return;
+        }
+
+        const checked = AvSetCellValueFieldsSchema.safeParse(value);
+        if (!checked.success) {
+            for (const issue of checked.error.issues) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: issue.message,
+                    path: issue.path,
+                });
+            }
+        }
+    }
 });
 
 export const AvDuplicateBlockSchema = z.object({

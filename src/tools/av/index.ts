@@ -117,47 +117,11 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
         }, ['avID'], 'Remove a column from a database.'),
     },
     {
-        action: 'set_cell',
-        schema: createActionSchema('set_cell', {
+        action: 'set_cells',
+        schema: createActionSchema('set_cells', {
             avID: { type: 'string', description: 'Attribute view ID' },
             blockID: { type: 'string', description: 'Owning database block ID for permission resolution (optional)' },
-            rowID: { type: 'string', description: 'Row item ID (value.blockID, NOT the source block ID or value.id)' },
-            columnID: { type: 'string', description: 'Column key ID' },
-            valueType: { type: 'string', enum: ['text', 'number', 'date', 'checkbox', 'select', 'multi_select', 'relation', 'url', 'email', 'phone', 'mAsset'], description: 'Cell value type' },
-            text: { type: 'string', description: 'Text content (for text, url, email, phone, mAsset types)' },
-            number: { type: 'number', description: 'Number value' },
-            numberFormat: { type: 'string', description: 'Number format string' },
-            date: { description: 'ISO 8601 date string or epoch milliseconds' },
-            endDate: { description: 'End date (ISO 8601 or epoch ms), enables date range' },
-            includeTime: { type: 'boolean', description: 'Include time in date display' },
-            checked: { type: 'boolean', description: 'Checkbox state' },
-            option: { type: 'string', description: 'Single select option content' },
-            options: { type: 'array', items: { type: 'string' }, description: 'Multi-select option contents' },
-            relationBlockIDs: { type: 'array', items: { type: 'string' }, description: 'Related block IDs' },
-            url: { type: 'string', description: 'URL value' },
-            email: { type: 'string', description: 'Email value' },
-            phone: { type: 'string', description: 'Phone value' },
-            assets: {
-                type: 'array',
-                items: {
-                    type: 'object',
-                    properties: {
-                        type: { type: 'string', enum: ['image', 'file'] },
-                        content: { type: 'string', description: 'Asset URL or path' },
-                        name: { type: 'string', description: 'Display name' },
-                    },
-                    required: ['type', 'content'],
-                },
-                description: 'Asset entries for mAsset type',
-            },
-        }, ['avID', 'rowID', 'columnID', 'valueType'], 'Set a single cell value in a database.'),
-    },
-    {
-        action: 'batch_set_cells',
-        schema: createActionSchema('batch_set_cells', {
-            avID: { type: 'string', description: 'Attribute view ID' },
-            blockID: { type: 'string', description: 'Owning database block ID for permission resolution (optional)' },
-            items: {
+            cells: {
                 type: 'array',
                 items: {
                     type: 'object',
@@ -182,9 +146,48 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
                     },
                     required: ['rowID', 'columnID', 'valueType'],
                 },
-                description: 'Array of cell updates',
+                description: 'Cell updates. Use this for both single-cell and batch writes.',
             },
-        }, ['avID', 'items'], 'Set multiple cell values in a single call.'),
+            items: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        rowID: { type: 'string' },
+                        columnID: { type: 'string' },
+                        valueType: { type: 'string', enum: ['text', 'number', 'date', 'checkbox', 'select', 'multi_select', 'relation', 'url', 'email', 'phone', 'mAsset'] },
+                    },
+                    required: ['rowID', 'columnID', 'valueType'],
+                    additionalProperties: true,
+                },
+                description: 'Alias for cells.',
+            },
+            rowID: { type: 'string', description: 'Single-cell row item ID' },
+            columnID: { type: 'string', description: 'Single-cell column key ID' },
+            valueType: { type: 'string', enum: ['text', 'number', 'date', 'checkbox', 'select', 'multi_select', 'relation', 'url', 'email', 'phone', 'mAsset'], description: 'Single-cell value type' },
+            text: { type: 'string', description: 'Single-cell text content' },
+            number: { type: 'number', description: 'Single-cell number value' },
+            checked: { type: 'boolean', description: 'Single-cell checkbox state' },
+            option: { type: 'string', description: 'Single-cell select option' },
+            options: { type: 'array', items: { type: 'string' }, description: 'Single-cell multi-select options' },
+            relationBlockIDs: { type: 'array', items: { type: 'string' }, description: 'Single-cell relation block IDs' },
+            url: { type: 'string', description: 'Single-cell URL value' },
+            email: { type: 'string', description: 'Single-cell email value' },
+            phone: { type: 'string', description: 'Single-cell phone value' },
+            assets: {
+                type: 'array',
+                items: {
+                    type: 'object',
+                    properties: {
+                        type: { type: 'string', enum: ['image', 'file'] },
+                        content: { type: 'string' },
+                        name: { type: 'string' },
+                    },
+                    required: ['type', 'content'],
+                },
+                description: 'Single-cell asset entries for mAsset type',
+            },
+        }, ['avID'], 'Set one or more cell values in a database. Provide cells/items, or pass rowID + columnID + valueType for a single-cell write.'),
     },
     {
         action: 'duplicate_block',

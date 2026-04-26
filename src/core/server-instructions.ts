@@ -48,10 +48,10 @@ There are exactly two path types. Do not mix them.
 
 | Type | Used by | Example |
 |------|---------|---------|
-| Human-readable | document(action=”create”), document(action=”get_ids”) | /Inbox/Weekly Note |
-| Storage path | document(action=”rename”), remove, move, get_hpath (with notebook+path) | /20240318112233-abc123.sy |
+| Human-readable | document(action=”create”), document(action=”resolve”, hpath=...) | /Inbox/Weekly Note |
+| Storage path | document(action=”rename”), remove, move, resolve (with notebook+path) | /20240318112233-abc123.sy |
 
-Safe workflow: call document(action=”get_path”, id=...) first, then reuse the returned storage path.
+Safe workflow: call document(action=”resolve”, id=..., include=[”path”]) first, then reuse the returned storage path.
 
 WRONG: document(action=”rename”, notebook=”...”, path=”/Inbox/Weekly Note”, title=”New Title”) — this will fail because rename expects a storage path, not a human-readable path.
 CORRECT: document(action=”rename”, notebook=”...”, path=”/20240318112233-abc123.sy”, title=”New Title”)

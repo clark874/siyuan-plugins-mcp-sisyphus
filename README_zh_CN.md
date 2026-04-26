@@ -84,6 +84,25 @@ pnpm run build
 pnpm run make-link
 ```
 
+### 怎么选择连接方法
+
+先分清你要使用的是 **MCP** 还是 **CLI**：
+
+- **MCP 连接**：给 Claude Desktop、Cherry Studio、Cursor、Codex、OpenClaw 之类的 MCP 客户端使用
+- **CLI 连接**：给 Agent 在终端里执行 `siyuan-sisyphus ...` 命令使用
+
+### 不同思源安装场景的连接方式
+
+| 思源安装方式 | 推荐连接方式 |
+|------|---------|
+| 桌面端（Windows / macOS / Linux） | HTTP 或 stdio 或 CLI |
+| Docker | stdio 或 CLI |
+| 手机端 | CLI |
+
+插件设置页底部提供三段可直接复制的配置：HTTP 连接方式、mcp-remote 桥接、stdio 连接方式。
+
+打开「`插件` → `siyuan-plugins-mcp-sisyphus` → `设置` → `🌐 连接配置`」即可查看。
+
 ---
 
 ## CLI 工具
@@ -117,25 +136,6 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 ## MCP 服务器插件
 
 插件运行在思源内部，将思源能力暴露为 MCP Server，供外部 Agent 调用。
-
-### 怎么选择连接方法
-
-先分清你要使用的是 **MCP** 还是 **CLI**：
-
-- **MCP 连接**：给 Claude Desktop、Cherry Studio、Cursor、Codex、OpenClaw 之类的 MCP 客户端使用
-- **CLI 连接**：给你自己在终端里执行 `siyuan-sisyphus ...` 命令使用
-
-### 不同思源安装场景的连接方式
-
-| 思源安装方式 | 推荐连接方式 |
-|------|---------|
-| 桌面端（Windows / macOS / Linux） | HTTP 或 stdio 或 CLI |
-| Docker | stdio 或 CLI |
-| 手机端 | CLI |
-
-插件设置页底部提供三段可直接复制的配置：HTTP 连接方式、mcp-remote 桥接、stdio 连接方式。
-
-打开「`插件` → `siyuan-plugins-mcp-sisyphus` → `设置` → `🌐 连接配置`」即可查看。
 
 ### HTTP 模式
 
@@ -264,11 +264,9 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `rename` | 重命名文档 |
 | `remove` | 删除文档 |
 | `move` | 移动文档 |
+| `resolve` | 解析文档 ID、存储路径、人类可读路径与元数据 |
 | `set_icon` | 设置文档/文件夹图标 |
 | `set_cover` | 设置或清除文档头图 |
-| `get_path` | 按文档 ID 获取存储路径 |
-| `get_hpath` | 按 ID 或存储路径获取人类可读路径 |
-| `get_ids` | 按人类可读路径获取文档 ID |
 | `get_child_blocks` | 获取文档的直属子块 |
 | `get_child_docs` | 获取文档的直属子文档 |
 | `list_tree` | 列出指定笔记本路径下的文档树 |
@@ -277,7 +275,6 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `create_daily_note` | 为笔记本创建或返回今日日记 |
 | `duplicate` | 复制已有文档 |
 | `remove_batch` | 按存储路径批量删除文档（需确认） |
-| `create_empty` | 创建空文档 |
 | `heading_to_doc` | 将标题块转换为文档 |
 | `doc_to_heading` | 将文档转换为目标文档下的标题 |
 
@@ -320,8 +317,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `remove_rows` | 从属性视图中移除已绑定的行 |
 | `add_column` | 新增数据库列 |
 | `remove_column` | 删除属性视图中的一列 |
-| `set_cell` | 更新单个单元格 |
-| `batch_set_cells` | 批量更新多个单元格 |
+| `set_cells` | 更新一个或多个单元格 |
 | `duplicate_block` | 复制底层数据库块 |
 | `get_primary_key_values` | 获取主键列对应的行数据 |
 

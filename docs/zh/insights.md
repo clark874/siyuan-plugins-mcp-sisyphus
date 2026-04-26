@@ -136,11 +136,11 @@ rwd:  读写删（完全访问）
 **最佳实践**:
 1. 文档中明确标注每种操作接受的 path 类型
 2. 校验失败时提示 "当前 path 类型不匹配"
-3. 提供 `get_path` 工具进行路径转换
+3. 提供 `resolve` 工具进行路径转换
 
 **安全流程**:
 ```
-document(action="get_path", id=...) -> 获取 storage path
+document(action="resolve", id=..., include=["path"]) -> 获取 storage path
 -> 复用 storage path 进行 rename/move/remove
 ```
 

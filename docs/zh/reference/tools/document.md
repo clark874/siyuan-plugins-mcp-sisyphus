@@ -13,7 +13,7 @@
 
 | 分组 | Actions |
 |------|---------|
-| 创建与读取 | `create`, `create_empty`, `get_doc`, `get_path`, `get_hpath`, `get_ids` |
+| 创建与读取 | `create`, `resolve`, `get_doc` |
 | 树结构查询 | `get_child_blocks`, `get_child_docs`, `list_tree`, `search_docs` |
 | 修改 | `rename`, `move`, `remove`, `remove_batch`, `duplicate` |
 | 展示 | `set_icon`, `set_cover` |
@@ -21,7 +21,7 @@
 
 ## 参数与语义
 
-- `create` 和 `create_empty` 使用人类可读 `path`
+- `create` 支持人类可读 `path`，也支持 `parentPath` + `title`；省略 `markdown` 即创建空文档
 - `rename`、`remove`、`move` 在非 ID 模式下通常需要存储路径
 - `move` 同时支持 ID 模式和路径模式
 - `set_cover` 省略 `source` 时表示清空封面
@@ -46,8 +46,9 @@ MCP：
 
 ```json
 {
-  "action": "get_path",
-  "id": "<doc-id>"
+  "action": "resolve",
+  "id": "<doc-id>",
+  "include": ["path"]
 }
 ```
 
@@ -61,12 +62,10 @@ siyuan document get-path --id <doc-id>
 ## Action 列表
 
 - `create`
+- `resolve`
 - `rename`
 - `remove`
 - `move`
-- `get_path`
-- `get_hpath`
-- `get_ids`
 - `get_child_blocks`
 - `get_child_docs`
 - `set_icon`
@@ -77,6 +76,5 @@ siyuan document get-path --id <doc-id>
 - `create_daily_note`
 - `duplicate`
 - `remove_batch`
-- `create_empty`
 - `heading_to_doc`
 - `doc_to_heading`

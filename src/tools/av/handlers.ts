@@ -7,7 +7,6 @@ import type { PermissionManager } from '../../core/permissions';
 import {
     AvAddColumnSchema,
     AvAddRowsSchema,
-    AvBatchSetCellsSchema,
     AvDuplicateBlockSchema,
     AvGetAttributeViewFilterSortSchema,
     AvGetAttributeViewKeysSchema,
@@ -17,7 +16,7 @@ import {
     AvRemoveColumnSchema,
     AvRemoveRowsSchema,
     AvSearchSchema,
-    AvSetCellSchema,
+    AvSetCellsSchema,
 } from '../../core/types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocumentContextById, resolveResultItemContext } from '../context';
 import type { ToolActionHandler, ToolHandlerContext } from '../define-tool';
@@ -80,6 +79,24 @@ type AddRowsResolution = {
     rows: Array<{ blockID?: string; primaryKeyText?: string; rowID?: string; rowIDs?: string[]; status?: 'resolved' | 'missing' | 'ambiguous' }>;
     unresolvedBlockIDs: string[];
     unresolvedRowIDs?: string[];
+};
+
+type StrongCellValueInput = {
+    valueType: 'text' | 'number' | 'date' | 'checkbox' | 'select' | 'multi_select' | 'relation' | 'url' | 'email' | 'phone' | 'mAsset';
+    text?: string;
+    number?: number;
+    numberFormat?: string;
+    date?: string | number;
+    endDate?: string | number;
+    includeTime?: boolean;
+    checked?: boolean;
+    option?: string;
+    options?: string[];
+    relationBlockIDs?: string[];
+    url?: string;
+    email?: string;
+    phone?: string;
+    assets?: Array<{ type: 'image' | 'file'; content: string; name?: string }>;
 };
 
 const ADD_ROWS_POLL_ATTEMPTS = 6;
@@ -215,7 +232,7 @@ function extractAvRowLookup(avData: unknown): AvRowLookup {
 }
 
 function createAvRowIdErrorResult(
-    action: 'set_cell' | 'batch_set_cells',
+    action: 'set_cells',
     payload: Record<string, unknown>,
 ): ToolResult {
     return {
@@ -256,7 +273,7 @@ function createAddRowsSyncTimeoutResult(
                     rows: resolution.rows,
                     ...(resolution.unresolvedBlockIDs.length > 0 ? { unresolvedBlockIDs: resolution.unresolvedBlockIDs } : {}),
                     ...(resolution.unresolvedRowIDs && resolution.unresolvedRowIDs.length > 0 ? { unresolvedRowIDs: resolution.unresolvedRowIDs } : {}),
-                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cell after add_rows returns rows[].rowID.',
+                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cells after add_rows returns rows[].rowID.',
                 },
             }, null, 2),
         }],
@@ -334,7 +351,7 @@ async function waitForAddedRows(
 
 function validateRowIdForAv(
     avID: string,
-    action: 'set_cell' | 'batch_set_cells',
+    action: 'set_cells',
     rowLookup: AvRowLookup,
     requestedRowID: string,
     itemIndex?: number,
@@ -355,7 +372,7 @@ function validateRowIdForAv(
                 detectedValueID: requestedRowID,
                 suggestedRowID: matchedValueRowIDs[0],
                 ...(itemIndex === undefined ? {} : { itemIndex }),
-                hint: 'Use the AV row item ID stored in each value.blockID, or the rowID returned by av(action="add_rows"). Do not reuse value.id from set_cell responses as rowID.',
+                hint: 'Use the AV row item ID stored in each value.blockID, or the rowID returned by av(action="add_rows"). Do not reuse value.id from set_cells responses as rowID.',
             }),
         };
     }
@@ -939,7 +956,7 @@ async function handleSearch({ client, permMgr, rawArgs }: ToolHandlerContext): P
     const response = await avApi.searchAttributeView(client, parsed.keyword, parsed.excludes);
     const kernelResults = Array.isArray(response.results) ? response.results : [];
     const primaryKeyResults = await searchAttributeViewPrimaryKeys(client, parsed.keyword, parsed.excludes);
-    const dedupedResults = [...kernelResults];
+    const dedupedResults: unknown[] = [...kernelResults];
     const seenAvIDs = new Set(
         dedupedResults
             .map((item) => item && typeof item === 'object' ? (item as Record<string, unknown>).avID : undefined)
@@ -1214,51 +1231,62 @@ async function handleRemoveColumn({ client, permMgr, rawArgs }: ToolHandlerConte
     }), refreshOperations);
 }
 
-async function handleSetCell({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
-    const parsed = AvSetCellSchema.parse(rawArgs);
-    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'set_cell' });
-    if (denied) return denied;
-    const validatedRowID = validateRowIdForAv(parsed.avID, 'set_cell', extractAvRowLookup(avData), parsed.rowID);
-    if (!validatedRowID.ok) return validatedRowID.result;
-
-    const value = buildStrongCellValue(parsed.columnID, validatedRowID.rowID, parsed);
-    const response = await avApi.setAttributeViewBlockAttr(client, {
-        avID: parsed.avID,
-        keyID: parsed.columnID,
-        itemID: validatedRowID.rowID,
-        value,
-    });
-
-    const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
-    return applyUiRefresh(client, createWriteSuccessResult({
-        action: 'set_cell',
-        avID: parsed.avID,
-        rowID: parsed.rowID,
-        columnID: parsed.columnID,
-        valueType: parsed.valueType,
-    }, response), refreshOperations);
-}
-
-async function handleBatchSetCells({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
-    const parsed = AvBatchSetCellsSchema.parse(rawArgs);
-    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'batch_set_cells' });
+async function handleSetCells({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
+    const parsed = AvSetCellsSchema.parse(rawArgs);
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'set_cells' });
     if (denied) return denied;
     const rowLookup = extractAvRowLookup(avData);
+    const isSingleCellCall = !parsed.cells && !parsed.items;
+    const items = parsed.cells ?? parsed.items ?? [{
+        rowID: parsed.rowID!,
+        columnID: parsed.columnID!,
+        valueType: parsed.valueType!,
+        text: parsed.text,
+        number: parsed.number,
+        numberFormat: parsed.numberFormat,
+        date: parsed.date,
+        endDate: parsed.endDate,
+        includeTime: parsed.includeTime,
+        checked: parsed.checked,
+        option: parsed.option,
+        options: parsed.options,
+        relationBlockIDs: parsed.relationBlockIDs,
+        url: parsed.url,
+        email: parsed.email,
+        phone: parsed.phone,
+        assets: parsed.assets,
+    }];
 
     const values = [];
-    for (let index = 0; index < parsed.items.length; index += 1) {
-        const item = parsed.items[index];
-        const validatedRowID = validateRowIdForAv(parsed.avID, 'batch_set_cells', rowLookup, item.rowID, index);
-        if (!validatedRowID.ok) return validatedRowID.result;
+    for (let index = 0; index < items.length; index += 1) {
+        const item = items[index];
+        const validatedRowID = validateRowIdForAv(parsed.avID, 'set_cells', rowLookup, item.rowID, isSingleCellCall ? undefined : index);
+        if (validatedRowID.ok === false) return validatedRowID.result;
+        if (isSingleCellCall) {
+            const response = await avApi.setAttributeViewBlockAttr(client, {
+                avID: parsed.avID,
+                keyID: item.columnID,
+                itemID: validatedRowID.rowID,
+                value: buildStrongCellValue(item.columnID, validatedRowID.rowID, item),
+            });
+            const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
+            return applyUiRefresh(client, createWriteSuccessResult({
+                action: 'set_cells',
+                avID: parsed.avID,
+                rowID: item.rowID,
+                columnID: item.columnID,
+                valueType: item.valueType,
+            }, response), refreshOperations);
+        }
         values.push(buildBatchCellValue(item.columnID, validatedRowID.rowID, item));
     }
     await avApi.batchSetAttributeViewBlockAttrs(client, parsed.avID, values);
 
     const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
-        action: 'batch_set_cells',
+        action: 'set_cells',
         avID: parsed.avID,
-        updated: parsed.items.length,
+        updated: items.length,
     }), refreshOperations);
 }
 
@@ -1463,8 +1491,7 @@ export const AV_ACTION_HANDLERS: Record<AvAction, ToolActionHandler> = {
     remove_rows: handleRemoveRows,
     add_column: handleAddColumn,
     remove_column: handleRemoveColumn,
-    set_cell: handleSetCell,
-    batch_set_cells: handleBatchSetCells,
+    set_cells: handleSetCells,
     duplicate_block: handleDuplicateBlock,
     get_primary_key_values: handleGetPrimaryKeyValues,
 };

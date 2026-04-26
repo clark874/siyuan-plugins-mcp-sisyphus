@@ -22,14 +22,14 @@ export const NOTEBOOK_GUIDANCE: string[] = [
 ];
 
 export const DOCUMENT_GUIDANCE: string[] = [
-    'document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.',
-    'Other document actions that use notebook + path expect storage paths returned by document(action="get_path").',
-    'A safe path-based workflow is get_path -> rename/remove/move/get_hpath.',
+    'document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.',
+    'Other document actions that use notebook + path expect storage paths returned by document(action="resolve").',
+    'A safe path-based workflow is resolve -> rename/remove/move.',
     'document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.',
     'document(action="set_cover") is a semantic wrapper around the document root block\'s "title-img" attribute. Omit source to clear the cover.',
     'document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.',
-    'For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.',
-    'document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.',
+    'For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.',
+    'document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.',
 ];
 
 export const BLOCK_GUIDANCE: string[] = [
@@ -46,7 +46,7 @@ export const BLOCK_GUIDANCE: string[] = [
 export const AV_GUIDANCE: string[] = [
     'AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.',
     'To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.',
-    'Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").',
+    'Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").',
     'For cell writes, rowID must be the database row item ID stored in each AV value\'s blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.',
     'AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.',
     'av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.',
@@ -101,12 +101,11 @@ export const NOTEBOOK_ACTION_HINTS: Partial<Record<NotebookAction, string>> = {
 };
 
 export const DOCUMENT_ACTION_HINTS: Partial<Record<DocumentAction, string>> = {
-    create: 'Use notebook + path + markdown, where path is human-readable.',
+    create: 'Use notebook plus either path, or parentPath + title. markdown is optional and defaults to empty.',
+    resolve: 'Resolve one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.',
     rename: 'Use either id + title or notebook + path + title.',
     remove: 'Use either id or notebook + path. This action requires explicit user confirmation.',
     move: 'Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.',
-    get_hpath: 'Use either id or notebook + path. Right after create, a short retry may still be needed while SiYuan indexing catches up.',
-    get_ids: 'Use notebook + path, where path is human-readable (same format as action="create"). This is the recommended way to resolve document IDs from paths. Right after create, a short retry may be needed while SiYuan indexing catches up.',
     get_child_blocks: 'Use a document ID. Returns direct child blocks only.',
     get_child_docs: 'Use a document ID. Returns direct child documents only.',
     set_icon: 'Use a document ID + icon. Prefer a Unicode hex code string such as "1f4d4" for 📔; raw emoji characters may not render correctly.',
@@ -142,12 +141,11 @@ export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
     get_attribute_view_keys: 'Use id to return database keys/columns for a block-bound attribute view.',
     get_attribute_view_filter_sort: 'Use id + blockID to return the filters and sorts applied to that database block view.',
     search: 'Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.',
-    add_rows: 'Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="batch_set_cells", avID, items=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.',
+    add_rows: 'Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="set_cells", avID, cells=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.',
     remove_rows: 'Use avID + srcIDs to remove rows from the AV. Optional blockID pins a specific registered database block when you need explicit block-view context.',
     add_column: 'Use avID + keyName + keyType, and optionally keyID or blockID. MCP generates keyID automatically when omitted. Supported keyType values match the 16 SiYuan addable column types, including keyType="mSelect", keyType="mAsset", and keyType="lineNumber". Optional blockID must be a registered database block for this AV if you need to pin a specific block view.',
     remove_column: 'Use avID + keyID, and optionally blockID to target a specific registered database block. removeRelationDest only matters for relation columns.',
-    set_cell: 'Use avID + rowID + columnID + valueType and the matching typed field. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[] plus optional text markdown.',
-    batch_set_cells: 'Use avID + items[]. Each item requires rowID + columnID + valueType and its matching typed field. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. MCP rejects cell value IDs and source block IDs, and suggests the matching row item ID when it can. valueType="mAsset" accepts assets[].',
+    set_cells: 'Use avID + cells[]. Each item requires rowID + columnID + valueType and its matching typed field. For a single-cell write, pass rowID + columnID + valueType directly. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[].',
     duplicate_block: 'MCP first calls the kernel duplicate API, then inserts the duplicated NodeAttributeView block into the document tree. By default it inserts after the source database block; provide previousID to override the insertion target.',
     get_primary_key_values: 'Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering.',
 };
@@ -266,5 +264,5 @@ export function isKnownToolCategory(tool: string): tool is ToolCategory {
 }
 
 export function isKnownAction(tool: ToolCategory, action: string): boolean {
-    return ACTIONS_BY_CATEGORY[tool].includes(action);
+    return (ACTIONS_BY_CATEGORY[tool] as readonly string[]).includes(action);
 }

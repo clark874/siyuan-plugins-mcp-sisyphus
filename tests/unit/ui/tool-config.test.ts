@@ -12,7 +12,7 @@ describe('setting tool config', () => {
         expect(config.file.actions.upload_asset).toBe(true);
         expect(config.file.uploadLargeFileThresholdMB).toBe(10);
         expect(config.av.actions.get).toBe(true);
-        expect(config.av.actions.set_cell).toBe(true);
+        expect(config.av.actions.set_cells).toBe(true);
         expect(config.flashcard.actions.list_cards).toBe(true);
         expect(config.flashcard.actions.create_card).toBe(true);
         expect(config.flashcard.actions.remove_card).toBe(true);
@@ -82,15 +82,14 @@ describe('setting tool config', () => {
                 enabled: true,
                 actions: {
                     get: true,
-                    set_cell: false,
+                    set_cells: false,
                 },
             },
         });
 
         expect(config.av.enabled).toBe(true);
         expect(config.av.actions.get).toBe(true);
-        expect(config.av.actions.set_cell).toBe(false);
-        expect(config.av.actions.batch_set_cells).toBe(true);
+        expect(config.av.actions.set_cells).toBe(false);
     });
 
     it.each([

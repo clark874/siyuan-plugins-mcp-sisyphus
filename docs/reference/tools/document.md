@@ -13,7 +13,7 @@ Related pages:
 
 | Group | Actions |
 |------|---------|
-| Create and read | `create`, `create_empty`, `get_doc`, `get_path`, `get_hpath`, `get_ids` |
+| Create and read | `create`, `resolve`, `get_doc` |
 | Tree navigation | `get_child_blocks`, `get_child_docs`, `list_tree`, `search_docs` |
 | Mutations | `rename`, `move`, `remove`, `remove_batch`, `duplicate` |
 | Presentation | `set_icon`, `set_cover` |
@@ -21,7 +21,7 @@ Related pages:
 
 ## Parameters and Semantics
 
-- `create` and `create_empty` take a human-readable `path`
+- `create` takes either a human-readable `path`, or `parentPath` + `title`; omit `markdown` to create an empty document
 - `rename`, `remove`, and `move` often need a storage path if you are not using document IDs
 - `move` supports ID mode and path mode
 - `set_cover` clears the cover when `source` is omitted
@@ -46,8 +46,9 @@ MCP:
 
 ```json
 {
-  "action": "get_path",
-  "id": "<doc-id>"
+  "action": "resolve",
+  "id": "<doc-id>",
+  "include": ["path"]
 }
 ```
 
@@ -55,18 +56,16 @@ CLI:
 
 ```bash
 siyuan document create --notebook <notebook-id> --path "/Inbox/Weekly Note" --markdown "# Weekly Report"
-siyuan document get-path --id <doc-id>
+siyuan document resolve --id <doc-id> --include-json '["path"]'
 ```
 
 ## Action List
 
 - `create`
+- `resolve`
 - `rename`
 - `remove`
 - `move`
-- `get_path`
-- `get_hpath`
-- `get_ids`
 - `get_child_blocks`
 - `get_child_docs`
 - `set_icon`
@@ -77,6 +76,5 @@ siyuan document get-path --id <doc-id>
 - `create_daily_note`
 - `duplicate`
 - `remove_batch`
-- `create_empty`
 - `heading_to_doc`
 - `doc_to_heading`

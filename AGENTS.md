@@ -248,9 +248,9 @@ pnpm update-version     # 同步版本号到 plugin.json 与 cli/package.json
 
 ```
 notebook    → 11 actions（list, create, set_open_state, remove, rename, ...）
-document    → 19 actions（create, rename, remove, move, get_path, list_tree, ...）
+document    → 17 actions（create, resolve, rename, remove, move, list_tree, ...）
 block       → 22 actions（insert, prepend, append, update, delete, move, ...）
-av          → 13 actions（get, render_attribute_view, add_rows, set_cell, ...）
+av          → 12 actions（get, render_attribute_view, add_rows, set_cells, ...）
 search      → 11 actions（fulltext, query_sql, get_backlinks, find_replace, ...）
 file        → 13 actions（upload_asset, export_md, list_unused_assets, ...）
 tag         → 3  actions（list, rename, remove）

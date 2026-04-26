@@ -57,15 +57,13 @@
 - `set_permission`
 - `get_child_docs`
 
-### `document`（20 个 action）
+### `document`（17 个 action）
 
 - `create`
+- `resolve`
 - `rename`
 - `remove`
 - `move`
-- `get_path`
-- `get_hpath`
-- `get_ids`
 - `get_child_blocks`
 - `get_child_docs`
 - `set_icon`
@@ -76,7 +74,6 @@
 - `create_daily_note`
 - `duplicate`
 - `remove_batch`
-- `create_empty`
 - `heading_to_doc`
 - `doc_to_heading`
 
@@ -174,7 +171,7 @@
 - `shop`
 - `buy`
 
-### `av`（13 个 action）
+### `av`（12 个 action）
 
 - `get`
 - `render_attribute_view`
@@ -185,8 +182,7 @@
 - `remove_rows`
 - `add_column`
 - `remove_column`
-- `set_cell`
-- `batch_set_cells`
+- `set_cells`
 - `duplicate_block`
 - `get_primary_key_values`
 
@@ -287,7 +283,25 @@
 
 ### `document(action="create")`
 
-`create.path` 是人类可读目标路径，例如 `/Inbox/Weekly Note`。它不是 `get_path` 返回的存储路径，而且不会自动创建缺失的父路径。
+`create.path` 是人类可读目标路径，例如 `/Inbox/Weekly Note`。它不是 `document(action="resolve", id=..., include=["path"])` 返回的存储路径，而且不会自动创建缺失的父路径。
+
+也可以用 `parentPath + title` 创建空文档或带初始内容的子文档；这取代了原先单独的空文档创建入口。
+
+### `document(action="resolve")`
+
+统一处理文档 ID、存储路径和层级路径之间的转换，取代旧的路径查询入口。三种来源只能选一种：
+
+```json
+{ "action": "resolve", "id": "20240318112233-abc123", "include": ["path", "hpath"] }
+```
+
+```json
+{ "action": "resolve", "notebook": "20210808180117-czj9bvb", "path": "/20240318112233-abc123.sy", "include": ["hpath", "id"] }
+```
+
+```json
+{ "action": "resolve", "notebook": "20210808180117-czj9bvb", "hpath": "/Inbox/Weekly Note", "include": ["ids", "path"] }
+```
 
 ### `document(action="rename")`
 
@@ -374,10 +388,9 @@
 
 注意：
 
-- `rename`、`remove`、`move`、`get_hpath` 的 `path` / `fromPaths` / `toPath` 是存储路径
-- `get_path` 负责把 `id -> 存储路径`
+- `rename`、`remove`、`move` 的 `path` / `fromPaths` / `toPath` 是存储路径
+- `resolve` 负责把 `id`、存储路径、人类可读层级路径互相转换
 - path-based `move` 的 `toPath` 必须指向一个已存在的目标文档，不能传不存在的 `.sy` 路径，也不能传纯目录语义路径
-- `get_hpath` 和 `get_ids` 负责在人类可读层级路径与存储路径/ID 之间转换
 - `get_child_blocks` 和 `get_child_docs` 都要求传文档 ID，且只返回直属子项
 
 ### `block(action="prepend" | "append" | "insert")`

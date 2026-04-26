@@ -116,7 +116,7 @@ describe('UI refresh integration', () => {
         actions: {
             add_rows: true,
             add_column: true,
-            set_cell: true,
+            set_cells: true,
         },
     } as const;
 
@@ -336,9 +336,9 @@ describe('UI refresh integration', () => {
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadTag', {});
     });
 
-    it('reloads protyle after av set_cell when the owning document can be resolved', async () => {
+    it('reloads protyle after av set_cells when the owning document can be resolved', async () => {
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-1',
             columnID: 'col-1',
@@ -410,7 +410,7 @@ describe('UI refresh integration', () => {
         vi.mocked(context.resolveDocumentContextById).mockRejectedValue(new Error('document context unavailable'));
 
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-1',
             columnID: 'col-1',

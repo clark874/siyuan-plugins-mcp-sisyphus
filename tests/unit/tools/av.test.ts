@@ -134,14 +134,14 @@ describe('av tool', () => {
         client.request = undefined;
     });
 
-    it('exports batch_set_cells items with nested array item schemas intact', () => {
-        const [tool] = listAvTools(enabledActions('batch_set_cells'));
+    it('exports set_cells cells with nested array item schemas intact', () => {
+        const [tool] = listAvTools(enabledActions('set_cells'));
 
-        expect(tool.inputSchema.properties?.items?.items?.properties?.options?.items).toEqual({ type: 'string' });
-        expect(tool.inputSchema.properties?.items?.items?.properties?.assets?.items?.properties?.content?.type).toBe('string');
+        expect(tool.inputSchema.properties?.cells?.items?.properties?.options?.items).toEqual({ type: 'string' });
+        expect(tool.inputSchema.properties?.cells?.items?.properties?.assets?.items?.properties?.content?.type).toBe('string');
     });
 
-    it('maps typed set_cell input into the kernel value payload', async () => {
+    it('maps typed set_cells input into the kernel value payload', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -159,14 +159,14 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-1',
             columnID: 'col-1',
             valueType: 'number',
             number: 12.5,
             numberFormat: 'CNY',
-        }, enabledActions('set_cell'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(vi.mocked(avApi.setAttributeViewBlockAttr)).toHaveBeenCalledWith(client, {
             avID: 'av-1',
@@ -188,7 +188,7 @@ describe('av tool', () => {
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
             value: { type: 'number' },
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-1',
             columnID: 'col-1',
@@ -196,7 +196,7 @@ describe('av tool', () => {
         });
     });
 
-    it('maps mAsset set_cell input into the kernel value payload', async () => {
+    it('maps mAsset set_cells input into the kernel value payload', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -214,7 +214,7 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-1',
             columnID: 'col-cover',
@@ -223,7 +223,7 @@ describe('av tool', () => {
                 { type: 'image', content: 'assets/cover.png' },
                 { type: 'file', content: 'assets/spec.pdf', name: '规格书' },
             ],
-        }, enabledActions('set_cell'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(vi.mocked(avApi.setAttributeViewBlockAttr)).toHaveBeenCalledWith(client, {
             avID: 'av-1',
@@ -246,7 +246,7 @@ describe('av tool', () => {
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
             value: { type: 'mAsset' },
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-1',
             columnID: 'col-cover',
@@ -254,7 +254,7 @@ describe('av tool', () => {
         });
     });
 
-    it('maps mAsset batch_set_cells input into the kernel value payload', async () => {
+    it('maps mAsset set_cells input into the kernel value payload', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -270,7 +270,7 @@ describe('av tool', () => {
         vi.mocked(avApi.batchSetAttributeViewBlockAttrs).mockResolvedValue(null);
 
         const result = await callAvTool(client, {
-            action: 'batch_set_cells',
+            action: 'set_cells',
             avID: 'av-1',
             items: [{
                 rowID: 'row-1',
@@ -279,7 +279,7 @@ describe('av tool', () => {
                 text: '![封面](assets/cover.png)',
                 assets: [{ type: 'image', content: 'assets/cover.png', name: '封面' }],
             }],
-        }, enabledActions('batch_set_cells'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(vi.mocked(avApi.batchSetAttributeViewBlockAttrs)).toHaveBeenCalledWith(client, 'av-1', [{
             keyID: 'col-cover',
@@ -293,13 +293,13 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
-            action: 'batch_set_cells',
+            action: 'set_cells',
             avID: 'av-1',
             updated: 1,
         });
     });
 
-    it('rejects set_cell when rowID is a source block ID and suggests the row item ID', async () => {
+    it('rejects set_cells when rowID is a source block ID and suggests the row item ID', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -314,20 +314,20 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'block-source',
             columnID: 'col-1',
             valueType: 'text',
             text: '备注',
-        }, enabledActions('set_cell'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(vi.mocked(avApi.setAttributeViewBlockAttr)).not.toHaveBeenCalled();
         expect(JSON.parse(result.content[0].text)).toEqual({
             error: {
                 type: 'validation_error',
                 tool: 'av',
-                action: 'set_cell',
+                action: 'set_cells',
                 reason: 'row_id_required',
                 message: 'rowID "block-source" is a source block ID in attribute view "av-1". Use the row item ID instead.',
                 avID: 'av-1',
@@ -339,7 +339,7 @@ describe('av tool', () => {
         });
     });
 
-    it('rejects set_cell when rowID is a cell value ID and suggests the row item ID', async () => {
+    it('rejects set_cells when rowID is a cell value ID and suggests the row item ID', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -358,32 +358,32 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'value-title-1',
             columnID: 'col-1',
             valueType: 'text',
             text: '备注',
-        }, enabledActions('set_cell'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(vi.mocked(avApi.setAttributeViewBlockAttr)).not.toHaveBeenCalled();
         expect(JSON.parse(result.content[0].text)).toEqual({
             error: {
                 type: 'validation_error',
                 tool: 'av',
-                action: 'set_cell',
+                action: 'set_cells',
                 reason: 'row_id_alias_detected',
                 message: 'rowID "value-title-1" is a cell value ID in attribute view "av-1", not the database row item ID.',
                 avID: 'av-1',
                 rowID: 'value-title-1',
                 detectedValueID: 'value-title-1',
                 suggestedRowID: 'row-actual',
-                hint: 'Use the AV row item ID stored in each value.blockID, or the rowID returned by av(action="add_rows"). Do not reuse value.id from set_cell responses as rowID.',
+                hint: 'Use the AV row item ID stored in each value.blockID, or the rowID returned by av(action="add_rows"). Do not reuse value.id from set_cells responses as rowID.',
             },
         });
     });
 
-    it('accepts set_cell for the second row when other columns are out of order', async () => {
+    it('accepts set_cells for the second row when other columns are out of order', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -411,13 +411,13 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-2',
             columnID: 'col-note',
             valueType: 'text',
             text: '写到第二行',
-        }, enabledActions('set_cell'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(vi.mocked(avApi.setAttributeViewBlockAttr)).toHaveBeenCalledWith(client, {
             avID: 'av-1',
@@ -435,7 +435,7 @@ describe('av tool', () => {
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
             value: { type: 'text' },
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-2',
             columnID: 'col-note',
@@ -443,7 +443,7 @@ describe('av tool', () => {
         });
     });
 
-    it('uses explicit blockID permission context for set_cell while keeping row validation intact', async () => {
+    it('uses explicit blockID permission context for set_cells while keeping row validation intact', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
         const context = await import('@/tools/context');
@@ -467,14 +467,14 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             blockID: 'db-block-explicit',
             rowID: 'row-1',
             columnID: 'col-1',
             valueType: 'text',
             text: 'hello',
-        }, enabledActions('set_cell'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'db-block-explicit', 'write');
         expect(vi.mocked(avApi.setAttributeViewBlockAttr)).toHaveBeenCalledWith(client, {
@@ -491,7 +491,7 @@ describe('av tool', () => {
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
             value: { type: 'text' },
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-1',
             columnID: 'col-1',
@@ -1077,7 +1077,7 @@ describe('av tool', () => {
         });
     });
 
-    it('rejects set_cell when explicit blockID does not belong to the AV', async () => {
+    it('rejects set_cells when explicit blockID does not belong to the AV', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
@@ -1092,19 +1092,19 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             blockID: 'db-block-explicit',
             rowID: 'row-1',
             columnID: 'col-1',
             valueType: 'text',
             text: 'hello',
-        }, enabledActions('set_cell'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             error: {
                 type: 'validation_error',
-                action: 'set_cell',
+                action: 'set_cells',
                 message: 'blockID "db-block-explicit" is not a database block for attribute view "av-1".',
             },
         });
@@ -1169,7 +1169,7 @@ describe('av tool', () => {
         expect(vi.mocked(avApi.removeAttributeViewBlocks)).not.toHaveBeenCalled();
     });
 
-    it('rejects batch_set_cells when explicit blockID does not belong to the AV', async () => {
+    it('rejects set_cells when explicit blockID does not belong to the AV', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
@@ -1184,18 +1184,18 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'batch_set_cells',
+            action: 'set_cells',
             avID: 'av-1',
             blockID: 'db-block-explicit',
             items: [
                 { rowID: 'row-1', columnID: 'col-text', valueType: 'text', text: '早餐' },
             ],
-        }, enabledActions('batch_set_cells'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             error: {
                 type: 'validation_error',
-                action: 'batch_set_cells',
+                action: 'set_cells',
             },
         });
         expect(vi.mocked(avApi.batchSetAttributeViewBlockAttrs)).not.toHaveBeenCalled();
@@ -1463,7 +1463,7 @@ describe('av tool', () => {
                     blockIDs: ['block-missing'],
                     rows: [{ blockID: 'block-missing', status: 'missing' }],
                     unresolvedBlockIDs: ['block-missing'],
-                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cell after add_rows returns rows[].rowID.',
+                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cells after add_rows returns rows[].rowID.',
                 },
             });
         } finally {
@@ -1511,7 +1511,7 @@ describe('av tool', () => {
                     blockIDs: ['block-dup'],
                     rows: [{ blockID: 'block-dup', rowIDs: ['row-a', 'row-b'], status: 'ambiguous' }],
                     unresolvedBlockIDs: ['block-dup'],
-                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cell after add_rows returns rows[].rowID.',
+                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cells after add_rows returns rows[].rowID.',
                 },
             });
         } finally {
@@ -1602,13 +1602,13 @@ describe('av tool', () => {
         vi.mocked(avApi.batchSetAttributeViewBlockAttrs).mockResolvedValue(null);
 
         const result = await callAvTool(client, {
-            action: 'batch_set_cells',
+            action: 'set_cells',
             avID: 'av-1',
             items: [
                 { rowID: 'row-1', columnID: 'col-text', valueType: 'text', text: '早餐' },
                 { rowID: 'row-2', columnID: 'col-check', valueType: 'checkbox', checked: true },
             ],
-        }, enabledActions('batch_set_cells'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(vi.mocked(avApi.batchSetAttributeViewBlockAttrs)).toHaveBeenCalledWith(
             client,
@@ -1634,13 +1634,13 @@ describe('av tool', () => {
         );
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
-            action: 'batch_set_cells',
+            action: 'set_cells',
             avID: 'av-1',
             updated: 2,
         });
     });
 
-    it('uses explicit blockID permission context for batch_set_cells while keeping row validation intact', async () => {
+    it('uses explicit blockID permission context for set_cells while keeping row validation intact', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
         const context = await import('@/tools/context');
@@ -1665,14 +1665,14 @@ describe('av tool', () => {
         vi.mocked(avApi.batchSetAttributeViewBlockAttrs).mockResolvedValue(null);
 
         const result = await callAvTool(client, {
-            action: 'batch_set_cells',
+            action: 'set_cells',
             avID: 'av-1',
             blockID: 'db-block-explicit',
             items: [
                 { rowID: 'row-1', columnID: 'col-text', valueType: 'text', text: '早餐' },
                 { rowID: 'row-2', columnID: 'col-check', valueType: 'checkbox', checked: true },
             ],
-        }, enabledActions('batch_set_cells'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'db-block-explicit', 'write');
         expect(vi.mocked(avApi.batchSetAttributeViewBlockAttrs)).toHaveBeenCalledWith(
@@ -1699,13 +1699,13 @@ describe('av tool', () => {
         );
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
-            action: 'batch_set_cells',
+            action: 'set_cells',
             avID: 'av-1',
             updated: 2,
         });
     });
 
-    it('rejects batch_set_cells when an item uses a source block ID', async () => {
+    it('rejects set_cells when an item uses a source block ID', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -1723,20 +1723,20 @@ describe('av tool', () => {
         });
 
         const result = await callAvTool(client, {
-            action: 'batch_set_cells',
+            action: 'set_cells',
             avID: 'av-1',
             items: [
                 { rowID: 'row-1', columnID: 'col-text', valueType: 'text', text: '早餐' },
                 { rowID: 'block-2', columnID: 'col-check', valueType: 'checkbox', checked: true },
             ],
-        }, enabledActions('batch_set_cells'), permMgr);
+        }, enabledActions('set_cells'), permMgr);
 
         expect(vi.mocked(avApi.batchSetAttributeViewBlockAttrs)).not.toHaveBeenCalled();
         expect(JSON.parse(result.content[0].text)).toEqual({
             error: {
                 type: 'validation_error',
                 tool: 'av',
-                action: 'batch_set_cells',
+                action: 'set_cells',
                 reason: 'row_id_required',
                 message: 'rowID "block-2" is a source block ID in attribute view "av-1". Use the row item ID instead.',
                 avID: 'av-1',

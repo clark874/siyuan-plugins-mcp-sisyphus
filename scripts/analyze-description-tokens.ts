@@ -19,7 +19,7 @@ const toolBaseDescriptions: Record<string, string> = {
 // 各工具的操作列表（基础操作）
 const toolBasicActions: Record<string, string[]> = {
   notebook: ['list', 'create', 'open', 'close', 'rename', 'get_conf', 'get_child_docs'],
-  document: ['create', 'rename', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'search_docs', 'get_doc'],
+  document: ['create', 'resolve', 'rename', 'get_child_blocks', 'get_child_docs', 'search_docs', 'get_doc'],
   block: ['insert', 'prepend', 'append', 'update', 'get_kramdown', 'get_children', 'set_attrs', 'get_attrs', 'exists', 'info'],
   av: ['get', 'search', 'get_primary_key_values'],
   file: ['export_md', 'upload_asset'],
@@ -34,7 +34,7 @@ const toolAdvancedActions: Record<string, string[]> = {
   notebook: ['remove', 'set_conf', 'set_icon', 'get_permissions', 'set_permission'],
   document: ['remove', 'move', 'set_icon', 'set_cover', 'clear_cover', 'list_tree', 'create_daily_note'],
   block: ['delete', 'move', 'fold', 'unfold', 'transfer_ref', 'breadcrumb', 'dom', 'recent_updated', 'word_count'],
-  av: ['add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells', 'duplicate_block'],
+  av: ['add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate_block'],
   file: ['render_template', 'render_sprig', 'export_resources'],
   search: [],
   tag: ['remove'],
@@ -50,7 +50,7 @@ const toolGuidance: Record<string, string[]> = {
   ],
   document: [
     'document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.',
-    'Other document actions that use notebook + path expect storage paths returned by document(action="get_path").',
+    'Other document actions that use notebook + path expect storage paths returned by document(action="resolve", id=..., include=["path"]).',
   ],
   block: [
     'block(action="prepend") or block(action="append") with a document ID targets the document start or end.',
@@ -128,8 +128,7 @@ get_child_docs: Use a notebook ID. Returns direct child documents at the noteboo
 rename: Use either id + title or notebook + path + title.
 remove: Use either id or notebook + path. This action requires explicit user confirmation.
 move: Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.
-get_hpath: Use either id or notebook + path. Right after create, a short retry may still be needed while SiYuan indexing catches up.
-get_ids: Use notebook + path, where path is human-readable (same format as action="create"). This is the recommended way to resolve document IDs from paths. Right after create, a short retry may be needed while SiYuan indexing catches up.
+resolve: Use exactly one source: id, notebook + path, or notebook + hpath. include selects id/ids/path/hpath/docInfo. Right after create, a short retry may still be needed while SiYuan indexing catches up.
 get_child_blocks: Use a document ID. Returns direct child blocks only.
 get_child_docs: Use a document ID. Returns direct child documents only.
 set_icon: Use a document ID + icon. Prefer a Unicode hex code string such as "1f4d4" for 📔; raw emoji characters may not render correctly.
@@ -161,8 +160,7 @@ add_rows: Use avID + blockIDs to add existing blocks as rows. MCP now polls brie
 remove_rows: Use avID + srcIDs to remove rows from the AV.
 add_column: Use avID + keyName + keyType, and optionally keyID. MCP generates keyID automatically when omitted. Supported keyType values match the 16 SiYuan addable column types, including keyType="mSelect", keyType="mAsset", and keyType="lineNumber".
 remove_column: Use avID + keyID. removeRelationDest only matters for relation columns.
-set_cell: Use avID + rowID + columnID + valueType and the matching typed field. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. valueType="mAsset" accepts assets[] plus optional text markdown.
-batch_set_cells: Use avID + items[]. Each item requires rowID + columnID + valueType and its matching typed field. MCP rejects cell value IDs and source block IDs, and suggests the matching row item ID when it can. valueType="mAsset" accepts assets[].
+set_cells: Use avID plus either top-level rowID + columnID + valueType for one cell or cells[] for multiple cells. Each cell requires rowID + columnID + valueType and the matching typed field. MCP rejects cell value IDs and source block IDs, and suggests the matching row item ID when it can. valueType="mAsset" accepts assets[].
 duplicate_block: MCP first calls the kernel duplicate API, then inserts the duplicated NodeAttributeView block into the document tree. By default it inserts after the source database block; provide previousID to override the insertion target.
 get_primary_key_values: Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering.`,
   file: `upload_asset: Use assetsDirPath + localFilePath to read a local file and upload it into SiYuan assets. This action reads the local filesystem and requires explicit user confirmation. Files larger than the configured large-upload threshold (10 MB by default) must be stopped, confirmed by the user, and retried with confirmLargeFile=true.

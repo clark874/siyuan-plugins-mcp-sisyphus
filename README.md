@@ -83,6 +83,25 @@ pnpm run build
 pnpm run make-link
 ```
 
+### How to choose a connection method
+
+First decide whether you want to use **MCP** or **CLI**:
+
+- **MCP Connection**: for MCP clients such as Claude Desktop, Cherry Studio, Cursor, Codex, and OpenClaw
+- **CLI Connection**: for running `siyuan-sisyphus ...` commands directly in a terminal
+
+### Connection Modes by SiYuan Installation Scenario
+
+| SiYuan Installation | Recommended Connection |
+|----------|-----------------|
+| Desktop (Windows / macOS / Linux) | HTTP or stdio or CLI |
+| Docker | stdio or CLI |
+| Mobile | CLI |
+
+The plugin settings page provides three ready-to-copy configuration snippets at the bottom: HTTP connection, mcp-remote bridge, and stdio connection.
+
+Open `Plugin` → `siyuan-plugins-mcp-sisyphus` → `Settings` → `🌐 Connection Config` to find them.
+
 ---
 
 ## CLI Tool
@@ -118,25 +137,6 @@ All 10 aggregated tools (`notebook`, `document`, `block`, `av`, `search`, `tag`,
 ## MCP Server Plugin
 
 The plugin runs inside SiYuan and exposes SiYuan capabilities as an MCP Server for external agents.
-
-### How to choose a connection method
-
-First decide whether you want to use **MCP** or **CLI**:
-
-- **MCP Connection**: for MCP clients such as Claude Desktop, Cherry Studio, Cursor, Codex, and OpenClaw
-- **CLI Connection**: for running `siyuan-sisyphus ...` commands directly in a terminal
-
-### Connection Modes by SiYuan Installation Scenario
-
-| SiYuan Installation | Recommended Connection |
-|----------|-----------------|
-| Desktop (Windows / macOS / Linux) | HTTP or stdio or CLI |
-| Docker | stdio or CLI |
-| Mobile | CLI |
-
-The plugin settings page provides three ready-to-copy configuration snippets at the bottom: HTTP connection, mcp-remote bridge, and stdio connection.
-
-Open `Plugin` → `siyuan-plugins-mcp-sisyphus` → `Settings` → `🌐 Connection Config` to find them.
 
 ### HTTP Mode
 
@@ -265,11 +265,9 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | `rename` | Rename a document |
 | `remove` | Remove a document |
 | `move` | Move a document |
+| `resolve` | Resolve document IDs, storage paths, human-readable paths, and metadata |
 | `set_icon` | Set document/folder icon |
 | `set_cover` | Set or clear document cover image |
-| `get_path` | Get storage path by document ID |
-| `get_hpath` | Get human-readable path by ID or storage path |
-| `get_ids` | Get document IDs by human-readable path |
 | `get_child_blocks` | Get direct child blocks of a document |
 | `get_child_docs` | Get direct child documents |
 | `list_tree` | List nested document tree under a notebook path |
@@ -278,7 +276,6 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | `create_daily_note` | Create or return today's daily note for a notebook |
 | `duplicate` | Duplicate an existing document |
 | `remove_batch` | Batch remove documents by storage paths (requires confirmation) |
-| `create_empty` | Create an empty document |
 | `heading_to_doc` | Convert a heading block into a document |
 | `doc_to_heading` | Convert a document into a heading under a target document |
 
@@ -321,8 +318,7 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | `remove_rows` | Remove bound rows from an attribute view |
 | `add_column` | Add a database column |
 | `remove_column` | Remove a column from an attribute view |
-| `set_cell` | Update a single cell |
-| `batch_set_cells` | Update multiple cells in one call |
+| `set_cells` | Update one or more cells |
 | `duplicate_block` | Duplicate the underlying database block |
 | `get_primary_key_values` | Get primary-key row data |
 

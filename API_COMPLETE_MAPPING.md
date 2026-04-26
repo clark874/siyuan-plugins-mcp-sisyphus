@@ -138,8 +138,8 @@
 | 2 | POST | `/api/av/renderHistoryAttributeView` | renderHistoryAttributeView | 属性视图/数据库渲染历史属性ibuteView | - | ❌ 未覆盖 |
 | 3 | POST | `/api/av/renderSnapshotAttributeView` | renderSnapshotAttributeView | 属性视图/数据库渲染Snapshot属性ibuteView | - | ❌ 未覆盖 |
 | 4 | POST | `/api/av/getAttributeViewKeys` | getAttributeViewKeys | 属性视图/数据库获取Keys | av.get_attribute_view_keys | ✅ 已覆盖 |
-| 5 | POST | `/api/av/setAttributeViewBlockAttr` | setAttributeViewBlockAttr | 属性视图/数据库设置Block属性 | av.set_cell | ✅ 已覆盖 |
-| 6 | POST | `/api/av/batchSetAttributeViewBlockAttrs` | batchSetAttributeViewBlockAttrs | 属性视图/数据库批量Set属性ibuteViewBlock属性 | av.batch_set_cells | ✅ 已覆盖 |
+| 5 | POST | `/api/av/setAttributeViewBlockAttr` | setAttributeViewBlockAttr | 属性视图/数据库设置Block属性 | av.set_cells | ✅ 已覆盖 |
+| 6 | POST | `/api/av/batchSetAttributeViewBlockAttrs` | batchSetAttributeViewBlockAttrs | 属性视图/数据库批量Set属性ibuteViewBlock属性 | av.set_cells | ✅ 已覆盖 |
 | 7 | POST | `/api/av/searchAttributeView` | searchAttributeView | 属性视图/数据库搜索 | av.search | ✅ 已覆盖 |
 | 8 | POST | `/api/av/getAttributeView` | getAttributeView | 属性视图/数据库获取 | av.get | ✅ 已覆盖 |
 | 9 | POST | `/api/av/searchAttributeViewRelationKey` | searchAttributeViewRelationKey | 属性视图/数据库搜索RelationKey | - | ❌ 未覆盖 |
@@ -186,7 +186,7 @@
 | 6 | POST | `/api/filetree/changeSort` | changeSort | 文档树changeSort | - | ❌ 未覆盖 |
 | 7 | POST | `/api/filetree/createDocWithMd` | createDocWithMd | 文档树创建WithMd | document.create | ✅ 已覆盖 |
 | 8 | POST | `/api/filetree/createDailyNote` | createDailyNote | 文档树创建DailyNote | document.create_daily_note | ✅ 已覆盖 |
-| 9 | POST | `/api/filetree/createDoc` | createDoc | 文档树创建 | document.create_empty | ✅ 已覆盖 |
+| 9 | POST | `/api/filetree/createDoc` | createDoc | 文档树创建 | document.create | ✅ 已覆盖 |
 | 10 | POST | `/api/filetree/renameDoc` | renameDoc | 文档树重命名 | document.rename | ✅ 已覆盖 |
 | 11 | POST | `/api/filetree/renameDocByID` | renameDocByID | 文档树重命名ByID | document.rename | ✅ 已覆盖 |
 | 12 | POST | `/api/filetree/removeDoc` | removeDoc | 文档树删除 | document.remove | ✅ 已覆盖 |
@@ -195,12 +195,12 @@
 | 15 | POST | `/api/filetree/moveDocs` | moveDocs | 文档树移动s | document.move | ✅ 已覆盖 |
 | 16 | POST | `/api/filetree/moveDocsByID` | moveDocsByID | 文档树移动sByID | document.move | ✅ 已覆盖 |
 | 17 | POST | `/api/filetree/duplicateDoc` | duplicateDoc | 文档树复制 | document.duplicate | ✅ 已覆盖 |
-| 18 | POST | `/api/filetree/getHPathByPath` | getHPathByPath | 文档树获取H路径By路径 | document.get_hpath | ✅ 已覆盖 |
+| 18 | POST | `/api/filetree/getHPathByPath` | getHPathByPath | 文档树获取H路径By路径 | document.resolve | ✅ 已覆盖 |
 | 19 | POST | `/api/filetree/getHPathsByPaths` | getHPathsByPaths | 文档树获取H路径sBy路径s | - | ❌ 未覆盖 |
-| 20 | POST | `/api/filetree/getHPathByID` | getHPathByID | 文档树获取H路径ByID | document.get_hpath | ✅ 已覆盖 |
-| 21 | POST | `/api/filetree/getPathByID` | getPathByID | 文档树获取路径ByID | document.get_path | ✅ 已覆盖 |
+| 20 | POST | `/api/filetree/getHPathByID` | getHPathByID | 文档树获取H路径ByID | document.resolve | ✅ 已覆盖 |
+| 21 | POST | `/api/filetree/getPathByID` | getPathByID | 文档树获取路径ByID | document.resolve | ✅ 已覆盖 |
 | 22 | POST | `/api/filetree/getFullHPathByID` | getFullHPathByID | 文档树获取FullH路径ByID | - | ❌ 未覆盖 |
-| 23 | POST | `/api/filetree/getIDsByHPath` | getIDsByHPath | 文档树获取ID列表ByH路径 | document.get_ids | ✅ 已覆盖 |
+| 23 | POST | `/api/filetree/getIDsByHPath` | getIDsByHPath | 文档树获取ID列表ByH路径 | document.resolve | ✅ 已覆盖 |
 | 24 | POST | `/api/filetree/doc2Heading` | doc2Heading | 文档树doc2Heading | document.doc_to_heading | ✅ 已覆盖 |
 | 25 | POST | `/api/filetree/heading2Doc` | heading2Doc | 文档树heading2Doc | document.heading_to_doc | ✅ 已覆盖 |
 | 26 | POST | `/api/filetree/li2Doc` | li2Doc | 文档树li2Doc | - | ❌ 未覆盖 |
@@ -549,7 +549,7 @@
 | 1 | POST | `/api/ui/reloadUI` | reloadUI | uireloadUI | - | ❌ 未覆盖 |
 | 2 | POST | `/api/ui/reloadIcon` | reloadIcon | uireload图标 | document.create(icon)<br>document.set_icon<br>notebook.create(icon)<br>notebook.set_icon | ✅ 已覆盖 |
 | 3 | POST | `/api/ui/reloadTheme` | reloadTheme | uireloadTheme | - | ❌ 未覆盖 |
-| 4 | POST | `/api/ui/reloadAttributeView` | reloadAttributeView | uireload属性ibuteView | av.add_rows<br>av.remove_rows<br>av.add_column<br>av.remove_column<br>av.set_cell<br>av.batch_set_cells<br>av.duplicate_block | ✅ 已覆盖 |
+| 4 | POST | `/api/ui/reloadAttributeView` | reloadAttributeView | uireload属性ibuteView | av.add_rows<br>av.remove_rows<br>av.add_column<br>av.remove_column<br>av.set_cells<br>av.duplicate_block | ✅ 已覆盖 |
 | 5 | POST | `/api/ui/reloadProtyle` | reloadProtyle | uireloadProtyle | block 写操作<br>document 写操作<br>av.duplicate_block | ✅ 已覆盖 |
 | 6 | POST | `/api/ui/reloadFiletree` | reloadFiletree | uireloadFiletree | notebook 写操作<br>document 树写操作<br>block heading_to_doc/doc_to_heading | ✅ 已覆盖 |
 | 7 | POST | `/api/ui/reloadTag` | reloadTag | uireloadTag | tag.rename<br>tag.remove | ✅ 已覆盖 |

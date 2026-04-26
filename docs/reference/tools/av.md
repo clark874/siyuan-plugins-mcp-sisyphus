@@ -16,13 +16,13 @@ Related pages:
 | Read | `get`, `render_attribute_view`, `get_attribute_view_keys`, `get_attribute_view_filter_sort`, `search`, `get_primary_key_values` |
 | Row operations | `add_rows`, `remove_rows` |
 | Column operations | `add_column`, `remove_column` |
-| Cell updates | `set_cell`, `batch_set_cells` |
+| Cell updates | `set_cells` |
 | Structure | `duplicate_block` |
 
 ## Parameters and Semantics
 
 - `render_attribute_view` can also create and materialize an AV when `createIfNotExist=true`
-- `set_cell` is typed by `valueType`
+- `set_cells` is typed by `valueType` and accepts either single-cell fields or a `cells` array
 - `rowID` refers to the row item ID, not the source block ID
 
 ## Safety Rules
@@ -70,7 +70,6 @@ siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "Plain text r
 - `remove_rows`
 - `add_column`
 - `remove_column`
-- `set_cell`
-- `batch_set_cells`
+- `set_cells`
 - `duplicate_block`
 - `get_primary_key_values`

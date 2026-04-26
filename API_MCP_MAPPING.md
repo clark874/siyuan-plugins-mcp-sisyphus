@@ -108,9 +108,7 @@
 | `rename` | `POST /api/filetree/renameDoc` / `POST /api/filetree/renameDocByID` | `src/api/document.ts` | 支持路径模式和 ID 模式 |
 | `remove` | `POST /api/filetree/removeDoc` / `POST /api/filetree/removeDocByID` | `src/api/document.ts` | 需要确认 |
 | `move` | `POST /api/filetree/moveDocs` / `POST /api/filetree/moveDocsByID` | `src/api/document.ts` | 需要确认 |
-| `get_path` | `POST /api/filetree/getPathByID` | `src/api/document.ts` | 返回存储路径 |
-| `get_hpath` | `POST /api/filetree/getHPathByID` / `POST /api/filetree/getHPathByPath` | `src/api/document.ts` | 返回人类可读路径 |
-| `get_ids` | `POST /api/filetree/getIDsByHPath` | `src/api/document.ts` | 人类可读路径转文档 ID |
+| `resolve` | `POST /api/filetree/getPathByID` / `POST /api/filetree/getHPathByID` / `POST /api/filetree/getHPathByPath` / `POST /api/filetree/getIDsByHPath` | `src/api/document.ts` | 解析 ID、存储路径、人类可读路径和文档信息 |
 | `get_child_blocks` | `POST /api/block/getChildBlocks` | `src/api/block.ts` | 使用解析后的根文档 ID |
 | `get_child_docs` | `POST /api/filetree/listDocsByPath` | `src/api/document.ts` | 使用解析后的笔记本 + 存储路径 |
 | `set_icon` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 给文档块写入 `icon` 属性 |
@@ -121,7 +119,6 @@
 | `create_daily_note` | `POST /api/filetree/createDailyNote` | `src/api/document.ts` | 创建或返回今日日记 |
 | `duplicate` | `POST /api/filetree/duplicateDoc` | `src/api/document.ts` | 复制已有文档 |
 | `remove_batch` | `POST /api/filetree/removeDocs` | `src/api/document.ts` | 按存储路径批量删除文档，需要确认 |
-| `create_empty` | `POST /api/filetree/createDoc` | `src/api/document.ts` | 创建空文档，也可传 `markdown` 作为初始内容 |
 | `heading_to_doc` | `POST /api/filetree/heading2Doc` | `src/api/document.ts` | 将标题块转换为文档 |
 | `doc_to_heading` | `POST /api/filetree/doc2Heading` | `src/api/document.ts` | 将文档转换为目标文档下的标题 |
 
@@ -135,14 +132,14 @@
 ### 使用人类可读路径的 action
 
 - `document(action="create")`
-- `document(action="get_ids")`
+- `document(action="resolve", hpath=...)`
 
 ### 使用存储路径的 action
 
 - `document(action="rename", notebook + path)`
 - `document(action="remove", notebook + path)`
 - `document(action="move", fromPaths + toNotebook + toPath)`
-- `document(action="get_hpath", notebook + path)`
+- `document(action="resolve", notebook + path)`
 - `document(action="list_tree", notebook + path)`
 
 ## `block`
@@ -260,8 +257,7 @@
 | `remove_rows` | `POST /api/av/removeAttributeViewBlocks` | `src/api/av.ts` | 移除行 |
 | `add_column` | `POST /api/av/addAttributeViewKey` | `src/api/av.ts` | 添加列/字段 |
 | `remove_column` | `POST /api/av/removeAttributeViewKey` | `src/api/av.ts` | 移除列/字段 |
-| `set_cell` | `POST /api/av/setAttributeViewBlockAttr` | `src/api/av.ts` | 设置单元格值 |
-| `batch_set_cells` | `POST /api/av/batchSetAttributeViewBlockAttrs` | `src/api/av.ts` | 批量设置单元格值 |
+| `set_cells` | `POST /api/av/setAttributeViewBlockAttr` / `POST /api/av/batchSetAttributeViewBlockAttrs` | `src/api/av.ts` | 设置一个或多个单元格值 |
 | `duplicate_block` | `POST /api/av/duplicateAttributeViewBlock` | `src/api/av.ts` | 复制数据库块 |
 | `get_primary_key_values` | `POST /api/av/getAttributeViewPrimaryKeyValues` | `src/api/av.ts` | 获取主键值列表(用于relation字段) |
 
@@ -395,7 +391,7 @@
 |----------|------------|------|------|
 | `POST /api/filetree/duplicateDoc` | `duplicate` | 复制文档 | 已接入 |
 | `POST /api/filetree/removeDocs` | `remove_batch` | 批量删除文档，需要确认 | 已接入 |
-| `POST /api/filetree/createDoc` | `create_empty` | 创建空文档 | 已接入 |
+| `POST /api/filetree/createDoc` | `create` | 创建空文档（parentPath + title 模式） | 已接入 |
 | `POST /api/filetree/heading2Doc` | `heading_to_doc` | 标题转为文档 | 已接入 |
 | `POST /api/filetree/doc2Heading` | `doc_to_heading` | 文档转为标题 | 已接入 |
 

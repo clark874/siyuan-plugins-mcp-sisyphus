@@ -244,7 +244,7 @@
                         <line x1="-37" y1="8" x2="-29" y2="16" stroke="#ff4d6d" stroke-width="2"/>
                         <line x1="-29" y1="8" x2="-37" y2="16" stroke="#ff4d6d" stroke-width="2"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--document-get_path sy-puppy__tool-mark--document-get_hpath sy-puppy__tool-mark--document-get_ids">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--document-resolve">
                         <circle cx="-34" cy="12" r="3" fill="#8fd2ff" stroke="#1a1f3c" stroke-width="1"/>
                         <line x1="-31" y1="15" x2="-28" y2="18" stroke="#1a1f3c" stroke-width="1.5"/>
                     </g>
@@ -325,7 +325,7 @@
                         <line x1="104" y1="-27" x2="104" y2="-18" stroke="#ffd040" stroke-width="2"/>
                         <line x1="100" y1="-23" x2="108" y2="-23" stroke="#ffd040" stroke-width="2"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--av-set_cell sy-puppy__tool-mark--av-batch_set_cells">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--av-set_cells">
                         <rect x="102" y="-27" width="8" height="8" fill="#8fd2ff" stroke="#1a1f3c" stroke-width="1"/>
                         <rect x="104" y="-25" width="4" height="4" fill="#1a1f3c"/>
                     </g>
@@ -527,9 +527,7 @@
     :global(.sy-puppy--action-document-move .sy-puppy__tool-mark--document-move),
     :global(.sy-puppy--action-document-rename .sy-puppy__tool-mark--document-rename),
     :global(.sy-puppy--action-document-remove .sy-puppy__tool-mark--document-remove),
-    :global(.sy-puppy--action-document-get_path .sy-puppy__tool-mark--document-get_path),
-    :global(.sy-puppy--action-document-get_hpath .sy-puppy__tool-mark--document-get_hpath),
-    :global(.sy-puppy--action-document-get_ids .sy-puppy__tool-mark--document-get_ids),
+    :global(.sy-puppy--action-document-resolve .sy-puppy__tool-mark--document-resolve),
     :global(.sy-puppy--action-document-get_child_blocks .sy-puppy__tool-mark--document-get_child_blocks),
     :global(.sy-puppy--action-document-get_child_docs .sy-puppy__tool-mark--document-get_child_docs),
     :global(.sy-puppy--action-document-list_tree .sy-puppy__tool-mark--document-list_tree),
@@ -562,8 +560,7 @@
     :global(.sy-puppy--action-av-remove_rows .sy-puppy__tool-mark--av-remove_rows),
     :global(.sy-puppy--action-av-add_column .sy-puppy__tool-mark--av-add_column),
     :global(.sy-puppy--action-av-remove_column .sy-puppy__tool-mark--av-remove_column),
-    :global(.sy-puppy--action-av-set_cell .sy-puppy__tool-mark--av-set_cell),
-    :global(.sy-puppy--action-av-batch_set_cells .sy-puppy__tool-mark--av-batch_set_cells),
+    :global(.sy-puppy--action-av-set_cells .sy-puppy__tool-mark--av-set_cells),
     :global(.sy-puppy--action-av-duplicate_block .sy-puppy__tool-mark--av-duplicate_block),
     :global(.sy-puppy--action-file-upload_asset .sy-puppy__tool-mark--file-upload_asset),
     :global(.sy-puppy--action-file-export_md .sy-puppy__tool-mark--file-export_md),

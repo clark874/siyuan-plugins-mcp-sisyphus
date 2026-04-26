@@ -19,7 +19,7 @@ export const TOOL_VARIANTS = new Set<ToolVariant>(['notebook', 'document', 'bloc
 
 const READING_ACTIONS = new Set([
     'get_kramdown', 'get_children', 'get_attrs', 'exists', 'info', 'breadcrumb',
-    'dom', 'word_count', 'recent_updated', 'get_path', 'get_hpath', 'get_ids',
+    'dom', 'word_count', 'recent_updated', 'resolve',
     'get_child_blocks', 'get_child_docs', 'search_docs', 'get_doc', 'list_tree',
     'list', 'get_conf', 'get_permissions', 'conf', 'get_version',
     'get_current_time', 'boot_progress', 'network', 'changelog', 'sys_fonts',
@@ -38,7 +38,7 @@ const EDIT_ACTIONS = new Set([
     'set_icon', 'set_cover', 'set_conf', 'push_msg', 'push_err_msg', 'set_open_state',
     'render_template', 'render_sprig', 'rename_tag', 'buy',
     'review_card', 'skip_review_card', 'create_card', 'add_card',
-    'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells',
+    'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells',
 ]);
 
 const DELETING_ACTIONS = new Set(['delete', 'remove', 'remove_card']);

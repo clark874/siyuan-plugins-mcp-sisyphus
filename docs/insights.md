@@ -134,11 +134,11 @@ rwd:  full access (read, write, delete)
 **Best Practices**:
 1. Clearly document which path type each action accepts
 2. On validation failure, hint "current path type does not match"
-3. Provide `get_path` for path conversion
+3. Provide `resolve` for path conversion
 
 **Safe Workflow**:
 ```
-document(action="get_path", id=...) -> obtain storage path
+document(action="resolve", id=..., include=["path"]) -> obtain storage path
 -> reuse storage path for rename/move/remove
 ```
 

@@ -18,7 +18,7 @@ const ALL_ENABLED_CONFIG = {
     },
     document: {
         enabled: true,
-        actions: { create: true, rename: true, remove: true, move: true, get_path: true, get_hpath: true, get_ids: true, get_child_blocks: true, get_child_docs: true },
+        actions: { create: true, resolve: true, rename: true, remove: true, move: true, get_child_blocks: true, get_child_docs: true },
     },
     block: {
         enabled: true,
@@ -50,8 +50,7 @@ const ALL_ENABLED_CONFIG = {
             remove_rows: true,
             add_column: true,
             remove_column: true,
-            set_cell: true,
-            batch_set_cells: true,
+            set_cells: true,
             duplicate_block: true,
             get_primary_key_values: true,
         },
@@ -212,13 +211,13 @@ async function assertDefaultToolList() {
         assert.match(descriptions.notebook, /Common actions:/);
         assert.match(descriptions.notebook, /Additional actions:/);
         assert.match(descriptions.notebook, /get_permissions/);
-        assert.match(descriptions.document, /Common actions: create, rename, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, search_docs, get_doc/);
+        assert.match(descriptions.document, /Common actions: create, resolve, rename, get_child_blocks, get_child_docs, search_docs, get_doc/);
         assert.match(descriptions.document, /Additional actions: move, set_icon, set_cover, clear_cover, list_tree, create_daily_note/);
         assert.match(descriptions.document, /Common actions: .*get_doc/);
         assert.match(descriptions.document, /Additional actions: .*list_tree/);
         assert.match(descriptions.document, /rename: id, title \| notebook, path, title/);
         assert.match(descriptions.document, /human-readable target path/);
-        assert.match(descriptions.document, /storage paths returned by document\(action="get_path"\)/);
+        assert.match(descriptions.document, /storage paths returned by document\(action="resolve"/);
         assert.match(descriptions.document, /Read siyuan:\/\/help\/action\/document\/\{action\} for details/);
         assert.match(descriptions.block, /Common actions: insert, prepend, append, update, get_kramdown, get_children, get_attrs, exists, info/);
         assert.match(descriptions.block, /Additional actions: move, fold, unfold, transfer_ref, set_attrs, breadcrumb, dom, recent_updated, word_count/);
@@ -228,7 +227,7 @@ async function assertDefaultToolList() {
         assert.match(descriptions.block, /single-block replacement/i);
         assert.match(descriptions.block, /Multi-line markdown may be truncated to the first line/i);
         assert.match(descriptions.av, /Common actions: get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, get_primary_key_values/);
-        assert.match(descriptions.av, /Additional actions: add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block/);
+        assert.match(descriptions.av, /Additional actions: add_rows, remove_rows, add_column, remove_column, set_cells, duplicate_block/);
         assert.match(descriptions.av, /database/i);
         assert.match(descriptions.file, /Common actions: upload_asset, export_md, get_doc_assets, get_doc_image_assets/);
         assert.match(descriptions.file, /Additional actions: render_template, render_sprig, export_resources, list_unused_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha/);
@@ -513,8 +512,9 @@ async function runLiveSmoke() {
             createdDocIds.push(source.json.id, target.json.id, pathMove.json.id, childDoc.json.id, deleteDoc.json.id);
 
             const preheatedPath = (await callToolJson(client, 'document', {
-                action: 'get_path',
+                action: 'resolve',
                 id: source.json.id,
+                include: ['path'],
             })).json;
             assert.equal(preheatedPath.notebook, notebookId);
 
@@ -539,26 +539,28 @@ async function runLiveSmoke() {
             })).json;
             assert.ok(targetChildDocs.some((doc) => doc.id === childDoc.json.id));
 
-            const sourcePath = (await callToolJson(client, 'document', { action: 'get_path', id: source.json.id })).json;
+            const sourcePath = (await callToolJson(client, 'document', { action: 'resolve', id: source.json.id, include: ['path'] })).json;
             assert.equal(sourcePath.notebook, notebookId);
             assert.match(sourcePath.path, /^\/.+\.sy$/);
 
-            const sourceHPath = (await callToolJson(client, 'document', { action: 'get_hpath', id: source.json.id })).json;
-            assert.equal(sourceHPath, '/SourceDoc');
+            const sourceHPath = (await callToolJson(client, 'document', { action: 'resolve', id: source.json.id, include: ['hpath'] })).json;
+            assert.equal(sourceHPath.hPath, '/SourceDoc');
 
             const sourceHPathByPath = (await callToolJson(client, 'document', {
-                action: 'get_hpath',
+                action: 'resolve',
                 notebook: notebookId,
                 path: sourcePath.path,
+                include: ['hpath'],
             })).json;
-            assert.equal(sourceHPathByPath, sourceHPath);
+            assert.equal(sourceHPathByPath.hPath, sourceHPath.hPath);
 
             const sourceIdsByHPath = (await callToolJson(client, 'document', {
-                action: 'get_ids',
+                action: 'resolve',
                 notebook: notebookId,
-                path: sourceHPath,
+                hpath: sourceHPath.hPath,
+                include: ['ids'],
             })).json;
-            assert.deepEqual(sourceIdsByHPath, [source.json.id]);
+            assert.deepEqual(sourceIdsByHPath.ids, [source.json.id]);
 
             await callToolJson(client, 'document', {
                 action: 'rename',
@@ -567,15 +569,17 @@ async function runLiveSmoke() {
                 title: 'SourceDoc Path Renamed',
             });
             const sourcePathAfterPathRename = (await callToolJson(client, 'document', {
-                action: 'get_path',
+                action: 'resolve',
                 id: source.json.id,
+                include: ['path'],
             })).json;
             const sourceHPathAfterPathRename = (await callToolJson(client, 'document', {
-                action: 'get_hpath',
+                action: 'resolve',
                 id: source.json.id,
+                include: ['hpath'],
             })).json;
             assert.equal(sourcePathAfterPathRename.path, sourcePath.path);
-            assert.equal(sourceHPathAfterPathRename, '/SourceDoc Path Renamed');
+            assert.equal(sourceHPathAfterPathRename.hPath, '/SourceDoc Path Renamed');
 
             await callToolJson(client, 'document', {
                 action: 'rename',
@@ -583,15 +587,17 @@ async function runLiveSmoke() {
                 title: 'SourceDoc ID Renamed',
             });
             const sourcePathAfterIdRename = (await callToolJson(client, 'document', {
-                action: 'get_path',
+                action: 'resolve',
                 id: source.json.id,
+                include: ['path'],
             })).json;
             const sourceHPathAfterIdRename = (await callToolJson(client, 'document', {
-                action: 'get_hpath',
+                action: 'resolve',
                 id: source.json.id,
+                include: ['hpath'],
             })).json;
             assert.equal(sourcePathAfterIdRename.path, sourcePath.path);
-            assert.equal(sourceHPathAfterIdRename, '/SourceDoc ID Renamed');
+            assert.equal(sourceHPathAfterIdRename.hPath, '/SourceDoc ID Renamed');
 
             const append = unwrapWriteResult((await callToolJson(client, 'block', {
                 action: 'append',
@@ -837,12 +843,14 @@ async function runLiveSmoke() {
             removeItem(createdDocIds, deleteDoc.json.id);
 
             const pathMovePath = (await callToolJson(client, 'document', {
-                action: 'get_path',
+                action: 'resolve',
                 id: pathMove.json.id,
+                include: ['path'],
             })).json;
             const targetPath = (await callToolJson(client, 'document', {
-                action: 'get_path',
+                action: 'resolve',
                 id: target.json.id,
+                include: ['path'],
             })).json;
 
             const moveByPath = unwrapWriteResult((await callToolJson(client, 'document', {
@@ -859,8 +867,9 @@ async function runLiveSmoke() {
             });
 
             const pathMoveAfterMoveByPath = (await callToolJson(client, 'document', {
-                action: 'get_path',
+                action: 'resolve',
                 id: pathMove.json.id,
+                include: ['path'],
             })).json;
             assert.match(pathMoveAfterMoveByPath.path, new RegExp(`^${targetPath.path.replace(/\.sy$/, '')}/.+\\.sy$`));
 
@@ -939,12 +948,14 @@ async function runLiveSmoke() {
                 notebook: notebookId,
             });
             await assertPermissionDenied(client, 'document', {
-                action: 'get_path',
+                action: 'resolve',
                 id: source.json.id,
+                include: ['path'],
             });
             await assertPermissionDenied(client, 'document', {
-                action: 'get_hpath',
+                action: 'resolve',
                 id: source.json.id,
+                include: ['hpath'],
             });
             await assertPermissionDenied(client, 'document', {
                 action: 'get_child_blocks',
@@ -1019,8 +1030,9 @@ async function runLiveSmoke() {
             assert.ok(writeConf && !Array.isArray(writeConf));
 
             const writePath = (await callToolJson(client, 'document', {
-                action: 'get_path',
+                action: 'resolve',
                 id: source.json.id,
+                include: ['path'],
             })).json;
             assert.equal(writePath.notebook, notebookId);
 
@@ -1050,8 +1062,9 @@ async function runLiveSmoke() {
             assert.equal(typeof writeCreatedDoc.id, 'string');
 
             const writeCreatedDocPath = (await callToolJson(client, 'document', {
-                action: 'get_path',
+                action: 'resolve',
                 id: writeCreatedDoc.id,
+                include: ['path'],
             })).json;
             assert.equal(writeCreatedDocPath.notebook, notebookId);
 
@@ -1074,10 +1087,11 @@ async function runLiveSmoke() {
                 title: 'WriteModeCreateCheck Renamed',
             });
             const writeCreatedDocHPath = (await callToolJson(client, 'document', {
-                action: 'get_hpath',
+                action: 'resolve',
                 id: writeCreatedDoc.id,
+                include: ['hpath'],
             })).json;
-            assert.equal(writeCreatedDocHPath, '/WriteModeCreateCheck Renamed');
+            assert.equal(writeCreatedDocHPath.hPath, '/WriteModeCreateCheck Renamed');
 
             await callToolJson(client, 'document', {
                 action: 'remove',

@@ -16,7 +16,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -44,51 +44,19 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
-        "hint": "Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="batch_set_cells", avID, items=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.",
+        "hint": "Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="set_cells", avID, cells=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.",
         "requiredFields": [
           "avID",
         ],
         "requiresConfirmation": false,
         "shapes": [
           "avID",
-        ],
-        "tool": "av",
-      },
-      "batch_set_cells": {
-        "action": "batch_set_cells",
-        "example": {
-          "action": "batch_set_cells",
-          "avID": "<avID>",
-          "items": [
-            {
-              "rowID": "<rowID>",
-            },
-          ],
-        },
-        "fullDocResource": "siyuan://help/action/av/batch_set_cells",
-        "guidance": [
-          "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
-          "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
-          "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
-          "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
-          "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
-          "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
-        ],
-        "hint": "Use avID + items[]. Each item requires rowID + columnID + valueType and its matching typed field. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. MCP rejects cell value IDs and source block IDs, and suggests the matching row item ID when it can. valueType="mAsset" accepts assets[].",
-        "requiredFields": [
-          "avID",
-          "items",
-        ],
-        "requiresConfirmation": false,
-        "shapes": [
-          "avID + items",
         ],
         "tool": "av",
       },
@@ -102,7 +70,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -128,7 +96,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -154,7 +122,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -180,7 +148,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -206,7 +174,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -232,7 +200,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -261,7 +229,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -287,7 +255,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -311,7 +279,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -327,35 +295,29 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         ],
         "tool": "av",
       },
-      "set_cell": {
-        "action": "set_cell",
+      "set_cells": {
+        "action": "set_cells",
         "example": {
-          "action": "set_cell",
+          "action": "set_cells",
           "avID": "<avID>",
-          "columnID": "<columnID>",
-          "rowID": "<rowID>",
-          "valueType": "text",
         },
-        "fullDocResource": "siyuan://help/action/av/set_cell",
+        "fullDocResource": "siyuan://help/action/av/set_cells",
         "guidance": [
           "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
           "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
-        "hint": "Use avID + rowID + columnID + valueType and the matching typed field. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[] plus optional text markdown.",
+        "hint": "Use avID + cells[]. Each item requires rowID + columnID + valueType and its matching typed field. For a single-cell write, pass rowID + columnID + valueType directly. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[].",
         "requiredFields": [
           "avID",
-          "rowID",
-          "columnID",
-          "valueType",
         ],
         "requiresConfirmation": false,
         "shapes": [
-          "avID + rowID + columnID + valueType",
+          "avID",
         ],
         "tool": "av",
       },
@@ -364,7 +326,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
 
 Common actions: get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, get_primary_key_values. Required fields: get: id; render_attribute_view: no additional fields; get_attribute_view_keys: id; get_attribute_view_filter_sort: id; search: keyword; get_primary_key_values: avID.
 
-Additional actions: add_rows, remove_rows, add_column, remove_column, set_cell, batch_set_cells, duplicate_block. Read siyuan://help/action/av/{action} for details, or call action="help" if resources are unavailable.
+Additional actions: add_rows, remove_rows, add_column, remove_column, set_cells, duplicate_block. Read siyuan://help/action/av/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 av.get: required [id] | optional []
@@ -376,8 +338,7 @@ av.add_rows: required [avID] | optional [blockID, viewID, groupID, previousID, i
 av.remove_rows: required [avID, srcIDs] | optional [blockID]
 av.add_column: required [avID, keyName, keyType] | optional [blockID, keyID, keyIcon, previousKeyID]
 av.remove_column: required [avID] | optional [blockID, keyID, columnID, removeRelationDest]
-av.set_cell: required [avID, rowID, columnID, valueType] | optional [blockID, text, number, numberFormat, date, endDate, includeTime, checked, option, options, relationBlockIDs, url, email, phone, assets]
-av.batch_set_cells: required [avID, items] | optional [blockID]
+av.set_cells: required [avID] | optional [blockID, cells, items, rowID, columnID, valueType, text, number, checked, option, options, relationBlockIDs, url, email, phone, assets]
 av.duplicate_block: required [avID] | optional [previousID]
 av.get_primary_key_values: required [avID] | optional [keyword, page, pageSize]
 
@@ -385,8 +346,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
     "overview": {
       "actionSummaries": {
         "add_column": "Use avID + keyName + keyType, and optionally keyID or blockID. MCP generates keyID automatically when omitted. Supported keyType values match the 16 SiYuan addable column types, including keyType="mSelect", keyType="mAsset", and keyType="lineNumber". Optional blockID must be a registered database block for this AV if you need to pin a specific block view.",
-        "add_rows": "Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="batch_set_cells", avID, items=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.",
-        "batch_set_cells": "Use avID + items[]. Each item requires rowID + columnID + valueType and its matching typed field. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. MCP rejects cell value IDs and source block IDs, and suggests the matching row item ID when it can. valueType="mAsset" accepts assets[].",
+        "add_rows": "Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="set_cells", avID, cells=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.",
         "duplicate_block": "MCP first calls the kernel duplicate API, then inserts the duplicated NodeAttributeView block into the document tree. By default it inserts after the source database block; provide previousID to override the insertion target.",
         "get": "Use an attribute view ID. Returns the full AV payload after permission checks.",
         "get_attribute_view_filter_sort": "Use id + blockID to return the filters and sorts applied to that database block view.",
@@ -396,7 +356,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "remove_rows": "Use avID + srcIDs to remove rows from the AV. Optional blockID pins a specific registered database block when you need explicit block-view context.",
         "render_attribute_view": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically. The returned materialized blockID identifies the registered database block if you need to pin a specific block view later.",
         "search": "Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.",
-        "set_cell": "Use avID + rowID + columnID + valueType and the matching typed field. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[] plus optional text markdown.",
+        "set_cells": "Use avID + cells[]. Each item requires rowID + columnID + valueType and its matching typed field. For a single-cell write, pass rowID + columnID + valueType directly. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[].",
       },
       "actions": {
         "add_column": {
@@ -404,11 +364,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "requiresConfirmation": false,
         },
         "add_rows": {
-          "hint": "Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="batch_set_cells", avID, items=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.",
-          "requiresConfirmation": false,
-        },
-        "batch_set_cells": {
-          "hint": "Use avID + items[]. Each item requires rowID + columnID + valueType and its matching typed field. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. MCP rejects cell value IDs and source block IDs, and suggests the matching row item ID when it can. valueType="mAsset" accepts assets[].",
+          "hint": "Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="set_cells", avID, cells=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.",
           "requiresConfirmation": false,
         },
         "duplicate_block": {
@@ -447,8 +403,8 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "hint": "Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.",
           "requiresConfirmation": false,
         },
-        "set_cell": {
-          "hint": "Use avID + rowID + columnID + valueType and the matching typed field. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[] plus optional text markdown.",
+        "set_cells": {
+          "hint": "Use avID + cells[]. Each item requires rowID + columnID + valueType and its matching typed field. For a single-cell write, pass rowID + columnID + valueType directly. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[].",
           "requiresConfirmation": false,
         },
       },
@@ -457,8 +413,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "remove_rows",
         "add_column",
         "remove_column",
-        "set_cell",
-        "batch_set_cells",
+        "set_cells",
         "duplicate_block",
       ],
       "commonActions": [
@@ -473,7 +428,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
       "guidance": [
         "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
         "To initialize a new AV definition, call av(action="render_attribute_view", blockID, createIfNotExist=true). MCP can generate the AV ID automatically, materialize the NodeAttributeView block in the target document, and verify the database block registration before follow-up writes.",
-        "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cell") or av(action="batch_set_cells").",
+        "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
         "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
         "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; once materialized, MCP reuses the registered database block automatically.",
         "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -1397,27 +1352,25 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "example": {
           "action": "create",
           "notebook": "20210808180117-czj9bvb",
-          "path": "/20240318112233-abc123.sy",
         },
         "fullDocResource": "siyuan://help/action/document/create",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
-        "hint": "Use notebook + path + markdown, where path is human-readable.",
+        "hint": "Use notebook plus either path, or parentPath + title. markdown is optional and defaults to empty.",
         "requiredFields": [
           "notebook",
-          "path",
         ],
         "requiresConfirmation": false,
         "shapes": [
-          "notebook + path",
+          "notebook",
         ],
         "tool": "document",
       },
@@ -1429,14 +1382,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/create_daily_note",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use a notebook ID and optionally pass app for downstream SiYuan event routing. When the user asks for a diary, journal entry, daily log, or today’s note in a notebook, prefer this action over manually creating a path and then appending content.",
         "requiredFields": [
@@ -1445,34 +1398,6 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "requiresConfirmation": false,
         "shapes": [
           "notebook",
-        ],
-        "tool": "document",
-      },
-      "create_empty": {
-        "action": "create_empty",
-        "example": {
-          "action": "create_empty",
-          "notebook": "20210808180117-czj9bvb",
-          "path": "/Inbox/Weekly Note",
-        },
-        "fullDocResource": "siyuan://help/action/document/create_empty",
-        "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
-          "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
-          "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
-          "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
-        ],
-        "requiredFields": [
-          "notebook",
-          "path",
-        ],
-        "requiresConfirmation": false,
-        "shapes": [
-          "notebook + path",
         ],
         "tool": "document",
       },
@@ -1485,14 +1410,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/doc_to_heading",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "requiredFields": [
           "srcID",
@@ -1512,14 +1437,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/duplicate",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "requiredFields": [
           "id",
@@ -1538,14 +1463,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/get_child_blocks",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use a document ID. Returns direct child blocks only.",
         "requiredFields": [
@@ -1565,14 +1490,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/get_child_docs",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use a document ID. Returns direct child documents only.",
         "requiredFields": [
@@ -1592,95 +1517,16 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/get_doc",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use a document ID. mode="markdown" returns clean Markdown content and supports page/pageSize for long documents; mode="html" uses the current focus view. For structured reading, prefer get_child_blocks.",
-        "requiredFields": [
-          "id",
-        ],
-        "requiresConfirmation": false,
-        "shapes": [
-          "id",
-        ],
-        "tool": "document",
-      },
-      "get_hpath": {
-        "action": "get_hpath",
-        "example": {
-          "action": "get_hpath",
-        },
-        "fullDocResource": "siyuan://help/action/document/get_hpath",
-        "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
-          "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
-          "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
-          "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
-        ],
-        "hint": "Use either id or notebook + path. Right after create, a short retry may still be needed while SiYuan indexing catches up.",
-        "requiredFields": [],
-        "requiresConfirmation": false,
-        "shapes": [
-          "action only",
-        ],
-        "tool": "document",
-      },
-      "get_ids": {
-        "action": "get_ids",
-        "example": {
-          "action": "get_ids",
-          "notebook": "20210808180117-czj9bvb",
-          "path": "/Inbox/Weekly Note",
-        },
-        "fullDocResource": "siyuan://help/action/document/get_ids",
-        "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
-          "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
-          "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
-          "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
-        ],
-        "hint": "Use notebook + path, where path is human-readable (same format as action="create"). This is the recommended way to resolve document IDs from paths. Right after create, a short retry may be needed while SiYuan indexing catches up.",
-        "requiredFields": [
-          "notebook",
-          "path",
-        ],
-        "requiresConfirmation": false,
-        "shapes": [
-          "notebook + path",
-        ],
-        "tool": "document",
-      },
-      "get_path": {
-        "action": "get_path",
-        "example": {
-          "action": "get_path",
-          "id": "20240318112233-abc123",
-        },
-        "fullDocResource": "siyuan://help/action/document/get_path",
-        "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
-          "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
-          "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
-          "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
-        ],
         "requiredFields": [
           "id",
         ],
@@ -1698,14 +1544,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/heading_to_doc",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "requiredFields": [
           "headingID",
@@ -1724,14 +1570,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/list_tree",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.",
         "requiredFields": [
@@ -1752,14 +1598,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/move",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.",
         "requiredFields": [
@@ -1781,14 +1627,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/remove",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use either id or notebook + path. This action requires explicit user confirmation.",
         "requiredFields": [
@@ -1811,14 +1657,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/remove_batch",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "requiredFields": [
           "paths",
@@ -1839,14 +1685,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/rename",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use either id + title or notebook + path + title.",
         "requiredFields": [
@@ -1860,6 +1706,30 @@ block(action="prepend") or block(action="append") with a document ID targets the
         ],
         "tool": "document",
       },
+      "resolve": {
+        "action": "resolve",
+        "example": {
+          "action": "resolve",
+        },
+        "fullDocResource": "siyuan://help/action/document/resolve",
+        "guidance": [
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
+          "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
+          "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
+          "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+        ],
+        "hint": "Resolve one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.",
+        "requiredFields": [],
+        "requiresConfirmation": false,
+        "shapes": [
+          "action only",
+        ],
+        "tool": "document",
+      },
       "search_docs": {
         "action": "search_docs",
         "example": {
@@ -1869,14 +1739,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/search_docs",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.",
         "requiredFields": [
@@ -1897,14 +1767,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/set_cover",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use a document ID + source, where source is either an http(s) URL or a SiYuan asset path like /assets/foo.png. MCP stores it in the "title-img" attribute. Omit source to clear the cover.",
         "requiredFields": [
@@ -1925,14 +1795,14 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/set_icon",
         "guidance": [
-          "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-          "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-          "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+          "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+          "A safe path-based workflow is resolve -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
           "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
           "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-          "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-          "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+          "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
         "hint": "Use a document ID + icon. Prefer a Unicode hex code string such as "1f4d4" for 📔; raw emoji characters may not render correctly.",
         "requiredFields": [
@@ -1948,18 +1818,16 @@ block(action="prepend") or block(action="append") with a document ID targets the
     },
     "description": "📝 Grouped document operations. Use the "action" field to select the operation.
 
-Common actions: create, rename, get_path, get_hpath, get_ids, get_child_blocks, get_child_docs, search_docs, get_doc. Required fields: create: notebook, path; rename: notebook, path, title; get_path: id; get_hpath: no additional fields; get_ids: notebook, path; get_child_blocks: id; get_child_docs: id; search_docs: notebook, query; get_doc: id.
+Common actions: create, resolve, rename, get_child_blocks, get_child_docs, search_docs, get_doc. Required fields: create: notebook; resolve: no additional fields; rename: notebook, path, title; get_child_blocks: id; get_child_docs: id; search_docs: notebook, query; get_doc: id.
 
-Additional actions: remove, move, set_icon, set_cover, list_tree, create_daily_note, duplicate, remove_batch, create_empty, heading_to_doc, doc_to_heading. Read siyuan://help/action/document/{action} for details, or call action="help" if resources are unavailable.
+Additional actions: remove, move, set_icon, set_cover, list_tree, create_daily_note, duplicate, remove_batch, heading_to_doc, doc_to_heading. Read siyuan://help/action/document/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
-document.create: required [notebook, path] | optional [markdown, icon]
+document.create: required [notebook] | optional [path, parentPath, title, markdown, sorts, icon]
+document.resolve: required [] | optional [id, notebook, path, hpath, hPath, include]
 document.rename: required [notebook, path, title] | optional []
 document.remove: required [notebook, path] | optional []
 document.move: required [notebook, path] | optional [toNotebook, toPath, fromIDs, fromPaths, toID]
-document.get_path: required [id] | optional []
-document.get_hpath: required [] | optional [id, notebook, path]
-document.get_ids: required [notebook, path] | optional []
 document.get_child_blocks: required [id] | optional []
 document.get_child_docs: required [id] | optional []
 document.set_icon: required [id, icon] | optional []
@@ -1970,44 +1838,37 @@ document.get_doc: required [id] | optional [mode, size, page, pageSize]
 document.create_daily_note: required [notebook] | optional []
 document.duplicate: required [id] | optional []
 document.remove_batch: required [paths] | optional []
-document.create_empty: required [notebook, path] | optional []
 document.heading_to_doc: required [headingID] | optional []
 document.doc_to_heading: required [srcID, targetID] | optional [after]
 
-document(action="create") uses a human-readable target path such as /Inbox/Weekly Note. Other document actions that use notebook + path expect storage paths returned by document(action="get_path"). Requires user confirmation before: remove, move, remove_batch.",
+document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title. Other document actions that use notebook + path expect storage paths returned by document(action="resolve"). Requires user confirmation before: remove, move, remove_batch.",
     "overview": {
       "actionSummaries": {
-        "create": "Use notebook + path + markdown, where path is human-readable.",
+        "create": "Use notebook plus either path, or parentPath + title. markdown is optional and defaults to empty.",
         "create_daily_note": "Use a notebook ID and optionally pass app for downstream SiYuan event routing. When the user asks for a diary, journal entry, daily log, or today’s note in a notebook, prefer this action over manually creating a path and then appending content.",
-        "create_empty": "requires: notebook, path",
         "doc_to_heading": "requires: srcID, targetID",
         "duplicate": "requires: id",
         "get_child_blocks": "Use a document ID. Returns direct child blocks only.",
         "get_child_docs": "Use a document ID. Returns direct child documents only.",
         "get_doc": "Use a document ID. mode="markdown" returns clean Markdown content and supports page/pageSize for long documents; mode="html" uses the current focus view. For structured reading, prefer get_child_blocks.",
-        "get_hpath": "Use either id or notebook + path. Right after create, a short retry may still be needed while SiYuan indexing catches up.",
-        "get_ids": "Use notebook + path, where path is human-readable (same format as action="create"). This is the recommended way to resolve document IDs from paths. Right after create, a short retry may be needed while SiYuan indexing catches up.",
-        "get_path": "requires: id",
         "heading_to_doc": "requires: headingID",
         "list_tree": "Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.",
         "move": "Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.",
         "remove": "Use either id or notebook + path. This action requires explicit user confirmation.",
         "remove_batch": "requires: paths",
         "rename": "Use either id + title or notebook + path + title.",
+        "resolve": "Resolve one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.",
         "search_docs": "Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.",
         "set_cover": "Use a document ID + source, where source is either an http(s) URL or a SiYuan asset path like /assets/foo.png. MCP stores it in the "title-img" attribute. Omit source to clear the cover.",
         "set_icon": "Use a document ID + icon. Prefer a Unicode hex code string such as "1f4d4" for 📔; raw emoji characters may not render correctly.",
       },
       "actions": {
         "create": {
-          "hint": "Use notebook + path + markdown, where path is human-readable.",
+          "hint": "Use notebook plus either path, or parentPath + title. markdown is optional and defaults to empty.",
           "requiresConfirmation": false,
         },
         "create_daily_note": {
           "hint": "Use a notebook ID and optionally pass app for downstream SiYuan event routing. When the user asks for a diary, journal entry, daily log, or today’s note in a notebook, prefer this action over manually creating a path and then appending content.",
-          "requiresConfirmation": false,
-        },
-        "create_empty": {
           "requiresConfirmation": false,
         },
         "doc_to_heading": {
@@ -2026,17 +1887,6 @@ document(action="create") uses a human-readable target path such as /Inbox/Weekl
         },
         "get_doc": {
           "hint": "Use a document ID. mode="markdown" returns clean Markdown content and supports page/pageSize for long documents; mode="html" uses the current focus view. For structured reading, prefer get_child_blocks.",
-          "requiresConfirmation": false,
-        },
-        "get_hpath": {
-          "hint": "Use either id or notebook + path. Right after create, a short retry may still be needed while SiYuan indexing catches up.",
-          "requiresConfirmation": false,
-        },
-        "get_ids": {
-          "hint": "Use notebook + path, where path is human-readable (same format as action="create"). This is the recommended way to resolve document IDs from paths. Right after create, a short retry may be needed while SiYuan indexing catches up.",
-          "requiresConfirmation": false,
-        },
-        "get_path": {
           "requiresConfirmation": false,
         },
         "heading_to_doc": {
@@ -2061,6 +1911,10 @@ document(action="create") uses a human-readable target path such as /Inbox/Weekl
           "hint": "Use either id + title or notebook + path + title.",
           "requiresConfirmation": false,
         },
+        "resolve": {
+          "hint": "Resolve one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.",
+          "requiresConfirmation": false,
+        },
         "search_docs": {
           "hint": "Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.",
           "requiresConfirmation": false,
@@ -2083,16 +1937,13 @@ document(action="create") uses a human-readable target path such as /Inbox/Weekl
         "create_daily_note",
         "duplicate",
         "remove_batch",
-        "create_empty",
         "heading_to_doc",
         "doc_to_heading",
       ],
       "commonActions": [
         "create",
+        "resolve",
         "rename",
-        "get_path",
-        "get_hpath",
-        "get_ids",
         "get_child_blocks",
         "get_child_docs",
         "search_docs",
@@ -2100,14 +1951,14 @@ document(action="create") uses a human-readable target path such as /Inbox/Weekl
       ],
       "detailsHint": "Call document(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
-        "document(action="create") uses a human-readable target path such as /Inbox/Weekly Note.",
-        "Other document actions that use notebook + path expect storage paths returned by document(action="get_path").",
-        "A safe path-based workflow is get_path -> rename/remove/move/get_hpath.",
+        "document(action="create") creates both non-empty and empty documents. Provide either path, or parentPath + title.",
+        "Other document actions that use notebook + path expect storage paths returned by document(action="resolve").",
+        "A safe path-based workflow is resolve -> rename/remove/move.",
         "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
         "document(action="set_cover") is a semantic wrapper around the document root block's "title-img" attribute. Omit source to clear the cover.",
         "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
-        "For recently created documents, get_ids may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
-        "document(action="get_hpath", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+        "For recently created documents, document(action="resolve", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+        "document(action="resolve", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
       ],
       "helpResources": [
         "siyuan://help/action/document/{action}",

@@ -16,13 +16,13 @@
 | 读取 | `get`, `render_attribute_view`, `get_attribute_view_keys`, `get_attribute_view_filter_sort`, `search`, `get_primary_key_values` |
 | 行操作 | `add_rows`, `remove_rows` |
 | 列操作 | `add_column`, `remove_column` |
-| 单元格更新 | `set_cell`, `batch_set_cells` |
+| 单元格更新 | `set_cells` |
 | 结构 | `duplicate_block` |
 
 ## 参数与语义
 
 - `render_attribute_view` 在 `createIfNotExist=true` 时也可创建并实体化 AV
-- `set_cell` 的字段结构由 `valueType` 决定
+- `set_cells` 的字段结构由 `valueType` 决定，可传单格字段或 `cells` 数组
 - `rowID` 指的是行项目 ID，不是源 block ID
 
 ## 安全规则
@@ -70,7 +70,6 @@ siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "纯文本行
 - `remove_rows`
 - `add_column`
 - `remove_column`
-- `set_cell`
-- `batch_set_cells`
+- `set_cells`
 - `duplicate_block`
 - `get_primary_key_values`

@@ -48,16 +48,14 @@ const blockConfig: CategoryToolConfig<'insert' | 'prepend' | 'append' | 'update'
     },
 };
 
-const documentConfig: CategoryToolConfig<'create' | 'rename' | 'remove' | 'move' | 'get_path' | 'get_hpath' | 'get_ids' | 'get_child_blocks' | 'get_child_docs' | 'set_icon' | 'set_cover' | 'clear_cover' | 'list_tree' | 'search_docs' | 'get_doc' | 'create_daily_note'> = {
+const documentConfig: CategoryToolConfig<'create' | 'resolve' | 'rename' | 'remove' | 'move' | 'get_child_blocks' | 'get_child_docs' | 'set_icon' | 'set_cover' | 'clear_cover' | 'list_tree' | 'search_docs' | 'get_doc' | 'create_daily_note'> = {
     enabled: true,
     actions: {
         create: true,
         rename: true,
         remove: true,
         move: true,
-        get_path: true,
-        get_hpath: true,
-        get_ids: true,
+        resolve: true,
         get_child_blocks: true,
         get_child_docs: true,
         set_icon: true,
@@ -296,7 +294,7 @@ describe('tool permission and filtering behavior', () => {
         expect(parsed.warning).toMatch(/SQL fallback/);
     });
 
-    it('retries get_hpath when SiYuan is still indexing', async () => {
+    it('retries resolve hpath when SiYuan is still indexing', async () => {
         vi.spyOn(contextTools, 'ensurePermissionForDocumentId').mockResolvedValue({
             context: { documentId: 'doc-1', notebook: 'allowed', path: '/doc-1.sy' },
             denied: null,
@@ -306,11 +304,12 @@ describe('tool permission and filtering behavior', () => {
             .mockResolvedValueOnce('/Projects/New Doc');
 
         const result = await callDocumentTool({} as never, {
-            action: 'get_hpath',
+            action: 'resolve',
             id: 'doc-1',
+            include: ['hpath'],
         }, documentConfig, permMgr as never);
 
-        expect(parseResult(result)).toBe('/Projects/New Doc');
+        expect(parseResult(result)).toMatchObject({ id: 'doc-1', hPath: '/Projects/New Doc' });
         expect(documentApi.getHPathByID).toHaveBeenCalledTimes(2);
     });
 

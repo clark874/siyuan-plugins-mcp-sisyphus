@@ -3,9 +3,9 @@ export const TOOL_CATEGORIES = ['notebook', 'document', 'block', 'av', 'file', '
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
 export const NOTEBOOK_ACTIONS = ['list', 'create', 'set_open_state', 'remove', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'set_permission', 'get_child_docs'] as const;
-export const DOCUMENT_ACTIONS = ['create', 'rename', 'remove', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'create_empty', 'heading_to_doc', 'doc_to_heading'] as const;
+export const DOCUMENT_ACTIONS = ['create', 'resolve', 'rename', 'remove', 'move', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'heading_to_doc', 'doc_to_heading'] as const;
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'batch_insert', 'batch_update', 'append_daily_note', 'prepend_daily_note', 'doc_info', 'docs_info'] as const;
-export const AV_ACTIONS = ['get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells', 'duplicate_block', 'get_primary_key_values'] as const;
+export const AV_ACTIONS = ['get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate_block', 'get_primary_key_values'] as const;
 export const FILE_ACTIONS = ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'set_image_alpha'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions', 'search_refs', 'find_replace', 'search_assets', 'get_asset_content', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
@@ -86,13 +86,13 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         get_permissions: 'advanced', set_permission: 'advanced',
     },
     document: {
-        create: 'basic', get_doc: 'basic', get_path: 'basic', get_hpath: 'basic',
-        get_ids: 'basic', get_child_blocks: 'basic', get_child_docs: 'basic',
+        create: 'basic', resolve: 'basic', get_doc: 'basic',
+        get_child_blocks: 'basic', get_child_docs: 'basic',
         search_docs: 'basic', rename: 'basic',
         remove: 'advanced', move: 'advanced', set_icon: 'advanced',
         set_cover: 'advanced',
         list_tree: 'advanced', create_daily_note: 'advanced', duplicate: 'advanced',
-        remove_batch: 'advanced', create_empty: 'advanced', heading_to_doc: 'advanced',
+        remove_batch: 'advanced', heading_to_doc: 'advanced',
         doc_to_heading: 'advanced',
     },
     block: {
@@ -110,7 +110,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         get_attribute_view_keys: 'basic', get_attribute_view_filter_sort: 'basic',
         search: 'basic', get_primary_key_values: 'basic',
         add_rows: 'advanced', remove_rows: 'advanced', add_column: 'advanced',
-        remove_column: 'advanced', set_cell: 'advanced', batch_set_cells: 'advanced',
+        remove_column: 'advanced', set_cells: 'advanced',
         duplicate_block: 'advanced',
     },
     file: {
@@ -185,7 +185,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         document: {
             enabled: true,
-            actions: createActionsRecord(DOCUMENT_ACTIONS, ['create', 'rename', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'create_empty', 'heading_to_doc', 'doc_to_heading']),
+            actions: createActionsRecord(DOCUMENT_ACTIONS, ['create', 'resolve', 'rename', 'move', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'heading_to_doc', 'doc_to_heading']),
         },
         block: {
             enabled: true,
@@ -193,7 +193,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         av: {
             enabled: true,
-            actions: createActionsRecord(AV_ACTIONS, ['get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells', 'duplicate_block', 'get_primary_key_values']),
+            actions: createActionsRecord(AV_ACTIONS, ['get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate_block', 'get_primary_key_values']),
         },
         file: {
             enabled: true,
