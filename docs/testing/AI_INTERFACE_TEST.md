@@ -234,7 +234,7 @@ siyuan-sisyphus system get-version
 | `$AV_DETACHED_ROW_ID` | 建议 | 使用 `primaryKeyTexts` 创建的 detached 行 ID |
 | `$AV_COLUMN_ID` | 建议 | 本轮新增测试列 ID |
 | `$AV_DUPLICATE_BLOCK_ID` | 建议 | `duplicate` 生成的数据库块 ID |
-| `$ORIGINAL_PERMISSION` | 是 | 主测试笔记本原始权限；若未显式配置，按 `rwd` 记录 |
+| `$ORIGINAL_PERMISSION` | 是 | 主测试笔记本原始权限；若未显式配置，按 `r` 记录 |
 | `$TEMP_DELETE_DOC_PATH` | 建议 | 专门用于删除权限测试的文档路径 |
 | `$TEMP_DELETE_DOC_STORAGE_PATH` | 建议 | 对应存储路径 |
 | `$FILTER_VISIBLE_NB_ID` | 条件 | 用于权限过滤专项的“可见”对照笔记本 ID |
@@ -651,7 +651,7 @@ AI 不得：
 
 补充规则：
 
-- 未配置的笔记本默认视为 `rwd`
+- 未配置的笔记本默认视为 `r`（只读）；新建测试笔记本后若要执行写/删基线，先显式设置为 `rwd`
 - 权限变更通过 `notebook.set_permission` 生效于后续调用
 - CLI 模式下，命令发出即视为用户确认；MCP 模式下，权限修改属于高风险动作
 - 删除权限与写权限不同：`rw` 允许写，但不允许删除
@@ -669,7 +669,7 @@ AI 不得：
 在开始权限矩阵前，必须先完成：
 
 1. `notebook.get_permissions`，记录 `$ORIGINAL_PERMISSION`
-   - 如果没有 `$TEST_NB_ID` 的显式条目，记录为 `rwd`
+   - 如果没有 `$TEST_NB_ID` 的显式条目，记录为 `r`
 2. 确保存在以下可复用对象：
    - `$ROOT_DOC_ID`
    - `$ROOT_DOC_STORAGE_PATH`
@@ -832,7 +832,7 @@ AI 不得：
 权限专项结束后，必须恢复：
 
 1. 优先恢复 `$ORIGINAL_PERMISSION`
-2. 若原始值无法可靠识别，恢复到 `rwd`
+2. 若原始值无法可靠识别，恢复到 `r`
 3. 恢复后再次执行一个读动作和一个写动作，确认权限恢复生效
 
 建议恢复验证：
@@ -863,7 +863,7 @@ AI 不得：
 
 建议清理顺序：
 
-1. 恢复权限到 `$ORIGINAL_PERMISSION` 或 `rwd`
+1. 恢复权限到 `$ORIGINAL_PERMISSION` 或 `r`
 2. 删除 AV 复制块、测试列、测试行
 3. 删除临时测试块
 4. 删除子文档、主文档、临时删除文档

@@ -23,6 +23,7 @@ export const NOTEBOOK_GUIDANCE: string[] = [
 
 export const DOCUMENT_GUIDANCE: string[] = [
     'document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.',
+    'For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.',
     'Other document actions that use notebook + path expect storage paths returned by document(action="lookup").',
     'A safe path-based workflow is lookup -> rename/remove/move.',
     'document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.',
@@ -104,7 +105,7 @@ export const NOTEBOOK_ACTION_HINTS: Partial<Record<NotebookAction, string>> = {
 
 export const DOCUMENT_ACTION_HINTS: Partial<Record<DocumentAction, string>> = {
     create: 'Use notebook plus path for the most reliable child-document creation flow. parentPath + title is supported, but SiYuan may return a non-ID raw value, so MCP resolves the real document ID by hpath after creation. markdown is optional and defaults to empty.',
-    lookup: 'Look up one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.',
+    lookup: 'Look up one reference at a time. Use id, notebook + storage path, or notebook + hpath/hPath. The path field means storage path like /20240318112233-abc123.sy; use hpath for human-readable paths.',
     rename: 'Use either id + title or notebook + path + title.',
     remove: 'Use either id or notebook + path. This action requires explicit user confirmation.',
     move: 'Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.',

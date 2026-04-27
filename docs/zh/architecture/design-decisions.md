@@ -114,7 +114,7 @@ Layer 3: 完整参考文档（docs/ 站点）
 | `none` | 完全禁止 | 敏感 notebook |
 | `r` | 只读 | 参考性 notebook |
 | `rw` | 读写（不含删除）| 日常工作 notebook |
-| `rwd` | 完全权限（默认）| 信任区域 |
+| `rwd` | 完全权限 | 信任区域 |
 
 **实现细节**：
 - 权限文件存储在 `/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions`

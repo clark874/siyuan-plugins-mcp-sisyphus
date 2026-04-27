@@ -269,7 +269,7 @@ runToolCall(ctx, handler)
 
 **存储位置**：`/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions`
 
-**CLI 兼容**：CLI 启动时也会创建 `PermissionManager` 并读取同一份权限文件；未配置的 notebook 兜底为 `rwd`。
+**CLI 兼容**：CLI 启动时也会创建 `PermissionManager` 并读取同一份权限文件；未配置的 notebook 兜底为 `r`（只读）。
 
 **依赖**：`api/client.ts`
 

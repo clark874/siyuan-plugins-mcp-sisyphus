@@ -43,6 +43,7 @@
 
 - 表示真实文件存储位置
 - 通过 `document(action="lookup", id=..., include="path")` 获取
+- 如果已有的是人类可读路径，请传 `hpath`；`lookup` 会为了兼容把非存储格式的 `path` 当作 `hpath` 解析，但新调用应使用明确字段。
 
 ## 安全工作流
 

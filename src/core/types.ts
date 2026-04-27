@@ -178,7 +178,7 @@ export const DocumentLookupSchema = z.object({
     action: z.literal("lookup"),
     id: z.string().optional().describe("Document ID to look up"),
     notebook: z.string().optional().describe("Notebook ID, required with path or hpath"),
-    path: z.string().optional().describe("Storage path to look up when notebook is provided"),
+    path: z.string().optional().describe("Storage path to look up when notebook is provided, e.g. /20240318112233-abc123.sy. Human-readable paths should use hpath instead."),
     hpath: z.string().optional().describe("Human-readable path to look up when notebook is provided"),
     hPath: z.string().optional().describe("Alias for hpath"),
     include: z.array(DocumentResolveIncludeSchema).optional().describe('Fields to include: "id", "ids", "path", "hpath", "docInfo"'),

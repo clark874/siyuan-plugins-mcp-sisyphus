@@ -43,6 +43,10 @@ const GET_IDS_BY_HPATH_RETRY_DELAYS_MS = [120, 240, 480];
 
 const DEFAULT_DOCUMENT_RESOLVE_INCLUDE = ['path', 'hpath'] as const;
 
+function looksLikeStoragePath(path: string): boolean {
+    return path === '/' || /\.sy(?:\/|$)/.test(path);
+}
+
 async function setDocumentAttrsViaTransaction(
     client: SiYuanClient,
     id: string,
@@ -339,6 +343,27 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
     if (parsed.path) {
         result.notebook = parsed.notebook;
         result.path = parsed.path;
+
+        if (!looksLikeStoragePath(parsed.path)) {
+            const ids = await documentApi.getIDsByHPath(client, parsed.path, parsed.notebook!);
+            const primaryId = ids[0];
+            result.source = { type: 'hpath', notebook: parsed.notebook, hPath: parsed.path, providedAs: 'path' };
+            result.hPath = parsed.path;
+            result.interpretedPathAs = 'hpath';
+            result.hint = 'document.lookup path expects a storage path such as /20240318112233-abc123.sy. Human-readable paths should be passed as hpath; this call was interpreted as hpath for compatibility.';
+            if (include.has('ids') || include.has('id')) {
+                result.ids = ids;
+                if (include.has('id')) result.id = primaryId;
+            }
+            if (primaryId && include.has('path')) {
+                result.path = await documentApi.getPathByID(client, primaryId);
+            }
+            if (primaryId && include.has('docInfo')) {
+                result.docInfo = await blockApi.getDocInfo(client, primaryId);
+            }
+            return createJsonResult(result);
+        }
+
         let resolvedHPath: string | undefined;
         if (include.has('hpath') || include.has('id') || include.has('ids')) {
             resolvedHPath = await documentApi.getHPathByPath(client, parsed.notebook!, parsed.path);

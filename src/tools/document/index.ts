@@ -53,7 +53,7 @@ const documentTool = defineTool<DocumentAction>({
         guidance: DOCUMENT_GUIDANCE,
         actionHints: DOCUMENT_ACTION_HINTS,
         propertyDescriptionOverrides: {
-            path: 'Path value. For action="create", use a human-readable target path such as /Inbox/Weekly Note. For path-based rename/remove/move, use a storage path returned by document(action="lookup").',
+            path: 'Path value. For action="create", use a human-readable target path such as /Inbox/Weekly Note. For action="lookup" and path-based rename/remove/move, use a storage path returned by document(action="lookup", id=..., include=["path"]); use hpath for human-readable lookup.',
             fromPaths: 'Source storage paths returned by document(action="lookup").',
             toPath: 'Target storage path. Use the storage path of an existing destination document returned by document(action="lookup").',
         },

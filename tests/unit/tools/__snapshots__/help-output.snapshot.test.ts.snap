@@ -1162,6 +1162,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/create",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1189,6 +1190,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/create_daily_note",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1217,6 +1219,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/doc_to_heading",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1244,6 +1247,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/duplicate",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1270,6 +1274,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/get_child_blocks",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1297,6 +1302,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/get_child_docs",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1324,6 +1330,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/get_doc",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1352,6 +1359,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/heading_to_doc",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1380,6 +1388,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/list_tree",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1407,6 +1416,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/lookup",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1415,7 +1425,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "For recently created documents, document(action="lookup", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
           "document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
-        "hint": "Look up one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.",
+        "hint": "Look up one reference at a time. Use id, notebook + storage path, or notebook + hpath/hPath. The path field means storage path like /20240318112233-abc123.sy; use hpath for human-readable paths.",
         "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
@@ -1431,6 +1441,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/move",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1455,6 +1466,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/remove",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1480,6 +1492,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/rename",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1508,6 +1521,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/search_docs",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1539,6 +1553,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/set_attr",
         "guidance": [
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
           "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
@@ -1582,7 +1597,7 @@ document.duplicate: required [id] | optional []
 document.heading_to_doc: required [headingID, targetNotebook] | optional [targetPath, previousPath]
 document.doc_to_heading: required [srcID, targetID] | optional [after]
 
-document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it. Other document actions that use notebook + path expect storage paths returned by document(action="lookup"). Requires user confirmation before: remove, move.",
+document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it. For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note. Requires user confirmation before: remove, move.",
     "overview": {
       "actionSummaries": {
         "create": "Use notebook plus path for the most reliable child-document creation flow. parentPath + title is supported, but SiYuan may return a non-ID raw value, so MCP resolves the real document ID by hpath after creation. markdown is optional and defaults to empty.",
@@ -1594,7 +1609,7 @@ document(action="create") creates both non-empty and empty documents. Prefer pat
         "get_doc": "Use a document ID. mode="markdown" returns clean Markdown content and supports page/pageSize for long documents; mode="html" uses the current focus view. For structured reading, prefer get_child_blocks.",
         "heading_to_doc": "requires: headingID, targetNotebook",
         "list_tree": "Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.",
-        "lookup": "Look up one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.",
+        "lookup": "Look up one reference at a time. Use id, notebook + storage path, or notebook + hpath/hPath. The path field means storage path like /20240318112233-abc123.sy; use hpath for human-readable paths.",
         "move": "Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.",
         "remove": "Use either id or notebook + path. This action requires explicit user confirmation.",
         "rename": "Use either id + title or notebook + path + title.",
@@ -1636,7 +1651,7 @@ document(action="create") creates both non-empty and empty documents. Prefer pat
           "requiresConfirmation": false,
         },
         "lookup": {
-          "hint": "Look up one reference at a time. Use id, or notebook + path, or notebook + hpath/hPath, then include any of id/ids/path/hpath/docInfo.",
+          "hint": "Look up one reference at a time. Use id, notebook + storage path, or notebook + hpath/hPath. The path field means storage path like /20240318112233-abc123.sy; use hpath for human-readable paths.",
           "requiresConfirmation": false,
         },
         "move": {
@@ -1682,6 +1697,7 @@ document(action="create") creates both non-empty and empty documents. Prefer pat
       "detailsHint": "Call document(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
         "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+        "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
         "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
         "A safe path-based workflow is lookup -> rename/remove/move.",
         "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",

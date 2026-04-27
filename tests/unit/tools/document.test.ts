@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { buildDefaultToolConfig } from '@/core/config';
 import { DocumentMoveSchema } from '@/core/types';
 import { callDocumentTool, DOCUMENT_VARIANTS, listDocumentTools } from '@/tools/document';
+import { createMockClient } from '../../helpers/mock-client';
+import { parseResult } from '../../helpers/parse-result';
 
 describe('document tool extended actions', () => {
     it('exposes filetree enhancement actions in the grouped schema', () => {
@@ -94,5 +96,37 @@ describe('document.move schema', () => {
         expect(payload.error.validActions).toContain('create');
         expect(payload.error.validActions).toContain('help');
         expect(payload.error.validActions).not.toContain('not_exist_action');
+    });
+});
+
+describe('document.lookup path compatibility', () => {
+    it('interprets non-storage path input as hpath and returns the storage path', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string) => {
+                if (endpoint === '/api/filetree/getIDsByHPath') return ['doc-1'];
+                if (endpoint === '/api/filetree/getPathByID') return { notebook: 'nb-1', path: '/doc-1.sy' };
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canRead: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+
+        const result = await callDocumentTool(
+            client,
+            { action: 'lookup', notebook: 'nb-1', path: '/AI Interface Root 20260427_144409', include: ['id', 'path', 'hpath'] },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+        const payload = parseResult(result) as Record<string, unknown>;
+
+        expect(result.isError).toBeUndefined();
+        expect(payload.id).toBe('doc-1');
+        expect(payload.path).toEqual({ notebook: 'nb-1', path: '/doc-1.sy' });
+        expect(payload.hPath).toBe('/AI Interface Root 20260427_144409');
+        expect(payload.interpretedPathAs).toBe('hpath');
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/getHPathByPath', expect.anything());
     });
 });

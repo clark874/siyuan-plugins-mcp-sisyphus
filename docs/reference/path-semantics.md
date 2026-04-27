@@ -43,6 +43,7 @@ Rules:
 
 - Represents the real file storage location
 - Obtain it through `document(action="lookup", id=..., include="path")`
+- If you already have a human-readable path, pass it as `hpath`; `lookup` may interpret a non-storage `path` as `hpath` for compatibility, but new calls should use the explicit field.
 
 ## Safe Workflow
 

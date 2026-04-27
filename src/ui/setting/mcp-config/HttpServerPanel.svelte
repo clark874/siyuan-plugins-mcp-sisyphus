@@ -32,9 +32,9 @@
         {
             id: "opencode",
             titleKey: "mcpPresetOpenCodeTitle",
-            titleFallback: "opencode",
+            titleFallback: "OpenCode",
             descKey: "mcpPresetOpenCodeDesc",
-            descFallback: "Copy opencode.jsonc mcp configuration.",
+            descFallback: "Copy OpenCode opencode.jsonc mcp configuration.",
         },
         {
             id: "codex",
@@ -53,14 +53,14 @@
         {
             id: "cc-switch",
             titleKey: "mcpPresetCcSwitchTitle",
-            titleFallback: "cc-switch",
+            titleFallback: "CC Switch",
             descKey: "mcpPresetCcSwitchDesc",
-            descFallback: "Copy cc-switch server-map JSON.",
+            descFallback: "Copy CC Switch server-map JSON.",
         },
         {
             id: "generic-json",
             titleKey: "mcpPresetGenericTitle",
-            titleFallback: "Cursor / generic JSON",
+            titleFallback: "Cursor / Generic JSON",
             descKey: "mcpPresetGenericDesc",
             descFallback: "Copy the common mcpServers JSON used by many MCP clients.",
         },
@@ -182,8 +182,8 @@
         return s.authEnabled ? { Authorization: `Bearer ${s.token}` } : undefined;
     }
 
-    function getStdioServerConfig() {
-        return {
+    function getStdioServerConfig(includeType = false) {
+        const config: any = {
             command: "node",
             args: [getWorkspaceScriptPath()],
             env: {
@@ -191,15 +191,27 @@
                 SIYUAN_TOKEN: getSiYuanApiToken(),
             },
         };
+        if (includeType) config.type = "stdio";
+        return config;
     }
 
-    function generateClientSnippet(s: HttpServerSettings, mode: McpTransportId): string {
+    function generateClaudeCodeConfig(s: HttpServerSettings, mode: McpTransportId): string {
         const url = getHttpMcpUrl(s);
         if (mode === "http") {
             const headers = getHttpAuthHeaders(s);
             const obj: any = { mcpServers: { [MCP_SERVER_NAME]: { type: "http", url } } };
             if (headers) obj.mcpServers[MCP_SERVER_NAME].headers = headers;
             return JSON.stringify(obj, null, 2);
+        }
+        return JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: getStdioServerConfig(true) } }, null, 2);
+    }
+
+    function generateCursorJsonConfig(s: HttpServerSettings, mode: McpTransportId): string {
+        if (mode === "http") {
+            const server: any = { url: getHttpMcpUrl(s) };
+            const headers = getHttpAuthHeaders(s);
+            if (headers) server.headers = headers;
+            return JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: server } }, null, 2);
         }
         return JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: getStdioServerConfig() } }, null, 2);
     }
@@ -232,9 +244,9 @@
 
     function generateKimiConfig(s: HttpServerSettings, transport: McpTransportId): string {
         if (transport === "stdio") {
-            return generateClientSnippet(s, "stdio");
+            return JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: getStdioServerConfig() } }, null, 2);
         }
-        const server: any = { url: getHttpMcpUrl(s) };
+        const server: any = { url: getHttpMcpUrl(s), transport: "http" };
         const headers = getHttpAuthHeaders(s);
         if (headers) server.headers = headers;
         return JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: server } }, null, 2);
@@ -242,20 +254,20 @@
 
     function generateOpenCodeConfig(s: HttpServerSettings, transport: McpTransportId): string {
         const stdio = getStdioServerConfig();
-        const command = transport === "http"
-            ? ["npx", "mcp-remote", getHttpMcpUrl(s)]
-            : [stdio.command, ...stdio.args];
-        if (transport === "http" && s.authEnabled) {
-            command.push("--header", `Authorization: Bearer ${s.token}`);
-        }
-        const server: any = {
-            type: "local",
-            command,
-            enabled: true,
-        };
-        if (transport === "stdio") {
-            server.environment = stdio.env;
-        }
+        const server: any = transport === "http"
+            ? {
+                type: "remote",
+                url: getHttpMcpUrl(s),
+                enabled: true,
+            }
+            : {
+                type: "local",
+                command: [stdio.command, ...stdio.args],
+                enabled: true,
+                environment: stdio.env,
+            };
+        const headers = getHttpAuthHeaders(s);
+        if (transport === "http" && headers) server.headers = headers;
         return JSON.stringify({
             $schema: "https://opencode.ai/config.json",
             mcp: { [MCP_SERVER_NAME]: server },
@@ -300,12 +312,13 @@
     }
 
     function generatePresetSnippet(s: HttpServerSettings, preset: McpClientPresetId, transport: McpTransportId): string {
+        if (preset === "claude-code") return generateClaudeCodeConfig(s, transport);
         if (preset === "kimi") return generateKimiConfig(s, transport);
         if (preset === "opencode") return generateOpenCodeConfig(s, transport);
         if (preset === "codex") return generateCodexConfig(s, transport);
         if (preset === "cherry-studio") return generateCherryStudioConfig(s, transport);
         if (preset === "cc-switch") return generateCcSwitchConfig(s, transport);
-        return generateClientSnippet(s, transport);
+        return generateCursorJsonConfig(s, transport);
     }
 
     async function copyText(text: string) {
