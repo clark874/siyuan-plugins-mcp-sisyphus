@@ -127,6 +127,13 @@ export async function duplicateAttributeViewBlock(
     return client.request<{ avID: string; blockID: string }>('/api/av/duplicateAttributeViewBlock', { avID });
 }
 
+export async function spinBlockDOM(
+    client: SiYuanClient,
+    dom: string,
+): Promise<{ dom: string }> {
+    return client.request<{ dom: string }>('/api/lute/spinBlockDOM', { dom });
+}
+
 export async function getMirrorDatabaseBlocks(
     client: SiYuanClient,
     avID: string,

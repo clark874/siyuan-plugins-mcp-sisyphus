@@ -610,6 +610,7 @@ const AvCellUpdateItemSchema = z.object({
 export const AvGetSchema = z.object({
     action: z.literal("get"),
     id: z.string().describe("Attribute view ID"),
+    blockID: z.string().optional().describe("Optional database block ID for exact context or fallback permission resolution"),
 });
 
 export const AvRenderSchema = z.object({
@@ -738,7 +739,8 @@ export const AvSetCellsSchema = z.object({
 export const AvDuplicateSchema = z.object({
     action: z.literal("duplicate"),
     avID: z.string().describe("Source attribute view ID"),
-    previousID: z.string().optional().describe("Optional block ID to insert the duplicated database block after, overriding the default source-block insertion target"),
+    blockID: z.string().optional().describe("Optional source database block ID used as exact context and default insertion target"),
+    previousID: z.string().optional().describe("Optional block ID to insert the duplicated mirror database block after"),
 });
 
 export const AvGetPrimaryKeyValuesSchema = z.object({

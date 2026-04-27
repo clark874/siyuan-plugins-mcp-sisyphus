@@ -21,11 +21,12 @@
 
 ## 参数与语义
 
-- `render` 在 `createIfNotExist=true` 且传入 `blockID` 时，也可创建并实体化 AV。
-- 保留 `render(createIfNotExist=true)` 返回的 `blockID`。如果新建空 AV 后仅用 `avID` 读取或写入时报权限范围无法解析，请在后续 AV 读写中显式传入该 `blockID`，直到 AV 有行数据或 mirror 注册完成。
+- `render` 在 `createIfNotExist=true` 且传入 `blockID` 时，也可创建并实体化 AV。此时 `blockID` 表示目标父级 / 插入上下文，MCP 会通过思源风格的 spun AV block DOM 与 transaction 完成插入。
+- 保留 `render(createIfNotExist=true)` 返回的 `blockID`。后续 AV 读写通常只需要 `avID`；MCP 会从行绑定块、镜像数据库块，或 blocks 表中的 AV 块记录自动解析 owning database block。需要固定某个数据库块视图、存在多个镜像候选，或需要为刚创建的空 AV 提供显式兜底时，再传 `blockID`。
 - `set_cells` 由 `valueType` 决定值类型，既支持单格字段，也支持 `cells` / `items` 数组。
 - `rowID` 指行 item ID，不是源块 ID。
-- `duplicate` 会复制属性视图定义，也可通过 `previousID` 指定复制出的数据库块插入位置。
+- AV 写操作会尽量对齐思源前端 transaction operation，包括行、列、单元格操作，以及数据库块 `updated` 刷新元数据。
+- `duplicate` 对齐思源“复制为镜像”的流程：复制 AV 定义、生成数据库块 DOM，并通过 transaction 插入镜像数据库块。提供 `previousID` 时会作为插入位置；否则使用 `blockID` 或自动解析到的 owning database block 作为默认插入上下文。
 
 ## 安全规则
 

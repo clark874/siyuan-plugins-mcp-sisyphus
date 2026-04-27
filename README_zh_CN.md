@@ -302,7 +302,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | Action | 说明 |
 |--------|------|
 | `get` | 按 `id` 读取属性视图（数据库） |
-| `render` | 渲染数据库视图，支持 `createIfNotExist` |
+| `render` | 渲染数据库视图；`createIfNotExist` 可实体化思源 AV 块 |
 | `get_attribute_view_keys` | 返回属性视图的列信息 |
 | `get_attribute_view_filter_sort` | 返回视图的筛选与排序配置 |
 | `search` | 按关键词搜索属性视图 |
@@ -311,7 +311,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `add_column` | 新增数据库列 |
 | `remove_column` | 删除属性视图中的一列 |
 | `set_cells` | 更新一个或多个单元格 |
-| `duplicate` | 复制属性视图定义 |
+| `duplicate` | 按思源“复制为镜像”流程复制属性视图 |
 | `get_primary_key_values` | 获取主键列对应的行数据 |
 
 #### `file`

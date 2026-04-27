@@ -303,7 +303,7 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | Action | Description |
 |--------|-------------|
 | `get` | Read an attribute view (database) by `id` |
-| `render` | Render database view, supports `createIfNotExist` |
+| `render` | Render a database view; with `createIfNotExist`, materialize a SiYuan AV block |
 | `get_attribute_view_keys` | Return attribute view column info |
 | `get_attribute_view_filter_sort` | Return filter and sort config for a view |
 | `search` | Search attribute views by keyword |
@@ -312,7 +312,7 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | `add_column` | Add a database column |
 | `remove_column` | Remove a column from an attribute view |
 | `set_cells` | Update one or more cells |
-| `duplicate` | Duplicate an attribute view definition |
+| `duplicate` | Duplicate an attribute view using SiYuan's copy-as-mirror flow |
 | `get_primary_key_values` | Get primary-key row data |
 
 #### `file`

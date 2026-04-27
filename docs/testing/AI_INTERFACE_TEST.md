@@ -559,7 +559,9 @@ AV 测试必须走**本轮创建真实 AV** 的主路径，不得把“复制已
 - `$AV_ID`：返回中的 `avID` / `id`
 - `$AV_BLOCK_ID`：materialized 数据库块 ID
 
-后续 AV 写操作通常只需要 `avID=$AV_ID`。当前实现会根据 AV 的 mirror database block 或 AV 结构自动解析权限上下文与刷新目标；`blockID` 是可选的精确上下文参数，只在需要固定某个数据库块视图、指定 view/group 插入语义，或刚创建 AV 后 mirror 注册尚未收敛导致自动解析失败时再传。
+后续 AV 写操作通常只需要 `avID=$AV_ID`。当前实现会根据行绑定块、mirror database block，以及 blocks 表中的 AV 块记录自动解析 owning database block、权限上下文与刷新目标；`blockID` 是可选的精确上下文参数，只在需要固定某个数据库块视图、指定 view/group 插入语义、存在多个镜像候选，或需要为刚创建的空 AV 提供显式兜底时再传。
+
+`render(createIfNotExist=true)` 与 `duplicate` 都应通过思源风格的 spun AV block DOM + transaction 物化数据库块。验证时不应出现前端损坏的 AV DOM，也不应因把 `avID` 当作文档 root ID 解析而持续污染内核 `blockinfo.go:61` ERROR 日志。
 
 以下写操作都应验证“省略 `blockID` 也能正常工作”；如需排查上下文歧义，再补测显式 `blockID=$AV_BLOCK_ID`：
 
@@ -615,7 +617,7 @@ AI 必须在自己创建的 AV 上完成以下动作链路：
 | 空 `add_rows` | 不报错，返回 `skipped: true`、`added: 0`，说明未提供 `blockIDs` 或 `primaryKeyTexts` |
 | `add_column` | 成功新增测试列，例如文本列 |
 | `set_cells` | 能给指定行写入单元格值，也能批量写入值 |
-| `duplicate` | 能复制出新的 AV 块 |
+| `duplicate` | 能按思源“复制为镜像”流程复制出新的 AV 块；空 AV 与有行 AV 都应通过 |
 | `remove_rows` | 能删除指定测试行 |
 | `remove_column` | 能删除本轮新增测试列 |
 

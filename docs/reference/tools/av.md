@@ -21,11 +21,12 @@ Related pages:
 
 ## Parameters and Semantics
 
-- `render` can also create and materialize an AV when `createIfNotExist=true` and `blockID` is provided.
-- Keep the `blockID` returned by `render(createIfNotExist=true)`. If a newly created empty AV later reports that permission scope cannot be resolved from `avID` alone, pass that `blockID` explicitly on AV reads/writes until the AV has row data or mirror registration has settled.
+- `render` can also create and materialize an AV when `createIfNotExist=true` and `blockID` is provided. In this mode, `blockID` is the target parent/insertion context, and MCP inserts a SiYuan-style spun AV block through a transaction.
+- Keep the `blockID` returned by `render(createIfNotExist=true)`. Later AV reads and writes usually only need `avID`; MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record. Pass `blockID` when you need an exact database-block view context, when multiple mirrors are possible, or as an explicit fallback for a brand-new empty AV.
 - `set_cells` is typed by `valueType` and accepts either single-cell fields or a `cells` / `items` array.
 - `rowID` refers to the row item ID, not the source block ID.
-- `duplicate` duplicates the attribute view definition and can insert the duplicated database block after `previousID`.
+- AV writes follow SiYuan frontend transaction operations where possible, including row/column/cell operations and database block `updated` refresh metadata.
+- `duplicate` follows SiYuan's copy-as-mirror flow: it duplicates the AV definition, spins the AV block DOM, and inserts the mirror database block through a transaction. `previousID` controls the insertion position when provided; otherwise `blockID` or an automatically resolved owning database block is used as the default insertion context.
 
 ## Safety Rules
 

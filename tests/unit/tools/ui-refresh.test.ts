@@ -24,6 +24,7 @@ vi.mock('@/tools/context', () => ({
     })),
     resolveResultItemContext: vi.fn(),
     createResultResolutionCache: vi.fn(() => ({ documentContextById: new Map(), notebookByPath: new Map() })),
+    escapeSqlString: (value: string) => value.replace(/\0/g, '').replace(/'/g, "''"),
 }));
 
 vi.mock('@/api/block', () => ({
@@ -56,8 +57,13 @@ vi.mock('@/api/av', () => ({
     setAttributeViewBlockAttr: vi.fn(),
     batchSetAttributeViewBlockAttrs: vi.fn(),
     duplicateAttributeViewBlock: vi.fn(),
+    spinBlockDOM: vi.fn(),
     getMirrorDatabaseBlocks: vi.fn(),
     getAttributeViewPrimaryKeyValues: vi.fn(),
+}));
+
+vi.mock('@/api/search', () => ({
+    querySQL: vi.fn(),
 }));
 
 vi.mock('@/api/transaction', () => ({
@@ -127,6 +133,7 @@ describe('UI refresh integration', () => {
         const notebookApi = await import('@/api/notebook');
         const tagApi = await import('@/api/tag');
         const avApi = await import('@/api/av');
+        const searchApi = await import('@/api/search');
         const context = await import('@/tools/context');
 
         vi.mocked(blockApi.appendBlock).mockReset();
@@ -141,6 +148,7 @@ describe('UI refresh integration', () => {
         vi.mocked(avApi.addAttributeViewKey).mockReset();
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockReset();
         vi.mocked(avApi.setAttributeViewBlockAttr).mockReset();
+        vi.mocked(searchApi.querySQL).mockReset();
         vi.mocked(context.resolveDocumentContextById).mockReset();
 
         vi.mocked(blockApi.appendBlock).mockResolvedValue([{ doOperations: [{ id: 'block-new' }] }] as never);
@@ -152,6 +160,7 @@ describe('UI refresh integration', () => {
         vi.mocked(avApi.addAttributeViewBlocks).mockResolvedValue(null);
         vi.mocked(avApi.addAttributeViewKey).mockResolvedValue(null);
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockResolvedValue({ refDefs: [] });
+        vi.mocked(searchApi.querySQL).mockResolvedValue([]);
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
                 id: 'av-1',

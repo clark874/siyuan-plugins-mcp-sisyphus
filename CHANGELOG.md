@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## Unreleased
+
+- AV 工具对齐思源“复制为镜像”实现：`duplicate` 通过复制 AV 定义、spun AV block DOM 与 transaction 插入生成镜像数据库块，空 AV 与有行 AV 均可复制
+- `av.render(createIfNotExist=true)` 改为同样的安全物化路径，避免前端收到不完整数据库块 DOM 后触发 `innerHTML` 空引用错误
+- AV 写操作对齐思源前端 transaction 流程：`add_rows`、`remove_rows`、`add_column`、`remove_column`、`set_cells` 改用 `insertAttrViewBlock` / `removeAttrViewBlock` / `addAttrViewCol` / `removeAttrViewCol` / `updateAttrViewCell`，并补充数据库块 `updated` 更新
+- AV 权限与上下文解析增强：空 AV 可从行绑定块、镜像数据库块或 blocks 表中的 AV 块记录自动解析 owning database block；`blockID` 保留为精确上下文与兜底参数
+- 移除 AV 上下文解析中的通用 `getDocInfo(avID)` 回退，减少思源内核 `blockinfo.go:61 load tree by root id ... failed` 噪声日志
+
 ## v0.3.4 - 2026-04-26
 
 - AV 工具 `add_rows` 支持通过 `primaryKeyTexts` 直接添加 detached 游离行，无需绑定现有内容块；`batch_set_cells` 修复 cell value 构建方式，确保批量写入正确生效
