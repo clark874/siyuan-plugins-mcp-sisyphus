@@ -2,13 +2,19 @@
 
 本文件记录项目的主要版本变更。
 
-## Unreleased
+## v0.3.5 - 2026-04-27
 
-- AV 工具对齐思源“复制为镜像”实现：`duplicate` 通过复制 AV 定义、spun AV block DOM 与 transaction 插入生成镜像数据库块，空 AV 与有行 AV 均可复制
+- AV 工具对齐思源"复制为镜像"实现：`duplicate` 通过复制 AV 定义、spun AV block DOM 与 transaction 插入生成镜像数据库块，空 AV 与有行 AV 均可复制
 - `av.render(createIfNotExist=true)` 改为同样的安全物化路径，避免前端收到不完整数据库块 DOM 后触发 `innerHTML` 空引用错误
 - AV 写操作对齐思源前端 transaction 流程：`add_rows`、`remove_rows`、`add_column`、`remove_column`、`set_cells` 改用 `insertAttrViewBlock` / `removeAttrViewBlock` / `addAttrViewCol` / `removeAttrViewCol` / `updateAttrViewCell`，并补充数据库块 `updated` 更新
 - AV 权限与上下文解析增强：空 AV 可从行绑定块、镜像数据库块或 blocks 表中的 AV 块记录自动解析 owning database block；`blockID` 保留为精确上下文与兜底参数
 - 移除 AV 上下文解析中的通用 `getDocInfo(avID)` 回退，减少思源内核 `blockinfo.go:61 load tree by root id ... failed` 噪声日志
+- Document 工具 `lookup` 智能容错：当 `path` 参数传入人类可读路径而非存储路径时，自动按 `hpath` 解释并返回兼容提示
+- HTTP Server 设置面板预设文案规范化，stdio 配置生成包含 `type` 字段
+- Flashcard `list_cards` 支持 `reviewedCards` 透传；`create_card` 简化实现，依赖思源 `addRiffCards` 自动处理卡组绑定
+- Block / Document 属性写入统一走 `transaction API`，与思源前端行为一致
+- 聚合工具变体定义全面改用 Zod 自动生成 JSON Schema，消除手动维护的重复代码
+- 新增 action-contract、notebook、system、tag 单元测试；HTTP 面板增加 7 个 MCP 客户端配置预设
 
 ## v0.3.4 - 2026-04-26
 

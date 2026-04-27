@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
 </p>
 
-> **Latest:** `v0.3.4` — AV `add_rows` gains detached-row support via `primaryKeyTexts`; SQL read-only guard is now a full lexer; flashcard `review_card` schema tightened. See [CHANGELOG.md](./CHANGELOG.md) for full history.
+> **Latest:** `v0.3.5` — AV actions aligned with SiYuan frontend transaction flow; document `lookup` gains smart hpath fallback; HTTP panel adds 7 MCP client presets. See [CHANGELOG.md](./CHANGELOG.md) for full history.
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
