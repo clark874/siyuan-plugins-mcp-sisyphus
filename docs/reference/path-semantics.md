@@ -14,7 +14,7 @@ Related pages:
 Used by:
 
 - `document(action="create")`
-- `document(action="get_ids")`
+- `document(action="lookup", hpath=...)`
 
 Format:
 
@@ -32,7 +32,7 @@ Used by:
 - `document(action="rename")`
 - `document(action="remove")`
 - `document(action="move")`
-- `document(action="get_hpath")`
+- `document(action="lookup", path=...)`
 - `document(action="list_tree")`
 
 Format:
@@ -42,9 +42,10 @@ Format:
 Rules:
 
 - Represents the real file storage location
-- Obtain it through `document(action="get_path", id=...)`
+- Obtain it through `document(action="lookup", id=..., include="path")`
+- If you already have a human-readable path, pass it as `hpath`; `lookup` may interpret a non-storage `path` as `hpath` for compatibility, but new calls should use the explicit field.
 
 ## Safe Workflow
 
-1. Call `document(action="get_path", id=...)`
+1. Call `document(action="lookup", id=..., include="path")`
 2. Reuse the returned storage path in follow-up operations

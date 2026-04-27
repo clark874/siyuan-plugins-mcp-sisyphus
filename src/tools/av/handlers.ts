@@ -1,25 +1,26 @@
 import type { SiYuanClient } from '@/api/client';
 import * as avApi from '../../api/av';
 import * as blockApi from '../../api/block';
+import * as searchApi from '../../api/search';
 import * as transactionApi from '../../api/transaction';
+import type { TransactionOperation } from '../../api/transaction';
 import type { AvAction } from '../../core/config';
 import type { PermissionManager } from '../../core/permissions';
 import {
     AvAddColumnSchema,
     AvAddRowsSchema,
-    AvBatchSetCellsSchema,
-    AvDuplicateBlockSchema,
+    AvDuplicateSchema,
     AvGetAttributeViewFilterSortSchema,
     AvGetAttributeViewKeysSchema,
     AvGetPrimaryKeyValuesSchema,
     AvGetSchema,
-    AvRenderAttributeViewSchema,
+    AvRenderSchema,
     AvRemoveColumnSchema,
     AvRemoveRowsSchema,
     AvSearchSchema,
-    AvSetCellSchema,
+    AvSetCellsSchema,
 } from '../../core/types';
-import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocumentContextById, resolveResultItemContext } from '../context';
+import { createResultResolutionCache, ensurePermissionForDocumentId, escapeSqlString, resolveDocumentContextById, resolveResultItemContext } from '../context';
 import type { ToolActionHandler, ToolHandlerContext } from '../define-tool';
 import { isMissingBlockError, translateError } from '../errorTranslation';
 import { createJsonResult, createPaginatedResult, createWriteSuccessResult, type ToolResult } from '../shared';
@@ -46,18 +47,6 @@ function generateSiYuanNodeId(now = new Date()): string {
     return `${timestamp}-${suffix}`;
 }
 
-function formatSiYuanTimestamp(now = new Date()): string {
-    const pad = (value: number, length = 2) => String(value).padStart(length, '0');
-    return [
-        now.getFullYear(),
-        pad(now.getMonth() + 1),
-        pad(now.getDate()),
-        pad(now.getHours()),
-        pad(now.getMinutes()),
-        pad(now.getSeconds()),
-    ].join('');
-}
-
 type AvContextResolution = {
     avData: unknown;
     blockID?: string;
@@ -80,6 +69,24 @@ type AddRowsResolution = {
     rows: Array<{ blockID?: string; primaryKeyText?: string; rowID?: string; rowIDs?: string[]; status?: 'resolved' | 'missing' | 'ambiguous' }>;
     unresolvedBlockIDs: string[];
     unresolvedRowIDs?: string[];
+};
+
+type StrongCellValueInput = {
+    valueType: 'text' | 'number' | 'date' | 'checkbox' | 'select' | 'multi_select' | 'relation' | 'url' | 'email' | 'phone' | 'mAsset';
+    text?: string;
+    number?: number;
+    numberFormat?: string;
+    date?: string | number;
+    endDate?: string | number;
+    includeTime?: boolean;
+    checked?: boolean;
+    option?: string;
+    options?: string[];
+    relationBlockIDs?: string[];
+    url?: string;
+    email?: string;
+    phone?: string;
+    assets?: Array<{ type: 'image' | 'file'; content: string; name?: string }>;
 };
 
 const ADD_ROWS_POLL_ATTEMPTS = 6;
@@ -215,7 +222,7 @@ function extractAvRowLookup(avData: unknown): AvRowLookup {
 }
 
 function createAvRowIdErrorResult(
-    action: 'set_cell' | 'batch_set_cells',
+    action: 'set_cells',
     payload: Record<string, unknown>,
 ): ToolResult {
     return {
@@ -256,7 +263,7 @@ function createAddRowsSyncTimeoutResult(
                     rows: resolution.rows,
                     ...(resolution.unresolvedBlockIDs.length > 0 ? { unresolvedBlockIDs: resolution.unresolvedBlockIDs } : {}),
                     ...(resolution.unresolvedRowIDs && resolution.unresolvedRowIDs.length > 0 ? { unresolvedRowIDs: resolution.unresolvedRowIDs } : {}),
-                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cell after add_rows returns rows[].rowID.',
+                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cells after add_rows returns rows[].rowID.',
                 },
             }, null, 2),
         }],
@@ -334,7 +341,7 @@ async function waitForAddedRows(
 
 function validateRowIdForAv(
     avID: string,
-    action: 'set_cell' | 'batch_set_cells',
+    action: 'set_cells',
     rowLookup: AvRowLookup,
     requestedRowID: string,
     itemIndex?: number,
@@ -355,7 +362,7 @@ function validateRowIdForAv(
                 detectedValueID: requestedRowID,
                 suggestedRowID: matchedValueRowIDs[0],
                 ...(itemIndex === undefined ? {} : { itemIndex }),
-                hint: 'Use the AV row item ID stored in each value.blockID, or the rowID returned by av(action="add_rows"). Do not reuse value.id from set_cell responses as rowID.',
+                hint: 'Use the AV row item ID stored in each value.blockID, or the rowID returned by av(action="add_rows"). Do not reuse value.id from set_cells responses as rowID.',
             }),
         };
     }
@@ -423,14 +430,14 @@ function validateRowIdForAv(
 }
 
 async function resolveAvContext(
-    client: SiYuanClient,
+    _client: SiYuanClient,
     avData: unknown,
 ): Promise<AvContextResolution> {
-    const directContext = await resolveResultItemContext(client, avData);
-    if (directContext?.documentId) {
-        return { avData, blockID: directContext.documentId };
-    }
-
+    // Attribute-view payloads carry id=avID, which is not a document/block ID.
+    // Avoid feeding the AV object to the generic result resolver; otherwise it
+    // falls back to /api/block/getDocInfo(avID), causing noisy SiYuan
+    // "load tree by root id [...] failed" logs. Owning database blocks are
+    // resolved from row bindings, mirror refs, or blocks-table SQL candidates.
     const blockID = extractFirstRowBlockId(avData);
     return { avData, blockID };
 }
@@ -457,20 +464,57 @@ async function getAvMirrorDatabaseBlockIds(client: SiYuanClient, avID: string): 
     }
 }
 
+async function findAvDatabaseBlockIdsBySql(client: SiYuanClient, avID: string): Promise<string[]> {
+    const escapedAvID = escapeSqlString(avID);
+    const rows = await searchApi.querySQL(
+        client,
+        `SELECT id FROM blocks WHERE type = 'av' AND (markdown LIKE '%${escapedAvID}%' OR ial LIKE '%${escapedAvID}%' OR content LIKE '%${escapedAvID}%') ORDER BY updated DESC LIMIT 20`,
+    );
+    const blockIDs: string[] = [];
+    for (const row of rows) {
+        const id = row && typeof row === 'object' ? (row as Record<string, unknown>).id : undefined;
+        if (typeof id === 'string' && id.length > 0 && !blockIDs.includes(id)) {
+            blockIDs.push(id);
+        }
+    }
+    return blockIDs;
+}
+
+async function collectAvDatabaseBlockCandidates(
+    client: SiYuanClient,
+    avID: string,
+    avData: unknown,
+): Promise<string[]> {
+    const candidateBlockIDs: string[] = [];
+    const resolved = await resolveAvContext(client, avData);
+    if (resolved.blockID) {
+        candidateBlockIDs.push(resolved.blockID);
+    }
+
+    const mirrors = await getAvMirrorDatabaseBlockIds(client, avID);
+    for (const blockID of mirrors) {
+        if (!candidateBlockIDs.includes(blockID)) {
+            candidateBlockIDs.push(blockID);
+        }
+    }
+
+    const sqlMatches = await findAvDatabaseBlockIdsBySql(client, avID);
+    for (const blockID of sqlMatches) {
+        if (!candidateBlockIDs.includes(blockID)) {
+            candidateBlockIDs.push(blockID);
+        }
+    }
+
+    return candidateBlockIDs;
+}
+
 async function isExplicitAvDatabaseBlock(
     client: SiYuanClient,
     avID: string,
     avData: unknown,
     blockID: string,
 ): Promise<boolean> {
-    const candidateBlockIDs: string[] = [];
-    const mirrors = await getAvMirrorDatabaseBlockIds(client, avID);
-    candidateBlockIDs.push(...mirrors);
-
-    const resolved = await resolveAvContext(client, avData);
-    if (resolved.blockID && !candidateBlockIDs.includes(resolved.blockID)) {
-        candidateBlockIDs.push(resolved.blockID);
-    }
+    const candidateBlockIDs = await collectAvDatabaseBlockCandidates(client, avID, avData);
 
     if (candidateBlockIDs.includes(blockID)) {
         return true;
@@ -539,15 +583,7 @@ async function ensurePermissionForAvId(
         }
         return { denied: null, avData };
     }
-    const resolved = await resolveAvContext(client, avData);
-    const candidateBlockIDs: string[] = [];
-    const mirrors = await getAvMirrorDatabaseBlockIds(client, avID);
-    candidateBlockIDs.push(...mirrors);
-    if (resolved.blockID) {
-        if (!candidateBlockIDs.includes(resolved.blockID)) {
-            candidateBlockIDs.push(resolved.blockID);
-        }
-    }
+    const candidateBlockIDs = await collectAvDatabaseBlockCandidates(client, avID, avData);
 
     for (const candidateBlockID of candidateBlockIDs) {
         try {
@@ -574,7 +610,7 @@ function isMissingAttributeViewError(error: unknown): boolean {
     return error instanceof Error && translateError(error)?.code === 'av_not_found';
 }
 
-async function ensurePermissionForRenderAttributeView(
+async function ensurePermissionForRender(
     client: SiYuanClient,
     permMgr: PermissionManager,
     parsed: {
@@ -613,7 +649,7 @@ async function ensurePermissionForRenderAttributeView(
     }
 
     if (!parsed.id) {
-        throw new Error('av(action="render_attribute_view") requires id unless createIfNotExist=true is provided.');
+        throw new Error('av(action="render") requires id unless createIfNotExist=true is provided.');
     }
 
     try {
@@ -629,25 +665,8 @@ async function resolveAvOwningBlockId(
     avID: string,
     avData?: unknown,
 ): Promise<string | undefined> {
-    const resolved = await resolveAvContext(client, avData ?? (await avApi.getAttributeView(client, avID)).av);
-    const candidateBlockIDs: string[] = [];
-    if (resolved.blockID) {
-        candidateBlockIDs.push(resolved.blockID);
-    }
-
-    try {
-        const mirrors = await avApi.getMirrorDatabaseBlocks(client, avID);
-        for (const entry of mirrors.refDefs ?? []) {
-            const refID = typeof entry?.refID === 'string' && entry.refID.length > 0 ? entry.refID : undefined;
-            if (refID && !candidateBlockIDs.includes(refID)) {
-                candidateBlockIDs.push(refID);
-            }
-        }
-    } catch (error) {
-        if (!isMissingBlockError(error)) {
-            throw error;
-        }
-    }
+    const effectiveAvData = avData ?? (await avApi.getAttributeView(client, avID)).av;
+    const candidateBlockIDs = await collectAvDatabaseBlockCandidates(client, avID, effectiveAvData);
 
     return candidateBlockIDs[0];
 }
@@ -810,18 +829,55 @@ function buildDuplicateAvBlockDom(blockID: string, avID: string): string {
     return `<div class="av" data-node-id="${blockID}" data-av-id="${avID}" data-type="NodeAttributeView" data-av-type="table"></div>`;
 }
 
-function buildNewAvBlockDom(blockID: string, avID: string, now = new Date()): string {
-    return `<div data-node-id="${blockID}" data-av-id="${avID}" data-type="NodeAttributeView" class="av" updated="${formatSiYuanTimestamp(now)}"></div>`;
+function formatSiYuanUpdatedStamp(date = new Date()): string {
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return [
+        date.getFullYear(),
+        pad(date.getMonth() + 1),
+        pad(date.getDate()),
+        pad(date.getHours()),
+        pad(date.getMinutes()),
+        pad(date.getSeconds()),
+    ].join('');
 }
 
-function extractInsertedBlockId(rawResult: unknown): string | undefined {
-    const operationBatch = Array.isArray(rawResult) ? rawResult[0] : rawResult;
-    const firstOperation = operationBatch && typeof operationBatch === 'object' && Array.isArray((operationBatch as { doOperations?: unknown[] }).doOperations)
-        ? (operationBatch as { doOperations: Array<Record<string, unknown>> }).doOperations[0]
-        : undefined;
-    return typeof firstOperation?.id === 'string' && firstOperation.id.length > 0
-        ? firstOperation.id
-        : undefined;
+async function resolveAvTransactionBlockId(
+    client: SiYuanClient,
+    avID: string,
+    avData: unknown,
+    explicitBlockID?: string,
+): Promise<string | undefined> {
+    return explicitBlockID ?? await resolveAvOwningBlockId(client, avID, avData);
+}
+
+function withUpdatedOperation(
+    operations: TransactionOperation[],
+    blockID?: string,
+    previousUpdated?: unknown,
+): {
+    doOperations: TransactionOperation[];
+    undoOperations: TransactionOperation[];
+} {
+    if (!blockID) {
+        return { doOperations: operations, undoOperations: [] };
+    }
+
+    const updated = formatSiYuanUpdatedStamp();
+    return {
+        doOperations: [
+            ...operations,
+            {
+                action: 'doUpdateUpdated',
+                id: blockID,
+                data: updated,
+            },
+        ],
+        undoOperations: [{
+            action: 'doUpdateUpdated',
+            id: blockID,
+            data: typeof previousUpdated === 'string' ? previousUpdated : '',
+        }],
+    };
 }
 
 function buildStrongCellValue(
@@ -901,24 +957,9 @@ function buildStrongCellValue(
     }
 }
 
-function buildBatchCellValue(
-    columnID: string,
-    rowID: string,
-    input: StrongCellValueInput,
-): Record<string, unknown> {
-    const value = buildStrongCellValue(columnID, rowID, input);
-    delete value.keyID;
-    delete value.blockID;
-    return {
-        keyID: columnID,
-        itemID: rowID,
-        value,
-    };
-}
-
 async function handleGet({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvGetSchema.parse(rawArgs);
-    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read');
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.id, 'read', { blockID: parsed.blockID, action: 'get' });
     if (denied) return denied;
     const rowLookup = extractAvRowLookup(avData);
     return createJsonResult({
@@ -939,7 +980,7 @@ async function handleSearch({ client, permMgr, rawArgs }: ToolHandlerContext): P
     const response = await avApi.searchAttributeView(client, parsed.keyword, parsed.excludes);
     const kernelResults = Array.isArray(response.results) ? response.results : [];
     const primaryKeyResults = await searchAttributeViewPrimaryKeys(client, parsed.keyword, parsed.excludes);
-    const dedupedResults = [...kernelResults];
+    const dedupedResults: unknown[] = [...kernelResults];
     const seenAvIDs = new Set(
         dedupedResults
             .map((item) => item && typeof item === 'object' ? (item as Record<string, unknown>).avID : undefined)
@@ -975,12 +1016,12 @@ async function handleSearch({ client, permMgr, rawArgs }: ToolHandlerContext): P
     });
 }
 
-async function handleRenderAttributeView({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
-    const parsed = AvRenderAttributeViewSchema.parse(rawArgs);
+async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
+    const parsed = AvRenderSchema.parse(rawArgs);
     const creationTime = new Date();
     const idWasGenerated = !parsed.id;
     const effectiveAvID = parsed.id ?? generateSiYuanNodeId(creationTime);
-    const permission = await ensurePermissionForRenderAttributeView(client, permMgr, parsed, effectiveAvID, idWasGenerated);
+    const permission = await ensurePermissionForRender(client, permMgr, parsed, effectiveAvID, idWasGenerated);
     if (permission.denied) return permission.denied;
 
     const response = await avApi.renderAttributeView(client, {
@@ -998,11 +1039,29 @@ async function handleRenderAttributeView({ client, permMgr, rawArgs }: ToolHandl
     let materializedBlockRegistered: boolean | undefined;
     if (permission.shouldMaterialize) {
         materializedBlockID = generateSiYuanNodeId(creationTime);
-        const appendResult = await blockApi.appendBlock(client, 'dom', buildNewAvBlockDom(materializedBlockID, effectiveAvID, creationTime), parsed.blockID!);
-        materializedBlockID = extractInsertedBlockId(appendResult);
-        if (!materializedBlockID) {
-            throw new Error(`Created attribute view "${effectiveAvID}", but SiYuan did not return the materialized database block ID.`);
+        let data = buildDuplicateAvBlockDom(materializedBlockID, effectiveAvID);
+        try {
+            const spun = await avApi.spinBlockDOM(client, data);
+            if (typeof spun.dom === 'string' && spun.dom.length > 0) {
+                data = spun.dom;
+            }
+        } catch {
+            // Keep materialization compatible with kernels that do not expose
+            // /api/lute/spinBlockDOM; transaction insert can still parse the
+            // minimal AV block DOM.
         }
+        await transactionApi.performTransactions(client, [{
+            doOperations: [{
+                action: 'insert',
+                id: materializedBlockID,
+                data,
+                parentID: parsed.blockID!,
+            }],
+            undoOperations: [{
+                action: 'delete',
+                id: materializedBlockID,
+            }],
+        }]);
         materializedBlockRegistered = false;
         for (let attempt = 0; attempt < AV_MATERIALIZATION_POLL_ATTEMPTS; attempt += 1) {
             const mirrorBlockIDs = await getAvMirrorDatabaseBlockIds(client, effectiveAvID);
@@ -1124,23 +1183,40 @@ async function handleAddRows({ client, permMgr, rawArgs }: ToolHandlerContext): 
         srcID: generateSiYuanNodeId(),
     }));
 
-    await avApi.addAttributeViewBlocks(client, {
+    const transactionBlockID = await resolveAvTransactionBlockId(client, parsed.avID, avData, parsed.blockID);
+    const srcs = [
+        ...blockIDs.map((id) => ({ itemID: generateSiYuanNodeId(), id, isDetached: false })),
+        ...detachedRows.map((row) => ({
+            itemID: row.rowID,
+            id: row.srcID,
+            isDetached: true,
+            content: row.primaryKeyText,
+        })),
+    ];
+    const updatedOps = withUpdatedOperation([{
+        action: 'insertAttrViewBlock',
         avID: parsed.avID,
-        blockID: parsed.blockID,
+        blockID: transactionBlockID,
         viewID: parsed.viewID,
         groupID: parsed.groupID,
         previousID: parsed.previousID,
         ignoreDefaultFill: parsed.ignoreDefaultFill,
-        srcs: [
-            ...blockIDs.map((id) => ({ id, isDetached: false })),
-            ...detachedRows.map((row) => ({
-                itemID: row.rowID,
-                id: row.srcID,
-                isDetached: true,
-                content: row.primaryKeyText,
-            })),
+        srcs,
+    }], transactionBlockID);
+    await transactionApi.performTransactions(client, [{
+        doOperations: updatedOps.doOperations,
+        undoOperations: [
+            {
+                action: 'removeAttrViewBlock',
+                srcIDs: [
+                    ...blockIDs,
+                    ...detachedRows.map((row) => row.rowID),
+                ],
+                avID: parsed.avID,
+            },
+            ...updatedOps.undoOperations,
         ],
-    });
+    }]);
 
     const resolution = await waitForAddedRows(
         client,
@@ -1168,7 +1244,16 @@ async function handleRemoveRows({ client, permMgr, rawArgs }: ToolHandlerContext
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'remove_rows' });
     if (denied) return denied;
 
-    await avApi.removeAttributeViewBlocks(client, parsed.avID, parsed.srcIDs);
+    const transactionBlockID = await resolveAvTransactionBlockId(client, parsed.avID, avData, parsed.blockID);
+    const updatedOps = withUpdatedOperation([{
+        action: 'removeAttrViewBlock',
+        srcIDs: parsed.srcIDs,
+        avID: parsed.avID,
+    }], transactionBlockID);
+    await transactionApi.performTransactions(client, [{
+        doOperations: updatedOps.doOperations,
+        undoOperations: updatedOps.undoOperations,
+    }]);
     const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'remove_rows',
@@ -1184,10 +1269,27 @@ async function handleAddColumn({ client, permMgr, rawArgs }: ToolHandlerContext)
     if (denied) return denied;
 
     const keyID = parsed.keyID ?? generateSiYuanNodeId();
-    await avApi.addAttributeViewKey(client, {
-        ...parsed,
-        keyID,
-    });
+    const transactionBlockID = await resolveAvTransactionBlockId(client, parsed.avID, avData, parsed.blockID);
+    const updatedOps = withUpdatedOperation([{
+        action: 'addAttrViewCol',
+        name: parsed.keyName,
+        avID: parsed.avID,
+        type: parsed.keyType,
+        id: keyID,
+        data: parsed.keyIcon ?? '',
+        previousID: parsed.previousKeyID ?? '',
+    }], transactionBlockID);
+    await transactionApi.performTransactions(client, [{
+        doOperations: updatedOps.doOperations,
+        undoOperations: [
+            {
+                action: 'removeAttrViewCol',
+                id: keyID,
+                avID: parsed.avID,
+            },
+            ...updatedOps.undoOperations,
+        ],
+    }]);
     const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'add_column',
@@ -1204,7 +1306,17 @@ async function handleRemoveColumn({ client, permMgr, rawArgs }: ToolHandlerConte
     if (denied) return denied;
     const keyID = parsed.keyID ?? parsed.columnID!;
 
-    await avApi.removeAttributeViewKey(client, parsed.avID, keyID, parsed.removeRelationDest);
+    const transactionBlockID = await resolveAvTransactionBlockId(client, parsed.avID, avData, parsed.blockID);
+    const updatedOps = withUpdatedOperation([{
+        action: 'removeAttrViewCol',
+        id: keyID,
+        avID: parsed.avID,
+        removeDest: parsed.removeRelationDest ?? false,
+    }], transactionBlockID);
+    await transactionApi.performTransactions(client, [{
+        doOperations: updatedOps.doOperations,
+        undoOperations: updatedOps.undoOperations,
+    }]);
     const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'remove_column',
@@ -1214,57 +1326,85 @@ async function handleRemoveColumn({ client, permMgr, rawArgs }: ToolHandlerConte
     }), refreshOperations);
 }
 
-async function handleSetCell({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
-    const parsed = AvSetCellSchema.parse(rawArgs);
-    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'set_cell' });
-    if (denied) return denied;
-    const validatedRowID = validateRowIdForAv(parsed.avID, 'set_cell', extractAvRowLookup(avData), parsed.rowID);
-    if (!validatedRowID.ok) return validatedRowID.result;
-
-    const value = buildStrongCellValue(parsed.columnID, validatedRowID.rowID, parsed);
-    const response = await avApi.setAttributeViewBlockAttr(client, {
-        avID: parsed.avID,
-        keyID: parsed.columnID,
-        itemID: validatedRowID.rowID,
-        value,
-    });
-
-    const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
-    return applyUiRefresh(client, createWriteSuccessResult({
-        action: 'set_cell',
-        avID: parsed.avID,
-        rowID: parsed.rowID,
-        columnID: parsed.columnID,
-        valueType: parsed.valueType,
-    }, response), refreshOperations);
-}
-
-async function handleBatchSetCells({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
-    const parsed = AvBatchSetCellsSchema.parse(rawArgs);
-    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'batch_set_cells' });
+async function handleSetCells({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
+    const parsed = AvSetCellsSchema.parse(rawArgs);
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'set_cells' });
     if (denied) return denied;
     const rowLookup = extractAvRowLookup(avData);
+    const isSingleCellCall = !parsed.cells && !parsed.items;
+    const items = parsed.cells ?? parsed.items ?? [{
+        rowID: parsed.rowID!,
+        columnID: parsed.columnID!,
+        valueType: parsed.valueType!,
+        text: parsed.text,
+        number: parsed.number,
+        numberFormat: parsed.numberFormat,
+        date: parsed.date,
+        endDate: parsed.endDate,
+        includeTime: parsed.includeTime,
+        checked: parsed.checked,
+        option: parsed.option,
+        options: parsed.options,
+        relationBlockIDs: parsed.relationBlockIDs,
+        url: parsed.url,
+        email: parsed.email,
+        phone: parsed.phone,
+        assets: parsed.assets,
+    }];
 
-    const values = [];
-    for (let index = 0; index < parsed.items.length; index += 1) {
-        const item = parsed.items[index];
-        const validatedRowID = validateRowIdForAv(parsed.avID, 'batch_set_cells', rowLookup, item.rowID, index);
-        if (!validatedRowID.ok) return validatedRowID.result;
-        values.push(buildBatchCellValue(item.columnID, validatedRowID.rowID, item));
+    const values: TransactionOperation[] = [];
+    for (let index = 0; index < items.length; index += 1) {
+        const item = items[index];
+        const validatedRowID = validateRowIdForAv(parsed.avID, 'set_cells', rowLookup, item.rowID, isSingleCellCall ? undefined : index);
+        if (validatedRowID.ok === false) return validatedRowID.result;
+        if (isSingleCellCall) {
+            const transactionBlockID = await resolveAvTransactionBlockId(client, parsed.avID, avData, parsed.blockID);
+            const updatedOps = withUpdatedOperation([{
+                action: 'updateAttrViewCell',
+                avID: parsed.avID,
+                keyID: item.columnID,
+                rowID: validatedRowID.rowID,
+                data: buildStrongCellValue(item.columnID, validatedRowID.rowID, item),
+            }], transactionBlockID);
+            await transactionApi.performTransactions(client, [{
+                doOperations: updatedOps.doOperations,
+                undoOperations: updatedOps.undoOperations,
+            }]);
+            const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
+            return applyUiRefresh(client, createWriteSuccessResult({
+                action: 'set_cells',
+                avID: parsed.avID,
+                rowID: item.rowID,
+                columnID: item.columnID,
+                valueType: item.valueType,
+            }), refreshOperations);
+        }
+        values.push({
+            action: 'updateAttrViewCell',
+            avID: parsed.avID,
+            keyID: item.columnID,
+            rowID: validatedRowID.rowID,
+            data: buildStrongCellValue(item.columnID, validatedRowID.rowID, item),
+        });
     }
-    await avApi.batchSetAttributeViewBlockAttrs(client, parsed.avID, values);
+    const transactionBlockID = await resolveAvTransactionBlockId(client, parsed.avID, avData, parsed.blockID);
+    const updatedOps = withUpdatedOperation(values, transactionBlockID);
+    await transactionApi.performTransactions(client, [{
+        doOperations: updatedOps.doOperations,
+        undoOperations: updatedOps.undoOperations,
+    }]);
 
     const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
-        action: 'batch_set_cells',
+        action: 'set_cells',
         avID: parsed.avID,
-        updated: parsed.items.length,
+        updated: items.length,
     }), refreshOperations);
 }
 
-async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
-    const parsed = AvDuplicateBlockSchema.parse(rawArgs);
-    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write');
+async function handleDuplicate({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
+    const parsed = AvDuplicateSchema.parse(rawArgs);
+    const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'duplicate' });
     if (denied) return denied;
 
     const response = await avApi.duplicateAttributeViewBlock(client, parsed.avID);
@@ -1276,7 +1416,7 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
                     error: {
                         type: 'internal_error',
                         tool: AV_TOOL_NAME,
-                        action: 'duplicate_block',
+                        action: 'duplicate',
                         reason: 'duplicate_identifiers_missing',
                         message: `Duplicate AV returned incomplete identifiers for source "${parsed.avID}".`,
                         sourceAvID: parsed.avID,
@@ -1289,7 +1429,7 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
         };
     }
 
-    const insertedAfter = parsed.previousID ?? await resolveAvOwningBlockId(client, parsed.avID, avData);
+    const insertedAfter = parsed.previousID ?? parsed.blockID ?? await resolveAvOwningBlockId(client, parsed.avID, avData);
     if (!insertedAfter) {
         return {
             content: [{
@@ -1298,7 +1438,7 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
                     error: {
                         type: 'internal_error',
                         tool: AV_TOOL_NAME,
-                        action: 'duplicate_block',
+                        action: 'duplicate',
                         reason: 'duplicate_insert_target_unresolved',
                         message: `Duplicated AV identifiers were prepared for source "${parsed.avID}", but MCP could not resolve a database block insertion target.`,
                         sourceAvID: parsed.avID,
@@ -1315,19 +1455,28 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
     const destination = await ensurePermissionForDocumentId(client, permMgr, insertedAfter, 'write');
     if (destination.denied) return destination.denied;
 
-    const dom = buildDuplicateAvBlockDom(response.blockID, response.avID);
+    let data = buildDuplicateAvBlockDom(response.blockID, response.avID);
+    try {
+        const spun = await avApi.spinBlockDOM(client, data);
+        if (typeof spun.dom === 'string' && spun.dom.length > 0) {
+            data = spun.dom;
+        }
+    } catch {
+        // Keep parity with SiYuan's frontend when available; fall back to the
+        // minimal AV block DOM for older kernels that lack /api/lute/spinBlockDOM.
+    }
+
     try {
         await transactionApi.performTransactions(client, [{
             doOperations: [{
                 action: 'insert',
                 id: response.blockID,
-                data: dom,
+                data,
                 previousID: insertedAfter,
             }],
             undoOperations: [{
                 action: 'delete',
                 id: response.blockID,
-                data: null,
             }],
         }]);
     } catch (error) {
@@ -1339,7 +1488,7 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
                     error: {
                         type: 'internal_error',
                         tool: AV_TOOL_NAME,
-                        action: 'duplicate_block',
+                        action: 'duplicate',
                         reason: 'duplicate_insert_failed',
                         message: normalized.message,
                         sourceAvID: parsed.avID,
@@ -1354,56 +1503,14 @@ async function handleDuplicateBlock({ client, permMgr, rawArgs }: ToolHandlerCon
         };
     }
 
-    const blockExists = await blockApi.checkBlockExist(client, response.blockID);
-    let avReadable = false;
-    let verificationMessage: string | undefined;
-    try {
-        const verification = await ensurePermissionForAvId(client, permMgr, response.avID, 'read');
-        avReadable = !verification.denied;
-    } catch (error) {
-        verificationMessage = error instanceof Error ? error.message : String(error);
-    }
-
-    if (!blockExists || !avReadable) {
-        return {
-            content: [{
-                type: 'text',
-                text: JSON.stringify({
-                    error: {
-                        type: 'internal_error',
-                        tool: AV_TOOL_NAME,
-                        action: 'duplicate_block',
-                        reason: 'duplicate_insert_verification_failed',
-                        message: `Duplicated AV insertion finished, but MCP could not verify the materialized result for block "${response.blockID}".`,
-                        sourceAvID: parsed.avID,
-                        duplicatedAvID: response.avID,
-                        duplicatedBlockID: response.blockID,
-                        insertedAfter,
-                        verification: {
-                            duplicatedBlockExists: blockExists,
-                            duplicatedAvReadable: avReadable,
-                            ...(verificationMessage ? { duplicatedAvReadableMessage: verificationMessage } : {}),
-                        },
-                        hint: 'The duplicate AV definition was inserted, but the resulting AV/block could not be verified. Check the target document tree and duplicated AV state.',
-                    },
-                }, null, 2),
-            }],
-            isError: true,
-        };
-    }
-
-    return applyUiRefresh(client, createWriteSuccessResult({
-        action: 'duplicate_block',
+    return createWriteSuccessResult({
+        action: 'duplicate',
         sourceAvID: parsed.avID,
         prepared: true,
         materialized: true,
-        duplicatedAvReadable: true,
         insertedAfter,
-        semantics: parsed.previousID ? 'duplicated_and_inserted_with_override' : 'duplicated_and_inserted',
-    }, response), [
-        { type: 'reloadAttributeView', id: response.avID },
-        { type: 'reloadProtyle', id: destination.context.documentId },
-    ]);
+        semantics: parsed.previousID ? 'siyuan_duplicate_mirror_with_override' : 'siyuan_duplicate_mirror',
+    }, response);
 }
 
 async function handleGetPrimaryKeyValues({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
@@ -1455,7 +1562,7 @@ async function handleGetPrimaryKeyValues({ client, permMgr, rawArgs }: ToolHandl
 
 export const AV_ACTION_HANDLERS: Record<AvAction, ToolActionHandler> = {
     get: handleGet,
-    render_attribute_view: handleRenderAttributeView,
+    render: handleRender,
     get_attribute_view_keys: handleGetAttributeViewKeys,
     get_attribute_view_filter_sort: handleGetAttributeViewFilterSort,
     search: handleSearch,
@@ -1463,8 +1570,7 @@ export const AV_ACTION_HANDLERS: Record<AvAction, ToolActionHandler> = {
     remove_rows: handleRemoveRows,
     add_column: handleAddColumn,
     remove_column: handleRemoveColumn,
-    set_cell: handleSetCell,
-    batch_set_cells: handleBatchSetCells,
-    duplicate_block: handleDuplicateBlock,
+    set_cells: handleSetCells,
+    duplicate: handleDuplicate,
     get_primary_key_values: handleGetPrimaryKeyValues,
 };

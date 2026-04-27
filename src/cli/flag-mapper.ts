@@ -17,7 +17,7 @@ export interface FlagMapResult {
  * - Object / nested flags: use --<key>-json '<json-fragment>'.
  */
 export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMapResult {
-    const props: Record<string, JsonSchema> = (inputSchema.properties ?? {}) as Record<string, JsonSchema>;
+    const props = collectInputProperties(inputSchema);
 
     const canonicalByLower = new Map<string, string>();
     const booleanKeys = new Set<string>();
@@ -95,6 +95,29 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMap
     }
 
     return { args: { ...result, ...jsonOverrides }, warnings };
+}
+
+function collectInputProperties(inputSchema: JsonSchema): Record<string, JsonSchema> {
+    const props: Record<string, JsonSchema> = { ...((inputSchema.properties ?? {}) as Record<string, JsonSchema>) };
+    const internalBranches = inputSchema['x-sisyphus-actionSchemas'];
+    const branches = Array.isArray(internalBranches)
+        ? internalBranches
+        : Array.isArray(inputSchema.oneOf)
+        ? inputSchema.oneOf
+        : Array.isArray(inputSchema.anyOf)
+            ? inputSchema.anyOf
+            : [];
+
+    for (const branch of branches) {
+        if (!branch || typeof branch !== 'object') continue;
+        const branchProps = (branch as JsonSchema).properties;
+        if (!branchProps || typeof branchProps !== 'object' || Array.isArray(branchProps)) continue;
+        for (const [name, schema] of Object.entries(branchProps as Record<string, JsonSchema>)) {
+            props[name] ??= schema;
+        }
+    }
+
+    return props;
 }
 
 function coerce(key: string, value: unknown, schema: JsonSchema): unknown {

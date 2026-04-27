@@ -39,16 +39,37 @@ export async function getRiffDecks(client: SiYuanClient): Promise<unknown> {
     return client.request('/api/riff/getRiffDecks', {});
 }
 
-export async function getRiffDueCards(client: SiYuanClient, deckID?: string): Promise<FlashcardListResult> {
-    return client.request<FlashcardListResult>('/api/riff/getRiffDueCards', { deckID: deckID ?? '' });
+export async function getRiffDueCards(
+    client: SiYuanClient,
+    deckID?: string,
+    reviewedCards?: Array<{ cardID: string; [key: string]: unknown }>,
+): Promise<FlashcardListResult> {
+    return client.request<FlashcardListResult>('/api/riff/getRiffDueCards', {
+        deckID: deckID ?? '',
+        ...(reviewedCards !== undefined ? { reviewedCards } : {}),
+    });
 }
 
-export async function getNotebookRiffDueCards(client: SiYuanClient, notebook: string): Promise<FlashcardListResult> {
-    return client.request<FlashcardListResult>('/api/riff/getNotebookRiffDueCards', { notebook });
+export async function getNotebookRiffDueCards(
+    client: SiYuanClient,
+    notebook: string,
+    reviewedCards?: Array<{ cardID: string; [key: string]: unknown }>,
+): Promise<FlashcardListResult> {
+    return client.request<FlashcardListResult>('/api/riff/getNotebookRiffDueCards', {
+        notebook,
+        ...(reviewedCards !== undefined ? { reviewedCards } : {}),
+    });
 }
 
-export async function getTreeRiffDueCards(client: SiYuanClient, rootID: string): Promise<FlashcardListResult> {
-    return client.request<FlashcardListResult>('/api/riff/getTreeRiffDueCards', { rootID });
+export async function getTreeRiffDueCards(
+    client: SiYuanClient,
+    rootID: string,
+    reviewedCards?: Array<{ cardID: string; [key: string]: unknown }>,
+): Promise<FlashcardListResult> {
+    return client.request<FlashcardListResult>('/api/riff/getTreeRiffDueCards', {
+        rootID,
+        ...(reviewedCards !== undefined ? { reviewedCards } : {}),
+    });
 }
 
 export async function reviewRiffCard(

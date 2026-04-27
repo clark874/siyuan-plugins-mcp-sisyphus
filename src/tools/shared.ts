@@ -1,4 +1,4 @@
-import { ZodError, type ZodIssue } from 'zod';
+import { z, ZodError, type ZodIssue } from 'zod';
 
 import { getActionTier, getEnabledActions, isDangerousAction, type CategoryToolConfig, type ToolCategory } from '../core/config';
 import { getActionHint } from '../core/help';
@@ -16,12 +16,14 @@ export interface ToolResult {
     isError?: boolean;
 }
 
-export type JsonSchema = Record<string, unknown>;
+export type JsonSchema = Record<string, any>;
 
 export interface ActionVariant<Action extends string> {
     action: Action;
     schema: JsonSchema;
 }
+
+export const ACTION_SCHEMA_BRANCHES_KEY = 'x-sisyphus-actionSchemas';
 
 export { getSchemaProperties, getSchemaRequired, normalizeJsonSchema };
 
@@ -63,6 +65,142 @@ export function createActionSchema(
             ...properties,
         },
         required: ['action', ...required],
+    };
+}
+
+export function createZodActionVariant<Action extends string>(
+    action: Action,
+    schema: z.ZodType,
+    description?: string,
+): ActionVariant<Action> {
+    const jsonSchema = flattenAllOfObjectSchema(z.toJSONSchema(schema) as JsonSchema);
+    delete jsonSchema.$schema;
+    if (description && !jsonSchema.description) {
+        jsonSchema.description = description;
+    }
+    return {
+        action,
+        schema: normalizeJsonSchema(jsonSchema),
+    };
+}
+
+function flattenAllOfObjectSchema(schema: JsonSchema): JsonSchema {
+    const normalizedChildren: JsonSchema = { ...schema };
+
+    if (normalizedChildren.properties && typeof normalizedChildren.properties === 'object' && !Array.isArray(normalizedChildren.properties)) {
+        normalizedChildren.properties = Object.fromEntries(
+            Object.entries(normalizedChildren.properties).map(([key, value]) => [
+                key,
+                value && typeof value === 'object' && !Array.isArray(value)
+                    ? flattenAllOfObjectSchema(value as JsonSchema)
+                    : value,
+            ]),
+        );
+    }
+
+    if (normalizedChildren.items && typeof normalizedChildren.items === 'object' && !Array.isArray(normalizedChildren.items)) {
+        normalizedChildren.items = flattenAllOfObjectSchema(normalizedChildren.items as JsonSchema);
+    }
+
+    if (
+        normalizedChildren.additionalProperties &&
+        typeof normalizedChildren.additionalProperties === 'object' &&
+        !Array.isArray(normalizedChildren.additionalProperties)
+    ) {
+        normalizedChildren.additionalProperties = flattenAllOfObjectSchema(normalizedChildren.additionalProperties as JsonSchema);
+    }
+
+    if (Array.isArray(normalizedChildren.oneOf)) {
+        normalizedChildren.oneOf = normalizedChildren.oneOf.map((item) => (
+            item && typeof item === 'object' && !Array.isArray(item) ? flattenAllOfObjectSchema(item as JsonSchema) : item
+        ));
+    }
+    if (Array.isArray(normalizedChildren.anyOf)) {
+        normalizedChildren.anyOf = normalizedChildren.anyOf.map((item) => (
+            item && typeof item === 'object' && !Array.isArray(item) ? flattenAllOfObjectSchema(item as JsonSchema) : item
+        ));
+    }
+
+    if (!Array.isArray(normalizedChildren.allOf)) return normalizedChildren;
+
+    const properties: JsonSchema = {};
+    const required = new Set<string>();
+    const flattenedParts: JsonSchema[] = [];
+
+    for (const part of normalizedChildren.allOf) {
+        if (!part || typeof part !== 'object' || Array.isArray(part)) return schema;
+        const flattened = flattenAllOfObjectSchema(part as JsonSchema);
+        if (flattened.type !== 'object') return schema;
+        Object.assign(properties, getSchemaProperties(flattened));
+        for (const field of getSchemaRequired(flattened)) required.add(field);
+        flattenedParts.push(flattened);
+    }
+
+    const { allOf: _allOf, ...rest } = normalizedChildren;
+    return {
+        ...rest,
+        type: 'object',
+        properties,
+        required: [...required],
+        additionalProperties: flattenedParts.every((part) => part.additionalProperties === false)
+            ? false
+            : normalizedChildren.additionalProperties,
+    };
+}
+
+function withActionDiscriminator<Action extends string>(variant: ActionVariant<Action>): JsonSchema {
+    const properties = {
+        action: {
+            type: 'string',
+            const: variant.action,
+            description: 'Action to perform',
+        },
+        ...getSchemaProperties(variant.schema),
+    };
+    return normalizeJsonSchema({
+        ...variant.schema,
+        type: 'object',
+        additionalProperties: false,
+        properties,
+        required: Array.from(new Set(['action', ...getSchemaRequired(variant.schema)])),
+    });
+}
+
+function createLoosePropertySchema(schema: JsonSchema): JsonSchema {
+    const loose: JsonSchema = { ...schema };
+    delete loose.const;
+    delete loose.required;
+    return loose;
+}
+
+function createLooseInputProperties(properties: JsonSchema): JsonSchema {
+    return Object.fromEntries(
+        Object.entries(properties).map(([key, value]) => [
+            key,
+            value && typeof value === 'object' && !Array.isArray(value)
+                ? createLoosePropertySchema(value as JsonSchema)
+                : {},
+        ]),
+    );
+}
+
+function buildHelpActionSchema(enabledActions: string[]): JsonSchema {
+    return {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+            action: {
+                type: 'string',
+                const: 'help',
+                description: 'Show help for this tool or one action.',
+            },
+            topic: {
+                type: 'string',
+                enum: ['overview', ...enabledActions],
+                description: 'Optional action name to inspect; omit or use "overview" for the action index.',
+            },
+        },
+        required: ['action'],
     };
 }
 
@@ -231,23 +369,32 @@ export function buildAggregatedTool<Action extends string>(
             description: 'Optional. Only used when action="help". Pass an action name (e.g. "create") to get per-action help; omit or use "overview" for the action index.',
         };
     }
+    const actionBranches = [
+        ...enabledVariants.map((variant) => withActionDiscriminator(variant)),
+        buildHelpActionSchema(enabledActions),
+    ];
+
+    const inputSchema = normalizeJsonSchema({
+        type: 'object',
+        properties: {
+            action: {
+                type: 'string',
+                enum: [...enabledActions, 'help'],
+                description: `Action to perform. Supported values: ${enabledActions.join(', ')}. Use action="help" for the action index, or action="help" with topic="<actionName>" for per-action details.${confirmationActions.length > 0 ? ` User confirmation is required before calling: ${confirmationActions.join(', ')}.` : ''}`,
+            },
+            ...createLooseInputProperties(mergedProperties),
+        },
+        additionalProperties: true,
+    });
+    Object.defineProperty(inputSchema, ACTION_SCHEMA_BRANCHES_KEY, {
+        value: actionBranches,
+        enumerable: false,
+    });
 
     return [{
         name: category,
         description: fullDescription,
-        inputSchema: normalizeJsonSchema({
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-                action: {
-                    type: 'string',
-                    enum: [...enabledActions, 'help'],
-                    description: `Action to perform. Supported values: ${enabledActions.join(', ')}. Use action="help" for the action index, or action="help" with topic="<actionName>" for per-action details.${confirmationActions.length > 0 ? ` User confirmation is required before calling: ${confirmationActions.join(', ')}.` : ''}`,
-                },
-                ...mergedProperties,
-            },
-            required: ['action'],
-        }),
+        inputSchema,
     }];
 }
 
@@ -459,6 +606,19 @@ export function createDisabledActionResult(name: ToolCategory, action: string): 
             tool: name,
             action,
             hint: 'Enable the action in Settings -> Plugins -> SiYuan MCP sisyphus, or call listTools() again to inspect the currently enabled actions.',
+        },
+    });
+}
+
+export function createUnknownActionResult(name: ToolCategory, action: string, validActions: string[]): ToolResult {
+    return toErrorText({
+        error: {
+            type: 'unknown_action',
+            message: `Unknown action "${action}" for tool "${name}".`,
+            tool: name,
+            action,
+            validActions: [...validActions, 'help'],
+            hint: `Call ${name}(action="help") to inspect available actions and parameter shapes.`,
         },
     });
 }

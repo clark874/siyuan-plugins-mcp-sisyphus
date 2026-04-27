@@ -329,6 +329,6 @@ function toKebab(value: string): string {
         .toLowerCase();
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
+function isObject(value: unknown): value is Record<string, any> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

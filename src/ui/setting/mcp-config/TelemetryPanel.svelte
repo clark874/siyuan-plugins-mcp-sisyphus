@@ -257,7 +257,7 @@
                         </span>
                         <span class="analytics-list__meta">
                             {#if analyticsSummary?.tokenUsage?.cliMeasuredCalls}
-                                {analyticsSummary.tokenUsage.cliMeasuredCalls} call(s)
+                                {analyticsSummary.tokenUsage.cliMeasuredCalls} {getLabel("analyticsCallCount", "call(s)")}
                             {/if}
                         </span>
                     </div>
@@ -272,7 +272,7 @@
                         </span>
                         <span class="analytics-list__meta">
                             {#if analyticsSummary?.tokenUsage?.mcpMeasuredCalls}
-                                {analyticsSummary.tokenUsage.mcpMeasuredCalls} call(s)
+                                {analyticsSummary.tokenUsage.mcpMeasuredCalls} {getLabel("analyticsCallCount", "call(s)")}
                             {/if}
                         </span>
                     </div>
@@ -287,7 +287,7 @@
                         </span>
                         <span class="analytics-list__meta">
                             {#if analyticsSummary?.tokenUsage?.mcpInitialChars != null}
-                                {analyticsSummary.tokenUsage.mcpInitialChars} chars
+                                {analyticsSummary.tokenUsage.mcpInitialChars} {getLabel("analyticsCharCount", "chars")}
                             {/if}
                         </span>
                     </div>
@@ -305,7 +305,7 @@
                             <div class="analytics-list__item">
                                 <span class="analytics-list__name">{action.tool}.{action.action}</span>
                                 <span class="analytics-list__count">{action.count}</span>
-                                <span class="analytics-list__meta">{action.errorCount > 0 ? `${action.errorCount} err` : ''} ~{Math.round(action.avgDurationMs)}ms</span>
+                                <span class="analytics-list__meta">{action.errorCount > 0 ? `${action.errorCount} ${getLabel("analyticsErrorShort", "err")}` : ''} ~{Math.round(action.avgDurationMs)}ms</span>
                             </div>
                         {/each}
                     </div>
@@ -320,7 +320,7 @@
                             <div class="analytics-list__item">
                                 <span class="analytics-list__name">{day.date}</span>
                                 <span class="analytics-list__count">{day.count}</span>
-                                <span class="analytics-list__meta">{day.errorCount > 0 ? `${day.errorCount} err` : ''}</span>
+                                <span class="analytics-list__meta">{day.errorCount > 0 ? `${day.errorCount} ${getLabel("analyticsErrorShort", "err")}` : ''}</span>
                             </div>
                         {/each}
                     </div>

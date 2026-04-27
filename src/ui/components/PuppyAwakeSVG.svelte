@@ -244,7 +244,7 @@
                         <line x1="-37" y1="8" x2="-29" y2="16" stroke="#ff4d6d" stroke-width="2"/>
                         <line x1="-29" y1="8" x2="-37" y2="16" stroke="#ff4d6d" stroke-width="2"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--document-get_path sy-puppy__tool-mark--document-get_hpath sy-puppy__tool-mark--document-get_ids">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--document-resolve">
                         <circle cx="-34" cy="12" r="3" fill="#8fd2ff" stroke="#1a1f3c" stroke-width="1"/>
                         <line x1="-31" y1="15" x2="-28" y2="18" stroke="#1a1f3c" stroke-width="1.5"/>
                     </g>
@@ -254,7 +254,7 @@
                         <line x1="-36" y1="14" x2="-31" y2="14" stroke="#17b26a" stroke-width="1.5"/>
                         <line x1="-36" y1="18" x2="-31" y2="18" stroke="#17b26a" stroke-width="1.5"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--document-set_icon sy-puppy__tool-mark--document-set_cover sy-puppy__tool-mark--document-clear_cover">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--document-set_attr">
                         <rect x="-39" y="7" width="11" height="8" fill="#ffd040" stroke="#1a1f3c" stroke-width="1"/>
                         <polygon points="-38,14 -35,10 -32,13 -29,9 -28,15 -39,15" fill="#4a7fff"/>
                     </g>
@@ -277,7 +277,7 @@
                         <line x1="45" y1="-40" x2="53" y2="-32" stroke="#ff4d6d" stroke-width="2"/>
                         <line x1="53" y1="-40" x2="45" y2="-32" stroke="#ff4d6d" stroke-width="2"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--block-move sy-puppy__tool-mark--block-transfer_ref">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--block-move sy-puppy__tool-mark--block-transfer_references">
                         <line x1="44" y1="-36" x2="54" y2="-36" stroke="#8fd2ff" stroke-width="2"/>
                         <polygon points="51,-39 56,-36 51,-33" fill="#8fd2ff"/>
                     </g>
@@ -312,7 +312,7 @@
                         <circle cx="106" cy="-22" r="4" fill="#d9f4ff" stroke="#1a1f3c" stroke-width="1"/>
                         <line x1="109" y1="-19" x2="112" y2="-16" stroke="#1a1f3c" stroke-width="1.5"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--av-add_rows sy-puppy__tool-mark--av-duplicate_block">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--av-add_rows sy-puppy__tool-mark--av-duplicate">
                         <rect x="102" y="-27" width="8" height="8" fill="#c4ff72" stroke="#1a1f3c" stroke-width="1"/>
                         <line x1="106" y1="-25" x2="106" y2="-21" stroke="#1a1f3c" stroke-width="1.2"/>
                         <line x1="104" y1="-23" x2="108" y2="-23" stroke="#1a1f3c" stroke-width="1.2"/>
@@ -325,7 +325,7 @@
                         <line x1="104" y1="-27" x2="104" y2="-18" stroke="#ffd040" stroke-width="2"/>
                         <line x1="100" y1="-23" x2="108" y2="-23" stroke="#ffd040" stroke-width="2"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--av-set_cell sy-puppy__tool-mark--av-batch_set_cells">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--av-set_cells">
                         <rect x="102" y="-27" width="8" height="8" fill="#8fd2ff" stroke="#1a1f3c" stroke-width="1"/>
                         <rect x="104" y="-25" width="4" height="4" fill="#1a1f3c"/>
                     </g>
@@ -344,7 +344,7 @@
                         <line x1="106" y1="58" x2="106" y2="73" stroke="#17b26a" stroke-width="2.5"/>
                         <polygon points="106,77 101,71 111,71" fill="#17b26a"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--file-render_template sy-puppy__tool-mark--file-render_sprig">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--file-render">
                         <text x="97" y="74" font-size="14" font-family="monospace" font-weight="700" fill="#6f7cff">{'{}'}</text>
                     </g>
                 </g>
@@ -360,10 +360,10 @@
                     <g class="sy-puppy__tool-mark sy-puppy__tool-mark--search-query_sql">
                         <text x="38" y="-12" font-size="8" font-family="monospace" font-weight="700" fill="#ff9500">SQL</text>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--search-search_tag">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--tag-list">
                         <text x="40" y="-12" font-size="9" font-family="monospace" font-weight="700" fill="#17b26a">#</text>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--search-get_backlinks sy-puppy__tool-mark--search-get_backmentions">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--search-get_backlinks sy-puppy__tool-mark--search-get_backlinks">
                         <text x="40" y="-12" font-size="9" font-family="monospace" font-weight="700" fill="#6f7cff">↩</text>
                     </g>
                 </g>
@@ -391,16 +391,16 @@
                     <circle cx="106" cy="4" r="7" fill="#8fd2ff" stroke="#1a1f3c" stroke-width="1.5"/>
                     <line x1="106" y1="4" x2="112" y2="-1" stroke="#1a1f3c" stroke-width="1.8" stroke-linecap="round"/>
                     <line x1="95" y1="15" x2="117" y2="15" stroke="#1a1f3c" stroke-width="2"/>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--system-push_msg">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--system-notify">
                         <circle cx="116" cy="-2" r="4" fill="#17b26a" stroke="#1a1f3c" stroke-width="1"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--system-push_err_msg">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--system-notify">
                         <circle cx="116" cy="-2" r="4" fill="#ff4d6d" stroke="#1a1f3c" stroke-width="1"/>
                     </g>
                     <g class="sy-puppy__tool-mark sy-puppy__tool-mark--system-network">
                         <path d="M98 -4 L102 -8 L106 -4 L110 -8 L114 -4" fill="none" stroke="#4a7fff" stroke-width="1.5"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--system-conf sy-puppy__tool-mark--system-sys_fonts">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--system-conf">
                         <rect x="113" y="-6" width="5" height="5" fill="#ffd040" stroke="#1a1f3c" stroke-width="1"/>
                     </g>
                     <g class="sy-puppy__tool-mark sy-puppy__tool-mark--system-workspace_info">
@@ -411,7 +411,7 @@
                         <line x1="112" y1="-5" x2="119" y2="-5" stroke="#fff" stroke-width="1.6"/>
                         <line x1="112" y1="-1" x2="119" y2="-1" stroke="#fff" stroke-width="1.6"/>
                     </g>
-                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--system-boot_progress">
+                    <g class="sy-puppy__tool-mark sy-puppy__tool-mark--system-get_version">
                         <rect x="111" y="-6" width="10" height="4" fill="#fff" stroke="#1a1f3c" stroke-width="1"/>
                         <rect x="112" y="-5" width="6" height="2" fill="#17b26a"/>
                     </g>
@@ -527,14 +527,12 @@
     :global(.sy-puppy--action-document-move .sy-puppy__tool-mark--document-move),
     :global(.sy-puppy--action-document-rename .sy-puppy__tool-mark--document-rename),
     :global(.sy-puppy--action-document-remove .sy-puppy__tool-mark--document-remove),
-    :global(.sy-puppy--action-document-get_path .sy-puppy__tool-mark--document-get_path),
-    :global(.sy-puppy--action-document-get_hpath .sy-puppy__tool-mark--document-get_hpath),
-    :global(.sy-puppy--action-document-get_ids .sy-puppy__tool-mark--document-get_ids),
+    :global(.sy-puppy--action-document-resolve .sy-puppy__tool-mark--document-resolve),
     :global(.sy-puppy--action-document-get_child_blocks .sy-puppy__tool-mark--document-get_child_blocks),
     :global(.sy-puppy--action-document-get_child_docs .sy-puppy__tool-mark--document-get_child_docs),
     :global(.sy-puppy--action-document-list_tree .sy-puppy__tool-mark--document-list_tree),
     :global(.sy-puppy--action-document-set_icon .sy-puppy__tool-mark--document-set_icon),
-    :global(.sy-puppy--action-document-set_cover .sy-puppy__tool-mark--document-set_cover),
+    :global(.sy-puppy--action-document-set_attr .sy-puppy__tool-mark--document-set_attr),
     :global(.sy-puppy--action-document-clear_cover .sy-puppy__tool-mark--document-clear_cover),
     :global(.sy-puppy--action-block-insert .sy-puppy__tool-mark--block-insert),
     :global(.sy-puppy--action-block-prepend .sy-puppy__tool-mark--block-prepend),
@@ -543,7 +541,7 @@
     :global(.sy-puppy--action-block-set_attrs .sy-puppy__tool-mark--block-set_attrs),
     :global(.sy-puppy--action-block-delete .sy-puppy__tool-mark--block-delete),
     :global(.sy-puppy--action-block-move .sy-puppy__tool-mark--block-move),
-    :global(.sy-puppy--action-block-transfer_ref .sy-puppy__tool-mark--block-transfer_ref),
+    :global(.sy-puppy--action-block-transfer_references .sy-puppy__tool-mark--block-transfer_references),
     :global(.sy-puppy--action-block-fold .sy-puppy__tool-mark--block-fold),
     :global(.sy-puppy--action-block-unfold .sy-puppy__tool-mark--block-unfold),
     :global(.sy-puppy--action-block-get_kramdown .sy-puppy__tool-mark--block-get_kramdown),
@@ -562,30 +560,29 @@
     :global(.sy-puppy--action-av-remove_rows .sy-puppy__tool-mark--av-remove_rows),
     :global(.sy-puppy--action-av-add_column .sy-puppy__tool-mark--av-add_column),
     :global(.sy-puppy--action-av-remove_column .sy-puppy__tool-mark--av-remove_column),
-    :global(.sy-puppy--action-av-set_cell .sy-puppy__tool-mark--av-set_cell),
-    :global(.sy-puppy--action-av-batch_set_cells .sy-puppy__tool-mark--av-batch_set_cells),
-    :global(.sy-puppy--action-av-duplicate_block .sy-puppy__tool-mark--av-duplicate_block),
+    :global(.sy-puppy--action-av-set_cells .sy-puppy__tool-mark--av-set_cells),
+    :global(.sy-puppy--action-av-duplicate .sy-puppy__tool-mark--av-duplicate),
     :global(.sy-puppy--action-file-upload_asset .sy-puppy__tool-mark--file-upload_asset),
     :global(.sy-puppy--action-file-export_md .sy-puppy__tool-mark--file-export_md),
     :global(.sy-puppy--action-file-export_resources .sy-puppy__tool-mark--file-export_resources),
-    :global(.sy-puppy--action-file-render_template .sy-puppy__tool-mark--file-render_template),
-    :global(.sy-puppy--action-file-render_sprig .sy-puppy__tool-mark--file-render_sprig),
+    :global(.sy-puppy--action-file-render .sy-puppy__tool-mark--file-render),
+    :global(.sy-puppy--action-file-render .sy-puppy__tool-mark--file-render),
     :global(.sy-puppy--action-search-fulltext .sy-puppy__tool-mark--search-fulltext),
     :global(.sy-puppy--action-search-query_sql .sy-puppy__tool-mark--search-query_sql),
-    :global(.sy-puppy--action-search-search_tag .sy-puppy__tool-mark--search-search_tag),
+    :global(.sy-puppy--action-tag-list .sy-puppy__tool-mark--tag-list),
     :global(.sy-puppy--action-search-get_backlinks .sy-puppy__tool-mark--search-get_backlinks),
-    :global(.sy-puppy--action-search-get_backmentions .sy-puppy__tool-mark--search-get_backmentions),
+    :global(.sy-puppy--action-search-get_backlinks .sy-puppy__tool-mark--search-get_backlinks),
     :global(.sy-puppy--action-tag-list .sy-puppy__tool-mark--tag-list),
     :global(.sy-puppy--action-tag-rename .sy-puppy__tool-mark--tag-rename),
     :global(.sy-puppy--action-tag-remove .sy-puppy__tool-mark--tag-remove),
-    :global(.sy-puppy--action-system-push_msg .sy-puppy__tool-mark--system-push_msg),
-    :global(.sy-puppy--action-system-push_err_msg .sy-puppy__tool-mark--system-push_err_msg),
+    :global(.sy-puppy--action-system-notify .sy-puppy__tool-mark--system-notify),
+    :global(.sy-puppy--action-system-notify .sy-puppy__tool-mark--system-notify),
     :global(.sy-puppy--action-system-network .sy-puppy__tool-mark--system-network),
     :global(.sy-puppy--action-system-conf .sy-puppy__tool-mark--system-conf),
-    :global(.sy-puppy--action-system-sys_fonts .sy-puppy__tool-mark--system-sys_fonts),
+    :global(.sy-puppy--action-system-conf .sy-puppy__tool-mark--system-conf),
     :global(.sy-puppy--action-system-workspace_info .sy-puppy__tool-mark--system-workspace_info),
     :global(.sy-puppy--action-system-changelog .sy-puppy__tool-mark--system-changelog),
-    :global(.sy-puppy--action-system-boot_progress .sy-puppy__tool-mark--system-boot_progress),
+    :global(.sy-puppy--action-system-get_version .sy-puppy__tool-mark--system-get_version),
     :global(.sy-puppy--action-system-get_version .sy-puppy__tool-mark--system-get_version),
     :global(.sy-puppy--action-system-get_current_time .sy-puppy__tool-mark--system-get_current_time) {
         opacity: 1;

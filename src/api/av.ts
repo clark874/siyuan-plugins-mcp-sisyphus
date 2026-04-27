@@ -127,6 +127,13 @@ export async function duplicateAttributeViewBlock(
     return client.request<{ avID: string; blockID: string }>('/api/av/duplicateAttributeViewBlock', { avID });
 }
 
+export async function spinBlockDOM(
+    client: SiYuanClient,
+    dom: string,
+): Promise<{ dom: string }> {
+    return client.request<{ dom: string }>('/api/lute/spinBlockDOM', { dom });
+}
+
 export async function getMirrorDatabaseBlocks(
     client: SiYuanClient,
     avID: string,
@@ -142,6 +149,6 @@ export async function getAttributeViewPrimaryKeyValues(
         page?: number;
         pageSize?: number;
     },
-): Promise<{ name: string; blockIDs: string[]; rows: unknown[] }> {
-    return client.request<{ name: string; blockIDs: string[]; rows: unknown[] }>('/api/av/getAttributeViewPrimaryKeyValues', payload);
+): Promise<{ name: string; blockIDs: string[]; rows: any }> {
+    return client.request<{ name: string; blockIDs: string[]; rows: any }>('/api/av/getAttributeViewPrimaryKeyValues', payload);
 }

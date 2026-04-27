@@ -3,15 +3,11 @@ import * as notificationApi from '../../api/notification';
 import * as systemApi from '../../api/system';
 import type { SystemAction } from '../../core/config';
 import {
-    SystemBootProgressSchema,
-    SystemChangelogSchema,
     SystemConfSchema,
     SystemGetCurrentTimeSchema,
     SystemGetVersionSchema,
     SystemNetworkSchema,
-    SystemPushErrMsgSchema,
-    SystemPushMsgSchema,
-    SystemSysFontsSchema,
+    SystemNotifySchema,
     SystemWorkspaceInfoSchema,
 } from '../../core/types';
 import type { ToolActionHandler } from '../define-tool';
@@ -19,9 +15,6 @@ import { createJsonResult, type ToolResult } from '../shared';
 
 const DEFAULT_CONF_MAX_DEPTH = 1;
 const DEFAULT_CONF_MAX_ITEMS = 12;
-const DEFAULT_FONT_SAMPLE_LIMIT = 20;
-const DEFAULT_FONT_LIST_LIMIT = 50;
-const MAX_FONT_LIST_LIMIT = 200;
 
 type SummaryNode =
     | { type: 'null'; value: null; truncated: false }
@@ -158,57 +151,6 @@ function buildConfResponse(raw: unknown, mode: 'summary' | 'get', keyPath: strin
     };
 }
 
-function normalizeFonts(raw: unknown): string[] {
-    if (Array.isArray(raw)) {
-        return raw.filter((item): item is string => typeof item === 'string');
-    }
-    if (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).fonts)) {
-        return (raw as Record<string, unknown>).fonts.filter((item): item is string => typeof item === 'string');
-    }
-    return [];
-}
-
-function buildFontsResponse(raw: unknown, mode: 'summary' | 'list', offset: number, limit: number, query?: string) {
-    const allFonts = normalizeFonts(raw);
-    const filteredFonts = query
-        ? allFonts.filter((font) => font.toLowerCase().includes(query.toLowerCase()))
-        : allFonts;
-
-    if (mode === 'list') {
-        const items = filteredFonts.slice(offset, offset + limit);
-        return {
-            mode,
-            query: query ?? '',
-            total: filteredFonts.length,
-            offset,
-            limit,
-            hasMore: offset + items.length < filteredFonts.length,
-            items,
-        };
-    }
-
-    const sample = filteredFonts.slice(0, DEFAULT_FONT_SAMPLE_LIMIT);
-    return {
-        mode,
-        query: query ?? '',
-        total: filteredFonts.length,
-        sample,
-        sampleLimit: DEFAULT_FONT_SAMPLE_LIMIT,
-        hasMore: filteredFonts.length > sample.length,
-        next: {
-            action: 'sys_fonts',
-            mode: 'list',
-            offset: 0,
-            limit: DEFAULT_FONT_LIST_LIMIT,
-            ...(query ? { query } : {}),
-        },
-        hints: [
-            'Use system(action="sys_fonts", mode="list", offset=0, limit=50) to page through fonts.',
-            'Add query to narrow results before paging when you know part of the font name.',
-        ],
-    };
-}
-
 const handleWorkspaceInfo: ToolActionHandler = async ({ client, rawArgs }) => {
     SystemWorkspaceInfoSchema.parse(rawArgs);
     return createJsonResult(await systemApi.getWorkspaceInfo(client));
@@ -217,11 +159,6 @@ const handleWorkspaceInfo: ToolActionHandler = async ({ client, rawArgs }) => {
 const handleNetwork: ToolActionHandler = async ({ client, rawArgs }) => {
     SystemNetworkSchema.parse(rawArgs);
     return createJsonResult(await systemApi.getNetwork(client));
-};
-
-const handleChangelog: ToolActionHandler = async ({ client, rawArgs }) => {
-    SystemChangelogSchema.parse(rawArgs);
-    return createJsonResult(await systemApi.getChangelog(client));
 };
 
 const handleConf: ToolActionHandler = async ({ client, rawArgs }) => {
@@ -233,28 +170,12 @@ const handleConf: ToolActionHandler = async ({ client, rawArgs }) => {
     return createJsonResult(buildConfResponse(rawConf, mode, parsed.keyPath, maxDepth, maxItems));
 };
 
-const handleSysFonts: ToolActionHandler = async ({ client, rawArgs }) => {
-    const parsed = SystemSysFontsSchema.parse(rawArgs);
-    const rawFonts = await systemApi.getSysFonts(client);
-    const mode = parsed.mode ?? 'summary';
-    const offset = clampInteger(parsed.offset, 0, 0, Number.MAX_SAFE_INTEGER);
-    const limit = clampInteger(parsed.limit, DEFAULT_FONT_LIST_LIMIT, 1, MAX_FONT_LIST_LIMIT);
-    return createJsonResult(buildFontsResponse(rawFonts, mode, offset, limit, parsed.query));
-};
-
-const handleBootProgress: ToolActionHandler = async ({ client, rawArgs }) => {
-    SystemBootProgressSchema.parse(rawArgs);
-    return createJsonResult(await systemApi.getBootProgress(client));
-};
-
-const handlePushMsg: ToolActionHandler = async ({ client, rawArgs }) => {
-    const parsed = SystemPushMsgSchema.parse(rawArgs);
-    return createJsonResult(await notificationApi.pushMsg(client, parsed.msg, parsed.timeout));
-};
-
-const handlePushErrMsg: ToolActionHandler = async ({ client, rawArgs }) => {
-    const parsed = SystemPushErrMsgSchema.parse(rawArgs);
-    return createJsonResult(await notificationApi.pushErrMsg(client, parsed.msg, parsed.timeout));
+const handleNotify: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemNotifySchema.parse(rawArgs);
+    const result = parsed.level === 'error'
+        ? await notificationApi.pushErrMsg(client, parsed.msg, parsed.timeout)
+        : await notificationApi.pushMsg(client, parsed.msg, parsed.timeout);
+    return createJsonResult({ level: parsed.level, ...result });
 };
 
 const handleGetVersion: ToolActionHandler = async ({ client, rawArgs }) => {
@@ -271,12 +192,8 @@ const handleGetCurrentTime: ToolActionHandler = async ({ client, rawArgs }) => {
 export const SYSTEM_ACTION_HANDLERS: Record<SystemAction, ToolActionHandler> = {
     workspace_info: handleWorkspaceInfo,
     network: handleNetwork,
-    changelog: handleChangelog,
     conf: handleConf,
-    sys_fonts: handleSysFonts,
-    boot_progress: handleBootProgress,
-    push_msg: handlePushMsg,
-    push_err_msg: handlePushErrMsg,
+    notify: handleNotify,
     get_version: handleGetVersion,
     get_current_time: handleGetCurrentTime,
 };

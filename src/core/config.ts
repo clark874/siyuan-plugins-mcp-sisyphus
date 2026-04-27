@@ -3,14 +3,14 @@ export const TOOL_CATEGORIES = ['notebook', 'document', 'block', 'av', 'file', '
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
 export const NOTEBOOK_ACTIONS = ['list', 'create', 'set_open_state', 'remove', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'set_permission', 'get_child_docs'] as const;
-export const DOCUMENT_ACTIONS = ['create', 'rename', 'remove', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'create_empty', 'heading_to_doc', 'doc_to_heading'] as const;
-export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'batch_insert', 'batch_update', 'append_daily_note', 'prepend_daily_note', 'doc_info', 'docs_info'] as const;
-export const AV_ACTIONS = ['get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells', 'duplicate_block', 'get_primary_key_values'] as const;
-export const FILE_ACTIONS = ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'set_image_alpha'] as const;
-export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions', 'search_refs', 'find_replace', 'search_assets', 'get_asset_content', 'fulltext_asset_content', 'list_invalid_refs'] as const;
+export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'remove', 'move', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'heading_to_doc', 'doc_to_heading'] as const;
+export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info'] as const;
+export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values'] as const;
+export const FILE_ACTIONS = ['upload_asset', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset'] as const;
+export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
-export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'changelog', 'conf', 'sys_fonts', 'boot_progress', 'push_msg', 'push_err_msg', 'get_version', 'get_current_time'] as const;
-export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'skip_review_card', 'create_card', 'add_card', 'remove_card'] as const;
+export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'get_version', 'get_current_time'] as const;
+export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 
 export type NotebookAction = typeof NOTEBOOK_ACTIONS[number];
@@ -39,7 +39,7 @@ export type ToolActionMap = {
 
 export interface CategoryToolConfig<Action extends string = string> {
     enabled: boolean;
-    actions: Record<Action, boolean>;
+    actions: Partial<Record<Action, boolean>>;
 }
 
 export interface FileCategoryToolConfig<Action extends string = string> extends CategoryToolConfig<Action> {
@@ -86,48 +86,44 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         get_permissions: 'advanced', set_permission: 'advanced',
     },
     document: {
-        create: 'basic', get_doc: 'basic', get_path: 'basic', get_hpath: 'basic',
-        get_ids: 'basic', get_child_blocks: 'basic', get_child_docs: 'basic',
+        create: 'basic', lookup: 'basic', get_doc: 'basic',
+        get_child_blocks: 'basic', get_child_docs: 'basic',
         search_docs: 'basic', rename: 'basic',
-        remove: 'advanced', move: 'advanced', set_icon: 'advanced',
-        set_cover: 'advanced',
+        remove: 'advanced', move: 'advanced', set_attr: 'advanced',
         list_tree: 'advanced', create_daily_note: 'advanced', duplicate: 'advanced',
-        remove_batch: 'advanced', create_empty: 'advanced', heading_to_doc: 'advanced',
-        doc_to_heading: 'advanced',
+        heading_to_doc: 'advanced', doc_to_heading: 'advanced',
     },
     block: {
         get_kramdown: 'basic', get_children: 'basic', get_attrs: 'basic',
-        exists: 'basic', info: 'basic', append: 'basic', prepend: 'basic',
+        info: 'basic', append: 'basic', prepend: 'basic',
         insert: 'basic', update: 'basic',
         delete: 'advanced', move: 'advanced', set_fold_state: 'advanced',
-        transfer_ref: 'advanced', set_attrs: 'advanced', breadcrumb: 'advanced',
+        transfer_references: 'advanced', set_attrs: 'advanced', breadcrumb: 'advanced',
         dom: 'advanced', recent_updated: 'advanced', word_count: 'advanced',
-        batch_insert: 'advanced', batch_update: 'advanced', append_daily_note: 'advanced',
-        prepend_daily_note: 'advanced', doc_info: 'advanced', docs_info: 'advanced',
+        add_to_daily_note: 'advanced', docs_info: 'advanced',
     },
     av: {
-        get: 'basic', render_attribute_view: 'basic',
+        get: 'basic', render: 'basic',
         get_attribute_view_keys: 'basic', get_attribute_view_filter_sort: 'basic',
         search: 'basic', get_primary_key_values: 'basic',
         add_rows: 'advanced', remove_rows: 'advanced', add_column: 'advanced',
-        remove_column: 'advanced', set_cell: 'advanced', batch_set_cells: 'advanced',
-        duplicate_block: 'advanced',
+        remove_column: 'advanced', set_cells: 'advanced',
+        duplicate: 'advanced',
     },
     file: {
         export_md: 'basic', upload_asset: 'basic',
         get_doc_assets: 'basic',
-        render_template: 'advanced', render_sprig: 'advanced',
+        render: 'advanced',
         export_resources: 'advanced', list_unused_assets: 'advanced',
         get_image_ocr_text: 'advanced',
         remove_unused_assets: 'advanced', rename_asset: 'advanced',
-        delete_asset: 'advanced', set_image_alpha: 'advanced',
+        delete_asset: 'advanced',
     },
     search: {
         fulltext: 'basic', query_sql: 'basic',
-        search_tag: 'basic', get_backlinks: 'basic', get_backmentions: 'basic',
+        get_backlinks: 'basic',
         search_refs: 'advanced', find_replace: 'advanced', search_assets: 'advanced',
-        get_asset_content: 'advanced', fulltext_asset_content: 'advanced',
-        list_invalid_refs: 'advanced',
+        fulltext_asset_content: 'advanced', list_invalid_refs: 'advanced',
     },
     tag: {
         list: 'basic', rename: 'basic',
@@ -135,14 +131,11 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     },
     system: {
         get_version: 'basic', get_current_time: 'basic', conf: 'basic',
-        boot_progress: 'basic',
-        workspace_info: 'advanced', network: 'advanced', changelog: 'advanced',
-        sys_fonts: 'advanced', push_msg: 'advanced', push_err_msg: 'advanced',
+        workspace_info: 'advanced', network: 'advanced', notify: 'advanced',
     },
     flashcard: {
         list_cards: 'basic', get_decks: 'basic', get_cards: 'basic',
-        review_card: 'advanced', skip_review_card: 'advanced',
-        create_card: 'advanced', add_card: 'advanced', remove_card: 'advanced',
+        review_card: 'advanced', create_card: 'advanced', remove_card: 'advanced',
     },
     mascot: {
         get_balance: 'basic', shop: 'basic', buy: 'basic',
@@ -155,7 +148,7 @@ export function getActionTier(category: ToolCategory, action: string): ActionTie
 
 export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     notebook: new Set(['remove', 'set_permission']),
-    document: new Set(['remove', 'move', 'remove_batch']),
+    document: new Set(['remove', 'move']),
     block: new Set(['delete', 'move']),
     av: new Set(),
     file: new Set(['upload_asset', 'remove_unused_assets', 'delete_asset']),
@@ -185,24 +178,24 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         document: {
             enabled: true,
-            actions: createActionsRecord(DOCUMENT_ACTIONS, ['create', 'rename', 'move', 'get_path', 'get_hpath', 'get_ids', 'get_child_blocks', 'get_child_docs', 'set_icon', 'set_cover', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'remove_batch', 'create_empty', 'heading_to_doc', 'doc_to_heading']),
+            actions: createActionsRecord(DOCUMENT_ACTIONS, ['create', 'lookup', 'rename', 'move', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'heading_to_doc', 'doc_to_heading']),
         },
         block: {
             enabled: true,
-            actions: createActionsRecord(BLOCK_ACTIONS, ['insert', 'prepend', 'append', 'update', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_ref', 'set_attrs', 'get_attrs', 'exists', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'batch_insert', 'batch_update', 'append_daily_note', 'prepend_daily_note', 'doc_info', 'docs_info']),
+            actions: createActionsRecord(BLOCK_ACTIONS, ['insert', 'prepend', 'append', 'update', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info']),
         },
         av: {
             enabled: true,
-            actions: createActionsRecord(AV_ACTIONS, ['get', 'render_attribute_view', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cell', 'batch_set_cells', 'duplicate_block', 'get_primary_key_values']),
+            actions: createActionsRecord(AV_ACTIONS, ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values']),
         },
         file: {
             enabled: true,
-            actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'render_template', 'render_sprig', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'set_image_alpha']),
+            actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset']),
             uploadLargeFileThresholdMB: 10,
         },
         search: {
             enabled: true,
-            actions: createActionsRecord(SEARCH_ACTIONS, ['fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions', 'search_refs', 'find_replace', 'search_assets', 'get_asset_content', 'fulltext_asset_content', 'list_invalid_refs']),
+            actions: createActionsRecord(SEARCH_ACTIONS, ['fulltext', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs']),
         },
         tag: {
             enabled: true,
@@ -210,11 +203,11 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         system: {
             enabled: true,
-            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'changelog', 'conf', 'sys_fonts', 'boot_progress', 'push_msg', 'push_err_msg', 'get_version', 'get_current_time']),
+            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'conf', 'notify', 'get_version', 'get_current_time']),
         },
         flashcard: {
             enabled: true,
-            actions: createActionsRecord(FLASHCARD_ACTIONS, ['list_cards', 'get_decks', 'get_cards', 'review_card', 'skip_review_card', 'create_card', 'add_card', 'remove_card']),
+            actions: createActionsRecord(FLASHCARD_ACTIONS, ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card']),
         },
         mascot: {
             enabled: true,

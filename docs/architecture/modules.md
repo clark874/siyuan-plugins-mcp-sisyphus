@@ -260,16 +260,16 @@ runToolCall(ctx, handler)
 
 | Method | Description |
 |--------|-------------|
-| `load()` / `reload()` | Read permission file from SiYuan API → JSON.parse → migrate old values → auto `save()` if migration occurred |
+| `load()` / `reload()` | Read permission file from SiYuan API → JSON.parse → normalize old values in memory without writing |
 | `save()` | Write permission file via `SiYuanClient.writeFile` |
-| `get(notebookId)` | Return 4-tier permission, default `rwd` (fallback when not configured) |
+| `get(notebookId)` | Return 4-tier permission, default `r` read-only (fallback when not configured) |
 | `canRead(notebookId)` | `get() !== 'none'` |
 | `canWrite(notebookId)` | `['rw', 'rwd'].includes(get())` |
 | `canDelete(notebookId)` | `get() === 'rwd'` |
 
 **Storage location**: `/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions`
 
-**CLI compatibility**: CLI also creates a `PermissionManager` on startup and reads the same permission file; unconfigured notebooks fall back to `rwd`.
+**CLI compatibility**: CLI also creates a `PermissionManager` on startup and reads the same permission file; unconfigured notebooks fall back to `r` (read-only).
 
 **Dependencies**: `api/client.ts`
 

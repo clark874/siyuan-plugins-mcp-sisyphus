@@ -52,7 +52,7 @@
 | **传输方式** | stdio（默认）/ HTTP（可选） | 直接函数调用，不走 MCP 传输 |
 | **配置来源** | 插件设置面板 → SiYuan 存储 | CLI profile + SiYuan 存储中的插件 UI 配置 |
 | **工具开关** | 用户通过 UI 精细控制每个 action | 同样遵守 UI 中的 tool/action 开关 |
-| **权限管理** | 从 SiYuan 存储读取权限文件 | 同一套 `PermissionManager`；未配置 notebook 默认 `rwd` |
+| **权限管理** | 从 SiYuan 存储读取权限文件 | 同一套 `PermissionManager`；未配置 notebook 默认 `r`（只读） |
 | **适用场景** | AI 客户端接入、日常持续使用 | 脚本化操作、CI/CD、快速查询 |
 
 两种产物**共用同一套核心**：`TOOL_REGISTRY`、`SiYuanClient`、`PermissionManager`、`tool-lifecycle`、所有 `src/api/*` 封装。差异仅在于外层包装（MCP Server vs CLI 参数解析）和配置持久化方式。

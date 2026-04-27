@@ -426,14 +426,15 @@
 
 ---
 
-### 步骤 3.3 — 获取文档人类可读路径
+### 步骤 3.3 — 解析文档人类可读路径
 
 **调用：**
 ```json
 {
   "tool": "document",
-  "action": "get_hpath",
-  "id": "$DOC_ID_1"
+  "action": "resolve",
+  "id": "$DOC_ID_1",
+  "include": ["hpath"]
 }
 ```
 
@@ -441,14 +442,15 @@
 
 ---
 
-### 步骤 3.4 — 获取文档存储路径
+### 步骤 3.4 — 解析文档存储路径
 
 **调用：**
 ```json
 {
   "tool": "document",
-  "action": "get_path",
-  "id": "$DOC_ID_1"
+  "action": "resolve",
+  "id": "$DOC_ID_1",
+  "include": ["path"]
 }
 ```
 
@@ -646,15 +648,16 @@
 
 ---
 
-### 步骤 3.17 — 通过路径获取文档 ID
+### 步骤 3.17 — 通过层级路径解析文档 ID
 
 **调用：**
 ```json
 {
   "tool": "document",
-  "action": "get_ids",
+  "action": "resolve",
   "notebook": "$TEST_NB_ID",
-  "path": "/mcp-test-doc-main"
+  "hpath": "/mcp-test-doc-main",
+  "include": ["ids"]
 }
 ```
 
@@ -668,7 +671,7 @@
 ```json
 {
   "tool": "document",
-  "action": "create_empty",
+  "action": "create",
   "notebook": "$TEST_NB_ID",
   "path": "/mcp-test-empty-doc"
 }
@@ -1873,7 +1876,7 @@
 ```json
 {
   "tool": "av",
-  "action": "set_cell",
+  "action": "set_cells",
   "avID": "$AV_ID",
   "columnID": "$AV_TEXT_COL_ID",
   "rowID": "$AV_ROW_ID_1",
@@ -1941,9 +1944,9 @@
 ```json
 {
   "tool": "av",
-  "action": "batch_set_cells",
+  "action": "set_cells",
   "avID": "$AV_ID",
-  "items": [
+  "cells": [
     {
       "rowID": "$AV_ROW_ID_1",
       "columnID": "$AV_TEXT_COL_ID",

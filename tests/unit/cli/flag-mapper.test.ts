@@ -82,4 +82,38 @@ describe('cli/flag-mapper', () => {
         expect(args).toEqual({ item_id: 'milk' });
         expect(args).not.toHaveProperty('checked');
     });
+
+    it('maps flags from oneOf action branches', () => {
+        const oneOfSchema = {
+            type: 'object',
+            properties: {
+                action: { type: 'string', enum: ['create', 'set_open_state', 'help'] },
+                topic: { type: 'string' },
+            },
+            oneOf: [
+                {
+                    type: 'object',
+                    properties: {
+                        action: { type: 'string', const: 'create' },
+                        name: { type: 'string' },
+                    },
+                    required: ['action', 'name'],
+                },
+                {
+                    type: 'object',
+                    properties: {
+                        action: { type: 'string', const: 'set_open_state' },
+                        notebook: { type: 'string' },
+                        opened: { type: 'boolean' },
+                    },
+                    required: ['action', 'notebook', 'opened'],
+                },
+            ],
+        };
+
+        const { args, warnings } = mapFlagsToArgs(['--notebook', 'nb-1', '--opened'], oneOfSchema);
+
+        expect(args).toEqual({ notebook: 'nb-1', opened: true });
+        expect(warnings).toEqual([]);
+    });
 });

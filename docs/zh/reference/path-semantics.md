@@ -14,7 +14,7 @@
 用于：
 
 - `document(action="create")`
-- `document(action="get_ids")`
+- `document(action="lookup", hpath=...)`
 
 格式：
 
@@ -32,7 +32,7 @@
 - `document(action="rename")`
 - `document(action="remove")`
 - `document(action="move")`
-- `document(action="get_hpath")`
+- `document(action="lookup", path=...)`
 - `document(action="list_tree")`
 
 格式：
@@ -42,9 +42,10 @@
 规则：
 
 - 表示真实文件存储位置
-- 通过 `document(action="get_path", id=...)` 获取
+- 通过 `document(action="lookup", id=..., include="path")` 获取
+- 如果已有的是人类可读路径，请传 `hpath`；`lookup` 会为了兼容把非存储格式的 `path` 当作 `hpath` 解析，但新调用应使用明确字段。
 
 ## 安全工作流
 
-1. 先调用 `document(action="get_path", id=...)`
+1. 先调用 `document(action="lookup", id=..., include="path")`
 2. 在后续操作里复用返回的存储路径

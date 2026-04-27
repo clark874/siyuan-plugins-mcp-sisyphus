@@ -1,6 +1,6 @@
 # document
 
-这个工具覆盖文档 CRUD、树结构查询，以及与日记/转换相关的文档操作。
+这个工具覆盖文档 CRUD、树结构查询、元数据，以及与日记/转换相关的文档操作。
 
 适用场景：你需要创建、移动、查询或转换文档。
 
@@ -13,23 +13,22 @@
 
 | 分组 | Actions |
 |------|---------|
-| 创建与读取 | `create`, `create_empty`, `get_doc`, `get_path`, `get_hpath`, `get_ids` |
+| 创建与读取 | `create`, `lookup`, `get_doc` |
 | 树结构查询 | `get_child_blocks`, `get_child_docs`, `list_tree`, `search_docs` |
-| 修改 | `rename`, `move`, `remove`, `remove_batch`, `duplicate` |
-| 展示 | `set_icon`, `set_cover` |
+| 元数据与修改 | `rename`, `move`, `remove`, `set_attr`, `duplicate` |
 | 日记 / 转换 | `create_daily_note`, `heading_to_doc`, `doc_to_heading` |
 
 ## 参数与语义
 
-- `create` 和 `create_empty` 使用人类可读 `path`
-- `rename`、`remove`、`move` 在非 ID 模式下通常需要存储路径
-- `move` 同时支持 ID 模式和路径模式
-- `set_cover` 省略 `source` 时表示清空封面
+- `create` 支持人类可读 `path`，也支持 `parentPath` + `title`；省略 `markdown` 即创建空文档。创建子文档时优先使用 `path`。`parentPath` + `title` 模式仍可用，但思源该接口可能返回非 ID 的原始值，因此 MCP 会在创建后再按 hpath 解析真实文档 ID。
+- `lookup` 可按 `id`、存储 `path`、人类可读 `hpath` / `hPath` 查找；用 `include` 请求 `id`、`ids`、`path`、`hpath` 或 `docInfo`。
+- `rename`、`remove`、`move` 在非 ID 模式下通常需要存储路径。
+- `set_attr` 按文档 ID 写入文档元数据属性。
 
 ## 安全规则
 
-- `remove`、`move`、`remove_batch` 都需要显式确认
-- 按路径修改前先确认路径类型
+- `remove`、`move` 需要显式确认。
+- 按路径修改前先确认路径类型。
 
 ## 示例
 
@@ -46,8 +45,9 @@ MCP：
 
 ```json
 {
-  "action": "get_path",
-  "id": "<doc-id>"
+  "action": "lookup",
+  "id": "<doc-id>",
+  "include": "path"
 }
 ```
 
@@ -55,28 +55,23 @@ CLI：
 
 ```bash
 siyuan document create --notebook <notebook-id> --path "/Inbox/Weekly Note" --markdown "# Weekly Report"
-siyuan document get-path --id <doc-id>
+siyuan document lookup --id <doc-id> --include path
 ```
 
 ## Action 列表
 
 - `create`
+- `lookup`
 - `rename`
 - `remove`
 - `move`
-- `get_path`
-- `get_hpath`
-- `get_ids`
 - `get_child_blocks`
 - `get_child_docs`
-- `set_icon`
-- `set_cover`
+- `set_attr`
 - `list_tree`
 - `search_docs`
 - `get_doc`
 - `create_daily_note`
 - `duplicate`
-- `remove_batch`
-- `create_empty`
 - `heading_to_doc`
 - `doc_to_heading`

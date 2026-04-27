@@ -15,9 +15,7 @@ import {
     FileListUnusedAssetsSchema,
     FileRemoveUnusedAssetsSchema,
     FileRenameAssetSchema,
-    FileRenderSprigSchema,
-    FileRenderTemplateSchema,
-    FileSetImageAlphaSchema,
+    FileRenderSchema,
     FileUploadAssetSchema,
 } from '../../core/types';
 import { ensurePermissionForDocumentId } from '../context';
@@ -93,12 +91,16 @@ const handleUploadAsset = (thresholdMB: number, largeUploadThresholdBytes: numbe
         });
     };
 
-const handleRenderTemplate: ToolActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = FileRenderTemplateSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+const handleRender: ToolActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = FileRenderSchema.parse(rawArgs);
+    if (parsed.engine === 'sprig') {
+        const result = await templateApi.renderSprig(client, parsed.template!);
+        return createJsonResult(result);
+    }
+    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id!, 'read');
     if (denied) return denied;
     try {
-        const result = await templateApi.renderTemplate(client, parsed.id, parsed.path);
+        const result = await templateApi.renderTemplate(client, parsed.id!, parsed.path!);
         return createJsonResult(result);
     } catch (error) {
         if (isWorkspaceTemplatePathError(error)) {
@@ -109,7 +111,7 @@ const handleRenderTemplate: ToolActionHandler = async ({ client, permMgr, rawArg
                         error: {
                             type: 'api_error',
                             tool: FILE_TOOL_NAME,
-                            action: 'render_template',
+                            action: 'render',
                             message: error.message,
                             reason: 'path_not_in_workspace',
                             workspacePathRequired: true,
@@ -122,12 +124,6 @@ const handleRenderTemplate: ToolActionHandler = async ({ client, permMgr, rawArg
         }
         throw error;
     }
-};
-
-const handleRenderSprig: ToolActionHandler = async ({ client, rawArgs }) => {
-    const parsed = FileRenderSprigSchema.parse(rawArgs);
-    const result = await templateApi.renderSprig(client, parsed.template);
-    return createJsonResult(result);
 };
 
 const handleExportMd: ToolActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -230,22 +226,10 @@ const handleDeleteAsset: ToolActionHandler = async ({ client, rawArgs }) => {
     });
 };
 
-const handleSetImageAlpha: ToolActionHandler = async ({ client, rawArgs }) => {
-    const parsed = FileSetImageAlphaSchema.parse(rawArgs);
-    const result = await fileApi.setImageAlpha(client, parsed.path, parsed.alpha);
-    return createJsonResult({
-        success: true,
-        path: parsed.path,
-        alpha: parsed.alpha,
-        ...((result && typeof result === 'object' && !Array.isArray(result)) ? result as Record<string, unknown> : {}),
-    });
-};
-
 export function createFileActionHandlers(thresholdMB: number, largeUploadThresholdBytes: number): Record<FileAction, ToolActionHandler> {
     return {
         upload_asset: handleUploadAsset(thresholdMB, largeUploadThresholdBytes),
-        render_template: handleRenderTemplate,
-        render_sprig: handleRenderSprig,
+        render: handleRender,
         export_md: handleExportMd,
         export_resources: handleExportResources,
         list_unused_assets: handleListUnusedAssets,
@@ -254,6 +238,5 @@ export function createFileActionHandlers(thresholdMB: number, largeUploadThresho
         remove_unused_assets: handleRemoveUnusedAssets,
         rename_asset: handleRenameAsset,
         delete_asset: handleDeleteAsset,
-        set_image_alpha: handleSetImageAlpha,
     };
 }

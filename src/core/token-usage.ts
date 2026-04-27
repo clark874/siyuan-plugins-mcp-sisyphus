@@ -2,7 +2,7 @@ import type { ToolConfig } from './config';
 import { listAllTools } from './tool-registry';
 import { buildServerInstructions } from './server-instructions';
 
-export const APPROX_TOKEN_MODE = 'approx_context_v1';
+export const APPROX_TOKEN_MODE = 'approx_context_v1' as const;
 
 export interface ApproxTokenMetrics {
     chars: number;

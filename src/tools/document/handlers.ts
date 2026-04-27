@@ -1,33 +1,27 @@
 import type { SiYuanClient } from '../../api/client';
-import * as attributeApi from '../../api/block';
 import * as blockApi from '../../api/block';
 import * as documentApi from '../../api/document';
 import * as fileApi from '../../api/file';
+import * as transactionApi from '../../api/transaction';
 import type { DocumentAction } from '../../core/config';
 import { normalizeMarkdownContent } from '../../core/normalize';
 import type { PermissionManager } from '../../core/permissions';
 import {
-    DocumentActionSchema,
     DocumentCreateSchema,
-    DocumentCreateEmptySchema,
     DocumentCreateDailyNoteSchema,
     DocumentDocToHeadingSchema,
     DocumentDuplicateSchema,
     DocumentGetChildBlocksSchema,
     DocumentGetChildDocsSchema,
     DocumentGetDocSchema,
-    DocumentGetHPathSchema,
-    DocumentGetIdsSchema,
     DocumentHeadingToDocSchema,
     DocumentListTreeSchema,
-    DocumentGetPathSchema,
     DocumentMoveSchema,
-    DocumentRemoveBatchSchema,
+    DocumentLookupSchema,
     DocumentRemoveSchema,
     DocumentRenameSchema,
     DocumentSearchDocsSchema,
-    DocumentSetCoverSchema,
-    DocumentSetIconSchema,
+    DocumentSetAttrSchema,
 } from '../../core/types';
 import {
     ensurePermissionForDocumentId,
@@ -38,11 +32,35 @@ import {
 } from '../context';
 import type { ToolActionHandler } from '../define-tool';
 import { filterBacklinkResultByPermission, filterItemsByPermissionAndPath } from '../search';
-import { createJsonResult, createPermissionDeniedResult, createSetIconReminder, paginate, type ToolResult } from '../shared';
-import { applyUiRefresh } from '../ui-refresh';
+import { createJsonResult, createPermissionDeniedResult, createSetIconReminder } from '../shared';
+import { applyUiRefresh, type UiRefreshOperation } from '../ui-refresh';
 import { sleep } from '../../shared/async';
 
+type DocumentActionHandler = ToolActionHandler;
+
 const GET_HPATH_INDEXING_RETRY_DELAYS_MS = [120, 240];
+const GET_IDS_BY_HPATH_RETRY_DELAYS_MS = [120, 240, 480];
+
+const DEFAULT_DOCUMENT_RESOLVE_INCLUDE = ['path', 'hpath'] as const;
+
+function looksLikeStoragePath(path: string): boolean {
+    return path === '/' || /\.sy(?:\/|$)/.test(path);
+}
+
+async function setDocumentAttrsViaTransaction(
+    client: SiYuanClient,
+    id: string,
+    attrs: Record<string, string>,
+): Promise<void> {
+    await transactionApi.performTransactions(client, [{
+        doOperations: [{
+            action: 'setAttrs',
+            id,
+            data: JSON.stringify(attrs),
+        }],
+        undoOperations: [],
+    }]);
+}
 
 function isIndexingError(error: unknown): boolean {
     return error instanceof Error
@@ -88,6 +106,26 @@ function normalizeDocumentCoverSource(source: string): { source: string; titleIm
         source: normalizedSource,
         titleImg: `background-image:url("${escapedSource}");`,
     };
+}
+
+function normalizeChildDocPath(parentPath: string, title: string): string {
+    const normalizedParent = parentPath === '/' ? '' : parentPath.replace(/\/+$/, '');
+    return `${normalizedParent}/${title.replace(/^\/+/, '')}`;
+}
+
+async function getFirstIdByHPathWithRetry(client: SiYuanClient, hPath: string, notebook: string): Promise<string | undefined> {
+    for (let attempt = 0; attempt <= GET_IDS_BY_HPATH_RETRY_DELAYS_MS.length; attempt += 1) {
+        try {
+            const ids = await documentApi.getIDsByHPath(client, hPath, notebook);
+            if (ids[0]) return ids[0];
+        } catch {
+            // SiYuan hpath lookup can lag immediately after create; retry below.
+        }
+        if (attempt < GET_IDS_BY_HPATH_RETRY_DELAYS_MS.length) {
+            await sleep(GET_IDS_BY_HPATH_RETRY_DELAYS_MS[attempt]);
+        }
+    }
+    return undefined;
 }
 
 function truncateTreeByDepth(nodes: unknown, maxDepth: number, currentDepth = 0): unknown {
@@ -237,15 +275,31 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
     if (!permMgr.canWrite(parsed.notebook)) {
         return createPermissionDeniedResult(parsed.notebook, permMgr.get(parsed.notebook), 'write');
     }
-    const docId = await documentApi.createDoc(client, parsed.notebook, parsed.path, parsed.markdown);
+    const markdown = parsed.markdown ?? '';
+    const path = parsed.path ?? normalizeChildDocPath(parsed.parentPath!, parsed.title!);
+    let docId: string;
+    let createWarning: string | undefined;
+    if (parsed.path) {
+        docId = await documentApi.createDoc(client, parsed.notebook, parsed.path, markdown);
+    } else {
+        const rawCreateResult = await documentApi.createEmptyDoc(client, parsed.notebook, parsed.parentPath!, parsed.title!, markdown, parsed.sorts);
+        const resolvedId = await getFirstIdByHPathWithRetry(client, path, parsed.notebook);
+        docId = resolvedId ?? rawCreateResult.id;
+        if (!resolvedId) {
+            createWarning = `Created document at "${path}", but MCP could not resolve its block ID from the human-readable path before the indexing timeout. The returned id is the raw SiYuan createDoc response and may need document(action="lookup", notebook, hpath=...) retry.`;
+        }
+    }
     if (parsed.icon) {
-        await attributeApi.setBlockAttrs(client, docId, { icon: parsed.icon });
+        await setDocumentAttrsViaTransaction(client, docId, { icon: parsed.icon });
     }
     return applyUiRefresh(client, createJsonResult({
         success: true,
         notebook: parsed.notebook,
-        path: parsed.path,
+        path,
+        ...(parsed.parentPath ? { parentPath: parsed.parentPath } : {}),
+        ...(parsed.title ? { title: parsed.title } : {}),
         id: docId,
+        ...(createWarning ? { warning: createWarning } : {}),
         iconHint: createSetIconReminder('document', Boolean(parsed.icon)),
     }), parsed.icon
         ? [{ type: 'reloadIcon' }]
@@ -253,6 +307,98 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
             { type: 'reloadProtyle', id: docId },
             { type: 'reloadFiletree' },
         ]);
+};
+
+const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentLookupSchema.parse(rawArgs);
+    const hpathInput = parsed.hpath ?? parsed.hPath;
+    const include = new Set(parsed.include ?? DEFAULT_DOCUMENT_RESOLVE_INCLUDE);
+    const result: Record<string, unknown> = {
+        source: parsed.id
+            ? { type: 'id', id: parsed.id }
+            : parsed.path
+                ? { type: 'path', notebook: parsed.notebook, path: parsed.path }
+                : { type: 'hpath', notebook: parsed.notebook, hPath: hpathInput },
+    };
+
+    if (parsed.id) {
+        const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+        if (denied) return denied;
+        result.id = parsed.id;
+        if (include.has('path')) {
+            result.path = await documentApi.getPathByID(client, parsed.id);
+        }
+        if (include.has('hpath')) {
+            result.hPath = await getHPathByIdWithRetry(client, parsed.id);
+        }
+        if (include.has('docInfo')) {
+            result.docInfo = await blockApi.getDocInfo(client, parsed.id);
+        }
+        return createJsonResult(result);
+    }
+
+    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook!, 'read');
+    if (denied) return denied;
+
+    if (parsed.path) {
+        result.notebook = parsed.notebook;
+        result.path = parsed.path;
+
+        if (!looksLikeStoragePath(parsed.path)) {
+            const ids = await documentApi.getIDsByHPath(client, parsed.path, parsed.notebook!);
+            const primaryId = ids[0];
+            result.source = { type: 'hpath', notebook: parsed.notebook, hPath: parsed.path, providedAs: 'path' };
+            result.hPath = parsed.path;
+            result.interpretedPathAs = 'hpath';
+            result.hint = 'document.lookup path expects a storage path such as /20240318112233-abc123.sy. Human-readable paths should be passed as hpath; this call was interpreted as hpath for compatibility.';
+            if (include.has('ids') || include.has('id')) {
+                result.ids = ids;
+                if (include.has('id')) result.id = primaryId;
+            }
+            if (primaryId && include.has('path')) {
+                result.path = await documentApi.getPathByID(client, primaryId);
+            }
+            if (primaryId && include.has('docInfo')) {
+                result.docInfo = await blockApi.getDocInfo(client, primaryId);
+            }
+            return createJsonResult(result);
+        }
+
+        let resolvedHPath: string | undefined;
+        if (include.has('hpath') || include.has('id') || include.has('ids')) {
+            resolvedHPath = await documentApi.getHPathByPath(client, parsed.notebook!, parsed.path);
+            result.hPath = resolvedHPath;
+        }
+        if (include.has('id') || include.has('ids')) {
+            const ids = await documentApi.getIDsByHPath(client, resolvedHPath ?? parsed.path, parsed.notebook!);
+            result.ids = ids;
+            if (include.has('id')) result.id = ids[0];
+        }
+        if (include.has('docInfo') && typeof result.id === 'string') {
+            result.docInfo = await blockApi.getDocInfo(client, result.id);
+        }
+        return createJsonResult(result);
+    }
+
+    const ids = await documentApi.getIDsByHPath(client, hpathInput!, parsed.notebook!);
+    result.notebook = parsed.notebook;
+    result.hPath = hpathInput;
+    if (include.has('ids') || include.has('id')) {
+        result.ids = ids;
+        if (include.has('id')) result.id = ids[0];
+    }
+    const primaryId = ids[0];
+    if (primaryId && include.has('path')) {
+        const { denied: idDenied } = await ensurePermissionForDocumentId(client, permMgr, primaryId, 'read');
+        if (idDenied) return idDenied;
+        result.path = await documentApi.getPathByID(client, primaryId);
+    }
+    if (primaryId && include.has('docInfo')) {
+        const { denied: idDenied } = await ensurePermissionForDocumentId(client, permMgr, primaryId, 'read');
+        if (idDenied) return idDenied;
+        result.docInfo = await blockApi.getDocInfo(client, primaryId);
+    }
+    return createJsonResult(result);
 };
 
 const handleRename: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -281,6 +427,37 @@ const handleRename: DocumentActionHandler = async ({ client, permMgr, rawArgs })
 
 const handleRemove: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentRemoveSchema.parse(rawArgs);
+    if (parsed.ids) {
+        const reloadIds: string[] = [];
+        for (const id of parsed.ids) {
+            const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, id, 'delete');
+            if (denied) return denied;
+            reloadIds.push(context.documentId);
+        }
+        for (const id of parsed.ids) {
+            await documentApi.removeDocByID(client, id);
+        }
+        return applyUiRefresh(client, createJsonResult({ success: true, ids: parsed.ids, count: parsed.ids.length }), [
+            ...reloadIds.map((id) => ({ type: 'reloadProtyle' as const, id })),
+            { type: 'reloadFiletree' },
+        ]);
+    }
+    if (parsed.paths) {
+        for (const path of parsed.paths) {
+            const notebook = await resolveNotebookForPath(client, path);
+            if (!notebook) {
+                throw new Error(`Unable to resolve notebook for storage path "${path}" while checking permissions.`);
+            }
+            const denied = await ensurePermissionForNotebook(permMgr, notebook, 'delete');
+            if (denied) return denied;
+        }
+        await documentApi.removeDocs(client, parsed.paths);
+        return applyUiRefresh(client, createJsonResult({
+            success: true,
+            paths: parsed.paths,
+            count: parsed.paths.length,
+        }), [{ type: 'reloadFiletree' }]);
+    }
     if (parsed.id) {
         const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'delete');
         if (denied) return denied;
@@ -343,38 +520,6 @@ const handleMove: DocumentActionHandler = async ({ client, permMgr, rawArgs }) =
     }), [{ type: 'reloadFiletree' }]);
 };
 
-const handleGetPath: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentGetPathSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
-    if (denied) return denied;
-    const result = await documentApi.getPathByID(client, parsed.id);
-    return createJsonResult(result);
-};
-
-const handleGetHPath: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentGetHPathSchema.parse(rawArgs);
-    if (parsed.notebook) {
-        const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
-        if (denied) return denied;
-    }
-    if (parsed.id) {
-        const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
-        if (denied) return denied;
-        const result = await getHPathByIdWithRetry(client, parsed.id);
-        return createJsonResult(result);
-    }
-    const result = await documentApi.getHPathByPath(client, parsed.notebook!, parsed.path!);
-    return createJsonResult(result);
-};
-
-const handleGetIds: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentGetIdsSchema.parse(rawArgs);
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
-    if (denied) return denied;
-    const result = await documentApi.getIDsByHPath(client, parsed.path, parsed.notebook);
-    return createJsonResult(result);
-};
-
 const handleGetChildBlocks: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentGetChildBlocksSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
@@ -391,31 +536,33 @@ const handleGetChildDocs: DocumentActionHandler = async ({ client, permMgr, rawA
     return createJsonResult(result);
 };
 
-const handleSetIcon: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentSetIconSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
-    if (denied) return denied;
-    await attributeApi.setBlockAttrs(client, parsed.id, { icon: parsed.icon });
-    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, icon: parsed.icon }), [{ type: 'reloadIcon' }]);
-};
-
-const handleSetCover: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentSetCoverSchema.parse(rawArgs);
+const handleSetAttr: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentSetAttrSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
     if (denied) return denied;
-    const source = parsed.source;
-    if (!source) {
-        await attributeApi.setBlockAttrs(client, parsed.id, { 'title-img': '' });
-        return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, cleared: true }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    const attrs: Record<string, string> = {};
+    const response: Record<string, unknown> = { success: true, id: parsed.id };
+    const operations: UiRefreshOperation[] = [];
+    if (parsed.attrs.icon !== undefined) {
+        attrs.icon = parsed.attrs.icon;
+        response.icon = parsed.attrs.icon;
+        operations.push({ type: 'reloadIcon' }, { type: 'reloadFiletree' });
     }
-    const normalized = normalizeDocumentCoverSource(source);
-    await attributeApi.setBlockAttrs(client, parsed.id, { 'title-img': normalized.titleImg });
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        id: parsed.id,
-        source: normalized.source,
-        titleImg: normalized.titleImg,
-    }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    if (parsed.attrs.cover !== undefined) {
+        const source = parsed.attrs.cover;
+        if (!source) {
+            attrs['title-img'] = '';
+            response.clearedCover = true;
+        } else {
+            const normalized = normalizeDocumentCoverSource(source);
+            attrs['title-img'] = normalized.titleImg;
+            response.cover = normalized.source;
+            response.titleImg = normalized.titleImg;
+        }
+        operations.push({ type: 'reloadProtyle', id: context.documentId }, { type: 'reloadFiletree' });
+    }
+    await setDocumentAttrsViaTransaction(client, parsed.id, attrs);
+    return applyUiRefresh(client, createJsonResult(response), operations);
 };
 
 const handleListTree: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -529,42 +676,6 @@ const handleDuplicate: DocumentActionHandler = async ({ client, permMgr, rawArgs
     ]);
 };
 
-const handleRemoveBatch: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentRemoveBatchSchema.parse(rawArgs);
-    for (const path of parsed.paths) {
-        const notebook = await resolveNotebookForPath(client, path);
-        if (!notebook) {
-            throw new Error(`Unable to resolve notebook for storage path "${path}" while checking permissions.`);
-        }
-        const denied = await ensurePermissionForNotebook(permMgr, notebook, 'delete');
-        if (denied) return denied;
-    }
-    await documentApi.removeDocs(client, parsed.paths);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        paths: parsed.paths,
-        count: parsed.paths.length,
-    }), [{ type: 'reloadFiletree' }]);
-};
-
-const handleCreateEmpty: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentCreateEmptySchema.parse(rawArgs);
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
-    if (denied) return denied;
-    const result = await documentApi.createEmptyDoc(client, parsed.notebook, parsed.path, parsed.title, parsed.markdown ?? '', parsed.sorts);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        notebook: parsed.notebook,
-        path: parsed.path,
-        title: parsed.title,
-        ...result,
-        iconHint: createSetIconReminder('document'),
-    }), [
-        { type: 'reloadProtyle', id: result.id },
-        { type: 'reloadFiletree' },
-    ]);
-};
-
 const handleHeadingToDoc: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentHeadingToDocSchema.parse(rawArgs);
     const source = await ensurePermissionForDocumentId(client, permMgr, parsed.headingID, 'write');
@@ -606,23 +717,18 @@ const handleDocToHeading: DocumentActionHandler = async ({ client, permMgr, rawA
 
 export const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = {
     create: handleCreate,
+    lookup: handleLookup,
     rename: handleRename,
     remove: handleRemove,
     move: handleMove,
-    get_path: handleGetPath,
-    get_hpath: handleGetHPath,
-    get_ids: handleGetIds,
     get_child_blocks: handleGetChildBlocks,
     get_child_docs: handleGetChildDocs,
-    set_icon: handleSetIcon,
-    set_cover: handleSetCover,
+    set_attr: handleSetAttr,
     list_tree: handleListTree,
     search_docs: handleSearchDocs,
     get_doc: handleGetDoc,
     create_daily_note: handleCreateDailyNote,
     duplicate: handleDuplicate,
-    remove_batch: handleRemoveBatch,
-    create_empty: handleCreateEmpty,
     heading_to_doc: handleHeadingToDoc,
     doc_to_heading: handleDocToHeading,
 };

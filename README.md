@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
 </p>
 
-> **Latest:** `v0.3.4` — AV `add_rows` gains detached-row support via `primaryKeyTexts`; SQL read-only guard is now a full lexer; flashcard `review_card` schema tightened. See [CHANGELOG.md](./CHANGELOG.md) for full history.
+> **Latest:** `v0.3.5` — AV actions aligned with SiYuan frontend transaction flow; document `lookup` gains smart hpath fallback; HTTP panel adds 7 MCP client presets. See [CHANGELOG.md](./CHANGELOG.md) for full history.
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 
@@ -83,6 +83,25 @@ pnpm run build
 pnpm run make-link
 ```
 
+### How to choose a connection method
+
+First decide whether you want to use **MCP** or **CLI**:
+
+- **MCP Connection**: for MCP clients such as Claude Desktop, Cherry Studio, Cursor, Codex, and OpenClaw
+- **CLI Connection**: for running `siyuan-sisyphus ...` commands directly in a terminal
+
+### Connection Modes by SiYuan Installation Scenario
+
+| SiYuan Installation | Recommended Connection |
+|----------|-----------------|
+| Desktop (Windows / macOS / Linux) | HTTP or stdio or CLI |
+| Docker | stdio or CLI |
+| Mobile | CLI |
+
+The plugin settings page provides three ready-to-copy configuration snippets at the bottom: HTTP connection, mcp-remote bridge, and stdio connection.
+
+Open `Plugin` → `siyuan-plugins-mcp-sisyphus` → `Settings` → `🌐 Connection Config` to find them.
+
 ---
 
 ## CLI Tool
@@ -118,25 +137,6 @@ All 10 aggregated tools (`notebook`, `document`, `block`, `av`, `search`, `tag`,
 ## MCP Server Plugin
 
 The plugin runs inside SiYuan and exposes SiYuan capabilities as an MCP Server for external agents.
-
-### How to choose a connection method
-
-First decide whether you want to use **MCP** or **CLI**:
-
-- **MCP Connection**: for MCP clients such as Claude Desktop, Cherry Studio, Cursor, Codex, and OpenClaw
-- **CLI Connection**: for running `siyuan-sisyphus ...` commands directly in a terminal
-
-### Connection Modes by SiYuan Installation Scenario
-
-| SiYuan Installation | Recommended Connection |
-|----------|-----------------|
-| Desktop (Windows / macOS / Linux) | HTTP or stdio or CLI |
-| Docker | stdio or CLI |
-| Mobile | CLI |
-
-The plugin settings page provides three ready-to-copy configuration snippets at the bottom: HTTP connection, mcp-remote bridge, and stdio connection.
-
-Open `Plugin` → `siyuan-plugins-mcp-sisyphus` → `Settings` → `🌐 Connection Config` to find them.
 
 ### HTTP Mode
 
@@ -230,13 +230,13 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | Tool | Capabilities |
 |------|-------------|
 | `notebook` | CRUD, open/close, icons, permission management |
-| `document` | Create, move, delete, query, tree structure, daily notes, icons/covers |
-| `block` | Block-level read/write, attributes, fold/unfold, move, batch ops, word count |
+| `document` | Create, move, delete, lookup, tree structure, daily notes, metadata |
+| `block` | Block-level read/write, attributes, fold/unfold, move, references, word count |
 | `av` | Attribute view (database) read/write, row/column ops, cell updates, search |
 | `file` | Asset upload, export, template rendering, unused asset cleanup, OCR |
-| `search` | Full-text search, SQL queries, backlinks, tag search, find & replace |
+| `search` | Full-text search, SQL queries, backlinks, references, asset search, find & replace |
 | `tag` | List, rename, remove tags |
-| `system` | Version, time, notifications, config summary, system fonts |
+| `system` | Version, time, notifications, config summary, network and workspace status |
 | `flashcard` | List, review, create, and remove flashcards |
 | `mascot` | Balance, shop, and purchases |
 
@@ -262,23 +262,18 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | Action | Description |
 |--------|-------------|
 | `create` | Create a document with Markdown content |
+| `lookup` | Resolve document IDs, storage paths, human-readable paths, and metadata |
 | `rename` | Rename a document |
 | `remove` | Remove a document |
 | `move` | Move a document |
-| `set_icon` | Set document/folder icon |
-| `set_cover` | Set or clear document cover image |
-| `get_path` | Get storage path by document ID |
-| `get_hpath` | Get human-readable path by ID or storage path |
-| `get_ids` | Get document IDs by human-readable path |
 | `get_child_blocks` | Get direct child blocks of a document |
 | `get_child_docs` | Get direct child documents |
+| `set_attr` | Set document metadata attributes |
 | `list_tree` | List nested document tree under a notebook path |
 | `search_docs` | Search documents by title keyword |
 | `get_doc` | Get document content and metadata by ID |
 | `create_daily_note` | Create or return today's daily note for a notebook |
 | `duplicate` | Duplicate an existing document |
-| `remove_batch` | Batch remove documents by storage paths (requires confirmation) |
-| `create_empty` | Create an empty document |
 | `heading_to_doc` | Convert a heading block into a document |
 | `doc_to_heading` | Convert a document into a heading under a target document |
 
@@ -293,19 +288,14 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | `set_fold_state` | Fold or unfold a foldable block |
 | `get_kramdown` | Get block content in kramdown format |
 | `get_children` | Get direct child blocks |
-| `transfer_ref` | Transfer block references |
+| `transfer_references` | Transfer block references |
 | `set_attrs` / `get_attrs` | Set or get block attributes (including flashcard custom attrs) |
-| `exists` | Check if a block exists |
 | `info` | Get root document metadata for a block |
 | `breadcrumb` | Get breadcrumb path for a block |
 | `dom` | Get rendered DOM for a block |
 | `recent_updated` | List recently updated content |
 | `word_count` | Get word count for blocks |
-| `batch_insert` | Insert multiple blocks at once |
-| `batch_update` | Update multiple blocks at once |
-| `append_daily_note` | Append a block to today's daily note |
-| `prepend_daily_note` | Prepend a block to today's daily note |
-| `doc_info` | Get document info for a block or document |
+| `add_to_daily_note` | Add content to today's daily note |
 | `docs_info` | Batch get document info |
 
 #### `av`
@@ -313,7 +303,7 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | Action | Description |
 |--------|-------------|
 | `get` | Read an attribute view (database) by `id` |
-| `render_attribute_view` | Render database view, supports `createIfNotExist` |
+| `render` | Render a database view; with `createIfNotExist`, materialize a SiYuan AV block |
 | `get_attribute_view_keys` | Return attribute view column info |
 | `get_attribute_view_filter_sort` | Return filter and sort config for a view |
 | `search` | Search attribute views by keyword |
@@ -321,9 +311,8 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | `remove_rows` | Remove bound rows from an attribute view |
 | `add_column` | Add a database column |
 | `remove_column` | Remove a column from an attribute view |
-| `set_cell` | Update a single cell |
-| `batch_set_cells` | Update multiple cells in one call |
-| `duplicate_block` | Duplicate the underlying database block |
+| `set_cells` | Update one or more cells |
+| `duplicate` | Duplicate an attribute view using SiYuan's copy-as-mirror flow |
 | `get_primary_key_values` | Get primary-key row data |
 
 #### `file`
@@ -331,8 +320,7 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | Action | Description |
 |--------|-------------|
 | `upload_asset` | Upload a local asset file (requires confirmation; >10MB requires extra confirmation) |
-| `render_template` | Render a template with document context |
-| `render_sprig` | Render a Sprig template |
+| `render` | Render a SiYuan template file or inline Sprig template |
 | `export_md` | Export document as Markdown |
 | `export_resources` | Export resources as ZIP (writing locally requires confirmation) |
 | `list_unused_assets` | List unreferenced asset files |
@@ -341,21 +329,17 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | `remove_unused_assets` | Remove all unreferenced asset files |
 | `rename_asset` | Rename an asset file |
 | `delete_asset` | Delete an asset file |
-| `set_image_alpha` | Update alpha for an image asset |
 
 #### `search`
 
 | Action | Description |
 |--------|-------------|
 | `fulltext` | Full-text search |
-| `query_sql` | Execute read-only SQL (SELECT / WITH only) |
-| `search_tag` | Search tags by keyword |
+| `query_sql` | Execute read-only SQL (SELECT only) |
 | `get_backlinks` | Find documents/blocks that reference a given block |
-| `get_backmentions` | Find documents/blocks that mention a block name |
 | `search_refs` | Search blocks referencing a given block or document |
 | `find_replace` | Find and replace text (requires confirmation) |
 | `search_assets` | Search asset files by filename |
-| `get_asset_content` | Get a specific asset-content record |
 | `fulltext_asset_content` | Full-text search indexed asset contents |
 | `list_invalid_refs` | List invalid block references |
 
@@ -371,14 +355,12 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 
 | Action | Description |
 |--------|-------------|
-| `push_msg` / `push_err_msg` | Push notification or error message |
-| `get_version` / `get_current_time` | Get version or current time |
-| `workspace_info` | Get workspace metadata (disabled by default) |
+| `workspace_info` | Get workspace metadata (requires confirmation) |
 | `network` | Get masked network proxy info |
-| `changelog` | Get current version changelog |
 | `conf` | Get masked system configuration |
-| `sys_fonts` | List available system fonts |
-| `boot_progress` | Get current boot progress details |
+| `notify` | Show a SiYuan notification |
+| `get_version` | Get SiYuan version |
+| `get_current_time` | Get current SiYuan server time |
 
 #### `flashcard`
 
@@ -388,9 +370,7 @@ All capabilities are converged into **10 aggregated tools**, dispatching operati
 | `get_decks` | List available flashcard decks |
 | `get_cards` | Paginated list of all cards in a deck |
 | `review_card` | Submit a review result |
-| `skip_review_card` | Skip current flashcard in review flow |
 | `create_card` | Turn existing blocks into flashcards |
-| `add_card` | Run riff registration for deck-bound blocks |
 | `remove_card` | Remove blocks from a flashcard deck (requires confirmation) |
 
 #### `mascot`

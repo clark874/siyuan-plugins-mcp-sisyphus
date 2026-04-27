@@ -148,11 +148,11 @@ describe('cli/render', () => {
                 text: JSON.stringify({
                     tool: 'document',
                     action: 'create',
-                    hint: 'Use notebook + path + markdown, then verify with document(action="get_path", id="...").',
+                    hint: 'Use notebook + path + markdown, then verify with document(action="resolve", id="...", include=["path"]).',
                     shapes: ['notebook + path + markdown'],
                     requiredFields: ['notebook', 'path', 'markdown'],
                     example: { action: 'create', notebook: 'nb', path: '/Inbox/Test', markdown: '# Hello' },
-                    guidance: ['Parent paths must already exist. Use document(action="get_ids", notebook="nb", path="/Inbox/Test") to resolve IDs.'],
+                    guidance: ['Parent paths must already exist. Use document(action="resolve", notebook="nb", hpath="/Inbox/Test", include=["ids"]) to resolve IDs.'],
                     requiresConfirmation: false,
                     fullDocResource: 'siyuan://help/action/document/create',
                 }),
@@ -163,13 +163,13 @@ describe('cli/render', () => {
 
         expect(io.stdout).toContain('document create');
         expect(io.stdout).toContain('Use --notebook + --path + --markdown');
-        expect(io.stdout).toContain('siyuan-sisyphus document get-path --id ...');
+        expect(io.stdout).toContain('siyuan-sisyphus document resolve --id ... --include "[\\"path\\"]"');
         expect(io.stdout).toContain('Accepted Shapes');
         expect(io.stdout).toContain('--notebook + --path + --markdown');
         expect(io.stdout).toContain('Required Fields');
         expect(io.stdout).toContain('--notebook, --path, --markdown');
         expect(io.stdout).toContain('siyuan-sisyphus document create --notebook nb --path /Inbox/Test --markdown "# Hello"');
-        expect(io.stdout).toContain('siyuan-sisyphus document get-ids --notebook nb --path /Inbox/Test');
+        expect(io.stdout).toContain('siyuan-sisyphus document resolve --notebook nb --hpath /Inbox/Test --include "[\\"ids\\"]"');
         expect(io.stdout).toContain('Resource: siyuan-sisyphus help document create');
         io.restore();
     });

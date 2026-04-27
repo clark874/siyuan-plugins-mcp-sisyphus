@@ -7,6 +7,7 @@ import {
     buildAggregatedTool,
     createDisabledActionResult,
     createErrorResult,
+    createUnknownActionResult,
     tryHandleHelpAction,
     type ActionVariant,
     type AggregatedToolOptions,
@@ -88,6 +89,12 @@ export function defineTool<Action extends string>(options: DefineToolOptions<Act
             if (helpResult) return helpResult;
 
             try {
+                const enabledActions = variants
+                    .map((variant) => variant.action)
+                    .filter((action) => config.actions[action]);
+                if (rawAction && !variants.some((variant) => variant.action === rawAction)) {
+                    return createUnknownActionResult(name, rawAction, enabledActions);
+                }
                 const parsedAction = actionSchema.parse(rawArgs.action);
                 if (!config.enabled || !config.actions[parsedAction]) {
                     return createDisabledActionResult(name, parsedAction);

@@ -3,11 +3,11 @@ import { SiYuanClient } from '@/api/client';
 
 describe('SiYuanClient', () => {
     let client: SiYuanClient;
-    let mockFetch: ReturnType<typeof vi.fn>;
+    let mockFetch: any;
 
     beforeEach(() => {
         mockFetch = vi.fn();
-        global.fetch = mockFetch;
+        global.fetch = mockFetch as typeof fetch;
         client = new SiYuanClient({
             baseUrl: 'http://127.0.0.1:6806',
             timeout: 5000,
@@ -42,17 +42,41 @@ describe('SiYuanClient', () => {
             const mockData = { notebooks: [] };
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: mockData }),
+                text: async () => JSON.stringify({ code: 0, msg: 'success', data: mockData }),
             } as Response);
 
             const result = await client.request('/api/notebook/lsNotebooks');
             expect(result).toEqual(mockData);
         });
 
+        it('should treat an empty successful response body as null data', async () => {
+            mockFetch.mockResolvedValue({
+                ok: true,
+                status: 200,
+                statusText: 'OK',
+                text: async () => '',
+            } as Response);
+
+            await expect(client.request('/api/asset/deleteAsset')).resolves.toBeNull();
+        });
+
+        it('should report invalid JSON responses with endpoint context', async () => {
+            mockFetch.mockResolvedValue({
+                ok: true,
+                status: 200,
+                statusText: 'OK',
+                text: async () => '<html>not json</html>',
+            } as Response);
+
+            await expect(client.request('/api/test')).rejects.toThrow(
+                'Invalid SiYuan API response from http://127.0.0.1:6806/api/test (HTTP 200 OK): <html>not json</html>',
+            );
+        });
+
         it('should handle API error response', async () => {
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: async () => ({ code: 1, msg: 'Invalid parameter', data: null }),
+                text: async () => JSON.stringify({ code: 1, msg: 'Invalid parameter', data: null }),
             } as Response);
 
             await expect(client.request('/api/test')).rejects.toThrow('SiYuan API error: 1');
@@ -91,7 +115,7 @@ describe('SiYuanClient', () => {
         it('should include authorization header when token is set', async () => {
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: {} }),
+                text: async () => JSON.stringify({ code: 0, msg: 'success', data: {} }),
             } as Response);
 
             client.setToken('test-token');
@@ -111,7 +135,7 @@ describe('SiYuanClient', () => {
         it('should send request body when data is provided', async () => {
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: {} }),
+                text: async () => JSON.stringify({ code: 0, msg: 'success', data: {} }),
             } as Response);
 
             const requestData = { notebook: 'test', path: '/test' };
@@ -184,7 +208,7 @@ describe('SiYuanClient', () => {
         it('should write file content successfully', async () => {
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: null }),
+                text: async () => JSON.stringify({ code: 0, msg: 'success', data: null }),
             } as Response);
 
             await client.writeFile('/data/test.txt', 'content');
@@ -194,7 +218,7 @@ describe('SiYuanClient', () => {
         it('should handle write file API error', async () => {
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: async () => ({ code: 19, msg: 'File system error', data: null }),
+                text: async () => JSON.stringify({ code: 19, msg: 'File system error', data: null }),
             } as Response);
 
             await expect(client.writeFile('/invalid/path', 'content')).rejects.toThrow('SiYuan API error');
@@ -231,7 +255,7 @@ describe('SiYuanClient', () => {
             const mockData = { errFiles: [], succMap: { 'demo.txt': '/assets/demo.txt' } };
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: mockData }),
+                text: async () => JSON.stringify({ code: 0, msg: 'success', data: mockData }),
             } as Response);
 
             const formData = new FormData();
@@ -249,7 +273,7 @@ describe('SiYuanClient', () => {
         it('should surface API errors for multipart requests', async () => {
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: async () => ({ code: 1, msg: 'Upload failed', data: null }),
+                text: async () => JSON.stringify({ code: 1, msg: 'Upload failed', data: null }),
             } as Response);
 
             await expect(client.requestFormData('/api/asset/upload', new FormData())).rejects.toThrow('SiYuan API error: 1');

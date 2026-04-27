@@ -64,10 +64,7 @@ describe('PermissionManager', () => {
             expect(manager.get('notebook1')).toBe('rw');
             expect(manager.get('notebook2')).toBe('r');
             expect(manager.get('notebook3')).toBe('rwd');
-            expect(mockClient.writeFile).toHaveBeenCalledWith(
-                '/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions',
-                JSON.stringify({ notebook1: 'rw', notebook2: 'r', notebook3: 'rwd' }, null, 2),
-            );
+            expect(mockClient.writeFile).not.toHaveBeenCalled();
         });
 
         it('should still downgrade unknown persisted permissions to none', async () => {
@@ -77,10 +74,7 @@ describe('PermissionManager', () => {
             await manager.load();
 
             expect(manager.get('notebook1')).toBe('none');
-            expect(mockClient.writeFile).toHaveBeenCalledWith(
-                '/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions',
-                JSON.stringify({ notebook1: 'none' }, null, 2),
-            );
+            expect(mockClient.writeFile).not.toHaveBeenCalled();
         });
 
         it('should skip loading if already loaded', async () => {
@@ -121,9 +115,9 @@ describe('PermissionManager', () => {
             expect(manager.get('nb2')).toBe('r');
         });
 
-        it('should default to rwd for unknown notebook', async () => {
+        it('should default to read-only for unknown notebook', async () => {
             await manager.load();
-            expect(manager.get('unknown')).toBe('rwd');
+            expect(manager.get('unknown')).toBe('r');
         });
     });
 
@@ -178,7 +172,7 @@ describe('PermissionManager', () => {
             expect(manager.canRead('nb')).toBe(false);
         });
 
-        it('should return true for unknown notebook (defaults to rwd)', async () => {
+        it('should return true for unknown notebook (defaults to read-only)', async () => {
             await manager.load();
             expect(manager.canRead('unknown')).toBe(true);
         });
@@ -209,9 +203,9 @@ describe('PermissionManager', () => {
             expect(manager.canWrite('nb')).toBe(false);
         });
 
-        it('should return true for unknown notebook (defaults to rwd)', async () => {
+        it('should return false for unknown notebook (defaults to read-only)', async () => {
             await manager.load();
-            expect(manager.canWrite('unknown')).toBe(true);
+            expect(manager.canWrite('unknown')).toBe(false);
         });
     });
 
@@ -240,9 +234,9 @@ describe('PermissionManager', () => {
             expect(manager.canDelete('nb')).toBe(false);
         });
 
-        it('should return true for unknown notebook (defaults to rwd)', async () => {
+        it('should return false for unknown notebook (defaults to read-only)', async () => {
             await manager.load();
-            expect(manager.canDelete('unknown')).toBe(true);
+            expect(manager.canDelete('unknown')).toBe(false);
         });
     });
 

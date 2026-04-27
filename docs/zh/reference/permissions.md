@@ -20,7 +20,7 @@
 
 说明：
 
-- 新笔记本默认是 `rwd`
+- 未显式配置的笔记本默认是 `r`（只读）
 - 通过 `notebook(action="set_permission")` 管理权限
 - 修改后会立即影响后续调用
 
@@ -32,7 +32,6 @@
 - `notebook.set_permission`
 - `document.remove`
 - `document.move`
-- `document.remove_batch`
 - `block.delete`
 - `block.move`
 - `file.upload_asset`

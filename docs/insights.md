@@ -27,7 +27,7 @@
 
 **Applicable Scenarios**:
 - System config reading (`system.conf`)
-- Paginated font list (`system.sys_fonts`)
+- Scoped config reads (`system.conf` with `keyPath`)
 - Document tree depth control (`document.list_tree` with `maxDepth`)
 
 ### 2. Aggregated Tool Design Pattern
@@ -134,11 +134,11 @@ rwd:  full access (read, write, delete)
 **Best Practices**:
 1. Clearly document which path type each action accepts
 2. On validation failure, hint "current path type does not match"
-3. Provide `get_path` for path conversion
+3. Provide `lookup` for path conversion
 
 **Safe Workflow**:
 ```
-document(action="get_path", id=...) -> obtain storage path
+document(action="lookup", id=..., include="path") -> obtain storage path
 -> reuse storage path for rename/move/remove
 ```
 

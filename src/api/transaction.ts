@@ -2,11 +2,12 @@ import { SiYuanClient } from './client';
 
 export type TransactionOperation = {
     action: string;
-    data?: string | null;
-    id: string;
+    data?: unknown;
+    id?: string;
     parentID?: string;
     previousID?: string;
     nextID?: string;
+    [key: string]: unknown;
 };
 
 export type TransactionBatch = {

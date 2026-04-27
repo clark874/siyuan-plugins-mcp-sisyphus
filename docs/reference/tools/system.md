@@ -1,28 +1,32 @@
 # system
 
-This tool covers system info, config inspection, notifications, and environment introspection.
+This tool covers SiYuan system reads, network status, configuration reads, and user notifications.
 
-When to read this page: you need version info, current time, config snippets, or client-visible notifications.
+When to read this page: you need runtime status rather than notebook or document content.
 
 Related pages:
 
 - [Permissions](../permissions.md)
-- [Troubleshooting](../../getting-started/troubleshooting.md)
 
 ## Actions
 
 | Group | Actions |
 |------|---------|
-| Notifications | `push_msg`, `push_err_msg` |
-| Basic info | `get_version`, `get_current_time`, `boot_progress` |
-| Environment | `workspace_info`, `network`, `changelog` |
-| Config reads | `conf`, `sys_fonts` |
+| Basic info | `get_version`, `get_current_time` |
+| Config / environment | `conf`, `network`, `workspace_info` |
+| Notifications | `notify` |
 
 ## Safety Rules
 
-- `workspace_info` is high-risk because it exposes the absolute workspace path
+- `workspace_info` is high-risk because it exposes the absolute workspace path and requires confirmation.
+- `conf` is read-only. Use `mode="summary"` for a compact overview, or `mode="get"` with `keyPath` for a specific field.
+- `notify` shows a SiYuan notification with `msg`, `level`, and optional `timeout`.
 
-## Notes
+## Action List
 
-- `conf` supports summary-first inspection and subtree reads via `keyPath`
-- `sys_fonts` supports summary and paginated listing
+- `workspace_info`
+- `network`
+- `conf`
+- `notify`
+- `get_version`
+- `get_current_time`

@@ -24,14 +24,14 @@ describe('presentation/invocation-format', () => {
     it('renders structured text fragments per target', () => {
         const fragments = [
             'Use ',
-            { kind: 'action-call' as const, tool: 'document', action: 'get_path', args: { id: '...' } },
+            { kind: 'action-call' as const, tool: 'document', action: 'resolve', args: { id: '...', include: ['path'] } },
             ' before passing ',
             { kind: 'field-ref' as const, field: 'parentID' },
             '.',
         ];
 
-        expect(renderTextFragments(fragments, 'mcp')).toBe('Use document(action="get_path", id="...") before passing parentID.');
-        expect(renderTextFragments(fragments, 'cli')).toBe('Use siyuan-sisyphus document get-path --id ... before passing --parent-id.');
+        expect(renderTextFragments(fragments, 'mcp')).toBe('Use document(action="resolve", id="...", include=["path"]) before passing parentID.');
+        expect(renderTextFragments(fragments, 'cli')).toBe('Use siyuan-sisyphus document resolve --id ... --include-json \'["path"]\' before passing --parent-id.');
     });
 
     it('translates legacy MCP-style text into CLI command syntax', () => {

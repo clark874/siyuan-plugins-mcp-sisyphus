@@ -114,12 +114,12 @@ Layer 3: 完整参考文档（docs/ 站点）
 | `none` | 完全禁止 | 敏感 notebook |
 | `r` | 只读 | 参考性 notebook |
 | `rw` | 读写（不含删除）| 日常工作 notebook |
-| `rwd` | 完全权限（默认）| 信任区域 |
+| `rwd` | 完全权限 | 信任区域 |
 
 **实现细节**：
 - 权限文件存储在 `/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions`
 - 通过 SiYuan API 读写，不直接访问本地文件系统
-- 未配置的 notebook 默认 `rwd`（向后兼容，避免破坏现有体验）
+- 未配置的 notebook 默认 `r`（只读），避免缺失权限项时授予写入/删除能力
 - 权限检查由业务 handler **显式调用**，非统一中间件（不同 action 需求不同）
 
 ### 拒绝的替代方案
@@ -132,7 +132,7 @@ Layer 3: 完整参考文档（docs/ 站点）
 
 - 设置面板提供 Notebook 权限矩阵 UI
 - 权限校验在 API 调用前发生，阻止未授权操作
-- CLI 模式复用同一套 `PermissionManager`；未配置的 notebook 默认 `rwd`
+- CLI 模式复用同一套 `PermissionManager`；未配置的 notebook 默认 `r`（只读）
 
 ---
 

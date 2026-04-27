@@ -4,6 +4,11 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { resetToolConfigWarningStateForTests } from '@/core/config';
 import { buildServerInstructions, createSiYuanServer } from '@/core/server';
 
+const jsonResponse = (payload: unknown): Response => ({
+    ok: true,
+    text: async () => JSON.stringify(payload),
+    json: async () => payload,
+} as Response);
 
 describe('MCP Server Integration', () => {
     let client: Client;
@@ -35,17 +40,11 @@ describe('MCP Server Integration', () => {
                 const filePath = String(formData.get('path') ?? '');
                 const file = formData.get('file');
                 storedFiles[filePath] = file instanceof File ? await file.text() : String(file ?? '');
-                return {
-                    ok: true,
-                    json: async () => ({ code: 0, msg: 'success', data: null }),
-                } as Response;
+                return jsonResponse({ code: 0, msg: 'success', data: null });
             }
 
             // Default: successful empty response
-            return {
-                ok: true,
-                json: async () => ({ code: 0, msg: 'success', data: {} }),
-            } as Response;
+            return jsonResponse({ code: 0, msg: 'success', data: {} });
         });
 
         const server = await createSiYuanServer();

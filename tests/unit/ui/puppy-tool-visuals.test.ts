@@ -11,9 +11,8 @@ describe('puppy tool visuals helpers', () => {
         expect(resolveActionState('get')).toBe('reading');
         expect(resolveActionState('search')).toBe('reading');
         expect(resolveActionState('get_primary_key_values')).toBe('reading');
-        expect(resolveActionState('set_cell')).toBe('writing');
-        expect(resolveActionState('batch_set_cells')).toBe('writing');
-        expect(resolveActionState('duplicate_block')).toBe('writing');
+        expect(resolveActionState('set_cells')).toBe('writing');
+        expect(resolveActionState('duplicate')).toBe('writing');
     });
 
     it('maps mascot actions into reading and writing states', () => {
@@ -42,7 +41,7 @@ describe('puppy tool visuals helpers', () => {
         expect(RANDOM_TEST_ACTIONS).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({ tool: 'av', action: 'get' }),
-                expect.objectContaining({ tool: 'av', action: 'set_cell' }),
+                expect.objectContaining({ tool: 'av', action: 'set_cells' }),
                 expect.objectContaining({ tool: 'flashcard', action: 'list_cards' }),
                 expect.objectContaining({ tool: 'flashcard', action: 'create_card' }),
                 expect.objectContaining({ tool: 'flashcard', action: 'review_card' }),

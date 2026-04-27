@@ -1,6 +1,6 @@
 # block
 
-This tool covers block insertion, updates, movement, metadata, and batch block operations.
+This tool covers block insertion, updates, movement, metadata, references, and document-context helpers.
 
 When to read this page: you need to manipulate block content directly instead of working at the whole-document level.
 
@@ -15,22 +15,23 @@ Related pages:
 |------|---------|
 | Insert and update | `insert`, `prepend`, `append`, `update` |
 | Movement and structure | `move`, `set_fold_state`, `get_children`, `breadcrumb` |
-| Metadata | `set_attrs`, `get_attrs`, `info`, `dom`, `exists` |
-| Batch / utility | `batch_insert`, `batch_update`, `word_count`, `recent_updated` |
-| Daily note helpers | `append_daily_note`, `prepend_daily_note` |
-| Document context | `doc_info`, `docs_info` |
+| Metadata | `set_attrs`, `get_attrs`, `info`, `dom`, `get_kramdown` |
+| Reference / utility | `transfer_references`, `word_count`, `recent_updated` |
+| Daily note helper | `add_to_daily_note` |
+| Document context | `docs_info` |
 
 ## Parameters and Semantics
 
-- `dataType` is usually `markdown` or `dom`
-- `prepend` and `append` work on either a document or a block child list
-- `update` is best for single-block replacement
-- `move` requires at least one destination hint such as `parentID` or `previousID`
+- `dataType` is usually `markdown` or `dom`.
+- `prepend` and `append` work on either a document or a block child list.
+- `update` is best for single-block replacement.
+- `move` requires at least one destination hint such as `parentID` or `previousID`.
+- `add_to_daily_note` appends or prepends content to today's daily note via `position`.
 
 ## Safety Rules
 
-- `delete` and `move` require explicit confirmation
-- For multiline content, prefer `append`, `prepend`, or `insert` instead of `update`
+- `delete` and `move` require explicit confirmation.
+- For multiline content, prefer `append`, `prepend`, or `insert` instead of `update`.
 
 ## Examples
 
@@ -62,18 +63,13 @@ siyuan block append --parent-id <doc-id> --data-type markdown --data "- [ ] Todo
 - `set_fold_state`
 - `get_kramdown`
 - `get_children`
-- `transfer_ref`
+- `transfer_references`
 - `set_attrs`
 - `get_attrs`
-- `exists`
 - `info`
 - `breadcrumb`
 - `dom`
 - `recent_updated`
 - `word_count`
-- `batch_insert`
-- `batch_update`
-- `append_daily_note`
-- `prepend_daily_note`
-- `doc_info`
+- `add_to_daily_note`
 - `docs_info`

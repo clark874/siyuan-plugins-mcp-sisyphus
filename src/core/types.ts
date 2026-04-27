@@ -131,7 +131,7 @@ export const NotebookGetPermissionsSchema = z.object({
 export const NotebookSetPermissionSchema = z.object({
     action: z.literal("set_permission"),
     notebook: z.string().describe("Notebook ID"),
-    permission: z.enum(["none", "r", "rw", "rwd"]).describe('Permission level: "none" blocks all access, "r" allows read only, "rw" allows read and write without delete, "rwd" allows read, write, and delete (default for new notebooks)'),
+    permission: z.enum(["none", "r", "rw", "rwd"]).describe('Permission level: "none" blocks all access, "r" allows read only, "rw" allows read and write without delete, "rwd" allows read, write, and delete'),
 });
 
 export const NotebookGetChildDocsSchema = z.object({
@@ -144,9 +144,61 @@ export const NotebookGetChildDocsSchema = z.object({
 export const DocumentCreateSchema = z.object({
     action: z.literal("create"),
     notebook: z.string().describe("Notebook ID"),
-    path: z.string().describe("Human-readable target path, must start with / (e.g., /foo/bar). Parent paths must already exist."),
-    markdown: z.string().describe("Markdown content"),
+    path: z.string().optional().describe("Human-readable target path, must start with / (e.g., /foo/bar). Parent paths must already exist."),
+    parentPath: z.string().optional().describe("Parent human-readable path for title-based creation, must start with /"),
+    title: z.string().optional().describe("Document title when creating under parentPath"),
+    markdown: z.string().optional().describe("Markdown content, defaults to empty"),
+    sorts: z.array(z.string()).optional().describe("Optional sorting path segments passed through to SiYuan for parentPath + title creation"),
     icon: z.string().optional().describe("Optional document icon. Prefer a Unicode hex code string such as '1f4d4' for 📔 instead of a raw emoji character."),
+}).superRefine((value, ctx) => {
+    const hasPath = typeof value.path === "string";
+    const hasTitleMode = typeof value.parentPath === "string" || typeof value.title === "string";
+
+    if (hasPath && hasTitleMode) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide either path, or parentPath + title, not both.",
+            path: ["path"],
+        });
+        return;
+    }
+
+    if (!hasPath && (!value.parentPath || !value.title)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide path, or provide both parentPath and title.",
+            path: ["path"],
+        });
+    }
+});
+
+const DocumentResolveIncludeSchema = z.enum(["id", "ids", "path", "hpath", "docInfo"]);
+
+export const DocumentLookupSchema = z.object({
+    action: z.literal("lookup"),
+    id: z.string().optional().describe("Document ID to look up"),
+    notebook: z.string().optional().describe("Notebook ID, required with path or hpath"),
+    path: z.string().optional().describe("Storage path to look up when notebook is provided, e.g. /20240318112233-abc123.sy. Human-readable paths should use hpath instead."),
+    hpath: z.string().optional().describe("Human-readable path to look up when notebook is provided"),
+    hPath: z.string().optional().describe("Alias for hpath"),
+    include: z.array(DocumentResolveIncludeSchema).optional().describe('Fields to include: "id", "ids", "path", "hpath", "docInfo"'),
+}).superRefine((value, ctx) => {
+    const hpath = value.hpath ?? value.hPath;
+    const sourceCount = [value.id, value.path, hpath].filter((field) => typeof field === "string").length;
+    if (sourceCount !== 1) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide exactly one source: id, notebook + path, or notebook + hpath.",
+            path: ["id"],
+        });
+    }
+    if (!value.id && !value.notebook) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "notebook is required when resolving path or hpath.",
+            path: ["notebook"],
+        });
+    }
 });
 
 export const DocumentRenameSchema = z.object({
@@ -156,26 +208,27 @@ export const DocumentRenameSchema = z.object({
 
 export const DocumentRemoveSchema = z.object({
     action: z.literal("remove"),
-}).and(DocumentPathReferenceSchema);
+    ids: z.array(z.string()).min(1).optional().describe("One or more document IDs to remove"),
+    paths: z.array(z.string()).min(1).optional().describe("One or more storage paths to remove in batch"),
+}).and(DocumentReferenceSchema).superRefine((value, ctx) => {
+    const modes = [
+        typeof value.id === "string",
+        typeof value.notebook === "string" || typeof value.path === "string",
+        Array.isArray(value.ids),
+        Array.isArray(value.paths),
+    ].filter(Boolean).length;
+    if (modes !== 1) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide exactly one removal mode: id, notebook + path, ids, or paths." });
+        return;
+    }
+    if ((value.notebook || value.path) && (!value.notebook || !value.path)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Both notebook and path are required for path-based remove." });
+    }
+});
 
 export const DocumentMoveSchema = z.object({
     action: z.literal("move"),
 }).and(DocumentMoveReferenceSchema);
-
-export const DocumentGetPathSchema = z.object({
-    action: z.literal("get_path"),
-    id: z.string().describe("Document ID"),
-});
-
-export const DocumentGetHPathSchema = z.object({
-    action: z.literal("get_hpath"),
-}).and(DocumentPathReferenceSchema);
-
-export const DocumentGetIdsSchema = z.object({
-    action: z.literal("get_ids"),
-    path: z.string().describe("Human-readable path (e.g., /foo/bar)"),
-    notebook: z.string().describe("Notebook ID"),
-});
 
 export const DocumentGetChildBlocksSchema = z.object({
     action: z.literal("get_child_blocks"),
@@ -187,16 +240,17 @@ export const DocumentGetChildDocsSchema = z.object({
     id: z.string().describe("Document ID"),
 });
 
-export const DocumentSetIconSchema = z.object({
-    action: z.literal("set_icon"),
+export const DocumentSetAttrSchema = z.object({
+    action: z.literal("set_attr"),
     id: z.string().describe("Document ID"),
-    icon: z.string().describe("Icon value. Prefer a Unicode hex code string such as '1f4d4' for 📔; raw emoji characters may not render correctly. Custom icon paths are also supported."),
-});
-
-export const DocumentSetCoverSchema = z.object({
-    action: z.literal("set_cover"),
-    id: z.string().describe("Document ID"),
-    source: z.string().optional().describe("Cover image source. Accepts http(s) URLs or SiYuan asset paths like /assets/foo.png. Omit or pass empty string to clear the cover."),
+    attrs: z.object({
+        icon: z.string().optional().describe("Icon value. Prefer a Unicode hex code string such as '1f4d4'."),
+        cover: z.union([z.string(), z.null()]).optional().describe("Cover source. Use null or empty string to clear the cover."),
+    }).describe("Document metadata attributes to set"),
+}).superRefine((value, ctx) => {
+    if (value.attrs.icon === undefined && value.attrs.cover === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide at least one of attrs.icon or attrs.cover.", path: ["attrs"] });
+    }
 });
 
 export const DocumentListTreeSchema = z.object({
@@ -231,20 +285,6 @@ export const DocumentCreateDailyNoteSchema = z.object({
 export const DocumentDuplicateSchema = z.object({
     action: z.literal("duplicate"),
     id: z.string().describe("Source document ID"),
-});
-
-export const DocumentRemoveBatchSchema = z.object({
-    action: z.literal("remove_batch"),
-    paths: z.array(z.string()).min(1).describe("One or more storage paths to remove in batch"),
-});
-
-export const DocumentCreateEmptySchema = z.object({
-    action: z.literal("create_empty"),
-    notebook: z.string().describe("Notebook ID"),
-    path: z.string().describe("Parent human-readable path, must start with /"),
-    title: z.string().describe("New document title"),
-    markdown: z.string().optional().describe("Optional initial markdown content, defaults to empty"),
-    sorts: z.array(z.string()).optional().describe("Optional sorting path segments passed through to SiYuan"),
 });
 
 export const DocumentHeadingToDocSchema = z.object({
@@ -285,6 +325,9 @@ export const FlashcardListCardsSchema = z.object({
     deckID: z.string().optional().describe("Deck ID, required when scope=deck"),
     notebook: z.string().optional().describe("Notebook ID, required when scope=notebook"),
     rootID: z.string().optional().describe("Root document/block ID, required when scope=tree"),
+    reviewedCards: z.array(z.object({
+        cardID: z.string().describe("Reviewed card ID"),
+    }).passthrough()).optional().describe("Optional already-reviewed cards; SiYuan reads reviewedCards[].cardID"),
 }).superRefine((value, ctx) => {
     const hasDeck = typeof value.deckID === "string";
     const hasNotebook = typeof value.notebook === "string";
@@ -312,28 +355,22 @@ export const FlashcardReviewCardSchema = z.object({
     action: z.literal("review_card"),
     deckID: z.string().describe("Deck ID"),
     cardID: z.string().describe("Card ID"),
-    rating: z.number().describe("Review rating passed through to the kernel"),
+    rating: z.number().optional().describe("Review rating passed through to the kernel"),
+    skip: z.boolean().optional().describe("When true, skip the current card instead of submitting a rating"),
     reviewedCards: z.array(z.object({
         cardID: z.string().describe("Reviewed card ID"),
     }).passthrough()).optional().describe("Optional already-reviewed cards; SiYuan reads reviewedCards[].cardID"),
-});
-
-export const FlashcardSkipReviewCardSchema = z.object({
-    action: z.literal("skip_review_card"),
-    deckID: z.string().describe("Deck ID"),
-    cardID: z.string().describe("Card ID"),
+}).superRefine((value, ctx) => {
+    if (value.skip !== true && value.rating === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "rating is required unless skip=true.", path: ["rating"] });
+    }
 });
 
 export const FlashcardCreateCardSchema = z.object({
     action: z.literal("create_card"),
     deckID: z.string().describe("Deck ID"),
     blockIDs: z.array(z.string()).min(1).describe("Existing block IDs to turn into flashcards"),
-});
-
-export const FlashcardAddCardSchema = z.object({
-    action: z.literal("add_card"),
-    deckID: z.string().describe("Deck ID"),
-    blockIDs: z.array(z.string()).min(1).describe("Existing block IDs to add as flashcards"),
+    mode: z.enum(["full", "attach"]).optional().describe('Compatibility option. SiYuan addRiffCards writes deck attrs and registers cards in both modes.'),
 });
 
 export const FlashcardRemoveCardSchema = z.object({
@@ -351,11 +388,32 @@ export const FlashcardGetCardsSchema = z.object({
 
 export const BlockInsertSchema = z.object({
     action: z.literal("insert"),
-    dataType: z.enum(["markdown", "dom"]).describe("Data format"),
-    data: z.string().describe("Block content"),
+    dataType: z.enum(["markdown", "dom"]).optional().describe("Data format"),
+    data: z.string().optional().describe("Block content"),
     nextID: z.string().optional().describe("Next block ID"),
     previousID: z.string().optional().describe("Previous block ID"),
     parentID: z.string().optional().describe("Parent block or document ID"),
+    blocks: z.array(z.object({
+        dataType: z.enum(["markdown", "dom"]).describe("Data format"),
+        data: z.string().describe("Block content"),
+        nextID: z.string().optional().describe("Next block ID"),
+        previousID: z.string().optional().describe("Previous block ID"),
+        parentID: z.string().optional().describe("Parent block or document ID"),
+    })).min(1).optional().describe("Blocks to insert. Item-level anchors override top-level parentID/previousID/nextID."),
+}).superRefine((value, ctx) => {
+    const batch = Array.isArray(value.blocks);
+    if (batch) {
+        if (value.dataType || value.data) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide either blocks or single insert data, not both.", path: ["blocks"] });
+        }
+        value.blocks!.forEach((block, index) => {
+            if (block.nextID || block.previousID || block.parentID || value.nextID || value.previousID || value.parentID) return;
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["blocks", index, "previousID"], message: "Provide nextID, previousID, or parentID for each block, or set a top-level parentID/previousID/nextID." });
+        });
+        return;
+    }
+    if (!value.dataType) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "dataType is required for single insert.", path: ["dataType"] });
+    if (value.data === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "data is required for single insert.", path: ["data"] });
 });
 
 export const BlockPrependSchema = z.object({
@@ -374,9 +432,24 @@ export const BlockAppendSchema = z.object({
 
 export const BlockUpdateSchema = z.object({
     action: z.literal("update"),
-    dataType: z.enum(["markdown", "dom"]).describe("Data format"),
-    data: z.string().describe("New block content"),
-    id: z.string().describe("Block ID"),
+    dataType: z.enum(["markdown", "dom"]).optional().describe("Data format"),
+    data: z.string().optional().describe("New block content"),
+    id: z.string().optional().describe("Block ID"),
+    items: z.array(z.object({
+        id: z.string().describe("Block ID"),
+        dataType: z.enum(["markdown", "dom"]).describe("Data format"),
+        data: z.string().describe("Replacement block content"),
+    })).min(1).optional().describe("Blocks to update"),
+}).superRefine((value, ctx) => {
+    if (Array.isArray(value.items)) {
+        if (value.id || value.dataType || value.data !== undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide either items or single update fields, not both.", path: ["items"] });
+        }
+        return;
+    }
+    if (!value.id) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "id is required for single update.", path: ["id"] });
+    if (!value.dataType) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "dataType is required for single update.", path: ["dataType"] });
+    if (value.data === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "data is required for single update.", path: ["data"] });
 });
 
 export const BlockDeleteSchema = z.object({
@@ -417,8 +490,8 @@ export const BlockGetChildrenSchema = z.object({
     pageSize: z.number().int().min(1).max(200).optional().describe('Items per page, default 50'),
 });
 
-export const BlockTransferRefSchema = z.object({
-    action: z.literal("transfer_ref"),
+export const BlockTransferReferencesSchema = z.object({
+    action: z.literal("transfer_references"),
     fromID: z.string().describe("Source block ID"),
     toID: z.string().describe("Target block ID"),
     refIDs: z.array(z.string()).optional().describe("Reference block IDs"),
@@ -432,11 +505,6 @@ export const BlockSetAttrsSchema = z.object({
 
 export const BlockGetAttrsSchema = z.object({
     action: z.literal("get_attrs"),
-    id: z.string().describe("Block ID"),
-});
-
-export const BlockExistsSchema = z.object({
-    action: z.literal("exists"),
     id: z.string().describe("Block ID"),
 });
 
@@ -466,66 +534,24 @@ export const BlockWordCountSchema = z.object({
     ids: z.array(z.string()).describe("One or more block IDs"),
 });
 
-const BlockBatchInsertItemSchema = z.object({
-    dataType: z.enum(["markdown", "dom"]).describe("Data format"),
-    data: z.string().describe("Block content"),
-    nextID: z.string().optional().describe("Next block ID"),
-    previousID: z.string().optional().describe("Previous block ID"),
-    parentID: z.string().optional().describe("Parent block or document ID"),
-});
-
-const BlockBatchUpdateItemSchema = z.object({
-    id: z.string().describe("Block ID"),
-    dataType: z.enum(["markdown", "dom"]).describe("Data format"),
-    data: z.string().describe("Replacement block content"),
-});
-
-export const BlockBatchInsertSchema = z.object({
-    action: z.literal("batch_insert"),
-    parentID: z.string().optional().describe("Batch default parent block or document ID"),
-    previousID: z.string().optional().describe("Batch default previous block ID"),
-    nextID: z.string().optional().describe("Batch default next block ID"),
-    blocks: z.array(BlockBatchInsertItemSchema).min(1).describe("Blocks to insert"),
-}).superRefine((value, ctx) => {
-    value.blocks.forEach((block, index) => {
-        if (block.nextID || block.previousID || block.parentID || value.nextID || value.previousID || value.parentID) return;
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["blocks", index, "previousID"],
-            message: "Provide nextID, previousID, or parentID for each block, or set a batch-level parentID/previousID/nextID.",
-        });
-    });
-});
-
-export const BlockBatchUpdateSchema = z.object({
-    action: z.literal("batch_update"),
-    blocks: z.array(BlockBatchUpdateItemSchema).min(1).describe("Blocks to update"),
-});
-
-export const BlockAppendDailyNoteSchema = z.object({
-    action: z.literal("append_daily_note"),
+export const BlockAddToDailyNoteSchema = z.object({
+    action: z.literal("add_to_daily_note"),
     notebook: z.string().describe("Notebook ID"),
     dataType: z.enum(["markdown", "dom"]).describe("Data format"),
     data: z.string().describe("Block content"),
-});
-
-export const BlockPrependDailyNoteSchema = z.object({
-    action: z.literal("prepend_daily_note"),
-    notebook: z.string().describe("Notebook ID"),
-    dataType: z.enum(["markdown", "dom"]).describe("Data format"),
-    data: z.string().describe("Block content"),
-});
-
-export const BlockDocInfoSchema = z.object({
-    action: z.literal("doc_info"),
-    id: z.string().describe("Block or document ID"),
+    position: z.enum(["append", "prepend"]).describe("Where to add content in today's daily note"),
 });
 
 export const BlockDocsInfoSchema = z.object({
     action: z.literal("docs_info"),
-    ids: z.array(z.string()).min(1).describe("Document IDs"),
+    id: z.string().optional().describe("Single document/block ID"),
+    ids: z.array(z.string()).min(1).optional().describe("Document IDs"),
     refCount: z.boolean().optional().describe("When true, include reference counts"),
     av: z.boolean().optional().describe("When true, include AV metadata"),
+}).superRefine((value, ctx) => {
+    if ((value.id && value.ids) || (!value.id && !value.ids)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide exactly one of id or ids.", path: ["ids"] });
+    }
 });
 
 const AvValueTypeSchema = z.enum(["text", "number", "date", "checkbox", "select", "multi_select", "relation", "url", "email", "phone", "mAsset"]);
@@ -536,7 +562,7 @@ const AvAssetItemSchema = z.object({
     name: z.string().optional().describe("Optional display name"),
 });
 
-const AvSetCellValueFieldsSchema = z.object({
+const AvSetCellValueFieldsBaseSchema = z.object({
     valueType: AvValueTypeSchema.describe("Cell value type"),
     text: z.string().optional().describe("Text value for valueType=text"),
     number: z.number().optional().describe("Number value for valueType=number"),
@@ -552,7 +578,9 @@ const AvSetCellValueFieldsSchema = z.object({
     email: z.string().optional().describe("Email value for valueType=email"),
     phone: z.string().optional().describe("Phone value for valueType=phone"),
     assets: z.array(AvAssetItemSchema).optional().describe("Asset entries for valueType=mAsset"),
-}).superRefine((value, ctx) => {
+});
+
+const AvSetCellValueFieldsSchema = AvSetCellValueFieldsBaseSchema.superRefine((value, ctx) => {
     const fieldByType: Record<z.infer<typeof AvValueTypeSchema>, keyof typeof value> = {
         text: "text",
         number: "number",
@@ -585,10 +613,11 @@ const AvCellUpdateItemSchema = z.object({
 export const AvGetSchema = z.object({
     action: z.literal("get"),
     id: z.string().describe("Attribute view ID"),
+    blockID: z.string().optional().describe("Optional database block ID for exact context or fallback permission resolution"),
 });
 
-export const AvRenderAttributeViewSchema = z.object({
-    action: z.literal("render_attribute_view"),
+export const AvRenderSchema = z.object({
+    action: z.literal("render"),
     id: z.string().optional().describe("Attribute view ID; omit only with createIfNotExist=true to let MCP generate one"),
     blockID: z.string().optional().describe("Optional database block ID; required when creating a new AV"),
     viewID: z.string().optional().describe("Optional target view ID"),
@@ -663,25 +692,58 @@ export const AvRemoveColumnSchema = z.object({
     }
 });
 
-export const AvSetCellSchema = z.object({
-    action: z.literal("set_cell"),
+export const AvSetCellsSchema = z.object({
+    action: z.literal("set_cells"),
     avID: z.string().describe("Attribute view ID"),
     blockID: z.string().optional().describe("Registered database block ID for explicit database-block context"),
-    rowID: z.string().describe("Row item ID"),
-    columnID: z.string().describe("Column key ID"),
-}).and(AvSetCellValueFieldsSchema);
+    cells: z.array(AvCellUpdateItemSchema).min(1).optional().describe("Cell updates"),
+    items: z.array(AvCellUpdateItemSchema).min(1).optional().describe("Alias for cells"),
+    rowID: z.string().optional().describe("Single-cell row item ID"),
+    columnID: z.string().optional().describe("Single-cell column key ID"),
+}).and(AvSetCellValueFieldsBaseSchema.partial()).superRefine((value, ctx) => {
+    const cells = value.cells ?? value.items;
+    const hasCells = Array.isArray(cells);
+    const hasSingle = typeof value.rowID === "string" || typeof value.columnID === "string" || typeof value.valueType === "string";
 
-export const AvBatchSetCellsSchema = z.object({
-    action: z.literal("batch_set_cells"),
-    avID: z.string().describe("Attribute view ID"),
-    blockID: z.string().optional().describe("Registered database block ID for explicit database-block context"),
-    items: z.array(AvCellUpdateItemSchema).min(1).describe("Batch cell updates"),
+    if (hasCells && hasSingle) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide either cells/items or single-cell fields, not both.",
+            path: ["cells"],
+        });
+        return;
+    }
+
+    if (!hasCells) {
+        if (!value.rowID) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "rowID is required for single-cell set_cells calls.", path: ["rowID"] });
+        }
+        if (!value.columnID) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "columnID is required for single-cell set_cells calls.", path: ["columnID"] });
+        }
+        if (!value.valueType) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "valueType is required for single-cell set_cells calls.", path: ["valueType"] });
+            return;
+        }
+
+        const checked = AvSetCellValueFieldsSchema.safeParse(value);
+        if (!checked.success) {
+            for (const issue of checked.error.issues) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: issue.message,
+                    path: issue.path,
+                });
+            }
+        }
+    }
 });
 
-export const AvDuplicateBlockSchema = z.object({
-    action: z.literal("duplicate_block"),
+export const AvDuplicateSchema = z.object({
+    action: z.literal("duplicate"),
     avID: z.string().describe("Source attribute view ID"),
-    previousID: z.string().optional().describe("Optional block ID to insert the duplicated database block after, overriding the default source-block insertion target"),
+    blockID: z.string().optional().describe("Optional source database block ID used as exact context and default insertion target"),
+    previousID: z.string().optional().describe("Optional block ID to insert the duplicated mirror database block after"),
 });
 
 export const AvGetPrimaryKeyValuesSchema = z.object({
@@ -699,15 +761,20 @@ export const FileUploadAssetSchema = z.object({
     confirmLargeFile: z.boolean().optional().describe("Set to true only after the user explicitly confirms uploading a file larger than the configured safety threshold."),
 });
 
-export const FileRenderTemplateSchema = z.object({
-    action: z.literal("render_template"),
-    id: z.string().describe("Document ID for template context"),
-    path: z.string().describe("Template file path inside the SiYuan workspace; arbitrary local filesystem paths are not supported"),
-});
-
-export const FileRenderSprigSchema = z.object({
-    action: z.literal("render_sprig"),
-    template: z.string().describe("Sprig template content"),
+export const FileRenderSchema = z.object({
+    action: z.literal("render"),
+    engine: z.enum(["template", "sprig"]).describe("Template engine to use"),
+    id: z.string().optional().describe("Document ID for template context"),
+    path: z.string().optional().describe("Template file path inside the SiYuan workspace"),
+    template: z.string().optional().describe("Sprig template content"),
+}).superRefine((value, ctx) => {
+    if (value.engine === "template") {
+        if (!value.id) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "id is required when engine=\"template\".", path: ["id"] });
+        if (!value.path) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "path is required when engine=\"template\".", path: ["path"] });
+    }
+    if (value.engine === "sprig" && !value.template) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "template is required when engine=\"sprig\".", path: ["template"] });
+    }
 });
 
 export const FileExportMdSchema = z.object({
@@ -752,12 +819,6 @@ export const FileDeleteAssetSchema = z.object({
     path: z.string().describe("Asset path to delete"),
 });
 
-export const FileSetImageAlphaSchema = z.object({
-    action: z.literal("set_image_alpha"),
-    path: z.string().describe("Asset path to update"),
-    alpha: z.number().describe("Alpha value passed through to SiYuan"),
-});
-
 export const SearchActionSchema = z.enum(SEARCH_ACTIONS);
 
 const SearchMethodNameSchema = z.enum(["keyword", "query", "query_syntax", "sql", "regex"]);
@@ -796,34 +857,13 @@ export const SearchQuerySqlSchema = z.object({
     }
 });
 
-export const SearchTagSchema = z.object({
-    action: z.literal("search_tag"),
-    k: z.string().optional().describe("Legacy tag keyword field"),
-    query: z.string().optional().describe("Semantic alias for k. Overrides k when both are provided."),
-}).superRefine((value, ctx) => {
-    if (!value.k && !value.query) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Provide k or query.",
-            path: ['k'],
-        });
-    }
-});
-
 export const SearchGetBacklinksSchema = z.object({
     action: z.literal("get_backlinks"),
     id: z.string().describe("Block or document ID to find backlinks for"),
     keyword: z.string().optional().describe("Filter backlinks by keyword"),
     refTreeID: z.string().optional().describe("Optional document tree ID to narrow backlink scope"),
     scopeRootId: z.string().optional().describe("Semantic alias for refTreeID. Overrides refTreeID when both are provided."),
-});
-
-export const SearchGetBackmentionsSchema = z.object({
-    action: z.literal("get_backmentions"),
-    id: z.string().describe("Block or document ID to find backmentions for"),
-    keyword: z.string().optional().describe("Filter backmentions by keyword"),
-    refTreeID: z.string().optional().describe("Optional document tree ID to narrow backmention scope"),
-    scopeRootId: z.string().optional().describe("Semantic alias for refTreeID. Overrides refTreeID when both are provided."),
+    mode: z.enum(["links", "mentions", "both"]).optional().describe('Result mode: "links", "mentions", or "both" (default).'),
 });
 
 export const SearchRefsSchema = z.object({
@@ -867,16 +907,11 @@ export const SearchAssetsSchema = z.object({
     }
 });
 
-export const SearchGetAssetContentSchema = z.object({
-    action: z.literal("get_asset_content"),
-    id: z.string().describe("Asset content ID"),
-    query: z.string().describe("Matched query text"),
-    queryMethod: z.number().optional().describe("Query method: 0=keyword, 1=query syntax, 2=SQL, 3=regex"),
-});
-
 export const SearchFulltextAssetContentSchema = z.object({
     action: z.literal("fulltext_asset_content"),
-    query: z.string().describe("Search query string"),
+    query: z.string().optional().describe("Search query string"),
+    assetId: z.string().optional().describe("Asset content ID for an exact content lookup"),
+    queryMethod: z.number().optional().describe("Query method for assetId lookup: 0=keyword, 1=query syntax, 2=SQL, 3=regex"),
     types: z.record(z.string(), z.boolean()).optional().describe("Asset type filter"),
     method: z.number().optional().describe("Search method: 0=keyword, 1=query syntax, 2=SQL, 3=regex"),
     methodName: SearchMethodNameSchema.optional().describe('Semantic alias for method: "keyword" | "query_syntax" | "sql" | "regex". The short alias "query" also maps to query syntax and overrides method when both are provided.'),
@@ -884,6 +919,10 @@ export const SearchFulltextAssetContentSchema = z.object({
     sortBy: SearchAssetSortNameSchema.optional().describe('Semantic sort alias: "relevance_desc", "relevance_asc", "updated_asc", or "updated_desc". The shorthand "relevance" maps to relevance_desc. Overrides orderBy if both are provided.'),
     page: z.number().int().min(1).optional().describe("Page number (1-based)"),
     pageSize: z.number().int().min(1).max(128).optional().describe("Results per page"),
+}).superRefine((value, ctx) => {
+    if (!value.query && !value.assetId) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide query or assetId.", path: ["query"] });
+    }
 });
 
 export const SearchListInvalidRefsSchema = z.object({
@@ -896,6 +935,8 @@ export const TagActionSchema = z.enum(TAG_ACTIONS);
 
 export const TagListSchema = z.object({
     action: z.literal("list"),
+    keyword: z.string().optional().describe("Optional keyword used to search/filter tags"),
+    query: z.string().optional().describe("Alias for keyword"),
     sort: z.number().optional().describe("Optional tag sort mode"),
     ignoreMaxListHint: z.boolean().optional().describe("Ignore the maximum list hint from SiYuan"),
     app: z.string().optional().describe("Optional app identifier passed through to SiYuan"),
@@ -922,10 +963,6 @@ export const SystemNetworkSchema = z.object({
     action: z.literal("network"),
 });
 
-export const SystemChangelogSchema = z.object({
-    action: z.literal("changelog"),
-});
-
 export const SystemConfSchema = z.object({
     action: z.literal("conf"),
     mode: z.enum(["summary", "get"]).optional().describe('Read mode: "summary" returns a navigable overview, "get" reads a specific key path'),
@@ -934,27 +971,10 @@ export const SystemConfSchema = z.object({
     maxItems: z.number().int().min(1).max(100).optional().describe('Maximum keys/items to include per level'),
 });
 
-export const SystemSysFontsSchema = z.object({
-    action: z.literal("sys_fonts"),
-    mode: z.enum(["summary", "list"]).optional().describe('Read mode: "summary" returns counts and samples, "list" returns paginated items'),
-    offset: z.number().int().min(0).optional().describe('Pagination offset for list mode'),
-    limit: z.number().int().min(1).max(200).optional().describe('Pagination size for list mode'),
-    query: z.string().optional().describe('Optional keyword filter for font names'),
-});
-
-export const SystemBootProgressSchema = z.object({
-    action: z.literal("boot_progress"),
-});
-
-export const SystemPushMsgSchema = z.object({
-    action: z.literal("push_msg"),
+export const SystemNotifySchema = z.object({
+    action: z.literal("notify"),
     msg: z.string().describe("Message content"),
-    timeout: z.number().optional().describe("Display timeout in milliseconds"),
-});
-
-export const SystemPushErrMsgSchema = z.object({
-    action: z.literal("push_err_msg"),
-    msg: z.string().describe("Error message content"),
+    level: z.enum(["info", "error"]).describe("Notification level"),
     timeout: z.number().optional().describe("Display timeout in milliseconds"),
 });
 

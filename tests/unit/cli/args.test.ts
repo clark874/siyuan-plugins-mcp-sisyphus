@@ -19,6 +19,15 @@ describe('cli/args', () => {
         });
     });
 
+    it('strips negated global booleans from tool-specific rest args', () => {
+        expect(parseArgs(['notebook', 'list', '--no-json', '--no-debug', '--name', 'ignored'])).toMatchObject({
+            command: 'dispatch',
+            json: false,
+            debug: false,
+            rest: ['--name', 'ignored'],
+        });
+    });
+
     it('parses config list', () => {
         expect(parseArgs(['config', 'list'])).toMatchObject({
             command: 'config',

@@ -24,6 +24,7 @@ vi.mock('@/tools/context', () => ({
     })),
     resolveResultItemContext: vi.fn(),
     createResultResolutionCache: vi.fn(() => ({ documentContextById: new Map(), notebookByPath: new Map() })),
+    escapeSqlString: (value: string) => value.replace(/\0/g, '').replace(/'/g, "''"),
 }));
 
 vi.mock('@/api/block', () => ({
@@ -56,8 +57,13 @@ vi.mock('@/api/av', () => ({
     setAttributeViewBlockAttr: vi.fn(),
     batchSetAttributeViewBlockAttrs: vi.fn(),
     duplicateAttributeViewBlock: vi.fn(),
+    spinBlockDOM: vi.fn(),
     getMirrorDatabaseBlocks: vi.fn(),
     getAttributeViewPrimaryKeyValues: vi.fn(),
+}));
+
+vi.mock('@/api/search', () => ({
+    querySQL: vi.fn(),
 }));
 
 vi.mock('@/api/transaction', () => ({
@@ -69,7 +75,7 @@ import { parseResult } from '../../helpers/parse-result';
 describe('UI refresh integration', () => {
     const client = {
         request: vi.fn(async () => null),
-    } as never;
+    } as any;
 
     const permMgr = {
         reload: vi.fn(async () => undefined),
@@ -92,7 +98,7 @@ describe('UI refresh integration', () => {
         enabled: true,
         actions: {
             create: true,
-            set_icon: true,
+            set_attr: true,
         },
     } as const;
 
@@ -116,7 +122,7 @@ describe('UI refresh integration', () => {
         actions: {
             add_rows: true,
             add_column: true,
-            set_cell: true,
+            set_cells: true,
         },
     } as const;
 
@@ -127,6 +133,8 @@ describe('UI refresh integration', () => {
         const notebookApi = await import('@/api/notebook');
         const tagApi = await import('@/api/tag');
         const avApi = await import('@/api/av');
+        const transactionApi = await import('@/api/transaction');
+        const searchApi = await import('@/api/search');
         const context = await import('@/tools/context');
 
         vi.mocked(blockApi.appendBlock).mockReset();
@@ -141,6 +149,8 @@ describe('UI refresh integration', () => {
         vi.mocked(avApi.addAttributeViewKey).mockReset();
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockReset();
         vi.mocked(avApi.setAttributeViewBlockAttr).mockReset();
+        vi.mocked(transactionApi.performTransactions).mockReset();
+        vi.mocked(searchApi.querySQL).mockReset();
         vi.mocked(context.resolveDocumentContextById).mockReset();
 
         vi.mocked(blockApi.appendBlock).mockResolvedValue([{ doOperations: [{ id: 'block-new' }] }] as never);
@@ -152,6 +162,7 @@ describe('UI refresh integration', () => {
         vi.mocked(avApi.addAttributeViewBlocks).mockResolvedValue(null);
         vi.mocked(avApi.addAttributeViewKey).mockResolvedValue(null);
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockResolvedValue({ refDefs: [] });
+        vi.mocked(searchApi.querySQL).mockResolvedValue([]);
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
                 id: 'av-1',
@@ -164,6 +175,7 @@ describe('UI refresh integration', () => {
             },
         });
         vi.mocked(avApi.setAttributeViewBlockAttr).mockResolvedValue({ value: { type: 'text' } });
+        vi.mocked(transactionApi.performTransactions).mockResolvedValue([]);
         vi.mocked(context.resolveDocumentContextById).mockImplementation(async (_client: unknown, id: string) => ({
             documentId: id && id.startsWith('doc-') ? id : 'doc-1',
             notebook: 'nb-1',
@@ -228,33 +240,33 @@ describe('UI refresh integration', () => {
         expect(parsed.uiRefresh.partialFailure).toEqual([{ type: 'reloadProtyle', id: 'doc-1', message: 'reload failed' }]);
     });
 
-    it('reloads icon UI after document set_icon', async () => {
+    it('reloads icon UI after document set_attr icon', async () => {
         const result = await callDocumentTool(client, {
-            action: 'set_icon',
+            action: 'set_attr',
             id: 'doc-1',
-            icon: '1f4d4',
+            attrs: { icon: '1f4d4' },
         }, documentConfig as never, permMgr);
 
         const parsed = parseResult(result);
-        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }, { type: 'reloadFiletree' }]);
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadIcon', {});
     });
 
-    it('keeps document set_icon successful when icon refresh fails', async () => {
+    it('keeps document set_attr icon successful when icon refresh fails', async () => {
         client.request = vi.fn(async (endpoint: string) => {
             if (endpoint === '/api/ui/reloadIcon') throw new Error('icon reload failed');
             return null;
         });
 
         const result = await callDocumentTool(client, {
-            action: 'set_icon',
+            action: 'set_attr',
             id: 'doc-1',
-            icon: '1f4d4',
+            attrs: { icon: '1f4d4' },
         }, documentConfig as never, permMgr);
 
         const parsed = parseResult(result);
         expect(parsed.success).toBe(true);
-        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }, { type: 'reloadFiletree' }]);
         expect(parsed.uiRefresh.partialFailure).toEqual([{ type: 'reloadIcon', message: 'icon reload failed' }]);
     });
 
@@ -336,9 +348,9 @@ describe('UI refresh integration', () => {
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadTag', {});
     });
 
-    it('reloads protyle after av set_cell when the owning document can be resolved', async () => {
+    it('reloads protyle after av set_cells when the owning document can be resolved', async () => {
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-1',
             columnID: 'col-1',
@@ -410,7 +422,7 @@ describe('UI refresh integration', () => {
         vi.mocked(context.resolveDocumentContextById).mockRejectedValue(new Error('document context unavailable'));
 
         const result = await callAvTool(client, {
-            action: 'set_cell',
+            action: 'set_cells',
             avID: 'av-1',
             rowID: 'row-1',
             columnID: 'col-1',

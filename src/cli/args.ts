@@ -210,12 +210,13 @@ function extractToolRest(argv: string[]): string[] {
 
         const eq = token.indexOf('=');
         const flagName = eq === -1 ? token.replace(/^-+/, '') : token.slice(token.startsWith('--') ? 2 : 1, eq);
+        const lookupFlagName = flagName.startsWith('no-') ? flagName.slice(3) : flagName;
 
-        if (GLOBAL_STRING.includes(flagName)) {
+        if (GLOBAL_STRING.includes(lookupFlagName)) {
             if (eq === -1) i++; // consume the value token
             continue;
         }
-        if (GLOBAL_BOOLEAN.includes(flagName) || flagName === 'h' || flagName === 'v') {
+        if (GLOBAL_BOOLEAN.includes(lookupFlagName) || lookupFlagName === 'h' || lookupFlagName === 'v') {
             // --help and --version accept no value; --json/--debug also valueless
             continue;
         }

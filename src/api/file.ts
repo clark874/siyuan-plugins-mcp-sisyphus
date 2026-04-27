@@ -16,7 +16,7 @@ export async function uploadAsset(
     fileName: string,
 ): Promise<{ errFiles: string[]; succMap: { [key: string]: string } }> {
     const formData = new FormData();
-    const file = new File([fileContent], fileName);
+    const file = new File([fileContent as Uint8Array<ArrayBuffer>], fileName);
     formData.append('assetsDirPath', assetsDirPath);
     formData.append('file[]', file, fileName);
     return client.requestFormData<{ errFiles: string[]; succMap: { [key: string]: string } }>('/api/asset/upload', formData);

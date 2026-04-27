@@ -260,16 +260,16 @@ runToolCall(ctx, handler)
 
 | 方法 | 说明 |
 |------|------|
-| `load()` / `reload()` | 从 SiYuan API 读取权限文件 → JSON.parse → 旧值迁移 → 若迁移则自动 `save()` |
+| `load()` / `reload()` | 从 SiYuan API 读取权限文件 → JSON.parse → 在内存中归一化旧值，不自动写回 |
 | `save()` | 通过 `SiYuanClient.writeFile` 写入权限文件 |
-| `get(notebookId)` | 返回四级权限，默认 `rwd`（未配置时兜底） |
+| `get(notebookId)` | 返回四级权限，默认 `r` 只读（未配置时兜底） |
 | `canRead(notebookId)` | `get() !== 'none'` |
 | `canWrite(notebookId)` | `['rw', 'rwd'].includes(get())` |
 | `canDelete(notebookId)` | `get() === 'rwd'` |
 
 **存储位置**：`/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions`
 
-**CLI 兼容**：CLI 启动时也会创建 `PermissionManager` 并读取同一份权限文件；未配置的 notebook 兜底为 `rwd`。
+**CLI 兼容**：CLI 启动时也会创建 `PermissionManager` 并读取同一份权限文件；未配置的 notebook 兜底为 `r`（只读）。
 
 **依赖**：`api/client.ts`
 

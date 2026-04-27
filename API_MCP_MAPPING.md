@@ -67,15 +67,14 @@
 - `notebook(action="set_permission")`
 - `document(action="remove")`
 - `document(action="move")`
-- `document(action="remove_batch")`
 - `block(action="delete")`
 - `block(action="move")`
 - `tag(action="remove")`
 - `flashcard(action="remove_card")`
-- `av(action="remove_rows")` (批量删除行)
-- `av(action="remove_column")` (删除列)
+- `file(action="upload_asset")`
 - `file(action="remove_unused_assets")`
 - `file(action="delete_asset")`
+- `system(action="workspace_info")`
 - `search(action="find_replace")`
 
 ### 只读工具
@@ -108,20 +107,15 @@
 | `rename` | `POST /api/filetree/renameDoc` / `POST /api/filetree/renameDocByID` | `src/api/document.ts` | 支持路径模式和 ID 模式 |
 | `remove` | `POST /api/filetree/removeDoc` / `POST /api/filetree/removeDocByID` | `src/api/document.ts` | 需要确认 |
 | `move` | `POST /api/filetree/moveDocs` / `POST /api/filetree/moveDocsByID` | `src/api/document.ts` | 需要确认 |
-| `get_path` | `POST /api/filetree/getPathByID` | `src/api/document.ts` | 返回存储路径 |
-| `get_hpath` | `POST /api/filetree/getHPathByID` / `POST /api/filetree/getHPathByPath` | `src/api/document.ts` | 返回人类可读路径 |
-| `get_ids` | `POST /api/filetree/getIDsByHPath` | `src/api/document.ts` | 人类可读路径转文档 ID |
+| `lookup` | `POST /api/filetree/getPathByID` / `POST /api/filetree/getHPathByID` / `POST /api/filetree/getHPathByPath` / `POST /api/filetree/getIDsByHPath` | `src/api/document.ts` | 解析 ID、存储路径、人类可读路径和文档信息 |
 | `get_child_blocks` | `POST /api/block/getChildBlocks` | `src/api/block.ts` | 使用解析后的根文档 ID |
 | `get_child_docs` | `POST /api/filetree/listDocsByPath` | `src/api/document.ts` | 使用解析后的笔记本 + 存储路径 |
-| `set_icon` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 给文档块写入 `icon` 属性 |
-| `set_cover` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 给文档块写入 `title-img` 属性；传 `source` 则设置封面，省略则清空 |
+| `set_attr` | `POST /api/attr/setBlockAttrs` | `src/api/block.ts` | 给文档块写入元数据属性 |
 | `list_tree` | `POST /api/filetree/listDocTree` | `src/api/document.ts` | 获取嵌套文档树 |
 | `search_docs` | `POST /api/filetree/searchDocs` | `src/api/document.ts` | 思源原生是全局标题搜索 |
 | `get_doc` | `POST /api/filetree/getDoc` | `src/api/document.ts` | 获取文档内容和元数据 |
 | `create_daily_note` | `POST /api/filetree/createDailyNote` | `src/api/document.ts` | 创建或返回今日日记 |
 | `duplicate` | `POST /api/filetree/duplicateDoc` | `src/api/document.ts` | 复制已有文档 |
-| `remove_batch` | `POST /api/filetree/removeDocs` | `src/api/document.ts` | 按存储路径批量删除文档，需要确认 |
-| `create_empty` | `POST /api/filetree/createDoc` | `src/api/document.ts` | 创建空文档，也可传 `markdown` 作为初始内容 |
 | `heading_to_doc` | `POST /api/filetree/heading2Doc` | `src/api/document.ts` | 将标题块转换为文档 |
 | `doc_to_heading` | `POST /api/filetree/doc2Heading` | `src/api/document.ts` | 将文档转换为目标文档下的标题 |
 
@@ -135,14 +129,14 @@
 ### 使用人类可读路径的 action
 
 - `document(action="create")`
-- `document(action="get_ids")`
+- `document(action="lookup", hpath=...)`
 
 ### 使用存储路径的 action
 
 - `document(action="rename", notebook + path)`
 - `document(action="remove", notebook + path)`
 - `document(action="move", fromPaths + toNotebook + toPath)`
-- `document(action="get_hpath", notebook + path)`
+- `document(action="lookup", notebook + path)`
 - `document(action="list_tree", notebook + path)`
 
 ## `block`
@@ -158,20 +152,15 @@
 | `set_fold_state` | `POST /api/block/foldBlock` / `POST /api/block/unfoldBlock` | `src/api/block.ts` | `folded: true` 折叠，`folded: false` 展开；仅适用于可折叠块 |
 | `get_kramdown` | `POST /api/block/getBlockKramdown` | `src/api/block.ts` | 只读 |
 | `get_children` | `POST /api/block/getChildBlocks` | `src/api/block.ts` | 只读 |
-| `transfer_ref` | `POST /api/block/transferBlockRef` | `src/api/block.ts` | 写操作 |
-| `set_attrs` | `POST /api/attr/setBlockAttrs` | `src/api/attribute.ts` | 设置块属性 |
-| `get_attrs` | `POST /api/attr/getBlockAttrs` | `src/api/attribute.ts` | 读取块属性 |
-| `exists` | `POST /api/block/checkBlockExist` | `src/api/block.ts` | 判断块是否存在 |
+| `transfer_references` | `POST /api/block/transferBlockRef` | `src/api/block.ts` | 写操作 |
+| `set_attrs` | `POST /api/attr/setBlockAttrs` | `src/api/block.ts` | 设置块属性 |
+| `get_attrs` | `POST /api/attr/getBlockAttrs` | `src/api/block.ts` | 读取块属性 |
 | `info` | `POST /api/block/getBlockInfo` | `src/api/block.ts` | 获取块所在根文档信息 |
 | `breadcrumb` | `POST /api/block/getBlockBreadcrumb` | `src/api/block.ts` | 获取面包屑路径 |
 | `dom` | `POST /api/block/getBlockDOM` | `src/api/block.ts` | 获取渲染后的 DOM |
 | `recent_updated` | `POST /api/block/getRecentUpdatedBlocks` | `src/api/block.ts` | 工作区级最近更新 |
 | `word_count` | `POST /api/block/getBlocksWordCount` | `src/api/block.ts` | 返回字数统计结构 |
-| `batch_insert` | `POST /api/block/batchInsertBlock` | `src/api/block.ts` | 批量插入块 |
-| `batch_update` | `POST /api/block/batchUpdateBlock` | `src/api/block.ts` | 批量更新块 |
-| `append_daily_note` | `POST /api/block/appendDailyNoteBlock` | `src/api/block.ts` | 创建或打开今日日记后追加块 |
-| `prepend_daily_note` | `POST /api/block/prependDailyNoteBlock` | `src/api/block.ts` | 创建或打开今日日记后前插块 |
-| `doc_info` | `POST /api/block/getDocInfo` | `src/api/block.ts` | 获取块或文档所在文档信息 |
+| `add_to_daily_note` | `POST /api/block/appendDailyNoteBlock` / `POST /api/block/prependDailyNoteBlock` | `src/api/block.ts` | 创建或打开今日日记后追加或前插块 |
 | `docs_info` | `POST /api/block/getDocsInfo` | `src/api/block.ts` | 批量获取文档信息，可选 `refCount` / `av` |
 
 ## `file`
@@ -179,8 +168,7 @@
 | MCP action | 思源 HTTP API | Wrapper | 说明 |
 |---|---|---|---|
 | `upload_asset` | `POST /api/asset/upload` | `src/api/file.ts` | 读取本地文件路径后以 multipart 上传（高危，需先确认；若文件超过配置阈值，默认 `10 MB`，必须先中止并获得用户确认，再携带 `confirmLargeFile=true` 重试） |
-| `render_template` | `POST /api/template/render` | `src/api/file.ts` | 需要可读文档 ID |
-| `render_sprig` | `POST /api/template/renderSprig` | `src/api/file.ts` | 仅模板渲染 |
+| `render` | `POST /api/template/render` / `POST /api/template/renderSprig` | `src/api/file.ts` | 通过 `engine` 选择模板文件或 Sprig 内联渲染 |
 | `export_md` | `POST /api/export/exportMdContent` | `src/api/file.ts` | 需要可读文档 ID |
 | `export_resources` | `POST /api/export/exportResources` | `src/api/file.ts` | 将 `assets/...` 规范化为 `data/assets/...` 后导出；若传 `outputPath`，再把 ZIP 复制到本地文件系统（高危，需先确认） |
 | `list_unused_assets` | `POST /api/asset/getUnusedAssets` | `src/api/file.ts` | 列出未使用资源 |
@@ -189,25 +177,17 @@
 | `remove_unused_assets` | `POST /api/asset/removeUnusedAssets` | `src/api/file.ts` | 删除所有未使用资源，需要确认 |
 | `rename_asset` | `POST /api/asset/renameAsset` | `src/api/file.ts` | 重命名资源 |
 | `delete_asset` | `POST /api/asset/deleteAsset` | `src/api/file.ts` | 删除指定资源，需要确认；兼容性 action，是否可用取决于目标 SiYuan 内核版本 |
-| `set_image_alpha` | `POST /api/asset/setImageAlpha` | `src/api/file.ts` | 设置图片资源透明度；兼容性 action，是否可用取决于目标 SiYuan 内核版本 |
-
-说明：
-
-- `file(action="delete_asset")` 与 `file(action="set_image_alpha")` 已在插件实现中预留，但未计入本文后续基于 2026-04-18 上游 Kernel 459 个端点扫描得到的覆盖率统计
 
 ## `search`
 
 | MCP action | 思源 HTTP API | Wrapper | 说明 |
 |---|---|---|---|
 | `fulltext` | `POST /api/search/fullTextSearchBlock` | `src/api/search.ts` | 全文块搜索 |
-| `query_sql` | `POST /api/query/sql` | `src/api/search.ts` | MCP 侧限制为 `SELECT` / `WITH` |
-| `search_tag` | `POST /api/search/searchTag` | `src/api/search.ts` | 标签关键词搜索 |
+| `query_sql` | `POST /api/query/sql` | `src/api/search.ts` | MCP 侧限制为 `SELECT` |
 | `get_backlinks` | `POST /api/ref/getBacklinkDoc` | `src/api/search.ts` | 只读 |
-| `get_backmentions` | `POST /api/ref/getBackmentionDoc` | `src/api/search.ts` | 只读 |
 | `search_refs` | `POST /api/search/searchRefBlock` | `src/api/search.ts` | 搜索引用指定块/文档的块 |
 | `find_replace` | `POST /api/search/findReplace` | `src/api/search.ts` | 查找替换，需要确认 |
 | `search_assets` | `POST /api/search/searchAsset` | `src/api/search.ts` | 按文件名搜索资源 |
-| `get_asset_content` | `POST /api/search/getAssetContent` | `src/api/search.ts` | 获取单个资源内容索引结果 |
 | `fulltext_asset_content` | `POST /api/search/fullTextSearchAssetContent` | `src/api/search.ts` | 全文搜索资源内容索引 |
 | `list_invalid_refs` | `POST /api/search/listInvalidBlockRefs` | `src/api/search.ts` | 列出无效块引用 |
 
@@ -225,14 +205,10 @@
 |---|---|---|---|
 | `workspace_info` | `POST /api/system/getWorkspaceInfo` | `src/api/system.ts` | 只读 |
 | `network` | `POST /api/system/getNetwork` | `src/api/system.ts` | 返回脱敏代理信息 |
-| `changelog` | `POST /api/system/getChangelog` | `src/api/system.ts` | 返回 `show` 与 `html` |
 | `conf` | `POST /api/system/getConf` | `src/api/system.ts` | 返回脱敏配置 |
-| `sys_fonts` | `POST /api/system/getSysFonts` | `src/api/system.ts` | 只读 |
-| `boot_progress` | `POST /api/system/bootProgress` | `src/api/system.ts` | 只读 |
-| `push_msg` | `POST /api/notification/pushMsg` | `src/api/file.ts` / `src/tools/system/index.ts` | 普通通知 |
-| `push_err_msg` | `POST /api/notification/pushErrMsg` | `src/api/file.ts` / `src/tools/system/index.ts` | 错误通知 |
-| `get_version` | `POST /api/system/version` | `src/api/file.ts` / `src/tools/system/index.ts` | 只读 |
-| `get_current_time` | `POST /api/system/currentTime` | `src/api/file.ts` / `src/tools/system/index.ts` | 只读 |
+| `notify` | `POST /api/notification/pushMsg` / `POST /api/notification/pushErrMsg` | `src/api/notification.ts` / `src/tools/system/index.ts` | 根据 `level` 推送普通或错误通知 |
+| `get_version` | `POST /api/system/version` | `src/api/system.ts` / `src/tools/system/index.ts` | 只读 |
+| `get_current_time` | `POST /api/system/currentTime` | `src/api/system.ts` / `src/tools/system/index.ts` | 只读 |
 
 ## `flashcard`
 
@@ -242,9 +218,7 @@
 | `get_decks` | `POST /api/riff/getRiffDecks` | `src/api/riff.ts` | 获取所有闪卡 deck |
 | `get_cards` | `POST /api/riff/getRiffCards` | `src/api/riff.ts` | 获取闪卡列表 |
 | `review_card` | `POST /api/riff/reviewRiffCard` | `src/api/riff.ts` | 复习闪卡，需传评分(rating) |
-| `skip_review_card` | `POST /api/riff/skipReviewRiffCard` | `src/api/riff.ts` | 跳过当前闪卡复习 |
-| `create_card` | `POST /api/attr/setBlockAttrs` + `POST /api/riff/addRiffCards` | `src/api/attribute.ts` + `src/api/flashcard.ts` | 将块正式转为闪卡：先写 `custom-riff-decks`，再注册 riff 卡片 |
-| `add_card` | `POST /api/riff/addRiffCards` | `src/api/riff.ts` | 执行底层 riff 加卡注册，不等于完整“制卡” |
+| `create_card` | `POST /api/attr/setBlockAttrs` + `POST /api/riff/addRiffCards` | `src/api/block.ts` + `src/api/flashcard.ts` | 将块正式转为闪卡：先写 `custom-riff-decks`，再注册 riff 卡片 |
 | `remove_card` | `POST /api/riff/removeRiffCards` | `src/api/riff.ts` | 移除闪卡，需要确认 |
 
 ## `av` (Attribute View / 数据库)
@@ -252,7 +226,7 @@
 | MCP action | 思源 HTTP API | Wrapper | 说明 |
 |---|---|---|---|
 | `get` | `POST /api/av/getAttributeView` | `src/api/av.ts` | 获取属性视图详情 |
-| `render_attribute_view` | `POST /api/av/renderAttributeView` | `src/api/av.ts` | 渲染属性视图 |
+| `render` | `POST /api/av/renderAttributeView` | `src/api/av.ts` | 渲染属性视图 |
 | `get_attribute_view_keys` | `POST /api/av/getAttributeViewKeys` | `src/api/av.ts` | 获取属性视图键列表 |
 | `get_attribute_view_filter_sort` | `POST /api/av/getAttributeViewFilterSort` | `src/api/av.ts` | 获取属性视图过滤排序条件 |
 | `search` | `POST /api/av/searchAttributeView` | `src/api/av.ts` | 搜索属性视图 |
@@ -260,9 +234,8 @@
 | `remove_rows` | `POST /api/av/removeAttributeViewBlocks` | `src/api/av.ts` | 移除行 |
 | `add_column` | `POST /api/av/addAttributeViewKey` | `src/api/av.ts` | 添加列/字段 |
 | `remove_column` | `POST /api/av/removeAttributeViewKey` | `src/api/av.ts` | 移除列/字段 |
-| `set_cell` | `POST /api/av/setAttributeViewBlockAttr` | `src/api/av.ts` | 设置单元格值 |
-| `batch_set_cells` | `POST /api/av/batchSetAttributeViewBlockAttrs` | `src/api/av.ts` | 批量设置单元格值 |
-| `duplicate_block` | `POST /api/av/duplicateAttributeViewBlock` | `src/api/av.ts` | 复制数据库块 |
+| `set_cells` | `POST /api/av/setAttributeViewBlockAttr` / `POST /api/av/batchSetAttributeViewBlockAttrs` | `src/api/av.ts` | 设置一个或多个单元格值 |
+| `duplicate` | `POST /api/av/duplicateAttributeView` / `POST /api/av/duplicateAttributeViewBlock` | `src/api/av.ts` | 复制属性视图定义，可按上下文实体化数据库块 |
 | `get_primary_key_values` | `POST /api/av/getAttributeViewPrimaryKeyValues` | `src/api/av.ts` | 获取主键值列表(用于relation字段) |
 
 ## `mascot`
@@ -374,7 +347,7 @@
 | `POST /api/search/searchRefBlock` | `search_refs` | 搜索引用块 | 已接入 |
 | `POST /api/search/findReplace` | `find_replace` | 查找替换，需要确认 | 已接入 |
 | `POST /api/search/searchAsset` | `search_assets` | 搜索资源文件 | 已接入 |
-| `POST /api/search/getAssetContent` | `get_asset_content` | 获取资源内容 | 已接入 |
+| `POST /api/search/getAssetContent` | - | 获取单个资源内容 | 未作为当前 action 暴露 |
 | `POST /api/search/fullTextSearchAssetContent` | `fulltext_asset_content` | 全文搜索资源内容 | 已接入 |
 | `POST /api/search/listInvalidBlockRefs` | `list_invalid_refs` | 列出无效块引用 | 已接入 |
 
@@ -382,11 +355,11 @@
 
 | API 路径 | MCP action | 说明 | 状态 |
 |----------|------------|------|------|
-| `POST /api/block/batchInsertBlock` | `batch_insert` | 批量插入块 | 已接入 |
-| `POST /api/block/batchUpdateBlock` | `batch_update` | 批量更新块 | 已接入 |
-| `POST /api/block/appendDailyNoteBlock` | `append_daily_note` | 追加到日记 | 已接入 |
-| `POST /api/block/prependDailyNoteBlock` | `prepend_daily_note` | 前置插入日记 | 已接入 |
-| `POST /api/block/getDocInfo` | `doc_info` | 获取文档信息 | 已接入 |
+| `POST /api/block/batchInsertBlock` | - | 批量插入块 | 未作为当前 action 暴露 |
+| `POST /api/block/batchUpdateBlock` | - | 批量更新块 | 未作为当前 action 暴露 |
+| `POST /api/block/appendDailyNoteBlock` | `add_to_daily_note` | 追加到日记 | 已接入 |
+| `POST /api/block/prependDailyNoteBlock` | `add_to_daily_note` | 前置插入日记 | 已接入 |
+| `POST /api/block/getDocInfo` | - | 获取单个文档信息 | 未作为当前 action 暴露 |
 | `POST /api/block/getDocsInfo` | `docs_info` | 批量获取文档信息 | 已接入 |
 
 #### 3. Document/文件树增强 (当前61.8%覆盖)
@@ -394,8 +367,8 @@
 | API 路径 | MCP action | 说明 | 状态 |
 |----------|------------|------|------|
 | `POST /api/filetree/duplicateDoc` | `duplicate` | 复制文档 | 已接入 |
-| `POST /api/filetree/removeDocs` | `remove_batch` | 批量删除文档，需要确认 | 已接入 |
-| `POST /api/filetree/createDoc` | `create_empty` | 创建空文档 | 已接入 |
+| `POST /api/filetree/removeDocs` | - | 批量删除文档 | 未作为当前 action 暴露 |
+| `POST /api/filetree/createDoc` | `create` | 创建空文档（parentPath + title 模式） | 已接入 |
 | `POST /api/filetree/heading2Doc` | `heading_to_doc` | 标题转为文档 | 已接入 |
 | `POST /api/filetree/doc2Heading` | `doc_to_heading` | 文档转为标题 | 已接入 |
 
@@ -411,11 +384,10 @@
 补充：
 
 - `delete_asset`
-- `set_image_alpha`
 
 说明：
 
-- 以上两个 action 已在插件中实现为兼容性扩展，但未出现在本次上游 Kernel 459 个端点扫描结果中，因此未纳入本节覆盖率统计
+- `delete_asset` 已在插件中实现为兼容性扩展，但未出现在本次上游 Kernel 459 个端点扫描结果中，因此未纳入本节覆盖率统计
 
 ### 中优先级 (扩展功能)
 

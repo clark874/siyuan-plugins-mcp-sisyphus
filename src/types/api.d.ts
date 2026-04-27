@@ -158,6 +158,7 @@ interface IReqGetIDsByHPath {
 }
 
 interface IResGetPathByID {
+    box?: string;
     notebook: string;
     path: string;
 }
@@ -272,8 +273,9 @@ interface IReqTransferBlockRef {
 }
 
 interface IResInsertBlock {
-    doOperations: doOperation[];
-    undoOperations: doOperation[] | null;
+    doOperations?: doOperation[];
+    undoOperations?: doOperation[] | null;
+    updated?: unknown;
 }
 
 interface IResPrependBlock extends IResInsertBlock {}
@@ -475,3 +477,88 @@ interface IResVersion {
 interface IResCurrentTime {
     currentTime: number;
 }
+
+export type {
+    ForwardProxyHeader,
+    IReqAppendBlock,
+    IReqCloseNotebook,
+    IReqCreateDocWithMd,
+    IReqCreateNotebook,
+    IReqDeleteBlock,
+    IReqExportMdContent,
+    IReqExportResources,
+    IReqFoldBlock,
+    IReqForwardProxy,
+    IReqFullTextSearchBlock,
+    IReqGetBacklinkDoc,
+    IReqGetBackmentionDoc,
+    IReqGetBlockKramdown,
+    IReqGetChildBlocks,
+    IReqGetDocInfo,
+    IReqGetFile,
+    IReqGetHPathByID,
+    IReqGetHPathByPath,
+    IReqGetIDsByHPath,
+    IReqGetNotebookConf,
+    IReqGetPathByID,
+    IReqInsertBlock,
+    IReqListDocsByPath,
+    IReqMoveBlock,
+    IReqMoveDocs,
+    IReqMoveDocsByID,
+    IReqOpenNotebook,
+    IReqPandoc,
+    IReqPrependBlock,
+    IReqPushErrMsg,
+    IReqPushMsg,
+    IReqPutFile,
+    IReqQuerySQL,
+    IReqReadDir,
+    IReqRemoveDoc,
+    IReqRemoveDocByID,
+    IReqRemoveFile,
+    IReqRemoveNotebook,
+    IReqRenameDoc,
+    IReqRenameDocByID,
+    IReqRenameFile,
+    IReqRenameNotebook,
+    IReqRenderSprig,
+    IReqRenderTemplate,
+    IReqSearchTag,
+    IReqSetNotebookConf,
+    IReqSetNotebookIcon,
+    IReqTransferBlockRef,
+    IReqUnfoldBlock,
+    IReqUpdateBlock,
+    IReqUpload,
+    IResBootProgress,
+    IResCreateNotebook,
+    IResCurrentTime,
+    IResExportMdContent,
+    IResExportResources,
+    IResForwardProxy,
+    IResFullTextSearchBlock,
+    IResGetBacklinkDoc,
+    IResGetBackmentionDoc,
+    IResGetBlockKramdown,
+    IResGetChildBlock,
+    IResGetDocInfo,
+    IResGetNotebookConf,
+    IResGetPathByID,
+    IResGetTemplates,
+    IResInsertBlock,
+    IResListDoc,
+    IResListDocsByPath,
+    IResPandoc,
+    IResPushErrMsg,
+    IResPushMsg,
+    IResReadDir,
+    IResReadDirItem,
+    IResSearchTag,
+    IResSetNotebookConf,
+    IResUpload,
+    IResVersion,
+    IResdoOperations,
+    IReslsNotebooks,
+    Notebook,
+};
