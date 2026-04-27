@@ -58,6 +58,14 @@ function normalizeDeckBinding(value: string | undefined): string[] {
         .filter((entry) => entry.length > 0);
 }
 
+function getDeckID(deck: unknown): string | undefined {
+    if (!deck || typeof deck !== 'object') return undefined;
+    const typedDeck = deck as Record<string, unknown>;
+    if (typeof typedDeck.id === 'string' && typedDeck.id.length > 0) return typedDeck.id;
+    if (typeof typedDeck.deckID === 'string' && typedDeck.deckID.length > 0) return typedDeck.deckID;
+    return undefined;
+}
+
 async function getBlockAttrsSafe(client: SiYuanClient, blockID: string): Promise<BlockAttrMap> {
     const attrs = await attributeApi.getBlockAttrs(client, blockID);
     return attrs && typeof attrs === 'object' ? attrs : {};
@@ -72,18 +80,11 @@ async function ensureFlashcardTargetsWritable(client: SiYuanClient, blockIDs: st
     }
 }
 
-function mergeDeckBinding(value: string | undefined, deckID: string): string {
-    const deckIDs = normalizeDeckBinding(value);
-    if (!deckIDs.includes(deckID)) deckIDs.push(deckID);
-    return deckIDs.join(',');
-}
-
-async function bindBlocksToDeck(client: SiYuanClient, blockIDs: string[], deckID: string): Promise<void> {
-    for (const blockID of blockIDs) {
-        const attrs = await getBlockAttrsSafe(client, blockID);
-        await attributeApi.setBlockAttrs(client, blockID, {
-            [NODE_ATTR_RIFF_DECKS]: mergeDeckBinding(attrs[NODE_ATTR_RIFF_DECKS], deckID),
-        });
+async function ensureDeckAvailable(client: SiYuanClient, deckID: string, action: 'create_card' | 'remove_card'): Promise<void> {
+    if (deckID === BUILTIN_DECK_ID) return;
+    const result = await flashcardApi.getRiffDecks(client);
+    if (!Array.isArray(result) || !result.some((deck) => getDeckID(deck) === deckID)) {
+        throw new Error(`flashcard/${action} requires an existing deckID. Deck "${deckID}" was not found.`);
     }
 }
 
@@ -184,12 +185,12 @@ async function getStableRiffCards(
 const handleListCards: FlashcardActionHandler = async ({ client, rawArgs }) => {
     const parsed = FlashcardListCardsSchema.parse(rawArgs);
     const result = parsed.scope === 'all'
-        ? await flashcardApi.getRiffDueCards(client, '')
+        ? await flashcardApi.getRiffDueCards(client, '', parsed.reviewedCards)
         : parsed.scope === 'deck'
-            ? await flashcardApi.getRiffDueCards(client, parsed.deckID)
+            ? await flashcardApi.getRiffDueCards(client, parsed.deckID, parsed.reviewedCards)
             : parsed.scope === 'notebook'
-                ? await flashcardApi.getNotebookRiffDueCards(client, parsed.notebook)
-                : await flashcardApi.getTreeRiffDueCards(client, parsed.rootID);
+                ? await flashcardApi.getNotebookRiffDueCards(client, parsed.notebook, parsed.reviewedCards)
+                : await flashcardApi.getTreeRiffDueCards(client, parsed.rootID, parsed.reviewedCards);
 
     const safeResult = result ?? {} as flashcardApi.FlashcardListResult;
     return createJsonResult({
@@ -200,6 +201,7 @@ const handleListCards: FlashcardActionHandler = async ({ client, rawArgs }) => {
         ...(parsed.deckID ? { deckID: parsed.deckID } : {}),
         ...(parsed.notebook ? { notebook: parsed.notebook } : {}),
         ...(parsed.rootID ? { rootID: parsed.rootID } : {}),
+        ...(parsed.reviewedCards !== undefined ? { reviewedCards: parsed.reviewedCards } : {}),
         cards: filterCardsByState(Array.isArray(safeResult.cards) ? safeResult.cards : [], parsed.filter),
     });
 };
@@ -271,15 +273,11 @@ const handleCreateCard: FlashcardActionHandler = async ({ client, rawArgs }) => 
     const parsed = FlashcardCreateCardSchema.parse(rawArgs);
     const deckID = normalizeWritableDeckID(parsed.deckID);
     await ensureFlashcardTargetsWritable(client, parsed.blockIDs);
+    await ensureDeckAvailable(client, deckID, 'create_card');
     const mode = parsed.mode ?? 'full';
-    if (mode === 'full') {
-        await bindBlocksToDeck(client, parsed.blockIDs, deckID);
-    }
     const result = await flashcardApi.addRiffCards(client, deckID, parsed.blockIDs);
-    if (mode === 'full') {
-        await verifyFlashcardBindings(client, parsed.blockIDs, deckID, 'create_card');
-    }
-    if (mode === 'full' || deckID === BUILTIN_DECK_ID) {
+    await verifyFlashcardBindings(client, parsed.blockIDs, deckID, 'create_card');
+    if (deckID === BUILTIN_DECK_ID) {
         await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'present', 'create_card');
     }
     return createJsonResult({
@@ -295,6 +293,7 @@ const handleCreateCard: FlashcardActionHandler = async ({ client, rawArgs }) => 
 const handleRemoveCard: FlashcardActionHandler = async ({ client, rawArgs }) => {
     const parsed = FlashcardRemoveCardSchema.parse(rawArgs);
     const deckID = normalizeWritableDeckID(parsed.deckID);
+    await ensureDeckAvailable(client, deckID, 'remove_card');
     const result = await flashcardApi.removeRiffCards(client, deckID, parsed.blockIDs);
     if (deckID === BUILTIN_DECK_ID) {
         await verifyFlashcardDeckRecords(client, parsed.blockIDs, 'absent', 'remove_card');

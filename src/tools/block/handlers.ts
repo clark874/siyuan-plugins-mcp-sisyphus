@@ -1,6 +1,7 @@
 import type { SiYuanClient } from '../../api/client';
 import * as attributeApi from '../../api/block';
 import * as blockApi from '../../api/block';
+import * as transactionApi from '../../api/transaction';
 import type { BlockAction } from '../../core/config';
 import { normalizeKramdownResult, stripZeroWidthChars } from '../../core/normalize';
 import {
@@ -470,7 +471,14 @@ const handleSetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) 
     const parsed = BlockSetAttrsSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
     if (denied) return denied;
-    await attributeApi.setBlockAttrs(client, parsed.id, parsed.attrs);
+    await transactionApi.performTransactions(client, [{
+        doOperations: [{
+            action: 'setAttrs',
+            id: parsed.id,
+            data: JSON.stringify(parsed.attrs),
+        }],
+        undoOperations: [],
+    }]);
     return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, attrs: parsed.attrs }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 

@@ -133,6 +133,7 @@ describe('UI refresh integration', () => {
         const notebookApi = await import('@/api/notebook');
         const tagApi = await import('@/api/tag');
         const avApi = await import('@/api/av');
+        const transactionApi = await import('@/api/transaction');
         const searchApi = await import('@/api/search');
         const context = await import('@/tools/context');
 
@@ -148,6 +149,7 @@ describe('UI refresh integration', () => {
         vi.mocked(avApi.addAttributeViewKey).mockReset();
         vi.mocked(avApi.getMirrorDatabaseBlocks).mockReset();
         vi.mocked(avApi.setAttributeViewBlockAttr).mockReset();
+        vi.mocked(transactionApi.performTransactions).mockReset();
         vi.mocked(searchApi.querySQL).mockReset();
         vi.mocked(context.resolveDocumentContextById).mockReset();
 
@@ -173,6 +175,7 @@ describe('UI refresh integration', () => {
             },
         });
         vi.mocked(avApi.setAttributeViewBlockAttr).mockResolvedValue({ value: { type: 'text' } });
+        vi.mocked(transactionApi.performTransactions).mockResolvedValue([]);
         vi.mocked(context.resolveDocumentContextById).mockImplementation(async (_client: unknown, id: string) => ({
             documentId: id && id.startsWith('doc-') ? id : 'doc-1',
             notebook: 'nb-1',

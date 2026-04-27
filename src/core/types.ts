@@ -325,6 +325,9 @@ export const FlashcardListCardsSchema = z.object({
     deckID: z.string().optional().describe("Deck ID, required when scope=deck"),
     notebook: z.string().optional().describe("Notebook ID, required when scope=notebook"),
     rootID: z.string().optional().describe("Root document/block ID, required when scope=tree"),
+    reviewedCards: z.array(z.object({
+        cardID: z.string().describe("Reviewed card ID"),
+    }).passthrough()).optional().describe("Optional already-reviewed cards; SiYuan reads reviewedCards[].cardID"),
 }).superRefine((value, ctx) => {
     const hasDeck = typeof value.deckID === "string";
     const hasNotebook = typeof value.notebook === "string";
@@ -367,7 +370,7 @@ export const FlashcardCreateCardSchema = z.object({
     action: z.literal("create_card"),
     deckID: z.string().describe("Deck ID"),
     blockIDs: z.array(z.string()).min(1).describe("Existing block IDs to turn into flashcards"),
-    mode: z.enum(["full", "attach"]).optional().describe('Creation mode: "full" writes deck attrs and registers cards; "attach" only registers existing blocks.'),
+    mode: z.enum(["full", "attach"]).optional().describe('Compatibility option. SiYuan addRiffCards writes deck attrs and registers cards in both modes.'),
 });
 
 export const FlashcardRemoveCardSchema = z.object({

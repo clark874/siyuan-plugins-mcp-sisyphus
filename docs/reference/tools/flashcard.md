@@ -23,7 +23,8 @@ Related pages:
 ## Notes
 
 - `review_card` accepts either a `rating` or `skip=true`.
-- `create_card` turns existing blocks into flashcards; `mode="full"` writes deck attributes and registers cards, while `mode="attach"` only registers existing blocks.
+- `list_cards` accepts optional `reviewedCards`, matching SiYuan's review flow for filtering cards already handled in the current round.
+- `create_card` turns existing blocks into flashcards through SiYuan's `addRiffCards` flow, which writes deck attributes and registers card records transactionally. Non-built-in `deckID` values must already exist. `mode` is kept for compatibility.
 
 ## Action List
 

@@ -66,7 +66,7 @@ describe('flashcard tool', () => {
             filter: 'due',
         }, enabledActions as any, {} as any);
 
-        expect(vi.mocked(api.getRiffDueCards)).toHaveBeenCalledWith(expect.anything(), '');
+        expect(vi.mocked(api.getRiffDueCards)).toHaveBeenCalledWith(expect.anything(), '', undefined);
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             action: 'list_cards',
             scope: 'all',
@@ -118,9 +118,29 @@ describe('flashcard tool', () => {
             rootID: 'root-1',
         }, enabledActions as any, {} as any);
 
-        expect(vi.mocked(api.getRiffDueCards)).toHaveBeenCalledWith(expect.anything(), 'deck-1');
-        expect(vi.mocked(api.getNotebookRiffDueCards)).toHaveBeenCalledWith(expect.anything(), 'nb-1');
-        expect(vi.mocked(api.getTreeRiffDueCards)).toHaveBeenCalledWith(expect.anything(), 'root-1');
+        expect(vi.mocked(api.getRiffDueCards)).toHaveBeenCalledWith(expect.anything(), 'deck-1', undefined);
+        expect(vi.mocked(api.getNotebookRiffDueCards)).toHaveBeenCalledWith(expect.anything(), 'nb-1', undefined);
+        expect(vi.mocked(api.getTreeRiffDueCards)).toHaveBeenCalledWith(expect.anything(), 'root-1', undefined);
+    });
+
+    it('passes reviewedCards through to due-card list APIs', async () => {
+        const api = await import('@/api/flashcard');
+        const reviewedCards = [{ cardID: 'card-1', rating: 2 }];
+        vi.mocked(api.getRiffDueCards).mockResolvedValue({ cards: [] });
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'list_cards',
+            scope: 'deck',
+            filter: 'due',
+            deckID: 'deck-1',
+            reviewedCards,
+        }, enabledActions as any, {} as any);
+
+        expect(vi.mocked(api.getRiffDueCards)).toHaveBeenCalledWith(expect.anything(), 'deck-1', reviewedCards);
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            action: 'list_cards',
+            reviewedCards,
+        });
     });
 
     it('filters only cards array for new/old without recomputing counters', async () => {
@@ -219,18 +239,32 @@ describe('flashcard tool', () => {
         expect(result.content[0].text).toContain('document block');
     });
 
-    it('create_card writes attrs before registering riff cards', async () => {
+    it('rejects unknown decks before calling addRiffCards', async () => {
+        const api = await import('@/api/flashcard');
+        const attributeApi = await import('@/api/block');
+        vi.mocked(attributeApi.getBlockAttrs).mockResolvedValue({ type: 'p' });
+        vi.mocked(api.getRiffDecks).mockResolvedValue([{ id: 'deck-a', name: 'Deck A' }]);
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'create_card',
+            deckID: 'missing-deck',
+            blockIDs: ['block-1'],
+        }, enabledActions as any, {} as any);
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('requires an existing deckID');
+        expect(vi.mocked(api.addRiffCards)).not.toHaveBeenCalled();
+        expect(vi.mocked(attributeApi.setBlockAttrs)).not.toHaveBeenCalled();
+    });
+
+    it('create_card delegates binding and card creation to addRiffCards', async () => {
         const api = await import('@/api/flashcard');
         const attributeApi = await import('@/api/block');
         vi.mocked(attributeApi.getBlockAttrs)
             .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': 'deck-a' })
-            .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': 'deck-a' })
             .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': 'deck-a,deck-b' });
-        vi.mocked(attributeApi.setBlockAttrs).mockResolvedValue(null);
+        vi.mocked(api.getRiffDecks).mockResolvedValue([{ id: 'deck-b', name: 'Deck B' }]);
         vi.mocked(api.addRiffCards).mockResolvedValue({ id: 'deck-b' });
-        vi.mocked(api.getRiffCardsByBlockIDs).mockResolvedValue({
-            blocks: [{ id: 'block-1', riffCardID: 'card-1', riffCard: { state: 0 } }],
-        });
 
         const result = await callFlashcardTool({} as any, {
             action: 'create_card',
@@ -238,10 +272,9 @@ describe('flashcard tool', () => {
             blockIDs: ['block-1'],
         }, enabledActions as any, {} as any);
 
-        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(expect.anything(), 'block-1', {
-            'custom-riff-decks': 'deck-a,deck-b',
-        });
+        expect(vi.mocked(attributeApi.setBlockAttrs)).not.toHaveBeenCalled();
         expect(vi.mocked(api.addRiffCards)).toHaveBeenCalledWith(expect.anything(), 'deck-b', ['block-1']);
+        expect(vi.mocked(api.getRiffCardsByBlockIDs)).not.toHaveBeenCalled();
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             action: 'create_card',
             deckID: 'deck-b',
@@ -255,9 +288,7 @@ describe('flashcard tool', () => {
         const attributeApi = await import('@/api/block');
         vi.mocked(attributeApi.getBlockAttrs)
             .mockResolvedValueOnce({ type: 'p' })
-            .mockResolvedValueOnce({ type: 'p' })
             .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': '20230218211946-2kw8jgx' });
-        vi.mocked(attributeApi.setBlockAttrs).mockResolvedValue(null);
         vi.mocked(api.addRiffCards).mockResolvedValue({ id: '20230218211946-2kw8jgx' });
         vi.mocked(api.getRiffCardsByBlockIDs).mockResolvedValue({
             blocks: [{ id: 'block-1', riffCardID: 'card-1', riffCard: { state: 0 } }],
@@ -269,9 +300,7 @@ describe('flashcard tool', () => {
             blockIDs: ['block-1'],
         }, enabledActions as any, {} as any);
 
-        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(expect.anything(), 'block-1', {
-            'custom-riff-decks': '20230218211946-2kw8jgx',
-        });
+        expect(vi.mocked(attributeApi.setBlockAttrs)).not.toHaveBeenCalled();
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             action: 'create_card',
             deckID: '',
@@ -285,7 +314,7 @@ describe('flashcard tool', () => {
         vi.mocked(attributeApi.getBlockAttrs)
             .mockResolvedValueOnce({ type: 'p' })
             .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': '' });
-        vi.mocked(attributeApi.setBlockAttrs).mockResolvedValue(null);
+        vi.mocked(api.getRiffDecks).mockResolvedValue([{ id: 'deck-1', name: 'Deck 1' }]);
         vi.mocked(api.addRiffCards).mockResolvedValue({ id: 'deck-1' });
 
         const result = await callFlashcardTool({} as any, {
@@ -322,9 +351,7 @@ describe('flashcard tool', () => {
         const attributeApi = await import('@/api/block');
         vi.mocked(attributeApi.getBlockAttrs)
             .mockResolvedValueOnce({ type: 'p' })
-            .mockResolvedValueOnce({ type: 'p' })
             .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': '20230218211946-2kw8jgx' });
-        vi.mocked(attributeApi.setBlockAttrs).mockResolvedValue(null);
         vi.mocked(api.addRiffCards).mockResolvedValue({ id: '20230218211946-2kw8jgx' });
         vi.mocked(api.getRiffCardsByBlockIDs).mockResolvedValue({
             blocks: [{ id: 'block-1', riffCardID: 'card-1', riffCard: { state: 0 } }],
@@ -389,9 +416,7 @@ describe('flashcard tool', () => {
         const attributeApi = await import('@/api/block');
         vi.mocked(attributeApi.getBlockAttrs)
             .mockResolvedValueOnce({ type: 'p' })
-            .mockResolvedValueOnce({ type: 'p' })
             .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': '20230218211946-2kw8jgx' });
-        vi.mocked(attributeApi.setBlockAttrs).mockResolvedValue(null);
         vi.mocked(api.addRiffCards).mockResolvedValue({ id: '20230218211946-2kw8jgx' });
         vi.mocked(api.getRiffCardsByBlockIDs).mockResolvedValue({
             blocks: [{ id: 'block-1', content: '不存在符合条件的内容块' }],

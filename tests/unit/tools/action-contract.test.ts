@@ -83,6 +83,7 @@ function createContractClient() {
             if (endpoint === '/api/block/getBlocksWordCount') return { wordCount: 3 };
             if (endpoint === '/api/block/appendDailyNoteBlock') return [{ doOperations: [{ id: 'daily-block' }] }];
             if (endpoint === '/api/block/getDocsInfo') return [{ id: 'doc-1', name: 'Doc' }];
+            if (endpoint === '/api/transactions') return body?.transactions ?? [];
             if (endpoint === '/api/attr/getBlockAttrs') return { memo: 'note' };
 
             if (endpoint === '/api/search/fullTextSearchBlock') return { blocks: [{ id: 'block-1', box: 'nb-1', path: '/doc-1.sy', content: 'match' }], matchedBlockCount: 1, matchedRootCount: 1, pageCount: 1 };
@@ -173,7 +174,7 @@ describe('tool action contract coverage', () => {
             { action: 'move', args: { action: 'move', fromIDs: ['doc-1'], toID: 'doc-parent' }, expectedEndpoint: '/api/filetree/moveDocsByID' },
             { action: 'get_child_blocks', args: { action: 'get_child_blocks', id: 'doc-1' }, expectedEndpoint: '/api/block/getChildBlocks' },
             { action: 'get_child_docs', args: { action: 'get_child_docs', id: 'doc-1' }, expectedEndpoint: '/api/filetree/listDocsByPath' },
-            { action: 'set_attr', args: { action: 'set_attr', id: 'doc-1', attrs: { icon: '1f4d4' } }, expectedEndpoint: '/api/attr/setBlockAttrs' },
+            { action: 'set_attr', args: { action: 'set_attr', id: 'doc-1', attrs: { icon: '1f4d4' } }, expectedEndpoint: '/api/transactions' },
             { action: 'list_tree', args: { action: 'list_tree', notebook: 'nb-1', path: '/' }, expectedEndpoint: '/api/filetree/listDocTree' },
             { action: 'search_docs', args: { action: 'search_docs', notebook: 'nb-1', query: 'Doc' }, expectedEndpoint: '/api/filetree/searchDocs' },
             { action: 'get_doc', args: { action: 'get_doc', id: 'doc-1', mode: 'html' }, expectedEndpoint: '/api/filetree/getDoc' },
@@ -196,7 +197,7 @@ describe('tool action contract coverage', () => {
             { action: 'get_kramdown', args: { action: 'get_kramdown', id: 'doc-1' }, expectedEndpoint: '/api/block/getBlockKramdown' },
             { action: 'get_children', args: { action: 'get_children', id: 'doc-1' }, expectedEndpoint: '/api/block/getChildBlocks' },
             { action: 'transfer_references', args: { action: 'transfer_references', fromID: 'doc-1', toID: 'doc-2' }, expectedEndpoint: '/api/block/transferBlockRef' },
-            { action: 'set_attrs', args: { action: 'set_attrs', id: 'doc-1', attrs: { memo: 'note' } }, expectedEndpoint: '/api/attr/setBlockAttrs' },
+            { action: 'set_attrs', args: { action: 'set_attrs', id: 'doc-1', attrs: { memo: 'note' } }, expectedEndpoint: '/api/transactions' },
             { action: 'get_attrs', args: { action: 'get_attrs', id: 'doc-1' }, expectedEndpoint: '/api/attr/getBlockAttrs' },
             { action: 'info', args: { action: 'info', id: 'doc-1' }, expectedEndpoint: '/api/block/getBlockInfo' },
             { action: 'breadcrumb', args: { action: 'breadcrumb', id: 'doc-1' }, expectedEndpoint: '/api/block/getBlockBreadcrumb' },

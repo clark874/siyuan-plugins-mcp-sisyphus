@@ -1,8 +1,8 @@
 import type { SiYuanClient } from '../../api/client';
-import * as attributeApi from '../../api/block';
 import * as blockApi from '../../api/block';
 import * as documentApi from '../../api/document';
 import * as fileApi from '../../api/file';
+import * as transactionApi from '../../api/transaction';
 import type { DocumentAction } from '../../core/config';
 import { normalizeMarkdownContent } from '../../core/normalize';
 import type { PermissionManager } from '../../core/permissions';
@@ -42,6 +42,21 @@ const GET_HPATH_INDEXING_RETRY_DELAYS_MS = [120, 240];
 const GET_IDS_BY_HPATH_RETRY_DELAYS_MS = [120, 240, 480];
 
 const DEFAULT_DOCUMENT_RESOLVE_INCLUDE = ['path', 'hpath'] as const;
+
+async function setDocumentAttrsViaTransaction(
+    client: SiYuanClient,
+    id: string,
+    attrs: Record<string, string>,
+): Promise<void> {
+    await transactionApi.performTransactions(client, [{
+        doOperations: [{
+            action: 'setAttrs',
+            id,
+            data: JSON.stringify(attrs),
+        }],
+        undoOperations: [],
+    }]);
+}
 
 function isIndexingError(error: unknown): boolean {
     return error instanceof Error
@@ -271,7 +286,7 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         }
     }
     if (parsed.icon) {
-        await attributeApi.setBlockAttrs(client, docId, { icon: parsed.icon });
+        await setDocumentAttrsViaTransaction(client, docId, { icon: parsed.icon });
     }
     return applyUiRefresh(client, createJsonResult({
         success: true,
@@ -521,7 +536,7 @@ const handleSetAttr: DocumentActionHandler = async ({ client, permMgr, rawArgs }
         }
         operations.push({ type: 'reloadProtyle', id: context.documentId }, { type: 'reloadFiletree' });
     }
-    await attributeApi.setBlockAttrs(client, parsed.id, attrs);
+    await setDocumentAttrsViaTransaction(client, parsed.id, attrs);
     return applyUiRefresh(client, createJsonResult(response), operations);
 };
 

@@ -23,7 +23,8 @@
 ## 说明
 
 - `review_card` 可传 `rating`，也可用 `skip=true` 跳过当前卡片。
-- `create_card` 将已有块转为闪卡；`mode="full"` 会写入卡组属性并注册卡片，`mode="attach"` 只注册已有块。
+- `list_cards` 可传可选的 `reviewedCards`，与思源复习流程一致，用于过滤本轮已经处理过的卡片。
+- `create_card` 通过思源的 `addRiffCards` 流程把已有块转为闪卡；该流程会在 transaction 中同时写入卡组属性并注册卡片记录。非内置卡组的 `deckID` 必须已存在，`mode` 保留为兼容参数。
 
 ## Action 列表
 

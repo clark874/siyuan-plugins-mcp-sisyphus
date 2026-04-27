@@ -80,11 +80,11 @@ export const SYSTEM_GUIDANCE: string[] = [
 
 export const FLASHCARD_GUIDANCE: string[] = [
     'flashcard actions cover review-first flashcard workflows and deck discovery.',
-    'list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old".',
+    'list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old"; pass reviewedCards to match SiYuan\'s in-review filtering.',
     'get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.',
     'Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.',
-    'create_card writes the "custom-riff-decks" binding first, then calls the riff add-card registration step.',
-    'create_card(mode="attach") and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.',
+    'create_card validates non-built-in deck IDs against get_decks, then calls SiYuan\'s riff add-card operation, which writes "custom-riff-decks" and registers the riff card transactionally.',
+    'create_card(mode="attach") is retained for compatibility; SiYuan still writes the deck binding during the riff add-card operation. remove_card removes existing content block IDs such as paragraphs or headings from a deck; document blocks are rejected for creation.',
     'flashcard(action="remove_card") requires explicit user confirmation before execution.',
 ];
 
@@ -196,11 +196,11 @@ export const SYSTEM_ACTION_HINTS: Partial<Record<SystemAction, string>> = {
 };
 
 export const FLASHCARD_ACTION_HINTS: Partial<Record<FlashcardAction, string>> = {
-    list_cards: 'Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID.',
+    list_cards: 'Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan\'s review flow.',
     get_decks: 'Returns available flashcard decks so the caller can discover deckID values.',
     get_cards: 'Use deckID + optional page/pageSize to list all cards in a deck (regardless of due state). Use empty string deckID to query across all decks. Returns cards, total count, and pageCount.',
     review_card: 'Use deckID + cardID + rating, or pass skip=true to skip. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.',
-    create_card: 'Use deckID + blockIDs to turn existing blocks into flashcards. mode="full" writes custom-riff-decks first; mode="attach" only registers existing blocks.',
+    create_card: 'Use deckID + blockIDs to turn existing blocks into flashcards. Non-built-in deck IDs must already exist. This calls SiYuan\'s addRiffCards flow, which writes custom-riff-decks and creates deck records together.',
     remove_card: 'Use deckID + blockIDs to remove existing blocks from a deck. This action requires explicit user confirmation.',
 };
 

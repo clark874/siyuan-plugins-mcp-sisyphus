@@ -2079,14 +2079,14 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "fullDocResource": "siyuan://help/action/flashcard/create_card",
         "guidance": [
           "flashcard actions cover review-first flashcard workflows and deck discovery.",
-          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old".",
+          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old"; pass reviewedCards to match SiYuan's in-review filtering.",
           "get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.",
           "Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.",
-          "create_card writes the "custom-riff-decks" binding first, then calls the riff add-card registration step.",
-          "create_card(mode="attach") and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.",
+          "create_card validates non-built-in deck IDs against get_decks, then calls SiYuan's riff add-card operation, which writes "custom-riff-decks" and registers the riff card transactionally.",
+          "create_card(mode="attach") is retained for compatibility; SiYuan still writes the deck binding during the riff add-card operation. remove_card removes existing content block IDs such as paragraphs or headings from a deck; document blocks are rejected for creation.",
           "flashcard(action="remove_card") requires explicit user confirmation before execution.",
         ],
-        "hint": "Use deckID + blockIDs to turn existing blocks into flashcards. mode="full" writes custom-riff-decks first; mode="attach" only registers existing blocks.",
+        "hint": "Use deckID + blockIDs to turn existing blocks into flashcards. Non-built-in deck IDs must already exist. This calls SiYuan's addRiffCards flow, which writes custom-riff-decks and creates deck records together.",
         "requiredFields": [
           "deckID",
           "blockIDs",
@@ -2106,11 +2106,11 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "fullDocResource": "siyuan://help/action/flashcard/get_cards",
         "guidance": [
           "flashcard actions cover review-first flashcard workflows and deck discovery.",
-          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old".",
+          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old"; pass reviewedCards to match SiYuan's in-review filtering.",
           "get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.",
           "Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.",
-          "create_card writes the "custom-riff-decks" binding first, then calls the riff add-card registration step.",
-          "create_card(mode="attach") and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.",
+          "create_card validates non-built-in deck IDs against get_decks, then calls SiYuan's riff add-card operation, which writes "custom-riff-decks" and registers the riff card transactionally.",
+          "create_card(mode="attach") is retained for compatibility; SiYuan still writes the deck binding during the riff add-card operation. remove_card removes existing content block IDs such as paragraphs or headings from a deck; document blocks are rejected for creation.",
           "flashcard(action="remove_card") requires explicit user confirmation before execution.",
         ],
         "hint": "Use deckID + optional page/pageSize to list all cards in a deck (regardless of due state). Use empty string deckID to query across all decks. Returns cards, total count, and pageCount.",
@@ -2131,11 +2131,11 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "fullDocResource": "siyuan://help/action/flashcard/get_decks",
         "guidance": [
           "flashcard actions cover review-first flashcard workflows and deck discovery.",
-          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old".",
+          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old"; pass reviewedCards to match SiYuan's in-review filtering.",
           "get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.",
           "Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.",
-          "create_card writes the "custom-riff-decks" binding first, then calls the riff add-card registration step.",
-          "create_card(mode="attach") and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.",
+          "create_card validates non-built-in deck IDs against get_decks, then calls SiYuan's riff add-card operation, which writes "custom-riff-decks" and registers the riff card transactionally.",
+          "create_card(mode="attach") is retained for compatibility; SiYuan still writes the deck binding during the riff add-card operation. remove_card removes existing content block IDs such as paragraphs or headings from a deck; document blocks are rejected for creation.",
           "flashcard(action="remove_card") requires explicit user confirmation before execution.",
         ],
         "hint": "Returns available flashcard decks so the caller can discover deckID values.",
@@ -2156,14 +2156,14 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "fullDocResource": "siyuan://help/action/flashcard/list_cards",
         "guidance": [
           "flashcard actions cover review-first flashcard workflows and deck discovery.",
-          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old".",
+          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old"; pass reviewedCards to match SiYuan's in-review filtering.",
           "get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.",
           "Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.",
-          "create_card writes the "custom-riff-decks" binding first, then calls the riff add-card registration step.",
-          "create_card(mode="attach") and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.",
+          "create_card validates non-built-in deck IDs against get_decks, then calls SiYuan's riff add-card operation, which writes "custom-riff-decks" and registers the riff card transactionally.",
+          "create_card(mode="attach") is retained for compatibility; SiYuan still writes the deck binding during the riff add-card operation. remove_card removes existing content block IDs such as paragraphs or headings from a deck; document blocks are rejected for creation.",
           "flashcard(action="remove_card") requires explicit user confirmation before execution.",
         ],
-        "hint": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID.",
+        "hint": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan's review flow.",
         "requiredFields": [
           "scope",
           "filter",
@@ -2186,11 +2186,11 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "fullDocResource": "siyuan://help/action/flashcard/remove_card",
         "guidance": [
           "flashcard actions cover review-first flashcard workflows and deck discovery.",
-          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old".",
+          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old"; pass reviewedCards to match SiYuan's in-review filtering.",
           "get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.",
           "Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.",
-          "create_card writes the "custom-riff-decks" binding first, then calls the riff add-card registration step.",
-          "create_card(mode="attach") and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.",
+          "create_card validates non-built-in deck IDs against get_decks, then calls SiYuan's riff add-card operation, which writes "custom-riff-decks" and registers the riff card transactionally.",
+          "create_card(mode="attach") is retained for compatibility; SiYuan still writes the deck binding during the riff add-card operation. remove_card removes existing content block IDs such as paragraphs or headings from a deck; document blocks are rejected for creation.",
           "flashcard(action="remove_card") requires explicit user confirmation before execution.",
         ],
         "hint": "Use deckID + blockIDs to remove existing blocks from a deck. This action requires explicit user confirmation.",
@@ -2214,11 +2214,11 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "fullDocResource": "siyuan://help/action/flashcard/review_card",
         "guidance": [
           "flashcard actions cover review-first flashcard workflows and deck discovery.",
-          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old".",
+          "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old"; pass reviewedCards to match SiYuan's in-review filtering.",
           "get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.",
           "Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.",
-          "create_card writes the "custom-riff-decks" binding first, then calls the riff add-card registration step.",
-          "create_card(mode="attach") and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.",
+          "create_card validates non-built-in deck IDs against get_decks, then calls SiYuan's riff add-card operation, which writes "custom-riff-decks" and registers the riff card transactionally.",
+          "create_card(mode="attach") is retained for compatibility; SiYuan still writes the deck binding during the riff add-card operation. remove_card removes existing content block IDs such as paragraphs or headings from a deck; document blocks are rejected for creation.",
           "flashcard(action="remove_card") requires explicit user confirmation before execution.",
         ],
         "hint": "Use deckID + cardID + rating, or pass skip=true to skip. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.",
@@ -2240,26 +2240,26 @@ Common actions: list_cards, get_decks, get_cards. Required fields: list_cards: s
 Additional actions: review_card, create_card, remove_card. Read siyuan://help/action/flashcard/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
-flashcard.list_cards: required [scope, filter] | optional [deckID, notebook, rootID]
+flashcard.list_cards: required [scope, filter] | optional [deckID, notebook, rootID, reviewedCards]
 flashcard.get_decks: required [] | optional []
 flashcard.get_cards: required [deckID] | optional [page, pageSize]
 flashcard.review_card: required [deckID, cardID] | optional [rating, skip, reviewedCards]
 flashcard.create_card: required [deckID, blockIDs] | optional [mode]
 flashcard.remove_card: required [deckID, blockIDs] | optional []
 
-flashcard actions cover review-first flashcard workflows and deck discovery. list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old". Requires user confirmation before: remove_card.",
+flashcard actions cover review-first flashcard workflows and deck discovery. list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old"; pass reviewedCards to match SiYuan's in-review filtering. Requires user confirmation before: remove_card.",
     "overview": {
       "actionSummaries": {
-        "create_card": "Use deckID + blockIDs to turn existing blocks into flashcards. mode="full" writes custom-riff-decks first; mode="attach" only registers existing blocks.",
+        "create_card": "Use deckID + blockIDs to turn existing blocks into flashcards. Non-built-in deck IDs must already exist. This calls SiYuan's addRiffCards flow, which writes custom-riff-decks and creates deck records together.",
         "get_cards": "Use deckID + optional page/pageSize to list all cards in a deck (regardless of due state). Use empty string deckID to query across all decks. Returns cards, total count, and pageCount.",
         "get_decks": "Returns available flashcard decks so the caller can discover deckID values.",
-        "list_cards": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID.",
+        "list_cards": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan's review flow.",
         "remove_card": "Use deckID + blockIDs to remove existing blocks from a deck. This action requires explicit user confirmation.",
         "review_card": "Use deckID + cardID + rating, or pass skip=true to skip. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.",
       },
       "actions": {
         "create_card": {
-          "hint": "Use deckID + blockIDs to turn existing blocks into flashcards. mode="full" writes custom-riff-decks first; mode="attach" only registers existing blocks.",
+          "hint": "Use deckID + blockIDs to turn existing blocks into flashcards. Non-built-in deck IDs must already exist. This calls SiYuan's addRiffCards flow, which writes custom-riff-decks and creates deck records together.",
           "requiresConfirmation": false,
         },
         "get_cards": {
@@ -2271,7 +2271,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "requiresConfirmation": false,
         },
         "list_cards": {
-          "hint": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID.",
+          "hint": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan's review flow.",
           "requiresConfirmation": false,
         },
         "remove_card": {
@@ -2296,11 +2296,11 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
       "detailsHint": "Call flashcard(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
         "flashcard actions cover review-first flashcard workflows and deck discovery.",
-        "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old".",
+        "list_cards always reads from the kernel due-card endpoints and MCP post-filters cards by state for filter="new" or filter="old"; pass reviewedCards to match SiYuan's in-review filtering.",
         "get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.",
         "Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.",
-        "create_card writes the "custom-riff-decks" binding first, then calls the riff add-card registration step.",
-        "create_card(mode="attach") and remove_card are lower-level deck registration operations on existing content block IDs such as paragraphs or headings; document blocks are rejected.",
+        "create_card validates non-built-in deck IDs against get_decks, then calls SiYuan's riff add-card operation, which writes "custom-riff-decks" and registers the riff card transactionally.",
+        "create_card(mode="attach") is retained for compatibility; SiYuan still writes the deck binding during the riff add-card operation. remove_card removes existing content block IDs such as paragraphs or headings from a deck; document blocks are rejected for creation.",
         "flashcard(action="remove_card") requires explicit user confirmation before execution.",
       ],
       "helpResources": [

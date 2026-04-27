@@ -38,6 +38,10 @@ vi.mock('@/api/block', () => ({
     getChildBlocks: vi.fn(),
 }));
 
+vi.mock('@/api/transaction', () => ({
+    performTransactions: vi.fn(),
+}));
+
 vi.mock('@/api/search', () => ({
     fullTextSearchBlock: vi.fn(),
     getBacklinkDoc: vi.fn(),
@@ -60,6 +64,7 @@ describe('tool result normalization', () => {
         const documentApi = await import('@/api/document');
         const attributeApi = await import('@/api/block');
         const blockApi = await import('@/api/block');
+        const transactionApi = await import('@/api/transaction');
         const searchApi = await import('@/api/search');
 
         vi.mocked(fileApi.uploadAsset).mockReset();
@@ -69,6 +74,7 @@ describe('tool result normalization', () => {
         vi.mocked(documentApi.getDoc).mockReset();
         vi.mocked(documentApi.getHPathByID).mockReset();
         vi.mocked(attributeApi.setBlockAttrs).mockReset();
+        vi.mocked(transactionApi.performTransactions).mockReset();
         vi.mocked(blockApi.updateBlock).mockReset();
         vi.mocked(blockApi.getBlockKramdown).mockReset();
         vi.mocked(blockApi.getChildBlocks).mockReset();
@@ -390,7 +396,7 @@ describe('tool result normalization', () => {
     });
 
     it('normalizes document cover sources into title-img attributes', async () => {
-        const attributeApi = await import('@/api/block');
+        const transactionApi = await import('@/api/transaction');
         const refreshClient = { request: vi.fn().mockResolvedValue(null) } as any;
 
         const result = await callDocumentTool(refreshClient, {
@@ -399,9 +405,14 @@ describe('tool result normalization', () => {
             attrs: { cover: ' /assets/covers/demo "cover".png ' },
         }, enabledActions('set_attr'), permMgr);
 
-        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(refreshClient, 'doc-1', {
-            'title-img': 'background-image:url("/assets/covers/demo \\"cover\\".png");',
-        });
+        expect(vi.mocked(transactionApi.performTransactions)).toHaveBeenCalledWith(refreshClient, [{
+            doOperations: [{
+                action: 'setAttrs',
+                id: 'doc-1',
+                data: JSON.stringify({ 'title-img': 'background-image:url("/assets/covers/demo \\"cover\\".png");' }),
+            }],
+            undoOperations: [],
+        }]);
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
             id: 'doc-1',
@@ -420,7 +431,7 @@ describe('tool result normalization', () => {
     });
 
     it('clears document cover attributes', async () => {
-        const attributeApi = await import('@/api/block');
+        const transactionApi = await import('@/api/transaction');
         const refreshClient = { request: vi.fn().mockResolvedValue(null) } as any;
 
         const result = await callDocumentTool(refreshClient, {
@@ -429,9 +440,14 @@ describe('tool result normalization', () => {
             attrs: { cover: '' },
         }, enabledActions('set_attr'), permMgr);
 
-        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(refreshClient, 'doc-1', {
-            'title-img': '',
-        });
+        expect(vi.mocked(transactionApi.performTransactions)).toHaveBeenCalledWith(refreshClient, [{
+            doOperations: [{
+                action: 'setAttrs',
+                id: 'doc-1',
+                data: JSON.stringify({ 'title-img': '' }),
+            }],
+            undoOperations: [],
+        }]);
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
             id: 'doc-1',
@@ -449,7 +465,7 @@ describe('tool result normalization', () => {
     });
 
     it('refreshes icon cache and file tree for document icon changes', async () => {
-        const attributeApi = await import('@/api/block');
+        const transactionApi = await import('@/api/transaction');
         const refreshClient = { request: vi.fn().mockResolvedValue(null) } as any;
 
         const result = await callDocumentTool(refreshClient, {
@@ -458,9 +474,14 @@ describe('tool result normalization', () => {
             attrs: { icon: '1f4d8' },
         }, enabledActions('set_attr'), permMgr);
 
-        expect(vi.mocked(attributeApi.setBlockAttrs)).toHaveBeenCalledWith(refreshClient, 'doc-1', {
-            icon: '1f4d8',
-        });
+        expect(vi.mocked(transactionApi.performTransactions)).toHaveBeenCalledWith(refreshClient, [{
+            doOperations: [{
+                action: 'setAttrs',
+                id: 'doc-1',
+                data: JSON.stringify({ icon: '1f4d8' }),
+            }],
+            undoOperations: [],
+        }]);
         expect(JSON.parse(result.content[0].text)).toEqual({
             success: true,
             id: 'doc-1',
