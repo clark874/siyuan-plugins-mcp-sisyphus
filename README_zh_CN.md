@@ -147,7 +147,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 2. 保持「Require Bearer token」开启
 3. 点「Start」启动，勾选「随思源自动启动」
 
-**客户端配置**（Cline、Cherry Studio、Cursor、Claude Code 等）：
+**客户端配置**（Claude Code、Cursor、Cline 等）：
 
 ```json
 {
@@ -161,7 +161,25 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 }
 ```
 
-> Claude Code 必须加 `"type": "http"`，配置写入 `~/.claude.json` 的 `mcpServers` 字段。  
+> Claude Code 必须加 `"type": "http"`，配置写入 `~/.claude.json` 的 `mcpServers` 字段。
+
+**Cherry Studio** 使用 `streamableHttp`：
+
+```json
+{
+  "mcpServers": {
+    "siyuan": {
+      "type": "streamableHttp",
+      "url": "http://127.0.0.1:36806/mcp",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer <token>"
+      }
+    }
+  }
+}
+```
+
 > WSL/跨机器：Host 改为 `0.0.0.0`，客户端 URL 替换为宿主机 IP。绑定非回环地址时**务必**保持 token 鉴权。
 
 ### stdio 模式

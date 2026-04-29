@@ -148,7 +148,7 @@ The plugin hosts an HTTP MCP Server inside SiYuan. Clients connect to it directl
 2. Keep `Require Bearer token` enabled
 3. Click `Start`, then check `Auto-start with SiYuan`
 
-**Client configuration** (Cline, Cherry Studio, Cursor, Claude Code, etc.):
+**Client configuration** (Claude Code, Cursor, Cline, etc.):
 
 ```json
 {
@@ -162,7 +162,25 @@ The plugin hosts an HTTP MCP Server inside SiYuan. Clients connect to it directl
 }
 ```
 
-> Claude Code requires `"type": "http"`. Write this to the `mcpServers` field in `~/.claude.json`.  
+> Claude Code requires `"type": "http"`. Write this to the `mcpServers` field in `~/.claude.json`.
+
+**Cherry Studio** uses `streamableHttp`:
+
+```json
+{
+  "mcpServers": {
+    "siyuan": {
+      "type": "streamableHttp",
+      "url": "http://127.0.0.1:36806/mcp",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer <token>"
+      }
+    }
+  }
+}
+```
+
 > WSL / cross-machine: set Host to `0.0.0.0` and replace `127.0.0.1` in the client URL with the host IP. Always keep token auth enabled when binding to non-loopback addresses.
 
 ### stdio Mode

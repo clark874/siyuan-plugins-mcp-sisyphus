@@ -24,7 +24,6 @@
     "hintDesc": "<a href='https://github.com/siyuan-note/plugin-sample-vite-svelte'>🔗 plugin-sample-vite-svelte</a><br>💻 @frostime<br>💻 @88250<br>💻 @zxkmm",
     "tool_title_move_docs": "移动文档",
     "tool_title_move_block_by_id": "通过ID移动块",
-
     "Notebooks": "笔记本",
     "list_notebooks": "列出笔记本",
     "create_notebook": "创建笔记本",
@@ -34,7 +33,6 @@
     "rename_notebook": "重命名笔记本",
     "get_notebook_conf": "获取笔记本配置",
     "set_notebook_conf": "设置笔记本配置",
-
     "Documents": "文档",
     "create_document": "创建文档",
     "rename_document": "重命名文档",
@@ -47,7 +45,6 @@
     "get_notebook_child_docs": "获取子文档",
     "get_document_child_blocks": "获取子块",
     "get_document_child_docs": "获取子文档",
-
     "Blocks": "块",
     "Databases": "数据库",
     "insert_block": "插入块",
@@ -63,7 +60,6 @@
     "transfer_block_ref": "转移块引用",
     "set_block_attrs": "设置块属性",
     "get_block_attrs": "获取块属性",
-
     "Files": "文件",
     "Search": "搜索",
     "Tags": "标签",
@@ -79,7 +75,6 @@
     "get_current_time": "获取当前时间",
     "puppy_visible_title": "显示猫猫",
     "puppy_visible_desc": "控制猫猫是否在界面中显示。",
-
     "desc_list_notebooks": "列出工作区中的所有笔记本",
     "desc_create_notebook": "创建新笔记本",
     "desc_open_notebook": "打开笔记本",
@@ -88,7 +83,6 @@
     "desc_rename_notebook": "重命名笔记本",
     "desc_get_notebook_conf": "获取笔记本配置",
     "desc_set_notebook_conf": "设置笔记本配置",
-
     "desc_create_document": "在人类可读目标路径上使用 Markdown 内容创建新文档",
     "desc_rename_document": "通过路径重命名文档",
     "desc_rename_document_by_id": "通过 ID 重命名文档",
@@ -100,7 +94,6 @@
     "desc_get_notebook_child_docs": "获取笔记本根目录下的直属子文档",
     "desc_get_document_child_blocks": "通过文档 ID 获取直属子块",
     "desc_get_document_child_docs": "通过文档 ID 获取直属子文档",
-
     "desc_insert_block": "在指定位置插入新块",
     "desc_prepend_block": "在父块开头插入块",
     "desc_append_block": "在父块末尾插入块",
@@ -114,7 +107,6 @@
     "desc_transfer_block_ref": "转移块引用",
     "desc_set_block_attrs": "设置块属性",
     "desc_get_block_attrs": "获取块属性",
-
     "desc_get_database": "通过 AV ID 获取完整属性视图载荷",
     "desc_search_databases": "按关键字搜索属性视图",
     "desc_add_rows": "将现有块作为行添加到数据库中",
@@ -124,7 +116,6 @@
     "desc_set_cells": "使用强类型值载荷更新一个或多个单元格",
     "desc_duplicate_database_block": "复制现有数据库块",
     "desc_get_primary_key_values": "获取数据库主键行，可选按条件过滤",
-
     "desc_upload_asset": "读取本地文件路径并上传到资源目录；超过配置阈值时必须先中止并询问用户，再携带 confirmLargeFile=true 重试",
     "desc_render_template": "使用文档上下文渲染模板",
     "desc_render_sprig": "渲染 Sprig 模板",
@@ -134,7 +125,6 @@
     "desc_push_err_msg": "推送错误消息",
     "desc_get_version": "获取思源版本",
     "desc_get_current_time": "获取当前系统时间",
-
     "notebook_tool_title": "笔记本 Tool",
     "notebook_tool_desc": "向 MCP 客户端暴露聚合后的笔记本工具。",
     "document_tool_title": "文档 Tool",
@@ -176,7 +166,6 @@
     "mcpHighRiskBadge": "【高风险】",
     "mcpRequiresConfirmation": "执行前必须先获得用户明确确认。",
     "mcpDefaultVisible": "该操作在默认配置中仍然可见。",
-
     "notebook_action_list": "列出笔记本",
     "desc_notebook_action_list": "列出工作区中的所有笔记本。",
     "notebook_action_create": "创建笔记本",
@@ -203,7 +192,6 @@
     "desc_notebook_action_get_child_docs": "获取笔记本根目录下的直属子文档。",
     "notebook_action_set_icon": "设置笔记本图标",
     "desc_notebook_action_set_icon": "设置笔记本的图标。",
-
     "document_action_create": "创建文档",
     "desc_document_action_create": "在人类可读目标路径上使用 Markdown 内容创建新文档。",
     "document_action_rename": "重命名文档",
@@ -247,7 +235,6 @@
     "httpTlsKeyPlaceholder": "/path/to/key.pem",
     "httpTlsCaPlaceholder": "/path/to/ca.pem（可选）",
     "httpTlsMissingFiles": "⚠️ 启用 HTTPS 时必须填写证书和私钥文件路径。",
-
     "block_action_insert": "插入块",
     "desc_block_action_insert": "在指定位置插入新块。",
     "block_action_prepend": "前置块",
@@ -290,7 +277,6 @@
     "desc_block_action_recent_updated": "列出最近更新的块。",
     "block_action_word_count": "块字数统计",
     "desc_block_action_word_count": "获取块的字数统计信息。",
-
     "file_action_upload_asset": "上传资源",
     "desc_file_action_upload_asset": "读取本地文件路径并上传该文件到资源目录。超过配置阈值时必须先中止并询问用户，再携带 confirmLargeFile=true 重试。",
     "file_setting_uploadLargeFileThresholdMB": "大文件上传阈值（MB）",
@@ -327,7 +313,6 @@
     "desc_file_action_get_version": "获取思源版本。",
     "file_action_get_current_time": "获取当前时间",
     "desc_file_action_get_current_time": "获取当前系统时间。",
-
     "search_tool_title": "搜索工具",
     "search_tool_desc": "向 MCP 客户端暴露聚合后的搜索工具。",
     "search_action_fulltext": "全文搜索",
@@ -340,7 +325,6 @@
     "desc_search_action_get_backlinks": "获取块或文档的反向链接。",
     "search_action_get_backmentions": "获取反向提及",
     "desc_search_action_get_backmentions": "获取块或文档的反向提及。",
-
     "tag_tool_title": "标签工具",
     "tag_tool_desc": "向 MCP 客户端暴露聚合后的标签工具。",
     "tag_action_list": "列出标签",
@@ -349,7 +333,6 @@
     "desc_tag_action_rename": "重命名标签名称。",
     "tag_action_remove": "删除标签",
     "desc_tag_action_remove": "删除标签名称。",
-
     "system_tool_title": "系统工具",
     "system_tool_desc": "向 MCP 客户端暴露聚合后的系统工具。",
     "system_action_workspace_info": "工作区信息",
@@ -374,7 +357,6 @@
     "desc_system_action_get_version": "获取思源版本。",
     "system_action_get_current_time": "获取当前时间",
     "desc_system_action_get_current_time": "获取当前系统时间。",
-
     "flashcard_tool_title": "闪卡工具",
     "flashcard_tool_desc": "向 MCP 客户端暴露聚合后的闪卡复习与卡包操作。",
     "flashcard_action_list_cards": "列出卡片",
@@ -393,7 +375,6 @@
     "desc_flashcard_action_add_card": "对已有块执行底层 riff 加卡注册。",
     "flashcard_action_remove_card": "移除卡片",
     "desc_flashcard_action_remove_card": "将已有块从某个闪卡卡包中移除。",
-
     "mascot_tool_title": "猫猫工具",
     "mascot_tool_desc": "向 MCP 客户端暴露聚合后的猫猫工具。",
     "mascot_action_get_balance": "查看余额",
@@ -402,7 +383,6 @@
     "desc_mascot_action_shop": "列出猫猫商店中的现有商品。",
     "mascot_action_buy": "购买商品",
     "desc_mascot_action_buy": "根据商品 ID 购买一件猫猫商店商品。",
-
     "Flashcards": "闪卡",
     "Mascot": "猫猫",
     "User Rules": "用户规则",
@@ -425,11 +405,9 @@
     "mcpPermNone": "无权限",
     "mcpPermLoading": "正在加载笔记本…",
     "mcpPermEmpty": "未找到笔记本。",
-
     "mcpConfigSaved": "✅ MCP Tools 配置已保存到文件",
     "mcpConfigSavedBackup": "⚠️ MCP Tools 配置已保存（仅备份）",
     "mcpConfigReset": "🔄 MCP Tools 配置已重置为默认值",
-
     "httpServerTitle": "连接配置",
     "httpStart": "启动",
     "httpStop": "停止",
@@ -476,7 +454,7 @@
     "mcpPresetCodexTitle": "Codex CLI",
     "mcpPresetCodexDesc": "复制 ~/.codex/config.toml 的 mcp_servers 配置。",
     "mcpPresetCherryTitle": "Cherry Studio",
-    "mcpPresetCherryDesc": "复制“设置 -> MCP 服务器 -> 添加服务器”的表单字段。",
+    "mcpPresetCherryDesc": "复制 Cherry Studio「设置 -> MCP 服务器」使用的 mcpServers JSON 配置。",
     "mcpPresetCcSwitchTitle": "CC Switch",
     "mcpPresetCcSwitchDesc": "复制 CC Switch 使用的服务器映射 JSON 配置。",
     "mcpPresetGenericTitle": "Cursor / 通用 JSON",

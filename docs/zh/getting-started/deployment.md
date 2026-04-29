@@ -47,7 +47,7 @@ pnpm make-link
 - 保持 Bearer Token 开启
 - 启动服务，必要时启用自动启动
 
-客户端配置：
+客户端配置（Claude Code、Cursor、Cline 等）：
 
 ```json
 {
@@ -61,9 +61,27 @@ pnpm make-link
 }
 ```
 
+Cherry Studio 使用 `streamableHttp`：
+
+```json
+{
+  "mcpServers": {
+    "siyuan": {
+      "type": "streamableHttp",
+      "url": "http://127.0.0.1:36806/mcp",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer <token>"
+      }
+    }
+  }
+}
+```
+
 说明：
 
 - Claude Code 必须包含 `"type": "http"`
+- Cherry Studio 必须包含 `"type": "streamableHttp"`
 - 绑定 `0.0.0.0` 时一定要保留 Token 鉴权
 
 ## stdio 模式

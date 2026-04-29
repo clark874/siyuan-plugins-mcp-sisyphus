@@ -276,26 +276,25 @@
 
     function generateCherryStudioConfig(s: HttpServerSettings, transport: McpTransportId): string {
         if (transport === "http") {
-            const lines = [
-                `Name: ${MCP_SERVER_NAME}`,
-                "Type: HTTP",
-                `URL: ${getHttpMcpUrl(s)}`,
-            ];
+            const server: any = {
+                type: "streamableHttp",
+                url: getHttpMcpUrl(s),
+                headers: { "Content-Type": "application/json" },
+            };
             if (s.authEnabled) {
-                lines.push("Headers:", `Authorization: Bearer ${s.token}`);
+                server.headers["Authorization"] = `Bearer ${s.token}`;
             }
-            return lines.join("\n");
+            return JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: server } }, null, 2);
         }
         const stdio = getStdioServerConfig();
-        return [
-            `Name: ${MCP_SERVER_NAME}`,
-            "Type: STDIO",
-            `Command: ${stdio.command}`,
-            `Parameters: ${stdio.args.join(" ")}`,
-            "Environment:",
-            `SIYUAN_API_URL=${stdio.env.SIYUAN_API_URL}`,
-            `SIYUAN_TOKEN=${stdio.env.SIYUAN_TOKEN}`,
-        ].join("\n");
+        const server: any = {
+            command: stdio.command,
+            args: stdio.args,
+        };
+        if (stdio.env && Object.keys(stdio.env).length > 0) {
+            server.env = stdio.env;
+        }
+        return JSON.stringify({ mcpServers: { [MCP_SERVER_NAME]: server } }, null, 2);
     }
 
     function generateCcSwitchConfig(s: HttpServerSettings, transport: McpTransportId): string {

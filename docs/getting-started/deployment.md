@@ -47,7 +47,7 @@ Plugin-side settings:
 - Keep bearer token enabled
 - Start the server and optionally enable auto-start
 
-Client config:
+Client config (Claude Code, Cursor, Cline, etc.):
 
 ```json
 {
@@ -61,9 +61,27 @@ Client config:
 }
 ```
 
+Cherry Studio uses `streamableHttp`:
+
+```json
+{
+  "mcpServers": {
+    "siyuan": {
+      "type": "streamableHttp",
+      "url": "http://127.0.0.1:36806/mcp",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer <token>"
+      }
+    }
+  }
+}
+```
+
 Notes:
 
 - Claude Code requires `"type": "http"`
+- Cherry Studio requires `"type": "streamableHttp"`
 - When binding to `0.0.0.0`, keep token auth enabled
 
 ## stdio Mode

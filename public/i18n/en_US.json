@@ -473,7 +473,7 @@
     "mcpPresetCodexTitle": "Codex CLI",
     "mcpPresetCodexDesc": "Copy ~/.codex/config.toml mcp_servers config.",
     "mcpPresetCherryTitle": "Cherry Studio",
-    "mcpPresetCherryDesc": "Copy fields for Settings -> MCP Server -> Add server.",
+    "mcpPresetCherryDesc": "Copy mcpServers JSON config for Cherry Studio Settings -> MCP Servers.",
     "mcpPresetCcSwitchTitle": "CC Switch",
     "mcpPresetCcSwitchDesc": "Copy CC Switch server-map JSON config.",
     "mcpPresetGenericTitle": "Cursor / Generic JSON",

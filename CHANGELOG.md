@@ -2,6 +2,12 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.3.6 - 2026-04-29
+
+- Cherry Studio MCP 配置预设更新为 `streamableHttp` 格式，与 Cherry Studio 最新 MCP 客户端规范对齐
+- HTTP Server 设置面板 `Cherry Studio` 预设从文本行表单字段改为标准 `mcpServers` JSON 输出
+- 配套更新中英文 README 与部署文档中的 Cherry Studio 配置示例
+
 ## v0.3.5 - 2026-04-27
 
 - AV 工具对齐思源"复制为镜像"实现：`duplicate` 通过复制 AV 定义、spun AV block DOM 与 transaction 插入生成镜像数据库块，空 AV 与有行 AV 均可复制
