@@ -44,6 +44,7 @@
                 { key: "tree", title: "Document Tree", description: "List a recursive document tree using human-readable paths." },
                 { key: "read", title: "Read Markdown", description: "Read a document as plain Markdown by human-readable path." },
                 { key: "write", title: "Write Markdown", description: "Create a document or replace an existing document body with overwrite=true." },
+                { key: "replace", title: "Replace Text", description: "Apply exact old/new text replacement edits inside one Markdown document." },
                 { key: "rm", title: "Remove Document", description: "Delete a document by human-readable path." },
                 { key: "mv", title: "Move Document", description: "Move or rename a document by human-readable paths." },
                 { key: "search", title: "Search Path", description: "Search Markdown lines under a human-readable path." },
