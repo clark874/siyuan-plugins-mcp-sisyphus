@@ -1,16 +1,16 @@
-import * as tagApi from '../api/tag';
-import * as searchApi from '../api/search';
-import type { TagAction } from '../core/config';
-import { TAG_ACTION_HINTS, TAG_GUIDANCE } from '../core/help';
+import * as tagApi from '../../api/tag';
+import * as searchApi from '../../api/search';
+import type { TagAction } from '../../core/config';
+import { TAG_ACTION_HINTS, TAG_GUIDANCE } from '../../core/help';
 import {
     TagActionSchema,
     TagListSchema,
     TagRemoveSchema,
     TagRenameSchema,
-} from '../core/types';
-import { defineTool } from './define-tool';
-import { createJsonResult, createZodActionVariant, type ActionVariant } from './shared';
-import { applyUiRefresh } from './ui-refresh';
+} from '../../core/types';
+import { defineTool } from '../internal/define-tool';
+import { createJsonResult, createZodActionVariant, type ActionVariant } from '../internal/shared';
+import { applyUiRefresh } from '../internal/ui-refresh';
 
 export const TAG_TOOL_NAME = 'tag';
 

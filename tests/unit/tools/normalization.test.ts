@@ -5,7 +5,7 @@ import { callDocumentTool } from '@/tools/document';
 import { callFileTool } from '@/tools/file';
 import { callSearchTool } from '@/tools/search';
 
-vi.mock('@/tools/context', () => ({
+vi.mock('@/tools/internal/context', () => ({
     ensurePermissionForDocumentId: vi.fn(async () => ({
         context: { documentId: 'doc-1', notebook: 'nb-1', path: '/doc-1.sy' },
         denied: null,
@@ -29,6 +29,10 @@ vi.mock('@/api/template', () => ({
 vi.mock('@/api/document', () => ({
     getDoc: vi.fn(),
     getHPathByID: vi.fn(),
+}));
+
+vi.mock('@/api/notebook', () => ({
+    listNotebooks: vi.fn(),
 }));
 
 vi.mock('@/api/block', () => ({
@@ -62,6 +66,7 @@ describe('tool result normalization', () => {
     beforeEach(async () => {
         const fileApi = await import('@/api/file');
         const documentApi = await import('@/api/document');
+        const notebookApi = await import('@/api/notebook');
         const attributeApi = await import('@/api/block');
         const blockApi = await import('@/api/block');
         const transactionApi = await import('@/api/transaction');
@@ -73,6 +78,10 @@ describe('tool result normalization', () => {
         vi.mocked(templateApi.renderTemplate).mockReset();
         vi.mocked(documentApi.getDoc).mockReset();
         vi.mocked(documentApi.getHPathByID).mockReset();
+        vi.mocked(notebookApi.listNotebooks).mockReset();
+        vi.mocked(notebookApi.listNotebooks).mockResolvedValue({
+            notebooks: [{ id: 'nb-1', name: 'Notebook One', icon: '', sort: 0, closed: false }],
+        });
         vi.mocked(attributeApi.setBlockAttrs).mockReset();
         vi.mocked(transactionApi.performTransactions).mockReset();
         vi.mocked(blockApi.updateBlock).mockReset();
@@ -97,6 +106,8 @@ describe('tool result normalization', () => {
         expect(JSON.parse(result.content[0].text)).toEqual({
             id: 'doc-1',
             mode: 'markdown',
+            notebook: 'nb-1',
+            notebookName: 'Notebook One',
             hPath: '/Doc',
             content: 'hello #tag#',
         });
@@ -312,6 +323,8 @@ describe('tool result normalization', () => {
         expect(JSON.parse(result.content[0].text)).toEqual({
             id: 'doc-1',
             mode: 'html',
+            notebook: 'nb-1',
+            notebookName: 'Notebook One',
             content: '<div>doc</div>',
             extra: 'value',
         });
@@ -335,6 +348,8 @@ describe('tool result normalization', () => {
         expect(JSON.parse(result.content[0].text)).toEqual({
             id: 'doc-1',
             mode: 'markdown',
+            notebook: 'nb-1',
+            notebookName: 'Notebook One',
             hPath: '/Doc',
             content: 'efgh',
             truncated: true,

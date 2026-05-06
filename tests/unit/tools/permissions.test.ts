@@ -8,7 +8,7 @@ import { callSearchTool } from '@/tools/search';
 import * as blockApi from '@/api/block';
 import * as documentApi from '@/api/document';
 import * as searchApi from '@/api/search';
-import * as contextTools from '@/tools/context';
+import * as contextTools from '@/tools/internal/context';
 
 import { parseResult } from '../../helpers/parse-result';
 
@@ -448,7 +448,7 @@ describe('tool permission and filtering behavior', () => {
         const parsed = parseResult(result);
 
         expect(parsed.id).toBe('doc-1');
-        expect(parsed.iconHint).toContain('document(action="set_icon")');
+        expect(parsed.iconHint).toContain('document(action="set_attr"');
         expect(parsed.iconHint).toContain('Unicode hex code string');
     });
 
@@ -488,7 +488,7 @@ describe('tool permission and filtering behavior', () => {
         const parsed = parseResult(result);
 
         expect(parsed.id).toBe('daily-1');
-        expect(parsed.iconHint).toContain('document(action="set_icon")');
+        expect(parsed.iconHint).toContain('document(action="set_attr"');
         expect(parsed.iconHint).toContain('Unicode hex code string');
     });
 

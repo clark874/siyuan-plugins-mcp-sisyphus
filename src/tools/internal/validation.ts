@@ -1,6 +1,6 @@
 import { ZodError, type ZodIssue } from 'zod';
 
-import { getActionHint } from '../core/help';
+import { getActionHint } from '../../core/help';
 import type { ToolErrorContext, ToolFieldError } from './types';
 
 export function formatIssuePath(path: PropertyKey[]): string {

@@ -161,9 +161,50 @@ describe('search tool filtering', () => {
         expect(parseResult(result)).toEqual([{ path: 'assets/diagram.png' }]);
     });
 
+    it('adds notebookName to fulltext search blocks when the notebook can be resolved', async () => {
+        const client = createMockClient({
+            request: async (endpoint: string) => {
+                if (endpoint === '/api/notebook/lsNotebooks') {
+                    return { notebooks: [{ id: 'nb-1', name: 'Technical Notes', icon: '', sort: 0, closed: false }] };
+                }
+                if (endpoint === '/api/search/fullTextSearchBlock') {
+                    return {
+                        blocks: [{ id: 'block-1', box: 'nb-1', hPath: '/Docker/Install', content: 'Docker install' }],
+                        matchedBlockCount: 1,
+                        matchedRootCount: 1,
+                        pageCount: 1,
+                    };
+                }
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            },
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'fulltext',
+            query: 'Docker',
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.data[0]).toMatchObject({
+            id: 'block-1',
+            box: 'nb-1',
+            notebookName: 'Technical Notes',
+        });
+    });
+
     it('accepts semantic aliases for fulltext and returns AI-friendly metadata', async () => {
         const client = createMockClient({
             request: async (endpoint: string, body: unknown) => {
+                if (endpoint === '/api/notebook/lsNotebooks') {
+                    return { notebooks: [{ id: 'allowed', name: 'Allowed Notebook', icon: '', sort: 0, closed: false }] };
+                }
                 if (endpoint === '/api/query/sql') {
                     expect(body).toMatchObject({
                         stmt: "SELECT id, root_id, box, path, hpath, content, type FROM blocks WHERE id = 'doc-1' LIMIT 1",

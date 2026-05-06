@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { translateError, isMissingBlockError } from '@/tools/errorTranslation';
-import { createErrorResult } from '@/tools/shared';
+import { translateError, isMissingBlockError } from '@/tools/internal/errorTranslation';
+import { createErrorResult } from '@/tools/internal/shared';
 
 describe('translateError', () => {
     it('maps missing-block kernel messages to block_not_found', () => {

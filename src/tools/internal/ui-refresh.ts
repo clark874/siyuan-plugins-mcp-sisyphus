@@ -1,5 +1,5 @@
-import type { SiYuanClient } from '../api/client';
-import * as systemApi from '../api/system';
+import type { SiYuanClient } from '../../api/client';
+import * as systemApi from '../../api/system';
 import type { ToolResult } from './shared';
 
 export type UiRefreshOperation =

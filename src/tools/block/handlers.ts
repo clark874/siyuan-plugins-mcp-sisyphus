@@ -25,11 +25,11 @@ import {
     BlockUpdateSchema,
     BlockWordCountSchema,
 } from '../../core/types';
-import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from '../context';
-import type { ToolActionHandler } from '../define-tool';
+import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from '../internal/context';
+import type { ToolActionHandler } from '../internal/define-tool';
 import { filterItemsByPermission } from '../search';
-import { createJsonResult, createPaginatedResult, createWriteSuccessResult, paginate, type ToolResult } from '../shared';
-import { applyUiRefresh } from '../ui-refresh';
+import { createJsonResult, createPaginatedResult, createWriteSuccessResult, paginate, type ToolResult } from '../internal/shared';
+import { applyUiRefresh } from '../internal/ui-refresh';
 
 
 type RecentUpdatedDocumentSummary = {

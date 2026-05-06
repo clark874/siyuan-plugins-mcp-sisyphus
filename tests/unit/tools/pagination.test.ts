@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyTruncation, paginate } from '@/tools/pagination';
+import { applyTruncation, paginate } from '@/tools/internal/pagination';
 
 describe('tools/pagination', () => {
     it('returns items unchanged when they fit inside the truncation limit', () => {

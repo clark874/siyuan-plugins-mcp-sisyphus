@@ -50,7 +50,7 @@ import {
     TAG_VARIANTS,
     listTagTools,
 } from '@/tools/tag';
-import { tryHandleHelpAction, type ActionVariant } from '@/tools/shared';
+import { tryHandleHelpAction, type ActionVariant } from '@/tools/internal/shared';
 import type { CategoryToolConfig } from '@/core/config';
 
 interface ToolEntry {

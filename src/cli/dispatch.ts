@@ -14,7 +14,7 @@ import { mapFlagsToArgs } from './flag-mapper';
 import { extractPaginationInfo, renderCliError, renderToolResult } from './render';
 import { loadCliRuntimeState } from './runtime';
 
-import type { ToolResult } from '../tools/shared';
+import type { ToolResult } from '../tools/internal/shared';
 
 export async function runDispatch(cli: ParsedArgs): Promise<number> {
     const { tool, action, rest } = cli;

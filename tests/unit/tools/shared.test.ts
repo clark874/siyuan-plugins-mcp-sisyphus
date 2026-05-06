@@ -4,7 +4,7 @@ import {
     getSchemaProperties,
     getSchemaRequired,
     normalizeJsonSchema,
-} from '@/tools/schema-analyzer';
+} from '@/tools/internal/schema-analyzer';
 import {
     createActionSchema,
     createZodActionVariant,
@@ -16,7 +16,7 @@ import {
     buildAggregatedTool,
     type JsonSchema,
     type ActionVariant,
-} from '@/tools/shared';
+} from '@/tools/internal/shared';
 import type { ToolCategory, CategoryToolConfig } from '@/core/config';
 
 describe('createActionSchema', () => {

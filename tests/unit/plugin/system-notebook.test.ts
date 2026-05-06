@@ -6,7 +6,7 @@ import { callSystemTool } from '@/tools/system';
 
 import * as notebookApi from '@/api/notebook';
 import * as systemApi from '@/api/system';
-import * as contextTools from '@/tools/context';
+import * as contextTools from '@/tools/internal/context';
 
 import { parseResult } from '../../helpers/parse-result';
 

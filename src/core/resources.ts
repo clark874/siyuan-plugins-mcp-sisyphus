@@ -8,6 +8,7 @@ import {
     TOOL_ACTION_HINTS,
     TOOL_GUIDANCE_BY_CATEGORY,
     TOOL_OVERVIEW_RESOURCE_URI,
+    USER_RULES_RESOURCE_URI,
     isKnownAction,
     isKnownToolCategory,
 } from './help';
@@ -17,14 +18,15 @@ import {
     DOCUMENT_VARIANTS,
     FILE_VARIANTS,
     FLASHCARD_VARIANTS,
+    FS_VARIANTS,
     MASCOT_VARIANTS,
     NOTEBOOK_VARIANTS,
     SEARCH_VARIANTS,
     SYSTEM_VARIANTS,
     TAG_VARIANTS,
 } from '@/tools/index';
-import type { ActionVariant } from '@/tools/shared';
-import { buildActionExamplesMarkdown, buildShapeSummaryMarkdown } from '@/tools/help-render';
+import type { ActionVariant } from '@/tools/internal/shared';
+import { buildActionExamplesMarkdown, buildShapeSummaryMarkdown } from '@/tools/internal/help-render';
 
 
 interface HelpResourceDefinition {
@@ -36,9 +38,18 @@ interface HelpResourceDefinition {
     text: string;
 }
 
+interface HelpResourceDescriptor {
+    uri: string;
+    name: string;
+    title: string;
+    description: string;
+    mimeType: string;
+}
+
 const MIME_TYPE = 'text/markdown';
 
 const VARIANTS_BY_CATEGORY: Record<ToolCategory, ActionVariant<string>[]> = {
+    fs: FS_VARIANTS,
     notebook: NOTEBOOK_VARIANTS,
     document: DOCUMENT_VARIANTS,
     block: BLOCK_VARIANTS,
@@ -73,7 +84,7 @@ function renderToolOverview(): string {
     return [
         '# SiYuan MCP Tool Overview',
         '',
-        'This server exposes 10 aggregated tools: `notebook`, `document`, `block`, `av`, `file`, `search`, `tag`, `system`, `flashcard`, and `mascot`.',
+        'This server exposes 11 aggregated tools. Use `fs` first for basic path-style notebook and document operations; advanced tools remain available for SiYuan-specific workflows.',
         '',
         '## High-risk actions',
         '',
@@ -86,6 +97,7 @@ function renderToolOverview(): string {
         '',
         '## More help',
         '',
+        '- Basic path operations: prefer `fs(action="ls"|"tree"|"read"|"write"|"replace"|"search"|"rm"|"mv")` with human-readable paths before using lower-level document/block/search tools.',
         '- Tag creation: write tags into block markdown as `#tag#` so `tag(action="list")` can discover them.',
         '- Flashcards: prefer `flashcard(action="create_card")` to turn existing blocks into real flashcards; it writes `custom-riff-decks` and registers the riff card together.',
         '- Review flow: use `flashcard(action="list_cards")` plus `review_card` / `review_card(skip=true)` for scheduled flashcard study.',
@@ -93,9 +105,38 @@ function renderToolOverview(): string {
         '- AI layout guide: use the layout guide when you need to decide whether content should become headings, callouts, tables, super blocks, visual code blocks, embeds, media blocks, or database blocks.',
         '',
         `- AI layout guide: \`${AI_LAYOUT_GUIDE_RESOURCE_URI}\``,
+        `- Active user custom rules: \`${USER_RULES_RESOURCE_URI}\``,
         `- Path semantics: \`${DOCUMENT_PATH_RESOURCE_URI}\``,
         `- Common examples: \`${EXAMPLES_RESOURCE_URI}\``,
         `- Per-action help template: \`${ACTION_RESOURCE_TEMPLATE_URI}\``,
+    ].join('\n');
+}
+
+export function renderUserRulesResource(userRulesText = ''): string {
+    const rules = typeof userRulesText === 'string'
+        ? userRulesText
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+        : [];
+
+    return [
+        '# Active User Custom Rules',
+        '',
+        rules.length > 0
+            ? 'These rules are currently configured for this MCP server.'
+            : 'No user custom rules are currently configured.',
+        '',
+        '## Rule list',
+        '',
+        ...(rules.length > 0 ? rules.map((line) => `- ${line}`) : ['- None']),
+        '',
+        '## Priority',
+        '',
+        '- Apply these rules before choosing tools or generating SiYuan content.',
+        '- These rules are a higher-priority preference layer than general usage suggestions.',
+        '- These rules do not override safety confirmation requirements, notebook permissions, disabled tools, or disabled actions.',
+        '- If these rules changed after the current MCP session initialized, reconnect the client or restart the MCP HTTP server so initialize-time instructions are refreshed.',
     ].join('\n');
 }
 
@@ -438,13 +479,24 @@ function buildStaticHelpResources(): HelpResourceDefinition[] {
     ];
 }
 
+const USER_RULES_RESOURCE_DESCRIPTOR: HelpResourceDescriptor = {
+    uri: USER_RULES_RESOURCE_URI,
+    name: 'user-rules',
+    title: 'Active User Custom Rules',
+    description: 'Shows the currently configured user custom rules and their priority limits.',
+    mimeType: MIME_TYPE,
+};
+
 let staticHelpCache: HelpResourceDefinition[] | undefined;
 function getStaticHelpResources(): HelpResourceDefinition[] {
     return (staticHelpCache ??= buildStaticHelpResources());
 }
 
 export function listHelpResources() {
-    return getStaticHelpResources().map(({ text: _text, ...resource }) => resource);
+    return [
+        ...getStaticHelpResources().map(({ text: _text, ...resource }) => resource),
+        USER_RULES_RESOURCE_DESCRIPTOR,
+    ];
 }
 
 export function listHelpResourceTemplates() {
@@ -457,7 +509,15 @@ export function listHelpResourceTemplates() {
     }];
 }
 
-export function readHelpResource(uri: string) {
+export function readHelpResource(uri: string, userRulesText = '') {
+    if (uri === USER_RULES_RESOURCE_URI) {
+        return {
+            uri,
+            mimeType: MIME_TYPE,
+            text: renderUserRulesResource(userRulesText),
+        };
+    }
+
     const staticResource = getStaticHelpResources().find((resource) => resource.uri === uri);
     if (staticResource) {
         return {

@@ -97,7 +97,8 @@ export async function createSiYuanServer(): Promise<Server> {
     });
 
     server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-        const resource = readHelpResource(request.params.uri);
+        const config = await getToolConfig();
+        const resource = readHelpResource(request.params.uri, config.userRulesText);
         if (!resource) {
             throw new McpError(ErrorCode.InvalidRequest, `Unknown resource: ${request.params.uri}`);
         }

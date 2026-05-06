@@ -34,7 +34,7 @@ Commands:
   ${PRIMARY_CLI_COMMAND} --version | -v                       Show version
 
 Tools:
-  notebook, document, block, av, file, search, tag, system, flashcard, mascot
+  fs, notebook, document, block, av, file, search, tag, system, flashcard, mascot
 
 Alias:
   ${CLI_COMMAND_ALIAS}                                         Same CLI, shorter command name
@@ -58,6 +58,7 @@ Examples:
   ${PRIMARY_CLI_COMMAND} config set work --url http://127.0.0.1:6807 --token xxx
   ${PRIMARY_CLI_COMMAND} config use work
   ${PRIMARY_CLI_COMMAND} help document create
+  ${PRIMARY_CLI_COMMAND} fs read --path "/Inbox/Test"
   ${PRIMARY_CLI_COMMAND} document create --notebook <id> --path "/Inbox/Test" --markdown "# Hello"
   ${PRIMARY_CLI_COMMAND} block append --parent-id <id> --data-type markdown --data "- item"
   ${PRIMARY_CLI_COMMAND} search fulltext --query "keyword" --page-size 10

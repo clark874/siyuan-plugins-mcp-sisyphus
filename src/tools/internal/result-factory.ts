@@ -1,6 +1,6 @@
 import { ZodError } from 'zod';
 
-import { getActionHint } from '../core/help';
+import { getActionHint } from '../../core/help';
 import { translateError } from './errorTranslation';
 import type { PaginatedPayload, ToolErrorContext, ToolResult } from './types';
 import { formatZodIssues, getValidationMessage, includeDebugDetails, isApiError, resolveHint } from './validation';

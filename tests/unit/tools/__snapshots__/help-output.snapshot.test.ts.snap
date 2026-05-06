@@ -1161,6 +1161,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/create",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1189,6 +1190,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/create_daily_note",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1218,6 +1220,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/doc_to_heading",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1246,6 +1249,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/duplicate",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1273,6 +1277,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/get_child_blocks",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1301,6 +1306,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/get_child_docs",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1329,6 +1335,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/get_doc",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1358,6 +1365,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/heading_to_doc",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1387,6 +1395,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/list_tree",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1415,6 +1424,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/lookup",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1440,6 +1450,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/move",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1465,6 +1476,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/remove",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1491,6 +1503,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/rename",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1520,6 +1533,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/search_docs",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1552,6 +1566,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "fullDocResource": "siyuan://help/action/document/set_attr",
         "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
           "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -1597,7 +1612,7 @@ document.duplicate: required [id] | optional []
 document.heading_to_doc: required [headingID, targetNotebook] | optional [targetPath, previousPath]
 document.doc_to_heading: required [srcID, targetID] | optional [after]
 
-document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it. For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note. Requires user confirmation before: remove, move.",
+For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs. document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it. Requires user confirmation before: remove, move.",
     "overview": {
       "actionSummaries": {
         "create": "Use notebook plus path for the most reliable child-document creation flow. parentPath + title is supported, but SiYuan may return a non-ID raw value, so MCP resolves the real document ID by hpath after creation. markdown is optional and defaults to empty.",
@@ -1696,6 +1711,7 @@ document(action="create") creates both non-empty and empty documents. Prefer pat
       ],
       "detailsHint": "Call document(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
+        "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
         "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
         "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
         "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
@@ -2329,6 +2345,315 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
         "remove_card",
       ],
       "tool": "flashcard",
+    },
+  },
+  "fs": {
+    "actions": {
+      "ls": {
+        "action": "ls",
+        "example": {
+          "action": "ls",
+          "path": "/Inbox/Weekly Note",
+        },
+        "fullDocResource": "siyuan://help/action/fs/ls",
+        "guidance": [
+          "Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.",
+          "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
+          "Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
+          "fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.",
+          "fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.",
+          "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
+        ],
+        "hint": "Use a human-readable path. "/" lists readable notebook roots; /Notebook or /Notebook/Folder lists direct child documents.",
+        "requiredFields": [
+          "path",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "path",
+        ],
+        "tool": "fs",
+      },
+      "mv": {
+        "action": "mv",
+        "example": {
+          "action": "mv",
+          "from": "<from>",
+          "to": "<to>",
+        },
+        "fullDocResource": "siyuan://help/action/fs/mv",
+        "guidance": [
+          "Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.",
+          "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
+          "Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
+          "fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.",
+          "fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.",
+          "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
+        ],
+        "hint": "Moves or renames a document using human-readable paths. This action requires explicit user confirmation.",
+        "requiredFields": [
+          "from",
+          "to",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "from + to",
+        ],
+        "tool": "fs",
+      },
+      "read": {
+        "action": "read",
+        "example": {
+          "action": "read",
+          "path": "/Inbox/Weekly Note",
+        },
+        "fullDocResource": "siyuan://help/action/fs/read",
+        "guidance": [
+          "Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.",
+          "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
+          "Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
+          "fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.",
+          "fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.",
+          "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
+        ],
+        "hint": "Use a human-readable document path. Returns Markdown content only, with pagination for long documents.",
+        "requiredFields": [
+          "path",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "path",
+        ],
+        "tool": "fs",
+      },
+      "replace": {
+        "action": "replace",
+        "example": {
+          "action": "replace",
+          "edit": "<edit>",
+          "path": "/Inbox/Weekly Note",
+        },
+        "fullDocResource": "siyuan://help/action/fs/replace",
+        "guidance": [
+          "Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.",
+          "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
+          "Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
+          "fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.",
+          "fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.",
+          "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
+        ],
+        "hint": "Edits one existing document by exact old/new string matching. edit accepts one object or an array for sequential replacements. replace_all=true replaces every exact match of that old snippet.",
+        "requiredFields": [
+          "path",
+          "edit",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "path + edit",
+        ],
+        "tool": "fs",
+      },
+      "rm": {
+        "action": "rm",
+        "example": {
+          "action": "rm",
+          "path": "/Inbox/Weekly Note",
+        },
+        "fullDocResource": "siyuan://help/action/fs/rm",
+        "guidance": [
+          "Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.",
+          "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
+          "Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
+          "fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.",
+          "fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.",
+          "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
+        ],
+        "hint": "Deletes a document by human-readable path. This action requires explicit user confirmation.",
+        "requiredFields": [
+          "path",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "path",
+        ],
+        "tool": "fs",
+      },
+      "search": {
+        "action": "search",
+        "example": {
+          "action": "search",
+          "path": "/Inbox/Weekly Note",
+          "query": "search keyword",
+        },
+        "fullDocResource": "siyuan://help/action/fs/search",
+        "guidance": [
+          "Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.",
+          "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
+          "Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
+          "fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.",
+          "fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.",
+          "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
+        ],
+        "hint": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.",
+        "requiredFields": [
+          "path",
+          "query",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "path + query",
+        ],
+        "tool": "fs",
+      },
+      "tree": {
+        "action": "tree",
+        "example": {
+          "action": "tree",
+          "path": "/Inbox/Weekly Note",
+        },
+        "fullDocResource": "siyuan://help/action/fs/tree",
+        "guidance": [
+          "Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.",
+          "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
+          "Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
+          "fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.",
+          "fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.",
+          "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
+        ],
+        "hint": "Use a human-readable path. maxDepth defaults to 3 and keeps output compact.",
+        "requiredFields": [
+          "path",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "path",
+        ],
+        "tool": "fs",
+      },
+      "write": {
+        "action": "write",
+        "example": {
+          "action": "write",
+          "markdown": "# Weekly Notes
+
+- Seed item",
+          "path": "/Inbox/Weekly Note",
+        },
+        "fullDocResource": "siyuan://help/action/fs/write",
+        "guidance": [
+          "Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.",
+          "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
+          "Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
+          "fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.",
+          "fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.",
+          "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
+        ],
+        "hint": "Creates a missing document. Existing documents are protected unless overwrite=true; overwrite replaces the body while preserving the document node and title.",
+        "requiredFields": [
+          "path",
+          "markdown",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "path + markdown",
+        ],
+        "tool": "fs",
+      },
+    },
+    "description": "📂 Simplified filesystem-style document operations. Use the "action" field to select the operation.
+
+Common actions: ls, tree, read, write, replace, search. Required fields: ls: path; tree: path; read: path; write: path, markdown; replace: path, edit; search: path, query.
+
+Additional actions: rm, mv. Read siyuan://help/action/fs/{action} for details, or call action="help" if resources are unavailable.
+
+Parameter contract per action (fields outside the action's optional list should not be sent):
+fs.ls: required [path] | optional []
+fs.tree: required [path] | optional [maxDepth]
+fs.read: required [path] | optional [page, pageSize]
+fs.write: required [path, markdown] | optional [overwrite]
+fs.replace: required [path, edit] | optional []
+fs.rm: required [path] | optional []
+fs.mv: required [from, to] | optional []
+fs.search: required [path, query] | optional [regex, caseSensitive, page, pageSize]
+
+Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search. fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths. Requires user confirmation before: rm, mv.",
+    "overview": {
+      "actionSummaries": {
+        "ls": "Use a human-readable path. "/" lists readable notebook roots; /Notebook or /Notebook/Folder lists direct child documents.",
+        "mv": "Moves or renames a document using human-readable paths. This action requires explicit user confirmation.",
+        "read": "Use a human-readable document path. Returns Markdown content only, with pagination for long documents.",
+        "replace": "Edits one existing document by exact old/new string matching. edit accepts one object or an array for sequential replacements. replace_all=true replaces every exact match of that old snippet.",
+        "rm": "Deletes a document by human-readable path. This action requires explicit user confirmation.",
+        "search": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.",
+        "tree": "Use a human-readable path. maxDepth defaults to 3 and keeps output compact.",
+        "write": "Creates a missing document. Existing documents are protected unless overwrite=true; overwrite replaces the body while preserving the document node and title.",
+      },
+      "actions": {
+        "ls": {
+          "hint": "Use a human-readable path. "/" lists readable notebook roots; /Notebook or /Notebook/Folder lists direct child documents.",
+          "requiresConfirmation": false,
+        },
+        "mv": {
+          "hint": "Moves or renames a document using human-readable paths. This action requires explicit user confirmation.",
+          "requiresConfirmation": true,
+        },
+        "read": {
+          "hint": "Use a human-readable document path. Returns Markdown content only, with pagination for long documents.",
+          "requiresConfirmation": false,
+        },
+        "replace": {
+          "hint": "Edits one existing document by exact old/new string matching. edit accepts one object or an array for sequential replacements. replace_all=true replaces every exact match of that old snippet.",
+          "requiresConfirmation": false,
+        },
+        "rm": {
+          "hint": "Deletes a document by human-readable path. This action requires explicit user confirmation.",
+          "requiresConfirmation": true,
+        },
+        "search": {
+          "hint": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.",
+          "requiresConfirmation": false,
+        },
+        "tree": {
+          "hint": "Use a human-readable path. maxDepth defaults to 3 and keeps output compact.",
+          "requiresConfirmation": false,
+        },
+        "write": {
+          "hint": "Creates a missing document. Existing documents are protected unless overwrite=true; overwrite replaces the body while preserving the document node and title.",
+          "requiresConfirmation": false,
+        },
+      },
+      "advancedActions": [
+        "rm",
+        "mv",
+      ],
+      "commonActions": [
+        "ls",
+        "tree",
+        "read",
+        "write",
+        "replace",
+        "search",
+      ],
+      "detailsHint": "Call fs(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
+      "guidance": [
+        "Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.",
+        "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
+        "Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
+        "fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.",
+        "fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.",
+        "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
+      ],
+      "helpResources": [
+        "siyuan://help/action/fs/{action}",
+        "siyuan://help/tool-overview",
+        "siyuan://help/examples",
+        "siyuan://help/ai-layout-guide",
+      ],
+      "requiresConfirmation": [
+        "rm",
+        "mv",
+      ],
+      "tool": "fs",
     },
   },
   "mascot": {

@@ -17,11 +17,11 @@ getToolConfig()  [30s TTL 缓存 / in-flight 去重]
     ↓ 从 SiYuan 存储读取 /data/storage/petal/.../mcpToolsConfig
     ↓ normalizeToolConfig(raw)  [三种格式兼容迁移]
 listAllTools(config)
-    ↓ 遍历 TOOL_REGISTRY 的 10 个 category
+    ↓ 遍历 TOOL_REGISTRY 的 11 个 category
     ↓ 对每个 module: module.listTools(config[category])
-        ↓ tools/define-tool.ts: listTools()
+        ↓ tools/internal/define-tool.ts: listTools()
             ↓ 过滤出 enabled 的 action
-            ↓ tools/shared.ts: buildAggregatedTool(category, description, config, variants)
+            ↓ tools/internal/shared.ts: buildAggregatedTool(category, description, config, variants)
                 ↓ 合并所有 enabled action 的 schema 为单个 ToolDescriptor
                 ↓ 在 description 中注入 common actions hint + dangerous warning
     ↓ 扁平化返回 ToolDescriptor[]
@@ -101,7 +101,7 @@ MCP Client ← ToolResult
 ```
 handler 执行
     ↓
-tools/context.ts: ensurePermissionForDocumentId(client, permMgr, id, "write")
+tools/internal/context.ts: ensurePermissionForDocumentId(client, permMgr, id, "write")
     ↓
 resolveDocumentContextById(client, id) → 查 SQL/API 得 notebookId
     ↓

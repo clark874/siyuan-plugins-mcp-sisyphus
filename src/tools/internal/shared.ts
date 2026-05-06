@@ -1,7 +1,7 @@
 import { z, ZodError, type ZodIssue } from 'zod';
 
-import { getActionTier, getEnabledActions, isDangerousAction, type CategoryToolConfig, type ToolCategory } from '../core/config';
-import { getActionHint } from '../core/help';
+import { getActionTier, getEnabledActions, isDangerousAction, type CategoryToolConfig, type ToolCategory } from '../../core/config';
+import { getActionHint } from '../../core/help';
 import { translateError } from './errorTranslation';
 import { buildActionHelp, buildActionUsageSummary, buildHelpIndex, buildParameterContract } from './help-render';
 import {
@@ -533,8 +533,8 @@ export function createSetIconReminder(
     }
 
     return alreadySet
-        ? 'Use document(action="set_icon") later if you want to change the document icon. Prefer a Unicode hex code string like "1f4d4" instead of a raw emoji character.'
-        : 'After creation, call document(action="set_icon") to set the document icon. Prefer a Unicode hex code string like "1f4d4" instead of a raw emoji character.';
+        ? 'Use document(action="set_attr", attrs={ icon }) later if you want to change the document icon. Prefer a Unicode hex code string like "1f4d4" instead of a raw emoji character.'
+        : 'After creation, call document(action="set_attr", attrs={ icon }) to set the document icon. Prefer a Unicode hex code string like "1f4d4" instead of a raw emoji character.';
 }
 
 export function createWriteSuccessResult(

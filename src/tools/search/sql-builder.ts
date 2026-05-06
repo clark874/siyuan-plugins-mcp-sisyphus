@@ -1,6 +1,6 @@
 import type { SiYuanClient } from '../../api/client';
 import * as searchApi from '../../api/search';
-import { escapeSqlString } from '../context';
+import { escapeSqlString } from '../internal/context';
 
 function escapeSqlLike(value: string): string {
     return value

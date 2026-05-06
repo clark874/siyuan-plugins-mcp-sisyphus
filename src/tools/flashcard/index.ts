@@ -9,8 +9,8 @@ import {
     FlashcardRemoveCardSchema,
     FlashcardReviewCardSchema,
 } from '../../core/types';
-import { defineTool } from '../define-tool';
-import { createZodActionVariant, type ActionVariant } from '../shared';
+import { defineTool } from '../internal/define-tool';
+import { createZodActionVariant, type ActionVariant } from '../internal/shared';
 import { FLASHCARD_ACTION_HANDLERS } from './handlers';
 
 export const FLASHCARD_TOOL_NAME = 'flashcard';

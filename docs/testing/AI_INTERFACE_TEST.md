@@ -119,8 +119,9 @@ siyuan-sisyphus av add-rows --av-id <av-id> --primary-key-texts "Plain text row"
 
 ## 3. 覆盖范围
 
-本手册覆盖以下 10 个聚合工具：
+本手册覆盖以下 11 个聚合工具：
 
+- `fs`
 - `notebook`
 - `document`
 - `block`
@@ -190,6 +191,7 @@ siyuan-sisyphus system get-version
 
 必须能看到以下工具：
 
+- `fs`
 - `notebook`
 - `document`
 - `block`
@@ -315,6 +317,7 @@ siyuan-sisyphus system get-version
 
 | 工具 | 必测 | 建议测 | 条件测 / 高风险 |
 | --- | --- | --- | --- |
+| `fs` | `ls`、`tree`、`read`、`write`、`replace`、`search` | 根路径 `/` 的可读笔记本过滤、跨笔记本路径消歧 | `rm`、`mv`；必须纳入权限矩阵，`rm/mv` 只作用于本轮测试文档 |
 | `system` | `get_version`、`get_current_time`、`conf` | `network`、`notify` | `workspace_info` |
 | `notebook` | `list`、`create`、`rename`、`get_conf`、`get_child_docs`、`set_open_state`、`get_permissions`、`set_permission`、`remove` | `set_icon`、`set_conf` | 仅对本轮测试笔记本改权限 |
 | `document` | `create`、`lookup`、`get_child_docs`、`list_tree`、`search_docs`、`get_doc`、`remove` | `get_child_blocks`、`duplicate`、`set_attr` | `move`、`create_daily_note` |
@@ -655,6 +658,7 @@ AI 不得：
 - 权限变更通过 `notebook.set_permission` 生效于后续调用
 - CLI 模式下，命令发出即视为用户确认；MCP 模式下，权限修改属于高风险动作
 - 删除权限与写权限不同：`rw` 允许写，但不允许删除
+- `fs` 是基础路径操作入口，权限专项必须覆盖 `fs.read` / `fs.write` / `fs.replace` / `fs.search` / `fs.rm` / `fs.mv`。其中 `fs.rm` 需要删权限；当前 `fs.mv` 需要源和目标笔记本写权限，不要求删权限。
 
 ### 10.2 执行边界
 
@@ -683,13 +687,18 @@ AI 不得：
 必须验证：
 
 - 读成功：
+  - `fs.read`
+  - `fs.search`
   - `notebook.get_conf`
   - `document.get_doc`
   - `block.get_kramdown`
 - 写成功：
+  - `fs.write` 创建或覆盖本轮测试文档
+  - `fs.replace` 修改本轮测试文档中的唯一文本
   - `document.create` 或 `block.append`
   - `block.set_attrs`
 - 删成功：
+  - `fs.rm` 删除本轮临时文档
   - `document.remove` 删除本轮临时文档（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
   - 或 `block.delete` 删除本轮测试块
 
@@ -710,9 +719,10 @@ AI 不得：
 
 建议验证动作：
 
-- 读成功：`document.get_doc`、`block.get_children`
-- 写成功：`block.append`、`document.create`
+- 读成功：`document.get_doc`、`block.get_children`、`fs.read`、`fs.search`
+- 写成功：`block.append`、`document.create`、`fs.write`、`fs.replace`、`fs.mv`
 - 删失败：
+  - `fs.rm`
   - `document.remove`（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
   - `block.delete`
   - `document.move` 或 `block.move` 也可作为补充，因为移动通常需要更高权限边界
@@ -735,14 +745,18 @@ AI 不得：
 
 建议验证动作：
 
-- 读成功：`notebook.get_conf`、`document.get_doc`、`block.get_kramdown`
+- 读成功：`notebook.get_conf`、`document.get_doc`、`block.get_kramdown`、`fs.read`、`fs.search`
 - 写失败：
+  - `fs.write`
+  - `fs.replace`
+  - `fs.mv`
   - `document.create`
   - `block.append`
   - `block.update`
   - `block.set_attrs`
   - AV 写动作可作为补充失败验证
 - 删失败：
+  - `fs.rm`
   - `document.remove`（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
   - `block.delete`
 
@@ -764,6 +778,8 @@ AI 不得：
 建议验证动作：
 
 - 读失败：
+  - `fs.read`
+  - `fs.search`
   - `notebook.get_conf`
   - `notebook.get_child_docs`
   - `document.lookup`
@@ -772,10 +788,14 @@ AI 不得：
   - `block.get_kramdown`
   - `block.get_attrs`
 - 写失败：
+  - `fs.write`
+  - `fs.replace`
+  - `fs.mv`
   - `document.create`
   - `block.append`
   - `block.update`
 - 删失败：
+  - `fs.rm`
   - `document.remove`（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
   - `block.delete`
 

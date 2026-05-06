@@ -8,7 +8,7 @@ import { callTagTool } from '@/tools/tag';
 
 
 
-vi.mock('@/tools/context', () => ({
+vi.mock('@/tools/internal/context', () => ({
     ensurePermissionForDocumentId: vi.fn(async (_client: unknown, _permMgr: unknown, id: string) => ({
         context: { documentId: id && id.startsWith('doc-') ? id : 'doc-1', notebook: 'nb-1', path: '/doc-1.sy' },
         denied: null,
@@ -135,7 +135,7 @@ describe('UI refresh integration', () => {
         const avApi = await import('@/api/av');
         const transactionApi = await import('@/api/transaction');
         const searchApi = await import('@/api/search');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
 
         vi.mocked(blockApi.appendBlock).mockReset();
         vi.mocked(blockApi.updateBlock).mockReset();
@@ -418,7 +418,7 @@ describe('UI refresh integration', () => {
     });
 
     it('falls back to attribute-view refresh when the owning document cannot be resolved', async () => {
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         vi.mocked(context.resolveDocumentContextById).mockRejectedValue(new Error('document context unavailable'));
 
         const result = await callAvTool(client, {

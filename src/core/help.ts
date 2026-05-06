@@ -10,8 +10,18 @@ import {
     type SystemAction,
     type TagAction,
     type MascotAction,
+    type FsAction,
     type ToolCategory,
 } from './config';
+
+export const FS_GUIDANCE: string[] = [
+    'Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.',
+    'fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.',
+    'Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.',
+    'fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.',
+    'fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.',
+    'fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.',
+];
 
 export const NOTEBOOK_GUIDANCE: string[] = [
     'Use notebook IDs for set_open_state, rename, get_conf, and set_conf.',
@@ -22,6 +32,7 @@ export const NOTEBOOK_GUIDANCE: string[] = [
 ];
 
 export const DOCUMENT_GUIDANCE: string[] = [
+    'For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.',
     'document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.',
     'For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.',
     'Other document actions that use notebook + path expect storage paths returned by document(action="lookup").',
@@ -95,6 +106,17 @@ export const MASCOT_GUIDANCE: string[] = [
     'Use mascot(action="shop") to list available items and their stable item IDs.',
     'Use mascot(action="buy", item_id=...) to purchase an item and spend from the balance.',
 ];
+
+export const FS_ACTION_HINTS: Partial<Record<FsAction, string>> = {
+    ls: 'Use a human-readable path. "/" lists readable notebook roots; /Notebook or /Notebook/Folder lists direct child documents.',
+    tree: 'Use a human-readable path. maxDepth defaults to 3 and keeps output compact.',
+    read: 'Use a human-readable document path. Returns Markdown content only, with pagination for long documents.',
+    write: 'Creates a missing document. Existing documents are protected unless overwrite=true; overwrite replaces the body while preserving the document node and title.',
+    replace: 'Edits one existing document by exact old/new string matching. edit accepts one object or an array for sequential replacements. replace_all=true replaces every exact match of that old snippet.',
+    rm: 'Deletes a document by human-readable path. This action requires explicit user confirmation.',
+    mv: 'Moves or renames a document using human-readable paths. This action requires explicit user confirmation.',
+    search: 'Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.',
+};
 
 export const NOTEBOOK_ACTION_HINTS: Partial<Record<NotebookAction, string>> = {
     remove: 'This action requires explicit user confirmation.',
@@ -212,6 +234,7 @@ export const MASCOT_ACTION_HINTS: Partial<Record<MascotAction, string>> = {
 };
 
 export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
+    fs: FS_GUIDANCE,
     notebook: NOTEBOOK_GUIDANCE,
     document: DOCUMENT_GUIDANCE,
     block: BLOCK_GUIDANCE,
@@ -225,6 +248,7 @@ export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
 };
 
 export const TOOL_ACTION_HINTS: Record<ToolCategory, Partial<Record<string, string>>> = {
+    fs: FS_ACTION_HINTS,
     notebook: NOTEBOOK_ACTION_HINTS,
     document: DOCUMENT_ACTION_HINTS,
     block: BLOCK_ACTION_HINTS,
@@ -243,6 +267,7 @@ export const TOOL_OVERVIEW_RESOURCE_URI = 'siyuan://help/tool-overview';
 export const DOCUMENT_PATH_RESOURCE_URI = 'siyuan://help/document-path-semantics';
 export const EXAMPLES_RESOURCE_URI = 'siyuan://help/examples';
 export const AI_LAYOUT_GUIDE_RESOURCE_URI = 'siyuan://help/ai-layout-guide';
+export const USER_RULES_RESOURCE_URI = 'siyuan://help/user-rules';
 export const ACTION_RESOURCE_TEMPLATE_URI = 'siyuan://help/action/{tool}/{action}';
 
 export function getActionHint(tool?: string, action?: string): string | undefined {

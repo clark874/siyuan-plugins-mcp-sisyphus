@@ -243,7 +243,7 @@
 | MCP action | 思源 HTTP API | Wrapper | 说明 |
 |---|---|---|---|
 | `get_balance` | 本地状态 (`puppy_stats`) | `src/core/puppy-state.ts` | 获取吉祥物金币余额和统计 |
-| `shop` | 本地常量 | `src/tools/mascot.ts` | 获取商店物品列表 |
+| `shop` | 本地常量 | `src/tools/mascot/index.ts` | 获取商店物品列表 |
 | `buy` | 本地状态更新 | `src/core/puppy-state.ts` | 购买商店物品 |
 
 **说明**: mascot tool 使用本地状态管理，不直接调用思源 HTTP API。每次 MCP 工具调用会自动获得 1 个金币奖励。

@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { resetToolConfigWarningStateForTests } from '@/core/config';
+import { USER_RULES_RESOURCE_URI } from '@/core/help';
 import { buildServerInstructions, createSiYuanServer } from '@/core/server';
+import { USER_RULES_TOOL_DESCRIPTION_REMINDER } from '@/core/tool-registry';
 
 const jsonResponse = (payload: unknown): Response => ({
     ok: true,
@@ -140,12 +142,12 @@ describe('MCP Server Integration', () => {
             const userRule = 'After creating a document, proactively set the icon when the user mentions it.';
             const instructions = buildServerInstructions(userRule);
 
-            expect(instructions).toContain('## User custom rules priority');
-            expect(instructions).toContain('## User custom rules');
-            expect(instructions).toContain('MUST follow these user custom rules');
+            expect(instructions.trimStart().startsWith('# Active user custom rules')).toBe(true);
+            expect(instructions).toContain('## Rule list');
             expect(instructions).toContain(userRule);
-            expect(instructions.indexOf('## User custom rules')).toBeLessThan(instructions.indexOf('## Help and progressive disclosure'));
-            expect(instructions).toContain('User custom rules override the general style and workflow suggestions below when they apply.');
+            expect(instructions.indexOf('# Active user custom rules')).toBeLessThan(instructions.indexOf('## Help and progressive disclosure'));
+            expect(instructions).toContain('User custom rules do not override safety confirmation requirements, notebook permissions, disabled tools, or disabled actions.');
+            expect(instructions).toContain('siyuan://help/user-rules');
         });
 
         it('formats multiline user custom rules as a bullet list', () => {
@@ -159,8 +161,8 @@ describe('MCP Server Integration', () => {
         it('omits user custom rule sections when no rules are configured', () => {
             const instructions = buildServerInstructions('');
 
-            expect(instructions).not.toContain('## User custom rules priority');
-            expect(instructions).not.toContain('## User custom rules');
+            expect(instructions).not.toContain('# Active user custom rules');
+            expect(instructions).not.toContain('## Rule list');
             expect(instructions).not.toContain('User custom rules override the general style and workflow suggestions below when they apply.');
         });
 
@@ -170,6 +172,17 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('block(action=”update”) is best for single-block replacement');
             expect(instructions).toContain('Multi-line markdown may be truncated to the first line by SiYuan');
             expect(instructions).toContain('block(action=”append”), prepend, or insert');
+        });
+
+        it('directs basic path-style operations to the fs tool first', () => {
+            const instructions = buildServerInstructions('');
+
+            expect(instructions).toContain('For basic path-style notebook and document operations, use `fs`');
+            expect(instructions).toContain('Treat `fs` as the default virtual filesystem interface');
+            expect(instructions).toContain('fs(action="read", path="/Notebook/Folder/Doc")');
+            expect(instructions).toContain('fs(action="write", path="/Notebook/Folder/Doc", markdown="...", overwrite=true)');
+            expect(instructions).toContain('fs(action="mv", from="/Notebook/Old", to="/Notebook/New")');
+            expect(instructions).toContain('Prefer `fs` for basic browse/read/write/edit/search/move/delete workflows.');
         });
 
         it('should list tools with expected names', async () => {
@@ -208,12 +221,57 @@ describe('MCP Server Integration', () => {
                 expect(tool.description!.length).toBeGreaterThan(10);
             }
         });
+
+        it('adds a light user custom rules reminder to tool descriptions when configured', async () => {
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify({
+                userRulesText: 'Always set document icons.',
+            });
+
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+
+            const rulesClient = new Client({ name: 'rules-description-client', version: '1.0.0' });
+            await rulesClient.connect(clientTransport);
+            const { tools } = await rulesClient.listTools();
+
+            expect(tools.length).toBeGreaterThan(0);
+            for (const tool of tools) {
+                expect(tool.description).toContain(USER_RULES_TOOL_DESCRIPTION_REMINDER);
+            }
+
+            await rulesClient.close();
+        });
     });
 
     describe('Resource listing', () => {
         it('should list available resources', async () => {
             const { resources } = await client.listResources();
             expect(resources.length).toBeGreaterThan(0);
+            expect(resources.map((resource) => resource.uri)).toContain(USER_RULES_RESOURCE_URI);
+        });
+
+        it('reads current user custom rules from the dynamic resource', async () => {
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify({
+                userRulesText: 'Rule one\nRule two',
+            });
+
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+
+            const resourceClient = new Client({ name: 'rules-resource-client', version: '1.0.0' });
+            await resourceClient.connect(clientTransport);
+            const resource = await resourceClient.readResource({ uri: USER_RULES_RESOURCE_URI });
+            const firstContent = resource.contents[0];
+            const text = firstContent && 'text' in firstContent ? firstContent.text : '';
+
+            expect(text).toContain('# Active User Custom Rules');
+            expect(text).toContain('- Rule one');
+            expect(text).toContain('- Rule two');
+            expect(text).toContain('do not override safety confirmation requirements');
+
+            await resourceClient.close();
         });
     });
 

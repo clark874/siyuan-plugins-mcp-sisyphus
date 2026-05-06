@@ -10,8 +10,8 @@ import {
     FlashcardRemoveCardSchema,
     FlashcardReviewCardSchema,
 } from '../../core/types';
-import type { ToolActionHandler } from '../define-tool';
-import { createJsonResult } from '../shared';
+import type { ToolActionHandler } from '../internal/define-tool';
+import { createJsonResult } from '../internal/shared';
 import { sleep } from '../../shared/async';
 
 type FlashcardActionHandler = ToolActionHandler;

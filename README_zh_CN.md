@@ -240,7 +240,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 
 ## 工具一览
 
-所有能力被收敛为 **10 个聚合工具**，通过 `action` 字段分派具体操作。
+所有能力被收敛为 **11 个聚合工具**，通过 `action` 字段分派具体操作。普通文档文件操作优先使用接受人类可读路径的 `fs`。
 
 ### 工具速览
 

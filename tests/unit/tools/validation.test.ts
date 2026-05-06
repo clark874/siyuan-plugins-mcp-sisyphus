@@ -9,7 +9,7 @@ import {
     includeDebugDetails,
     isApiError,
     resolveHint,
-} from '@/tools/validation';
+} from '@/tools/internal/validation';
 
 describe('tools/validation', () => {
     it('formats nested issue paths and reads matching raw values', () => {

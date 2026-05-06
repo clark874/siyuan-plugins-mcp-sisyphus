@@ -16,7 +16,7 @@
 - 仓库地址：`https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus`
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.3.3`（根 `package.json` 与 `plugin.json` 同步）
+- 当前版本：`0.3.6`（根 `package.json` 与 `plugin.json` 同步）
 
 ---
 
@@ -62,7 +62,7 @@ siyuan-plugins-mcp-sisyphus/
 │   │   ├── flashcard.ts         # /api/riff/*
 │   │   └── transaction.ts       # /api/transaction 批量操作
 │   │
-│   ├── mcp/                     # MCP 服务器核心
+│   ├── core/                    # MCP 服务器核心与工具元数据
 │   │   ├── server.ts            # MCP Server 入口：createSiYuanServer()、startMcpServer()
 │   │   ├── http-transport.ts    # HTTP 模式 MCP 传输层（SSE / postMessage）
 │   │   ├── tool-registry.ts     # TOOL_REGISTRY：10 个聚合工具的注册表
@@ -78,26 +78,29 @@ siyuan-plugins-mcp-sisyphus/
 │   │   ├── token-usage.ts       # 请求/响应近似 token 计算
 │   │   ├── puppy-state.ts       # 桌面悬浮宠物（ToolPuppy）状态管理
 │   │   ├── server-instructions.ts # 服务端 instructions 文本构建
-│   │   ├── runtime.ts           # 运行时环境检测（isPluginMode 等）
-│   │   ├── noop-*.ts            # 用于替换 MCP SDK 重模块的 no-op shim
-│   │   └── tools/               # 10 个聚合工具的实现
-│   │       ├── define-tool.ts   # defineTool() 工厂：统一工具定义模式
-│   │       ├── shared.ts        # 聚合工具公共函数：schema 构建、结果包装、分页、错误翻译
-│   │       ├── context.ts       # 工具上下文辅助（权限校验、子文档查询等）
-│   │       ├── errorTranslation.ts # 思源错误码 → 用户友好文案
-│   │       ├── ui-refresh.ts    # 触发思源 UI 刷新（所有模式默认开启）
-│   │       ├── help-render.ts   # help action 输出渲染
-│   │       ├── schema-analyzer.ts # schema 分析与描述裁剪
-│   │       ├── notebook.ts      # notebook 工具
-│   │       ├── document.ts      # document 工具
-│   │       ├── block.ts         # block 工具
-│   │       ├── av.ts            # av（数据库）工具
-│   │       ├── search.ts        # search 工具
-│   │       ├── file.ts          # file 工具
-│   │       ├── tag.ts           # tag 工具
-│   │       ├── system.ts        # system 工具
-│   │       ├── flashcard.ts     # flashcard 工具
-│   │       └── mascot.ts        # mascot（吉祥物余额）工具
+│   │   └── runtime.ts           # 运行时环境检测（isPluginMode 等）
+│   │
+│   ├── tools/                   # 10 个聚合工具的实现
+│   │   ├── index.ts             # barrel export：统一导出所有工具模块
+│   │   ├── internal/            # 工具层共享基础设施（非独立工具）
+│   │   │   ├── define-tool.ts   # defineTool() 工厂：统一工具定义模式
+│   │   │   ├── shared.ts        # 聚合工具公共函数：schema 构建、结果包装、分页、错误翻译
+│   │   │   ├── context.ts       # 工具上下文辅助（权限校验、子文档查询等）
+│   │   │   ├── errorTranslation.ts # 思源错误码 → 用户友好文案
+│   │   │   ├── ui-refresh.ts    # 触发思源 UI 刷新（所有模式默认开启）
+│   │   │   ├── help-render.ts   # help action 输出渲染
+│   │   │   ├── schema-analyzer.ts # schema 分析与描述裁剪
+│   │   │   └── helpers/         # 跨工具小型 helper，如 notebookName 补全
+│   │   ├── notebook/            # notebook 工具（index.ts + handlers.ts）
+│   │   ├── document/            # document 工具
+│   │   ├── block/               # block 工具
+│   │   ├── av/                  # av（数据库）工具
+│   │   ├── search/              # search 工具（含 sql-builder、permission-filter）
+│   │   ├── file/                # file 工具
+│   │   ├── tag/                 # tag 工具
+│   │   ├── system/              # system 工具
+│   │   ├── flashcard/           # flashcard 工具
+│   │   └── mascot/              # mascot（吉祥物余额）工具
 │   │
 │   ├── cli/                     # 独立 CLI 源码（被 cli Vite target 打包）
 │   │   ├── index.ts             # CLI 入口：命令分发（dispatch/list/help/init/config/version）
@@ -112,22 +115,15 @@ siyuan-plugins-mcp-sisyphus/
 │   │   ├── plugin-check.ts      # 插件在线检测
 │   │   └── runtime.ts           # CLI 运行时环境检测
 │   │
-│   ├── components/              # Svelte UI 组件
-│   │   ├── ToolPuppy.svelte     # 桌面悬浮宠物主组件
-│   │   ├── Puppy*.svelte        # 宠物子组件（气泡、SVG、结果遮罩等）
-│   │   └── puppy-*.ts           # 宠物行为逻辑（拖拽、轮询、测试模式、工具可视化）
+│   ├── ui/                      # Svelte UI 与设置面板
+│   │   ├── components/          # 桌面悬浮宠物组件与行为逻辑
+│   │   ├── setting/             # 插件设置面板
+│   │   └── shared/              # UI 共享组件
 │   │
-│   ├── setting/                 # 插件设置面板
-│   │   ├── mcp-config.svelte    # 设置面板根组件
-│   │   ├── mcp-config/*.svelte  # 子面板：HTTP Server / Puppy / Telemetry / ToolCategories / UserRules
-│   │   ├── tool-config-storage.ts # 配置持久化到思源 storage API
-│   │   ├── tool-config.ts       # 工具配置逻辑（已合并至 setting 目录）
-│   │   └── telemetry-config.ts  # 遥测配置
-│   │
-│   ├── libs/                    # 通用工具库
+│   ├── shared/                  # 跨层通用工具库
 │   │   ├── error.ts             # 错误处理辅助
 │   │   ├── promise-pool.ts      # 并发池
-│   │   └── components/setting-panel.svelte # 旧设置面板组件
+│   │   └── invocation-format.ts # 调用格式化
 │   │
 │   ├── types/
 │   │   ├── index.d.ts           # 思源常用数据结构（Block、Notebook 等）
@@ -263,12 +259,14 @@ mascot      → 3  actions（get_balance, shop, buy）
 
 ### 工具定义模式（`defineTool`）
 
-每个工具文件（如 `src/tools/notebook.ts`）遵循统一工厂模式：
+每个工具目录（如 `src/tools/notebook/`）遵循统一工厂模式：
 
-1. 使用 `defineTool({ name, description, variants, handlers, actionSchema })` 定义。
+1. 在 `src/tools/<tool>/index.ts` 使用 `defineTool({ name, description, variants, handlers, actionSchema })` 定义。
 2. `variants`：每个 action 的 schema 变体（参数、必填字段、描述）。
-3. `handlers`：按 action 分发的处理函数，`handler` 内部自行用 Zod schema 解析 `rawArgs`，保持类型狭窄。
+3. `handlers`：通常放在 `src/tools/<tool>/handlers.ts`，按 action 分发；`handler` 内部自行用 Zod schema 解析 `rawArgs`，保持类型狭窄。
 4. 工厂自动处理：`action="help"` 路由、action 禁用检查、错误包装。
+
+工具层共享基础设施放在 `src/tools/internal/`。新增跨工具 helper 时优先放入 `src/tools/internal/helpers/`，不要再把 helper 文件散放到 `src/tools/` 根目录；根目录只保留 `index.ts` 和各工具目录。
 
 示例结构：
 
@@ -298,7 +296,7 @@ export async function xxxApi(client: SiYuanClient, ...args): Promise<ResType>
 
 - `client.request<T>(endpoint, data)` 是统一调用方式。
 - 类型定义在 `src/types/api.d.ts`。
-- API 模块只负责封装 endpoint 和参数，**不包含业务逻辑**（权限、帮助、错误翻译在 `mcp/tools/` 层处理）。
+- API 模块只负责封装 endpoint 和参数，**不包含业务逻辑**（权限、帮助、错误翻译在 `src/tools/` 层处理）。
 
 ### CLI 直接操作模式
 
@@ -344,7 +342,7 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 
 ### UI 刷新
 
-- 修改笔记内容后应调用 `applyUiRefresh()`（`src/tools/ui-refresh.ts`），它会通过思源 `/api/ui/*` API 触发界面刷新。
+- 修改笔记内容后应调用 `applyUiRefresh()`（`src/tools/internal/ui-refresh.ts`），它会通过思源 `/api/ui/*` API 触发界面刷新。
 - UI 刷新**默认在所有模式下开启**（插件、stdio、HTTP、CLI）。思源后端通过 WebSocket 广播刷新指令给所有已连接的前端客户端（包括 Electron 桌面端和浏览器端）。
 - 刷新失败不会影响主操作结果，错误会被捕获并记录在响应的 `uiRefresh.partialFailure` 中。
 

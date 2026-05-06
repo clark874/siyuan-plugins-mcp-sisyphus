@@ -17,8 +17,8 @@ import {
     AvSearchSchema,
     AvSetCellsSchema,
 } from '../../core/types';
-import { defineTool } from '../define-tool';
-import { createZodActionVariant, type ActionVariant, type ToolResult } from '../shared';
+import { defineTool } from '../internal/define-tool';
+import { createZodActionVariant, type ActionVariant, type ToolResult } from '../internal/shared';
 import { AV_ACTION_HANDLERS } from './handlers';
 
 export const AV_TOOL_NAME = 'av';

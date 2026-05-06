@@ -1,16 +1,16 @@
-import type { SiYuanClient } from '../api/client';
-import type { CategoryToolConfig, MascotAction } from '../core/config';
-import { MASCOT_ACTION_HINTS, MASCOT_GUIDANCE } from '../core/help';
-import type { PermissionManager } from '../core/permissions';
-import { readPuppyStats, spendPuppyBalance } from '../core/puppy-state';
+import type { SiYuanClient } from '../../api/client';
+import type { CategoryToolConfig, MascotAction } from '../../core/config';
+import { MASCOT_ACTION_HINTS, MASCOT_GUIDANCE } from '../../core/help';
+import type { PermissionManager } from '../../core/permissions';
+import { readPuppyStats, spendPuppyBalance } from '../../core/puppy-state';
 import {
     MascotActionSchema,
     MascotBuySchema,
     MascotGetBalanceSchema,
     MascotShopSchema,
-} from '../core/types';
-import { defineTool } from './define-tool';
-import { createJsonResult, createZodActionVariant, type ActionVariant, type ToolResult } from './shared';
+} from '../../core/types';
+import { defineTool } from '../internal/define-tool';
+import { createJsonResult, createZodActionVariant, type ActionVariant, type ToolResult } from '../internal/shared';
 
 export const MASCOT_TOOL_NAME = 'mascot';
 export const SHOP_ITEMS = [

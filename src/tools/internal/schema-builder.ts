@@ -1,4 +1,4 @@
-import { getActionTier, getEnabledActions, isDangerousAction, type CategoryToolConfig, type ToolCategory } from '../core/config';
+import { getActionTier, getEnabledActions, isDangerousAction, type CategoryToolConfig, type ToolCategory } from '../../core/config';
 import { buildActionUsageSummary, buildParameterContract } from './help-render';
 import {
     getSchemaProperties,

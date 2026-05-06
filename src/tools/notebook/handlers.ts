@@ -15,10 +15,10 @@ import {
     NotebookSetIconSchema,
     NotebookSetPermissionSchema,
 } from '../../core/types';
-import { ensurePermissionForNotebook, listChildDocumentsByPath } from '../context';
-import type { ToolActionHandler } from '../define-tool';
-import { createErrorResult, createJsonResult, createPaginatedResult, createSetIconReminder, paginate, type ToolResult } from '../shared';
-import { applyUiRefresh } from '../ui-refresh';
+import { ensurePermissionForNotebook, listChildDocumentsByPath } from '../internal/context';
+import type { ToolActionHandler } from '../internal/define-tool';
+import { createErrorResult, createJsonResult, createPaginatedResult, createSetIconReminder, paginate, type ToolResult } from '../internal/shared';
+import { applyUiRefresh } from '../internal/ui-refresh';
 
 export const NOTEBOOK_TOOL_NAME = 'notebook';
 

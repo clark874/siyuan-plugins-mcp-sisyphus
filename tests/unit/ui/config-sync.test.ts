@@ -16,6 +16,7 @@ describe('setting and mcp config stay behaviorally aligned', () => {
 
     it('keeps exported action metadata aligned', () => {
         expect(settingConfig.TOOL_CATEGORIES).toEqual(mcpConfig.TOOL_CATEGORIES);
+        expect(settingConfig.FS_ACTIONS).toEqual(mcpConfig.FS_ACTIONS);
         expect(settingConfig.NOTEBOOK_ACTIONS).toEqual(mcpConfig.NOTEBOOK_ACTIONS);
         expect(settingConfig.DOCUMENT_ACTIONS).toEqual(mcpConfig.DOCUMENT_ACTIONS);
         expect(settingConfig.BLOCK_ACTIONS).toEqual(mcpConfig.BLOCK_ACTIONS);

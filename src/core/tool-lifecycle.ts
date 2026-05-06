@@ -5,7 +5,7 @@ import { earnPuppyBalance, readPuppyStats, writePuppyEvent } from './puppy-state
 import { getInvocationTransport } from './runtime';
 import { maybeSendTelemetry } from './telemetry';
 import { APPROX_TOKEN_MODE, measureApproxContent, measureApproxText } from './token-usage';
-import type { ToolResult } from '@/tools/shared';
+import type { ToolResult } from '@/tools/internal/shared';
 
 /**
  * Context handed to runToolCall. Enough for the lifecycle wrappers

@@ -17,7 +17,7 @@ SiYuan 提供了约 459 个 HTTP API 端点。如果为每个端点暴露一个�
 
 ### 做出的选择
 
-将相关 API 按领域聚合为 **10 个 MCP tool**：
+将相关 API 按领域聚合为 **11 个 MCP tool**：
 
 | MCP Tool | 覆盖的 SiYuan 领域 | Action 数量 |
 |----------|-------------------|------------|
@@ -42,12 +42,12 @@ notebook(action="rename")
 ### 拒绝的替代方案
 
 - **方案 A：一 API 一 Tool**：每个 SiYuan API 对应一个 MCP tool。拒绝原因：上下文成本过高，LLM 选择困难。
-- **方案 B：完全隐藏 action 层级**：只暴露 10 个 tool，但 action 作为内部实现细节。拒绝原因：LLM 需要知道有哪些操作可用，且不同 action 的参数差异很大，无法隐藏在统一的 schema 下。
+- **方案 B：完全隐藏 action 层级**：只暴露少量 tool，但 action 作为内部实现细节。拒绝原因：LLM 需要知道有哪些操作可用，且不同 action 的参数差异很大，无法隐藏在统一的 schema 下。
 - **方案 C：按使用频率动态展示**：根据上下文只展示相关 tool。拒绝原因：MCP 协议目前没有动态 list_tools 的机制，需要 server 侧维护复杂的状态机。
 
 ### 当前结果
 
-- MCP 工具表面从 100+ 减少到 **10 个**
+- MCP 工具表面从 100+ 减少到 **11 个**
 - `list_tools` 响应大小从约 50KB 减少到约 **8KB**
 - LLM 对工具的可发现性显著提升
 - 每个 action 的参数通过 Zod schema 严格校验，错误率降低
@@ -302,7 +302,7 @@ BUILD_TARGET=cli       →  cli/dist/cli.cjs    (Node.js 环境，独立 CLI)
 
 ### 做出的选择
 
-**统一错误格式化**（`tools/shared.ts: createErrorResult`）：
+**统一错误格式化**（`tools/internal/shared.ts: createErrorResult`）：
 
 ```
 ZodError          → type: "validation_error",  message: "Invalid parameters: ..."

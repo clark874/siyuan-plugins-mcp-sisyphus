@@ -19,7 +19,7 @@ vi.mock('@/api/template', () => ({
     renderSprig: vi.fn(),
 }));
 
-vi.mock('@/tools/context', () => ({
+vi.mock('@/tools/internal/context', () => ({
 
     ensurePermissionForDocumentId: vi.fn(async () => ({
         context: { documentId: 'doc-1', notebook: 'nb-1', path: '/doc-1.sy' },

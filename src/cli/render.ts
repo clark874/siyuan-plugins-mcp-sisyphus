@@ -1,4 +1,4 @@
-import type { ToolResult } from '../tools/shared';
+import type { ToolResult } from '../tools/internal/shared';
 import { isActionHelpPayload, isHelpIndexPayload } from '../shared/help-payload';
 import { translatePresentationPayload, translatePresentationText } from '../shared/invocation-format';
 

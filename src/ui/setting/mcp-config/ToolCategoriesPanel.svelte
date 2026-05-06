@@ -1,6 +1,6 @@
 <script lang="ts">
     import SettingPanel from "../../shared/setting-panel.svelte";
-    import { isDangerousAction, type AvAction, type BlockAction, type DocumentAction, type FileAction, type FlashcardAction, type MascotAction, type NotebookAction, type SearchAction, type SystemAction, type TagAction, type ToolCategory, type ToolConfig } from "../tool-config";
+    import { isDangerousAction, type AvAction, type BlockAction, type DocumentAction, type FileAction, type FlashcardAction, type FsAction, type MascotAction, type NotebookAction, type SearchAction, type SystemAction, type TagAction, type ToolCategory, type ToolConfig } from "../tool-config";
 
     export let config: ToolConfig;
     export let groups: string[];
@@ -14,7 +14,7 @@
 
     interface NotebookInfo { id: string; name: string; }
     interface ChangeEvent { key: string; value: any; }
-    type GroupAction = NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | SystemAction | FlashcardAction | MascotAction;
+    type GroupAction = FsAction | NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | SystemAction | FlashcardAction | MascotAction;
     type NotebookPermission = 'none' | 'r' | 'rw' | 'rwd';
     const VALID_PERMISSIONS: NotebookPermission[] = ['none', 'r', 'rw', 'rwd'];
     const LEGACY_PERMISSION_MAP = {
@@ -35,6 +35,21 @@
     }
 
     const GROUP_DEFINITIONS: GroupDefinition[] = [
+        {
+            category: "fs",
+            icon: "📂",
+            groupKey: "Filesystem",
+            actions: [
+                { key: "ls", title: "List Path", description: "List direct child documents with compact human-readable paths." },
+                { key: "tree", title: "Document Tree", description: "List a recursive document tree using human-readable paths." },
+                { key: "read", title: "Read Markdown", description: "Read a document as plain Markdown by human-readable path." },
+                { key: "write", title: "Write Markdown", description: "Create a document or replace an existing document body with overwrite=true." },
+                { key: "replace", title: "Replace Text", description: "Apply exact old/new text replacement edits inside one Markdown document." },
+                { key: "rm", title: "Remove Document", description: "Delete a document by human-readable path." },
+                { key: "mv", title: "Move Document", description: "Move or rename a document by human-readable paths." },
+                { key: "search", title: "Search Path", description: "Search Markdown lines under a human-readable path." },
+            ],
+        },
         {
             category: "notebook",
             icon: "📚",
@@ -268,6 +283,7 @@
 
 
     let permItems: ISettingItem[] = [];
+    let fsItems: ISettingItem[] = [];
     let notebookItems: ISettingItem[] = [];
     let documentItems: ISettingItem[] = [];
     let blockItems: ISettingItem[] = [];
@@ -284,6 +300,7 @@
     }
 
     $: config, notebooks, permissions, permLoading, getLabel, permItems = buildPermItems();
+    $: config, getLabel, fsItems = buildCategoryItems("fs");
     $: config, getLabel, notebookItems = buildCategoryItems("notebook");
     $: config, getLabel, documentItems = buildCategoryItems("document");
     $: config, getLabel, blockItems = buildCategoryItems("block");
@@ -296,12 +313,13 @@
 </script>
 
 <SettingPanel group={permGroupLabel} settingItems={permItems} display={focusGroup === permGroupLabel} on:changed={onChanged} />
-<SettingPanel group={groups[2]} settingItems={notebookItems} display={focusGroup === groups[2]} on:changed={onChanged} />
-<SettingPanel group={groups[3]} settingItems={documentItems} display={focusGroup === groups[3]} on:changed={onChanged} />
-<SettingPanel group={groups[4]} settingItems={blockItems} display={focusGroup === groups[4]} on:changed={onChanged} />
-<SettingPanel group={groups[5]} settingItems={avItems} display={focusGroup === groups[5]} on:changed={onChanged} />
-<SettingPanel group={groups[6]} settingItems={fileItems} display={focusGroup === groups[6]} on:changed={onChanged} />
-<SettingPanel group={groups[7]} settingItems={searchItems} display={focusGroup === groups[7]} on:changed={onChanged} />
-<SettingPanel group={groups[8]} settingItems={tagItems} display={focusGroup === groups[8]} on:changed={onChanged} />
-<SettingPanel group={groups[9]} settingItems={systemItems} display={focusGroup === groups[9]} on:changed={onChanged} />
-<SettingPanel group={groups[10]} settingItems={flashcardItems} display={focusGroup === groups[10]} on:changed={onChanged} />
+<SettingPanel group={groups[2]} settingItems={fsItems} display={focusGroup === groups[2]} on:changed={onChanged} />
+<SettingPanel group={groups[3]} settingItems={notebookItems} display={focusGroup === groups[3]} on:changed={onChanged} />
+<SettingPanel group={groups[4]} settingItems={documentItems} display={focusGroup === groups[4]} on:changed={onChanged} />
+<SettingPanel group={groups[5]} settingItems={blockItems} display={focusGroup === groups[5]} on:changed={onChanged} />
+<SettingPanel group={groups[6]} settingItems={avItems} display={focusGroup === groups[6]} on:changed={onChanged} />
+<SettingPanel group={groups[7]} settingItems={fileItems} display={focusGroup === groups[7]} on:changed={onChanged} />
+<SettingPanel group={groups[8]} settingItems={searchItems} display={focusGroup === groups[8]} on:changed={onChanged} />
+<SettingPanel group={groups[9]} settingItems={tagItems} display={focusGroup === groups[9]} on:changed={onChanged} />
+<SettingPanel group={groups[10]} settingItems={systemItems} display={focusGroup === groups[10]} on:changed={onChanged} />
+<SettingPanel group={groups[11]} settingItems={flashcardItems} display={focusGroup === groups[11]} on:changed={onChanged} />

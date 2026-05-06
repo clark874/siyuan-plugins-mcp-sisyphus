@@ -1,7 +1,7 @@
 import type { SiYuanClient } from '../api/client';
 import { TOOL_CATEGORIES, type ToolCategory, type ToolConfig } from './config';
 import type { PermissionManager } from './permissions';
-import type { ToolResult } from '@/tools/shared';
+import type { ToolResult } from '@/tools/internal/shared';
 
 import {
     callAvTool,
@@ -9,6 +9,7 @@ import {
     callDocumentTool,
     callFileTool,
     callFlashcardTool,
+    callFsTool,
     callMascotTool,
     callNotebookTool,
     callSearchTool,
@@ -19,6 +20,7 @@ import {
     listDocumentTools,
     listFileTools,
     listFlashcardTools,
+    listFsTools,
     listMascotTools,
     listNotebookTools,
     listSearchTools,
@@ -58,6 +60,7 @@ export interface ToolModule {
 // config type to the erased union. It is safe because we look up by category
 // at runtime and always pass the matching config slice back in.
 export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
+    fs: { category: 'fs', listTools: listFsTools as ToolModule['listTools'], callTool: callFsTool as ToolModule['callTool'] },
     notebook: { category: 'notebook', listTools: listNotebookTools as ToolModule['listTools'], callTool: callNotebookTool as ToolModule['callTool'] },
     document: { category: 'document', listTools: listDocumentTools as ToolModule['listTools'], callTool: callDocumentTool as ToolModule['callTool'] },
     block: { category: 'block', listTools: listBlockTools as ToolModule['listTools'], callTool: callBlockTool as ToolModule['callTool'] },
@@ -70,10 +73,22 @@ export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
     mascot: { category: 'mascot', listTools: listMascotTools as ToolModule['listTools'], callTool: callMascotTool as ToolModule['callTool'] },
 };
 
+export const USER_RULES_TOOL_DESCRIPTION_REMINDER = 'Active user custom rules apply. Check the server instructions or siyuan://help/user-rules before choosing actions.';
+
 export function resolveCategory(name: string): ToolCategory | null {
     return TOOL_CATEGORIES.includes(name as ToolCategory) ? (name as ToolCategory) : null;
 }
 
 export function listAllTools(config: ToolConfig): ToolDescriptor[] {
-    return TOOL_CATEGORIES.flatMap((cat) => TOOL_REGISTRY[cat].listTools(config[cat]));
+    const tools = TOOL_CATEGORIES.flatMap((cat) => TOOL_REGISTRY[cat].listTools(config[cat]));
+    if (!config.userRulesText.trim()) {
+        return tools;
+    }
+
+    return tools.map((tool) => ({
+        ...tool,
+        description: tool.description
+            ? `${tool.description}\n\n${USER_RULES_TOOL_DESCRIPTION_REMINDER}`
+            : USER_RULES_TOOL_DESCRIPTION_REMINDER,
+    }));
 }

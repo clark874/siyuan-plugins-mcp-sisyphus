@@ -19,19 +19,22 @@ export function buildServerInstructions(userRulesText = ''): string {
     const formattedUserRules = formatUserRules(userRulesText);
     const userRulesPrioritySection = formattedUserRules
         ? `
-## User custom rules priority
+# Active user custom rules
 
-When applicable, you MUST follow these user custom rules as a higher-priority preference layer than the general usage suggestions below.
-- If a user custom rule conflicts with a general recommendation in these instructions, follow the user custom rule unless that would violate a safety or confirmation requirement.
-- Before calling tools or generating SiYuan content, quickly check whether the action should follow one of these user custom rules.
+These user custom rules are active for this MCP session. Apply them before choosing tools or generating SiYuan content.
+- User custom rules are a higher-priority preference layer than the general usage suggestions below.
+- User custom rules do not override safety confirmation requirements, notebook permissions, disabled tools, or disabled actions.
+- If a user custom rule conflicts with a general recommendation in these instructions, follow the user custom rule unless it would violate one of those hard limits.
+- If the configured rules change, the client must reconnect or the MCP HTTP server must restart before updated rules enter initialize-time instructions.
+- To re-check the current configured rules, read \`siyuan://help/user-rules\`.
 
-## User custom rules
+## Rule list
 
 ${formattedUserRules}
 `
         : '';
     const userRulesReminder = formattedUserRules
-        ? '\nUser custom rules override the general style and workflow suggestions below when they apply.\n'
+        ? '\nActive user custom rules override the general style and workflow suggestions below when they apply. Re-check siyuan://help/user-rules if current preferences matter.\n'
         : '';
     return `
 ${userRulesPrioritySection}
@@ -40,9 +43,21 @@ ${userRulesPrioritySection}
 
 Each tool exposes common actions in its description. For detailed help on any action (including advanced ones):
 - Read MCP resources: siyuan://help/action/{tool}/{action}, siyuan://help/tool-overview, siyuan://help/document-path-semantics, siyuan://help/examples, siyuan://help/ai-layout-guide
+- Read siyuan://help/user-rules when user-specific preferences may affect tool choice, naming, formatting, icon behavior, or content style.
 - If your client cannot read siyuan:// resources, call any tool with action=”help” to get the same guidance (actions, required fields, hints, and examples).
 
 ## Path semantics (critical — the most common error source)
+
+For basic path-style notebook and document operations, use \`fs\` whenever the task can be expressed with a human-readable workspace path. Treat \`fs\` as the default virtual filesystem interface:
+- List direct children: \`fs(action="ls", path="/Notebook/Folder")\`
+- List a recursive tree: \`fs(action="tree", path="/Notebook/Folder")\`
+- Read Markdown: \`fs(action="read", path="/Notebook/Folder/Doc")\`
+- Create or overwrite a document body: \`fs(action="write", path="/Notebook/Folder/Doc", markdown="...", overwrite=true)\`
+- Replace exact text in one document: \`fs(action="replace", path="/Notebook/Folder/Doc", edit={ old: "...", new: "..." })\`
+- Search Markdown under a path: \`fs(action="search", path="/Notebook/Folder", query="...")\`
+- Delete, move, or rename by path: \`fs(action="rm", path="/Notebook/Folder/Doc")\`, \`fs(action="mv", from="/Notebook/Old", to="/Notebook/New")\` after explicit confirmation.
+
+\`fs\` paths are human-readable workspace paths and \`fs\` hides notebook IDs, block IDs, and storage paths. Prefer \`fs\` for basic browse/read/write/edit/search/move/delete workflows. Use the lower-level \`document\`, \`block\`, \`search\`, and \`av\` tools only when you need SiYuan-specific block layout, metadata, SQL, backlinks, assets, database operations, or direct block IDs.
 
 There are exactly two path types. Do not mix them.
 

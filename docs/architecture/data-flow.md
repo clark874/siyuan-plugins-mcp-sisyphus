@@ -17,11 +17,11 @@ getToolConfig()  [30s TTL cache / in-flight deduplication]
     ↓ Read from SiYuan storage /data/storage/petal/.../mcpToolsConfig
     ↓ normalizeToolConfig(raw)  [Three-format compatibility migration]
 listAllTools(config)
-    ↓ Iterate over 10 categories in TOOL_REGISTRY
+    ↓ Iterate over 11 categories in TOOL_REGISTRY
     ↓ For each module: module.listTools(config[category])
-        ↓ tools/define-tool.ts: listTools()
+        ↓ tools/internal/define-tool.ts: listTools()
             ↓ Filter enabled actions
-            ↓ tools/shared.ts: buildAggregatedTool(category, description, config, variants)
+            ↓ tools/internal/shared.ts: buildAggregatedTool(category, description, config, variants)
                 ↓ Merge all enabled action schemas into single ToolDescriptor
                 ↓ Inject common actions hint + dangerous warning into description
     ↓ Flatten and return ToolDescriptor[]
@@ -101,7 +101,7 @@ For operations involving notebook-scoped data, permission checks happen **inside
 ```
 Handler execution
     ↓
-tools/context.ts: ensurePermissionForDocumentId(client, permMgr, id, "write")
+tools/internal/context.ts: ensurePermissionForDocumentId(client, permMgr, id, "write")
     ↓
 resolveDocumentContextById(client, id) → Query SQL/API for notebookId
     ↓

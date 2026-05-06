@@ -12,6 +12,7 @@ describe('core/resources', () => {
             'siyuan://help/examples',
             'siyuan://help/document-path-semantics',
             'siyuan://help/ai-layout-guide',
+            'siyuan://help/user-rules',
         ]));
         expect(resources.every((resource) => resource.mimeType === 'text/markdown')).toBe(true);
         expect(templates).toEqual(expect.arrayContaining([
@@ -31,9 +32,22 @@ describe('core/resources', () => {
             mimeType: 'text/markdown',
         }));
         expect(overview?.text).toContain('# SiYuan MCP Tool Overview');
+        expect(overview?.text).toContain('Use `fs` first for basic path-style notebook and document operations');
+        expect(overview?.text).toContain('fs(action="ls"|"tree"|"read"|"write"|"replace"|"search"|"rm"|"mv")');
         expect(action?.text).toContain('# notebook(action="create")');
         expect(action?.text).toContain('## Valid shapes');
         expect(action?.text).toContain('```json');
+    });
+
+    it('renders dynamic user rules resources with empty and configured states', () => {
+        const empty = readHelpResource('siyuan://help/user-rules');
+        const configured = readHelpResource('siyuan://help/user-rules', 'Rule one\n\nRule two');
+
+        expect(empty?.text).toContain('No user custom rules are currently configured.');
+        expect(empty?.text).toContain('- None');
+        expect(configured?.text).toContain('- Rule one');
+        expect(configured?.text).toContain('- Rule two');
+        expect(configured?.text).toContain('do not override safety confirmation requirements');
     });
 
     it('returns null for unknown URIs and actions', () => {

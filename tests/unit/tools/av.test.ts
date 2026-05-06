@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { callAvTool, listAvTools } from '@/tools/av';
-import type { ToolResult } from '@/tools/shared';
+import type { ToolResult } from '@/tools/internal/shared';
 
-vi.mock('@/tools/context', () => ({
+vi.mock('@/tools/internal/context', () => ({
     ensurePermissionForDocumentId: vi.fn(async () => ({
         context: { documentId: 'doc-1', notebook: 'nb-1', path: '/doc-1.sy' },
         denied: null,
@@ -64,7 +64,7 @@ describe('av tool', () => {
 
     beforeEach(async () => {
         const avApi = await import('@/api/av');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const blockApi = await import('@/api/block');
         const searchApi = await import('@/api/search');
         const transactionApi = await import('@/api/transaction');
@@ -462,7 +462,7 @@ describe('av tool', () => {
     it('uses explicit blockID permission context for set_cells while keeping row validation intact', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const transactionApi = await import('@/api/transaction');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -538,7 +538,7 @@ describe('av tool', () => {
     it('uses explicit blockID to resolve get permissions for an empty AV', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
 
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -570,7 +570,7 @@ describe('av tool', () => {
     it('auto-resolves get permissions for an empty AV from SQL database block matches', async () => {
         const avApi = await import('@/api/av');
         const searchApi = await import('@/api/search');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
 
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -669,7 +669,7 @@ describe('av tool', () => {
 
     it('filters unreadable AV search results', async () => {
         const avApi = await import('@/api/av');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
 
         vi.mocked(avApi.searchAttributeView).mockResolvedValue({
             results: [{ id: 'av-a' }, { id: 'av-b' }],
@@ -703,7 +703,7 @@ describe('av tool', () => {
 
     it('reports unresolved AV search results separately from permission filtering', async () => {
         const avApi = await import('@/api/av');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
 
         vi.mocked(avApi.searchAttributeView).mockResolvedValue({
             results: [{ id: 'av-a' }],
@@ -737,7 +737,7 @@ describe('av tool', () => {
 
     it('resolves AV search results by blockID when kernel results include database blocks', async () => {
         const avApi = await import('@/api/av');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
 
         vi.mocked(avApi.searchAttributeView).mockResolvedValue({
             results: [{ avID: 'av-a', avName: '测试', blockID: 'db-block-1' }],
@@ -770,7 +770,7 @@ describe('av tool', () => {
 
     it('falls back to primary key search when name search misses AV row content', async () => {
         const avApi = await import('@/api/av');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         client.request = vi.fn(async (endpoint: string) => {
             if (endpoint === '/api/file/readDir') {
                 return [{ isDir: false, name: '20260407011715-lmkb6df.json' }];
@@ -919,7 +919,7 @@ describe('av tool', () => {
     it('uses explicit blockID permission context for add_column on an empty AV', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const transactionApi = await import('@/api/transaction');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -1108,7 +1108,7 @@ describe('av tool', () => {
     it('uses explicit blockID permission context for remove_column on an empty AV', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const transactionApi = await import('@/api/transaction');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -1619,7 +1619,7 @@ describe('av tool', () => {
     it('uses explicit blockID permission context for remove_rows on an empty AV', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const transactionApi = await import('@/api/transaction');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -1724,7 +1724,7 @@ describe('av tool', () => {
     it('uses explicit blockID permission context for set_cells while keeping row validation intact', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const transactionApi = await import('@/api/transaction');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -1951,7 +1951,7 @@ describe('av tool', () => {
     it('uses explicit blockID to duplicate an empty AV and insert after that database block', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const transactionApi = await import('@/api/transaction');
 
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
@@ -2004,7 +2004,7 @@ describe('av tool', () => {
     it('auto-resolves duplicate insertion for an empty AV from SQL database block matches', async () => {
         const avApi = await import('@/api/av');
         const searchApi = await import('@/api/search');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const transactionApi = await import('@/api/transaction');
 
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
@@ -2204,7 +2204,7 @@ describe('av tool', () => {
 
     it('returns filtered primary key values', async () => {
         const avApi = await import('@/api/av');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         vi.mocked(avApi.getAttributeViewPrimaryKeyValues).mockResolvedValue({
             name: '记账',
             blockIDs: ['block-a', 'block-b'],
@@ -2281,7 +2281,7 @@ describe('av tool', () => {
     it('renders and initializes a new attribute view using blockID as permission context', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const transactionApi = await import('@/api/transaction');
 
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
@@ -2362,7 +2362,7 @@ describe('av tool', () => {
     it('auto-generates an avID and materializes the database block when creating without id', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const transactionApi = await import('@/api/transaction');
 
         vi.mocked(avApi.renderAttributeView).mockImplementation(async (_clientArg, payload) => ({
@@ -2414,7 +2414,7 @@ describe('av tool', () => {
     it('initializes a missing attribute view using blockID as permission context', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const transactionApi = await import('@/api/transaction');
 
         vi.mocked(avApi.getAttributeView).mockRejectedValue(new Error('attribute view "av-missing" not found'));
@@ -2503,7 +2503,7 @@ describe('av tool', () => {
     it('returns permission denied when new AV creation blockID is unreadable', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
         const deniedResult: ToolResult = {
             isError: true,
             content: [{
@@ -2643,7 +2643,7 @@ describe('av tool', () => {
 
     it('skips stale mirror block refs when resolving AV permissions', async () => {
         const avApi = await import('@/api/av');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
 
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -2677,7 +2677,7 @@ describe('av tool', () => {
 
     it('skips a stale first-row block and falls back to mirror refs', async () => {
         const avApi = await import('@/api/av');
-        const context = await import('@/tools/context');
+        const context = await import('@/tools/internal/context');
 
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {

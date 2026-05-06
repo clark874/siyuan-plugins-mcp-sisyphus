@@ -1,7 +1,8 @@
-export const TOOL_CATEGORIES = ['notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot'] as const;
+export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot'] as const;
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
+export const FS_ACTIONS = ['ls', 'tree', 'read', 'write', 'replace', 'rm', 'mv', 'search'] as const;
 export const NOTEBOOK_ACTIONS = ['list', 'create', 'set_open_state', 'remove', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'set_permission', 'get_child_docs'] as const;
 export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'remove', 'move', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'heading_to_doc', 'doc_to_heading'] as const;
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info'] as const;
@@ -13,6 +14,7 @@ export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'g
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 
+export type FsAction = typeof FS_ACTIONS[number];
 export type NotebookAction = typeof NOTEBOOK_ACTIONS[number];
 export type DocumentAction = typeof DOCUMENT_ACTIONS[number];
 export type BlockAction = typeof BLOCK_ACTIONS[number];
@@ -25,6 +27,7 @@ export type FlashcardAction = typeof FLASHCARD_ACTIONS[number];
 export type MascotAction = typeof MASCOT_ACTIONS[number];
 
 export type ToolActionMap = {
+    fs: FsAction;
     notebook: NotebookAction;
     document: DocumentAction;
     block: BlockAction;
@@ -47,6 +50,7 @@ export interface FileCategoryToolConfig<Action extends string = string> extends 
 }
 
 export type ToolConfig = {
+    fs: CategoryToolConfig<FsAction>;
     notebook: CategoryToolConfig<NotebookAction>;
     document: CategoryToolConfig<DocumentAction>;
     block: CategoryToolConfig<BlockAction>;
@@ -64,6 +68,7 @@ export const MCP_TOOLS_CONFIG_API_PATH = '/data/storage/petal/siyuan-plugins-mcp
 const EMITTED_TOOL_CONFIG_WARNINGS = new Set<string>();
 
 export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolActionMap[Category][] } = {
+    fs: FS_ACTIONS,
     notebook: NOTEBOOK_ACTIONS,
     document: DOCUMENT_ACTIONS,
     block: BLOCK_ACTIONS,
@@ -79,6 +84,11 @@ export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolAct
 export type ActionTier = 'basic' | 'advanced';
 
 const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
+    fs: {
+        ls: 'basic', tree: 'basic', read: 'basic', write: 'basic', replace: 'basic',
+        search: 'basic',
+        rm: 'advanced', mv: 'advanced',
+    },
     notebook: {
         list: 'basic', create: 'basic', set_open_state: 'basic',
         rename: 'basic', get_conf: 'basic', get_child_docs: 'basic',
@@ -147,6 +157,7 @@ export function getActionTier(category: ToolCategory, action: string): ActionTie
 }
 
 export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
+    fs: new Set(['rm', 'mv']),
     notebook: new Set(['remove', 'set_permission']),
     document: new Set(['remove', 'move']),
     block: new Set(['delete', 'move']),
@@ -172,6 +183,10 @@ const createActionsRecord = <Action extends string>(
 
 export function buildDefaultToolConfig(): ToolConfig {
     return {
+        fs: {
+            enabled: true,
+            actions: createActionsRecord(FS_ACTIONS, ['ls', 'tree', 'read', 'write', 'replace', 'rm', 'mv', 'search']),
+        },
         notebook: {
             enabled: true,
             actions: createActionsRecord(NOTEBOOK_ACTIONS, ['list', 'create', 'set_open_state', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'get_child_docs']),

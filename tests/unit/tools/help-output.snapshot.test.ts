@@ -8,6 +8,10 @@ import { parseResult } from '../../helpers/parse-result';
 
 function createAllEnabledConfig(): ToolConfig {
     return {
+        fs: {
+            enabled: true,
+            actions: Object.fromEntries(ACTIONS_BY_CATEGORY.fs.map((action) => [action, true])) as ToolConfig['fs']['actions'],
+        },
         notebook: {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.notebook.map((action) => [action, true])) as ToolConfig['notebook']['actions'],

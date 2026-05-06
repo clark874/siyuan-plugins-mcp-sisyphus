@@ -28,6 +28,7 @@
 
 3. **工具实现**（`src/tools/`）
    - 新建 `src/tools/{category}/index.ts` + `src/tools/{category}/handlers.ts`
+   - 工具层共享基础设施放在 `src/tools/internal/`；跨工具 helper 放在 `src/tools/internal/helpers/`
    - 使用 `defineTool()` 工厂定义工具：
      ```typescript
      export const { listTools: listXxxTools, callTool: callXxxTool } = defineTool({
@@ -37,7 +38,7 @@
      });
      ```
    - 每个 variant 包含：`action`（动作名）、`description`（描述）、`schema`（Zod schema）、`handler`（业务逻辑）
-   - handler 中需要权限检查时，使用 `tools/context.ts` 中的 `ensurePermissionForDocumentId` / `ensurePermissionForNotebook`
+   - handler 中需要权限检查时，使用 `tools/internal/context.ts` 中的 `ensurePermissionForDocumentId` / `ensurePermissionForNotebook`
 
 4. **注册表注册**（`src/core/tool-registry.ts`）
    - 在 `TOOL_REGISTRY` 中新增条目：
@@ -57,12 +58,12 @@
    - 添加对应的 i18n 文本
 
 8. **测试**
-   - `tests/unit/mcp/tools/{category}.test.ts`：覆盖每个 action 的 schema 和 handler
+   - `tests/unit/tools/{category}.test.ts`：覆盖每个 action 的 schema 和 handler
    - `tests/integration/server.test.ts`：确保新 tool 出现在 `listTools()` 中
    - `tests/unit/cli/flag-mapper.test.ts`：若 CLI 暴露新 flag，验证映射
 
 9. **文档**
-   - `docs/zh/reference/tools/{category}.md` 和 `docs/en/reference/tools/{category}.md`
+   - `docs/reference/tools/{category}.md` 和 `docs/zh/reference/tools/{category}.md`
    - 更新 `API_MCP_MAPPING.md`
 
 #### 依赖关系
@@ -70,7 +71,7 @@
 ```
 api/{category}.ts  →  types/api.d.ts
      ↓
-tools/{category}/index.ts → define-tool.ts → shared.ts → config.ts + help.ts + types.ts
+tools/{category}/index.ts → tools/internal/define-tool.ts → tools/internal/shared.ts → config.ts + help.ts + types.ts
      ↓
 tool-registry.ts
      ↓
@@ -87,7 +88,7 @@ resources.ts (可选)
 2. **配置定义**：在 `src/core/config.ts` 的 `ACTIONS_BY_CATEGORY[category]` 中新增 action 名
 3. **工具实现**：在对应 `src/tools/{category}/index.ts` 的 `variants` 数组中新增 variant
 4. **帮助文案**：在 `src/core/help.ts` 中添加 action hint
-5. **测试**：在 `tests/unit/mcp/tools/{category}.test.ts` 中覆盖新 action
+5. **测试**：在 `tests/unit/tools/{category}.test.ts` 中覆盖新 action
 6. **文档**：更新对应参考页和 `API_MCP_MAPPING.md`
 
 **注意**：tool description 和 config action 列表**必须保持一致**。如果 action 在 config 中列出但未在 variants 中实现，或反之，都会导致运行时错误或不一致的用户体验。
@@ -201,7 +202,7 @@ CLI 的结果渲染在 `src/cli/render.ts` 中。如需支持新的 payload 类�
 | **权限检查** | ✓（若涉及 notebook-scoped mutation） | mock 不同权限级别，验证拦截行为 |
 | **Help 输出** | ✓ | `action="help"` 返回正确的帮助内容 |
 | **集成测试** | ✓ | 新 tool 出现在 `listTools()` 结果中；端到端调用返回预期结果 |
-| **Schema 快照** | 建议 | `tests/unit/mcp/tools/help-output.snapshot.test.ts` 锁定 help 输出 |
+| **Schema 快照** | 建议 | `tests/unit/tools/help-output.snapshot.test.ts` 锁定 help 输出 |
 | **CLI Flag 映射** | 建议（若 CLI 暴露新 flag） | 验证 kebab↔camel 映射和类型强转 |
 
 ### 测试运行命令

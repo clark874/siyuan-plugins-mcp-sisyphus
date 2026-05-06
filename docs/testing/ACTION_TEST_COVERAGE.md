@@ -1,6 +1,6 @@
 # Action Test Coverage
 
-本文档记录当前源码中 10 个聚合工具 action 的自动化测试覆盖口径。它补充 `AI_INTERFACE_TEST.md` 的人工/真实思源回归流程，重点回答一个问题：
+本文档记录当前源码中 11 个聚合工具 action 的自动化测试覆盖口径。它补充 `AI_INTERFACE_TEST.md` 的人工/真实思源回归流程，重点回答一个问题：
 
 > 每个已声明 action 是否至少有一条自动化测试能跑到运行时调用路径？
 
