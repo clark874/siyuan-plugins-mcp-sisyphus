@@ -260,6 +260,15 @@
                 userRulesText: typeof value === "string" ? value : String(value ?? ""),
             };
             await persistConfig();
+            try {
+                const restarted = await plugin?.refreshHttpServerAfterUserRulesChange?.();
+                showMessage(restarted
+                    ? getLabel("user_rules_http_restarted", "MCP HTTP server restarted. Reconnect or refresh connected MCP clients to apply updated user rules.")
+                    : getLabel("user_rules_saved_reconnect", "User rules saved. Reconnect or refresh MCP clients to apply updated initialize instructions."));
+            } catch (err) {
+                console.error("[MCP] refresh after user rules change failed:", err);
+                showMessage(getLabel("user_rules_refresh_failed", "User rules saved, but MCP HTTP server restart failed. Reconnect or restart it manually to apply updated rules."));
+            }
             return;
         }
 

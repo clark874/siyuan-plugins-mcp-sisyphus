@@ -127,6 +127,44 @@ describe('HTTP settings sync', () => {
         }));
     });
 
+    it('restarts a running HTTP server after user rules change', async () => {
+        const getStatus = vi.fn(() => ({ running: true, host: '127.0.0.1', port: 36806 }));
+        plugin.httpLauncher = {
+            start: launcherStart,
+            stop: launcherStop,
+            getStatus,
+        } as any;
+        plugin.httpSettings = {
+            enabled: true,
+            host: '127.0.0.1',
+            port: 36806,
+            token: 'rules-token',
+            authEnabled: true,
+            tlsEnabled: false,
+            tlsCertFile: '',
+            tlsKeyFile: '',
+            tlsCaFile: '',
+        };
+
+        const restarted = await plugin.refreshHttpServerAfterUserRulesChange();
+
+        expect(restarted).toBe(true);
+        expect(launcherStop).toHaveBeenCalledTimes(1);
+        expect(launcherStart).toHaveBeenCalledWith(expect.objectContaining({
+            host: '127.0.0.1',
+            port: 36806,
+            token: 'rules-token',
+        }));
+    });
+
+    it('does not restart a stopped HTTP server after user rules change', async () => {
+        const restarted = await plugin.refreshHttpServerAfterUserRulesChange();
+
+        expect(restarted).toBe(false);
+        expect(launcherStop).not.toHaveBeenCalled();
+        expect(launcherStart).not.toHaveBeenCalled();
+    });
+
     it('starts stopped server when auto-start is enabled in new settings', async () => {
         const next: HttpServerSettings = {
             enabled: true,

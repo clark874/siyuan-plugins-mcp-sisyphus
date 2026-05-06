@@ -70,10 +70,22 @@ export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
     mascot: { category: 'mascot', listTools: listMascotTools as ToolModule['listTools'], callTool: callMascotTool as ToolModule['callTool'] },
 };
 
+export const USER_RULES_TOOL_DESCRIPTION_REMINDER = 'Active user custom rules apply. Check the server instructions or siyuan://help/user-rules before choosing actions.';
+
 export function resolveCategory(name: string): ToolCategory | null {
     return TOOL_CATEGORIES.includes(name as ToolCategory) ? (name as ToolCategory) : null;
 }
 
 export function listAllTools(config: ToolConfig): ToolDescriptor[] {
-    return TOOL_CATEGORIES.flatMap((cat) => TOOL_REGISTRY[cat].listTools(config[cat]));
+    const tools = TOOL_CATEGORIES.flatMap((cat) => TOOL_REGISTRY[cat].listTools(config[cat]));
+    if (!config.userRulesText.trim()) {
+        return tools;
+    }
+
+    return tools.map((tool) => ({
+        ...tool,
+        description: tool.description
+            ? `${tool.description}\n\n${USER_RULES_TOOL_DESCRIPTION_REMINDER}`
+            : USER_RULES_TOOL_DESCRIPTION_REMINDER,
+    }));
 }

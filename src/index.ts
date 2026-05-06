@@ -114,6 +114,23 @@ export default class SiyuanMCP extends Plugin {
         return this.httpSettings;
     }
 
+    async refreshHttpServerAfterUserRulesChange(): Promise<boolean> {
+        const wasRunning = this.httpLauncher?.getStatus().running ?? false;
+        if (!wasRunning) {
+            return false;
+        }
+        if (!hasValidHttpTlsFiles(this.httpSettings)) {
+            throw new Error("HTTPS requires both certificate and key file paths.");
+        }
+        try {
+            await this.stopHttpServer();
+        } catch (err) {
+            console.error("[MCP] stop before user rules refresh failed:", err);
+        }
+        await this.startHttpServer();
+        return true;
+    }
+
     onLayoutReady() {
         this.puppyContainer = document.createElement('div');
         this.puppyContainer.id = 'sy-puppy-root';
