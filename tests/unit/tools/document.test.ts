@@ -126,14 +126,24 @@ describe('document.lookup path compatibility', () => {
         );
         const payload = parseResult(result) as Record<string, unknown>;
 
-        expect(payload.notebook).toBe('nb-1');
-        expect(payload.notebookName).toBe('Project Notes');
-        expect(payload.id).toBe('doc-1');
+        expect(payload).toEqual({
+            humanPath: {
+                notebookName: 'Project Notes',
+                hPath: '/Projects/Plan',
+            },
+            idPath: {
+                notebook: 'nb-1',
+                path: '/doc-1.sy',
+            },
+        });
     });
 
     it('interprets non-storage path input as hpath and returns the storage path', async () => {
         const client = createMockClient({
             request: vi.fn(async (endpoint: string) => {
+                if (endpoint === '/api/notebook/lsNotebooks') {
+                    return { notebooks: [{ id: 'nb-1', name: 'Project Notes', icon: '', sort: 0, closed: false }] };
+                }
                 if (endpoint === '/api/filetree/getIDsByHPath') return ['doc-1'];
                 if (endpoint === '/api/filetree/getPathByID') return { notebook: 'nb-1', path: '/doc-1.sy' };
                 throw new Error(`Unexpected endpoint: ${endpoint}`);
@@ -154,10 +164,16 @@ describe('document.lookup path compatibility', () => {
         const payload = parseResult(result) as Record<string, unknown>;
 
         expect(result.isError).toBeUndefined();
-        expect(payload.id).toBe('doc-1');
-        expect(payload.path).toEqual({ notebook: 'nb-1', path: '/doc-1.sy' });
-        expect(payload.hPath).toBe('/AI Interface Root 20260427_144409');
-        expect(payload.interpretedPathAs).toBe('hpath');
+        expect(payload).toEqual({
+            humanPath: {
+                notebookName: 'Project Notes',
+                hPath: '/AI Interface Root 20260427_144409',
+            },
+            idPath: {
+                notebook: 'nb-1',
+                path: '/doc-1.sy',
+            },
+        });
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/getHPathByPath', expect.anything());
     });
 });

@@ -277,12 +277,12 @@
             return;
         }
 
-        if (key === "debug__includeUiRefreshMetadata") {
+        if (key === "debug__slimResponses") {
             config = {
                 ...config,
                 debug: {
                     ...config.debug,
-                    includeUiRefreshMetadata: Boolean(value),
+                    slimResponses: Boolean(value),
                 },
             };
             await persistConfig();

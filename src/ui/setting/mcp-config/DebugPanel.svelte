@@ -16,10 +16,10 @@
         return [
             {
                 type: "checkbox",
-                key: "debug__includeUiRefreshMetadata",
-                value: config.debug.includeUiRefreshMetadata,
-                title: getLabel("debug_includeUiRefreshMetadata_title", "Show UI Refresh Metadata"),
-                description: getLabel("debug_includeUiRefreshMetadata_desc", "Include uiRefresh details in successful MCP tool responses. Keep this off for normal agent use; UI refresh still runs either way."),
+                key: "debug__slimResponses",
+                value: config.debug.slimResponses,
+                title: getLabel("debug_slimResponses_title", "Slim Responses"),
+                description: getLabel("debug_slimResponses_desc", "Return only the data an agent usually needs. Turn this off to inspect full debug fields, pagination internals, UI refresh metadata, and raw helper metadata."),
             },
             {
                 type: "checkbox",

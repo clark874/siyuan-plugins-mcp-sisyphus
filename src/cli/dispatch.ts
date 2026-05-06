@@ -67,7 +67,7 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
                     action: normalizedAction,
                     args: payload,
                     requestText,
-                    includeUiRefreshMetadata: toolConfig.debug.includeUiRefreshMetadata || cli.debug,
+                    slimResponses: toolConfig.debug.slimResponses && !cli.debug,
                 },
                 () => module.callTool(client, payload, toolConfig[category], permMgr),
             );

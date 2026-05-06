@@ -18,8 +18,8 @@
     "mcpApiUrlDesc": "思源 API 端点地址",
     "mcpToolsSettingTitle": "工具设置",
     "debugGroupTitle": "调试",
-    "debug_includeUiRefreshMetadata_title": "显示 UI 刷新元数据",
-    "debug_includeUiRefreshMetadata_desc": "在成功的 MCP 工具响应中包含 uiRefresh 详情。正常给 Agent 使用时建议关闭；无论是否显示，UI 刷新都会照常执行。",
+    "debug_slimResponses_title": "精简响应",
+    "debug_slimResponses_desc": "只返回 Agent 通常需要的数据。关闭后可查看完整调试字段、分页内部字段、UI 刷新元数据和原始辅助元数据。",
     "hello": {
         "makesure": "使用这个模板之前，请阅读<a href=\"https://github.com/siyuan-note/plugin-sample\">官方教程</a>, 确保自己已经理解了插件的基本开发流程。"
     },

@@ -54,6 +54,10 @@ function createAllEnabledConfig(): ToolConfig {
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.mascot.map((action) => [action, true])) as ToolConfig['mascot']['actions'],
         },
         userRulesText: '',
+        debug: {
+            includeUiRefreshMetadata: false,
+            slimResponses: true,
+        },
     };
 }
 

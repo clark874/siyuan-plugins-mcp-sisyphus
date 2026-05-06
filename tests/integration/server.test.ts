@@ -314,9 +314,9 @@ describe('MCP Server Integration', () => {
             await metadataClient.close();
         });
 
-        it('includes successful uiRefresh metadata when the debug switch is enabled', async () => {
+        it('includes successful uiRefresh metadata when slim responses are disabled', async () => {
             const metadataClient = await createClientWithStoredConfig({
-                debug: { includeUiRefreshMetadata: true },
+                debug: { slimResponses: false },
             });
 
             const result = await metadataClient.callTool({

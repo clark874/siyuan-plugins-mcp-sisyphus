@@ -133,7 +133,7 @@ export async function createSiYuanServer(): Promise<Server> {
                 action,
                 args,
                 requestText: JSON.stringify({ name, arguments: args ?? {} }),
-                includeUiRefreshMetadata: config.debug.includeUiRefreshMetadata,
+                slimResponses: config.debug.slimResponses,
             },
             () => module.callTool(client, args, config[category], permMgr),
         );

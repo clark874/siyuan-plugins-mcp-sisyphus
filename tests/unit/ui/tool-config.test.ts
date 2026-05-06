@@ -20,6 +20,7 @@ describe('setting tool config', () => {
         expect(config.mascot.actions.buy).toBe(true);
         expect(config.userRulesText).toBe('创建文档/日记后主动设图标');
         expect(config.debug.includeUiRefreshMetadata).toBe(false);
+        expect(config.debug.slimResponses).toBe(true);
     });
 
     it('keeps nested file config action toggles and upload threshold together', () => {
@@ -137,10 +138,12 @@ describe('setting tool config', () => {
         const config = normalizeToolConfig({
             debug: {
                 includeUiRefreshMetadata: true,
+                slimResponses: false,
             },
         });
 
         expect(config.debug.includeUiRefreshMetadata).toBe(true);
+        expect(config.debug.slimResponses).toBe(false);
     });
 
     it('ignores legacy flat and category config formats', () => {

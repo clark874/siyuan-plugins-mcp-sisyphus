@@ -3,6 +3,7 @@ import { appendAnalyticsEvent, estimateResultSizeHint, extractErrorCode, truncat
 import type { ToolCategory } from './config';
 import { earnPuppyBalance, readPuppyStats, writePuppyEvent } from './puppy-state';
 import { getInvocationTransport } from './runtime';
+import { slimToolResult } from './slim-response';
 import { maybeSendTelemetry } from './telemetry';
 import { APPROX_TOKEN_MODE, measureApproxContent, measureApproxText } from './token-usage';
 import type { ToolResult } from '@/tools/internal/shared';
@@ -20,6 +21,7 @@ export interface ToolCallContext {
     args: Record<string, unknown> | undefined;
     requestText?: string;
     includeUiRefreshMetadata?: boolean;
+    slimResponses?: boolean;
 }
 
 function buildAnalyticsEvent(
@@ -162,7 +164,14 @@ export async function runToolCall(
         maybeSendTelemetry(client).catch(() => { /* never block on telemetry */ });
         throw error;
     }
-    result = filterUiRefreshMetadata(result, ctx.includeUiRefreshMetadata);
+    if (ctx.slimResponses) {
+        result = slimToolResult(result, {
+            category,
+            action,
+        });
+    } else if (ctx.slimResponses === undefined) {
+        result = filterUiRefreshMetadata(result, ctx.includeUiRefreshMetadata);
+    }
 
     const postStats = category === 'mascot' ? await readPuppyStats(client) : preStats;
     const mascotMeta = category === 'mascot' ? extractMascotEventMeta(result) : {};

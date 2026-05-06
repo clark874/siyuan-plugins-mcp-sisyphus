@@ -51,6 +51,7 @@ export interface FileCategoryToolConfig<Action extends string = string> extends 
 
 export interface DebugToolConfig {
     includeUiRefreshMetadata: boolean;
+    slimResponses: boolean;
 }
 
 export type ToolConfig = {
@@ -236,6 +237,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         userRulesText: '创建文档/日记后主动设图标',
         debug: {
             includeUiRefreshMetadata: false,
+            slimResponses: true,
         },
     };
 }
@@ -322,8 +324,13 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
     if (typeof raw.userRulesText === 'string') {
         config.userRulesText = raw.userRulesText;
     }
-    if (isRecord(raw.debug) && typeof raw.debug.includeUiRefreshMetadata === 'boolean') {
-        config.debug.includeUiRefreshMetadata = raw.debug.includeUiRefreshMetadata;
+    if (isRecord(raw.debug)) {
+        if (typeof raw.debug.includeUiRefreshMetadata === 'boolean') {
+            config.debug.includeUiRefreshMetadata = raw.debug.includeUiRefreshMetadata;
+        }
+        if (typeof raw.debug.slimResponses === 'boolean') {
+            config.debug.slimResponses = raw.debug.slimResponses;
+        }
     }
 
     for (const category of TOOL_CATEGORIES) {

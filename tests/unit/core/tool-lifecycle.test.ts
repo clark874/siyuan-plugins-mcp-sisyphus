@@ -138,7 +138,7 @@ describe('mcp/tool-lifecycle', () => {
         });
     });
 
-    it('keeps successful uiRefresh metadata when the debug switch is enabled', async () => {
+    it('keeps successful uiRefresh metadata when slim responses are disabled', async () => {
         const result = await runToolCall(
             {
                 client: {} as never,
@@ -146,7 +146,7 @@ describe('mcp/tool-lifecycle', () => {
                 name: 'notebook',
                 action: 'rename',
                 args: { action: 'rename' },
-                includeUiRefreshMetadata: true,
+                slimResponses: false,
             },
             async () => ({
                 content: [{
@@ -192,5 +192,177 @@ describe('mcp/tool-lifecycle', () => {
 
         const payload = JSON.parse(result.content[0].text);
         expect(payload.uiRefresh.partialFailure).toEqual([{ type: 'reloadFiletree', message: 'reload failed' }]);
+    });
+
+    it('slims write success responses by default before analytics', async () => {
+        const { appendAnalyticsEvent } = await import('@/core/analytics');
+
+        const result = await runToolCall(
+            {
+                client: {} as never,
+                category: 'block',
+                name: 'block',
+                action: 'append',
+                args: { action: 'append' },
+                slimResponses: true,
+            },
+            async () => ({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        success: true,
+                        action: 'append',
+                        id: '20260507000100-abcdefg',
+                        parentID: '20260507000100-parent0',
+                        previousID: '20260507000100-prev000',
+                        dataType: 'markdown',
+                        uiRefresh: {
+                            applied: true,
+                            operations: [{ type: 'reloadProtyle', id: '20260507000100-parent0' }],
+                        },
+                    }, null, 2),
+                }],
+            }),
+        );
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            success: true,
+            id: '20260507000100-abcdefg',
+        });
+        expect(vi.mocked(appendAnalyticsEvent).mock.calls[0][1]).toMatchObject({
+            responseText: JSON.stringify({
+                success: true,
+                id: '20260507000100-abcdefg',
+            }, null, 2),
+        });
+    });
+
+    it('keeps full successful responses when slim responses is disabled', async () => {
+        const fullPayload = {
+            success: true,
+            action: 'append',
+            id: '20260507000100-abcdefg',
+            parentID: '20260507000100-parent0',
+            previousID: '20260507000100-prev000',
+            dataType: 'markdown',
+        };
+
+        const result = await runToolCall(
+            {
+                client: {} as never,
+                category: 'block',
+                name: 'block',
+                action: 'append',
+                args: { action: 'append' },
+                slimResponses: false,
+            },
+            async () => ({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify(fullPayload, null, 2),
+                }],
+            }),
+        );
+
+        expect(JSON.parse(result.content[0].text)).toEqual(fullPayload);
+    });
+
+    it('slims search results and removes kernel pagination diagnostics', async () => {
+        const result = await runToolCall(
+            {
+                client: {} as never,
+                category: 'search',
+                name: 'search',
+                action: 'fulltext',
+                args: { action: 'fulltext' },
+                slimResponses: true,
+            },
+            async () => ({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        data: [{
+                            id: '20260507000100-search0',
+                            type: 'NodeParagraph',
+                            box: 'notebook-id',
+                            hPath: '/Doc',
+                            content: '<mark>needle</mark>',
+                            plainContent: 'needle',
+                            markdown: 'needle',
+                            path: '/20260507000100-doc.sy',
+                            rootID: '20260507000100-doc',
+                            notebookName: 'Notebook',
+                        }],
+                        total: 1,
+                        page: 1,
+                        pageSize: 32,
+                        pageCount: 1,
+                        hasNextPage: false,
+                        showing: 1,
+                        returnedTotal: 1,
+                        kernelMatchedBlockCount: 1,
+                        kernelPageCount: 1,
+                    }, null, 2),
+                }],
+            }),
+        );
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            data: [{
+                id: '20260507000100-search0',
+                type: 'NodeParagraph',
+                hPath: '/Doc',
+                path: '/20260507000100-doc.sy',
+                notebookName: 'Notebook',
+                plainContent: 'needle',
+            }],
+            total: 1,
+            page: 1,
+            pageSize: 32,
+            pageCount: 1,
+            hasNextPage: false,
+        });
+    });
+
+    it('slims permission errors while preserving actionable fields', async () => {
+        const result = await runToolCall(
+            {
+                client: {} as never,
+                category: 'block',
+                name: 'block',
+                action: 'append',
+                args: { action: 'append' },
+                slimResponses: true,
+            },
+            async () => ({
+                isError: true,
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        error: {
+                            type: 'permission_denied',
+                            message: 'Notebook "nb" has permission "r".',
+                            tool: 'block',
+                            action: 'append',
+                            notebook: 'nb',
+                            current_permission: 'r',
+                            required_permission: 'write',
+                            hint: 'Use notebook(action="set_permission") to change.',
+                        },
+                    }, null, 2),
+                }],
+            }),
+        );
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            error: {
+                type: 'permission_denied',
+                message: 'Notebook "nb" has permission "r".',
+                notebook: 'nb',
+                current_permission: 'r',
+                required_permission: 'write',
+                hint: 'Use notebook(action="set_permission") to change.',
+            },
+        });
     });
 });
