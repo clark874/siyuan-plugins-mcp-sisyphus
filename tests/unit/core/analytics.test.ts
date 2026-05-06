@@ -3,10 +3,13 @@ import {
     appendAnalyticsEvent,
     buildTokenUsageSummary,
     computeAnalyticsSummary,
+    getRecentAnalyticsEvents,
     parseJsonl,
     clearAnalyticsData,
     estimateResultSizeHint,
     extractErrorCode,
+    truncateAnalyticsText,
+    MAX_ANALYTICS_TEXT_CHARS,
     ANALYTICS_PATH,
     ANALYTICS_ROTATED_PATH,
     type AnalyticsEvent,
@@ -81,6 +84,10 @@ describe('analytics', () => {
                 responseApproxTokens: 5,
                 totalApproxTokens: 11,
                 tokenMode: APPROX_TOKEN_MODE,
+                requestText: '{"action":"get_version"}',
+                responseText: '{"version":"3.0.0"}',
+                requestTextTruncated: false,
+                responseTextTruncated: false,
             });
             const [event] = parseJsonl(content);
             expect(event.requestChars).toBe(24);
@@ -89,6 +96,10 @@ describe('analytics', () => {
             expect(event.responseApproxTokens).toBe(5);
             expect(event.totalApproxTokens).toBe(11);
             expect(event.tokenMode).toBe(APPROX_TOKEN_MODE);
+            expect(event.requestText).toBe('{"action":"get_version"}');
+            expect(event.responseText).toBe('{"version":"3.0.0"}');
+            expect(event.requestTextTruncated).toBe(false);
+            expect(event.responseTextTruncated).toBe(false);
         });
 
         it('returns empty array for empty content', () => {
@@ -113,8 +124,14 @@ describe('analytics', () => {
                 responseApproxTokens: 5,
                 totalApproxTokens: 8,
                 tokenMode: APPROX_TOKEN_MODE,
+                requestText: '{"action":"list"}',
+                responseText: '{"ok":true}',
+                requestTextTruncated: false,
+                responseTextTruncated: false,
             });
             expect(client.writeFile).toHaveBeenCalledWith(ANALYTICS_PATH, expect.stringContaining('"tool":"notebook"'));
+            expect(writtenFiles[ANALYTICS_PATH]).toContain('"requestText":"{\\"action\\":\\"list\\"}"');
+            expect(writtenFiles[ANALYTICS_PATH]).toContain('"responseText":"{\\"ok\\":true}"');
         });
 
         it('appends to existing file', async () => {
@@ -226,6 +243,27 @@ describe('analytics', () => {
             expect(summary.mcpMeasuredCalls).toBe(1);
             expect(summary.mcpAvgApproxTokens).toBe(20);
             expect(summary.mcpInitialApproxTokens).toBeGreaterThan(0);
+        });
+    });
+
+    describe('recent event helpers', () => {
+        it('truncates captured text with a bounded local snapshot', () => {
+            const captured = truncateAnalyticsText('a'.repeat(MAX_ANALYTICS_TEXT_CHARS + 10));
+            expect(captured.text).toHaveLength(MAX_ANALYTICS_TEXT_CHARS);
+            expect(captured.truncated).toBe(true);
+
+            const short = truncateAnalyticsText('short');
+            expect(short).toEqual({ text: 'short', truncated: false });
+        });
+
+        it('returns newest events first with a limit', () => {
+            const events: AnalyticsEvent[] = [
+                { seq: 1, ts: 100, tool: 'a', action: 'one', status: 'success', durationMs: 1, paramKeys: [], transport: 'stdio' },
+                { seq: 2, ts: 300, tool: 'b', action: 'two', status: 'success', durationMs: 1, paramKeys: [], transport: 'stdio' },
+                { seq: 3, ts: 300, tool: 'c', action: 'three', status: 'success', durationMs: 1, paramKeys: [], transport: 'stdio' },
+            ];
+
+            expect(getRecentAnalyticsEvents(events, 2).map((event) => event.tool)).toEqual(['c', 'b']);
         });
     });
 

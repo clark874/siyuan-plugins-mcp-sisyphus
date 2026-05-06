@@ -287,6 +287,50 @@ describe('MCP Server Integration', () => {
         });
     });
 
+    describe('Response debug metadata', () => {
+        async function createClientWithStoredConfig(config: Record<string, unknown>) {
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions'] = JSON.stringify({ 'nb-1': 'rwd' });
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify(config);
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+            const metadataClient = new Client({ name: 'metadata-client', version: '1.0.0' });
+            await metadataClient.connect(clientTransport);
+            return metadataClient;
+        }
+
+        it('omits successful uiRefresh metadata by default', async () => {
+            const metadataClient = await createClientWithStoredConfig({});
+
+            const result = await metadataClient.callTool({
+                name: 'notebook',
+                arguments: { action: 'rename', notebook: 'nb-1', name: 'Renamed' },
+            });
+            const payload = JSON.parse((result.content[0] as { text: string }).text);
+
+            expect(payload).toMatchObject({ success: true, notebook: 'nb-1', name: 'Renamed' });
+            expect(payload.uiRefresh).toBeUndefined();
+
+            await metadataClient.close();
+        });
+
+        it('includes successful uiRefresh metadata when the debug switch is enabled', async () => {
+            const metadataClient = await createClientWithStoredConfig({
+                debug: { includeUiRefreshMetadata: true },
+            });
+
+            const result = await metadataClient.callTool({
+                name: 'notebook',
+                arguments: { action: 'rename', notebook: 'nb-1', name: 'Renamed' },
+            });
+            const payload = JSON.parse((result.content[0] as { text: string }).text);
+
+            expect(payload.uiRefresh.operations).toEqual([{ type: 'reloadFiletree' }]);
+
+            await metadataClient.close();
+        });
+    });
+
     describe('Puppy wage tracking', () => {
         it('increments total calls once for a successful tool call', async () => {
             await client.callTool({ name: 'system', arguments: { action: 'get_version' } });

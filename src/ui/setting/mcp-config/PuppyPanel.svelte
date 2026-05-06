@@ -63,27 +63,6 @@
             },
             {
                 type: "checkbox",
-                key: "puppy__testModeEnabled",
-                value: puppySettings.testModeEnabled,
-                title: getLabel("puppy_testMode_title", "Random Mascot Test"),
-                description: getLabel("puppy_testMode_desc", "Randomly cycle real MCP actions for animation testing without calling tools."),
-                layout: "inline",
-                children: [
-                    ...(puppySettings.testModeEnabled
-                        ? [{
-                            type: "number" as const,
-                            key: "puppy__testModeIntervalMs",
-                            value: puppySettings.testModeIntervalMs,
-                            title: getLabel("puppy_testMode_interval_title", "Interval"),
-                            description: getLabel("puppy_testMode_interval_desc", "Delay between random test actions."),
-                            inputCompact: true,
-                            unit: "ms",
-                        }]
-                        : []),
-                ],
-            },
-            {
-                type: "checkbox",
                 key: "puppy__showBubble",
                 value: puppySettings.showBubble,
                 title: getLabel("puppy_showBubble_title", "Show Bubble"),

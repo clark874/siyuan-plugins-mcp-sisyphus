@@ -126,7 +126,15 @@ export async function createSiYuanServer(): Promise<Server> {
 
         const module = TOOL_REGISTRY[category];
         const result = await runToolCall(
-            { client, category, name, action, args, requestText: JSON.stringify({ name, arguments: args ?? {} }) },
+            {
+                client,
+                category,
+                name,
+                action,
+                args,
+                requestText: JSON.stringify({ name, arguments: args ?? {} }),
+                includeUiRefreshMetadata: config.debug.includeUiRefreshMetadata,
+            },
             () => module.callTool(client, args, config[category], permMgr),
         );
         // The MCP SDK CallToolResult uses a wider ContentBlock union; our

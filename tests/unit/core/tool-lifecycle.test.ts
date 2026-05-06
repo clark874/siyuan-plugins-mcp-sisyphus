@@ -6,6 +6,10 @@ vi.mock('@/core/analytics', () => ({
     appendAnalyticsEvent: vi.fn(() => Promise.resolve()),
     estimateResultSizeHint: vi.fn(() => '0-200'),
     extractErrorCode: vi.fn(() => 'UnknownError'),
+    truncateAnalyticsText: vi.fn((text: string | undefined | null) => ({
+        text: typeof text === 'string' ? text : '',
+        truncated: false,
+    })),
 }));
 
 vi.mock('@/core/puppy-state', () => ({
@@ -63,6 +67,10 @@ describe('mcp/tool-lifecycle', () => {
             responseApproxTokens: Math.ceil('{"ok":true}'.length / 4),
             totalApproxTokens: Math.ceil('siyuan-sisyphus notebook list'.length / 4) + Math.ceil('{"ok":true}'.length / 4),
             tokenMode: 'approx_context_v1',
+            requestText: 'siyuan-sisyphus notebook list',
+            responseText: '{"ok":true}',
+            requestTextTruncated: false,
+            responseTextTruncated: false,
         });
         expect(finished).toBe(false);
 
@@ -93,6 +101,96 @@ describe('mcp/tool-lifecycle', () => {
             requestChars: '{"name":"notebook","arguments":{"action":"list"}}'.length,
             responseChars: '{"ok":true}'.length,
             tokenMode: 'approx_context_v1',
+            requestText: '{"name":"notebook","arguments":{"action":"list"}}',
+            responseText: '{"ok":true}',
         });
+    });
+
+    it('strips successful uiRefresh metadata by default before returning and logging analytics', async () => {
+        const { appendAnalyticsEvent } = await import('@/core/analytics');
+
+        const result = await runToolCall(
+            {
+                client: {} as never,
+                category: 'notebook',
+                name: 'notebook',
+                action: 'rename',
+                args: { action: 'rename' },
+            },
+            async () => ({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        success: true,
+                        uiRefresh: {
+                            applied: true,
+                            operations: [{ type: 'reloadFiletree' }],
+                        },
+                    }, null, 2),
+                }],
+            }),
+        );
+
+        const payload = JSON.parse(result.content[0].text);
+        expect(payload).toEqual({ success: true });
+        expect(vi.mocked(appendAnalyticsEvent).mock.calls[0][1]).toMatchObject({
+            responseText: JSON.stringify({ success: true }, null, 2),
+        });
+    });
+
+    it('keeps successful uiRefresh metadata when the debug switch is enabled', async () => {
+        const result = await runToolCall(
+            {
+                client: {} as never,
+                category: 'notebook',
+                name: 'notebook',
+                action: 'rename',
+                args: { action: 'rename' },
+                includeUiRefreshMetadata: true,
+            },
+            async () => ({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        success: true,
+                        uiRefresh: {
+                            applied: true,
+                            operations: [{ type: 'reloadFiletree' }],
+                        },
+                    }, null, 2),
+                }],
+            }),
+        );
+
+        const payload = JSON.parse(result.content[0].text);
+        expect(payload.uiRefresh.operations).toEqual([{ type: 'reloadFiletree' }]);
+    });
+
+    it('keeps uiRefresh metadata when it contains a partial failure', async () => {
+        const result = await runToolCall(
+            {
+                client: {} as never,
+                category: 'notebook',
+                name: 'notebook',
+                action: 'rename',
+                args: { action: 'rename' },
+            },
+            async () => ({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        success: true,
+                        uiRefresh: {
+                            applied: true,
+                            operations: [{ type: 'reloadFiletree' }],
+                            partialFailure: [{ type: 'reloadFiletree', message: 'reload failed' }],
+                        },
+                    }, null, 2),
+                }],
+            }),
+        );
+
+        const payload = JSON.parse(result.content[0].text);
+        expect(payload.uiRefresh.partialFailure).toEqual([{ type: 'reloadFiletree', message: 'reload failed' }]);
     });
 });

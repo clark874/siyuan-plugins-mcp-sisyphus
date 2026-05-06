@@ -60,7 +60,15 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         const runPage = async (page?: number): Promise<ToolResult> => {
             const payload = page === undefined ? basePayload : { ...basePayload, page };
             return runToolCall(
-                { client, category, name: tool, action: normalizedAction, args: payload, requestText },
+                {
+                    client,
+                    category,
+                    name: tool,
+                    action: normalizedAction,
+                    args: payload,
+                    requestText,
+                    includeUiRefreshMetadata: toolConfig.debug.includeUiRefreshMetadata || cli.debug,
+                },
                 () => module.callTool(client, payload, toolConfig[category], permMgr),
             );
         };

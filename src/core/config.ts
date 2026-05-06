@@ -49,6 +49,10 @@ export interface FileCategoryToolConfig<Action extends string = string> extends 
     uploadLargeFileThresholdMB: number;
 }
 
+export interface DebugToolConfig {
+    includeUiRefreshMetadata: boolean;
+}
+
 export type ToolConfig = {
     fs: CategoryToolConfig<FsAction>;
     notebook: CategoryToolConfig<NotebookAction>;
@@ -62,6 +66,7 @@ export type ToolConfig = {
     flashcard: CategoryToolConfig<FlashcardAction>;
     mascot: CategoryToolConfig<MascotAction>;
     userRulesText: string;
+    debug: DebugToolConfig;
 };
 
 export const MCP_TOOLS_CONFIG_API_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
@@ -229,6 +234,9 @@ export function buildDefaultToolConfig(): ToolConfig {
             actions: createActionsRecord(MASCOT_ACTIONS, ['get_balance', 'shop', 'buy']),
         },
         userRulesText: '创建文档/日记后主动设图标',
+        debug: {
+            includeUiRefreshMetadata: false,
+        },
     };
 }
 
@@ -313,6 +321,9 @@ function normalizeUploadLargeFileThresholdMB(value: unknown): number {
 function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
     if (typeof raw.userRulesText === 'string') {
         config.userRulesText = raw.userRulesText;
+    }
+    if (isRecord(raw.debug) && typeof raw.debug.includeUiRefreshMetadata === 'boolean') {
+        config.debug.includeUiRefreshMetadata = raw.debug.includeUiRefreshMetadata;
     }
 
     for (const category of TOOL_CATEGORIES) {

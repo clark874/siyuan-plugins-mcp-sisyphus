@@ -9,6 +9,7 @@ import {
 export const ANALYTICS_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/analytics.jsonl';
 export const ANALYTICS_ROTATED_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/analytics.jsonl.1';
 const MAX_ANALYTICS_BYTES = 2 * 1024 * 1024; // 2 MB
+export const MAX_ANALYTICS_TEXT_CHARS = 20_000;
 
 export interface AnalyticsEvent {
     seq: number;
@@ -28,6 +29,10 @@ export interface AnalyticsEvent {
     responseApproxTokens?: number;
     totalApproxTokens?: number;
     tokenMode?: typeof APPROX_TOKEN_MODE;
+    requestText?: string;
+    responseText?: string;
+    requestTextTruncated?: boolean;
+    responseTextTruncated?: boolean;
 }
 
 export interface TokenUsageSummary {
@@ -49,6 +54,17 @@ export interface AnalyticsSummary {
     dailyTrend: Array<{ date: string; count: number; errorCount: number }>;
     transportDistribution: Record<InvocationTransport, number>;
     tokenUsage: TokenUsageSummary;
+}
+
+export function truncateAnalyticsText(text: string | undefined | null): { text: string; truncated: boolean } {
+    const normalized = typeof text === 'string' ? text : '';
+    if (normalized.length <= MAX_ANALYTICS_TEXT_CHARS) {
+        return { text: normalized, truncated: false };
+    }
+    return {
+        text: normalized.slice(0, MAX_ANALYTICS_TEXT_CHARS),
+        truncated: true,
+    };
 }
 
 export function normalizeAnalyticsTransport(value: unknown): InvocationTransport {
@@ -199,6 +215,15 @@ export function buildTokenUsageSummary(
         mcpAvgApproxTokens: mcpMeasuredCalls > 0 ? mcpTotalApproxTokens / mcpMeasuredCalls : null,
         ...(initialCost ?? {}),
     };
+}
+
+export function getRecentAnalyticsEvents(events: AnalyticsEvent[], limit = 100): AnalyticsEvent[] {
+    return [...events]
+        .sort((a, b) => {
+            if (b.ts !== a.ts) return b.ts - a.ts;
+            return b.seq - a.seq;
+        })
+        .slice(0, Math.max(0, limit));
 }
 
 export function computeAnalyticsSummary(
