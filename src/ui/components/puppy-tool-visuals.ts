@@ -4,6 +4,7 @@ import {
     DOCUMENT_ACTIONS,
     FILE_ACTIONS,
     FLASHCARD_ACTIONS,
+    FS_ACTIONS,
     MASCOT_ACTIONS,
     NOTEBOOK_ACTIONS,
     SEARCH_ACTIONS,
@@ -12,10 +13,10 @@ import {
 } from '../setting/tool-config';
 
 export type PuppyState = 'idle' | 'reading' | 'writing' | 'deleting' | 'moving' | 'dangerous';
-export type ToolVariant = 'none' | 'notebook' | 'document' | 'block' | 'av' | 'file' | 'search' | 'tag' | 'system' | 'flashcard' | 'mascot';
+export type ToolVariant = 'none' | 'fs' | 'notebook' | 'document' | 'block' | 'av' | 'file' | 'search' | 'tag' | 'system' | 'flashcard' | 'mascot';
 export type TestActionEntry = { tool: Exclude<ToolVariant, 'none'>; action: string };
 
-export const TOOL_VARIANTS = new Set<ToolVariant>(['notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot']);
+export const TOOL_VARIANTS = new Set<ToolVariant>(['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot']);
 
 const READING_ACTIONS = new Set([
     'get_kramdown', 'get_children', 'get_attrs', 'info', 'breadcrumb',
@@ -27,10 +28,12 @@ const READING_ACTIONS = new Set([
     'get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort',
     'search', 'get_primary_key_values', 'get_doc_assets', 'get_image_ocr_text',
     'list_unused_assets', 'list_cards', 'get_decks', 'get_cards', 'get_balance', 'shop',
+    'ls', 'tree', 'read',
 ]);
 
 const BUILD_ACTIONS = new Set([
     'insert', 'prepend', 'append', 'create', 'create_daily_note', 'duplicate',
+    'write',
 ]);
 
 const EDIT_ACTIONS = new Set([
@@ -42,11 +45,12 @@ const EDIT_ACTIONS = new Set([
     'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells',
 ]);
 
-const DELETING_ACTIONS = new Set(['delete', 'remove', 'remove_card']);
-const MOVING_ACTIONS = new Set(['move']);
+const DELETING_ACTIONS = new Set(['delete', 'remove', 'remove_card', 'rm']);
+const MOVING_ACTIONS = new Set(['move', 'mv']);
 const DANGEROUS_ACTIONS = new Set(['set_permission', 'upload_asset', 'workspace_info']);
 
 export const RANDOM_TEST_ACTIONS: TestActionEntry[] = [
+    ...FS_ACTIONS.map((action) => ({ tool: 'fs' as const, action })),
     ...NOTEBOOK_ACTIONS.map((action) => ({ tool: 'notebook' as const, action })),
     ...DOCUMENT_ACTIONS.map((action) => ({ tool: 'document' as const, action })),
     ...BLOCK_ACTIONS.map((action) => ({ tool: 'block' as const, action })),

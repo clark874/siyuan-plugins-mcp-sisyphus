@@ -48,6 +48,17 @@ Each tool exposes common actions in its description. For detailed help on any ac
 
 ## Path semantics (critical — the most common error source)
 
+For basic path-style notebook and document operations, use \`fs\` whenever the task can be expressed with a human-readable workspace path. Treat \`fs\` as the default virtual filesystem interface:
+- List direct children: \`fs(action="ls", path="/Notebook/Folder")\`
+- List a recursive tree: \`fs(action="tree", path="/Notebook/Folder")\`
+- Read Markdown: \`fs(action="read", path="/Notebook/Folder/Doc")\`
+- Create or overwrite a document body: \`fs(action="write", path="/Notebook/Folder/Doc", markdown="...", overwrite=true)\`
+- Replace exact text in one document: \`fs(action="replace", path="/Notebook/Folder/Doc", edit={ old: "...", new: "..." })\`
+- Search Markdown under a path: \`fs(action="search", path="/Notebook/Folder", query="...")\`
+- Delete, move, or rename by path: \`fs(action="rm", path="/Notebook/Folder/Doc")\`, \`fs(action="mv", from="/Notebook/Old", to="/Notebook/New")\` after explicit confirmation.
+
+\`fs\` paths are human-readable workspace paths and \`fs\` hides notebook IDs, block IDs, and storage paths. Prefer \`fs\` for basic browse/read/write/edit/search/move/delete workflows. Use the lower-level \`document\`, \`block\`, \`search\`, and \`av\` tools only when you need SiYuan-specific block layout, metadata, SQL, backlinks, assets, database operations, or direct block IDs.
+
 There are exactly two path types. Do not mix them.
 
 | Type | Used by | Example |

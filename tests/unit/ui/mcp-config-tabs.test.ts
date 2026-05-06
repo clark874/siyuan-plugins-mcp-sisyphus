@@ -33,8 +33,8 @@ describe('mcp-config-tabs icon system', () => {
         }
     });
 
-    it('has 9 category tab definitions', () => {
-        expect(CATEGORY_TAB_DEFS).toHaveLength(9);
+    it('has 10 category tab definitions', () => {
+        expect(CATEGORY_TAB_DEFS).toHaveLength(10);
     });
 
     it('maps every category to an existing icon key', () => {
@@ -58,9 +58,10 @@ describe('mcp-config-tabs icon system', () => {
         expect(USER_RULES_GROUP_KEY).toBe('User Rules');
     });
 
-    it('covers all 9 tool categories', () => {
+    it('covers all 10 tool categories', () => {
         const categories = CATEGORY_TAB_DEFS.map((d) => d.category);
         expect(categories).toEqual([
+            'fs',
             'notebook',
             'document',
             'block',

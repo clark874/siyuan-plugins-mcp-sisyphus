@@ -10,6 +10,7 @@ export { callBlockTool, listBlockTools, BLOCK_VARIANTS } from './block';
 export { callDocumentTool, listDocumentTools, DOCUMENT_VARIANTS } from './document';
 export { callFileTool, listFileTools, FILE_VARIANTS } from './file';
 export { callFlashcardTool, listFlashcardTools, FLASHCARD_VARIANTS } from './flashcard';
+export { callFsTool, listFsTools, FS_VARIANTS } from './fs';
 export { callMascotTool, listMascotTools, MASCOT_VARIANTS } from './mascot';
 export { callNotebookTool, listNotebookTools, NOTEBOOK_VARIANTS } from './notebook';
 export { callSearchTool, listSearchTools, SEARCH_VARIANTS } from './search';

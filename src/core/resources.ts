@@ -18,6 +18,7 @@ import {
     DOCUMENT_VARIANTS,
     FILE_VARIANTS,
     FLASHCARD_VARIANTS,
+    FS_VARIANTS,
     MASCOT_VARIANTS,
     NOTEBOOK_VARIANTS,
     SEARCH_VARIANTS,
@@ -48,6 +49,7 @@ interface HelpResourceDescriptor {
 const MIME_TYPE = 'text/markdown';
 
 const VARIANTS_BY_CATEGORY: Record<ToolCategory, ActionVariant<string>[]> = {
+    fs: FS_VARIANTS,
     notebook: NOTEBOOK_VARIANTS,
     document: DOCUMENT_VARIANTS,
     block: BLOCK_VARIANTS,
@@ -82,7 +84,7 @@ function renderToolOverview(): string {
     return [
         '# SiYuan MCP Tool Overview',
         '',
-        'This server exposes 10 aggregated tools: `notebook`, `document`, `block`, `av`, `file`, `search`, `tag`, `system`, `flashcard`, and `mascot`.',
+        'This server exposes 11 aggregated tools. Use `fs` first for basic path-style notebook and document operations; advanced tools remain available for SiYuan-specific workflows.',
         '',
         '## High-risk actions',
         '',
@@ -95,6 +97,7 @@ function renderToolOverview(): string {
         '',
         '## More help',
         '',
+        '- Basic path operations: prefer `fs(action="ls"|"tree"|"read"|"write"|"replace"|"search"|"rm"|"mv")` with human-readable paths before using lower-level document/block/search tools.',
         '- Tag creation: write tags into block markdown as `#tag#` so `tag(action="list")` can discover them.',
         '- Flashcards: prefer `flashcard(action="create_card")` to turn existing blocks into real flashcards; it writes `custom-riff-decks` and registers the riff card together.',
         '- Review flow: use `flashcard(action="list_cards")` plus `review_card` / `review_card(skip=true)` for scheduled flashcard study.',

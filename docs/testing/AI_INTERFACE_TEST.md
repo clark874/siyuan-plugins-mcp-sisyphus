@@ -119,7 +119,7 @@ siyuan-sisyphus av add-rows --av-id <av-id> --primary-key-texts "Plain text row"
 
 ## 3. 覆盖范围
 
-本手册覆盖以下 10 个聚合工具：
+本手册覆盖以下 11 个聚合工具：
 
 - `notebook`
 - `document`

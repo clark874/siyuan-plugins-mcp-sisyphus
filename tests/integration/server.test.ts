@@ -174,6 +174,17 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('block(action=”append”), prepend, or insert');
         });
 
+        it('directs basic path-style operations to the fs tool first', () => {
+            const instructions = buildServerInstructions('');
+
+            expect(instructions).toContain('For basic path-style notebook and document operations, use `fs`');
+            expect(instructions).toContain('Treat `fs` as the default virtual filesystem interface');
+            expect(instructions).toContain('fs(action="read", path="/Notebook/Folder/Doc")');
+            expect(instructions).toContain('fs(action="write", path="/Notebook/Folder/Doc", markdown="...", overwrite=true)');
+            expect(instructions).toContain('fs(action="mv", from="/Notebook/Old", to="/Notebook/New")');
+            expect(instructions).toContain('Prefer `fs` for basic browse/read/write/edit/search/move/delete workflows.');
+        });
+
         it('should list tools with expected names', async () => {
             const { tools } = await client.listTools();
 
@@ -252,7 +263,8 @@ describe('MCP Server Integration', () => {
             const resourceClient = new Client({ name: 'rules-resource-client', version: '1.0.0' });
             await resourceClient.connect(clientTransport);
             const resource = await resourceClient.readResource({ uri: USER_RULES_RESOURCE_URI });
-            const text = resource.contents[0]?.text;
+            const firstContent = resource.contents[0];
+            const text = firstContent && 'text' in firstContent ? firstContent.text : '';
 
             expect(text).toContain('# Active User Custom Rules');
             expect(text).toContain('- Rule one');

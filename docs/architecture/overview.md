@@ -25,7 +25,7 @@ The system consists of four layers from outside to inside:
 │  └──────────────┘  └─────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 3: Plugin Runtime & Tool Layer                        │
-│  - Tool Registry (10 aggregated tools)                      │
+│  - Tool Registry (11 aggregated tools)                      │
 │  - Tool Lifecycle (analytics / telemetry / mascot)          │
 │  - Permission Manager (notebook-level 4-tier permissions)   │
 │  - Settings Panel & Mascot UI                               │
@@ -131,7 +131,7 @@ Terminal output (human-readable / --json)
 
 ## Key Facts at a Glance
 
-1. **Aggregated tool surface**: 10 MCP tools (notebook / document / block / av / file / search / tag / system / flashcard / mascot), rather than 100+ single-purpose tools.
+1. **Aggregated tool surface**: 11 MCP tools (fs / notebook / document / block / av / file / search / tag / system / flashcard / mascot), rather than 100+ single-purpose tools.
 2. **Config hot-reload**: `server.ts` `getToolConfig()` has a 30-second TTL cache + in-flight deduplication. Changes from the settings panel take effect without restart.
 3. **Dangerous action marking**: `DANGEROUS_ACTIONS` set marks 15 high-risk actions (delete / remove / find_replace, etc.). Warnings are auto-injected into tool descriptions and server instructions, but calls are not blocked (relies on LLM self-discipline).
 4. **Analytics & Telemetry**: Every tool call records an analytics event (JSONL format, 2MB auto-rotation). Telemetry aggregates and reports periodically per config. In CLI mode, analytics is synchronously flushed before exit.

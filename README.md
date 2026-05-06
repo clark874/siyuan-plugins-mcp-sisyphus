@@ -130,7 +130,7 @@ siyuan document create --notebook <id> --path "/Inbox/Note" --markdown "# Hello"
 siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 ```
 
-All 10 aggregated tools (`notebook`, `document`, `block`, `av`, `search`, `tag`, `file`, `system`, `flashcard`, `mascot`) are exposed as subcommands, each dispatching operations via the `action` parameter.
+All 11 aggregated tools (`fs`, `notebook`, `document`, `block`, `av`, `search`, `tag`, `file`, `system`, `flashcard`, `mascot`) are exposed as subcommands, each dispatching operations via the `action` parameter.
 
 ---
 
@@ -241,7 +241,7 @@ After configuration, try a few read-only actions to confirm the link:
 
 ## Tool Reference
 
-All capabilities are converged into **10 aggregated tools**, dispatching operations via the `action` field.
+All capabilities are converged into **11 aggregated tools**, dispatching operations via the `action` field. Use `fs` first for ordinary document file operations with human-readable paths.
 
 ### Tool Overview
 

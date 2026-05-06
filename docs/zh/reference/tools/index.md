@@ -1,6 +1,6 @@
 # 工具索引
 
-这个页面汇总项目暴露的 10 个聚合工具。
+这个页面汇总项目暴露的 11 个聚合工具。
 
 适用场景：你已经知道大致领域，但还需要定位到具体工具页面。
 
@@ -11,6 +11,7 @@
 
 | 工具 | Action 数量 | 页面 |
 |------|-------------|------|
+| `fs` | 7 | [fs](./fs.md) |
 | `notebook` | 11 | [notebook](./notebook.md) |
 | `document` | 15 | [document](./document.md) |
 | `block` | 19 | [block](./block.md) |
@@ -24,6 +25,7 @@
 
 ## Action 汇总
 
+- `fs`: ls, tree, read, write, rm, mv, search
 - `notebook`: list, create, set_open_state, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs
 - `document`: create, lookup, rename, remove, move, get_child_blocks, get_child_docs, set_attr, list_tree, search_docs, get_doc, create_daily_note, duplicate, heading_to_doc, doc_to_heading
 - `block`: insert, prepend, append, update, delete, move, set_fold_state, get_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info

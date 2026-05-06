@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS } from "./config";
+import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS } from "./config";
 import type { NotebookConf } from "../types/shared";
 
 const NotebookConfSchema: z.ZodType<Partial<NotebookConf>> = z.object({
@@ -71,6 +71,7 @@ const DocumentMoveReferenceSchema = z.object({
     }
 });
 
+export const FsActionSchema = z.enum(FS_ACTIONS);
 export const NotebookActionSchema = z.enum(NOTEBOOK_ACTIONS);
 export const DocumentActionSchema = z.enum(DOCUMENT_ACTIONS);
 export const BlockActionSchema = z.enum(BLOCK_ACTIONS);
@@ -78,6 +79,67 @@ export const AvActionSchema = z.enum(AV_ACTIONS);
 export const FileActionSchema = z.enum(FILE_ACTIONS);
 export const FlashcardActionSchema = z.enum(FLASHCARD_ACTIONS);
 export const MascotActionSchema = z.enum(MASCOT_ACTIONS);
+
+export const FsLsSchema = z.object({
+    action: z.literal("ls"),
+    path: z.string().describe("Human-readable workspace path, such as /Notebook/Folder or / for notebook roots"),
+});
+
+export const FsTreeSchema = z.object({
+    action: z.literal("tree"),
+    path: z.string().describe("Human-readable workspace path, such as /Notebook/Folder or / for all readable notebooks"),
+    maxDepth: z.number().int().min(0).max(20).optional().describe("Max tree depth to return (default 3)"),
+});
+
+export const FsReadSchema = z.object({
+    action: z.literal("read"),
+    path: z.string().describe("Human-readable document path"),
+    page: z.number().int().min(1).optional().describe("Page number for markdown pagination (1-based)"),
+    pageSize: z.number().int().min(1).max(20000).optional().describe("Characters per page for markdown pagination (default 8000)"),
+});
+
+export const FsWriteSchema = z.object({
+    action: z.literal("write"),
+    path: z.string().describe("Human-readable document path"),
+    markdown: z.string().describe("Markdown content to create or write"),
+    overwrite: z.boolean().optional().describe("When true, replace an existing document body while keeping the document node and title"),
+});
+
+export const FsReplaceEditSchema = z.object({
+    old: z.string().min(1).describe("Original text to match exactly. Supports multi-line strings."),
+    new: z.string().describe("Replacement text. Supports multi-line strings."),
+    replace_all: z.boolean().optional().describe("When true, replace every exact match. Defaults to false."),
+});
+
+export const FsReplaceSchema = z.object({
+    action: z.literal("replace"),
+    path: z.string().describe("Human-readable document path to modify"),
+    edit: z.union([
+        FsReplaceEditSchema,
+        z.array(FsReplaceEditSchema).min(1),
+    ]).describe("One replacement edit or an array of edits to apply sequentially within the same document"),
+});
+
+export const FsRmSchema = z.object({
+    action: z.literal("rm"),
+    path: z.string().describe("Human-readable document path to delete"),
+});
+
+export const FsMvSchema = z.object({
+    action: z.literal("mv"),
+    from: z.string().describe("Human-readable source document path"),
+    to: z.string().describe("Human-readable destination document path"),
+});
+
+export const FsSearchSchema = z.object({
+    action: z.literal("search"),
+    path: z.string().describe("Human-readable document or folder path to search within"),
+    query: z.string().describe("Text or regular expression to search for"),
+    regex: z.boolean().optional().describe("Treat query as a JavaScript regular expression"),
+    caseSensitive: z.boolean().optional().describe("Use case-sensitive matching"),
+    page: z.number().int().min(1).optional().describe("Page number (1-based), default 1"),
+    pageSize: z.number().int().min(1).max(200).optional().describe("Matches per page, default 50"),
+});
 
 export const NotebookListSchema = z.object({
     action: z.literal("list"),

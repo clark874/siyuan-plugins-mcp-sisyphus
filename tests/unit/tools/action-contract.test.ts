@@ -5,6 +5,7 @@ import { callBlockTool, BLOCK_VARIANTS } from '@/tools/block';
 import { callDocumentTool, DOCUMENT_VARIANTS } from '@/tools/document';
 import { callFileTool, FILE_VARIANTS } from '@/tools/file';
 import { callNotebookTool, NOTEBOOK_VARIANTS } from '@/tools/notebook';
+import { callFsTool, FS_VARIANTS } from '@/tools/fs';
 import { callSearchTool, SEARCH_VARIANTS } from '@/tools/search';
 import { callSystemTool, SYSTEM_VARIANTS } from '@/tools/system';
 import { callTagTool, TAG_VARIANTS } from '@/tools/tag';
@@ -60,6 +61,7 @@ function createContractClient() {
             if (endpoint === '/api/filetree/getPathByID') return { notebook: 'nb-1', path: '/doc-1.sy' };
             if (endpoint === '/api/filetree/getHPathByID') return '/Doc 1';
             if (endpoint === '/api/filetree/getHPathByPath') return '/Doc 1';
+            if (endpoint === '/api/filetree/getIDsByHPath') return body?.path === '/New Doc' ? [] : ['doc-1'];
             if (endpoint === '/api/filetree/listDocsByPath') return { box: 'nb-1', files: [{ id: 'child-1', box: 'nb-1', path: '/child.sy', name: 'Child.sy' }] };
             if (endpoint === '/api/filetree/listDocTree') return { tree: [{ id: 'doc-1', path: '/doc-1.sy' }] };
             if (endpoint === '/api/filetree/searchDocs') return { docs: [{ id: 'doc-1', box: 'nb-1', path: '/doc-1.sy' }] };
@@ -149,6 +151,19 @@ async function runContracts(
 }
 
 describe('tool action contract coverage', () => {
+    it('covers every fs action with a minimal endpoint contract', async () => {
+        await runContracts('fs', FS_VARIANTS, callFsTool as ToolCaller, [
+            { action: 'ls', args: { action: 'ls', path: '/Notebook/Doc 1' }, expectedEndpoint: '/api/filetree/listDocsByPath' },
+            { action: 'tree', args: { action: 'tree', path: '/Notebook' }, expectedEndpoint: '/api/filetree/listDocTree' },
+            { action: 'read', args: { action: 'read', path: '/Notebook/Doc 1' }, expectedEndpoint: '/api/export/exportMdContent' },
+            { action: 'write', args: { action: 'write', path: '/Notebook/New Doc', markdown: 'hello' }, expectedEndpoint: '/api/filetree/createDocWithMd' },
+            { action: 'replace', args: { action: 'replace', path: '/Notebook/Doc 1', edit: { old: 'markdown', new: 'updated' } }, expectedEndpoint: '/api/export/exportMdContent' },
+            { action: 'rm', args: { action: 'rm', path: '/Notebook/Doc 1' }, expectedEndpoint: '/api/filetree/removeDocByID' },
+            { action: 'mv', args: { action: 'mv', from: '/Notebook/Doc 1', to: '/Notebook/Renamed' }, expectedEndpoint: '/api/filetree/moveDocsByID' },
+            { action: 'search', args: { action: 'search', path: '/Notebook/Doc 1', query: 'markdown' }, expectedEndpoint: '/api/export/exportMdContent' },
+        ]);
+    });
+
     it('covers every notebook action with a minimal endpoint contract', async () => {
         await runContracts('notebook', NOTEBOOK_VARIANTS, callNotebookTool as ToolCaller, [
             { action: 'list', args: { action: 'list' }, expectedEndpoint: '/api/notebook/lsNotebooks' },

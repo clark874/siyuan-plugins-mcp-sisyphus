@@ -17,7 +17,7 @@ getToolConfig()  [30s TTL 缓存 / in-flight 去重]
     ↓ 从 SiYuan 存储读取 /data/storage/petal/.../mcpToolsConfig
     ↓ normalizeToolConfig(raw)  [三种格式兼容迁移]
 listAllTools(config)
-    ↓ 遍历 TOOL_REGISTRY 的 10 个 category
+    ↓ 遍历 TOOL_REGISTRY 的 11 个 category
     ↓ 对每个 module: module.listTools(config[category])
         ↓ tools/internal/define-tool.ts: listTools()
             ↓ 过滤出 enabled 的 action

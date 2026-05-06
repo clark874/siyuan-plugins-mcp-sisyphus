@@ -9,6 +9,7 @@ import {
     callDocumentTool,
     callFileTool,
     callFlashcardTool,
+    callFsTool,
     callMascotTool,
     callNotebookTool,
     callSearchTool,
@@ -19,6 +20,7 @@ import {
     listDocumentTools,
     listFileTools,
     listFlashcardTools,
+    listFsTools,
     listMascotTools,
     listNotebookTools,
     listSearchTools,
@@ -58,6 +60,7 @@ export interface ToolModule {
 // config type to the erased union. It is safe because we look up by category
 // at runtime and always pass the matching config slice back in.
 export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
+    fs: { category: 'fs', listTools: listFsTools as ToolModule['listTools'], callTool: callFsTool as ToolModule['callTool'] },
     notebook: { category: 'notebook', listTools: listNotebookTools as ToolModule['listTools'], callTool: callNotebookTool as ToolModule['callTool'] },
     document: { category: 'document', listTools: listDocumentTools as ToolModule['listTools'], callTool: callDocumentTool as ToolModule['callTool'] },
     block: { category: 'block', listTools: listBlockTools as ToolModule['listTools'], callTool: callBlockTool as ToolModule['callTool'] },

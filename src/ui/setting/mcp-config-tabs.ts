@@ -24,6 +24,7 @@ export const ICON_SVGS: Record<string, string> = {
 };
 
 export const CATEGORY_TAB_DEFS: Array<{ category: Exclude<ToolCategory, "mascot">; groupKey: string; iconKey: string }> = [
+    { category: "fs", groupKey: "Filesystem", iconKey: "folder" },
     { category: "notebook", groupKey: "Notebooks", iconKey: "book" },
     { category: "document", groupKey: "Documents", iconKey: "fileText" },
     { category: "block", groupKey: "Blocks", iconKey: "layout" },

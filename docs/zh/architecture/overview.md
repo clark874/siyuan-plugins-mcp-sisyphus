@@ -24,7 +24,7 @@
 │  └──────────────┘  └─────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 3: 插件运行时 & 工具层                                │
-│  - Tool Registry (10 个聚合工具)                            │
+│  - Tool Registry (11 个聚合工具)                            │
 │  - Tool Lifecycle (analytics / telemetry / mascot)          │
 │  - Permission Manager (笔记本级四级权限)                    │
 │  - 设置面板 & 吉祥物 UI                                     │
@@ -128,7 +128,7 @@ SiYuanClient → SiYuan HTTP API
 
 ## 关键事实速查
 
-1. **聚合工具表面**：10 个 MCP tool（notebook / document / block / av / file / search / tag / system / flashcard / mascot），而非 100+ 个单用途工具。
+1. **聚合工具表面**：11 个 MCP tool（fs / notebook / document / block / av / file / search / tag / system / flashcard / mascot），而非 100+ 个单用途工具。
 2. **配置热加载**：`server.ts` 中 `getToolConfig()` 带 30 秒 TTL 缓存 + in-flight 去重，设置面板改动后无需重启即可生效。
 3. **危险动作标记**：`DANGEROUS_ACTIONS` 集合标记了 15 个高危 action（delete / remove / find_replace 等），在 tool description 和 server instructions 中自动注入警告，但不阻止调用（依赖 LLM 自律）。
 4. **Analytics 与 Telemetry**：每次工具调用都会记录 analytics 事件（JSONL 格式，2MB 自动轮转），telemetry 按配置周期聚合上报；CLI 模式下 analytics 会同步等待落盘。

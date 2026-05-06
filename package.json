@@ -2,7 +2,7 @@
   "name": "siyuan-plugins-mcp-sisyphus",
   "version": "0.3.6",
   "type": "module",
-  "description": "Let AI control your notes with a SiYuan MCP server that exposes 10 aggregated tools with action-level routing, including the mascot tool for lightweight interactive feedback.",
+  "description": "Let AI control your notes with a SiYuan MCP server that exposes 11 aggregated tools with action-level routing, including simplified fs document operations and mascot feedback.",
   "repository": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
   "homepage": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
   "author": "Taihong Yang",

@@ -1,6 +1,6 @@
 # Tools Index
 
-This page summarizes the 10 aggregated tools exposed by the project.
+This page summarizes the 11 aggregated tools exposed by the project.
 
 When to read this page: you know the general domain but need the right tool page.
 
@@ -11,6 +11,7 @@ Related pages:
 
 | Tool | Actions | Page |
 |------|---------|------|
+| `fs` | 7 | [fs](./fs.md) |
 | `notebook` | 11 | [notebook](./notebook.md) |
 | `document` | 15 | [document](./document.md) |
 | `block` | 19 | [block](./block.md) |
@@ -24,6 +25,7 @@ Related pages:
 
 ## Action Summary
 
+- `fs`: ls, tree, read, write, rm, mv, search
 - `notebook`: list, create, set_open_state, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs
 - `document`: create, lookup, rename, remove, move, get_child_blocks, get_child_docs, set_attr, list_tree, search_docs, get_doc, create_daily_note, duplicate, heading_to_doc, doc_to_heading
 - `block`: insert, prepend, append, update, delete, move, set_fold_state, get_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info

@@ -30,16 +30,27 @@ describe('puppy tool visuals helpers', () => {
         expect(resolveActionState('remove_card')).toBe('deleting');
     });
 
-    it('recognizes av, flashcard, and mascot as supported tool variants', () => {
+    it('maps fs actions into file-style states', () => {
+        expect(resolveActionState('ls')).toBe('reading');
+        expect(resolveActionState('read')).toBe('reading');
+        expect(resolveActionState('write')).toBe('writing');
+        expect(resolveActionState('rm')).toBe('deleting');
+        expect(resolveActionState('mv')).toBe('moving');
+    });
+
+    it('recognizes fs, av, flashcard, and mascot as supported tool variants', () => {
+        expect(resolveToolVariant('fs')).toBe('fs');
         expect(resolveToolVariant('av')).toBe('av');
         expect(resolveToolVariant('flashcard')).toBe('flashcard');
         expect(resolveToolVariant('mascot')).toBe('mascot');
         expect(resolveToolVariant('unknown')).toBe('none');
     });
 
-    it('includes av, flashcard, and mascot actions in random test rotation', () => {
+    it('includes fs, av, flashcard, and mascot actions in random test rotation', () => {
         expect(RANDOM_TEST_ACTIONS).toEqual(
             expect.arrayContaining([
+                expect.objectContaining({ tool: 'fs', action: 'read' }),
+                expect.objectContaining({ tool: 'fs', action: 'write' }),
                 expect.objectContaining({ tool: 'av', action: 'get' }),
                 expect.objectContaining({ tool: 'av', action: 'set_cells' }),
                 expect.objectContaining({ tool: 'flashcard', action: 'list_cards' }),

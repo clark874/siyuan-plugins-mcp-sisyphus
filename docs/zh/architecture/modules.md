@@ -14,7 +14,7 @@ src/
 ├── core/                     # MCP Server 核心
 │   ├── server.ts             # MCP Server 创建与 Handler 注册
 │   ├── http-transport.ts     # HTTP/S MCP 传输层
-│   ├── tool-registry.ts      # 10 个聚合工具的静态注册表
+│   ├── tool-registry.ts      # 11 个聚合工具的静态注册表
 │   ├── tool-lifecycle.ts     # 工具调用 AOP 切面（analytics/telemetry/puppy）
 │   ├── permissions.ts        # 笔记本级四级权限管理
 │   ├── config.ts             # ToolConfig schema / 默认值 / 迁移
@@ -33,7 +33,7 @@ src/
 │   └── noops/                # MCP SDK 重模块的 no-op shim
 │       ├── noop-schema-validator.ts
 │       └── noop-experimental-tasks.ts
-├── tools/                    # 10 个聚合工具的实现
+├── tools/                    # 11 个聚合工具的实现
 │   ├── index.ts              # Barrel export：统一导出所有工具
 │   ├── internal/             # 工具层共享基础设施
 │   │   ├── types.ts          # 工具层共享类型
@@ -183,7 +183,7 @@ src/
 
 ## 3. 工具注册表：`src/core/tool-registry.ts`
 
-**职责**：维护静态 `TOOL_REGISTRY` 映射表，将 10 个 category 统一收敛为 `ToolModule` 接口。
+**职责**：维护静态 `TOOL_REGISTRY` 映射表，将 11 个 category 统一收敛为 `ToolModule` 接口。
 
 **关键接口**：
 
@@ -199,7 +199,7 @@ interface ToolModule {
 
 | 导出 | 说明 |
 |------|------|
-| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | 10 个 category 的静态映射，编译期确定 |
+| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | 11 个 category 的静态映射，编译期确定 |
 | `listAllTools(config)` | 扁平化聚合所有启用状态下的 tool descriptor |
 | `resolveCategory(name)` | 从 tool name（如 `"notebook"`）反查 category |
 | `TOOL_CATEGORIES` | 常量数组，决定枚举顺序 |
@@ -289,7 +289,7 @@ runToolCall(ctx, handler)
 type ToolConfig = {
     notebook:  { enabled: boolean, actions: { list: boolean, create: boolean, ... } };
     document:  { enabled: boolean, actions: { ... } };
-    // ... 共 10 个 category
+    // ... 共 11 个 category
     file:      { enabled: boolean, actions: { ... }, uploadLargeFileThresholdMB: number };
     // ...
     userRulesText: string;  // 用户自定义规则文本
@@ -465,7 +465,7 @@ CLI flag (--url / --token)
 
 ### `tool-config.ts` — Schema 定义
 
-定义 10 个 `ToolCategory`，每个含 `enabled` + `actions` + 额外字段（如 `file` 的 `uploadLargeFileThresholdMB`）。
+定义 11 个 `ToolCategory`，每个含 `enabled` + `actions` + 额外字段（如 `file` 的 `uploadLargeFileThresholdMB`）。
 
 ### `tool-config-storage.ts` — 持久化层
 

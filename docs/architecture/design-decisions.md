@@ -17,10 +17,11 @@ SiYuan provides approximately 459 HTTP API endpoints. Exposing one MCP tool per 
 
 ### Choice Made
 
-Aggregate related APIs by domain into **10 MCP tools**:
+Aggregate related APIs by domain into **11 MCP tools**:
 
 | MCP Tool | SiYuan Domain Covered | Action Count |
 |----------|----------------------|-------------|
+| `fs` | Filesystem-style document operations | 7 |
 | `notebook` | Notebook CRUD | ~10 |
 | `document` | Document tree operations | ~17 |
 | `block` | Block-level operations | ~21 |
@@ -42,12 +43,12 @@ notebook(action="rename")
 ### Rejected Alternatives
 
 - **Option A: One API, One Tool**: Each SiYuan API maps to one MCP tool. Rejected: context cost too high, LLM selection difficulty.
-- **Option B: Hide action layer completely**: Only expose 10 tools, with actions as internal implementation details. Rejected: LLM needs to know available operations, and different actions have very different parameters that cannot be hidden under a unified schema.
+- **Option B: Hide action layer completely**: Only expose a small set of tools, with actions as internal implementation details. Rejected: LLM needs to know available operations, and different actions have very different parameters that cannot be hidden under a unified schema.
 - **Option C: Dynamically show by frequency**: Only show relevant tools based on context. Rejected: MCP protocol currently has no dynamic `list_tools` mechanism; would require complex server-side state machine.
 
 ### Current Outcome
 
-- MCP tool surface reduced from 100+ to **10**
+- MCP tool surface reduced from 100+ to **11**
 - `list_tools` response size reduced from ~50KB to ~**8KB**
 - Significantly improved LLM tool discoverability
 - Each action's parameters are strictly validated via Zod schema, reducing error rates
