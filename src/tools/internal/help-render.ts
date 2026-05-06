@@ -1,5 +1,5 @@
-import { getActionTier, isDangerousAction, type ActionTier, type ToolCategory } from '../core/config';
-import { TOOL_ACTION_HINTS, TOOL_GUIDANCE_BY_CATEGORY } from '../core/help';
+import { getActionTier, isDangerousAction, type ActionTier, type ToolCategory } from '../../core/config';
+import { TOOL_ACTION_HINTS, TOOL_GUIDANCE_BY_CATEGORY } from '../../core/help';
 import { getSchemaProperties, getSchemaRequired } from './schema-analyzer';
 import type { ActionVariant, JsonSchema } from './types';
 

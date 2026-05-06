@@ -1,7 +1,7 @@
 import { z, ZodError, type ZodIssue } from 'zod';
 
-import { getActionTier, getEnabledActions, isDangerousAction, type CategoryToolConfig, type ToolCategory } from '../core/config';
-import { getActionHint } from '../core/help';
+import { getActionTier, getEnabledActions, isDangerousAction, type CategoryToolConfig, type ToolCategory } from '../../core/config';
+import { getActionHint } from '../../core/help';
 import { translateError } from './errorTranslation';
 import { buildActionHelp, buildActionUsageSummary, buildHelpIndex, buildParameterContract } from './help-render';
 import {

@@ -22,8 +22,8 @@ import {
     BlockUpdateSchema,
     BlockWordCountSchema,
 } from '../../core/types';
-import { defineTool } from '../define-tool';
-import { createZodActionVariant, type ActionVariant } from '../shared';
+import { defineTool } from '../internal/define-tool';
+import { createZodActionVariant, type ActionVariant } from '../internal/shared';
 import { BLOCK_ACTION_HANDLERS } from './handlers';
 
 export const BLOCK_TOOL_NAME = 'block';

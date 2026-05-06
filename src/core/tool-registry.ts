@@ -1,7 +1,7 @@
 import type { SiYuanClient } from '../api/client';
 import { TOOL_CATEGORIES, type ToolCategory, type ToolConfig } from './config';
 import type { PermissionManager } from './permissions';
-import type { ToolResult } from '@/tools/shared';
+import type { ToolResult } from '@/tools/internal/shared';
 
 import {
     callAvTool,

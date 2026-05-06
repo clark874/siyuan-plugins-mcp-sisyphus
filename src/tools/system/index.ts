@@ -11,8 +11,8 @@ import {
     SystemNotifySchema,
     SystemWorkspaceInfoSchema,
 } from '../../core/types';
-import { defineTool } from '../define-tool';
-import { createZodActionVariant, type ActionVariant, type ToolResult } from '../shared';
+import { defineTool } from '../internal/define-tool';
+import { createZodActionVariant, type ActionVariant, type ToolResult } from '../internal/shared';
 import { SYSTEM_ACTION_HANDLERS } from './handlers';
 
 export const SYSTEM_TOOL_NAME = 'system';

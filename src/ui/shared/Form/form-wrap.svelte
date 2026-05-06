@@ -2,7 +2,7 @@
  Copyright (c) 2024 by frostime. All Rights Reserved.
  Author       : frostime
  Date         : 2024-06-01 20:03:50
- FilePath     : /src/libs/components/item-wrap.svelte
+ FilePath     : /src/ui/shared/Form/form-wrap.svelte
  LastEditTime : 2024-07-19 15:28:57
  Description  : The setting item container
 -->

@@ -11,7 +11,7 @@
 ```
 src/
 ├── index.ts                  # 插件生命周期入口
-├── core/                     # MCP Server 核心（原 src/mcp/）
+├── core/                     # MCP Server 核心
 │   ├── server.ts             # MCP Server 创建与 Handler 注册
 │   ├── http-transport.ts     # HTTP/S MCP 传输层
 │   ├── tool-registry.ts      # 10 个聚合工具的静态注册表
@@ -33,21 +33,23 @@ src/
 │   └── noops/                # MCP SDK 重模块的 no-op shim
 │       ├── noop-schema-validator.ts
 │       └── noop-experimental-tasks.ts
-├── tools/                    # 10 个聚合工具的实现（原 src/mcp/tools/）
+├── tools/                    # 10 个聚合工具的实现
 │   ├── index.ts              # Barrel export：统一导出所有工具
-│   ├── types.ts              # 工具层共享类型
-│   ├── define-tool.ts        # 工具工厂
-│   ├── shared.ts             # 共享基础设施
-│   ├── schema-builder.ts     # 聚合 ToolDescriptor schema 拼装
-│   ├── schema-analyzer.ts    # schema 分析与描述裁剪
-│   ├── result-factory.ts     # 标准结果工厂
-│   ├── pagination.ts         # 分页工具
-│   ├── context.ts            # 权限上下文解析
-│   ├── errorTranslation.ts   # 思源错误码 → 用户友好文案
-│   ├── validation.ts         # 参数校验辅助
-│   ├── ui-refresh.ts         # 触发思源 UI 刷新
-│   ├── help-render.ts        # help action 输出渲染
-│   ├── help-router.ts        # help 路由分发
+│   ├── internal/             # 工具层共享基础设施
+│   │   ├── types.ts          # 工具层共享类型
+│   │   ├── define-tool.ts    # 工具工厂
+│   │   ├── shared.ts         # 共享基础设施
+│   │   ├── schema-builder.ts # 聚合 ToolDescriptor schema 拼装
+│   │   ├── schema-analyzer.ts# schema 分析与描述裁剪
+│   │   ├── result-factory.ts # 标准结果工厂
+│   │   ├── pagination.ts     # 分页工具
+│   │   ├── context.ts        # 权限上下文解析
+│   │   ├── errorTranslation.ts # 思源错误码 → 用户友好文案
+│   │   ├── validation.ts     # 参数校验辅助
+│   │   ├── ui-refresh.ts     # 触发思源 UI 刷新
+│   │   ├── help-render.ts    # help action 输出渲染
+│   │   ├── help-router.ts    # help 路由分发
+│   │   └── helpers/          # 跨工具 helper，如 notebookName 补全
 │   ├── notebook/             # notebook 工具
 │   │   ├── index.ts          # variants + list/call 导出
 │   │   └── handlers.ts       # 业务 handler
@@ -74,8 +76,10 @@ src/
 │   ├── flashcard/            # flashcard 工具
 │   │   ├── index.ts
 │   │   └── handlers.ts
-│   ├── tag.ts                # tag 工具（扁平）
-│   └── mascot.ts             # mascot 工具（扁平）
+│   ├── tag/                  # tag 工具
+│   │   └── index.ts
+│   └── mascot/               # mascot 工具
+│       └── index.ts
 ├── cli/
 │   ├── index.ts              # CLI 程序入口
 │   ├── args.ts               # 命令行参数解析
@@ -101,7 +105,7 @@ src/
 │   ├── transaction.ts        # 事务 API 封装
 │   ├── notification.ts       # 通知 API 封装
 │   └── template.ts           # 模板 API 封装
-├── ui/                       # UI 层（原 src/components/ + src/setting/）
+├── ui/                       # UI 层
 │   ├── components/           # Svelte UI 组件（Puppy 吉祥物系统）
 │   │   ├── ToolPuppy.svelte
 │   │   ├── Puppy*.svelte
@@ -115,7 +119,7 @@ src/
 │   └── shared/               # UI 共享组件
 │       ├── setting-panel.svelte
 │       └── Form/             # 表单原子组件
-├── shared/                   # 通用工具库（原 src/libs/ + src/presentation/）
+├── shared/                   # 通用工具库
 │   ├── error.ts              # 错误类型与错误码映射
 │   ├── promise-pool.ts       # 并发限制 Promise 池
 │   ├── async.ts              # 异步工具
@@ -147,7 +151,7 @@ src/
 | `startHttpServer()` | 读取 `window.siyuan.config.api.token`，调用 `httpLauncher.start()` |
 | `updateHttpServerSettings(next)` | 运行时热更新：先 stop → 持久化 → 按需 restart |
 
-**依赖**：`setting/tool-config-storage`、`components/ToolPuppy`、`setting/mcp-config.svelte`、`server-launcher`（HttpServerLauncher）
+**依赖**：`ui/setting/tool-config-storage`、`ui/components/ToolPuppy`、`ui/setting/mcp-config.svelte`、`server-launcher`（HttpServerLauncher）
 
 ---
 
@@ -310,9 +314,9 @@ type ToolConfig = {
 
 ---
 
-## 7. 工具工厂与共享层：`src/tools/`
+## 7. 工具工厂与共享层：`src/tools/internal/`
 
-### `define-tool.ts` — 工具工厂
+### `internal/define-tool.ts` — 工具工厂
 
 **核心函数**：`defineTool<Action>(options): DefinedTool<Action>`
 
@@ -320,7 +324,7 @@ type ToolConfig = {
 - `listTools(config)` → 调用 `buildAggregatedTool()` 生成 MCP `ToolDescriptor`
 - `callTool(...)` → 处理 `action="help"` → `actionSchema.parse()` → 检查 action enabled → 派发 handler → catch 并 `createErrorResult`
 
-### `shared.ts` — 共享基础设施
+### `internal/shared.ts` — 共享基础设施
 
 | 导出 | 说明 |
 |------|------|
@@ -328,7 +332,7 @@ type ToolConfig = {
 | `createErrorResult()` | 统一错误格式化（ZodError → `validation_error`；SiYuanError → `api_error`） |
 | `tryHandleHelpAction()` | `action="help"` 的内置帮助路由 |
 
-### `context.ts` — 权限上下文解析
+### `internal/context.ts` — 权限上下文解析
 
 | 导出 | 说明 |
 |------|------|

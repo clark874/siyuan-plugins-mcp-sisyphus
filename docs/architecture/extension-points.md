@@ -28,6 +28,7 @@ If you want to expose a new set of SiYuan API capabilities to MCP clients, follo
 
 3. **Tool Implementation** (`src/tools/`)
    - Create `src/tools/{category}/index.ts` + `src/tools/{category}/handlers.ts`
+   - Keep shared tool-layer infrastructure under `src/tools/internal/`; cross-tool helpers belong in `src/tools/internal/helpers/`
    - Use the `defineTool()` factory:
      ```typescript
      export const { listTools: listXxxTools, callTool: callXxxTool } = defineTool({
@@ -37,7 +38,7 @@ If you want to expose a new set of SiYuan API capabilities to MCP clients, follo
      });
      ```
    - Each variant contains: `action` (name), `description`, `schema` (Zod), `handler` (business logic)
-   - For permission checks in handlers, use `tools/context.ts`: `ensurePermissionForDocumentId` / `ensurePermissionForNotebook`
+   - For permission checks in handlers, use `tools/internal/context.ts`: `ensurePermissionForDocumentId` / `ensurePermissionForNotebook`
 
 4. **Registry Registration** (`src/core/tool-registry.ts`)
    - Add entry to `TOOL_REGISTRY`:
@@ -57,12 +58,12 @@ If you want to expose a new set of SiYuan API capabilities to MCP clients, follo
    - Add corresponding i18n text
 
 8. **Testing**
-   - `tests/unit/mcp/tools/{category}.test.ts`: Cover schema and handler for each action
+   - `tests/unit/tools/{category}.test.ts`: Cover schema and handler for each action
    - `tests/integration/server.test.ts`: Ensure new tool appears in `listTools()`
    - `tests/unit/cli/flag-mapper.test.ts`: If CLI exposes new flags, verify mapping
 
 9. **Documentation**
-   - `docs/zh/reference/tools/{category}.md` and `docs/en/reference/tools/{category}.md`
+   - `docs/reference/tools/{category}.md` and `docs/zh/reference/tools/{category}.md`
    - Update `API_MCP_MAPPING.md`
 
 #### Dependency Graph
@@ -70,7 +71,7 @@ If you want to expose a new set of SiYuan API capabilities to MCP clients, follo
 ```
 api/{category}.ts  →  types/api.d.ts
      ↓
-tools/{category}/index.ts → define-tool.ts → shared.ts → config.ts + help.ts + types.ts
+tools/{category}/index.ts → tools/internal/define-tool.ts → tools/internal/shared.ts → config.ts + help.ts + types.ts
      ↓
 tool-registry.ts
      ↓
@@ -87,7 +88,7 @@ If you are only adding a new action to an existing category, the steps are great
 2. **Config Definition**: Add action name to `ACTIONS_BY_CATEGORY[category]` in `src/core/config.ts`
 3. **Tool Implementation**: Add variant to `variants` array in corresponding `src/tools/{category}/index.ts`
 4. **Help Text**: Add action hint in `src/core/help.ts`
-5. **Testing**: Cover new action in `tests/unit/mcp/tools/{category}.test.ts`
+5. **Testing**: Cover new action in `tests/unit/tools/{category}.test.ts`
 6. **Documentation**: Update corresponding reference page and `API_MCP_MAPPING.md`
 
 **Note**: Tool descriptions and config action lists **must stay consistent**. If an action is listed in config but not implemented in variants, or vice versa, it will cause runtime errors or inconsistent user experience.
@@ -201,7 +202,7 @@ Currently supports stdio and HTTP/S. To add new transports:
 | **Permission Checks** | ✓ (if notebook-scoped mutation) | Mock different permission levels, verify blocking behavior |
 | **Help Output** | ✓ | `action="help"` returns correct help content |
 | **Integration Tests** | ✓ | New tool appears in `listTools()` results; end-to-end call returns expected result |
-| **Schema Snapshot** | Recommended | `tests/unit/mcp/tools/help-output.snapshot.test.ts` locks help output |
+| **Schema Snapshot** | Recommended | `tests/unit/tools/help-output.snapshot.test.ts` locks help output |
 | **CLI Flag Mapping** | Recommended (if CLI exposes new flags) | Verify kebab↔camel mapping and type coercion |
 
 ### Test Commands

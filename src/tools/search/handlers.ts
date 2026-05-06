@@ -21,9 +21,10 @@ import {
     SearchQuerySqlSchema,
     SearchRefsSchema,
 } from '../../core/types';
-import { ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveNotebookForPath } from '../context';
-import type { ToolActionHandler } from '../define-tool';
-import { applyTruncation, createErrorResult, createJsonResult, createPaginatedResult, type ToolResult, type TruncationMeta } from '../shared';
+import { ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveNotebookForPath } from '../internal/context';
+import type { ToolActionHandler } from '../internal/define-tool';
+import { enrichItemsWithNotebookNames } from '../internal/helpers/notebook-names';
+import { applyTruncation, createErrorResult, createJsonResult, createPaginatedResult, type ToolResult, type TruncationMeta } from '../internal/shared';
 import {
     createPartialMetadata,
     filterBacklinkResultByPermission,
@@ -236,6 +237,10 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
 
         if (parsed.hasTags !== undefined) {
             applyFulltextHasTagsFilter(normalizedObj, parsed.hasTags);
+        }
+
+        if (Array.isArray(normalizedObj.blocks)) {
+            normalizedObj.blocks = await enrichItemsWithNotebookNames(client, normalizedObj.blocks);
         }
 
         const shouldExposeResolvedArgs = parsed.methodName !== undefined || parsed.sortBy !== undefined;

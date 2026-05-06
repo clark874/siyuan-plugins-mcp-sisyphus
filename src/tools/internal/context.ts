@@ -1,9 +1,9 @@
-import type { SiYuanClient } from '../api/client';
-import * as blockApi from '../api/block';
-import * as documentApi from '../api/document';
-import * as notebookApi from '../api/notebook';
-import * as searchApi from '../api/search';
-import type { PermissionManager } from '../core/permissions';
+import type { SiYuanClient } from '../../api/client';
+import * as blockApi from '../../api/block';
+import * as documentApi from '../../api/document';
+import * as notebookApi from '../../api/notebook';
+import * as searchApi from '../../api/search';
+import type { PermissionManager } from '../../core/permissions';
 import { createPermissionDeniedResult, type ToolResult } from './shared';
 
 export interface ResolvedDocumentContext {

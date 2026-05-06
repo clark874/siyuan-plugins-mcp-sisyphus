@@ -23,8 +23,8 @@ import {
     SYSTEM_VARIANTS,
     TAG_VARIANTS,
 } from '@/tools/index';
-import type { ActionVariant } from '@/tools/shared';
-import { buildActionExamplesMarkdown, buildShapeSummaryMarkdown } from '@/tools/help-render';
+import type { ActionVariant } from '@/tools/internal/shared';
+import { buildActionExamplesMarkdown, buildShapeSummaryMarkdown } from '@/tools/internal/help-render';
 
 
 interface HelpResourceDefinition {

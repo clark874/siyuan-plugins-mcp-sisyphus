@@ -2,7 +2,7 @@
  * Copyright (c) 2024 by frostime. All Rights Reserved.
  * @Author       : frostime
  * @Date         : 2024-04-19 18:30:12
- * @FilePath     : /src/libs/index.d.ts
+ * @FilePath     : /src/shared/index.d.ts
  * @LastEditTime : 2024-04-30 16:39:54
  * @Description  : 
  */

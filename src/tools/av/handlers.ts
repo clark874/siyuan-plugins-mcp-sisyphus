@@ -20,11 +20,11 @@ import {
     AvSearchSchema,
     AvSetCellsSchema,
 } from '../../core/types';
-import { createResultResolutionCache, ensurePermissionForDocumentId, escapeSqlString, resolveDocumentContextById, resolveResultItemContext } from '../context';
-import type { ToolActionHandler, ToolHandlerContext } from '../define-tool';
-import { isMissingBlockError, translateError } from '../errorTranslation';
-import { createJsonResult, createPaginatedResult, createWriteSuccessResult, type ToolResult } from '../shared';
-import { applyUiRefresh, type UiRefreshOperation } from '../ui-refresh';
+import { createResultResolutionCache, ensurePermissionForDocumentId, escapeSqlString, resolveDocumentContextById, resolveResultItemContext } from '../internal/context';
+import type { ToolActionHandler, ToolHandlerContext } from '../internal/define-tool';
+import { isMissingBlockError, translateError } from '../internal/errorTranslation';
+import { createJsonResult, createPaginatedResult, createWriteSuccessResult, type ToolResult } from '../internal/shared';
+import { applyUiRefresh, type UiRefreshOperation } from '../internal/ui-refresh';
 import { sleep } from '../../shared/async';
 
 const AV_TOOL_NAME = 'av';

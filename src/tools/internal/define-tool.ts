@@ -1,8 +1,8 @@
 import type { z } from 'zod';
 
-import type { SiYuanClient } from '../api/client';
-import type { CategoryToolConfig, ToolCategory } from '../core/config';
-import type { PermissionManager } from '../core/permissions';
+import type { SiYuanClient } from '../../api/client';
+import type { CategoryToolConfig, ToolCategory } from '../../core/config';
+import type { PermissionManager } from '../../core/permissions';
 import {
     buildAggregatedTool,
     createDisabledActionResult,

@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
     mergePropertySchemas,
     normalizeJsonSchema,
-} from '@/tools/schema-analyzer';
-import { createActionSchema } from '@/tools/shared';
+} from '@/tools/internal/schema-analyzer';
+import { createActionSchema } from '@/tools/internal/shared';
 
 describe('schema-analyzer helpers', () => {
     it('merges property descriptions and annotations without changing nested schemas', () => {

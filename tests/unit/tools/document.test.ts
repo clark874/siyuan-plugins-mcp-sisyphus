@@ -100,6 +100,37 @@ describe('document.move schema', () => {
 });
 
 describe('document.lookup path compatibility', () => {
+    it('adds notebookName when resolving a document by hpath', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string) => {
+                if (endpoint === '/api/notebook/lsNotebooks') {
+                    return { notebooks: [{ id: 'nb-1', name: 'Project Notes', icon: '', sort: 0, closed: false }] };
+                }
+                if (endpoint === '/api/filetree/getIDsByHPath') return ['doc-1'];
+                if (endpoint === '/api/filetree/getPathByID') return { notebook: 'nb-1', path: '/doc-1.sy' };
+                if (endpoint === '/api/block/getDocInfo') return { id: 'doc-1' };
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canRead: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+
+        const result = await callDocumentTool(
+            client,
+            { action: 'lookup', notebook: 'nb-1', hpath: '/Projects/Plan', include: ['id', 'path', 'hpath'] },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+        const payload = parseResult(result) as Record<string, unknown>;
+
+        expect(payload.notebook).toBe('nb-1');
+        expect(payload.notebookName).toBe('Project Notes');
+        expect(payload.id).toBe('doc-1');
+    });
+
     it('interprets non-storage path input as hpath and returns the storage path', async () => {
         const client = createMockClient({
             request: vi.fn(async (endpoint: string) => {

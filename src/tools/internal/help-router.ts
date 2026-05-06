@@ -1,5 +1,5 @@
-import type { CategoryToolConfig, ToolCategory } from '../core/config';
-import { getEnabledActions } from '../core/config';
+import type { CategoryToolConfig, ToolCategory } from '../../core/config';
+import { getEnabledActions } from '../../core/config';
 import { buildActionHelp, buildHelpIndex } from './help-render';
 import { createJsonResult } from './result-factory';
 import type { ActionVariant, ToolResult } from './types';

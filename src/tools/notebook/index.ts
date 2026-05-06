@@ -16,8 +16,8 @@ import {
     NotebookSetOpenStateSchema,
     NotebookSetPermissionSchema,
 } from '../../core/types';
-import { defineTool } from '../define-tool';
-import { createZodActionVariant, type ActionVariant, type ToolResult } from '../shared';
+import { defineTool } from '../internal/define-tool';
+import { createZodActionVariant, type ActionVariant, type ToolResult } from '../internal/shared';
 import { NOTEBOOK_ACTION_HANDLERS } from './handlers';
 
 export { NOTEBOOK_TOOL_NAME } from './handlers';

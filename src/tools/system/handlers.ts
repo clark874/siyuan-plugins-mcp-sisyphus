@@ -10,8 +10,8 @@ import {
     SystemNotifySchema,
     SystemWorkspaceInfoSchema,
 } from '../../core/types';
-import type { ToolActionHandler } from '../define-tool';
-import { createJsonResult, type ToolResult } from '../shared';
+import type { ToolActionHandler } from '../internal/define-tool';
+import { createJsonResult, type ToolResult } from '../internal/shared';
 
 const DEFAULT_CONF_MAX_DEPTH = 1;
 const DEFAULT_CONF_MAX_ITEMS = 12;

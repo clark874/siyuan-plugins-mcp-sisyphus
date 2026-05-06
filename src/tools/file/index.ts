@@ -15,8 +15,8 @@ import {
     FileRenderSchema,
     FileUploadAssetSchema,
 } from '../../core/types';
-import { defineTool } from '../define-tool';
-import { createZodActionVariant, type ActionVariant, type ToolResult } from '../shared';
+import { defineTool } from '../internal/define-tool';
+import { createZodActionVariant, type ActionVariant, type ToolResult } from '../internal/shared';
 import { createFileActionHandlers, FILE_TOOL_NAME, DEFAULT_LARGE_UPLOAD_THRESHOLD_MB } from './handlers';
 
 export { FILE_TOOL_NAME };

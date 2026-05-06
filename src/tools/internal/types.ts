@@ -1,7 +1,7 @@
 /**
  * Shared types for the MCP tool layer.
  *
- * This module is the type-only "root" of src/mcp/tools/ — it has zero
+ * This module is the type-only root of src/tools/internal/ — it has zero
  * runtime imports into the rest of the tool layer, which prevents
  * circular-dependency cycles between shared.ts and help-render.ts.
  */

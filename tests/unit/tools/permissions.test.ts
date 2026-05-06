@@ -8,7 +8,7 @@ import { callSearchTool } from '@/tools/search';
 import * as blockApi from '@/api/block';
 import * as documentApi from '@/api/document';
 import * as searchApi from '@/api/search';
-import * as contextTools from '@/tools/context';
+import * as contextTools from '@/tools/internal/context';
 
 import { parseResult } from '../../helpers/parse-result';
 

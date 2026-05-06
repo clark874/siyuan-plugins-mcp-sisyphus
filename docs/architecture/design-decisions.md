@@ -302,7 +302,7 @@ The system needs to handle errors from multiple sources: Zod validation, SiYuan 
 
 ### Choice Made
 
-**Unified error formatting** (`tools/shared.ts: createErrorResult`):
+**Unified error formatting** (`tools/internal/shared.ts: createErrorResult`):
 
 ```
 ZodError          → type: "validation_error",  message: "Invalid parameters: ..."

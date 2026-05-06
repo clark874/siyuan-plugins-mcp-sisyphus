@@ -29,11 +29,12 @@ import {
     listChildDocumentsByPath,
     resolveMoveTargetNotebook,
     resolveNotebookForPath,
-} from '../context';
-import type { ToolActionHandler } from '../define-tool';
+} from '../internal/context';
+import type { ToolActionHandler } from '../internal/define-tool';
+import { resolveNotebookName } from '../internal/helpers/notebook-names';
 import { filterBacklinkResultByPermission, filterItemsByPermissionAndPath } from '../search';
-import { createJsonResult, createPermissionDeniedResult, createSetIconReminder } from '../shared';
-import { applyUiRefresh, type UiRefreshOperation } from '../ui-refresh';
+import { createJsonResult, createPermissionDeniedResult, createSetIconReminder } from '../internal/shared';
+import { applyUiRefresh, type UiRefreshOperation } from '../internal/ui-refresh';
 import { sleep } from '../../shared/async';
 
 type DocumentActionHandler = ToolActionHandler;
@@ -322,9 +323,10 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
     };
 
     if (parsed.id) {
-        const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+        const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
         if (denied) return denied;
         result.id = parsed.id;
+        result.notebook = context.notebook;
         if (include.has('path')) {
             result.path = await documentApi.getPathByID(client, parsed.id);
         }
@@ -334,14 +336,18 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         if (include.has('docInfo')) {
             result.docInfo = await blockApi.getDocInfo(client, parsed.id);
         }
+        const notebookName = await resolveNotebookName(client, context.notebook);
+        if (notebookName) result.notebookName = notebookName;
         return createJsonResult(result);
     }
 
     const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook!, 'read');
     if (denied) return denied;
+    const notebookName = await resolveNotebookName(client, parsed.notebook);
 
     if (parsed.path) {
         result.notebook = parsed.notebook;
+        if (notebookName) result.notebookName = notebookName;
         result.path = parsed.path;
 
         if (!looksLikeStoragePath(parsed.path)) {
@@ -382,6 +388,7 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
 
     const ids = await documentApi.getIDsByHPath(client, hpathInput!, parsed.notebook!);
     result.notebook = parsed.notebook;
+    if (notebookName) result.notebookName = notebookName;
     result.hPath = hpathInput;
     if (include.has('ids') || include.has('id')) {
         result.ids = ids;
@@ -605,11 +612,18 @@ const handleSearchDocs: DocumentActionHandler = async ({ client, permMgr, rawArg
 
 const handleGetDoc: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentGetDocSchema.parse(rawArgs);
-    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
     if (denied) return denied;
+    const notebookName = await resolveNotebookName(client, context.notebook);
     if (parsed.mode === 'html') {
         const result = await documentApi.getDoc(client, parsed.id, 0, parsed.size);
-        return createJsonResult({ id: parsed.id, mode: 'html', ...((result && typeof result === 'object') ? result as Record<string, unknown> : { content: result }) });
+        return createJsonResult({
+            id: parsed.id,
+            mode: 'html',
+            notebook: context.notebook,
+            ...(notebookName ? { notebookName } : {}),
+            ...((result && typeof result === 'object') ? result as Record<string, unknown> : { content: result }),
+        });
     }
     const markdown = normalizeMarkdownContent(await fileApi.exportMdContent(client, parsed.id));
     const content = typeof markdown.content === 'string' ? markdown.content : '';
@@ -623,6 +637,8 @@ const handleGetDoc: DocumentActionHandler = async ({ client, permMgr, rawArgs })
     return createJsonResult({
         id: parsed.id,
         mode: 'markdown',
+        notebook: context.notebook,
+        ...(notebookName ? { notebookName } : {}),
         hPath: markdown.hPath,
         content: pagedContent,
         ...(isPaginated ? {

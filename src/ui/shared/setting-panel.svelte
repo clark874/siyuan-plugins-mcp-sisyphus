@@ -2,7 +2,7 @@
  Copyright (c) 2023 by frostime All Rights Reserved.
  Author       : frostime
  Date         : 2023-07-01 19:23:50
- FilePath     : /src/libs/components/setting-panel.svelte
+ FilePath     : /src/ui/shared/setting-panel.svelte
  LastEditTime : 2024-08-09 21:41:07
  Description  : 
 -->

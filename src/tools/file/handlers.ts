@@ -18,9 +18,9 @@ import {
     FileRenderSchema,
     FileUploadAssetSchema,
 } from '../../core/types';
-import { ensurePermissionForDocumentId } from '../context';
-import type { ToolActionHandler } from '../define-tool';
-import { createJsonResult, type ToolResult } from '../shared';
+import { ensurePermissionForDocumentId } from '../internal/context';
+import type { ToolActionHandler } from '../internal/define-tool';
+import { createJsonResult, type ToolResult } from '../internal/shared';
 
 export const FILE_TOOL_NAME = 'file';
 export const DEFAULT_LARGE_UPLOAD_THRESHOLD_MB = 10;

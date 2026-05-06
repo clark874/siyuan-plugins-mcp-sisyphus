@@ -11,7 +11,7 @@ Use case: You need to know which file to modify for a specific feature, or trace
 ```
 src/
 ├── index.ts                  # Plugin lifecycle entry
-├── core/                     # MCP Server core (formerly src/mcp/)
+├── core/                     # MCP Server core
 │   ├── server.ts             # MCP Server creation & handler registration
 │   ├── http-transport.ts     # HTTP/S MCP transport layer
 │   ├── tool-registry.ts      # Static registry of 10 aggregated tools
@@ -33,21 +33,23 @@ src/
 │   └── noops/                # No-op shims for heavy MCP SDK modules
 │       ├── noop-schema-validator.ts
 │       └── noop-experimental-tasks.ts
-├── tools/                    # 10 aggregated tool implementations (formerly src/mcp/tools/)
+├── tools/                    # 10 aggregated tool implementations
 │   ├── index.ts              # Barrel export: re-exports all tool modules
-│   ├── types.ts              # Shared types for the tool layer
-│   ├── define-tool.ts        # Tool factory
-│   ├── shared.ts             # Shared infrastructure
-│   ├── schema-builder.ts     # Aggregated ToolDescriptor schema assembly
-│   ├── schema-analyzer.ts    # Schema analysis & description trimming
-│   ├── result-factory.ts     # Standard result factory (JSON / paginated / error)
-│   ├── pagination.ts         # Pagination utilities
-│   ├── context.ts            # Permission context resolution
-│   ├── errorTranslation.ts   # SiYuan error code → user-friendly text
-│   ├── validation.ts         # Parameter validation helpers
-│   ├── ui-refresh.ts         # Trigger SiYuan UI refresh
-│   ├── help-render.ts        # Help action output rendering
-│   ├── help-router.ts        # Help routing dispatcher
+│   ├── internal/             # Shared infrastructure for the tool layer
+│   │   ├── types.ts          # Shared types for the tool layer
+│   │   ├── define-tool.ts    # Tool factory
+│   │   ├── shared.ts         # Shared infrastructure
+│   │   ├── schema-builder.ts # Aggregated ToolDescriptor schema assembly
+│   │   ├── schema-analyzer.ts# Schema analysis & description trimming
+│   │   ├── result-factory.ts # Standard result factory (JSON / paginated / error)
+│   │   ├── pagination.ts     # Pagination utilities
+│   │   ├── context.ts        # Permission context resolution
+│   │   ├── errorTranslation.ts # SiYuan error code → user-friendly text
+│   │   ├── validation.ts     # Parameter validation helpers
+│   │   ├── ui-refresh.ts     # Trigger SiYuan UI refresh
+│   │   ├── help-render.ts    # Help action output rendering
+│   │   ├── help-router.ts    # Help routing dispatcher
+│   │   └── helpers/          # Cross-tool helpers such as notebookName enrichment
 │   ├── notebook/             # notebook tool
 │   │   ├── index.ts          # variants + list/call exports
 │   │   └── handlers.ts       # business handlers
@@ -74,8 +76,10 @@ src/
 │   ├── flashcard/            # flashcard tool
 │   │   ├── index.ts
 │   │   └── handlers.ts
-│   ├── tag.ts                # tag tool (flat)
-│   └── mascot.ts             # mascot tool (flat)
+│   ├── tag/                  # tag tool
+│   │   └── index.ts
+│   └── mascot/               # mascot tool
+│       └── index.ts
 ├── cli/
 │   ├── index.ts              # CLI program entry
 │   ├── args.ts               # Command-line argument parsing
@@ -101,7 +105,7 @@ src/
 │   ├── transaction.ts        # Transaction API wrapper
 │   ├── notification.ts       # Notification API wrapper
 │   └── template.ts           # Template API wrapper
-├── ui/                       # UI layer (formerly src/components/ + src/setting/)
+├── ui/                       # UI layer
 │   ├── components/           # Svelte UI components (Puppy mascot system)
 │   │   ├── ToolPuppy.svelte
 │   │   ├── Puppy*.svelte
@@ -115,7 +119,7 @@ src/
 │   └── shared/               # Shared UI components
 │       ├── setting-panel.svelte
 │       └── Form/             # Form atoms (form-input, form-wrap, index)
-├── shared/                   # Shared utilities (formerly src/libs/ + src/presentation/)
+├── shared/                   # Shared utilities
 │   ├── error.ts              # Error types & error code mapping
 │   ├── promise-pool.ts       # Concurrency-limited Promise pool
 │   ├── async.ts              # Async utilities
@@ -147,7 +151,7 @@ src/
 | `startHttpServer()` | Read `window.siyuan.config.api.token`, call `httpLauncher.start()` |
 | `updateHttpServerSettings(next)` | Runtime hot-update: stop → persist → restart as needed |
 
-**Dependencies**: `setting/tool-config-storage`, `components/ToolPuppy`, `setting/mcp-config.svelte`, `server-launcher`
+**Dependencies**: `ui/setting/tool-config-storage`, `ui/components/ToolPuppy`, `ui/setting/mcp-config.svelte`, `server-launcher`
 
 ---
 
@@ -310,9 +314,9 @@ type ToolConfig = {
 
 ---
 
-## 7. Tool Factory & Shared Layer: `src/tools/`
+## 7. Tool Factory & Shared Layer: `src/tools/internal/`
 
-### `define-tool.ts` — Tool Factory
+### `internal/define-tool.ts` — Tool Factory
 
 **Core function**: `defineTool<Action>(options): DefinedTool<Action>`
 
@@ -320,7 +324,7 @@ Converges `variants + handlers + actionSchema` into standard `{ listTools, callT
 - `listTools(config)` → calls `buildAggregatedTool()` to generate MCP `ToolDescriptor`
 - `callTool(...)` → handles `action="help"` → `actionSchema.parse()` → checks action enabled → dispatches handler → catches and `createErrorResult`
 
-### `shared.ts` — Shared Infrastructure
+### `internal/shared.ts` — Shared Infrastructure
 
 | Export | Description |
 |--------|-------------|
@@ -328,7 +332,7 @@ Converges `variants + handlers + actionSchema` into standard `{ listTools, callT
 | `createErrorResult()` | Uniform error formatting (ZodError → `validation_error`; SiYuanError → `api_error`) |
 | `tryHandleHelpAction()` | Built-in help routing for `action="help"` |
 
-### `context.ts` — Permission Context Resolution
+### `internal/context.ts` — Permission Context Resolution
 
 | Export | Description |
 |--------|-------------|

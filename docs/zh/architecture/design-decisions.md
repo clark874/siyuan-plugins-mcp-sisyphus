@@ -302,7 +302,7 @@ BUILD_TARGET=cli       →  cli/dist/cli.cjs    (Node.js 环境，独立 CLI)
 
 ### 做出的选择
 
-**统一错误格式化**（`tools/shared.ts: createErrorResult`）：
+**统一错误格式化**（`tools/internal/shared.ts: createErrorResult`）：
 
 ```
 ZodError          → type: "validation_error",  message: "Invalid parameters: ..."
