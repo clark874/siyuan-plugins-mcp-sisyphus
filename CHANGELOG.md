@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.3.7 - 2026-05-06
+
+- 新增 `fs` 简化文件系统风格文档操作工具：支持通过人类可读路径进行 ls、tree、read、write、replace、rm、mv、search 操作，降低 AI Agent 操作门槛
+- 工具内部目录重构：将共享基础设施统一归拢到 `tools/internal/`，新增 `helpers/` 子目录存放跨工具辅助函数
+- 新增国际化（i18n）基础支持：前端设置面板与提示文案支持中英双语切换
+- CLI 包同步提升至 v0.1.7
+
 ## v0.3.6 - 2026-04-29
 
 - Cherry Studio MCP 配置预设更新为 `streamableHttp` 格式，与 Cherry Studio 最新 MCP 客户端规范对齐

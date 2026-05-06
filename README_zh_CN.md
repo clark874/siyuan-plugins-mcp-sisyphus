@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
 </p>
 
-> **最新版本：**`v0.3.5` — AV 操作对齐思源前端 transaction 流程；document `lookup` 智能容错人类可读路径；HTTP 面板新增 7 个 MCP 客户端配置预设。详见 [CHANGELOG.md](./CHANGELOG.md)。
+> **最新版本：**`v0.3.7` — 新增 `fs` 提供类文件系统风格的文档操作工具，便于AI理解。
 
 > 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
