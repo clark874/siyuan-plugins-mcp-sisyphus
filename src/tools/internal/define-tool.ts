@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 
 import type { SiYuanClient } from '../../api/client';
+import { normalizeActionAlias } from '../../core/action-aliases';
 import type { CategoryToolConfig, ToolCategory } from '../../core/config';
 import type { PermissionManager } from '../../core/permissions';
 import {
@@ -84,18 +85,22 @@ export function defineTool<Action extends string>(options: DefineToolOptions<Act
         async callTool(client, args, config, permMgr) {
             const rawArgs = args ?? {};
             const rawAction = typeof rawArgs.action === 'string' ? rawArgs.action : undefined;
+            const normalizedAction = rawAction ? normalizeActionAlias(name, rawAction) : undefined;
+            const normalizedArgs = normalizedAction && normalizedAction !== rawAction
+                ? { ...rawArgs, action: normalizedAction }
+                : rawArgs;
 
-            const helpResult = tryHandleHelpAction(name, rawArgs, config, variants);
+            const helpResult = tryHandleHelpAction(name, normalizedArgs, config, variants);
             if (helpResult) return helpResult;
 
             try {
                 const enabledActions = variants
                     .map((variant) => variant.action)
                     .filter((action) => config.actions[action]);
-                if (rawAction && !variants.some((variant) => variant.action === rawAction)) {
+                if (rawAction && !variants.some((variant) => variant.action === normalizedAction)) {
                     return createUnknownActionResult(name, rawAction, enabledActions);
                 }
-                const parsedAction = actionSchema.parse(rawArgs.action);
+                const parsedAction = actionSchema.parse(normalizedArgs.action);
                 if (!config.enabled || !config.actions[parsedAction]) {
                     return createDisabledActionResult(name, parsedAction);
                 }
@@ -104,13 +109,13 @@ export function defineTool<Action extends string>(options: DefineToolOptions<Act
                 if (!handler) {
                     return createErrorResult(
                         new Error(`No handler registered for action "${parsedAction}" on tool "${name}".`),
-                        { tool: name, action: parsedAction, rawArgs },
+                        { tool: name, action: parsedAction, rawArgs: normalizedArgs },
                     );
                 }
 
-                return await handler({ client, rawArgs, permMgr });
+                return await handler({ client, rawArgs: normalizedArgs, permMgr });
             } catch (error) {
-                return createErrorResult(error, { tool: name, action: rawAction, rawArgs });
+                return createErrorResult(error, { tool: name, action: normalizedAction ?? rawAction, rawArgs: normalizedArgs });
             }
         },
     };

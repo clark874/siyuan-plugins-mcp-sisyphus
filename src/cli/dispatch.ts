@@ -4,6 +4,7 @@ import {
     type ToolCategory,
     type ToolConfig,
 } from '../core/config';
+import { normalizeActionAlias } from '../core/action-aliases';
 import { TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
 import { runToolCall } from '../core/tool-lifecycle';
 import { PRIMARY_CLI_COMMAND } from '../shared/constants';
@@ -27,7 +28,7 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         throw formatUnknownToolError(tool);
     }
 
-    const normalizedAction = action.replace(/-/g, '_');
+    const normalizedAction = normalizeActionAlias(category, action);
     const knownActions = ACTIONS_BY_CATEGORY[category];
     if (!knownActions.includes(normalizedAction as never) && normalizedAction !== 'help') {
         throw formatUnknownActionError(category, normalizedAction);
@@ -48,7 +49,8 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         const module = TOOL_REGISTRY[category];
         const inputSchema = resolveInputSchema(category, toolConfig);
 
-        const { args: mappedArgs, warnings } = mapFlagsToArgs(rest, inputSchema);
+        const restWithPositional = applyPositionalActionArgs(category, normalizedAction, rest);
+        const { args: mappedArgs, warnings } = mapFlagsToArgs(restWithPositional, inputSchema);
         if (warnings.length > 0 && cli.debug) {
             for (const w of warnings) process.stderr.write(`[warn] ${w}\n`);
         }
@@ -79,6 +81,50 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
             process.env.SIYUAN_MCP_TRANSPORT = previousTransport;
         }
     }
+}
+
+function applyPositionalActionArgs(category: ToolCategory, action: string, rest: string[]): string[] {
+    const positionals = rest.filter((token) => !token.startsWith('-'));
+    if (positionals.length === 0) return rest;
+
+    if (category === 'fs') {
+        if (['ls', 'tree', 'read', 'rm'].includes(action)) {
+            return prependMissingFlag(rest, 'path', positionals[0]);
+        }
+        if (action === 'search') {
+            return prependMissingFlag(prependMissingFlag(rest, 'path', positionals[0]), 'query', positionals[1]);
+        }
+        if (action === 'mv') {
+            return prependMissingFlag(prependMissingFlag(rest, 'from', positionals[0]), 'to', positionals[1]);
+        }
+    }
+
+    return rest;
+}
+
+function prependMissingFlag(rest: string[], flag: string, value: string | undefined): string[] {
+    if (!value || hasFlag(rest, flag)) return rest;
+    return [`--${flag}`, value, ...removeFirstPositional(rest, value)];
+}
+
+function hasFlag(rest: string[], flag: string): boolean {
+    const variants = new Set([flag, flag.replace(/_/g, '-'), flag.replace(/-/g, '_')]);
+    return rest.some((token) => {
+        if (!token.startsWith('-')) return false;
+        const name = token.replace(/^-+/, '').split('=')[0];
+        return variants.has(name);
+    });
+}
+
+function removeFirstPositional(rest: string[], value: string): string[] {
+    let removed = false;
+    return rest.filter((token) => {
+        if (!removed && token === value && !token.startsWith('-')) {
+            removed = true;
+            return false;
+        }
+        return true;
+    });
 }
 
 async function runInteractivePaging(

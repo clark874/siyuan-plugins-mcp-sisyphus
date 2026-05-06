@@ -103,6 +103,14 @@ describe('fs tool', () => {
         expect(JSON.stringify(parsed)).not.toContain('/Archive');
     });
 
+    it('accepts list as an alias for ls', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'list', path: '/Notebook/Doc 1' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(parsed.items).toEqual([{ name: 'Child', path: '/Notebook/Doc 1/Child', children: 2 }]);
+    });
+
     it('renders tree paths from human-readable hPath values instead of storage names', async () => {
         const client = createFsClient();
         const result = await callFsTool(client, { action: 'tree', path: '/Notebook/Doc 1' }, fsConfig(), createPermMgr());
@@ -393,6 +401,15 @@ describe('fs tool', () => {
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/removeDocByID', expect.anything());
     });
 
+    it('accepts remove as an alias for rm', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'remove', path: '/Notebook/Doc 1' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, path: '/Notebook/Doc 1' });
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/removeDocByID', { id: 'doc-1' });
+    });
+
     it('allows move or rename with write permission but no delete permission', async () => {
         const client = createFsClient({ missingPaths: ['/Renamed'] });
         const result = await callFsTool(client, { action: 'mv', from: '/Notebook/Doc 1', to: '/Notebook/Renamed' }, fsConfig(), createPermMgr('rw'));
@@ -401,6 +418,15 @@ describe('fs tool', () => {
         expect(parsed).toMatchObject({ success: true, path: '/Notebook/Doc 1', movedTo: '/Notebook/Renamed' });
         expect(client.request).toHaveBeenCalledWith('/api/filetree/moveDocsByID', { fromIDs: ['doc-1'], toID: 'nb-1' });
         expect(client.request).toHaveBeenCalledWith('/api/filetree/renameDocByID', { id: 'doc-1', title: 'Renamed' });
+    });
+
+    it('accepts move as an alias for mv', async () => {
+        const client = createFsClient({ missingPaths: ['/Renamed'] });
+        const result = await callFsTool(client, { action: 'move', from: '/Notebook/Doc 1', to: '/Notebook/Renamed' }, fsConfig(), createPermMgr('rw'));
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, path: '/Notebook/Doc 1', movedTo: '/Notebook/Renamed' });
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/moveDocsByID', { fromIDs: ['doc-1'], toID: 'nb-1' });
     });
 
     it('denies move when the destination notebook is not writable', async () => {
