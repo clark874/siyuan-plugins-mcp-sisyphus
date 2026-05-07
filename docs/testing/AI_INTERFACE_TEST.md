@@ -2,12 +2,17 @@
 
 这是一份给 AI 执行的**统一接口测试手册**，用于用 `CLI` 或 `MCP` 对同一套 SiYuan 能力做一致性验证。
 
+本文件只规定测试目标、覆盖范围、判定标准、清理要求和最终报告结构；不提供 action 级参数教程或可直接照抄的调用提示词。执行者必须从当前接口暴露的 contract 获取调用细节：
+
+- `MCP` 模式：以 MCP tool description、input schema、`action="help"` 和 `siyuan://help/...` resources 为准
+- `CLI` 模式：以 `siyuan-sisyphus help`、`siyuan-sisyphus list` 和实际 flag 映射为准
+
 它吸收了 `tests/AI_TEST_WORKFLOW.md` 的“可执行流程”写法，但保持**接口无关**：
 
 - `AI_INTERFACE_TEST.md`：统一入口，适合整轮回归、CLI/MCP 对照、人工监督执行
 - `tests/AI_TEST_WORKFLOW.md`：更偏 MCP 单接口的长流程细化参考
 
-如两份文档与**当前工具 schema**不一致，以当前工具 contract 为准；不要照搬旧别名或过时参数。
+如两份文档与**当前工具 contract**不一致，以当前工具 contract 为准；不要照搬旧别名、旧示例或过时参数。
 
 ---
 
@@ -23,7 +28,7 @@
 4. 每一步都要记录：
    - 连接方式
    - `tool` / `action`
-   - 参数或命令
+   - 实际调用摘要
    - 返回摘要
    - 结论：`PASS` / `FAIL` / `BLOCKED`
 5. 删除、移动、权限修改、批量替换、上传文件等高风险动作，只能针对本轮测试对象执行
@@ -33,7 +38,7 @@
 
 ---
 
-## 2. 测试模式选择与调用映射
+## 2. 测试模式选择
 
 ### 2.1 模式选择
 
@@ -51,69 +56,7 @@ AI 在正式执行前必须先确认本轮模式：
 - `CLI`：`siyuan-sisyphus <tool> <action> ...` 或 `siyuan <tool> <action> ...`
 - `MCP`：`tool(action="...")`
 
-### 2.3 调用映射示例
-
-同一动作：创建文档。
-
-#### MCP
-
-```json
-{
-  "tool": "document",
-  "action": "create",
-  "notebook": "<id>",
-  "path": "/Inbox/Test Doc",
-  "markdown": "hello"
-}
-```
-
-#### CLI
-
-```bash
-siyuan-sisyphus document create --notebook <id> --path "/Inbox/Test Doc" --markdown "hello"
-```
-
-同一动作：设置笔记本权限。
-
-#### MCP
-
-```json
-{
-  "tool": "notebook",
-  "action": "set_permission",
-  "notebook": "<id>",
-  "permission": "rw"
-}
-```
-
-#### CLI
-
-```bash
-siyuan-sisyphus notebook set-permission --notebook <id> --permission rw
-```
-
-提示：CLI 常用 `kebab-case`，MCP 使用 schema 中的 `snake_case` action 名称。
-
-同一动作：添加 detached AV 行。
-
-#### MCP
-
-```json
-{
-  "tool": "av",
-  "action": "add_rows",
-  "avID": "<av-id>",
-  "primaryKeyTexts": ["Plain text row"]
-}
-```
-
-#### CLI
-
-```bash
-siyuan-sisyphus av add-rows --av-id <av-id> --primary-key-texts "Plain text row"
-```
-
-如需固定某个数据库块视图，可额外传 `blockID` / `--block-id`。
+调用细节不得从本测试文件推断。执行前应先读取或调用当前接口提供的帮助与 schema，再自行组织参数。
 
 ---
 
@@ -166,11 +109,7 @@ siyuan-sisyphus av add-rows --av-id <av-id> --primary-key-texts "Plain text row"
 
 - `siyuan-sisyphus` 或 `siyuan` 命令可执行
 - 已配置 `apiUrl` / `token`，或用户允许通过 flag 指定
-- 能成功执行：
-
-```bash
-siyuan-sisyphus system get-version
-```
+- 能成功执行系统版本读取动作
 
 ### 4.3 `MCP` 模式检查
 
@@ -178,14 +117,7 @@ siyuan-sisyphus system get-version
 
 - MCP server 可连接
 - 能列出工具
-- 能成功执行：
-
-```json
-{
-  "tool": "system",
-  "action": "get_version"
-}
-```
+- 能成功执行系统版本读取动作
 
 ### 4.4 工具可见性
 
@@ -233,7 +165,7 @@ siyuan-sisyphus system get-version
 | `$AV_BLOCK_ID` | 是 | 本轮创建的数据库块 ID |
 | `$AV_ID` | 是 | 本轮创建的属性视图 ID |
 | `$AV_ROW_IDS` | 建议 | `add_rows` 返回的真实行 ID 列表 |
-| `$AV_DETACHED_ROW_ID` | 建议 | 使用 `primaryKeyTexts` 创建的 detached 行 ID |
+| `$AV_DETACHED_ROW_ID` | 建议 | detached 行 ID |
 | `$AV_COLUMN_ID` | 建议 | 本轮新增测试列 ID |
 | `$AV_DUPLICATE_BLOCK_ID` | 建议 | `duplicate` 生成的数据库块 ID |
 | `$ORIGINAL_PERMISSION` | 是 | 主测试笔记本原始权限；若未显式配置，按 `r` 记录 |
@@ -256,7 +188,7 @@ siyuan-sisyphus system get-version
 - `TEST_MODE`
 - `tool`
 - `action`
-- 参数或 CLI 命令
+- 实际调用摘要
 - 新产生或消费的变量
 - 关键返回摘要
 - 结论：`PASS` / `FAIL` / `BLOCKED`
@@ -326,7 +258,7 @@ siyuan-sisyphus system get-version
 | `file` | `render(engine="sprig")`、`export_md`、`get_doc_assets` | `render(engine="template")`、`get_image_ocr_text` | `upload_asset`、`export_resources`、`remove_unused_assets`、`delete_asset` |
 | `flashcard` | `get_decks`、`list_cards`、`get_cards` | `create_card(mode="full")`、`create_card(mode="attach")`、`review_card`、`review_card(skip=true)`；`review_card.reviewedCards` 参数校验 | `remove_card` |
 | `mascot` | `get_balance` | `shop` | `buy` |
-| `av` | `render`、`get`、`get_attribute_view_keys`、`get_attribute_view_filter_sort`、`search`、`get_primary_key_values`、`add_rows`、`add_column`、`set_cells`、`duplicate`、`remove_rows`、`remove_column` | `add_rows.primaryKeyTexts` detached 行、空 `add_rows` no-op | 只在本轮创建的真实 AV 上执行 |
+| `av` | `render`、`get`、`get_attribute_view_keys`、`get_attribute_view_filter_sort`、`search`、`get_primary_key_values`、`add_rows`、`add_column`、`set_cells`、`duplicate`、`remove_rows`、`remove_column` | detached 行、空 `add_rows` no-op | 只在本轮创建的真实 AV 上执行 |
 
 ---
 
@@ -399,10 +331,11 @@ siyuan-sisyphus system get-version
 
 要求验证：
 
-- `create.path` 使用人类可读路径，如 `/AI Interface Root <timestamp>`
-- `lookup` 返回存储路径，如 `/<doc>.sy`，也可返回层级路径和 ID
-- `document.remove` / `document.rename` 可直接使用 `id`，或先通过 `document.lookup` 拿到存储路径后传 `notebook + path`；批量删除使用 `ids[]` 或 `paths[]`
+- 创建主文档、子文档和临时删除文档，并记录后续清理所需的 ID / 路径信息
+- 通过 `lookup` 获取足够的定位信息，用于后续树、读取、删除和清理验证
 - `get_child_docs` 只返回直属子文档
+- `list_tree` 返回合理树结构
+- 文档删除能力只作用于本轮创建的文档；如遇短暂索引窗口，可按当前工具帮助给出的替代方式重试
 - `search_docs` 是标题级搜索，不是全文搜索
 
 推荐最小文档集：
@@ -447,7 +380,7 @@ siyuan-sisyphus system get-version
 - `set_attrs` 后再次 `get_attrs` 能看到更新
 - `delete` 后用 `block.info` 或 `block.get_attrs` 的 not-found 错误验证对象已不存在
 - `word_count` 对传入的 `ids` 数组返回统计结构
-- `block.set_fold_state` 是当前工具名，不要使用旧的 `fold` / `unfold` 别名
+- 折叠状态相关 action 如被覆盖，应以当前接口暴露的 action contract 为准
 
 ### 8.5 Search / Tag / File / Flashcard / Mascot
 
@@ -523,11 +456,8 @@ siyuan-sisyphus system get-version
 
 `review_card` 补充验证：
 
-- 基础调用必须使用 `deckID + cardID + rating`
-- 如传 `reviewedCards`，数组中每个对象都必须包含 `cardID`
-- `reviewedCards: [{ cardID: "...", ... }]` 应透传给内核
-- `review_card(skip=true)` 不要求 `rating`；普通复习不传 `skip=true` 时必须传 `rating`
-- `reviewedCards: [{ id: "..." }]` 这类缺少 `cardID` 的参数应被 schema 拒绝，且不应调用内核复习接口
+- 覆盖普通复习、跳过复习和已复习卡片列表透传
+- 参数校验应由当前 schema 决定；非法参数不得调用内核复习接口
 
 #### Mascot
 
@@ -551,22 +481,18 @@ AV 测试必须走**本轮创建真实 AV** 的主路径，不得把“复制已
 
 ### 9.1 主测试路径
 
-标准起手动作必须是：
-
-- `av.render`
-- 参数必须包含 `blockID` + `createIfNotExist=true`
-- `id` 可省略，让系统自动生成 `avID`
+标准起手动作是 `av.render` 创建本轮测试 AV。具体创建参数必须从当前 MCP schema/help 或 CLI help 获取，不在本手册中展开。
 
 创建成功后，必须立即记录两个标识：
 
 - `$AV_ID`：返回中的 `avID` / `id`
 - `$AV_BLOCK_ID`：materialized 数据库块 ID
 
-后续 AV 写操作通常只需要 `avID=$AV_ID`。当前实现会根据行绑定块、mirror database block，以及 blocks 表中的 AV 块记录自动解析 owning database block、权限上下文与刷新目标；`blockID` 是可选的精确上下文参数，只在需要固定某个数据库块视图、指定 view/group 插入语义、存在多个镜像候选，或需要为刚创建的空 AV 提供显式兜底时再传。
+后续 AV 读写、复制和清理动作必须围绕本轮创建的 AV 执行。字段名、上下文参数和行/列/单元格 ID 语义以当前工具 contract 为准。
 
-`render(createIfNotExist=true)` 与 `duplicate` 都应通过思源风格的 spun AV block DOM + transaction 物化数据库块。验证时不应出现前端损坏的 AV DOM，也不应因把 `avID` 当作文档 root ID 解析而持续污染内核 `blockinfo.go:61` ERROR 日志。
+`render` 与 `duplicate` 都应物化真实思源数据库块。验证时不应出现前端损坏的 AV DOM，也不应产生与 AV ID 被误当作文档 / 块 ID 解析相关的持续内核错误日志。
 
-以下写操作都应验证“省略 `blockID` 也能正常工作”；如需排查上下文歧义，再补测显式 `blockID=$AV_BLOCK_ID`：
+以下写操作都应覆盖默认上下文路径；如需排查上下文歧义，再按当前工具帮助补测显式上下文路径：
 
 - `add_rows`
 - `add_column`
@@ -594,31 +520,20 @@ AI 必须在自己创建的 AV 上完成以下动作链路：
 14. `remove_column`
 15. 可选：空 `add_rows` no-op 验证
 
-推荐参数模式：
-
-- `render`：创建本轮测试 AV，拿到 `$AV_ID` 与 `$AV_BLOCK_ID`
-- `add_rows` 绑定块行：优先使用 `avID=$AV_ID`、`blockIDs=[...]`；如需固定数据库块视图，再补 `blockID=$AV_BLOCK_ID`
-- `add_rows` detached 行：优先使用 `avID=$AV_ID`、`primaryKeyTexts=["AI detached row <timestamp>"]`；如需固定数据库块视图，再补 `blockID=$AV_BLOCK_ID`
-- `add_rows` 空 no-op：仅传 `avID=$AV_ID`，且不传 `blockIDs` / `primaryKeyTexts`；应返回 `skipped: true`
-- `add_column`：优先只传 `avID=$AV_ID`
-- `set_cells`：优先只传 `avID=$AV_ID`
-- `remove_rows`：优先只传 `avID=$AV_ID`
-- `remove_column`：优先只传 `avID=$AV_ID`
-
 ### 9.3 通过标准
 
 | 动作 | 通过标准 |
 | --- | --- |
-| `render` | 成功创建 AV 块，并返回新的 `avID` 与 materialized `blockID` |
+| `render` | 成功创建 AV 块，并返回后续读写和清理所需的 AV / block 标识 |
 | `get` | 能获取完整 AV 结构 |
 | `get_attribute_view_keys` | 初始至少返回主键列；额外列视环境而定 |
 | `get_attribute_view_filter_sort` | 能返回当前筛选 / 排序信息；空结构也算通过 |
 | `search` | 能正常返回搜索结果或合理空结果 |
 | `get_primary_key_values` | 能返回主键值列表 |
-| `add_rows` | 成功添加绑定块行，并拿到真实 `rowID` |
-| `add_rows.primaryKeyTexts` | 成功添加 detached 纯文本主键行，返回 `primaryKeyTexts` 与对应 `rowID` |
-| 空 `add_rows` | 不报错，返回 `skipped: true`、`added: 0`，说明未提供 `blockIDs` 或 `primaryKeyTexts` |
-| `add_column` | 成功新增测试列，例如文本列 |
+| `add_rows` | 成功添加绑定块行，并拿到真实行标识 |
+| detached 行 | 成功添加 detached 纯文本主键行，并返回后续可操作的行标识 |
+| 空 `add_rows` | 不报错，并明确说明未执行实际新增 |
+| `add_column` | 成功新增测试列 |
 | `set_cells` | 能给指定行写入单元格值，也能批量写入值 |
 | `duplicate` | 能按思源“复制为镜像”流程复制出新的 AV 块；空 AV 与有行 AV 都应通过 |
 | `remove_rows` | 能删除指定测试行 |
@@ -629,12 +544,12 @@ AI 必须在自己创建的 AV 上完成以下动作链路：
 AI 不得：
 
 - 把“复制已有数据库”当作 AV 主测试路径
-- 跳过 `render(createIfNotExist=true, blockID=...)`
+- 跳过通过 `render` 创建本轮测试 AV
 - 创建 AV 后不记录 `$AV_ID` 与 `$AV_BLOCK_ID`
-- 把 AV 写操作误判为必须传 `blockID`；除创建/显式上下文验证外，应优先覆盖省略 `blockID` 的路径
+- 只覆盖显式上下文路径而不覆盖默认上下文路径
 - 用 Markdown 表格冒充真实 AV
-- 在没有真实 `rowID` 的情况下伪造 `set_cells` 成功
-- 把绑定块 ID、单元格 value ID、source block ID 当作 `rowID` 传给 `set_cells`
+- 在没有真实行标识的情况下伪造 `set_cells` 成功
+- 混用绑定块、单元格 value、源块和行 item 等不同标识
 - 把空结果或提示性结果误判为接口失败
 
 ---
@@ -699,7 +614,7 @@ AI 不得：
   - `block.set_attrs`
 - 删成功：
   - `fs.rm` 删除本轮临时文档
-  - `document.remove` 删除本轮临时文档（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
+  - `document.remove` 删除本轮临时文档
   - 或 `block.delete` 删除本轮测试块
 
 通过标准：
@@ -723,7 +638,7 @@ AI 不得：
 - 写成功：`block.append`、`document.create`、`fs.write`、`fs.replace`、`fs.mv`
 - 删失败：
   - `fs.rm`
-  - `document.remove`（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
+  - `document.remove`
   - `block.delete`
   - `document.move` 或 `block.move` 也可作为补充，因为移动通常需要更高权限边界
 
@@ -757,7 +672,7 @@ AI 不得：
   - AV 写动作可作为补充失败验证
 - 删失败：
   - `fs.rm`
-  - `document.remove`（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
+  - `document.remove`
   - `block.delete`
 
 通过标准：
@@ -796,7 +711,7 @@ AI 不得：
   - `block.update`
 - 删失败：
   - `fs.rm`
-  - `document.remove`（使用 `$TEST_NB_ID + $TEMP_DELETE_DOC_STORAGE_PATH`）
+  - `document.remove`
   - `block.delete`
 
 通过标准：
@@ -823,7 +738,7 @@ AI 不得：
 2. 在受限笔记本创建一条包含相同 `$FILTER_KEYWORD` 的文档或块
 3. 把受限笔记本权限降为 `none`
 4. 运行：
-   - `search.query_sql`，例如对 `blocks` 做 `SELECT ... LIKE '%<keyword>%' LIMIT ...`
+   - `search.query_sql`
    - 推荐再运行 `search.fulltext`
 5. 观察返回：
    - 可见笔记本中的结果仍能看到
@@ -975,11 +890,7 @@ AI 不得：
   - `docs/reference/tools/*.md`
   - `server-instructions` 或 tool description 的全局约束
 
-输出建议时要具体到“应新增/改写什么信息”，不要只写“优化提示词”。例如：
-
-- “`av.add_rows` 的描述应明确 `primaryKeyTexts` 用于 detached 行，`blockID` 不是常规必填。”
-- “`av.set_cells` 的 `rowID` 描述应再次强调使用 `value.blockID` / `add_rows.rows[].rowID`，不是源块 ID 或 value ID。”
-- “`document.remove` 示例应明确使用 storage path，而不是创建时的人类可读 path。”
+输出建议时要具体到“应新增/改写什么信息”，不要只写“优化提示词”。本报告只记录缺口，不在测试手册中沉淀可复制的调用提示词。
 
 ### 12.8 清理结论
 

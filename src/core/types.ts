@@ -384,14 +384,14 @@ export const FlashcardListCardsSchema = z.object({
     action: z.literal("list_cards"),
     scope: FlashcardScopeSchema.describe('Query scope: "all", "deck", "notebook", or "tree"'),
     filter: FlashcardFilterSchema.describe('Filter returned cards: "due", "new", or "old"'),
-    deckID: z.string().optional().describe("Deck ID, required when scope=deck"),
+    deckID: z.string().optional().describe('Deck ID, required when scope=deck. For scope="all", omit deckID; an empty string is treated as omitted.'),
     notebook: z.string().optional().describe("Notebook ID, required when scope=notebook"),
     rootID: z.string().optional().describe("Root document/block ID, required when scope=tree"),
     reviewedCards: z.array(z.object({
         cardID: z.string().describe("Reviewed card ID"),
     }).passthrough()).optional().describe("Optional already-reviewed cards; SiYuan reads reviewedCards[].cardID"),
 }).superRefine((value, ctx) => {
-    const hasDeck = typeof value.deckID === "string";
+    const hasDeck = typeof value.deckID === "string" && value.deckID.length > 0;
     const hasNotebook = typeof value.notebook === "string";
     const hasRoot = typeof value.rootID === "string";
 
@@ -680,7 +680,7 @@ export const AvGetSchema = z.object({
 
 export const AvRenderSchema = z.object({
     action: z.literal("render"),
-    id: z.string().optional().describe("Attribute view ID; omit only with createIfNotExist=true to let MCP generate one"),
+    id: z.string().optional().describe("Attribute view ID for render/get-style operations; use id here, not avID. Omit only with createIfNotExist=true to let MCP generate one"),
     blockID: z.string().optional().describe("Optional database block ID; required when creating a new AV"),
     viewID: z.string().optional().describe("Optional target view ID"),
     page: z.number().int().min(1).optional().describe("Page number (1-based), default 1"),
