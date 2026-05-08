@@ -392,10 +392,10 @@ const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         changed,
         editsApplied: summary.length,
         replacements: summary,
-    }), [
+    }), changed ? [
         { type: 'reloadProtyle', id: scope.id },
         { type: 'reloadFiletree' },
-    ]);
+    ] : []);
 };
 
 const handleRm: FsActionHandler = async ({ client, permMgr, rawArgs }) => {

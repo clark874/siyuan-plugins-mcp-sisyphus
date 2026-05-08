@@ -71,8 +71,11 @@ describe('setting and mcp config stay behaviorally aligned', () => {
     it('lists block replace in the settings panel', () => {
         const source = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
 
+        expect(source).toContain('ACTIONS_BY_CATEGORY');
+        expect(source).toContain('buildCompleteGroupDefinitions');
         expect(source).toContain('category: "block"');
         expect(source).toContain('key: "replace"');
         expect(source).toContain('Replace Block Text');
+        expect(source).toContain('category: "mascot"');
     });
 });

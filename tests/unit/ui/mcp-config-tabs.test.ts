@@ -5,10 +5,12 @@ import {
     HTTP_GROUP_KEY,
     ICON_SVGS,
     PERM_GROUP_KEY,
+    TOOL_GROUP_KEY,
     PUPPY_GROUP_KEY,
     ANALYTICS_GROUP_KEY,
     USER_RULES_GROUP_KEY,
 } from '@/ui/setting/mcp-config-tabs';
+import { TOOL_CATEGORIES } from '@/ui/setting/tool-config';
 
 describe('mcp-config-tabs icon system', () => {
     it('has all 14 required icon keys', () => {
@@ -33,8 +35,8 @@ describe('mcp-config-tabs icon system', () => {
         }
     });
 
-    it('has 10 category tab definitions', () => {
-        expect(CATEGORY_TAB_DEFS).toHaveLength(10);
+    it('has one category tab definition per tool category', () => {
+        expect(CATEGORY_TAB_DEFS).toHaveLength(TOOL_CATEGORIES.length);
     });
 
     it('maps every category to an existing icon key', () => {
@@ -53,24 +55,19 @@ describe('mcp-config-tabs icon system', () => {
     it('keeps stable group key constants', () => {
         expect(HTTP_GROUP_KEY).toBe('Connection Config');
         expect(PERM_GROUP_KEY).toBe('Permissions');
-        expect(PUPPY_GROUP_KEY).toBe('Mascot');
+        expect(TOOL_GROUP_KEY).toBe('Tool Settings');
+        expect(PUPPY_GROUP_KEY).toBe('Mascot Display');
         expect(ANALYTICS_GROUP_KEY).toBe('analyticsGroupTitle');
         expect(USER_RULES_GROUP_KEY).toBe('User Rules');
     });
 
-    it('covers all 10 tool categories', () => {
+    it('covers all tool categories', () => {
         const categories = CATEGORY_TAB_DEFS.map((d) => d.category);
-        expect(categories).toEqual([
-            'fs',
-            'notebook',
-            'document',
-            'block',
-            'av',
-            'file',
-            'search',
-            'tag',
-            'system',
-            'flashcard',
-        ]);
+        expect(categories).toEqual([...TOOL_CATEGORIES]);
+    });
+
+    it('keeps mascot tool and mascot display tabs distinct', () => {
+        expect(CATEGORY_TAB_DEFS.find((d) => d.category === 'mascot')?.groupKey).toBe('Mascot Tool');
+        expect(PUPPY_GROUP_KEY).toBe('Mascot Display');
     });
 });
