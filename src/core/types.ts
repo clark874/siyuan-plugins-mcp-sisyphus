@@ -514,6 +514,15 @@ export const BlockUpdateSchema = z.object({
     if (value.data === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "data is required for single update.", path: ["data"] });
 });
 
+export const BlockReplaceSchema = z.object({
+    action: z.literal("replace"),
+    id: z.string().describe("Block ID"),
+    edit: z.union([
+        FsReplaceEditSchema,
+        z.array(FsReplaceEditSchema).min(1),
+    ]).describe("One replacement edit or an array of edits to apply sequentially within the same block kramdown"),
+});
+
 export const BlockDeleteSchema = z.object({
     action: z.literal("delete"),
     id: z.string().describe("Block ID"),

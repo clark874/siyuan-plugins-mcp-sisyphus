@@ -47,6 +47,7 @@ export const DOCUMENT_GUIDANCE: string[] = [
 export const BLOCK_GUIDANCE: string[] = [
     'block(action="prepend") or block(action="append") with a document ID targets the document start or end.',
     'block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.',
+    'block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.',
     'block(action="prepend") or block(action="append") with a block ID targets that block\'s child list.',
     'To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.',
     'To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.',
@@ -145,6 +146,7 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
     prepend: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
     append: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Prefer append when you need to add multi-line markdown, tables, or multiple new blocks. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
     update: 'Use dataType + data + id to replace block content. Returns a slim success object instead of raw DOM operations. block(action="update") is best for single-block replacement; multi-line markdown may be truncated to the first line by SiYuan, so use append/prepend/insert when you need multiple blocks or tables. If the content should create tags, write them as #tag#.',
+    replace: 'Use id + edit to replace exact text inside one block kramdown. edit accepts one object or an array for sequential replacements. replace_all=true replaces every exact match of that old snippet.',
     set_attrs: 'Use attrs to write block attributes such as custom metadata. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.',
     delete: 'This action requires explicit user confirmation.',
     move: 'Provide id plus previousID, parentID, or both to describe the destination. On success, MCP returns a structured success object instead of SiYuan\'s raw null. This action requires explicit user confirmation.',

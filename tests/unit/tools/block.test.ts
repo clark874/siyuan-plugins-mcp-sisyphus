@@ -15,6 +15,34 @@ describe('block tool', () => {
         get: () => 'rwd',
     };
 
+    function createBlockReplaceClient(kramdown = 'alpha\nbudget line\nbudget tail') {
+        return createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    return [{
+                        id: body?.id ?? 'block-1',
+                        root_id: 'doc-1',
+                        box: 'nb-1',
+                        path: '/doc-1.sy',
+                        hpath: '/Doc 1',
+                        content: 'Doc 1',
+                        type: 'p',
+                    }];
+                }
+                if (endpoint === '/api/block/getBlockKramdown') {
+                    return { id: body?.id, kramdown };
+                }
+                if (endpoint === '/api/block/updateBlock') {
+                    return { updated: true };
+                }
+                if (endpoint.startsWith('/api/ui/')) {
+                    return null;
+                }
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+    }
+
     it('treats missing block API errors as non-existent blocks', () => {
         expect(isMissingBlockError(new Error('SiYuan API error: -1 - 未找到 ID 为 [invalid-block-id-12345] 的内容块'))).toBe(true);
         expect(isMissingBlockError(new Error('some other error'))).toBe(false);
@@ -26,6 +54,7 @@ describe('block tool', () => {
         const actionDescription = tool.inputSchema.properties.action.description;
         expect(actionDescription).toContain('insert');
         expect(actionDescription).toContain('update');
+        expect(actionDescription).toContain('replace');
         expect(actionDescription).toContain('add_to_daily_note');
         expect(actionDescription).toContain('docs_info');
     });
@@ -69,6 +98,123 @@ describe('block tool', () => {
         }, buildDefaultToolConfig().block, permMgr as never);
 
         expect(parseResult(result).success).toBe(true);
+    });
+
+    it('replaces the first exact match inside one block', async () => {
+        const client = createBlockReplaceClient();
+
+        const result = await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: 'budget', new: 'forecast' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({
+            success: true,
+            action: 'replace',
+            id: 'block-1',
+            changed: true,
+            editsApplied: 1,
+            replacements: [{ index: 1, replaced: 1, replace_all: false }],
+        });
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'markdown',
+            data: 'alpha\nforecast line\nbudget tail',
+        });
+    });
+
+    it('supports sequential block replacements with replace_all', async () => {
+        const client = createBlockReplaceClient('foo\nbaz\nbaz');
+
+        const result = await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: [
+                { old: 'foo', new: 'bar' },
+                { old: 'baz', new: 'qux', replace_all: true },
+            ],
+        }, buildDefaultToolConfig().block, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.replacements).toEqual([
+            { index: 1, replaced: 1, replace_all: false },
+            { index: 2, replaced: 2, replace_all: true },
+        ]);
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'markdown',
+            data: 'bar\nqux\nqux',
+        });
+    });
+
+    it('fails block replace when an edit does not match any text', async () => {
+        const client = createBlockReplaceClient();
+
+        const result = await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: 'missing', new: 'new text' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('block.replace edit #1 did not match any text');
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/updateBlock', expect.anything());
+    });
+
+    it('denies block replacements when notebook permission is read-only', async () => {
+        const client = createBlockReplaceClient();
+        const readonlyPermMgr = {
+            ...permMgr,
+            canWrite: () => false,
+            get: () => 'r',
+        };
+
+        const result = await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: 'budget', new: 'forecast' },
+        }, buildDefaultToolConfig().block, readonlyPermMgr as never);
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error).toMatchObject({
+            type: 'permission_denied',
+            current_permission: 'r',
+            required_permission: 'write',
+        });
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/getBlockKramdown', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/updateBlock', expect.anything());
+    });
+
+    it('skips block update and refresh when replacement output is unchanged', async () => {
+        const client = createBlockReplaceClient('same text');
+
+        const result = await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: 'same', new: 'same' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, changed: false, editsApplied: 1 });
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/updateBlock', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/ui/reloadProtyle', expect.anything());
+    });
+
+    it('reloads the owning document after block replace changes content', async () => {
+        const client = createBlockReplaceClient();
+
+        const result = await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: 'budget', new: 'forecast' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadProtyle', id: 'doc-1' }]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
     });
 
     it('rejects batched insert when any block is missing parentID, previousID, and nextID', async () => {

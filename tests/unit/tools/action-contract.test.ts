@@ -206,6 +206,7 @@ describe('tool action contract coverage', () => {
             { action: 'prepend', args: { action: 'prepend', dataType: 'markdown', data: 'hello', parentID: 'doc-1' }, expectedEndpoint: '/api/block/prependBlock' },
             { action: 'append', args: { action: 'append', dataType: 'markdown', data: 'hello', parentID: 'doc-1' }, expectedEndpoint: '/api/block/appendBlock' },
             { action: 'update', args: { action: 'update', id: 'doc-1', dataType: 'markdown', data: 'updated' }, expectedEndpoint: '/api/block/updateBlock' },
+            { action: 'replace', args: { action: 'replace', id: 'doc-1', edit: { old: 'content', new: 'updated' } }, expectedEndpoint: '/api/block/getBlockKramdown' },
             { action: 'delete', args: { action: 'delete', id: 'doc-1' }, expectedEndpoint: '/api/block/deleteBlock' },
             { action: 'move', args: { action: 'move', id: 'doc-1', parentID: 'doc-parent' }, expectedEndpoint: '/api/block/moveBlock' },
             { action: 'set_fold_state', args: { action: 'set_fold_state', id: 'doc-1', folded: true }, expectedEndpoint: '/api/block/foldBlock' },

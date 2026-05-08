@@ -1,0 +1,68 @@
+export interface ExactReplaceEdit {
+    old: string;
+    new: string;
+    replace_all?: boolean;
+}
+
+export interface ExactReplaceSummary {
+    index: number;
+    replaced: number;
+    replace_all: boolean;
+}
+
+function countOccurrences(content: string, needle: string): number {
+    let count = 0;
+    let index = 0;
+    while (true) {
+        index = content.indexOf(needle, index);
+        if (index === -1) return count;
+        count += 1;
+        index += needle.length;
+    }
+}
+
+export function applyExactReplaceEdit(
+    content: string,
+    edit: ExactReplaceEdit,
+    editIndex: number,
+    actionName: string,
+): { content: string; replaced: number; replaceAll: boolean } {
+    const occurrences = countOccurrences(content, edit.old);
+    if (occurrences === 0) {
+        throw new Error(`${actionName} edit #${editIndex + 1} did not match any text.`);
+    }
+
+    if (edit.replace_all) {
+        return {
+            content: content.split(edit.old).join(edit.new),
+            replaced: occurrences,
+            replaceAll: true,
+        };
+    }
+
+    const index = content.indexOf(edit.old);
+    return {
+        content: `${content.slice(0, index)}${edit.new}${content.slice(index + edit.old.length)}`,
+        replaced: 1,
+        replaceAll: false,
+    };
+}
+
+export function applyExactReplaceEdits(
+    content: string,
+    edits: ExactReplaceEdit[],
+    actionName: string,
+): { content: string; summary: ExactReplaceSummary[] } {
+    let nextContent = content;
+    const summary = edits.map((edit, index) => {
+        const result = applyExactReplaceEdit(nextContent, edit, index, actionName);
+        nextContent = result.content;
+        return {
+            index: index + 1,
+            replaced: result.replaced,
+            replace_all: result.replaceAll,
+        };
+    });
+
+    return { content: nextContent, summary };
+}

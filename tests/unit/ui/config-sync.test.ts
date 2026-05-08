@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import * as mcpConfig from '@/core/config';
 import * as settingConfig from '@/ui/setting/tool-config';
@@ -64,5 +66,13 @@ describe('setting and mcp config stay behaviorally aligned', () => {
                 );
             }
         }
+    });
+
+    it('lists block replace in the settings panel', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
+
+        expect(source).toContain('category: "block"');
+        expect(source).toContain('key: "replace"');
+        expect(source).toContain('Replace Block Text');
     });
 });

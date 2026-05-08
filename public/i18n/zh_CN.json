@@ -265,6 +265,8 @@
     "desc_block_action_append": "在父块末尾插入块。",
     "block_action_update": "更新块",
     "desc_block_action_update": "更新块内容。",
+    "block_action_replace": "替换块文本",
+    "desc_block_action_replace": "在一个块内执行精确的 old/new 文本替换。",
     "block_action_delete": "删除块",
     "desc_block_action_delete": "删除一个块。",
     "block_action_move": "移动块",

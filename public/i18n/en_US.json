@@ -278,6 +278,8 @@
     "desc_block_action_append": "Insert a block at the end of a parent.",
     "block_action_update": "Update Block",
     "desc_block_action_update": "Update block content.",
+    "block_action_replace": "Replace Block Text",
+    "desc_block_action_replace": "Apply exact old/new text replacement edits inside one block.",
     "block_action_delete": "Delete Block",
     "desc_block_action_delete": "Delete a block.",
     "block_action_move": "Move Block",
