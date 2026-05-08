@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
 </p>
 
-> **最新版本：**`v0.3.7` — 新增 `fs` 提供类文件系统风格的文档操作工具，便于AI理解。
+> **最新版本：**`v0.3.8` — 精简 MCP 输出、块级精确替换、CLI 体验优化。
 
 > 如果你想把 OpenClaw、OpenCode、kimi Code 等有 Web 端的工具直接嵌进思源侧边栏使用，推荐搭配：[AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge)。
 
