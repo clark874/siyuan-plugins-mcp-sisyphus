@@ -145,6 +145,7 @@
     "document_tool_desc": "Expose the aggregated document tool to MCP clients.",
     "fs_tool_title": "Filesystem Tool",
     "fs_tool_desc": "Expose filesystem-style document operations to MCP clients.",
+    "fs_tool_hint": "💡 Small-model friendly: uses filesystem-style paths (e.g. `/Notebook/Doc`) for intuitive note operations with lower cognitive overhead, making AI calls smoother.",
     "fs_action_ls": "List Path",
     "desc_fs_action_ls": "List direct child documents using human-readable paths.",
     "fs_action_tree": "Document Tree",

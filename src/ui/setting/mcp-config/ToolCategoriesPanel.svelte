@@ -388,6 +388,11 @@
                     </span>
                 </summary>
                 <div class="tool-settings-actions">
+                    {#if tab.category === 'fs'}
+                        <div class="tool-settings-hint">
+                            {getLabel('fs_tool_hint', '💡 Small-model friendly: uses filesystem-style paths for intuitive note operations with lower cognitive overhead, making AI calls smoother.')}
+                        </div>
+                    {/if}
                     {#each getCategoryItems(tab.category) as item (`${item.key}:${JSON.stringify(item.value)}`)}
                         <Form.Wrap title={item.title} description={item.description} direction={item?.direction}>
                             {#if item?.children?.length}
@@ -539,6 +544,14 @@
     .tool-settings-actions {
         border-top: 1px solid var(--b3-border-color);
         padding: 0 14px;
+    }
+
+    .tool-settings-hint {
+        padding: 10px 0;
+        color: var(--b3-theme-on-surface-light);
+        font-size: 13px;
+        line-height: 1.5;
+        border-bottom: 1px dashed var(--b3-border-color);
     }
 
     .tool-settings-actions :global(.item-wrap.fn__flex) {
