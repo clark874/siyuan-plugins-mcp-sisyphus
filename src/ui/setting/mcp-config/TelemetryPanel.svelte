@@ -18,6 +18,7 @@
     interface ChangeEvent { key: string; value: any; }
 
     let analyticsSummary: any = null;
+    let recentAnalyticsEvents: any[] = [];
     let analyticsLoading = false;
     let analyticsError = "";
     let telemetryItems: ISettingItem[] = [];
@@ -59,7 +60,7 @@
         analyticsLoading = true;
         analyticsError = "";
         try {
-            const { readAnalyticsEvents, computeAnalyticsSummary } = await import("../../../core/analytics");
+            const { readAnalyticsEvents, computeAnalyticsSummary, getRecentAnalyticsEvents } = await import("../../../core/analytics");
             const events = await readAnalyticsEvents({
                 readFile: async (path: string) => {
                     return new Promise<string>((resolve, reject) => {
@@ -81,11 +82,14 @@
                 getBaseUrl: () => "",
                 getAuthHeaders: () => ({}),
                 setToken: () => {},
-            } as any, 7 * 24);
-            analyticsSummary = computeAnalyticsSummary(events, { currentToolConfig });
+            } as any, Number.POSITIVE_INFINITY);
+            const summaryCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+            analyticsSummary = computeAnalyticsSummary(events.filter((event: any) => event.ts >= summaryCutoff), { currentToolConfig });
+            recentAnalyticsEvents = getRecentAnalyticsEvents(events, 100);
         } catch (e) {
             analyticsError = e instanceof Error ? e.message : String(e);
             analyticsSummary = null;
+            recentAnalyticsEvents = [];
         } finally {
             analyticsLoading = false;
         }
@@ -171,6 +175,85 @@
             telemetryPreviewJson = payload ? JSON.stringify(payload, null, 2) : getLabel("telemetryPreviewEmpty", "No data to send yet.");
         } catch (e) {
             telemetryPreviewJson = e instanceof Error ? e.message : String(e);
+        }
+    }
+
+    function formatTimestamp(ts: number) {
+        if (!Number.isFinite(ts)) return "—";
+        return new Date(ts).toLocaleString();
+    }
+
+    function formatApproxTokens(value: unknown) {
+        return typeof value === "number" && Number.isFinite(value) ? `~${Math.round(value)}` : "—";
+    }
+
+    function formatChars(value: unknown) {
+        return typeof value === "number" && Number.isFinite(value) ? String(value) : "—";
+    }
+
+    function formatDuration(value: unknown) {
+        return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value)}ms` : "—";
+    }
+
+    function getCapturedText(value: unknown) {
+        return typeof value === "string" && value.length > 0
+            ? value
+            : getLabel("analyticsRecentMissingText", "Not captured for this legacy event.");
+    }
+
+    async function writeClipboardText(text: string) {
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return;
+        }
+
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) {
+            throw new Error("copy failed");
+        }
+    }
+
+    async function copyRecentCall(event: any) {
+        const payload = {
+            tool: event.tool,
+            action: event.action,
+            status: event.status,
+            timestamp: formatTimestamp(event.ts),
+            timestampMs: event.ts,
+            durationMs: event.durationMs,
+            transport: event.transport,
+            errorCode: event.errorCode,
+            tokens: {
+                inputApproxTokens: event.requestApproxTokens,
+                outputApproxTokens: event.responseApproxTokens,
+                totalApproxTokens: event.totalApproxTokens,
+                inputChars: event.requestChars,
+                outputChars: event.responseChars,
+                tokenMode: event.tokenMode,
+            },
+            input: {
+                text: getCapturedText(event.requestText),
+                truncated: Boolean(event.requestTextTruncated),
+            },
+            output: {
+                text: getCapturedText(event.responseText),
+                truncated: Boolean(event.responseTextTruncated),
+            },
+        };
+
+        try {
+            await writeClipboardText(JSON.stringify(payload, null, 2));
+            showMessage(getLabel("analyticsRecentCopied", "Call details copied"));
+        } catch {
+            showMessage(getLabel("analyticsRecentCopyFailed", "Failed to copy call details"));
         }
     }
 
@@ -344,6 +427,67 @@
                     </div>
                 </div>
             </div>
+
+            {#if recentAnalyticsEvents.length > 0}
+                <div class="analytics-block analytics-recent">
+                    <div class="analytics-block__title">{getLabel("analyticsRecentCalls", "Recent Calls")}</div>
+                    <div class="analytics-note">
+                        {getLabel("analyticsRecentCallsHint", "Shows the latest 100 local calls with captured input/output text and approximate token counts.")}
+                    </div>
+                    <div class="analytics-recent__list">
+                        {#each recentAnalyticsEvents as event}
+                            <details class:eventError={event.status === "error"} class="analytics-call">
+                                <summary class="analytics-call__summary">
+                                    <span class="analytics-call__main">
+                                        <span class="analytics-call__name">{event.tool}.{event.action}</span>
+                                        <span class="analytics-call__time">{formatTimestamp(event.ts)}</span>
+                                    </span>
+                                    <span class="analytics-call__aside">
+                                        <span class="analytics-call__meta">
+                                            <span class="analytics-call__status">{event.status}</span>
+                                            <span>{formatDuration(event.durationMs)}</span>
+                                            <span>{formatApproxTokens(event.totalApproxTokens)}</span>
+                                        </span>
+                                        <button class="b3-button b3-button--outline analytics-call__copy" type="button" on:click|preventDefault|stopPropagation={() => copyRecentCall(event)}>
+                                            {getLabel("analyticsRecentCopy", "Copy")}
+                                        </button>
+                                    </span>
+                                </summary>
+                                <div class="analytics-call__body">
+                                    <div class="analytics-call__stats">
+                                        <span>{getLabel("analyticsRecentInputTokens", "Input")} {formatApproxTokens(event.requestApproxTokens)} / {formatChars(event.requestChars)} {getLabel("analyticsCharCount", "chars")}</span>
+                                        <span>{getLabel("analyticsRecentOutputTokens", "Output")} {formatApproxTokens(event.responseApproxTokens)} / {formatChars(event.responseChars)} {getLabel("analyticsCharCount", "chars")}</span>
+                                        <span>{getLabel("analyticsRecentTotalTokens", "Total")} {formatApproxTokens(event.totalApproxTokens)}</span>
+                                    </div>
+                                    {#if event.errorCode}
+                                        <div class="analytics-call__error">{event.errorCode}</div>
+                                    {/if}
+                                    <div class="analytics-call__columns">
+                                        <div class="analytics-call__pane">
+                                            <div class="analytics-call__pane-title">
+                                                {getLabel("analyticsRecentInput", "Input")}
+                                                {#if event.requestTextTruncated}
+                                                    <span>{getLabel("analyticsRecentTruncated", "truncated")}</span>
+                                                {/if}
+                                            </div>
+                                            <pre>{getCapturedText(event.requestText)}</pre>
+                                        </div>
+                                        <div class="analytics-call__pane">
+                                            <div class="analytics-call__pane-title">
+                                                {getLabel("analyticsRecentOutput", "Output")}
+                                                {#if event.responseTextTruncated}
+                                                    <span>{getLabel("analyticsRecentTruncated", "truncated")}</span>
+                                                {/if}
+                                            </div>
+                                            <pre>{getCapturedText(event.responseText)}</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
         {/if}
 
         <div class="analytics-actions">
@@ -477,6 +621,149 @@
         line-height: 1.5;
     }
 
+    .analytics-recent {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .analytics-recent .analytics-note {
+        margin-top: 0;
+    }
+
+    .analytics-recent__list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 560px;
+        overflow: auto;
+        padding-right: 2px;
+    }
+
+    .analytics-call {
+        border: 1px solid var(--b3-border-color);
+        border-radius: 6px;
+        background: var(--b3-theme-background);
+    }
+
+    .analytics-call.eventError {
+        border-color: var(--b3-theme-error);
+    }
+
+    .analytics-call__summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        cursor: pointer;
+        list-style-position: outside;
+    }
+
+    .analytics-call__main {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .analytics-call__name {
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .analytics-call__time,
+    .analytics-call__meta,
+    .analytics-call__stats,
+    .analytics-call__pane-title span {
+        font-size: 11px;
+        color: var(--b3-theme-on-surface-light);
+    }
+
+    .analytics-call__aside {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 0 0 auto;
+    }
+
+    .analytics-call__meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .analytics-call__copy {
+        flex: 0 0 auto;
+        padding: 2px 8px;
+        min-height: 24px;
+        line-height: 20px;
+    }
+
+    .analytics-call__status {
+        color: var(--b3-theme-primary);
+    }
+
+    .analytics-call.eventError .analytics-call__status {
+        color: var(--b3-theme-error);
+    }
+
+    .analytics-call__body {
+        border-top: 1px solid var(--b3-border-color);
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .analytics-call__stats {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .analytics-call__error {
+        color: var(--b3-theme-error);
+        font-size: 12px;
+    }
+
+    .analytics-call__columns {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .analytics-call__pane {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .analytics-call__pane-title {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        font-weight: 500;
+    }
+
+    .analytics-call__pane pre {
+        margin: 0;
+        max-height: 260px;
+        overflow: auto;
+        padding: 10px;
+        border-radius: 4px;
+        background: var(--b3-theme-surface);
+        color: var(--b3-theme-on-background);
+        font-size: 12px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
     .telemetry-section {
         padding: 16px;
         display: flex;
@@ -513,6 +800,25 @@
     @media (max-width: 720px) {
         .analytics-grid {
             grid-template-columns: repeat(2, 1fr);
+        }
+
+        .analytics-call__summary,
+        .analytics-call__columns {
+            grid-template-columns: 1fr;
+        }
+
+        .analytics-call__summary {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .analytics-call__meta {
+            justify-content: flex-start;
+        }
+
+        .analytics-call__aside {
+            justify-content: space-between;
+            width: 100%;
         }
     }
 </style>

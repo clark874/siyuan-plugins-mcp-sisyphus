@@ -23,6 +23,9 @@
 - `create` 支持人类可读 `path`，也支持 `parentPath` + `title`；省略 `markdown` 即创建空文档。创建子文档时优先使用 `path`。`parentPath` + `title` 模式仍可用，但思源该接口可能返回非 ID 的原始值，因此 MCP 会在创建后再按 hpath 解析真实文档 ID。
 - `lookup` 可按 `id`、存储 `path`、人类可读 `hpath` / `hPath` 查找；用 `include` 请求 `id`、`ids`、`path`、`hpath` 或 `docInfo`。
 - `rename`、`remove`、`move` 在非 ID 模式下通常需要存储路径。
+- `get_child_docs` 必须传文档 `id`，不接受 `notebook + path`。
+- `list_tree` 使用 `notebook + path`，其中 `path` 是 `/` 或 `/20240318112233-abc123.sy` 这类存储路径，不是人类可读路径。
+- 如果批量 `remove` 遇到思源短暂的 `indexing` 窗口，请改用 `notebook + storage path` 逐个删除并重试。
 - `set_attr` 按文档 ID 写入文档元数据属性。
 
 ## 安全规则

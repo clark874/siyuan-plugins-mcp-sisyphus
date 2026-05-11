@@ -1,6 +1,7 @@
 <script lang="ts">
     import SettingPanel from "../../shared/setting-panel.svelte";
-    import { isDangerousAction, type AvAction, type BlockAction, type DocumentAction, type FileAction, type FlashcardAction, type FsAction, type MascotAction, type NotebookAction, type SearchAction, type SystemAction, type TagAction, type ToolCategory, type ToolConfig } from "../tool-config";
+    import { ACTIONS_BY_CATEGORY, TOOL_CATEGORIES, isDangerousAction, type AvAction, type BlockAction, type DocumentAction, type FileAction, type FlashcardAction, type FsAction, type MascotAction, type NotebookAction, type SearchAction, type SystemAction, type TagAction, type ToolCategory, type ToolConfig } from "../tool-config";
+    import { CATEGORY_TAB_DEFS } from "../mcp-config-tabs";
 
     export let config: ToolConfig;
     export let groups: string[];
@@ -34,7 +35,7 @@
         }>;
     }
 
-    const GROUP_DEFINITIONS: GroupDefinition[] = [
+    const ACTION_METADATA: GroupDefinition[] = [
         {
             category: "fs",
             icon: "📂",
@@ -85,6 +86,9 @@
                 { key: "search_docs", title: "Search Documents", description: "Search documents by title keyword." },
                 { key: "get_doc", title: "Get Document Content", description: "Get document content and metadata by document ID." },
                 { key: "create_daily_note", title: "Create Daily Note", description: "Create or return today's daily note for a notebook." },
+                { key: "duplicate", title: "Duplicate Document", description: "Duplicate a document by ID." },
+                { key: "heading_to_doc", title: "Heading To Document", description: "Convert a heading into a document." },
+                { key: "doc_to_heading", title: "Document To Heading", description: "Convert a document into a heading under another document or heading." },
             ],
         },
         {
@@ -96,6 +100,7 @@
                 { key: "prepend", title: "Prepend Block", description: "Insert a block at the beginning of a parent." },
                 { key: "append", title: "Append Block", description: "Insert a block at the end of a parent." },
                 { key: "update", title: "Update Block", description: "Update block content." },
+                { key: "replace", title: "Replace Block Text", description: "Apply exact old/new text replacement edits inside one block." },
                 { key: "delete", title: "Delete Block", description: "Delete a block." },
                 { key: "move", title: "Move Block", description: "Move a block to a new position." },
                 { key: "set_fold_state", title: "Fold/Unfold Block", description: "Set the fold state of a foldable block." },
@@ -109,6 +114,8 @@
                 { key: "dom", title: "Get Block DOM", description: "Get rendered DOM for a block." },
                 { key: "recent_updated", title: "Recent Updated Blocks", description: "List recently updated blocks." },
                 { key: "word_count", title: "Block Word Count", description: "Get word-count statistics for blocks." },
+                { key: "add_to_daily_note", title: "Add To Daily Note", description: "Add a block to today's daily note, creating the note if needed." },
+                { key: "docs_info", title: "Get Docs Info", description: "Get document info for one or more documents." },
             ],
         },
         {
@@ -155,6 +162,11 @@
                 { key: "fulltext", title: "Full-text Search", description: "Search blocks across the workspace." },
                 { key: "query_sql", title: "Query SQL", description: "Run read-only SQL queries against SiYuan data." },
                 { key: "get_backlinks", title: "Get Backlinks", description: "Get backlinks or backmentions for a block or document." },
+                { key: "search_refs", title: "Search References", description: "Search references to a block or document." },
+                { key: "find_replace", title: "Find And Replace", description: "Find and replace content in selected documents or blocks." },
+                { key: "search_assets", title: "Search Assets", description: "Search assets by filename and extension filters." },
+                { key: "fulltext_asset_content", title: "Search Asset Content", description: "Search OCR or indexed asset content." },
+                { key: "list_invalid_refs", title: "List Invalid References", description: "List invalid block references." },
             ],
         },
         {
@@ -204,6 +216,42 @@
             ],
         },
     ];
+
+    function toTitleCase(action: string): string {
+        return action
+            .split("_")
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(" ");
+    }
+
+    function getCategoryFallback(category: ToolCategory): { icon: string; groupKey: string } {
+        const tab = CATEGORY_TAB_DEFS.find((item) => item.category === category);
+        return {
+            icon: "",
+            groupKey: tab?.groupKey ?? category,
+        };
+    }
+
+    function buildCompleteGroupDefinitions(): GroupDefinition[] {
+        return TOOL_CATEGORIES.map((category) => {
+            const metadata = ACTION_METADATA.find((item) => item.category === category);
+            const fallback = getCategoryFallback(category);
+            const knownActions = new Map((metadata?.actions ?? []).map((action) => [action.key, action]));
+            return {
+                category,
+                icon: metadata?.icon ?? fallback.icon,
+                groupKey: metadata?.groupKey ?? fallback.groupKey,
+                actions: ACTIONS_BY_CATEGORY[category].map((action) => knownActions.get(action) ?? {
+                    key: action as GroupAction,
+                    title: toTitleCase(action),
+                    description: `Expose ${category}(action="${action}") to MCP clients.`,
+                }),
+            };
+        });
+    }
+
+    const GROUP_DEFINITIONS: GroupDefinition[] = buildCompleteGroupDefinitions();
 
     const getDangerTitle = (title: string) => `${title} ${getLabel("mcpHighRiskBadge", "[High risk]")}`;
     const getDangerDescription = (description: string) => `${description} ${getLabel("mcpRequiresConfirmation", "Requires explicit user confirmation before execution.")} ${getLabel("mcpDefaultVisible", "This action stays visible in the default configuration.")}`;
@@ -293,6 +341,7 @@
     let tagItems: ISettingItem[] = [];
     let systemItems: ISettingItem[] = [];
     let flashcardItems: ISettingItem[] = [];
+    let mascotItems: ISettingItem[] = [];
 
     function buildCategoryItems(category: ToolCategory): ISettingItem[] {
         const definition = getGroupDefinition(category);
@@ -310,6 +359,7 @@
     $: config, getLabel, tagItems = buildCategoryItems("tag");
     $: config, getLabel, systemItems = buildCategoryItems("system");
     $: config, getLabel, flashcardItems = buildCategoryItems("flashcard");
+    $: config, getLabel, mascotItems = buildCategoryItems("mascot");
 </script>
 
 <SettingPanel group={permGroupLabel} settingItems={permItems} display={focusGroup === permGroupLabel} on:changed={onChanged} />
@@ -323,3 +373,4 @@
 <SettingPanel group={groups[9]} settingItems={tagItems} display={focusGroup === groups[9]} on:changed={onChanged} />
 <SettingPanel group={groups[10]} settingItems={systemItems} display={focusGroup === groups[10]} on:changed={onChanged} />
 <SettingPanel group={groups[11]} settingItems={flashcardItems} display={focusGroup === groups[11]} on:changed={onChanged} />
+<SettingPanel group={groups[12]} settingItems={mascotItems} display={focusGroup === groups[12]} on:changed={onChanged} />

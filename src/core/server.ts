@@ -29,8 +29,6 @@ async function tryReadConfigFromAPI(client: SiYuanClient): Promise<ToolConfig | 
     return null;
 }
 
-const CONFIG_TTL_MS = 1_000;
-
 async function initSiYuanClient(): Promise<SiYuanClient> {
     const client = new SiYuanClient();
 
@@ -44,31 +42,10 @@ async function initSiYuanClient(): Promise<SiYuanClient> {
 
 export async function createSiYuanServer(): Promise<Server> {
     const client = await initSiYuanClient();
-    let cachedConfig: ToolConfig | null = null;
-    let cachedConfigAt = 0;
-    let inFlight: Promise<ToolConfig> | null = null;
 
     async function getToolConfig(): Promise<ToolConfig> {
-        const now = Date.now();
-        if (cachedConfig && now - cachedConfigAt < CONFIG_TTL_MS) {
-            return cachedConfig;
-        }
-
-        if (inFlight) {
-            return inFlight;
-        }
-
-        inFlight = (async () => {
-            try {
-                const config = await tryReadConfigFromAPI(client);
-                cachedConfig = config ?? buildDefaultToolConfig();
-                cachedConfigAt = Date.now();
-                return cachedConfig;
-            } finally {
-                inFlight = null;
-            }
-        })();
-        return inFlight;
+        const config = await tryReadConfigFromAPI(client);
+        return config ?? buildDefaultToolConfig();
     }
 
     const initialConfig = await getToolConfig();
@@ -126,7 +103,15 @@ export async function createSiYuanServer(): Promise<Server> {
 
         const module = TOOL_REGISTRY[category];
         const result = await runToolCall(
-            { client, category, name, action, args, requestText: JSON.stringify({ name, arguments: args ?? {} }) },
+            {
+                client,
+                category,
+                name,
+                action,
+                args,
+                requestText: JSON.stringify({ name, arguments: args ?? {} }),
+                slimResponses: config.debug.slimResponses,
+            },
             () => module.callTool(client, args, config[category], permMgr),
         );
         // The MCP SDK CallToolResult uses a wider ContentBlock union; our

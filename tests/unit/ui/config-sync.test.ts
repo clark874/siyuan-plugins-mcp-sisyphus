@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import * as mcpConfig from '@/core/config';
 import * as settingConfig from '@/ui/setting/tool-config';
@@ -64,5 +66,39 @@ describe('setting and mcp config stay behaviorally aligned', () => {
                 );
             }
         }
+    });
+
+    it('lists block replace in the settings panel', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
+
+        expect(source).toContain('ACTIONS_BY_CATEGORY');
+        expect(source).toContain('buildCompleteGroupDefinitions');
+        expect(source).toContain('category: "block"');
+        expect(source).toContain('key: "replace"');
+        expect(source).toContain('Replace Block Text');
+        expect(source).toContain('category: "mascot"');
+    });
+
+    it('keeps tool categories as separate settings tabs instead of one accordion page', () => {
+        const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+
+        expect(rootSource).toContain('...CATEGORY_TAB_DEFS.map');
+        expect(rootSource).not.toContain('TOOL_GROUP_KEY');
+        expect(panelSource).toContain('export let groups: string[]');
+        expect(panelSource).toContain('group={groups[2]} settingItems={fsItems}');
+        expect(panelSource).toContain('group={groups[12]} settingItems={mascotItems}');
+        expect(panelSource).not.toContain('tool-settings-accordion');
+        expect(panelSource).not.toContain('<details class="tool-settings-group">');
+    });
+
+    it('keeps mascot tool settings out of the mascot display panel', () => {
+        const puppySource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/PuppyPanel.svelte'), 'utf8');
+        const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
+
+        expect(puppySource).not.toContain('mascot__enabled');
+        expect(puppySource).not.toContain('mascot__action__');
+        expect(panelSource).toContain('category: "mascot"');
+        expect(panelSource).toContain('group={groups[12]} settingItems={mascotItems}');
     });
 });

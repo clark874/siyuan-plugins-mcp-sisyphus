@@ -103,6 +103,14 @@ describe('fs tool', () => {
         expect(JSON.stringify(parsed)).not.toContain('/Archive');
     });
 
+    it('accepts list as an alias for ls', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'list', path: '/Notebook/Doc 1' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(parsed.items).toEqual([{ name: 'Child', path: '/Notebook/Doc 1/Child', children: 2 }]);
+    });
+
     it('renders tree paths from human-readable hPath values instead of storage names', async () => {
         const client = createFsClient();
         const result = await callFsTool(client, { action: 'tree', path: '/Notebook/Doc 1' }, fsConfig(), createPermMgr());
@@ -175,6 +183,12 @@ describe('fs tool', () => {
             path: '/New Doc',
             markdown: '# New',
         });
+        expect(parsed.uiRefresh.operations).toEqual([
+            { type: 'reloadProtyle', id: 'new-doc' },
+            { type: 'reloadFiletree' },
+        ]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'new-doc' });
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
     });
 
     it('denies creates when notebook permission is read-only', async () => {
@@ -200,6 +214,12 @@ describe('fs tool', () => {
         expect(client.request).toHaveBeenCalledWith('/api/block/getChildBlocks', { id: 'doc-1' });
         expect(client.request).toHaveBeenCalledWith('/api/block/deleteBlock', { id: 'block-1' });
         expect(client.request).toHaveBeenCalledWith('/api/block/appendBlock', { dataType: 'markdown', data: 'replacement', parentID: 'doc-1' });
+        expect(parsed.uiRefresh.operations).toEqual([
+            { type: 'reloadProtyle', id: 'doc-1' },
+            { type: 'reloadFiletree' },
+        ]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
     });
 
     it('denies overwrites when notebook permission is read-only', async () => {
@@ -232,6 +252,12 @@ describe('fs tool', () => {
             data: 'alpha\nforecast line\nBeta',
             parentID: 'doc-1',
         });
+        expect(parsed.uiRefresh.operations).toEqual([
+            { type: 'reloadProtyle', id: 'doc-1' },
+            { type: 'reloadFiletree' },
+        ]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
     });
 
     it('denies replacements when notebook permission is read-only', async () => {
@@ -294,6 +320,21 @@ describe('fs tool', () => {
 
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toContain('did not match any text');
+    });
+
+    it('skips ui refresh when replacement output is unchanged', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, {
+            action: 'replace',
+            path: '/Notebook/Doc 1',
+            edit: { old: 'budget', new: 'budget' },
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(parsed.changed).toBe(false);
+        expect(parsed.uiRefresh).toBeUndefined();
+        expect(client.request).not.toHaveBeenCalledWith('/api/ui/reloadProtyle', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/ui/reloadFiletree', expect.anything());
     });
 
     it('strips exported front matter and matching title wrapper before replacing and writing back', async () => {
@@ -393,6 +434,21 @@ describe('fs tool', () => {
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/removeDocByID', expect.anything());
     });
 
+    it('accepts remove as an alias for rm', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'remove', path: '/Notebook/Doc 1' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, path: '/Notebook/Doc 1' });
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/removeDocByID', { id: 'doc-1' });
+        expect(parsed.uiRefresh.operations).toEqual([
+            { type: 'reloadProtyle', id: 'doc-1' },
+            { type: 'reloadFiletree' },
+        ]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
+    });
+
     it('allows move or rename with write permission but no delete permission', async () => {
         const client = createFsClient({ missingPaths: ['/Renamed'] });
         const result = await callFsTool(client, { action: 'mv', from: '/Notebook/Doc 1', to: '/Notebook/Renamed' }, fsConfig(), createPermMgr('rw'));
@@ -401,6 +457,21 @@ describe('fs tool', () => {
         expect(parsed).toMatchObject({ success: true, path: '/Notebook/Doc 1', movedTo: '/Notebook/Renamed' });
         expect(client.request).toHaveBeenCalledWith('/api/filetree/moveDocsByID', { fromIDs: ['doc-1'], toID: 'nb-1' });
         expect(client.request).toHaveBeenCalledWith('/api/filetree/renameDocByID', { id: 'doc-1', title: 'Renamed' });
+        expect(parsed.uiRefresh.operations).toEqual([
+            { type: 'reloadProtyle', id: 'doc-1' },
+            { type: 'reloadFiletree' },
+        ]);
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
+        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
+    });
+
+    it('accepts move as an alias for mv', async () => {
+        const client = createFsClient({ missingPaths: ['/Renamed'] });
+        const result = await callFsTool(client, { action: 'move', from: '/Notebook/Doc 1', to: '/Notebook/Renamed' }, fsConfig(), createPermMgr('rw'));
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, path: '/Notebook/Doc 1', movedTo: '/Notebook/Renamed' });
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/moveDocsByID', { fromIDs: ['doc-1'], toID: 'nb-1' });
     });
 
     it('denies move when the destination notebook is not writable', async () => {

@@ -20,6 +20,7 @@ import {
     BlockMoveSchema,
     BlockPrependSchema,
     BlockRecentUpdatedSchema,
+    BlockReplaceSchema,
     BlockSetAttrsSchema,
     BlockTransferReferencesSchema,
     BlockUpdateSchema,
@@ -27,6 +28,7 @@ import {
 } from '../../core/types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
+import { applyExactReplaceEdits } from '../internal/replace';
 import { filterItemsByPermission } from '../search';
 import { createJsonResult, createPaginatedResult, createWriteSuccessResult, paginate, type ToolResult } from '../internal/shared';
 import { applyUiRefresh } from '../internal/ui-refresh';
@@ -381,6 +383,31 @@ const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
     }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
+const handleReplace: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockReplaceSchema.parse(rawArgs);
+    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
+    if (denied) return denied;
+
+    const current = normalizeKramdownResult(await blockApi.getBlockKramdown(client, parsed.id));
+    const originalContent = typeof current.kramdown === 'string' ? current.kramdown : '';
+    const edits = Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit];
+    const { content: nextContent, summary } = applyExactReplaceEdits(originalContent, edits, 'block.replace');
+    const changed = nextContent !== originalContent;
+
+    if (changed) {
+        await blockApi.updateBlock(client, 'markdown', nextContent, parsed.id);
+    }
+
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        action: 'replace',
+        id: parsed.id,
+        changed,
+        editsApplied: summary.length,
+        replacements: summary,
+    }), changed ? [{ type: 'reloadProtyle', id: context.documentId }] : []);
+};
+
 const handleDelete: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockDeleteSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'delete');
@@ -582,6 +609,7 @@ export const BLOCK_ACTION_HANDLERS: Record<BlockAction, BlockActionHandler> = {
     prepend: handlePrepend,
     append: handleAppend,
     update: handleUpdate,
+    replace: handleReplace,
     delete: handleDelete,
     move: handleMove,
     set_fold_state: handleSetFoldState,

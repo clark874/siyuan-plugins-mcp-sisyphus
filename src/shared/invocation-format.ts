@@ -25,6 +25,7 @@ export type TextFragment = string | ActionRefToken | ActionCallToken | FieldRefT
 
 const FIELD_STOPWORDS = new Set([
     'action',
+    'as',
     'only',
     'optional',
     'required',

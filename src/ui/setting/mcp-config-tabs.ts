@@ -21,9 +21,10 @@ export const ICON_SVGS: Record<string, string> = {
     paw: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><ellipse cx="10" cy="12" rx="8" ry="3.5"/><polygon points="17,12 21,8 21,16"/></svg>`,
     barChart: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>`,
     compass: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.5 14L12 13l-4.5 3 1.5-5.5L5 9l5.5-.5L12 3l1.5 5.5L19 9l-4 1.5 1.5 5.5z"/></svg>`,
+    bug: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20 8h-2.81c-.45-.78-1.08-1.45-1.83-1.95L17 4.41 15.59 3 13.5 5.09C13.02 5.03 12.52 5 12 5s-1.02.03-1.5.09L8.41 3 7 4.41l1.64 1.64C7.89 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81C7.85 19.79 9.79 21 12 21s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 9h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>`,
 };
 
-export const CATEGORY_TAB_DEFS: Array<{ category: Exclude<ToolCategory, "mascot">; groupKey: string; iconKey: string }> = [
+export const CATEGORY_TAB_DEFS: Array<{ category: ToolCategory; groupKey: string; iconKey: string }> = [
     { category: "fs", groupKey: "Filesystem", iconKey: "folder" },
     { category: "notebook", groupKey: "Notebooks", iconKey: "book" },
     { category: "document", groupKey: "Documents", iconKey: "fileText" },
@@ -34,10 +35,13 @@ export const CATEGORY_TAB_DEFS: Array<{ category: Exclude<ToolCategory, "mascot"
     { category: "tag", groupKey: "Tags", iconKey: "tagIcon" },
     { category: "system", groupKey: "System", iconKey: "monitor" },
     { category: "flashcard", groupKey: "Flashcards", iconKey: "layers" },
+    { category: "mascot", groupKey: "Mascot Tool", iconKey: "paw" },
 ];
 
 export const HTTP_GROUP_KEY = "Connection Config";
 export const PERM_GROUP_KEY = "Permissions";
-export const PUPPY_GROUP_KEY = "Mascot";
+export const TOOL_GROUP_KEY = "Tool Settings";
+export const PUPPY_GROUP_KEY = "Mascot Display";
 export const ANALYTICS_GROUP_KEY = "analyticsGroupTitle";
+export const DEBUG_GROUP_KEY = "debugGroupTitle";
 export const USER_RULES_GROUP_KEY = "User Rules";

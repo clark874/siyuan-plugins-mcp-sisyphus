@@ -5,7 +5,7 @@ export type ToolCategory = typeof TOOL_CATEGORIES[number];
 export const FS_ACTIONS = ['ls', 'tree', 'read', 'write', 'replace', 'rm', 'mv', 'search'] as const;
 export const NOTEBOOK_ACTIONS = ['list', 'create', 'set_open_state', 'remove', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'set_permission', 'get_child_docs'] as const;
 export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'remove', 'move', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'heading_to_doc', 'doc_to_heading'] as const;
-export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info'] as const;
+export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'replace', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info'] as const;
 export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values'] as const;
 export const FILE_ACTIONS = ['upload_asset', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
@@ -49,6 +49,11 @@ export interface FileCategoryToolConfig<Action extends string = string> extends 
     uploadLargeFileThresholdMB: number;
 }
 
+export interface DebugToolConfig {
+    includeUiRefreshMetadata: boolean;
+    slimResponses: boolean;
+}
+
 export type ToolConfig = {
     fs: CategoryToolConfig<FsAction>;
     notebook: CategoryToolConfig<NotebookAction>;
@@ -62,6 +67,7 @@ export type ToolConfig = {
     flashcard: CategoryToolConfig<FlashcardAction>;
     mascot: CategoryToolConfig<MascotAction>;
     userRulesText: string;
+    debug: DebugToolConfig;
 };
 
 export const MCP_TOOLS_CONFIG_API_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
@@ -106,7 +112,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     block: {
         get_kramdown: 'basic', get_children: 'basic', get_attrs: 'basic',
         info: 'basic', append: 'basic', prepend: 'basic',
-        insert: 'basic', update: 'basic',
+        insert: 'basic', update: 'basic', replace: 'basic',
         delete: 'advanced', move: 'advanced', set_fold_state: 'advanced',
         transfer_references: 'advanced', set_attrs: 'advanced', breadcrumb: 'advanced',
         dom: 'advanced', recent_updated: 'advanced', word_count: 'advanced',
@@ -197,7 +203,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         block: {
             enabled: true,
-            actions: createActionsRecord(BLOCK_ACTIONS, ['insert', 'prepend', 'append', 'update', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info']),
+            actions: createActionsRecord(BLOCK_ACTIONS, ['insert', 'prepend', 'append', 'update', 'replace', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info']),
         },
         av: {
             enabled: true,
@@ -229,6 +235,10 @@ export function buildDefaultToolConfig(): ToolConfig {
             actions: createActionsRecord(MASCOT_ACTIONS, ['get_balance', 'shop', 'buy']),
         },
         userRulesText: '创建文档/日记后主动设图标',
+        debug: {
+            includeUiRefreshMetadata: false,
+            slimResponses: true,
+        },
     };
 }
 
@@ -313,6 +323,14 @@ function normalizeUploadLargeFileThresholdMB(value: unknown): number {
 function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
     if (typeof raw.userRulesText === 'string') {
         config.userRulesText = raw.userRulesText;
+    }
+    if (isRecord(raw.debug)) {
+        if (typeof raw.debug.includeUiRefreshMetadata === 'boolean') {
+            config.debug.includeUiRefreshMetadata = raw.debug.includeUiRefreshMetadata;
+        }
+        if (typeof raw.debug.slimResponses === 'boolean') {
+            config.debug.slimResponses = raw.debug.slimResponses;
+        }
     }
 
     for (const category of TOOL_CATEGORIES) {
