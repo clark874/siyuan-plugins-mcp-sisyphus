@@ -23,6 +23,7 @@ import {
     type FsDocumentPath,
     type FsScopePath,
 } from '../internal/helpers/fs-path';
+import { applyExactReplaceEdits } from '../internal/replace';
 import { createJsonResult, createPaginatedResult } from '../internal/shared';
 import { applyUiRefresh } from '../internal/ui-refresh';
 
@@ -32,12 +33,6 @@ interface FsListItem {
     name: string;
     path: string;
     children: number;
-}
-
-interface FsReplaceEdit {
-    old: string;
-    new: string;
-    replace_all?: boolean;
 }
 
 interface ExportedMarkdownPayload {
@@ -233,39 +228,6 @@ async function overwriteDocumentBody(
     }
 }
 
-function countOccurrences(content: string, needle: string): number {
-    let count = 0;
-    let index = 0;
-    while (true) {
-        index = content.indexOf(needle, index);
-        if (index === -1) return count;
-        count += 1;
-        index += needle.length;
-    }
-}
-
-function applyReplaceEdit(content: string, edit: FsReplaceEdit, editIndex: number) {
-    const occurrences = countOccurrences(content, edit.old);
-    if (occurrences === 0) {
-        throw new Error(`fs.replace edit #${editIndex + 1} did not match any text.`);
-    }
-
-    if (edit.replace_all) {
-        return {
-            content: content.split(edit.old).join(edit.new),
-            replaced: occurrences,
-            replaceAll: true,
-        };
-    }
-
-    const index = content.indexOf(edit.old);
-    return {
-        content: `${content.slice(0, index)}${edit.new}${content.slice(index + edit.old.length)}`,
-        replaced: 1,
-        replaceAll: false,
-    };
-}
-
 async function collectSearchDocuments(
     client: Parameters<FsActionHandler>[0]['client'],
     permMgr: Parameters<FsActionHandler>[0]['permMgr'],
@@ -417,17 +379,7 @@ const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         hPath: typeof markdown.hPath === 'string' ? markdown.hPath : undefined,
     });
     const edits = Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit];
-
-    let nextContent = originalContent;
-    const summary = edits.map((edit, index) => {
-        const result = applyReplaceEdit(nextContent, edit, index);
-        nextContent = result.content;
-        return {
-            index: index + 1,
-            replaced: result.replaced,
-            replace_all: result.replaceAll,
-        };
-    });
+    const { content: nextContent, summary } = applyExactReplaceEdits(originalContent, edits, 'fs.replace');
 
     const changed = nextContent !== originalContent;
     if (changed) {
@@ -440,10 +392,10 @@ const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         changed,
         editsApplied: summary.length,
         replacements: summary,
-    }), [
+    }), changed ? [
         { type: 'reloadProtyle', id: scope.id },
         { type: 'reloadFiletree' },
-    ]);
+    ] : []);
 };
 
 const handleRm: FsActionHandler = async ({ client, permMgr, rawArgs }) => {

@@ -20,17 +20,19 @@
         type TelemetryConfig,
     } from "./tool-config-storage";
     import HttpServerPanel from "./mcp-config/HttpServerPanel.svelte";
+    import DebugPanel from "./mcp-config/DebugPanel.svelte";
     import PuppyPanel from "./mcp-config/PuppyPanel.svelte";
     import TelemetryPanel from "./mcp-config/TelemetryPanel.svelte";
     import ToolCategoriesPanel from "./mcp-config/ToolCategoriesPanel.svelte";
     import UserRulesPanel from "./mcp-config/UserRulesPanel.svelte";
     import {
-        CATEGORY_TAB_DEFS,
         HTTP_GROUP_KEY,
         ICON_SVGS,
         PERM_GROUP_KEY,
+        TOOL_GROUP_KEY,
         PUPPY_GROUP_KEY,
         ANALYTICS_GROUP_KEY,
+        DEBUG_GROUP_KEY,
         USER_RULES_GROUP_KEY,
         type TabItem,
     } from "./mcp-config-tabs";
@@ -49,9 +51,11 @@
     interface ChangeEvent { key: string; value: any; }
 
     const USER_RULES_GROUP_LABEL = "User Rules";
-    const PUPPY_GROUP_LABEL = "Mascot";
+    const TOOL_GROUP_LABEL = "Tool Settings";
+    const PUPPY_GROUP_LABEL = "Mascot Display";
     const PERM_GROUP_LABEL = "Permissions";
     const ANALYTICS_GROUP_LABEL = "Usage Stats";
+    const DEBUG_GROUP_LABEL = "Debug";
 
     let config: ToolConfig = buildDefaultToolConfig();
     let httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
@@ -76,20 +80,19 @@
 
     $: httpGroupLabel = getLabel("httpServerTitle", HTTP_GROUP_KEY);
     $: permGroupLabel = getLabel(PERM_GROUP_KEY, PERM_GROUP_LABEL);
+    $: toolGroupLabel = getLabel(TOOL_GROUP_KEY, TOOL_GROUP_LABEL);
     $: puppyGroupLabel = getLabel(PUPPY_GROUP_KEY, PUPPY_GROUP_LABEL);
     $: analyticsGroupLabel = getLabel(ANALYTICS_GROUP_KEY, ANALYTICS_GROUP_LABEL);
+    $: debugGroupLabel = getLabel(DEBUG_GROUP_KEY, DEBUG_GROUP_LABEL);
     $: userRulesGroupLabel = getLabel(USER_RULES_GROUP_KEY, USER_RULES_GROUP_LABEL);
 
     $: tabItems = [
         { id: HTTP_GROUP_KEY, label: httpGroupLabel, iconSvg: ICON_SVGS.globe },
         { id: PERM_GROUP_KEY, label: permGroupLabel, iconSvg: ICON_SVGS.lock },
-        ...CATEGORY_TAB_DEFS.map((def) => ({
-            id: def.groupKey,
-            label: getLabel(def.groupKey, def.groupKey),
-            iconSvg: ICON_SVGS[def.iconKey],
-        })),
+        { id: TOOL_GROUP_KEY, label: toolGroupLabel, iconSvg: ICON_SVGS.layers },
         { id: PUPPY_GROUP_KEY, label: puppyGroupLabel, iconSvg: ICON_SVGS.paw },
         { id: ANALYTICS_GROUP_KEY, label: analyticsGroupLabel, iconSvg: ICON_SVGS.barChart },
+        { id: DEBUG_GROUP_KEY, label: debugGroupLabel, iconSvg: ICON_SVGS.bug },
         { id: USER_RULES_GROUP_KEY, label: userRulesGroupLabel, iconSvg: ICON_SVGS.compass },
     ];
 
@@ -272,6 +275,18 @@
             return;
         }
 
+        if (key === "debug__slimResponses") {
+            config = {
+                ...config,
+                debug: {
+                    ...config.debug,
+                    slimResponses: Boolean(value),
+                },
+            };
+            await persistConfig();
+            return;
+        }
+
         if (key === "telemetry__enabled") {
             telemetryConfig = { ...telemetryConfig, enabled: Boolean(value) };
             await persistTelemetryConfig();
@@ -342,9 +357,10 @@
     </ul>
     <div class="config__tab-wrap">
         <HttpServerPanel {plugin} group={httpGroupLabel} display={focusGroup === httpGroupLabel} bind:httpSettings {getLabel} />
-        <ToolCategoriesPanel {config} {groups} {focusGroup} {permGroupLabel} {notebooks} {permissions} {permLoading} {getLabel} {onChanged} />
+        <ToolCategoriesPanel group={toolGroupLabel} display={focusGroup === toolGroupLabel} {config} {focusGroup} {permGroupLabel} {notebooks} {permissions} {permLoading} {getLabel} {onChanged} />
         <PuppyPanel group={puppyGroupLabel} display={focusGroup === puppyGroupLabel} {config} {puppySettings} {getLabel} {onChanged} />
         <TelemetryPanel analyticsGroup={analyticsGroupLabel} telemetryGroup="" showTelemetry={false} currentToolConfig={config} {focusGroup} {telemetryConfig} {getLabel} {onChanged} />
+        <DebugPanel group={debugGroupLabel} display={focusGroup === debugGroupLabel} {config} {puppySettings} {getLabel} {onChanged} />
         <UserRulesPanel group={userRulesGroupLabel} display={focusGroup === userRulesGroupLabel} {config} {getLabel} {onChanged} />
     </div>
 </div>

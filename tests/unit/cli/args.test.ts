@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseArgs } from '@/cli/args';
+import { getHelpText, parseArgs } from '@/cli/args';
 
 describe('cli/args', () => {
     it('parses profile as a global option for dispatch commands', () => {
@@ -51,5 +51,15 @@ describe('cli/args', () => {
             configAction: 'use',
             configName: 'work',
         });
+    });
+
+    it('documents common action aliases and fs positionals', () => {
+        const help = getHelpText();
+
+        expect(help).toContain('list/ls');
+        expect(help).toContain('move/mv');
+        expect(help).toContain('remove/rm/delete/del');
+        expect(help).toContain('fs ls /');
+        expect(help).toContain('fs search / keyword');
     });
 });

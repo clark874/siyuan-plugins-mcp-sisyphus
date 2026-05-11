@@ -87,6 +87,27 @@ async function getHPathByIdWithRetry(client: SiYuanClient, id: string): Promise<
     throw new Error(`Failed to resolve hierarchical path for document "${id}" because SiYuan indexing is still catching up. Retry shortly after create. Last error: ${message}`);
 }
 
+function createLookupPathResult(fields: {
+    notebook?: string;
+    notebookName?: string;
+    path?: { notebook: string; path: string } | string;
+    hPath?: string;
+}) {
+    const storageNotebook = typeof fields.path === 'object' ? fields.path.notebook : fields.notebook;
+    const storagePath = typeof fields.path === 'object' ? fields.path.path : fields.path;
+
+    return {
+        humanPath: {
+            notebookName: fields.notebookName ?? fields.notebook,
+            hPath: fields.hPath,
+        },
+        idPath: {
+            notebook: storageNotebook,
+            path: storagePath,
+        },
+    };
+}
+
 function normalizeDocumentCoverSource(source: string): { source: string; titleImg: string } {
     const normalizedSource = source.trim();
     if (!normalizedSource) {
@@ -327,18 +348,17 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         if (denied) return denied;
         result.id = parsed.id;
         result.notebook = context.notebook;
+        result.path = context.path;
         if (include.has('path')) {
             result.path = await documentApi.getPathByID(client, parsed.id);
         }
-        if (include.has('hpath')) {
-            result.hPath = await getHPathByIdWithRetry(client, parsed.id);
-        }
+        result.hPath = await getHPathByIdWithRetry(client, parsed.id);
         if (include.has('docInfo')) {
             result.docInfo = await blockApi.getDocInfo(client, parsed.id);
         }
         const notebookName = await resolveNotebookName(client, context.notebook);
         if (notebookName) result.notebookName = notebookName;
-        return createJsonResult(result);
+        return createJsonResult(createLookupPathResult(result));
     }
 
     const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook!, 'read');
@@ -361,20 +381,17 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
                 result.ids = ids;
                 if (include.has('id')) result.id = primaryId;
             }
-            if (primaryId && include.has('path')) {
+            if (primaryId) {
                 result.path = await documentApi.getPathByID(client, primaryId);
             }
             if (primaryId && include.has('docInfo')) {
                 result.docInfo = await blockApi.getDocInfo(client, primaryId);
             }
-            return createJsonResult(result);
+            return createJsonResult(createLookupPathResult(result));
         }
 
-        let resolvedHPath: string | undefined;
-        if (include.has('hpath') || include.has('id') || include.has('ids')) {
-            resolvedHPath = await documentApi.getHPathByPath(client, parsed.notebook!, parsed.path);
-            result.hPath = resolvedHPath;
-        }
+        const resolvedHPath = await documentApi.getHPathByPath(client, parsed.notebook!, parsed.path);
+        result.hPath = resolvedHPath;
         if (include.has('id') || include.has('ids')) {
             const ids = await documentApi.getIDsByHPath(client, resolvedHPath ?? parsed.path, parsed.notebook!);
             result.ids = ids;
@@ -383,7 +400,7 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         if (include.has('docInfo') && typeof result.id === 'string') {
             result.docInfo = await blockApi.getDocInfo(client, result.id);
         }
-        return createJsonResult(result);
+        return createJsonResult(createLookupPathResult(result));
     }
 
     const ids = await documentApi.getIDsByHPath(client, hpathInput!, parsed.notebook!);
@@ -395,7 +412,7 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         if (include.has('id')) result.id = ids[0];
     }
     const primaryId = ids[0];
-    if (primaryId && include.has('path')) {
+    if (primaryId) {
         const { denied: idDenied } = await ensurePermissionForDocumentId(client, permMgr, primaryId, 'read');
         if (idDenied) return idDenied;
         result.path = await documentApi.getPathByID(client, primaryId);
@@ -405,7 +422,7 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         if (idDenied) return idDenied;
         result.docInfo = await blockApi.getDocInfo(client, primaryId);
     }
-    return createJsonResult(result);
+    return createJsonResult(createLookupPathResult(result));
 };
 
 const handleRename: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {

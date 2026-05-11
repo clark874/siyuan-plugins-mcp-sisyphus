@@ -75,6 +75,26 @@ describe('flashcard tool', () => {
         });
     });
 
+    it('treats empty list_cards deckID as omitted for scope="all"', async () => {
+        const api = await import('@/api/flashcard');
+        vi.mocked(api.getRiffDueCards).mockResolvedValue({ cards: [] });
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'list_cards',
+            scope: 'all',
+            filter: 'due',
+            deckID: '',
+        }, enabledActions as any, {} as any);
+
+        expect(vi.mocked(api.getRiffDueCards)).toHaveBeenCalledWith(expect.anything(), '', undefined);
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            action: 'list_cards',
+            scope: 'all',
+            filter: 'due',
+            cards: [],
+        });
+    });
+
     it('normalizes null due-card payloads to an empty list', async () => {
         const api = await import('@/api/flashcard');
         vi.mocked(api.getRiffDueCards).mockResolvedValue(null as any);

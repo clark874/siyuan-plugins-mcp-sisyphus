@@ -22,6 +22,7 @@ Related pages:
 ## Parameters and Semantics
 
 - `render` can also create and materialize an AV when `createIfNotExist=true` and `blockID` is provided. In this mode, `blockID` is the target parent/insertion context, and MCP inserts a SiYuan-style spun AV block through a transaction.
+- To render an existing AV, pass the AV ID as `id`; `render` does not accept the `avID` parameter name used by write actions such as `add_rows` and `set_cells`.
 - Keep the `blockID` returned by `render(createIfNotExist=true)`. Later AV reads and writes usually only need `avID`; MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record. Pass `blockID` when you need an exact database-block view context, when multiple mirrors are possible, or as an explicit fallback for a brand-new empty AV.
 - `set_cells` is typed by `valueType` and accepts either single-cell fields or a `cells` / `items` array.
 - `rowID` refers to the row item ID, not the source block ID.

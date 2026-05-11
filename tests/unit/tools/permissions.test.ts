@@ -307,7 +307,16 @@ describe('tool permission and filtering behavior', () => {
             include: ['hpath'],
         }, documentConfig, permMgr as never);
 
-        expect(parseResult(result)).toMatchObject({ id: 'doc-1', hPath: '/Projects/New Doc' });
+        expect(parseResult(result)).toEqual({
+            humanPath: {
+                notebookName: 'allowed',
+                hPath: '/Projects/New Doc',
+            },
+            idPath: {
+                notebook: 'allowed',
+                path: '/doc-1.sy',
+            },
+        });
         expect(documentApi.getHPathByID).toHaveBeenCalledTimes(2);
     });
 

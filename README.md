@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
 </p>
 
-> **Latest:** `v0.3.7` — New `fs` tool provides filesystem-style document operations for easier AI comprehension.
+> **Latest:** `v0.3.8` — Slimmer MCP responses, precise block-level replace, and improved CLI ergonomics.
 
 > Recommended pairing: use this plugin together with [AI CLI Bridge for SiYuan](https://github.com/yangtaihong59/siyuan-plugins-ai-cli-bridge) to embed OpenClaw, OpenCode, kimi Code, and other web-based AI agent tools directly in the SiYuan sidebar.
 

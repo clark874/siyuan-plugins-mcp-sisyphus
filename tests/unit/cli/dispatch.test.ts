@@ -167,6 +167,68 @@ describe('cli/dispatch', () => {
         io.restore();
     });
 
+    it('maps fs path positionals and list alias before dispatch', async () => {
+        const io = captureStdIO();
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.fs, 'callTool').mockResolvedValue(okResult());
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'fs',
+            action: 'list',
+            rest: ['/'],
+            url: 'http://127.0.0.1:6806',
+            json: true,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(0);
+        expect(callToolSpy).toHaveBeenCalledTimes(1);
+        expect(callToolSpy.mock.calls[0]?.[1]).toEqual({
+            action: 'ls',
+            path: '/',
+        });
+        io.restore();
+    });
+
+    it('maps fs search and move positionals before dispatch', async () => {
+        const io = captureStdIO();
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.fs, 'callTool').mockResolvedValue(okResult());
+
+        const searchCode = await runDispatch({
+            command: 'dispatch',
+            tool: 'fs',
+            action: 'search',
+            rest: ['/', 'budget'],
+            url: 'http://127.0.0.1:6806',
+            json: true,
+            debug: false,
+        } as ParsedArgs);
+
+        const moveCode = await runDispatch({
+            command: 'dispatch',
+            tool: 'fs',
+            action: 'move',
+            rest: ['/Notebook/Old', '/Notebook/New'],
+            url: 'http://127.0.0.1:6806',
+            json: true,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(searchCode).toBe(0);
+        expect(moveCode).toBe(0);
+        expect(callToolSpy.mock.calls[0]?.[1]).toEqual({
+            action: 'search',
+            path: '/',
+            query: 'budget',
+        });
+        expect(callToolSpy.mock.calls[1]?.[1]).toEqual({
+            action: 'mv',
+            from: '/Notebook/Old',
+            to: '/Notebook/New',
+        });
+        io.restore();
+    });
+
     it('passes repeated array flags through to MCP payloads', async () => {
         const io = captureStdIO();
         const callToolSpy = vi.spyOn(TOOL_REGISTRY.av, 'callTool').mockResolvedValue(okResult());

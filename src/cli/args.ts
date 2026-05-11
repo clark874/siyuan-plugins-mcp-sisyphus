@@ -73,6 +73,10 @@ Environment:
 Flag naming:
   Use kebab-case or camelCase freely: --parent-id, --parentID, --parentId all work.
   Action names accept either form: set_open_state or set-open-state.
+  Common action aliases are accepted when the target tool supports them: list/ls,
+  move/mv, remove/rm/delete/del.
+  fs accepts common path positionals: fs ls /, fs search / keyword,
+  fs mv /Notebook/Old /Notebook/New.
   Boolean flags: use --flag, --flag=false, or --no-flag.
   For complex object/array values, use --<key>-json '<json>'.
 `;

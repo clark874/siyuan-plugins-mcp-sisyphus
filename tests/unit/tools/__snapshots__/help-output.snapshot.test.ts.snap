@@ -271,7 +271,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
-        "hint": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
+        "hint": "Use id (the AV ID; this action does not accept avID) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
         "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
@@ -366,7 +366,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "get_primary_key_values": "Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering.",
         "remove_column": "Use avID + keyID, and optionally blockID to target a specific registered database block. removeRelationDest only matters for relation columns.",
         "remove_rows": "Use avID + srcIDs to remove rows from the AV. Optional blockID pins a specific registered database block when you need explicit block-view context.",
-        "render": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
+        "render": "Use id (the AV ID; this action does not accept avID) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
         "search": "Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.",
         "set_cells": "Use avID + cells[]. Each item requires rowID + columnID + valueType and its matching typed field. For a single-cell write, pass rowID + columnID + valueType directly. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[].",
       },
@@ -408,7 +408,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "requiresConfirmation": false,
         },
         "render": {
-          "hint": "Use id plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
+          "hint": "Use id (the AV ID; this action does not accept avID) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
           "requiresConfirmation": false,
         },
         "search": {
@@ -471,6 +471,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -503,6 +504,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -532,6 +534,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -559,6 +562,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -585,6 +589,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -609,6 +614,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -636,6 +642,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -662,6 +669,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -689,6 +697,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -715,6 +724,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -741,6 +751,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -766,6 +777,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -795,6 +807,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -823,6 +836,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -835,6 +849,36 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "requiresConfirmation": false,
         "shapes": [
           "action only",
+        ],
+        "tool": "block",
+      },
+      "replace": {
+        "action": "replace",
+        "example": {
+          "action": "replace",
+          "edit": "<edit>",
+          "id": "20240318112233-abc123",
+        },
+        "fullDocResource": "siyuan://help/action/block/replace",
+        "guidance": [
+          "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
+          "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
+          "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
+          "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
+          "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
+          "block(action="set_fold_state") requires a foldable block ID, not a document ID.",
+          "block(action="recent_updated") is read-only; MCP filters unreadable notebooks first and then applies count.",
+          "block(action="recent_updated") now presents the document-grouped summary as the primary user-facing view while keeping the raw block stream for advanced consumers.",
+        ],
+        "hint": "Use id + edit to replace exact text inside one block kramdown. edit accepts one object or an array for sequential replacements. replace_all=true replaces every exact match of that old snippet.",
+        "requiredFields": [
+          "id",
+          "edit",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "id + edit",
         ],
         "tool": "block",
       },
@@ -851,6 +895,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -880,6 +925,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -909,6 +955,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -935,6 +982,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -962,6 +1010,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "guidance": [
           "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
           "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
           "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
           "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
           "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -982,7 +1031,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
     },
     "description": "🧱 Grouped block operations. Use the "action" field to select the operation.
 
-Common actions: insert, prepend, append, update, get_kramdown, get_children, get_attrs, info. Required fields: insert: no additional fields; prepend: dataType, data, parentID; append: dataType, data, parentID; update: no additional fields; get_kramdown: id; get_children: id; get_attrs: id; info: id.
+Common actions: insert, prepend, append, update, replace, get_kramdown, get_children, get_attrs, info. Required fields: insert: no additional fields; prepend: dataType, data, parentID; append: dataType, data, parentID; update: no additional fields; replace: id, edit; get_kramdown: id; get_children: id; get_attrs: id; info: id.
 
 Additional actions: delete, move, set_fold_state, transfer_references, set_attrs, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info. Read siyuan://help/action/block/{action} for details, or call action="help" if resources are unavailable.
 
@@ -991,6 +1040,7 @@ block.insert: required [] | optional [dataType, data, nextID, previousID, parent
 block.prepend: required [dataType, data, parentID] | optional []
 block.append: required [dataType, data, parentID] | optional []
 block.update: required [] | optional [dataType, data, id, items]
+block.replace: required [id, edit] | optional []
 block.delete: required [id] | optional []
 block.move: required [id] | optional [previousID, parentID]
 block.set_fold_state: required [id, folded] | optional []
@@ -1024,6 +1074,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "move": "Provide id plus previousID, parentID, or both to describe the destination. On success, MCP returns a structured success object instead of SiYuan's raw null. This action requires explicit user confirmation.",
         "prepend": "parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Use #tag# syntax in markdown when you want SiYuan to register a real tag.",
         "recent_updated": "Returns recent updates across the workspace, then MCP filters unreadable notebooks and applies count when provided. documents is the primary user-facing summary; items remains the raw block stream.",
+        "replace": "Use id + edit to replace exact text inside one block kramdown. edit accepts one object or an array for sequential replacements. replace_all=true replaces every exact match of that old snippet.",
         "set_attrs": "Use attrs to write block attributes such as custom metadata. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.",
         "set_fold_state": "Use a foldable block ID + folded (true to fold, false to unfold).",
         "transfer_references": "requires: fromID, toID",
@@ -1084,6 +1135,10 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "hint": "Returns recent updates across the workspace, then MCP filters unreadable notebooks and applies count when provided. documents is the primary user-facing summary; items remains the raw block stream.",
           "requiresConfirmation": false,
         },
+        "replace": {
+          "hint": "Use id + edit to replace exact text inside one block kramdown. edit accepts one object or an array for sequential replacements. replace_all=true replaces every exact match of that old snippet.",
+          "requiresConfirmation": false,
+        },
         "set_attrs": {
           "hint": "Use attrs to write block attributes such as custom metadata. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.",
           "requiresConfirmation": false,
@@ -1122,6 +1177,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "prepend",
         "append",
         "update",
+        "replace",
         "get_kramdown",
         "get_children",
         "get_attrs",
@@ -1131,6 +1187,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
       "guidance": [
         "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
         "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+        "block(action="replace") performs exact old/new string replacement inside one block kramdown, without traversing child blocks.",
         "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
         "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.",
         "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
@@ -1487,7 +1544,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "For recently created documents, document(action="lookup", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
           "document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
-        "hint": "Use either id or notebook + path. This action requires explicit user confirmation.",
+        "hint": "Use either id or notebook + storage path. This action requires explicit user confirmation. If bulk ids/paths hit SiYuan's short indexing window, retry by deleting one document at a time with notebook + storage path.",
         "requiredFields": [],
         "requiresConfirmation": true,
         "shapes": [
@@ -1626,7 +1683,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "list_tree": "Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.",
         "lookup": "Look up one reference at a time. Use id, notebook + storage path, or notebook + hpath/hPath. The path field means storage path like /20240318112233-abc123.sy; use hpath for human-readable paths.",
         "move": "Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.",
-        "remove": "Use either id or notebook + path. This action requires explicit user confirmation.",
+        "remove": "Use either id or notebook + storage path. This action requires explicit user confirmation. If bulk ids/paths hit SiYuan's short indexing window, retry by deleting one document at a time with notebook + storage path.",
         "rename": "Use either id + title or notebook + path + title.",
         "search_docs": "Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.",
         "set_attr": "Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it.",
@@ -1674,7 +1731,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
           "requiresConfirmation": true,
         },
         "remove": {
-          "hint": "Use either id or notebook + path. This action requires explicit user confirmation.",
+          "hint": "Use either id or notebook + storage path. This action requires explicit user confirmation. If bulk ids/paths hit SiYuan's short indexing window, retry by deleting one document at a time with notebook + storage path.",
           "requiresConfirmation": true,
         },
         "rename": {
@@ -2195,7 +2252,7 @@ file(action="upload_asset") reads a local file path and uploads that file into S
           "create_card(mode="attach") is retained for compatibility; SiYuan still writes the deck binding during the riff add-card operation. remove_card removes existing content block IDs such as paragraphs or headings from a deck; document blocks are rejected for creation.",
           "flashcard(action="remove_card") requires explicit user confirmation before execution.",
         ],
-        "hint": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan's review flow.",
+        "hint": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="all", omit deckID; an empty string is treated as omitted. For scope="deck", pass a non-empty deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan's review flow.",
         "requiredFields": [
           "scope",
           "filter",
@@ -2285,7 +2342,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
         "create_card": "Use deckID + blockIDs to turn existing blocks into flashcards. Non-built-in deck IDs must already exist. This calls SiYuan's addRiffCards flow, which writes custom-riff-decks and creates deck records together.",
         "get_cards": "Use deckID + optional page/pageSize to list all cards in a deck (regardless of due state). Use empty string deckID to query across all decks. Returns cards, total count, and pageCount.",
         "get_decks": "Returns available flashcard decks so the caller can discover deckID values.",
-        "list_cards": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan's review flow.",
+        "list_cards": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="all", omit deckID; an empty string is treated as omitted. For scope="deck", pass a non-empty deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan's review flow.",
         "remove_card": "Use deckID + blockIDs to remove existing blocks from a deck. This action requires explicit user confirmation.",
         "review_card": "Use deckID + cardID + rating, or pass skip=true to skip. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.",
       },
@@ -2303,7 +2360,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "requiresConfirmation": false,
         },
         "list_cards": {
-          "hint": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="deck", pass deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan's review flow.",
+          "hint": "Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="all", omit deckID; an empty string is treated as omitted. For scope="deck", pass a non-empty deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan's review flow.",
           "requiresConfirmation": false,
         },
         "remove_card": {

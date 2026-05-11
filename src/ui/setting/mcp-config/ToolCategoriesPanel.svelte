@@ -1,9 +1,12 @@
 <script lang="ts">
     import SettingPanel from "../../shared/setting-panel.svelte";
-    import { isDangerousAction, type AvAction, type BlockAction, type DocumentAction, type FileAction, type FlashcardAction, type FsAction, type MascotAction, type NotebookAction, type SearchAction, type SystemAction, type TagAction, type ToolCategory, type ToolConfig } from "../tool-config";
+    import Form from "../../shared/Form";
+    import { ACTIONS_BY_CATEGORY, TOOL_CATEGORIES, isDangerousAction, type AvAction, type BlockAction, type DocumentAction, type FileAction, type FlashcardAction, type FsAction, type MascotAction, type NotebookAction, type SearchAction, type SystemAction, type TagAction, type ToolCategory, type ToolConfig } from "../tool-config";
+    import { CATEGORY_TAB_DEFS } from "../mcp-config-tabs";
 
+    export let group: string;
+    export let display = false;
     export let config: ToolConfig;
-    export let groups: string[];
     export let focusGroup: string;
     export let permGroupLabel: string;
     export let notebooks: NotebookInfo[] = [];
@@ -34,7 +37,7 @@
         }>;
     }
 
-    const GROUP_DEFINITIONS: GroupDefinition[] = [
+    const ACTION_METADATA: GroupDefinition[] = [
         {
             category: "fs",
             icon: "📂",
@@ -85,6 +88,9 @@
                 { key: "search_docs", title: "Search Documents", description: "Search documents by title keyword." },
                 { key: "get_doc", title: "Get Document Content", description: "Get document content and metadata by document ID." },
                 { key: "create_daily_note", title: "Create Daily Note", description: "Create or return today's daily note for a notebook." },
+                { key: "duplicate", title: "Duplicate Document", description: "Duplicate a document by ID." },
+                { key: "heading_to_doc", title: "Heading To Document", description: "Convert a heading into a document." },
+                { key: "doc_to_heading", title: "Document To Heading", description: "Convert a document into a heading under another document or heading." },
             ],
         },
         {
@@ -96,6 +102,7 @@
                 { key: "prepend", title: "Prepend Block", description: "Insert a block at the beginning of a parent." },
                 { key: "append", title: "Append Block", description: "Insert a block at the end of a parent." },
                 { key: "update", title: "Update Block", description: "Update block content." },
+                { key: "replace", title: "Replace Block Text", description: "Apply exact old/new text replacement edits inside one block." },
                 { key: "delete", title: "Delete Block", description: "Delete a block." },
                 { key: "move", title: "Move Block", description: "Move a block to a new position." },
                 { key: "set_fold_state", title: "Fold/Unfold Block", description: "Set the fold state of a foldable block." },
@@ -109,6 +116,8 @@
                 { key: "dom", title: "Get Block DOM", description: "Get rendered DOM for a block." },
                 { key: "recent_updated", title: "Recent Updated Blocks", description: "List recently updated blocks." },
                 { key: "word_count", title: "Block Word Count", description: "Get word-count statistics for blocks." },
+                { key: "add_to_daily_note", title: "Add To Daily Note", description: "Add a block to today's daily note, creating the note if needed." },
+                { key: "docs_info", title: "Get Docs Info", description: "Get document info for one or more documents." },
             ],
         },
         {
@@ -155,6 +164,11 @@
                 { key: "fulltext", title: "Full-text Search", description: "Search blocks across the workspace." },
                 { key: "query_sql", title: "Query SQL", description: "Run read-only SQL queries against SiYuan data." },
                 { key: "get_backlinks", title: "Get Backlinks", description: "Get backlinks or backmentions for a block or document." },
+                { key: "search_refs", title: "Search References", description: "Search references to a block or document." },
+                { key: "find_replace", title: "Find And Replace", description: "Find and replace content in selected documents or blocks." },
+                { key: "search_assets", title: "Search Assets", description: "Search assets by filename and extension filters." },
+                { key: "fulltext_asset_content", title: "Search Asset Content", description: "Search OCR or indexed asset content." },
+                { key: "list_invalid_refs", title: "List Invalid References", description: "List invalid block references." },
             ],
         },
         {
@@ -205,6 +219,42 @@
         },
     ];
 
+    function toTitleCase(action: string): string {
+        return action
+            .split("_")
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(" ");
+    }
+
+    function getCategoryFallback(category: ToolCategory): { icon: string; groupKey: string } {
+        const tab = CATEGORY_TAB_DEFS.find((item) => item.category === category);
+        return {
+            icon: "",
+            groupKey: tab?.groupKey ?? category,
+        };
+    }
+
+    function buildCompleteGroupDefinitions(): GroupDefinition[] {
+        return TOOL_CATEGORIES.map((category) => {
+            const metadata = ACTION_METADATA.find((item) => item.category === category);
+            const fallback = getCategoryFallback(category);
+            const knownActions = new Map((metadata?.actions ?? []).map((action) => [action.key, action]));
+            return {
+                category,
+                icon: metadata?.icon ?? fallback.icon,
+                groupKey: metadata?.groupKey ?? fallback.groupKey,
+                actions: ACTIONS_BY_CATEGORY[category].map((action) => knownActions.get(action) ?? {
+                    key: action as GroupAction,
+                    title: toTitleCase(action),
+                    description: `Expose ${category}(action="${action}") to MCP clients.`,
+                }),
+            };
+        });
+    }
+
+    const GROUP_DEFINITIONS: GroupDefinition[] = buildCompleteGroupDefinitions();
+
     const getDangerTitle = (title: string) => `${title} ${getLabel("mcpHighRiskBadge", "[High risk]")}`;
     const getDangerDescription = (description: string) => `${description} ${getLabel("mcpRequiresConfirmation", "Requires explicit user confirmation before execution.")} ${getLabel("mcpDefaultVisible", "This action stays visible in the default configuration.")}`;
 
@@ -248,6 +298,24 @@
         return items;
     });
 
+    function handleInputChanged(event: CustomEvent<ChangeEvent>) {
+        return onChanged(new CustomEvent("changed", { detail: event.detail }));
+    }
+
+    function getCategoryItems(category: ToolCategory): ISettingItem[] {
+        const definition = getGroupDefinition(category);
+        return buildActionItems(definition);
+    }
+
+    function getCategoryToggle(category: ToolCategory): ISettingItem {
+        return buildToolToggleItem(getGroupDefinition(category));
+    }
+
+    function getEnabledActionCount(category: ToolCategory): number {
+        const definition = getGroupDefinition(category);
+        return definition.actions.filter((action) => Boolean(config[category].actions[action.key as keyof typeof config[typeof category]["actions"]])).length;
+    }
+
     function getGroupDefinition(category: ToolCategory): GroupDefinition {
         const definition = GROUP_DEFINITIONS.find((item) => item.category === category);
         if (!definition) {
@@ -283,43 +351,288 @@
 
 
     let permItems: ISettingItem[] = [];
-    let fsItems: ISettingItem[] = [];
-    let notebookItems: ISettingItem[] = [];
-    let documentItems: ISettingItem[] = [];
-    let blockItems: ISettingItem[] = [];
-    let avItems: ISettingItem[] = [];
-    let fileItems: ISettingItem[] = [];
-    let searchItems: ISettingItem[] = [];
-    let tagItems: ISettingItem[] = [];
-    let systemItems: ISettingItem[] = [];
-    let flashcardItems: ISettingItem[] = [];
-
-    function buildCategoryItems(category: ToolCategory): ISettingItem[] {
-        const definition = getGroupDefinition(category);
-        return [buildToolToggleItem(definition), ...buildActionItems(definition)];
-    }
-
     $: config, notebooks, permissions, permLoading, getLabel, permItems = buildPermItems();
-    $: config, getLabel, fsItems = buildCategoryItems("fs");
-    $: config, getLabel, notebookItems = buildCategoryItems("notebook");
-    $: config, getLabel, documentItems = buildCategoryItems("document");
-    $: config, getLabel, blockItems = buildCategoryItems("block");
-    $: config, getLabel, avItems = buildCategoryItems("av");
-    $: config, getLabel, fileItems = buildCategoryItems("file");
-    $: config, getLabel, searchItems = buildCategoryItems("search");
-    $: config, getLabel, tagItems = buildCategoryItems("tag");
-    $: config, getLabel, systemItems = buildCategoryItems("system");
-    $: config, getLabel, flashcardItems = buildCategoryItems("flashcard");
 </script>
 
 <SettingPanel group={permGroupLabel} settingItems={permItems} display={focusGroup === permGroupLabel} on:changed={onChanged} />
-<SettingPanel group={groups[2]} settingItems={fsItems} display={focusGroup === groups[2]} on:changed={onChanged} />
-<SettingPanel group={groups[3]} settingItems={notebookItems} display={focusGroup === groups[3]} on:changed={onChanged} />
-<SettingPanel group={groups[4]} settingItems={documentItems} display={focusGroup === groups[4]} on:changed={onChanged} />
-<SettingPanel group={groups[5]} settingItems={blockItems} display={focusGroup === groups[5]} on:changed={onChanged} />
-<SettingPanel group={groups[6]} settingItems={avItems} display={focusGroup === groups[6]} on:changed={onChanged} />
-<SettingPanel group={groups[7]} settingItems={fileItems} display={focusGroup === groups[7]} on:changed={onChanged} />
-<SettingPanel group={groups[8]} settingItems={searchItems} display={focusGroup === groups[8]} on:changed={onChanged} />
-<SettingPanel group={groups[9]} settingItems={tagItems} display={focusGroup === groups[9]} on:changed={onChanged} />
-<SettingPanel group={groups[10]} settingItems={systemItems} display={focusGroup === groups[10]} on:changed={onChanged} />
-<SettingPanel group={groups[11]} settingItems={flashcardItems} display={focusGroup === groups[11]} on:changed={onChanged} />
+<SettingPanel {group} settingItems={[]} {display} on:changed={onChanged}>
+    <div class="tool-settings-accordion">
+        {#each CATEGORY_TAB_DEFS as tab}
+            {@const definition = getGroupDefinition(tab.category)}
+            {@const toggle = getCategoryToggle(tab.category)}
+            <details class="tool-settings-group">
+                <summary class="tool-settings-summary">
+                    <span class="tool-settings-summary__main">
+                        <span class="tool-settings-summary__icon">{definition.icon}</span>
+                        <span class="tool-settings-summary__text">
+                            <span class="tool-settings-summary__title">{toggle.title}</span>
+                            <span class="tool-settings-summary__desc">{toggle.description}</span>
+                        </span>
+                    </span>
+                    <span class="tool-settings-summary__meta">
+                        <span class="tool-settings-summary__count">{getEnabledActionCount(tab.category)} / {definition.actions.length}</span>
+                        <span class="tool-settings-summary__switch" on:click|stopPropagation on:keydown|stopPropagation>
+                            <Form.Input
+                                type={toggle.type}
+                                key={toggle.key}
+                                value={toggle.value}
+                                fnSize={toggle?.inputCompact === true ? false : true}
+                                style={toggle?.inputStyle ?? ""}
+                                placeholder={toggle?.placeholder}
+                                options={toggle?.options}
+                                slider={toggle?.slider}
+                                button={toggle?.button}
+                                on:changed={handleInputChanged}
+                            />
+                        </span>
+                    </span>
+                </summary>
+                <div class="tool-settings-actions">
+                    {#if tab.category === 'fs'}
+                        <div class="tool-settings-hint">
+                            {getLabel('fs_tool_hint', '💡 Small-model friendly: uses filesystem-style paths for intuitive note operations with lower cognitive overhead, making AI calls smoother.')}
+                        </div>
+                    {/if}
+                    {#each getCategoryItems(tab.category) as item (`${item.key}:${JSON.stringify(item.value)}`)}
+                        <Form.Wrap title={item.title} description={item.description} direction={item?.direction}>
+                            {#if item?.children?.length}
+                                <div class:config__input-group={item.layout !== "inline"} class:config__inline-group={item.layout === "inline"}>
+                                    {#if item.layout === "inline"}
+                                        {#each item.children as child (`${child.key}:${JSON.stringify(child.value)}`)}
+                                            <div class="config__inline-child">
+                                                <div class="config__child-input">
+                                                    <Form.Input
+                                                        type={child.type}
+                                                        key={child.key}
+                                                        value={child.value}
+                                                        fnSize={child?.inputCompact === true ? false : true}
+                                                        style={child?.inputStyle ?? ""}
+                                                        placeholder={child?.placeholder}
+                                                        options={child?.options}
+                                                        slider={child?.slider}
+                                                        button={child?.button}
+                                                        on:changed={handleInputChanged}
+                                                    />
+                                                    {#if child.unit}
+                                                        <span class="config__child-unit">{child.unit}</span>
+                                                    {/if}
+                                                </div>
+                                            </div>
+                                        {/each}
+                                    {/if}
+                                    <div class="config__main-input">
+                                        <Form.Input
+                                            type={item.type}
+                                            key={item.key}
+                                            value={item.value}
+                                            fnSize={item?.inputCompact === true ? false : true}
+                                            style={item?.inputStyle ?? ""}
+                                            placeholder={item?.placeholder}
+                                            options={item?.options}
+                                            slider={item?.slider}
+                                            button={item?.button}
+                                            on:changed={handleInputChanged}
+                                        />
+                                    </div>
+                                </div>
+                            {:else}
+                                <Form.Input
+                                    type={item.type}
+                                    key={item.key}
+                                    value={item.value}
+                                    fnSize={item?.inputCompact === true ? false : true}
+                                    style={item?.inputStyle ?? ""}
+                                    placeholder={item?.placeholder}
+                                    options={item?.options}
+                                    slider={item?.slider}
+                                    button={item?.button}
+                                    on:changed={handleInputChanged}
+                                />
+                            {/if}
+                        </Form.Wrap>
+                    {/each}
+                </div>
+            </details>
+        {/each}
+    </div>
+</SettingPanel>
+
+<style>
+    .tool-settings-accordion {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 8px 0 16px;
+    }
+
+    .tool-settings-group {
+        border: 1px solid var(--b3-border-color);
+        border-radius: 6px;
+        background: var(--b3-theme-background);
+        overflow: hidden;
+    }
+
+    .tool-settings-summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        cursor: pointer;
+        list-style: none;
+        user-select: none;
+    }
+
+    .tool-settings-summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .tool-settings-summary::before {
+        content: "›";
+        color: var(--b3-theme-on-surface-light);
+        transition: transform 0.15s ease;
+    }
+
+    .tool-settings-group[open] > .tool-settings-summary::before {
+        transform: rotate(90deg);
+    }
+
+    .tool-settings-summary__main {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .tool-settings-summary__icon {
+        width: 24px;
+        text-align: center;
+        flex: 0 0 auto;
+    }
+
+    .tool-settings-summary__text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .tool-settings-summary__title {
+        color: var(--b3-theme-primary);
+        font-weight: 700;
+    }
+
+    .tool-settings-summary__desc {
+        color: var(--b3-theme-on-surface-light);
+        line-height: 1.4;
+    }
+
+    .tool-settings-summary__meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 0 0 auto;
+    }
+
+    .tool-settings-summary__count {
+        color: var(--b3-theme-on-surface-light);
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .tool-settings-actions {
+        border-top: 1px solid var(--b3-border-color);
+        padding: 0 14px;
+    }
+
+    .tool-settings-hint {
+        padding: 10px 0;
+        color: var(--b3-theme-on-surface-light);
+        font-size: 13px;
+        line-height: 1.5;
+        border-bottom: 1px dashed var(--b3-border-color);
+    }
+
+    .tool-settings-actions :global(.item-wrap.fn__flex) {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .config__input-group {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+        min-width: 260px;
+    }
+
+    .config__main-input {
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+    }
+
+    .config__inline-group {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+    }
+
+    .config__inline-child {
+        display: flex;
+        align-items: center;
+        padding: 0;
+        border-top: none;
+    }
+
+    .config__inline-child .config__child-input {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px;
+    }
+
+    .config__inline-child .config__child-input :global(input[type="number"]) {
+        width: 72px;
+        min-width: 72px;
+    }
+
+    .config__child-input {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .config__child-unit {
+        color: var(--b3-theme-on-surface-light);
+        font-size: 0.9em;
+    }
+
+    @media (max-width: 768px) {
+        .tool-settings-summary {
+            align-items: flex-start;
+        }
+
+        .tool-settings-summary__meta {
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .config__input-group {
+            align-items: stretch;
+            min-width: auto;
+            width: 100%;
+        }
+
+        .config__main-input {
+            justify-content: flex-end;
+            width: 100%;
+        }
+
+        .config__inline-group {
+            flex-wrap: wrap;
+        }
+    }
+</style>
