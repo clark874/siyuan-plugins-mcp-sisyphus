@@ -222,6 +222,28 @@ describe('MCP Server Integration', () => {
             }
         });
 
+        it('reloads tool config on every list and call without waiting for a TTL', async () => {
+            let tools = (await client.listTools()).tools;
+            expect(tools.map(t => t.name)).toContain('document');
+
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify({
+                document: {
+                    enabled: false,
+                    actions: {},
+                },
+            });
+
+            tools = (await client.listTools()).tools;
+            expect(tools.map(t => t.name)).not.toContain('document');
+
+            const result = await client.callTool({
+                name: 'document',
+                arguments: { action: 'get_doc', id: 'doc-1' },
+            });
+            expect(result.isError).toBe(true);
+            expect((result.content[0] as { text: string }).text).toContain('Tool "document" is disabled.');
+        });
+
         it('adds a light user custom rules reminder to tool descriptions when configured', async () => {
             storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify({
                 userRulesText: 'Always set document icons.',
