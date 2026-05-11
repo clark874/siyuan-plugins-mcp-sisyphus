@@ -1,6 +1,6 @@
 {
     "toolSettingsChangelogTitle": "Changelog",
-    "toolSettingsChangelogText": "🎉 Now compatible with multiple SiYuan installation methods including desktop and Docker; provides both MCP and CLI connection options.\n`v0.3.7` — New `fs` tool provides filesystem-style document operations for easier AI comprehension.",
+    "toolSettingsChangelogText": "🎉 Now compatible with multiple SiYuan installation methods including desktop and Docker; provides both MCP and CLI connection options.\n`v0.3.8` — Slimmer MCP output reduces context usage; settings page structure was improved with a new Debug panel for troubleshooting.\n`v0.3.7` — New `fs` filesystem-style tool lets AI work with notes like Markdown files while hiding SiYuan's internal blocks, document tree, and ID structure.",
     "addTopBarIcon": "Add a top bar icon by plugin",
     "cancel": "Cancel",
     "save": "Save",
@@ -145,7 +145,7 @@
     "document_tool_desc": "Expose the aggregated document tool to MCP clients.",
     "fs_tool_title": "Filesystem Tool",
     "fs_tool_desc": "Expose filesystem-style document operations to MCP clients.",
-    "fs_tool_hint": "💡 Small-model friendly: uses filesystem-style paths (e.g. `/Notebook/Doc`) for intuitive note operations with lower cognitive overhead, making AI calls smoother.",
+    "fs_tool_hint": "💡 Small-model friendly: use filesystem-style paths (e.g. `/Notebook/Doc`) to work with notes like Markdown files, hiding SiYuan's internal blocks, document tree, and ID structure.",
     "fs_action_ls": "List Path",
     "desc_fs_action_ls": "List direct child documents using human-readable paths.",
     "fs_action_tree": "Document Tree",
@@ -431,6 +431,7 @@
     "mascot_action_buy": "Buy",
     "desc_mascot_action_buy": "Buy one item from the mascot shop by item ID.",
 
+    "Mascot Tool": "Mascot Tool",
     "Flashcards": "Flashcards",
     "Tool Settings": "Tool Settings",
     "Mascot": "Mascot",

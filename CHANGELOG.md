@@ -13,7 +13,7 @@
 
 ## v0.3.7 - 2026-05-06
 
-- 新增 `fs` 简化文件系统风格文档操作工具：支持通过人类可读路径进行 ls、tree、read、write、replace、rm、mv、search 操作，降低 AI Agent 操作门槛
+- 新增 `fs` 类文件系统文档操作工具：支持通过人类可读路径进行 ls、tree、read、write、replace、rm、mv、search 操作，让 AI 像直接编辑 Markdown 文件一样读写笔记，屏蔽思源块、文档树与 ID 结构的复杂性
 - 工具内部目录重构：将共享基础设施统一归拢到 `tools/internal/`，新增 `helpers/` 子目录存放跨工具辅助函数
 - 新增国际化（i18n）基础支持：前端设置面板与提示文案支持中英双语切换
 - CLI 包同步提升至 v0.1.7
