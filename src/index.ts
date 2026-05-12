@@ -23,6 +23,8 @@ import ToolPuppy from "@/ui/components/ToolPuppy.svelte";
 
 import { HttpServerLauncher } from "@/server-launcher";
 
+const PUPPY_ROOT_ID = "sy-puppy-root";
+
 export default class SiyuanMCP extends Plugin {
     private puppyComponent: ToolPuppy | null = null;
     private puppyVisible = true;
@@ -131,9 +133,26 @@ export default class SiyuanMCP extends Plugin {
         return true;
     }
 
-    onLayoutReady() {
-        this.puppyContainer = document.createElement('div');
-        this.puppyContainer.id = 'sy-puppy-root';
+    private mountPuppy() {
+        const existingRoots = Array.from(document.querySelectorAll<HTMLElement>(`#${PUPPY_ROOT_ID}`));
+        const isMounted =
+            Boolean(this.puppyComponent) &&
+            this.puppyContainer instanceof HTMLElement &&
+            this.puppyContainer.id === PUPPY_ROOT_ID &&
+            this.puppyContainer.isConnected;
+        const hasForeignOrDuplicateRoot = existingRoots.some((root) => root !== this.puppyContainer);
+
+        if (isMounted && !hasForeignOrDuplicateRoot) {
+            return;
+        }
+
+        this.unmountPuppy();
+        for (const root of existingRoots) {
+            root.remove();
+        }
+
+        this.puppyContainer = document.createElement("div");
+        this.puppyContainer.id = PUPPY_ROOT_ID;
         document.body.appendChild(this.puppyContainer);
         this.puppyComponent = new ToolPuppy({
             target: this.puppyContainer,
@@ -145,6 +164,25 @@ export default class SiyuanMCP extends Plugin {
                 showClickHint: this.puppySettings.showClickHint,
             },
         });
+    }
+
+    private unmountPuppy() {
+        this.puppyComponent?.$destroy();
+        this.puppyComponent = null;
+
+        if (this.puppyContainer) {
+            this.puppyContainer.remove();
+            this.puppyContainer = null;
+        }
+
+        const orphanRoots = document.querySelectorAll<HTMLElement>(`#${PUPPY_ROOT_ID}`);
+        for (const root of orphanRoots) {
+            root.remove();
+        }
+    }
+
+    onLayoutReady() {
+        this.mountPuppy();
     }
 
 
@@ -163,14 +201,7 @@ export default class SiyuanMCP extends Plugin {
     }
 
     async onunload() {
-        if (this.puppyComponent) {
-            this.puppyComponent.$destroy();
-            this.puppyComponent = null;
-        }
-        if (this.puppyContainer) {
-            this.puppyContainer.remove();
-            this.puppyContainer = null;
-        }
+        this.unmountPuppy();
         if (this.httpLauncher) {
             try {
                 await this.stopHttpServer();
