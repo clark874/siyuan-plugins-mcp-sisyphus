@@ -245,8 +245,8 @@ const handleExtractDoc: ToolActionHandler = async ({ client, rawArgs }) => {
     const targetDir = path.join(outputRoot, folderName);
     const assetsDir = path.join(targetDir, 'assets');
 
-    if (fs.existsSync(targetDir)) {
-        fs.rmSync(targetDir, { recursive: true, force: true });
+    if (fs.existsSync(outputRoot)) {
+        fs.rmSync(outputRoot, { recursive: true, force: true });
     }
     fs.mkdirSync(assetsDir, { recursive: true });
 
