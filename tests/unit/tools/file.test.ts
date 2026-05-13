@@ -177,6 +177,8 @@ describe('file tool asset actions', () => {
         const fs = (await import('node:fs')).default;
         const readFileBinary = vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3]));
         const localClient = createMockClient({ readFileBinary });
+        const existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+        const rmSyncSpy = vi.spyOn(fs, 'rmSync').mockImplementation((() => undefined) as typeof fs.rmSync);
         const mkdirSpy = vi.spyOn(fs, 'mkdirSync').mockImplementation((() => undefined) as typeof fs.mkdirSync);
         const writeSpy = vi.spyOn(fs, 'writeFileSync').mockImplementation((() => undefined) as typeof fs.writeFileSync);
 
@@ -193,6 +195,8 @@ describe('file tool asset actions', () => {
         expect(parsed.structure).toContain('My Document.md');
         expect(parsed.structure).toContain('assets/cover.png');
         expect(readFileBinary).toHaveBeenCalledWith('data/assets/cover.png');
+        expect(existsSyncSpy).toHaveBeenCalled();
+        expect(rmSyncSpy).toHaveBeenCalled();
         expect(mkdirSpy).toHaveBeenCalled();
         expect(writeSpy).toHaveBeenCalledTimes(2);
     });

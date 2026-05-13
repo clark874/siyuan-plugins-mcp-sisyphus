@@ -24,7 +24,7 @@ Related pages:
 - Large uploads need explicit large-file confirmation.
 - `delete_asset` and `remove_unused_assets` require confirmation.
 - `export_resources` with a local output path should be treated carefully.
-- `extract_doc` writes to the local filesystem (default `~/siyuan-extracted/`) and is designed for AI tools to directly read exported content.
+- `extract_doc` writes to the local filesystem (default `~/siyuan-extracted/`) and clears the target folder before each export to remove stale assets.
 
 ## Examples
 

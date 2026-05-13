@@ -24,7 +24,7 @@
 - 大文件上传需要额外确认。
 - `delete_asset` 与 `remove_unused_assets` 需要确认。
 - `export_resources` 如果指定本地输出路径，也应谨慎处理。
-- `extract_doc` 将导出文件写入本地文件系统（默认 `~/siyuan-extracted/`），设计用于 AI 工具直接读取导出内容。
+- `extract_doc` 将导出文件写入本地文件系统（默认 `~/siyuan-extracted/`），每次导出前会清空目标文件夹，避免旧附件残留。
 
 ## 示例
 
