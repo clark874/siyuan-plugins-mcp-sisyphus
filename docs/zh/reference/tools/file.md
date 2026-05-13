@@ -13,17 +13,19 @@
 
 | 分组 | Actions |
 |------|---------|
-| 上传 / 导出 | `upload_asset`, `export_md`, `export_resources` |
+| 上传 / 导出 | `upload_asset`, `export_md`, `export_md_zip`, `export_resources` |
 | 渲染 | `render` |
 | 资源查看 | `get_doc_assets`, `get_image_ocr_text`, `list_unused_assets` |
 | 资源变更 | `remove_unused_assets`, `rename_asset`, `delete_asset` |
+
+`get_doc_assets` 是直接引用资源查看动作，只返回当前文档树直接引用的资源，不会展开查询嵌入块。需要查看 Markdown 导出会包含的完整资源时，应使用 `export_md_zip` 并检查生成的压缩包。
 
 ## 安全规则
 
 - `upload_asset` 需要确认，并会读取本地文件路径，属于二进制传输的显式例外。
 - 大文件上传需要额外确认。
 - `delete_asset` 与 `remove_unused_assets` 需要确认。
-- `export_resources` 如果指定本地输出路径，也应谨慎处理。
+- `export_md_zip` 与 `export_resources` 如果指定本地输出路径，也应谨慎处理。
 
 ## 示例
 
@@ -44,6 +46,20 @@ MCP：
   "assetType": "image"
 }
 ```
+
+这个结果只表示文档树直接资源，不等同于官方 Markdown ZIP 导出最终包含的资源。
+
+使用思源官方导出流程导出 Markdown ZIP：
+
+```json
+{
+  "action": "export_md_zip",
+  "id": "<doc-id>",
+  "outputPath": "/Users/me/export/doc.zip"
+}
+```
+
+`export_md_zip` 跟随思源右键 Markdown ZIP 导出行为，会包含查询嵌入块展开后引用的资源。当用户需要查看或核对完整导出资源时，优先引导使用它。
 
 模板渲染：
 
@@ -72,6 +88,7 @@ CLI：
 
 ```bash
 siyuan file get-doc-assets --id <doc-id> --asset-type image
+siyuan file export-md-zip --id <doc-id> --output-path ./doc.zip
 ```
 
 ## Action 列表
@@ -79,6 +96,7 @@ siyuan file get-doc-assets --id <doc-id> --asset-type image
 - `upload_asset`
 - `render`
 - `export_md`
+- `export_md_zip`
 - `export_resources`
 - `list_unused_assets`
 - `get_doc_assets`

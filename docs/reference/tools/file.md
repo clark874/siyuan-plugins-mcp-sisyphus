@@ -13,17 +13,19 @@ Related pages:
 
 | Group | Actions |
 |------|---------|
-| Upload / export | `upload_asset`, `export_md`, `export_resources` |
+| Upload / export | `upload_asset`, `export_md`, `export_md_zip`, `export_resources` |
 | Rendering | `render` |
 | Asset inspection | `get_doc_assets`, `get_image_ocr_text`, `list_unused_assets` |
 | Asset mutations | `remove_unused_assets`, `rename_asset`, `delete_asset` |
+
+`get_doc_assets` is a direct-reference inspection action. It reports assets referenced by the current document tree and does not expand query embed blocks. When you need to inspect the complete resources that a Markdown export will contain, use `export_md_zip` and inspect the generated archive.
 
 ## Safety Rules
 
 - `upload_asset` requires confirmation and reads a local file path as an explicit binary-transfer exception.
 - Large uploads need explicit large-file confirmation.
 - `delete_asset` and `remove_unused_assets` require confirmation.
-- `export_resources` with a local output path should be treated carefully.
+- `export_md_zip` and `export_resources` with a local output path should be treated carefully.
 
 ## Examples
 
@@ -44,6 +46,20 @@ MCP:
   "assetType": "image"
 }
 ```
+
+This returns direct document-tree assets only. It is not a substitute for checking the resources included by the official Markdown ZIP export.
+
+Export a Markdown ZIP with SiYuan's official export flow:
+
+```json
+{
+  "action": "export_md_zip",
+  "id": "<doc-id>",
+  "outputPath": "/Users/me/export/doc.zip"
+}
+```
+
+`export_md_zip` follows SiYuan's right-click Markdown ZIP export behavior and includes assets referenced by expanded query embed blocks. Prefer it when the user asks to view or verify all resources that will be exported.
 
 Template rendering:
 
@@ -72,6 +88,7 @@ CLI:
 
 ```bash
 siyuan file get-doc-assets --id <doc-id> --asset-type image
+siyuan file export-md-zip --id <doc-id> --output-path ./doc.zip
 ```
 
 ## Action List
@@ -79,6 +96,7 @@ siyuan file get-doc-assets --id <doc-id> --asset-type image
 - `upload_asset`
 - `render`
 - `export_md`
+- `export_md_zip`
 - `export_resources`
 - `list_unused_assets`
 - `get_doc_assets`

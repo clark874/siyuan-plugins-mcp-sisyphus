@@ -405,6 +405,10 @@ interface IReqExportMdContent {
     id: string;
 }
 
+interface IReqExportMdZip {
+    id: string;
+}
+
 interface IReqExportResources {
     paths: string[];
     name?: string;
@@ -413,6 +417,11 @@ interface IReqExportResources {
 interface IResExportMdContent {
     hPath: string;
     content: string;
+}
+
+interface IResExportMdZip {
+    name: string;
+    zip: string;
 }
 
 interface IReqPandoc {
@@ -486,6 +495,7 @@ export type {
     IReqCreateNotebook,
     IReqDeleteBlock,
     IReqExportMdContent,
+    IReqExportMdZip,
     IReqExportResources,
     IReqFoldBlock,
     IReqForwardProxy,
@@ -535,6 +545,7 @@ export type {
     IResCreateNotebook,
     IResCurrentTime,
     IResExportMdContent,
+    IResExportMdZip,
     IResExportResources,
     IResForwardProxy,
     IResFullTextSearchBlock,

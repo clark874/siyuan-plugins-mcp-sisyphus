@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
     deleteAsset,
+    exportMdZip,
     exportResources,
     getDocAssets,
     getDocImageAssets,
@@ -64,6 +65,21 @@ describe('file api wrappers', () => {
         expect(request).toHaveBeenCalledWith('/api/export/exportResources', {
             paths: ['/data/assets/demo.txt'],
             name: 'bundle.zip',
+        });
+    });
+
+    it('passes exportMdZip payload through request()', async () => {
+        const request = vi.fn().mockResolvedValueOnce({ name: 'doc-1', zip: '/export/doc-1.zip' });
+        const client = {
+            request,
+        } as never;
+
+        await expect(exportMdZip(client, 'doc-1')).resolves.toEqual({
+            name: 'doc-1',
+            zip: '/export/doc-1.zip',
+        });
+        expect(request).toHaveBeenCalledWith('/api/export/exportMd', {
+            id: 'doc-1',
         });
     });
 

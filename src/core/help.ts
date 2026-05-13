@@ -70,6 +70,9 @@ export const AV_GUIDANCE: string[] = [
 export const FILE_GUIDANCE: string[] = [
     'file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.',
     'If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.',
+    'file(action="export_md_zip") exports a document with SiYuan\'s official Markdown ZIP flow, including assets from expanded query embed blocks.',
+    'Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.',
+    'file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.',
     'file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.',
     'file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.',
     'file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.',
@@ -178,8 +181,9 @@ export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
 export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
     upload_asset: 'Use assetsDirPath + localFilePath to read a local file and upload it into SiYuan assets. This action reads the local filesystem and requires explicit user confirmation. Files larger than the configured large-upload threshold (10 MB by default) must be stopped, confirmed by the user, and retried with confirmLargeFile=true.',
     render: 'Use engine="template" with id + path for a workspace template; that engine uses .action{...} delimiters and exposes limited document fields such as id/title/name/alias. Use engine="sprig" with inline template for {{...}} syntax; Sprig has functions but no document context.',
+    export_md_zip: 'Use a document ID to export the same Markdown ZIP archive produced by SiYuan right-click export. It expands query embed blocks before collecting assets. Set outputPath to also copy the ZIP to a local filesystem path; this requires explicit confirmation.',
     export_resources: 'Provide one or more existing resource paths. Asset paths like assets/foo.txt are normalized to /data/assets/foo.txt before export. Set outputPath to also copy the exported ZIP to a local filesystem path. Using outputPath is high-risk and requires explicit user confirmation.',
-    get_doc_assets: 'Use a document ID to list assets referenced by the document after read-permission checks. Use assetType="image" to return only image assets.',
+    get_doc_assets: 'Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full resources included in Markdown export, guide them to file(action="export_md_zip") instead. Use assetType="image" to return only direct image assets.',
     get_image_ocr_text: 'Use an asset path to read stored OCR text. If path is omitted, SiYuan returns an empty text payload.',
 };
 

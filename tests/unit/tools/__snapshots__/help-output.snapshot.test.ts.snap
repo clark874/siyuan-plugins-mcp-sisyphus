@@ -1804,6 +1804,9 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "guidance": [
           "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
           "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
           "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
@@ -1829,12 +1832,44 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "guidance": [
           "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
           "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
           "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
         ],
+        "requiredFields": [
+          "id",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "id",
+        ],
+        "tool": "file",
+      },
+      "export_md_zip": {
+        "action": "export_md_zip",
+        "example": {
+          "action": "export_md_zip",
+          "id": "20240318112233-abc123",
+        },
+        "fullDocResource": "siyuan://help/action/file/export_md_zip",
+        "guidance": [
+          "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
+          "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
+          "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
+          "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
+          "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
+          "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
+          "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
+        ],
+        "hint": "Use a document ID to export the same Markdown ZIP archive produced by SiYuan right-click export. It expands query embed blocks before collecting assets. Set outputPath to also copy the ZIP to a local filesystem path; this requires explicit confirmation.",
         "requiredFields": [
           "id",
         ],
@@ -1856,6 +1891,9 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "guidance": [
           "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
           "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
           "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
@@ -1882,13 +1920,16 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "guidance": [
           "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
           "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
           "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
         ],
-        "hint": "Use a document ID to list assets referenced by the document after read-permission checks. Use assetType="image" to return only image assets.",
+        "hint": "Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full resources included in Markdown export, guide them to file(action="export_md_zip") instead. Use assetType="image" to return only direct image assets.",
         "requiredFields": [
           "id",
         ],
@@ -1907,6 +1948,9 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "guidance": [
           "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
           "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
           "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
@@ -1930,6 +1974,9 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "guidance": [
           "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
           "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
           "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
@@ -1952,6 +1999,9 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "guidance": [
           "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
           "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
           "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
@@ -1976,6 +2026,9 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "guidance": [
           "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
           "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
           "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
@@ -2002,6 +2055,9 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "guidance": [
           "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
           "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
           "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
@@ -2029,6 +2085,9 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "guidance": [
           "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
           "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+          "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+          "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
           "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
           "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
@@ -2049,7 +2108,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
     },
     "description": "📁 Grouped file and asset operations. Use the "action" field to select the operation.
 
-Common actions: upload_asset, export_md, get_doc_assets. Required fields: upload_asset: assetsDirPath, localFilePath; export_md: id; get_doc_assets: id.
+Common actions: upload_asset, export_md, export_md_zip, get_doc_assets. Required fields: upload_asset: assetsDirPath, localFilePath; export_md: id; export_md_zip: id; get_doc_assets: id.
 
 Additional actions: render, export_resources, list_unused_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset. Read siyuan://help/action/file/{action} for details, or call action="help" if resources are unavailable.
 
@@ -2057,6 +2116,7 @@ Parameter contract per action (fields outside the action's optional list should 
 file.upload_asset: required [assetsDirPath, localFilePath] | optional [confirmLargeFile]
 file.render: required [engine] | optional [id, path, template]
 file.export_md: required [id] | optional []
+file.export_md_zip: required [id] | optional [outputPath]
 file.export_resources: required [paths] | optional [name, outputPath]
 file.list_unused_assets: required [] | optional []
 file.get_doc_assets: required [id] | optional [assetType]
@@ -2070,8 +2130,9 @@ file(action="upload_asset") reads a local file path and uploads that file into S
       "actionSummaries": {
         "delete_asset": "requires: path",
         "export_md": "requires: id",
+        "export_md_zip": "Use a document ID to export the same Markdown ZIP archive produced by SiYuan right-click export. It expands query embed blocks before collecting assets. Set outputPath to also copy the ZIP to a local filesystem path; this requires explicit confirmation.",
         "export_resources": "Provide one or more existing resource paths. Asset paths like assets/foo.txt are normalized to /data/assets/foo.txt before export. Set outputPath to also copy the exported ZIP to a local filesystem path. Using outputPath is high-risk and requires explicit user confirmation.",
-        "get_doc_assets": "Use a document ID to list assets referenced by the document after read-permission checks. Use assetType="image" to return only image assets.",
+        "get_doc_assets": "Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full resources included in Markdown export, guide them to file(action="export_md_zip") instead. Use assetType="image" to return only direct image assets.",
         "get_image_ocr_text": "Use an asset path to read stored OCR text. If path is omitted, SiYuan returns an empty text payload.",
         "list_unused_assets": "no extra fields",
         "remove_unused_assets": "no extra fields",
@@ -2086,12 +2147,16 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "export_md": {
           "requiresConfirmation": false,
         },
+        "export_md_zip": {
+          "hint": "Use a document ID to export the same Markdown ZIP archive produced by SiYuan right-click export. It expands query embed blocks before collecting assets. Set outputPath to also copy the ZIP to a local filesystem path; this requires explicit confirmation.",
+          "requiresConfirmation": false,
+        },
         "export_resources": {
           "hint": "Provide one or more existing resource paths. Asset paths like assets/foo.txt are normalized to /data/assets/foo.txt before export. Set outputPath to also copy the exported ZIP to a local filesystem path. Using outputPath is high-risk and requires explicit user confirmation.",
           "requiresConfirmation": false,
         },
         "get_doc_assets": {
-          "hint": "Use a document ID to list assets referenced by the document after read-permission checks. Use assetType="image" to return only image assets.",
+          "hint": "Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full resources included in Markdown export, guide them to file(action="export_md_zip") instead. Use assetType="image" to return only direct image assets.",
           "requiresConfirmation": false,
         },
         "get_image_ocr_text": {
@@ -2128,12 +2193,16 @@ file(action="upload_asset") reads a local file path and uploads that file into S
       "commonActions": [
         "upload_asset",
         "export_md",
+        "export_md_zip",
         "get_doc_assets",
       ],
       "detailsHint": "Call file(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
         "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
         "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+        "file(action="export_md_zip") exports a document with SiYuan's official Markdown ZIP flow, including assets from expanded query embed blocks.",
+        "Use file(action="export_md_zip") when the user needs to inspect the complete resource set that a Markdown export will contain; file(action="get_doc_assets") only lists assets directly referenced by the current document tree.",
+        "file(action="export_md_zip", outputPath=...) writes the ZIP to the local filesystem and requires explicit user confirmation before execution.",
         "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
         "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
         "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",

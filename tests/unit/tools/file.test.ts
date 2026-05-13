@@ -6,6 +6,8 @@ import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
 
 vi.mock('@/api/file', () => ({
+    exportMdContent: vi.fn(),
+    exportMdZip: vi.fn(),
     exportResources: vi.fn(),
     getUnusedAssets: vi.fn(),
     getDocAssets: vi.fn(),
@@ -33,6 +35,8 @@ describe('file tool asset actions', () => {
 
     beforeEach(async () => {
         const fileApi = await import('@/api/file');
+        vi.mocked(fileApi.exportMdContent).mockReset();
+        vi.mocked(fileApi.exportMdZip).mockReset();
         vi.mocked(fileApi.exportResources).mockReset();
         vi.mocked(fileApi.getUnusedAssets).mockReset();
         vi.mocked(fileApi.getDocAssets).mockReset();
@@ -40,6 +44,8 @@ describe('file tool asset actions', () => {
         vi.mocked(fileApi.getImageOCRText).mockReset();
         vi.mocked(fileApi.deleteAsset).mockReset();
 
+        vi.mocked(fileApi.exportMdContent).mockResolvedValue({ hPath: '/Doc 1', content: '# Doc 1' });
+        vi.mocked(fileApi.exportMdZip).mockResolvedValue({ name: 'Doc 1', zip: '/export/doc-1.zip' });
         vi.mocked(fileApi.exportResources).mockResolvedValue({ path: '/temp/export.zip' });
         vi.mocked(fileApi.getUnusedAssets).mockResolvedValue(['assets/orphan.png']);
         vi.mocked(fileApi.getDocAssets).mockResolvedValue(['assets/manual.pdf', 'assets/cover.png']);
@@ -96,6 +102,48 @@ describe('file tool asset actions', () => {
             assetType: 'image',
             assets: ['assets/cover.png'],
             count: 1,
+        });
+    });
+
+    it('exports the official Markdown ZIP after permission check', async () => {
+        const fileApi = await import('@/api/file');
+        const result = await callFileTool(client, {
+            action: 'export_md_zip',
+            id: 'doc-1',
+        }, config.file, {} as never);
+
+        expect(fileApi.exportMdZip).toHaveBeenCalledWith(client, 'doc-1');
+        expect(parseResult(result)).toEqual({
+            id: 'doc-1',
+            name: 'Doc 1',
+            zip: '/export/doc-1.zip',
+        });
+    });
+
+    it('exports the official Markdown ZIP to a local outputPath and reports the written byte count', async () => {
+        const fs = (await import('node:fs')).default;
+        const fileApi = await import('@/api/file');
+        const readFileBinary = vi.fn().mockResolvedValue(new Uint8Array([4, 5, 6, 7]));
+        const localClient = createMockClient({ readFileBinary });
+        const mkdirSpy = vi.spyOn(fs, 'mkdirSync').mockImplementation((() => undefined) as typeof fs.mkdirSync);
+        const writeSpy = vi.spyOn(fs, 'writeFileSync').mockImplementation((() => undefined) as typeof fs.writeFileSync);
+
+        const result = await callFileTool(localClient, {
+            action: 'export_md_zip',
+            id: 'doc-1',
+            outputPath: 'tmp/doc.zip',
+        }, config.file, {} as never);
+
+        expect(fileApi.exportMdZip).toHaveBeenCalledWith(localClient, 'doc-1');
+        expect(readFileBinary).toHaveBeenCalledWith('/export/doc-1.zip');
+        expect(mkdirSpy).toHaveBeenCalled();
+        expect(writeSpy).toHaveBeenCalled();
+        expect(parseResult(result)).toEqual({
+            id: 'doc-1',
+            name: 'Doc 1',
+            zip: '/export/doc-1.zip',
+            outputPath: expect.stringMatching(/[\\/]tmp[\\/]doc\.zip$/),
+            bytes: 4,
         });
     });
 

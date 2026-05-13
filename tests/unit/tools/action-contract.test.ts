@@ -97,6 +97,7 @@ function createContractClient() {
             if (endpoint === '/api/search/listInvalidBlockRefs') return { blocks: [{ id: 'bad-ref', box: 'nb-1', path: '/doc-1.sy' }] };
 
             if (endpoint === '/api/export/exportMdContent') return { hPath: '/Doc 1', content: 'markdown' };
+            if (endpoint === '/api/export/exportMd') return { name: 'Doc 1', zip: '/export/doc-1.zip' };
             if (endpoint === '/api/export/exportResources') return { path: '/temp/export.zip' };
             if (endpoint === '/api/asset/getUnusedAssets') return ['assets/unused.png'];
             if (endpoint === '/api/asset/getDocAssets') return ['assets/doc.png'];
@@ -243,6 +244,7 @@ describe('tool action contract coverage', () => {
             { action: 'upload_asset', args: { action: 'upload_asset', assetsDirPath: '/assets/', localFilePath: 'package.json' }, expectedEndpoint: '/api/asset/upload' },
             { action: 'render', args: { action: 'render', engine: 'template', id: 'doc-1', path: '/templates/demo.action' }, expectedEndpoint: '/api/template/render' },
             { action: 'export_md', args: { action: 'export_md', id: 'doc-1' }, expectedEndpoint: '/api/export/exportMdContent' },
+            { action: 'export_md_zip', args: { action: 'export_md_zip', id: 'doc-1' }, expectedEndpoint: '/api/export/exportMd' },
             { action: 'export_resources', args: { action: 'export_resources', paths: ['assets/demo.png'] }, expectedEndpoint: '/api/export/exportResources' },
             { action: 'list_unused_assets', args: { action: 'list_unused_assets' }, expectedEndpoint: '/api/asset/getUnusedAssets' },
             { action: 'get_doc_assets', args: { action: 'get_doc_assets', id: 'doc-1' }, expectedEndpoint: '/api/asset/getDocAssets' },

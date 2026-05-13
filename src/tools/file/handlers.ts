@@ -9,6 +9,7 @@ import type { PermissionManager } from '../../core/permissions';
 import {
     FileDeleteAssetSchema,
     FileExportMdSchema,
+    FileExportMdZipSchema,
     FileExportResourcesSchema,
     FileGetDocAssetsSchema,
     FileGetImageOCRTextSchema,
@@ -134,6 +135,31 @@ const handleExportMd: ToolActionHandler = async ({ client, permMgr, rawArgs }) =
     return createJsonResult(result);
 };
 
+const handleExportMdZip: ToolActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = FileExportMdZipSchema.parse(rawArgs);
+    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+    if (denied) return denied;
+
+    const result = await fileApi.exportMdZip(client, parsed.id);
+    if (parsed.outputPath) {
+        const localOutputPath = resolveLocalOutputPath(parsed.outputPath);
+        const binary = await client.readFileBinary(result.zip);
+        fs.mkdirSync(path.dirname(localOutputPath), { recursive: true });
+        fs.writeFileSync(localOutputPath, binary);
+        return createJsonResult({
+            id: parsed.id,
+            ...result,
+            outputPath: localOutputPath,
+            bytes: binary.byteLength,
+        });
+    }
+
+    return createJsonResult({
+        id: parsed.id,
+        ...result,
+    });
+};
+
 const handleExportResources: ToolActionHandler = async ({ client, rawArgs }) => {
     const parsed = FileExportResourcesSchema.parse(rawArgs);
     const normalizedPaths = normalizeResourcePaths(parsed.paths);
@@ -231,6 +257,7 @@ export function createFileActionHandlers(thresholdMB: number, largeUploadThresho
         upload_asset: handleUploadAsset(thresholdMB, largeUploadThresholdBytes),
         render: handleRender,
         export_md: handleExportMd,
+        export_md_zip: handleExportMdZip,
         export_resources: handleExportResources,
         list_unused_assets: handleListUnusedAssets,
         get_doc_assets: handleGetDocAssets,
