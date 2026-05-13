@@ -13,7 +13,7 @@ Related pages:
 
 | Group | Actions |
 |------|---------|
-| Upload / export | `upload_asset`, `export_md`, `export_resources` |
+| Upload / export | `upload_asset`, `export_md`, `export_resources`, `extract_doc` |
 | Rendering | `render` |
 | Asset inspection | `get_doc_assets`, `get_image_ocr_text`, `list_unused_assets` |
 | Asset mutations | `remove_unused_assets`, `rename_asset`, `delete_asset` |
@@ -24,6 +24,7 @@ Related pages:
 - Large uploads need explicit large-file confirmation.
 - `delete_asset` and `remove_unused_assets` require confirmation.
 - `export_resources` with a local output path should be treated carefully.
+- `extract_doc` writes to the local filesystem (default `~/siyuan-extracted/`) and is designed for AI tools to directly read exported content.
 
 ## Examples
 
@@ -86,3 +87,4 @@ siyuan file get-doc-assets --id <doc-id> --asset-type image
 - `remove_unused_assets`
 - `rename_asset`
 - `delete_asset`
+- `extract_doc`
