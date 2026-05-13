@@ -41,6 +41,12 @@ vi.mock('@/ui/components/ToolPuppy.svelte', () => ({
     },
 }));
 
+vi.mock('@/ui/version-control/VersionControlPanel.svelte', () => ({
+    default: class {
+        $destroy() {}
+    },
+}));
+
 import SiyuanMCP from '@/index';
 import { resetToolConfigWarningStateForTests } from '@/core/config';
 import type { HttpServerSettings } from '@/ui/setting/tool-config-storage';

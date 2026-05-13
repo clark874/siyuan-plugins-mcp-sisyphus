@@ -20,10 +20,12 @@ import {
 import { emitToolConfigWarningOnce } from "@/core/config";
 import McpConfig from "@/ui/setting/mcp-config.svelte";
 import ToolPuppy from "@/ui/components/ToolPuppy.svelte";
+import VersionControlPanel from "@/ui/version-control/VersionControlPanel.svelte";
 
 import { HttpServerLauncher } from "@/server-launcher";
 
 const PUPPY_ROOT_ID = "sy-puppy-root";
+const VERSION_CONTROL_ICON = `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 3a3 3 0 0 1 2 5.24v1.27l6 3V8.24A3 3 0 1 1 17 9v5a1 1 0 0 1-1.45.89L9 11.62v4.14A3 3 0 1 1 7 15.76V8.24A3 3 0 0 1 7 3Zm0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm10 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM7 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></svg>`;
 
 export default class SiyuanMCP extends Plugin {
     private puppyComponent: ToolPuppy | null = null;
@@ -45,6 +47,19 @@ export default class SiyuanMCP extends Plugin {
         this.puppySettings = await loadPersistedPuppySettings(this);
         this.puppyVisible = this.puppySettings.visible;
         this.httpSettings = await loadPersistedHttpServerSettings(this);
+
+        (this as any).addCommand?.({
+            langKey: "openSnapshotVersionControl",
+            langText: "打开快照版本控制",
+            hotkey: "",
+            callback: () => this.openVersionControl(),
+        });
+        (this as any).addTopBar?.({
+            icon: VERSION_CONTROL_ICON,
+            title: "快照版本控制",
+            callback: () => this.openVersionControl(),
+            position: "right",
+        });
 
         const support = HttpServerLauncher.getSupportInfo();
         if (!support.supported) {
@@ -292,6 +307,21 @@ export default class SiyuanMCP extends Plugin {
             props: {
                 plugin: this
             }
+        });
+    }
+
+    openVersionControl(): void {
+        let panel: VersionControlPanel;
+        const dialog = new Dialog({
+            title: "快照版本控制",
+            content: `<div id="SnapshotVersionControlPanel" style="height: 100%;"></div>`,
+            width: "96vw",
+            destroyCallback: () => {
+                panel?.$destroy();
+            },
+        });
+        panel = new VersionControlPanel({
+            target: dialog.element.querySelector("#SnapshotVersionControlPanel"),
         });
     }
 
