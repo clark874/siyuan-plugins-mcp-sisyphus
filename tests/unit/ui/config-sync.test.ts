@@ -91,6 +91,16 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(panelSource).toContain('SettingPanel');
     });
 
+    it('uses stable tab keys to display the analytics panel', () => {
+        const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/TelemetryPanel.svelte'), 'utf8');
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+
+        expect(rootSource).toContain('analyticsDisplay={focusGroup === ANALYTICS_GROUP_KEY}');
+        expect(panelSource).toContain('export let analyticsDisplay = true;');
+        expect(panelSource).toContain('display={analyticsDisplay}');
+        expect(panelSource).not.toContain('display={focusGroup === analyticsGroup}');
+    });
+
     it('keeps accordion state reactive when categories are toggled', () => {
         const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
 

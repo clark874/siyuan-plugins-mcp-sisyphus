@@ -7,9 +7,10 @@
     import type { TelemetryConfig } from "../tool-config-storage";
 
     export let analyticsGroup: string;
+    export let analyticsDisplay = true;
     export let telemetryGroup: string;
+    export let telemetryDisplay = true;
     export let showTelemetry = true;
-    export let focusGroup: string;
     export let telemetryConfig: TelemetryConfig;
     export let currentToolConfig: ToolConfig;
     export let getLabel: (key: string, fallback: string) => string;
@@ -266,7 +267,7 @@
     $: telemetryItems = buildTelemetryItems();
 </script>
 
-<SettingPanel group={analyticsGroup} settingItems={[]} display={focusGroup === analyticsGroup}>
+<SettingPanel group={analyticsGroup} settingItems={[]} display={analyticsDisplay}>
     <div class="analytics-section">
         {#if analyticsLoading}
             <div class="analytics-hint">{getLabel("analyticsLoading", "Loading analytics...")}</div>
@@ -504,7 +505,7 @@
     </div>
 </SettingPanel>
 {#if showTelemetry}
-    <SettingPanel group={telemetryGroup} settingItems={telemetryItems} display={focusGroup === telemetryGroup} on:changed={onChanged}>
+    <SettingPanel group={telemetryGroup} settingItems={telemetryItems} display={telemetryDisplay} on:changed={onChanged}>
         <div class="telemetry-section">
             <div class="telemetry-hint">
                 {getLabel("telemetryHint", "Telemetry sends only aggregated statistics (call counts, error rates, average durations). No note content, IDs, or paths are ever included.")}
