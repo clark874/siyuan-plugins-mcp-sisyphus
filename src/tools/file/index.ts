@@ -8,6 +8,7 @@ import {
     FileExportMdSchema,
     FileExportMdZipSchema,
     FileExportResourcesSchema,
+    FileExtractDocSchema,
     FileGetDocAssetsSchema,
     FileGetImageOCRTextSchema,
     FileListUnusedAssetsSchema,
@@ -34,6 +35,7 @@ export const FILE_VARIANTS: ActionVariant<FileAction>[] = [
     createZodActionVariant('remove_unused_assets', FileRemoveUnusedAssetsSchema, 'Remove all unused asset files.'),
     createZodActionVariant('rename_asset', FileRenameAssetSchema, 'Rename an asset file.'),
     createZodActionVariant('delete_asset', FileDeleteAssetSchema, 'Delete an asset file.'),
+    createZodActionVariant('extract_doc', FileExtractDocSchema, 'Export a document and all referenced assets into a self-contained uncompressed folder. Prefer this over export_resources when you need to inspect attachment content.'),
 ];
 
 function createFileTool(thresholdMB: number, largeUploadThresholdBytes: number) {

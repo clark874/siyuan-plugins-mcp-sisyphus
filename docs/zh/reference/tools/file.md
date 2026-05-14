@@ -13,7 +13,7 @@
 
 | 分组 | Actions |
 |------|---------|
-| 上传 / 导出 | `upload_asset`, `export_md`, `export_md_zip`, `export_resources` |
+| 上传 / 导出 | `upload_asset`, `export_md`, `export_md_zip`, `export_resources`, `extract_doc` |
 | 渲染 | `render` |
 | 资源查看 | `get_doc_assets`, `get_image_ocr_text`, `list_unused_assets` |
 | 资源变更 | `remove_unused_assets`, `rename_asset`, `delete_asset` |
@@ -26,6 +26,7 @@
 - 大文件上传需要额外确认。
 - `delete_asset` 与 `remove_unused_assets` 需要确认。
 - `export_md_zip` 与 `export_resources` 如果指定本地输出路径，也应谨慎处理。
+- `extract_doc` 将导出文件写入本地文件系统（默认 `~/siyuan-extracted/`），每次导出前会清空整个输出目录，避免旧提取结果无限积累。
 
 ## 示例
 
@@ -104,3 +105,4 @@ siyuan file export-md-zip --id <doc-id> --output-path ./doc.zip
 - `remove_unused_assets`
 - `rename_asset`
 - `delete_asset`
+- `extract_doc`
