@@ -7,17 +7,21 @@
         buildDefaultHttpServerSettings,
         buildDefaultPuppySettings,
         buildDefaultTelemetryConfig,
+        buildDefaultVersionControlSettings,
         loadPersistedHttpServerSettings,
         loadPersistedPuppySettings,
         loadPersistedTelemetryConfig,
         loadPersistedToolConfig,
+        loadPersistedVersionControlSettings,
         normalizePuppySettings,
         savePersistedPuppySettings,
         savePersistedTelemetryConfig,
         savePersistedToolConfig,
+        savePersistedVersionControlSettings,
         type HttpServerSettings,
         type PuppySettings,
         type TelemetryConfig,
+        type VersionControlSettings,
     } from "./tool-config-storage";
     import HttpServerPanel from "./mcp-config/HttpServerPanel.svelte";
     import DebugPanel from "./mcp-config/DebugPanel.svelte";
@@ -61,6 +65,7 @@
     let httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
     let puppySettings: PuppySettings = buildDefaultPuppySettings();
     let telemetryConfig: TelemetryConfig = buildDefaultTelemetryConfig();
+    let versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
     let focusGroup = "";
     let notebooks: NotebookInfo[] = [];
     let permissions: Record<string, NotebookPermission> = {};
@@ -127,6 +132,7 @@
         puppySettings = await loadPersistedPuppySettings(plugin);
         httpSettings = await loadPersistedHttpServerSettings(plugin);
         telemetryConfig = await loadPersistedTelemetryConfig(plugin);
+        versionControlSettings = await loadPersistedVersionControlSettings(plugin);
 
         const savedPerms = await plugin?.loadData("notebookPermissions");
         if (savedPerms && typeof savedPerms === "object") {
@@ -190,6 +196,13 @@
     async function persistTelemetryConfig() {
         if (plugin) {
             telemetryConfig = await savePersistedTelemetryConfig(telemetryConfig, plugin);
+        }
+    }
+
+    async function persistVersionControlSettings() {
+        if (plugin) {
+            versionControlSettings = await savePersistedVersionControlSettings(versionControlSettings, plugin);
+            plugin.updateVersionControlSettings?.(versionControlSettings);
         }
     }
 
@@ -287,6 +300,15 @@
             return;
         }
 
+        if (key === "versionControl__showDebugMeta") {
+            versionControlSettings = {
+                ...versionControlSettings,
+                showDebugMeta: Boolean(value),
+            };
+            await persistVersionControlSettings();
+            return;
+        }
+
         if (key === "telemetry__enabled") {
             telemetryConfig = { ...telemetryConfig, enabled: Boolean(value) };
             await persistTelemetryConfig();
@@ -328,9 +350,11 @@
         config = normalizeToolConfig(buildDefaultToolConfig());
         puppySettings = normalizePuppySettings(buildDefaultPuppySettings());
         telemetryConfig = buildDefaultTelemetryConfig();
+        versionControlSettings = buildDefaultVersionControlSettings();
         await persistConfig();
         await persistPuppySettings();
         await persistTelemetryConfig();
+        await persistVersionControlSettings();
         showMessage(plugin?.i18n?.mcpConfigReset || "🔄 MCP Tools configuration reset to defaults");
     }
 
@@ -361,7 +385,7 @@
         <ToolCategoriesPanel group={toolGroupLabel} display={focusGroup === TOOL_GROUP_KEY} {config} {getLabel} {onChanged} />
         <PuppyPanel group={puppyGroupLabel} display={focusGroup === PUPPY_GROUP_KEY} {puppySettings} {getLabel} {onChanged} />
         <TelemetryPanel analyticsGroup={analyticsGroupLabel} telemetryGroup="" showTelemetry={false} currentToolConfig={config} {focusGroup} {telemetryConfig} {getLabel} {onChanged} />
-        <DebugPanel group={debugGroupLabel} display={focusGroup === DEBUG_GROUP_KEY} {config} {puppySettings} {getLabel} {onChanged} />
+        <DebugPanel group={debugGroupLabel} display={focusGroup === DEBUG_GROUP_KEY} {config} {puppySettings} {versionControlSettings} {getLabel} {onChanged} />
         <UserRulesPanel group={userRulesGroupLabel} display={focusGroup === USER_RULES_GROUP_KEY} {config} {getLabel} {onChanged} />
     </div>
 </div>
