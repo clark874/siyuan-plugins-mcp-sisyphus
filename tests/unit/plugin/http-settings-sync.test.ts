@@ -327,6 +327,27 @@ describe('HTTP settings sync', () => {
         expect(errorSpy).not.toHaveBeenCalled();
     });
 
+    it('registers the top bar button as the plugin settings entry', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        const addTopBar = vi.fn();
+        const openSetting = vi.spyOn(plugin, 'openSetting').mockImplementation(() => undefined);
+        Object.assign(plugin, {
+            addTopBar,
+            i18n: { mcpToolsSettingTitle: 'SiYuan Sisyphus 设置' },
+        });
+
+        await plugin.onload();
+
+        expect(addTopBar).toHaveBeenCalledWith(expect.objectContaining({
+            title: 'SiYuan Sisyphus 设置',
+            callback: expect.any(Function),
+            position: 'right',
+        }));
+        const config = addTopBar.mock.calls[0][0];
+        config.callback();
+        expect(openSetting).toHaveBeenCalledTimes(1);
+    });
+
     it('initializes launcher and auto-starts HTTP server when supported', async () => {
         const startSpy = vi.spyOn(HttpServerLauncher.prototype, 'start').mockResolvedValue(undefined);
         plugin.httpLauncher = null;

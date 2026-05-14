@@ -68,10 +68,6 @@ export async function removeRepoTagSnapshot(client: SiYuanClient, tag: string): 
     return client.request('/api/repo/removeRepoTagSnapshot', { tag });
 }
 
-export async function purgeRepo(client: SiYuanClient): Promise<unknown> {
-    return client.request('/api/repo/purgeRepo', {});
-}
-
 export async function diffRepoSnapshots(
     client: SiYuanClient,
     left: string,

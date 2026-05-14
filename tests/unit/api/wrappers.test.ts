@@ -50,7 +50,6 @@ describe('api wrapper payloads', () => {
         await repoApi.getRepoSnapshots(client, 2);
         await repoApi.getRepoTagSnapshots(client);
         await repoApi.removeRepoTagSnapshot(client, 'release');
-        await repoApi.purgeRepo(client);
         await repoApi.diffRepoSnapshots(client, 'left', 'right');
         await repoApi.openRepoSnapshotFile(client, 'file-1');
         await repoApi.rollbackRepoSnapshotFile(client, 'file-1');
@@ -66,7 +65,6 @@ describe('api wrapper payloads', () => {
             ['/api/repo/getRepoSnapshots', { page: 2 }],
             ['/api/repo/getRepoTagSnapshots', {}],
             ['/api/repo/removeRepoTagSnapshot', { tag: 'release' }],
-            ['/api/repo/purgeRepo', {}],
             ['/api/repo/diffRepoSnapshots', { left: 'left', right: 'right' }],
             ['/api/repo/openRepoSnapshotFile', { id: 'file-1' }],
             ['/api/repo/rollbackRepoSnapshotFile', { id: 'file-1' }],

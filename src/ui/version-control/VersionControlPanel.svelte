@@ -4,24 +4,27 @@
     import {
         buildChangedFiles,
         diffSnapshotBlocks,
-        getDocumentIdFromSnapshotFile,
-        getRestoreParentCandidates,
+        getRestoreBlockPayload,
+        getRestoreInsertPlan,
         getSnapshotFileId,
         type BlockDiffEntry,
         type ChangedSnapshotFile,
         type RepoSnapshotFileChange,
     } from "./block-diff";
-    import { cleanupTempSnapshot, createTempSnapshotTag, tagTempSnapshot } from "./temp-snapshot";
+    import {
+        createTimelineTagName,
+        filterChangedUniqueTimelineEntries,
+        formatSnapshotTime,
+        getDocumentKey,
+        isTimelineSnapshot,
+        snapshotLabel,
+        sortSnapshotsNewestFirst,
+        type TimelineEntry,
+        type TimelineEntryContent,
+        type TimelineSnapshot,
+    } from "./timeline";
 
-    type Snapshot = {
-        id: string;
-        memo?: string;
-        tag?: string;
-        created?: string;
-        updated?: string;
-        hCreated?: string;
-        [key: string]: unknown;
-    };
+    type Snapshot = TimelineSnapshot;
 
     type SnapshotFileContent = {
         title?: string;
@@ -30,51 +33,80 @@
         updated?: string | number;
     };
 
-    const TEMP_SNAPSHOT_PREFIX = "[Sisyphus Temp Diff]";
+    const CURRENT_SNAPSHOT_MEMO_PREFIX = "[Sisyphus Timeline Current]";
+    const TIMELINE_AUTO_COLLAPSE_WIDTH = 920;
 
-    let snapshots: Snapshot[] = [];
-    let visibleSnapshots: Snapshot[] = [];
-    let tagSnapshots: Snapshot[] = [];
-    let leftSnapshot = "";
-    let rightSnapshot = "";
+    export let currentDocumentId = "";
+    export let currentDocumentTitle = "";
+    export let showDebugMeta = false;
+    export let i18n: Record<string, string> = {};
+
+    let taggedSnapshots: Snapshot[] = [];
+    let currentSnapshot: Snapshot | null = null;
+    let timelineEntries: TimelineEntry[] = [];
+    let selectedEntryKey = "";
     let memo = "";
     let loadingSnapshots = false;
     let loadingDiff = false;
     let loadingFile = false;
     let applying = false;
-    let files: ChangedSnapshotFile[] = [];
-    let selectedFileKey = "";
     let oldContent = "";
     let newContent = "";
     let oldFileContent: SnapshotFileContent | null = null;
     let newFileContent: SnapshotFileContent | null = null;
-    let entries: BlockDiffEntry[] = [];
+    let blockEntries: BlockDiffEntry[] = [];
     let error = "";
-    let page = 1;
-    let pageCount = 1;
-    let showTempSnapshots = false;
-    let tempSnapshotId = "";
-    let tempSnapshotMemo = "";
-    let tempSnapshotTag = "";
-    let cleanupStarted = false;
-    let autoDiffReady = false;
+    let resolvedDocumentTitle = "";
+    let mounted = false;
+    let loadedDocumentId = "";
+    let timelineCollapsed = false;
+    let autoTimelineCollapsed = false;
+    let forceTimelineExpanded = false;
+    let refreshingSelection = false;
+    let shellElement: HTMLDivElement;
+    let shellResizeObserver: ResizeObserver | undefined;
 
-    $: selectedFile = files.find((file) => file.key === selectedFileKey);
-    $: canCompare = Boolean(leftSnapshot && rightSnapshot && leftSnapshot !== rightSnapshot);
-    $: selectedOldFileId = getSnapshotFileId(selectedFile?.oldFile);
-    $: selectedNewFileId = getSnapshotFileId(selectedFile?.newFile);
-    $: visibleSnapshots = snapshots.filter((snapshot) => showTempSnapshots || !isTempSnapshot(snapshot) || snapshot.id === leftSnapshot || snapshot.id === rightSnapshot);
+    $: documentEntries = currentDocumentId ? timelineEntries.filter((entry) => entry.documentKey === currentDocumentId) : [];
+    $: selectedEntry = documentEntries.find((entry) => entry.key === selectedEntryKey);
+    $: displayDocumentTitle = getReadableDocumentTitle(resolvedDocumentTitle)
+        || getReadableDocumentTitle(currentDocumentTitle)
+        || getReadableDocumentTitle(selectedEntry?.title)
+        || t("timeline_current_document_fallback", "这个文档");
+    $: diffOpen = Boolean(selectedEntry);
+    $: effectiveTimelineCollapsed = timelineCollapsed;
+    $: selectedSnapshotTitle = selectedEntry ? snapshotLabel(selectedEntry.snapshot) : "";
+    $: selectedSnapshotTime = selectedEntry ? formatSnapshotTime(selectedEntry.snapshot) : "";
+    $: currentSnapshotTime = currentSnapshot ? formatSnapshotTime(currentSnapshot) : "";
+    $: if (mounted && currentDocumentId !== loadedDocumentId && !loadingSnapshots) {
+        void loadTimeline();
+    }
 
     onMount(async () => {
-        await initializeWorkspaceDiff();
+        mounted = true;
+        observeShellWidth();
+        await loadTimeline();
     });
 
     onDestroy(() => {
-        void cleanupTempSnapshotOnClose();
-        tempSnapshotId = "";
-        tempSnapshotMemo = "";
-        tempSnapshotTag = "";
+        shellResizeObserver?.disconnect();
     });
+
+    function observeShellWidth() {
+        if (!shellElement || typeof ResizeObserver === "undefined") return;
+        shellResizeObserver = new ResizeObserver((entries) => {
+            const width = entries[0]?.contentRect.width ?? shellElement.clientWidth;
+            autoTimelineCollapsed = !forceTimelineExpanded && width > 0 && width < TIMELINE_AUTO_COLLAPSE_WIDTH;
+        });
+        shellResizeObserver.observe(shellElement);
+        autoTimelineCollapsed = !forceTimelineExpanded && shellElement.clientWidth > 0 && shellElement.clientWidth < TIMELINE_AUTO_COLLAPSE_WIDTH;
+    }
+
+    function toggleTimelineCollapsed() {
+        if (!effectiveTimelineCollapsed) {
+            forceTimelineExpanded = false;
+        }
+        timelineCollapsed = !timelineCollapsed;
+    }
 
     function post<T>(endpoint: string, data: Record<string, unknown> = {}): Promise<T> {
         return new Promise((resolve, reject) => {
@@ -88,88 +120,140 @@
         });
     }
 
-    async function initializeWorkspaceDiff() {
-        loadingSnapshots = true;
-        error = "";
-        try {
-            tempSnapshotMemo = `${TEMP_SNAPSHOT_PREFIX} ${new Date().toISOString()}`;
-            await post("/api/repo/createSnapshot", { memo: tempSnapshotMemo });
-            await loadSnapshots(1, false);
-            const temp = snapshots.find((snapshot) => snapshot.memo === tempSnapshotMemo) ?? snapshots.find((snapshot) => isTempSnapshot(snapshot));
-            tempSnapshotId = temp?.id ?? "";
-            if (tempSnapshotId) {
-                tempSnapshotTag = createTempSnapshotTag();
-                await tagTempSnapshot(post, tempSnapshotId, tempSnapshotTag);
-            }
-            const baseline = snapshots.find((snapshot) => snapshot.id !== tempSnapshotId && !isTempSnapshot(snapshot));
-
-            if (baseline?.id && tempSnapshotId) {
-                leftSnapshot = baseline.id;
-                rightSnapshot = tempSnapshotId;
-                autoDiffReady = true;
-                await compareSnapshots();
-            } else {
-                if (!rightSnapshot && snapshots[0]?.id) rightSnapshot = snapshots[0].id;
-                if (!leftSnapshot && snapshots[1]?.id) leftSnapshot = snapshots[1].id;
-                autoDiffReady = canCompare;
-                if (canCompare) await compareSnapshots();
-            }
-        } catch (err) {
-            error = getErrorMessage(err);
-            await loadSnapshots(1, true);
-        } finally {
-            loadingSnapshots = false;
-        }
+    function t(key: string, fallback: string, vars: Record<string, string | number> = {}): string {
+        const template = i18n?.[key] ?? fallback;
+        return Object.entries(vars).reduce((text, [name, value]) => {
+            return text.split(`\${${name}}`).join(String(value));
+        }, template);
     }
 
-    async function cleanupTempSnapshotOnClose() {
-        if (cleanupStarted || !tempSnapshotTag) return;
-        cleanupStarted = true;
-        try {
-            await cleanupTempSnapshot(post, tempSnapshotTag);
-        } catch (err) {
-            console.warn("[Sisyphus] failed to cleanup temp snapshot:", err);
-        }
+    function timelineSnapshotCountText(count: number): string {
+        return t("timeline_snapshot_count", "${count} 个时间线快照", { count });
     }
 
-    async function loadSnapshots(nextPage = page, autoCompare = true) {
-        loadingSnapshots = true;
-        error = "";
-        try {
-            const data = await post<{ snapshots?: Snapshot[]; pageCount?: number; totalCount?: number }>("/api/repo/getRepoSnapshots", { page: nextPage });
-            snapshots = data.snapshots ?? [];
-            page = nextPage;
-            pageCount = Math.max(1, data.pageCount ?? 1);
+    function localizeAcceptReason(reason: string | undefined): string {
+        if (!reason) return "";
+        if (reason === "内容未变化") return t("timeline_accept_reason_unchanged", "内容未变化");
+        if (reason === "复杂块仅支持查看或整篇回档") return t("timeline_accept_reason_complex_block", "复杂块仅支持查看或整篇回档");
+        return reason;
+    }
 
-            try {
-                const tags = await post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoTagSnapshots", {});
-                tagSnapshots = tags.snapshots ?? [];
-            } catch {
-                tagSnapshots = [];
+    async function loadTimeline() {
+        loadingSnapshots = true;
+        loadingDiff = true;
+        error = "";
+        clearDiff();
+        loadedDocumentId = currentDocumentId;
+        try {
+            await refreshDocumentTitle();
+            const data = await post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoTagSnapshots", {});
+            taggedSnapshots = sortSnapshotsNewestFirst((data.snapshots ?? []).filter(isTimelineSnapshot));
+            currentSnapshot = currentDocumentId ? await createCurrentSnapshot() : null;
+            const entryContents: TimelineEntryContent[] = [];
+            const contentCache = new Map<string, string>();
+            if (currentSnapshot) {
+                for (const snapshot of taggedSnapshots) {
+                    if (snapshot.id === currentSnapshot.id) continue;
+                    const diff = await post<Record<string, RepoSnapshotFileChange[] | unknown>>("/api/repo/diffRepoSnapshots", {
+                        left: snapshot.id,
+                        right: currentSnapshot.id,
+                    });
+                    const changedFile = findChangedFileForCurrentDocument(buildChangedFiles(diff));
+                    if (!changedFile) continue;
+                    const entry = createCurrentComparisonEntry(snapshot, currentSnapshot, changedFile);
+                    const [oldSnapshotContent, newSnapshotContent] = await Promise.all([
+                        readSnapshotFileContent(entry.oldFileId, contentCache),
+                        readSnapshotFileContent(entry.newFileId, contentCache),
+                    ]);
+                    entryContents.push({
+                        entry,
+                        oldContent: oldSnapshotContent,
+                        newContent: newSnapshotContent,
+                    });
+                }
             }
 
-            if (!rightSnapshot && snapshots[0]?.id) rightSnapshot = snapshots[0].id;
-            if (!leftSnapshot && snapshots[1]?.id) leftSnapshot = snapshots[1].id;
-            if (autoCompare && canCompare) await compareSnapshots();
+            timelineEntries = filterChangedUniqueTimelineEntries(entryContents);
+            const nextEntry = selectedEntryKey
+                ? timelineEntries.find((entry) => entry.key === selectedEntryKey)
+                : undefined;
+            selectedEntryKey = nextEntry?.key ?? "";
+            if (nextEntry) await loadTimelineEntry(nextEntry);
         } catch (err) {
             error = getErrorMessage(err);
         } finally {
             loadingSnapshots = false;
+            loadingDiff = false;
         }
     }
 
-    async function createSnapshot() {
+    async function refreshDocumentTitle() {
+        resolvedDocumentTitle = "";
+        if (!currentDocumentId) return;
+        const titleFromProp = getReadableDocumentTitle(currentDocumentTitle);
+        if (titleFromProp) {
+            resolvedDocumentTitle = titleFromProp;
+            return;
+        }
+        try {
+            const info = await post<Record<string, unknown>>("/api/block/getDocInfo", { id: currentDocumentId });
+            resolvedDocumentTitle = getReadableDocumentTitle(firstReadableString([
+                info.name,
+                info.title,
+                info.hPath,
+                info.hpath,
+                info.path,
+            ]));
+        } catch {
+            resolvedDocumentTitle = "";
+        }
+    }
+
+    async function createCurrentSnapshot(): Promise<Snapshot> {
+        const text = `${CURRENT_SNAPSHOT_MEMO_PREFIX} ${currentDocumentId} ${new Date().toISOString()}`;
+        await post("/api/repo/createSnapshot", { memo: text });
+        const snapshot = await findNewestSnapshotForMemo(text);
+        if (!snapshot?.id) throw new Error(t("timeline_error_current_snapshot_not_found", "当前状态快照已创建，但未能定位"));
+        return snapshot;
+    }
+
+    function findChangedFileForCurrentDocument(files: ChangedSnapshotFile[]): ChangedSnapshotFile | undefined {
+        return files.find((file) => getDocumentKey(file) === currentDocumentId);
+    }
+
+    function createCurrentComparisonEntry(snapshot: Snapshot, current: Snapshot, file: ChangedSnapshotFile): TimelineEntry {
+        const oldFileId = getSnapshotFileId(file.oldFile);
+        const newFileId = getSnapshotFileId(file.newFile);
+        return {
+            key: `${snapshot.id}:${current.id}:${currentDocumentId}:${oldFileId}:${newFileId}`,
+            documentKey: currentDocumentId,
+            title: file.title || currentDocumentTitle || currentDocumentId,
+            kind: file.kind,
+            snapshot,
+            previousSnapshot: current,
+            file,
+            oldFileId,
+            newFileId,
+            updated: file.newFile?.updated ?? file.oldFile?.updated ?? snapshot.updated ?? snapshot.created,
+        };
+    }
+
+    async function createTimelineNode() {
         const text = memo.trim();
         if (!text) {
-            showMessage("请先填写本次快照说明");
+            showMessage(t("timeline_msg_name_required", "请先填写时间线节点名称"));
             return;
         }
         loadingSnapshots = true;
+        error = "";
         try {
             await post("/api/repo/createSnapshot", { memo: text });
+            const snapshot = await findNewestSnapshotForMemo(text);
+            if (!snapshot?.id) throw new Error(t("timeline_error_new_snapshot_not_found", "快照已创建，但未能定位新快照"));
+            await post("/api/repo/tagSnapshot", { id: snapshot.id, name: createTimelineTagName(text, taggedSnapshots) });
             memo = "";
-            showMessage("快照已创建");
-            await loadSnapshots(1, true);
+            showMessage(t("timeline_msg_node_created", "时间线节点已创建"));
+            await loadTimeline();
         } catch (err) {
             error = getErrorMessage(err);
         } finally {
@@ -177,23 +261,53 @@
         }
     }
 
-    async function compareSnapshots() {
-        if (!canCompare) return;
+    async function findNewestSnapshotForMemo(text: string): Promise<Snapshot | undefined> {
+        const [snapshotData, tagData] = await Promise.all([
+            post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoSnapshots", { page: 1 }),
+            post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoTagSnapshots", {}),
+        ]);
+        const taggedIds = new Set((tagData.snapshots ?? []).map((snapshot) => snapshot.id));
+        const ordered = sortSnapshotsNewestFirst(snapshotData.snapshots ?? []);
+        return ordered.find((snapshot) => snapshot.memo === text && !taggedIds.has(snapshot.id))
+            ?? ordered.find((snapshot) => snapshot.memo === text)
+            ?? ordered[0];
+    }
+
+    async function selectEntry(entry: TimelineEntry) {
+        selectedEntryKey = entry.key;
+        refreshingSelection = true;
+        try {
+            await refreshCurrentComparisonForSelection(entry.key);
+        } finally {
+            refreshingSelection = false;
+        }
+    }
+
+    async function refreshCurrentComparisonForSelection(entryKey: string) {
         loadingDiff = true;
         error = "";
-        entries = [];
-        oldContent = "";
-        newContent = "";
-        oldFileContent = null;
-        newFileContent = null;
         try {
+            currentSnapshot = currentDocumentId ? await createCurrentSnapshot() : null;
+            if (!currentSnapshot) {
+                clearDiff();
+                return;
+            }
+            const baseEntry = timelineEntries.find((entry) => entry.key === entryKey);
+            if (!baseEntry) return;
             const diff = await post<Record<string, RepoSnapshotFileChange[] | unknown>>("/api/repo/diffRepoSnapshots", {
-                left: leftSnapshot,
-                right: rightSnapshot,
+                left: baseEntry.snapshot.id,
+                right: currentSnapshot.id,
             });
-            files = buildChangedFiles(diff);
-            selectedFileKey = files[0]?.key ?? "";
-            if (selectedFileKey) await loadSelectedFile();
+            const changedFile = findChangedFileForCurrentDocument(buildChangedFiles(diff));
+            if (!changedFile) {
+                selectedEntryKey = "";
+                clearDiff();
+                return;
+            }
+            const refreshedEntry = createCurrentComparisonEntry(baseEntry.snapshot, currentSnapshot, changedFile);
+            timelineEntries = timelineEntries.map((entry) => entry.key === entryKey ? refreshedEntry : entry);
+            selectedEntryKey = refreshedEntry.key;
+            await loadTimelineEntry(refreshedEntry);
         } catch (err) {
             error = getErrorMessage(err);
         } finally {
@@ -201,24 +315,25 @@
         }
     }
 
-    async function loadSelectedFile() {
-        if (!selectedFile) return;
+    async function loadTimelineEntry(entry = selectedEntry) {
+        if (!entry) return;
         loadingFile = true;
         error = "";
         try {
-            const oldFileId = getSnapshotFileId(selectedFile.oldFile);
-            const newFileId = getSnapshotFileId(selectedFile.newFile);
             const [oldData, newData] = await Promise.all([
-                oldFileId ? post<SnapshotFileContent>("/api/repo/openRepoSnapshotFile", { id: oldFileId }) : Promise.resolve(null),
-                newFileId ? post<SnapshotFileContent>("/api/repo/openRepoSnapshotFile", { id: newFileId }) : Promise.resolve(null),
+                entry.oldFileId ? post<SnapshotFileContent>("/api/repo/openRepoSnapshotFile", { id: entry.oldFileId }) : Promise.resolve(null),
+                entry.newFileId ? post<SnapshotFileContent>("/api/repo/openRepoSnapshotFile", { id: entry.newFileId }) : Promise.resolve(null),
             ]);
             oldFileContent = oldData;
             newFileContent = newData;
             oldContent = oldData?.content ?? "";
             newContent = newData?.content ?? "";
-            entries = diffSnapshotBlocks(oldContent, newContent);
-            if (entries.length === 0 && (oldContent || newContent)) {
-                entries = diffSnapshotBlocks(createContentFallback(oldContent, "旧版本内容为空或无法解析"), createContentFallback(newContent, "新版本内容为空或无法解析"));
+            blockEntries = diffSnapshotBlocks(oldContent, newContent);
+            if (blockEntries.length === 0 && (oldContent || newContent)) {
+                blockEntries = diffSnapshotBlocks(
+                    createContentFallback(oldContent, t("timeline_old_content_empty_fallback", "左侧版本内容为空或无法解析")),
+                    createContentFallback(newContent, t("timeline_new_content_empty_fallback", "右侧版本内容为空或无法解析")),
+                );
             }
         } catch (err) {
             error = getErrorMessage(err);
@@ -227,17 +342,21 @@
         }
     }
 
-    async function acceptBlock(entry: BlockDiffEntry, side: "old" | "new") {
-        if (!entry.canAcceptBlock) {
-            showMessage(entry.acceptReason || "该块暂不支持块级接受");
-            return;
-        }
-        if (side === "new") {
-            showMessage("已保留右侧版本");
-            return;
-        }
+    async function readSnapshotFileContent(fileId: string, cache: Map<string, string>): Promise<string> {
+        if (!fileId) return "";
+        if (cache.has(fileId)) return cache.get(fileId) ?? "";
+        const data = await post<SnapshotFileContent>("/api/repo/openRepoSnapshotFile", { id: fileId });
+        const content = data?.content ?? "";
+        cache.set(fileId, content);
+        return content;
+    }
 
-        const confirmed = window.confirm("将把当前文档中的这个块恢复为左侧版本，继续吗？");
+    async function rollbackBlock(entry: BlockDiffEntry) {
+        if (!entry.canAcceptBlock) {
+            showMessage(localizeAcceptReason(entry.acceptReason) || t("timeline_msg_block_restore_unsupported", "该块暂不支持块级回退"));
+            return;
+        }
+        const confirmed = window.confirm(t("timeline_confirm_rollback_block", "将把「${title}」中的这个块回退到左侧历史版本，继续吗？", { title: displayDocumentTitle }));
         if (!confirmed) return;
 
         applying = true;
@@ -251,16 +370,24 @@
             } else if (entry.status === "added" && entry.newBlock?.id) {
                 await post("/api/block/deleteBlock", { id: entry.newBlock.id });
             } else if (entry.status === "removed" && entry.oldBlock) {
-                const parentIDs = getRestoreParentCandidates(entry, selectedFile);
-                if (parentIDs.length === 0) throw new Error("无法识别可恢复位置，不能安全恢复删除块");
+                const insertPlan = getRestoreInsertPlan(entry, blockEntries, {
+                    documentId: currentDocumentId,
+                    oldFile: selectedEntry?.file.oldFile,
+                    newFile: selectedEntry?.file.newFile,
+                });
+                const parentIDs = insertPlan.parentIDs;
+                if (parentIDs.length === 0) throw new Error(t("timeline_error_no_restore_position", "无法识别可恢复位置，不能安全恢复删除块"));
                 let restored = false;
                 let lastError: unknown;
+                const restorePayload = getRestoreBlockPayload(entry);
                 for (const parentID of parentIDs) {
                     try {
-                        await post("/api/block/appendBlock", {
+                        await post("/api/block/insertBlock", {
                             parentID,
-                            dataType: "markdown",
-                            data: entry.oldBlock.markdown || entry.oldBlock.text,
+                            ...(insertPlan.nextID ? { nextID: insertPlan.nextID } : {}),
+                            ...(insertPlan.nextID ? {} : insertPlan.previousID ? { previousID: insertPlan.previousID } : {}),
+                            dataType: restorePayload.dataType,
+                            data: restorePayload.data,
                         });
                         restored = true;
                         break;
@@ -268,9 +395,10 @@
                         lastError = err;
                     }
                 }
-                if (!restored) throw lastError ?? new Error("无法恢复删除块");
+                if (!restored) throw lastError ?? new Error(t("timeline_error_restore_removed_block_failed", "无法恢复删除块"));
             }
-            showMessage("块级恢复已应用");
+            showMessage(t("timeline_msg_block_rolled_back", "块已回退"));
+            await loadTimeline();
         } catch (err) {
             error = getErrorMessage(err);
         } finally {
@@ -279,15 +407,18 @@
     }
 
     async function rollbackDocument() {
-        const id = selectedOldFileId;
-        if (!id) return;
-        const confirmed = window.confirm("这会把整个文档回档到所选快照文件版本。继续吗？");
+        const id = selectedEntry?.oldFileId;
+        if (!id) {
+            showMessage(t("timeline_msg_no_rollback_version", "该时间线节点没有可回退的左侧版本"));
+            return;
+        }
+        const confirmed = window.confirm(t("timeline_confirm_rollback_document", "这会把整个文档回退到左侧历史版本。继续吗？"));
         if (!confirmed) return;
         applying = true;
         try {
             await post("/api/repo/rollbackRepoSnapshotFile", { id });
-            showMessage("文档已回档");
-            await loadSelectedFile();
+            showMessage(t("timeline_msg_document_rolled_back", "文档已回退到历史版本"));
+            await loadTimelineEntry();
         } catch (err) {
             error = getErrorMessage(err);
         } finally {
@@ -295,13 +426,12 @@
         }
     }
 
-    function snapshotLabel(snapshot: Snapshot): string {
-        if (snapshot.id === tempSnapshotId) return "当前工作区临时快照";
-        return snapshot.memo || snapshot.tag || snapshot.hCreated || snapshot.created || snapshot.id;
-    }
-
-    function isTempSnapshot(snapshot: Snapshot): boolean {
-        return typeof snapshot.memo === "string" && snapshot.memo.startsWith(TEMP_SNAPSHOT_PREFIX);
+    function clearDiff() {
+        oldContent = "";
+        newContent = "";
+        oldFileContent = null;
+        newFileContent = null;
+        blockEntries = [];
     }
 
     function createContentFallback(content: string, fallback: string): string {
@@ -309,71 +439,50 @@
         return text || fallback;
     }
 
+    function getReadableDocumentTitle(value: string | undefined): string {
+        if (!value) return "";
+        const trimmed = value.trim();
+        if (!trimmed || /^[0-9]{14}-[a-z0-9]{7}$/i.test(trimmed)) return "";
+        const segment = trimmed.split("/").filter(Boolean).at(-1) ?? trimmed;
+        return segment.replace(/\.sy$/i, "");
+    }
+
+    function firstReadableString(values: unknown[]): string {
+        for (const value of values) {
+            if (typeof value !== "string") continue;
+            const readable = getReadableDocumentTitle(value);
+            if (readable) return readable;
+        }
+        return "";
+    }
+
     function getErrorMessage(err: unknown): string {
         return err instanceof Error ? err.message : String(err);
     }
 </script>
 
-<div class="vc-shell">
-    <aside class="vc-sidebar">
-        <section class="vc-section">
-            <div class="vc-section__title">创建快照</div>
-            <textarea bind:value={memo} rows="3" placeholder="描述这次修改"></textarea>
-            <button class="vc-primary" on:click={createSnapshot} disabled={loadingSnapshots}>创建 commit</button>
-        </section>
-
-        <section class="vc-section">
-            <div class="vc-section__title">版本选择</div>
-            <label class="vc-check">
-                <input type="checkbox" bind:checked={showTempSnapshots} />
-                显示临时快照
-            </label>
-            <label>
-                旧版本
-                <select bind:value={leftSnapshot}>
-                    {#each visibleSnapshots as snapshot}
-                        <option value={snapshot.id}>{snapshotLabel(snapshot)}</option>
-                    {/each}
-                </select>
-            </label>
-            <label>
-                新版本
-                <select bind:value={rightSnapshot}>
-                    {#each visibleSnapshots as snapshot}
-                        <option value={snapshot.id}>{snapshotLabel(snapshot)}</option>
-                    {/each}
-                </select>
-            </label>
-            <button on:click={compareSnapshots} disabled={!canCompare || loadingDiff}>比较</button>
-            <div class="vc-pager">
-                <button on:click={() => loadSnapshots(Math.max(1, page - 1))} disabled={page <= 1 || loadingSnapshots}>上一页</button>
-                <span>{page} / {pageCount}</span>
-                <button on:click={() => loadSnapshots(Math.min(pageCount, page + 1))} disabled={page >= pageCount || loadingSnapshots}>下一页</button>
-            </div>
-        </section>
-
-        {#if tagSnapshots.length}
-            <section class="vc-section">
-                <div class="vc-section__title">标签快照</div>
-                <div class="vc-tags">
-                    {#each tagSnapshots as snapshot}
-                        <span>{snapshotLabel(snapshot)}</span>
-                    {/each}
-                </div>
-            </section>
-        {/if}
-    </aside>
-
+<div
+    bind:this={shellElement}
+    class:force-expanded={forceTimelineExpanded}
+    class:timeline-collapsed={effectiveTimelineCollapsed}
+    class:timeline-only={!diffOpen}
+    class="vc-shell"
+>
     <main class="vc-main">
         <div class="vc-toolbar">
-            <div>
-                <strong>{autoDiffReady && rightSnapshot === tempSnapshotId ? "当前工作区差异" : "变更文档"}</strong>
-                <span>{files.length} 个文件</span>
-                {#if rightSnapshot === tempSnapshotId}
-                    <span>临时快照将在关闭时清理</span>
+            <div class="vc-toolbar__meta">
+                <strong>{displayDocumentTitle}</strong>
+                <span>{timelineSnapshotCountText(taggedSnapshots.length)}</span>
+                {#if showDebugMeta && currentDocumentId}
+                    <span>{currentDocumentId}</span>
                 {/if}
             </div>
-            <button on:click={rollbackDocument} disabled={!selectedFile || applying}>整篇回档到左侧版本</button>
+            <div class="vc-toolbar__actions">
+                <button class="vc-icon-button" on:click={rollbackDocument} disabled={!selectedEntry?.oldFileId || applying} title={t("timeline_action_rollback_document", "整篇回退到历史版本")} aria-label={t("timeline_action_rollback_document", "整篇回退到历史版本")}>↶</button>
+                <button class="vc-icon-button" on:click={toggleTimelineCollapsed} title={autoTimelineCollapsed ? t("timeline_auto_collapsed_title", "窗口过窄，时间线已自动折叠") : effectiveTimelineCollapsed ? t("timeline_action_expand", "展开时间线") : t("timeline_action_collapse", "折叠时间线")} aria-label={autoTimelineCollapsed ? t("timeline_auto_collapsed_title", "窗口过窄，时间线已自动折叠") : effectiveTimelineCollapsed ? t("timeline_action_expand", "展开时间线") : t("timeline_action_collapse", "折叠时间线")}>
+                    {effectiveTimelineCollapsed ? "‹" : "›"}
+                </button>
+            </div>
         </div>
 
         {#if error}
@@ -381,57 +490,62 @@
         {/if}
 
         <div class="vc-content">
-            <nav class="vc-files">
-                {#if loadingDiff || loadingSnapshots}
-                    <div class="vc-empty">加载中...</div>
-                {:else if files.length === 0}
-                    <div class="vc-empty">暂无可显示的变更</div>
-                {:else}
-                    {#each files as file}
-                        <button class:selected={file.key === selectedFileKey} on:click={() => { selectedFileKey = file.key; loadSelectedFile(); }}>
-                            <span class:added={file.kind === "added"} class:removed={file.kind === "removed"} class:modified={file.kind === "modified"}>{file.kind}</span>
-                            <strong>{file.title}</strong>
-                        </button>
-                    {/each}
-                {/if}
-            </nav>
-
             <section class="vc-diff">
                 {#if loadingFile}
-                    <div class="vc-empty">正在打开快照文件...</div>
-                {:else if !selectedFile}
-                    <div class="vc-empty">选择一个变更文档查看前后差异</div>
+                    <div class="vc-empty">{t("timeline_loading_snapshot_file", "正在打开快照文件...")}</div>
+                {:else if !selectedEntry}
+                    <div class="vc-empty">{refreshingSelection ? t("timeline_loading_current_diff", "正在创建当前版本并加载差异...") : t("timeline_empty_select_node", "选择右侧时间线节点，查看历史版本与当前状态的差异")}</div>
                 {:else}
                     <div class="vc-diff-head">
-                        <div>旧版本 {oldFileContent?.updated ? `· ${oldFileContent.updated}` : ""}</div>
-                        <div>新版本 {newFileContent?.updated ? `· ${newFileContent.updated}` : ""}</div>
+                        <div>{t("timeline_history_version", "历史版本")} {selectedSnapshotTitle ? `· ${selectedSnapshotTitle}` : ""}{selectedSnapshotTime ? ` · ${selectedSnapshotTime}` : ""}</div>
+                        <div aria-hidden="true"></div>
+                        <div>{t("timeline_current_state", "当前状态")} {currentSnapshotTime ? `· ${currentSnapshotTime}` : newFileContent?.updated ? `· ${newFileContent.updated}` : ""}</div>
                     </div>
-                    {#if entries.length === 0}
-                        <div class="vc-empty">该文件内容为空，或当前快照内容暂无法解析为可显示块。</div>
+                    {#if blockEntries.length === 0}
+                        <div class="vc-empty">{t("timeline_empty_unparseable_file", "该文件内容为空，或当前快照内容暂无法解析为可显示块。")}</div>
                     {/if}
                     <div class="vc-diff-grid">
-                        {#each entries as entry}
+                        {#each blockEntries as entry}
                             <article class="vc-block old {entry.status}">
-                                <div class="vc-block__meta">
-                                    <span>{entry.status}</span>
-                                    {#if entry.oldBlock?.id}<code>{entry.oldBlock.id}</code>{/if}
-                                </div>
-                                <pre>{entry.oldBlock?.markdown || entry.oldBlock?.text || (entry.status === "added" ? "右侧新增，左侧无内容" : "")}</pre>
-                            </article>
-                            <article class="vc-block new {entry.status}">
-                                <div class="vc-block__meta">
-                                    <span>{entry.status}</span>
-                                    {#if entry.newBlock?.id}<code>{entry.newBlock.id}</code>{/if}
-                                </div>
-                                <pre>{entry.newBlock?.markdown || entry.newBlock?.text || (entry.status === "removed" ? "左侧存在，右侧已删除" : "")}</pre>
-                                {#if entry.status !== "unchanged"}
-                                    <div class="vc-actions">
-                                        <button on:click={() => acceptBlock(entry, "old")} disabled={applying || !entry.canAcceptBlock}>采用旧版</button>
-                                        <button on:click={() => acceptBlock(entry, "new")} disabled={applying}>采用新版</button>
+                                {#if showDebugMeta}
+                                    <div class="vc-block__meta">
+                                        <span>{entry.status}</span>
+                                        {#if entry.oldBlock?.id}<code>{entry.oldBlock.id}</code>{/if}
                                     </div>
+                                {/if}
+                                {#if entry.oldParts}
+                                    <div class="vc-inline-diff">
+                                        {#each entry.oldParts as part}
+                                            <span class="vc-diff-part {part.kind}">{part.text}</span>
+                                        {/each}
+                                    </div>
+                                {:else}
+                                    <pre>{entry.oldBlock?.markdown || entry.oldBlock?.text || (entry.status === "added" ? t("timeline_old_missing_for_added", "当前新增，历史无内容") : "")}</pre>
+                                {/if}
+                            </article>
+                            <div class="vc-restore-column {entry.status}">
+                                {#if entry.status !== "unchanged"}
+                                    <button class="vc-icon-button" on:click={() => rollbackBlock(entry)} disabled={applying || !entry.canAcceptBlock} title={t("timeline_action_restore_block", "还原块")} aria-label={t("timeline_action_restore_block", "还原块")}>→</button>
                                     {#if entry.acceptReason}
-                                        <small>{entry.acceptReason}</small>
+                                        <small>{localizeAcceptReason(entry.acceptReason)}</small>
                                     {/if}
+                                {/if}
+                            </div>
+                            <article class="vc-block new {entry.status}">
+                                {#if showDebugMeta}
+                                    <div class="vc-block__meta">
+                                        <span>{entry.status}</span>
+                                        {#if entry.newBlock?.id}<code>{entry.newBlock.id}</code>{/if}
+                                    </div>
+                                {/if}
+                                {#if entry.newParts}
+                                    <div class="vc-inline-diff">
+                                        {#each entry.newParts as part}
+                                            <span class="vc-diff-part {part.kind}">{part.text}</span>
+                                        {/each}
+                                    </div>
+                                {:else}
+                                    <pre>{entry.newBlock?.markdown || entry.newBlock?.text || (entry.status === "removed" ? t("timeline_new_missing_for_removed", "历史存在，当前已删除") : "")}</pre>
                                 {/if}
                             </article>
                         {/each}
@@ -440,22 +554,95 @@
             </section>
         </div>
     </main>
+
+    <aside class:collapsed={effectiveTimelineCollapsed} class="vc-sidebar">
+        {#if !effectiveTimelineCollapsed}
+            {#if !diffOpen}
+                <section class="vc-section vc-document-heading">
+                    <div class="vc-section__title">{displayDocumentTitle}</div>
+                    {#if showDebugMeta && currentDocumentId}
+                        <code>{currentDocumentId}</code>
+                    {/if}
+                    <small>{timelineSnapshotCountText(taggedSnapshots.length)}</small>
+                </section>
+            {/if}
+
+            <section class="vc-section">
+                <div class="vc-section__title">{t("timeline_snapshot_section_title", "Snapshot")}</div>
+                <textarea bind:value={memo} rows="3" placeholder={t("timeline_node_placeholder", "例如 feat：重构文档工具")}></textarea>
+                <button class="vc-primary" on:click={createTimelineNode} disabled={loadingSnapshots}>{t("timeline_action_create_node", "创建节点")}</button>
+            </section>
+
+            <section class="vc-section">
+                <div class="vc-section__title">{t("timeline_section_title", "Timeline")}</div>
+                {#if loadingSnapshots || loadingDiff}
+                    <div class="vc-empty compact">{t("timeline_loading", "加载中...")}</div>
+                {:else if !currentDocumentId}
+                    <div class="vc-empty compact">{t("timeline_no_document", "未检测到可用文档")}</div>
+                {:else if documentEntries.length === 0}
+                    <div class="vc-empty compact">{t("timeline_no_nodes_for_document", "「${title}」暂无时间线节点", { title: displayDocumentTitle })}</div>
+                {:else}
+                    <div class="vc-timeline">
+                        {#each documentEntries as entry}
+                            <button class:selected={entry.key === selectedEntryKey} on:click={() => selectEntry(entry)}>
+                                <span class:added={entry.kind === "added"} class:removed={entry.kind === "removed"} class:modified={entry.kind === "modified"}></span>
+                                <strong>
+                                    <em>{snapshotLabel(entry.snapshot)}</em>
+                                    {#if formatSnapshotTime(entry.snapshot)}
+                                        <small>{formatSnapshotTime(entry.snapshot)}</small>
+                                    {/if}
+                                </strong>
+                                {#if showDebugMeta}
+                                    <small>{entry.kind}</small>
+                                {/if}
+                            </button>
+                        {/each}
+                    </div>
+                {/if}
+            </section>
+        {/if}
+    </aside>
 </div>
 
 <style>
     .vc-shell {
         display: grid;
-        grid-template-columns: 280px minmax(0, 1fr);
-        height: 78vh;
-        min-height: 520px;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        height: 100%;
+        min-height: 360px;
+        overflow: hidden;
         color: var(--b3-theme-on-background);
         background: var(--b3-theme-background);
     }
 
+    .vc-shell.timeline-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .vc-shell.timeline-only {
+        grid-template-columns: minmax(280px, 420px);
+        justify-content: end;
+    }
+
+    .vc-shell.force-expanded {
+        min-width: 0;
+    }
+
+    .vc-shell.timeline-only:not(.timeline-collapsed) .vc-main {
+        display: none;
+    }
+
     .vc-sidebar {
-        border-right: 1px solid var(--b3-border-color);
+        min-height: 0;
+        box-sizing: border-box;
+        border-left: 1px solid var(--b3-border-color);
         padding: 12px;
         overflow: auto;
+        background: var(--b3-theme-background);
+    }
+
+    .vc-sidebar.collapsed {
+        display: none;
     }
 
     .vc-section {
@@ -469,20 +656,16 @@
         font-size: 13px;
     }
 
-    label {
-        display: grid;
-        gap: 4px;
-        font-size: 12px;
+    .vc-document-heading code {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
         color: var(--b3-theme-on-surface);
+        font-family: var(--b3-font-family-code);
+        font-size: 11px;
     }
 
-    .vc-check {
-        grid-template-columns: auto 1fr;
-        align-items: center;
-    }
-
-    textarea,
-    select {
+    textarea {
         width: 100%;
         box-sizing: border-box;
         border: 1px solid var(--b3-border-color);
@@ -490,6 +673,7 @@
         padding: 8px;
         background: var(--b3-theme-surface);
         color: var(--b3-theme-on-surface);
+        resize: vertical;
     }
 
     button {
@@ -500,6 +684,15 @@
         background: var(--b3-theme-surface);
         color: var(--b3-theme-on-surface);
         cursor: pointer;
+    }
+
+    .vc-icon-button {
+        width: 30px;
+        min-width: 30px;
+        padding: 0;
+        text-align: center;
+        font-size: 18px;
+        line-height: 1;
     }
 
     button:disabled {
@@ -513,29 +706,76 @@
         border-color: var(--b3-theme-primary);
     }
 
-    .vc-pager {
+    .vc-timeline {
         display: grid;
-        grid-template-columns: 1fr auto 1fr;
         gap: 6px;
+    }
+
+    .vc-timeline button {
+        display: grid;
+        grid-template-columns: 12px minmax(0, 1fr) auto;
+        gap: 8px;
         align-items: center;
+        text-align: left;
+    }
+
+    .vc-timeline button.selected {
+        border-color: var(--b3-theme-primary);
+        background: var(--b3-list-hover);
+    }
+
+    .vc-timeline strong {
+        display: grid;
+        gap: 2px;
+        overflow: hidden;
         font-size: 12px;
     }
 
-    .vc-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
+    .vc-timeline strong em,
+    .vc-timeline strong small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
-    .vc-tags span {
-        border: 1px solid var(--b3-border-color);
+    .vc-timeline strong em {
+        font-style: normal;
+    }
+
+    .vc-timeline strong small {
+        margin: 0;
+        font-weight: 400;
+    }
+
+    .vc-timeline span {
+        width: 8px;
+        height: 8px;
         border-radius: 999px;
-        padding: 2px 8px;
-        font-size: 12px;
+        background: var(--b3-theme-on-surface);
+    }
+
+    .vc-timeline small {
+        margin: 0;
+        color: var(--b3-theme-on-surface);
+        font-size: 11px;
+    }
+
+    .vc-timeline .added {
+        background: #2ea043;
+    }
+
+    .vc-timeline .removed {
+        background: #f85149;
+    }
+
+    .vc-timeline .modified {
+        background: #d29922;
     }
 
     .vc-main {
         min-width: 0;
+        min-height: 0;
+        height: 100%;
         display: grid;
         grid-template-rows: auto 1fr;
     }
@@ -549,10 +789,36 @@
         padding: 10px 12px;
     }
 
+    .vc-toolbar__meta {
+        min-width: 0;
+    }
+
+    .vc-toolbar__meta strong,
     .vc-toolbar span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vc-toolbar__meta strong {
+        display: inline-block;
+        max-width: 100%;
+        vertical-align: bottom;
+    }
+
+    .vc-toolbar span {
+        display: inline-block;
+        max-width: min(38vw, 260px);
         margin-left: 8px;
         color: var(--b3-theme-on-surface);
         font-size: 12px;
+    }
+
+    .vc-toolbar__actions {
+        display: flex;
+        flex: 0 0 auto;
+        gap: 8px;
+        align-items: center;
     }
 
     .vc-error {
@@ -565,69 +831,20 @@
 
     .vc-content {
         min-height: 0;
-        display: grid;
-        grid-template-columns: 260px minmax(0, 1fr);
-    }
-
-    .vc-files {
-        border-right: 1px solid var(--b3-border-color);
-        overflow: auto;
-        padding: 8px;
-    }
-
-    .vc-files button {
-        width: 100%;
-        display: grid;
-        grid-template-columns: 68px minmax(0, 1fr);
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 6px;
-        text-align: left;
-    }
-
-    .vc-files button.selected {
-        border-color: var(--b3-theme-primary);
-        background: var(--b3-list-hover);
-    }
-
-    .vc-files strong {
+        height: 100%;
         overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        font-size: 12px;
-    }
-
-    .vc-files span {
-        border-radius: 4px;
-        padding: 2px 5px;
-        text-align: center;
-        font-size: 11px;
-    }
-
-    .vc-files .added {
-        background: rgba(46, 160, 67, 0.2);
-        color: #2ea043;
-    }
-
-    .vc-files .removed {
-        background: rgba(248, 81, 73, 0.2);
-        color: #f85149;
-    }
-
-    .vc-files .modified {
-        background: rgba(210, 153, 34, 0.2);
-        color: #d29922;
     }
 
     .vc-diff {
         min-width: 0;
+        height: 100%;
         overflow: auto;
     }
 
     .vc-diff-head,
     .vc-diff-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
     }
 
     .vc-diff-head {
@@ -648,6 +865,29 @@
         min-width: 0;
         border-bottom: 1px solid var(--b3-border-color);
         padding: 8px 12px;
+    }
+
+    .vc-restore-column {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        border-bottom: 1px solid var(--b3-border-color);
+        border-left: 1px solid var(--b3-border-color);
+        border-right: 1px solid var(--b3-border-color);
+        padding: 8px 5px;
+        background: var(--b3-theme-background);
+    }
+
+    .vc-restore-column small {
+        max-width: 32px;
+        margin: 0;
+        overflow: hidden;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .vc-block.old.modified,
@@ -675,7 +915,8 @@
         white-space: nowrap;
     }
 
-    pre {
+    pre,
+    .vc-inline-diff {
         min-height: 22px;
         margin: 4px 0;
         white-space: pre-wrap;
@@ -685,10 +926,18 @@
         line-height: 1.55;
     }
 
-    .vc-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 8px;
+    .vc-diff-part {
+        border-radius: 3px;
+    }
+
+    .vc-diff-part.removed {
+        background: rgba(248, 81, 73, 0.28);
+        text-decoration: line-through;
+        text-decoration-thickness: 1px;
+    }
+
+    .vc-diff-part.added {
+        background: rgba(46, 160, 67, 0.28);
     }
 
     small {
@@ -703,17 +952,67 @@
         font-size: 13px;
     }
 
+    .vc-empty.compact {
+        padding: 8px 0;
+    }
+
     @media (max-width: 900px) {
-        .vc-shell,
-        .vc-content {
-            grid-template-columns: 1fr;
-            height: auto;
+        .vc-shell {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: auto minmax(0, 1fr);
+            height: 100%;
         }
 
-        .vc-sidebar,
-        .vc-files {
-            border-right: 0;
+        .vc-shell.timeline-collapsed {
+            grid-template-rows: minmax(0, 1fr);
+        }
+
+        .vc-shell.timeline-only {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: minmax(0, 1fr);
+            justify-content: stretch;
+        }
+
+        .vc-shell.timeline-only:not(.timeline-collapsed) .vc-main {
+            display: none;
+        }
+
+        .vc-main {
+            grid-row: 2;
+            min-height: 0;
+        }
+
+        .vc-sidebar {
+            grid-row: 1;
+            max-height: min(48vh, 420px);
+            border-left: 0;
             border-bottom: 1px solid var(--b3-border-color);
+        }
+
+        .vc-sidebar.collapsed + .vc-main,
+        .vc-shell.timeline-collapsed .vc-main {
+            grid-row: 1;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .vc-diff-head,
+        .vc-diff-grid {
+            grid-template-columns: minmax(0, 1fr) 36px;
+        }
+
+        .vc-diff-head div:nth-child(2) {
+            display: none;
+        }
+
+        .vc-block.old {
+            grid-column: 1 / -1;
+        }
+
+        .vc-restore-column {
+            grid-column: 2;
+            grid-row: span 1;
+            border-left: 1px solid var(--b3-border-color);
         }
     }
 </style>

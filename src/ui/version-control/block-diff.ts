@@ -1,4 +1,10 @@
 export type BlockDiffStatus = 'unchanged' | 'modified' | 'added' | 'removed';
+export type InlineDiffKind = 'same' | 'removed' | 'added';
+
+export interface InlineDiffPart {
+    text: string;
+    kind: InlineDiffKind;
+}
 
 export interface SnapshotBlock {
     id?: string;
@@ -18,6 +24,8 @@ export interface BlockDiffEntry {
     status: BlockDiffStatus;
     oldBlock?: SnapshotBlock;
     newBlock?: SnapshotBlock;
+    oldParts?: InlineDiffPart[];
+    newParts?: InlineDiffPart[];
     canAcceptBlock: boolean;
     acceptReason?: string;
 }
@@ -51,6 +59,18 @@ export interface RestoreAnchorSource {
     documentId?: string;
     oldFile?: RepoSnapshotFileChange;
     newFile?: RepoSnapshotFileChange;
+}
+
+export interface RestoreInsertPlan {
+    parentIDs: string[];
+    nextID?: string;
+    previousID?: string;
+}
+
+export interface RestoreBlockPayload {
+    dataType: 'markdown' | 'dom';
+    data: string;
+    id?: string;
 }
 
 const SIMPLE_BLOCK_TYPES = new Set(['p', 'h', 'i', 'c', 'b', 's', 't']);
@@ -199,6 +219,42 @@ export function getRestoreParentCandidates(entry: BlockDiffEntry, source?: Resto
     });
 }
 
+export function getRestoreInsertPlan(
+    entry: BlockDiffEntry,
+    entries: BlockDiffEntry[],
+    source?: RestoreAnchorSource,
+): RestoreInsertPlan {
+    const parentIDs = getRestoreParentCandidates(entry, source);
+    const nextID = findNearestCurrentSibling(entry, entries, 'after');
+    const previousID = findNearestCurrentSibling(entry, entries, 'before');
+    return {
+        parentIDs,
+        ...(nextID ? { nextID } : {}),
+        ...(previousID ? { previousID } : {}),
+    };
+}
+
+export function getRestoreBlockPayload(entry: BlockDiffEntry): RestoreBlockPayload {
+    const block = entry.oldBlock;
+    if (!block) return { dataType: 'markdown', data: '' };
+
+    const rawDom = typeof block.raw === 'string' ? block.raw.trim() : '';
+    if (rawDom && block.id && /data-node-id=["'][^"']+["']/i.test(rawDom)) {
+        return {
+            dataType: 'dom',
+            data: rawDom.replace(/data-node-id=(["'])[^"']+\1/i, `data-node-id="${block.id}"`),
+            id: block.id,
+        };
+    }
+
+    const markdown = block.markdown || block.text;
+    return {
+        dataType: 'markdown',
+        data: block.id ? withBlockIdIal(markdown, block.id) : markdown,
+        ...(block.id ? { id: block.id } : {}),
+    };
+}
+
 function createEntry(status: BlockDiffStatus, oldBlock?: SnapshotBlock, newBlock?: SnapshotBlock): BlockDiffEntry {
     const target = newBlock ?? oldBlock;
     const canAcceptBlock = status !== 'unchanged' && (
@@ -206,14 +262,154 @@ function createEntry(status: BlockDiffStatus, oldBlock?: SnapshotBlock, newBlock
             ? isSimpleAcceptableBlock(oldBlock)
             : isSimpleAcceptableBlock(target)
     );
+    const inlineParts = status === 'modified' && oldBlock && newBlock
+        ? diffInlineParts(oldBlock.markdown || oldBlock.text, newBlock.markdown || newBlock.text)
+        : undefined;
     return {
         key: `${status}:${oldBlock?.id ?? oldBlock?.order ?? 'none'}:${newBlock?.id ?? newBlock?.order ?? 'none'}`,
         status,
         oldBlock,
         newBlock,
+        ...(inlineParts ? { oldParts: inlineParts.oldParts, newParts: inlineParts.newParts } : {}),
         canAcceptBlock,
         ...(canAcceptBlock ? {} : { acceptReason: status === 'unchanged' ? '内容未变化' : '复杂块仅支持查看或整篇回档' }),
     };
+}
+
+function diffInlineParts(oldText: string, newText: string): { oldParts: InlineDiffPart[]; newParts: InlineDiffPart[] } {
+    const oldTokens = tokenizeInlineDiff(oldText);
+    const newTokens = tokenizeInlineDiff(newText);
+    const matches = buildLcsMatches(oldTokens, newTokens);
+    const oldParts: InlineDiffPart[] = [];
+    const newParts: InlineDiffPart[] = [];
+    let oldIndex = 0;
+    let newIndex = 0;
+
+    for (const match of matches) {
+        appendDiffPart(oldParts, oldTokens.slice(oldIndex, match.oldIndex).join(''), 'removed');
+        appendDiffPart(newParts, newTokens.slice(newIndex, match.newIndex).join(''), 'added');
+        appendDiffPart(oldParts, oldTokens[match.oldIndex], 'same');
+        appendDiffPart(newParts, newTokens[match.newIndex], 'same');
+        oldIndex = match.oldIndex + 1;
+        newIndex = match.newIndex + 1;
+    }
+
+    appendDiffPart(oldParts, oldTokens.slice(oldIndex).join(''), 'removed');
+    appendDiffPart(newParts, newTokens.slice(newIndex).join(''), 'added');
+
+    return { oldParts, newParts };
+}
+
+function tokenizeInlineDiff(value: string): string[] {
+    const tokens: string[] = [];
+    let buffer = '';
+    let bufferKind: 'word' | 'space' | 'punctuation' | undefined;
+
+    for (const char of Array.from(value)) {
+        if (isCjkChar(char)) {
+            flushInlineBuffer(tokens, buffer);
+            buffer = '';
+            bufferKind = undefined;
+            tokens.push(char);
+            continue;
+        }
+
+        const kind = getInlineTokenKind(char);
+        if (bufferKind && bufferKind !== kind) {
+            flushInlineBuffer(tokens, buffer);
+            buffer = '';
+        }
+        buffer += char;
+        bufferKind = kind;
+    }
+
+    flushInlineBuffer(tokens, buffer);
+    return tokens;
+}
+
+function flushInlineBuffer(tokens: string[], value: string): void {
+    if (value) tokens.push(value);
+}
+
+function getInlineTokenKind(char: string): 'word' | 'space' | 'punctuation' {
+    if (/\s/u.test(char)) return 'space';
+    if (/[\p{L}\p{N}_-]/u.test(char)) return 'word';
+    return 'punctuation';
+}
+
+function isCjkChar(char: string): boolean {
+    return /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(char);
+}
+
+function buildLcsMatches(oldTokens: string[], newTokens: string[]): Array<{ oldIndex: number; newIndex: number }> {
+    const rows = oldTokens.length + 1;
+    const cols = newTokens.length + 1;
+    const matrix = Array.from({ length: rows }, () => new Array<number>(cols).fill(0));
+
+    for (let oldIndex = oldTokens.length - 1; oldIndex >= 0; oldIndex -= 1) {
+        for (let newIndex = newTokens.length - 1; newIndex >= 0; newIndex -= 1) {
+            matrix[oldIndex][newIndex] = oldTokens[oldIndex] === newTokens[newIndex]
+                ? matrix[oldIndex + 1][newIndex + 1] + 1
+                : Math.max(matrix[oldIndex + 1][newIndex], matrix[oldIndex][newIndex + 1]);
+        }
+    }
+
+    const matches: Array<{ oldIndex: number; newIndex: number }> = [];
+    let oldIndex = 0;
+    let newIndex = 0;
+    while (oldIndex < oldTokens.length && newIndex < newTokens.length) {
+        if (oldTokens[oldIndex] === newTokens[newIndex]) {
+            matches.push({ oldIndex, newIndex });
+            oldIndex += 1;
+            newIndex += 1;
+        } else if (matrix[oldIndex + 1][newIndex] >= matrix[oldIndex][newIndex + 1]) {
+            oldIndex += 1;
+        } else {
+            newIndex += 1;
+        }
+    }
+
+    return matches;
+}
+
+function appendDiffPart(parts: InlineDiffPart[], text: string, kind: InlineDiffKind): void {
+    if (!text) return;
+    const previous = parts[parts.length - 1];
+    if (previous?.kind === kind) {
+        previous.text += text;
+        return;
+    }
+    parts.push({ text, kind });
+}
+
+function findNearestCurrentSibling(
+    entry: BlockDiffEntry,
+    entries: BlockDiffEntry[],
+    direction: 'before' | 'after',
+): string | undefined {
+    const oldBlock = entry.oldBlock;
+    if (!oldBlock) return undefined;
+    const candidates = entries
+        .filter((candidate) => {
+            if (candidate === entry || !candidate.newBlock?.id || !candidate.oldBlock) return false;
+            if (!sameRestoreScope(oldBlock, candidate.oldBlock)) return false;
+            return direction === 'before'
+                ? candidate.oldBlock.order < oldBlock.order
+                : candidate.oldBlock.order > oldBlock.order;
+        })
+        .sort((left, right) => {
+            return direction === 'before'
+                ? right.oldBlock!.order - left.oldBlock!.order
+                : left.oldBlock!.order - right.oldBlock!.order;
+        });
+    return candidates[0]?.newBlock?.id;
+}
+
+function sameRestoreScope(left: SnapshotBlock, right: SnapshotBlock): boolean {
+    const leftParent = left.parentID || left.rootID || '';
+    const rightParent = right.parentID || right.rootID || '';
+    if (!leftParent || !rightParent) return left.depth === right.depth;
+    return leftParent === rightParent;
 }
 
 function findBestOldBlock(newBlock: SnapshotBlock, oldBlocks: SnapshotBlock[], oldMatched: Set<number>): number {
@@ -312,6 +508,7 @@ function parseHtmlBlocks(content: string): SnapshotBlock[] {
             ...(subtype ? { subtype } : {}),
             text,
             markdown: text || decodeHtml(inner.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim()),
+            raw: match[0],
             order: blocks.length,
             depth: 0,
         });
@@ -356,6 +553,19 @@ function firstString(record: Record<string, unknown>, keys: string[]): string {
         if (typeof value === 'string' && value.trim()) return value;
     }
     return '';
+}
+
+function withBlockIdIal(markdown: string, id: string): string {
+    const trimmed = markdown.trimEnd();
+    if (!trimmed) return `{: id="${id}"}`;
+    if (new RegExp(`\\{:\\s+id=["']${escapeRegExp(id)}["']\\s*\\}\\s*$`, 'i').test(trimmed)) {
+        return trimmed;
+    }
+    return `${trimmed}\n{: id="${id}"}`;
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function parseTextBlocks(content: string): SnapshotBlock[] {
