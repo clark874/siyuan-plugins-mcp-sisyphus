@@ -13,19 +13,19 @@ Related pages:
 
 | Group | Actions |
 |------|---------|
-| Upload / export | `upload_asset`, `export_md`, `export_md_zip`, `export_resources`, `extract_doc` |
+| Upload / export | `upload_asset`, `export_md`, `export_resources`, `extract_doc` |
 | Rendering | `render` |
 | Asset inspection | `get_doc_assets`, `get_image_ocr_text`, `list_unused_assets` |
 | Asset mutations | `remove_unused_assets`, `rename_asset`, `delete_asset` |
 
-`get_doc_assets` is a direct-reference inspection action. It reports assets referenced by the current document tree and does not expand query embed blocks. When you need to inspect the complete resources that a Markdown export will contain, use `export_md_zip` and inspect the generated archive.
+`get_doc_assets` is a direct-reference inspection action. It reports assets referenced by the current document tree and does not expand query embed blocks. When you need to inspect the full document content and assets, use `extract_doc`.
 
 ## Safety Rules
 
 - `upload_asset` requires confirmation and reads a local file path as an explicit binary-transfer exception.
 - Large uploads need explicit large-file confirmation.
 - `delete_asset` and `remove_unused_assets` require confirmation.
-- `export_md_zip` and `export_resources` with a local output path should be treated carefully.
+- `export_resources` with a local output path should be treated carefully.
 - `extract_doc` writes to the local filesystem (default `~/siyuan-extracted/`) and clears the entire output directory before each export to prevent accumulation of old extracts.
 
 ## Examples
@@ -48,19 +48,19 @@ MCP:
 }
 ```
 
-This returns direct document-tree assets only. It is not a substitute for checking the resources included by the official Markdown ZIP export.
+This returns direct document-tree assets only. It is not a substitute for extracting the document when you need to inspect attachment content.
 
-Export a Markdown ZIP with SiYuan's official export flow:
+Extract a document and its assets into a local folder:
 
 ```json
 {
-  "action": "export_md_zip",
+  "action": "extract_doc",
   "id": "<doc-id>",
-  "outputPath": "/Users/me/export/doc.zip"
+  "outputDir": "/Users/me/siyuan-extracted"
 }
 ```
 
-`export_md_zip` follows SiYuan's right-click Markdown ZIP export behavior and includes assets referenced by expanded query embed blocks. Prefer it when the user asks to view or verify all resources that will be exported.
+`extract_doc` writes Markdown and referenced assets into an uncompressed folder so AI tools can inspect attachment content directly.
 
 Template rendering:
 
@@ -89,7 +89,7 @@ CLI:
 
 ```bash
 siyuan file get-doc-assets --id <doc-id> --asset-type image
-siyuan file export-md-zip --id <doc-id> --output-path ./doc.zip
+siyuan file extract-doc --id <doc-id> --output-dir ./siyuan-extracted
 ```
 
 ## Action List
@@ -97,7 +97,6 @@ siyuan file export-md-zip --id <doc-id> --output-path ./doc.zip
 - `upload_asset`
 - `render`
 - `export_md`
-- `export_md_zip`
 - `export_resources`
 - `list_unused_assets`
 - `get_doc_assets`

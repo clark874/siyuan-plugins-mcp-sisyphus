@@ -77,7 +77,6 @@ Before calling any of the following actions, you MUST clearly describe the actio
 
 **Actions that require confirmation:**
 ${dangerousActionsList}
-- \`file(action=”export_md_zip”, outputPath=...)\`
 - \`file(action=”export_resources”, outputPath=...)\`
 
 Flow: State “I will do X. Proceed?” and only call the tool after the user explicitly agrees.
@@ -87,8 +86,6 @@ Additional rules:
 - If file(action=”upload_asset”) targets a file larger than the configured large-upload threshold (10 MB by default), you MUST stop, tell the user, and only retry after explicit confirmation using confirmLargeFile=true.
 - file(action=”export_resources”) without outputPath only generates a ZIP in SiYuan's managed temp area.
 - file(action=”export_resources”, outputPath=...) writes to the local filesystem and MUST be treated as high-risk.
-- file(action=”export_md_zip”) without outputPath only generates a Markdown ZIP through SiYuan's official export flow.
-- file(action=”export_md_zip”, outputPath=...) writes to the local filesystem and MUST be treated as high-risk.
 
 ## Block insertion semantics
 

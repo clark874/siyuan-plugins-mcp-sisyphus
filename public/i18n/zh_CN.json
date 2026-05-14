@@ -376,6 +376,8 @@
     "desc_file_action_rename_asset": "重命名一个资源文件。",
     "file_action_delete_asset": "删除资源",
     "desc_file_action_delete_asset": "删除一个资源文件。",
+    "file_action_extract_doc": "提取文档",
+    "desc_file_action_extract_doc": "将文档及其引用的所有资源导出到一个自包含的未压缩文件夹中。",
     "file_action_set_image_alpha": "设置图片透明度",
     "desc_file_action_set_image_alpha": "设置图片资源的透明度。",
     "file_action_push_msg": "推送消息",

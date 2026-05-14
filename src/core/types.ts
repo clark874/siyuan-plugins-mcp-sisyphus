@@ -853,12 +853,6 @@ export const FileExportMdSchema = z.object({
     id: z.string().describe("Document ID to export"),
 });
 
-export const FileExportMdZipSchema = z.object({
-    action: z.literal("export_md_zip"),
-    id: z.string().describe("Document ID to export as the official Markdown ZIP archive"),
-    outputPath: z.string().optional().describe("Optional local absolute or relative filesystem path to save the exported ZIP"),
-});
-
 export const FileExportResourcesSchema = z.object({
     action: z.literal("export_resources"),
     paths: z.array(z.string()).describe("Paths to export"),

@@ -1,10 +1,8 @@
 import type { SiYuanClient } from './client';
 import type {
     IReqExportMdContent,
-    IReqExportMdZip,
     IReqExportResources,
     IResExportMdContent,
-    IResExportMdZip,
     IResExportResources,
 } from '../types/api';
 
@@ -35,19 +33,6 @@ export async function exportMdContent(
         id,
     };
     return client.request<IResExportMdContent>('/api/export/exportMdContent', request);
-}
-
-/**
- * Export document as the official Markdown ZIP archive.
- */
-export async function exportMdZip(
-    client: SiYuanClient,
-    id: string
-): Promise<IResExportMdZip> {
-    const request: IReqExportMdZip = {
-        id,
-    };
-    return client.request<IResExportMdZip>('/api/export/exportMd', request);
 }
 
 /**
