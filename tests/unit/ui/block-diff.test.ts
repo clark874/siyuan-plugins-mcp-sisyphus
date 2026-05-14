@@ -9,6 +9,7 @@ import {
     getRestoreInsertPlan,
     getRestoreParentCandidates,
     getSnapshotFileId,
+    getUpdateBlockPayload,
     parseSnapshotBlocks,
 } from '@/ui/version-control/block-diff';
 
@@ -34,6 +35,100 @@ describe('snapshot block diff', () => {
         expect(blocks[2].parentID).toBe('20260514120001-bbbbbbb');
     });
 
+    it('reconstructs markdown for JSON code blocks with language and body fields', () => {
+        const blocks = parseSnapshotBlocks(JSON.stringify({
+            children: [
+                {
+                    id: '20260514120001-bbbbbbb',
+                    type: 'c',
+                    content: 'python',
+                    fcontent: 'print("hello")',
+                },
+            ],
+        }));
+
+        expect(blocks[0]).toMatchObject({
+            text: 'print("hello")',
+            markdown: '```python\nprint("hello")\n```',
+        });
+    });
+
+    it('reconstructs code and formula bodies from nested snapshot fields', () => {
+        const blocks = parseSnapshotBlocks(JSON.stringify({
+            children: [
+                {
+                    id: 'nested-code',
+                    type: 'c',
+                    content: 'python',
+                    children: [
+                        { text: 'def answer():' },
+                        { text: '    return 42' },
+                    ],
+                },
+                {
+                    id: 'nested-math',
+                    type: 'm',
+                    content: {
+                        lines: [
+                            { text: 'a + b = \\phi' },
+                        ],
+                    },
+                },
+            ],
+        }));
+
+        expect(blocks[0].markdown).toBe('```python\ndef answer():\n    return 42\n```');
+        expect(blocks[1].markdown).toBe('$$\na + b = \\phi\n$$');
+    });
+
+    it('reconstructs markdown for formulas and list items', () => {
+        const blocks = parseSnapshotBlocks(JSON.stringify({
+            children: [
+                { id: 'math', type: 'm', content: 'a + b = \\phi' },
+                { id: 'bullet', type: 'i', subtype: 'u', content: 'plain bullet' },
+                { id: 'task', type: 'i', subtype: 'task', checked: false, content: 'todo item' },
+                { id: 'done', type: 'i', subtype: 'task', checked: true, content: 'done item' },
+                { id: 'ordered', type: 'i', subtype: 'o', marker: '3', content: 'ordered item' },
+            ],
+        }));
+
+        expect(blocks.map((block) => block.markdown)).toEqual([
+            '$$\na + b = \\phi\n$$',
+            '- plain bullet',
+            '- [ ] todo item',
+            '- [x] done item',
+            '3. ordered item',
+        ]);
+    });
+
+    it('reconstructs markdown for headings and blockquotes', () => {
+        const blocks = parseSnapshotBlocks(JSON.stringify({
+            children: [
+                { id: 'heading', type: 'h', subtype: 'h3', content: 'Section' },
+                { id: 'quote', type: 'b', content: 'first line\nsecond line' },
+            ],
+        }));
+
+        expect(blocks.map((block) => block.markdown)).toEqual([
+            '### Section',
+            '> first line\n> second line',
+        ]);
+    });
+
+    it('keeps explicit markdown and kramdown without wrapping them again', () => {
+        const blocks = parseSnapshotBlocks(JSON.stringify({
+            children: [
+                { id: 'explicit-code', type: 'c', content: 'python', markdown: '```python\nprint("kept")\n```' },
+                { id: 'explicit-task', type: 'i', subtype: 'task', content: 'todo', kramdown: '- [ ] already markdown' },
+            ],
+        }));
+
+        expect(blocks.map((block) => block.markdown)).toEqual([
+            '```python\nprint("kept")\n```',
+            '- [ ] already markdown',
+        ]);
+    });
+
     it('classifies added, removed, modified, and unchanged blocks', () => {
         const entries = diffBlocks(
             [
@@ -57,6 +152,43 @@ describe('snapshot block diff', () => {
 
         expect(entries.some((entry) => entry.status === 'unchanged')).toBe(true);
         expect(entries.some((entry) => entry.status === 'modified')).toBe(true);
+    });
+
+    it('keeps fenced code, math, tables, and lists intact when parsing markdown snapshots', () => {
+        const blocks = parseSnapshotBlocks([
+            '### 演示 Go 代码高亮',
+            '',
+            '```go',
+            'package main',
+            '',
+            'import "fmt"',
+            '',
+            'func main() {',
+            '\tfmt.Println("Hello, 世界")',
+            '}',
+            '```',
+            '',
+            '$$',
+            '\\frac{1}{',
+            '  \\sqrt{5}',
+            '}',
+            '$$',
+            '',
+            '|header 1|header 2|',
+            '| ----------| ----------|',
+            '|cell 1|cell 2|',
+            '',
+            '- [X] 发布思源',
+            '- [ ] 预约牙医',
+        ].join('\n'));
+
+        expect(blocks.map((block) => block.markdown)).toEqual([
+            '### 演示 Go 代码高亮',
+            '```go\npackage main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, 世界")\n}\n```',
+            '$$\n\\frac{1}{\n  \\sqrt{5}\n}\n$$',
+            '|header 1|header 2|\n| ----------| ----------|\n|cell 1|cell 2|',
+            '- [X] 发布思源\n- [ ] 预约牙医',
+        ]);
     });
 
     it('builds fine-grained inline parts for Chinese modified blocks', () => {
@@ -134,6 +266,38 @@ describe('snapshot block diff', () => {
         ]);
     });
 
+    it('lightly reconstructs markdown for SiYuan special block DOM', () => {
+        const blocks = parseSnapshotBlocks(`
+            <div data-node-id="20260514120006-ggggggg" data-type="NodeCodeBlock" data-subtype="python">print(&quot;hello&quot;)</div>
+            <div data-node-id="20260514120007-hhhhhhh" data-type="NodeMathBlock">a + b = \\phi</div>
+            <div data-node-id="20260514120008-iiiiiii" data-type="NodeListItem" data-subtype="task">todo from dom</div>
+        `);
+
+        expect(blocks.map((block) => block.markdown)).toEqual([
+            '```python\nprint("hello")\n```',
+            '$$\na + b = \\phi\n$$',
+            '- [ ] todo from dom',
+        ]);
+    });
+
+    it('reads SiYuan code block DOM from data-content instead of the language toolbar', () => {
+        const blocks = parseSnapshotBlocks(`
+            <div data-node-id="20260514120009-jjjjjjj" data-type="NodeCodeBlock" class="render-node" data-subtype="go" data-content="package main&#10;&#10;import &quot;fmt&quot;&#10;&#10;func main() {&#10;    fmt.Println(&quot;Hello&quot;)&#10;}">
+                <div spin="1"></div>
+                <div class="protyle-attr" contenteditable="false">​</div>
+            </div>
+            <div data-node-id="20260514120010-kkkkkkk" data-type="NodeCodeBlock" class="code-block">
+                <div class="protyle-action"><span class="protyle-action__language" contenteditable="false">java</span></div>
+                <div class="hljs"><div></div><div contenteditable="true" spellcheck="false">public class Hello {}</div></div>
+            </div>
+        `);
+
+        expect(blocks.map((block) => block.markdown)).toEqual([
+            '```go\npackage main\n\nimport "fmt"\n\nfunc main() {\n    fmt.Println("Hello")\n}\n```',
+            '```java\npublic class Hello {}\n```',
+        ]);
+    });
+
     it('restores removed DOM blocks with their original block id', () => {
         const [oldBlock] = parseSnapshotBlocks(`
             <div data-node-id="20260514120003-ddddddd" data-type="NodeParagraph">Old <strong>text</strong></div>
@@ -169,6 +333,94 @@ describe('snapshot block diff', () => {
             data: '**Gone**\n{: id="20260514120005-fffffff"}',
             id: '20260514120005-fffffff',
         });
+    });
+
+    it('updates existing code and math blocks with inner content only', () => {
+        expect(getUpdateBlockPayload({
+            key: 'modified-code',
+            status: 'modified',
+            canAcceptBlock: true,
+            oldBlock: {
+                id: 'code-old',
+                type: 'c',
+                text: 'package main',
+                markdown: '```go\npackage main\n\nimport "fmt"\n```',
+                order: 0,
+                depth: 0,
+            },
+            newBlock: {
+                id: 'code-new',
+                type: 'c',
+                text: 'gopackage main',
+                markdown: '```\ngopackage main\n```',
+                order: 0,
+                depth: 0,
+            },
+        })).toEqual({
+            dataType: 'markdown',
+            data: 'package main\n\nimport "fmt"',
+            id: 'code-old',
+        });
+
+        expect(getUpdateBlockPayload({
+            key: 'modified-math',
+            status: 'modified',
+            canAcceptBlock: true,
+            oldBlock: {
+                id: 'math-old',
+                type: 'm',
+                text: 'a + b',
+                markdown: '$$\na + b = \\phi\n$$',
+                order: 0,
+                depth: 0,
+            },
+        })).toEqual({
+            dataType: 'markdown',
+            data: 'a + b = \\phi',
+            id: 'math-old',
+        });
+    });
+
+    it('updates existing DOM-backed code blocks with DOM to preserve renderer language', () => {
+        expect(getUpdateBlockPayload({
+            key: 'modified-chart',
+            status: 'modified',
+            canAcceptBlock: true,
+            oldBlock: {
+                id: 'old-chart',
+                type: 'c',
+                subtype: 'echarts',
+                text: '{ "title": {} }',
+                markdown: '```echarts\n{ "title": {} }\n```',
+                raw: '<div data-node-id="old-chart" data-type="NodeCodeBlock" data-subtype="echarts" data-content="{ &quot;title&quot;: {} }"></div>',
+                order: 0,
+                depth: 0,
+            },
+            newBlock: {
+                id: 'new-chart',
+                type: 'c',
+                subtype: '',
+                text: '{ "title": {} }',
+                markdown: '{ "title": {} }',
+                order: 0,
+                depth: 0,
+            },
+        })).toEqual({
+            dataType: 'dom',
+            data: '<div data-node-id="new-chart" data-type="NodeCodeBlock" data-subtype="echarts" data-content="{ &quot;title&quot;: {} }"></div>',
+            id: 'new-chart',
+        });
+    });
+
+    it('allows math blocks to be restored at block level', () => {
+        const [entry] = diffBlocks(
+            [{ id: 'math', type: 'm', text: 'old', markdown: '$$\nold\n$$', order: 0, depth: 0 }],
+            [{ id: 'math', type: 'm', text: 'new', markdown: '$$\nnew\n$$', order: 0, depth: 0 }],
+        );
+
+        expect(entry.status).toBe('modified');
+        expect(entry.canAcceptBlock).toBe(true);
+        expect(entry.acceptReason).toBeUndefined();
     });
 
     it('builds restore parent candidates from block metadata before file fallback', () => {

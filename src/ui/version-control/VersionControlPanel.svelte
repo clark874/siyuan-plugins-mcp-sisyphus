@@ -4,6 +4,7 @@
     import {
         buildChangedFiles,
         diffSnapshotBlocks,
+        getUpdateBlockPayload,
         getRestoreBlockPayload,
         getRestoreInsertPlan,
         getSnapshotFileId,
@@ -362,10 +363,11 @@
         applying = true;
         try {
             if (entry.status === "modified" && entry.newBlock?.id && entry.oldBlock) {
+                const updatePayload = getUpdateBlockPayload(entry);
                 await post("/api/block/updateBlock", {
                     id: entry.newBlock.id,
-                    dataType: "markdown",
-                    data: entry.oldBlock.markdown || entry.oldBlock.text,
+                    dataType: updatePayload.dataType,
+                    data: updatePayload.data,
                 });
             } else if (entry.status === "added" && entry.newBlock?.id) {
                 await post("/api/block/deleteBlock", { id: entry.newBlock.id });
@@ -633,6 +635,9 @@
     }
 
     .vc-sidebar {
+        position: relative;
+        z-index: 2;
+        grid-column: 2;
         min-height: 0;
         box-sizing: border-box;
         border-left: 1px solid var(--b3-border-color);
@@ -773,11 +778,15 @@
     }
 
     .vc-main {
+        position: relative;
+        z-index: 1;
+        grid-column: 1;
         min-width: 0;
         min-height: 0;
         height: 100%;
         display: grid;
         grid-template-rows: auto 1fr;
+        overflow: hidden;
     }
 
     .vc-toolbar {
@@ -978,11 +987,13 @@
         }
 
         .vc-main {
+            grid-column: 1;
             grid-row: 2;
             min-height: 0;
         }
 
         .vc-sidebar {
+            grid-column: 1;
             grid-row: 1;
             max-height: min(48vh, 420px);
             border-left: 0;
