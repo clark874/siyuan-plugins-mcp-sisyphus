@@ -8,6 +8,7 @@ import {
     filterChangedUniqueTimelineEntries,
     formatSnapshotTime,
     isTimelineSnapshot,
+    selectInitialTimelineEntry,
     snapshotLabel,
     sortSnapshotsNewestFirst,
     TIMELINE_TAG_PREFIX,
@@ -101,6 +102,16 @@ describe('snapshot document timeline', () => {
         ]);
 
         expect(entries.map((entry) => entry.snapshot.id)).toEqual(['new', 'other']);
+    });
+
+    it('selects the current document newest entry when opening without an existing selection', () => {
+        const oldEntry = createEntry('old', '2026-05-01T00:00:00Z');
+        const selectedEntry = createEntry('selected', '2026-05-03T00:00:00Z');
+        const otherDocEntry = { ...createEntry('other', '2026-05-04T00:00:00Z'), documentKey: 'doc-2' };
+
+        expect(selectInitialTimelineEntry([oldEntry, selectedEntry, otherDocEntry], 'doc-1')?.key).toBe('selected');
+        expect(selectInitialTimelineEntry([oldEntry, selectedEntry, otherDocEntry], 'doc-1', 'selected')?.key).toBe('selected');
+        expect(selectInitialTimelineEntry([oldEntry, selectedEntry, otherDocEntry], 'doc-3')).toBeUndefined();
     });
 
     it('formats snapshot time using created, updated, hCreated, then raw fallback', () => {
