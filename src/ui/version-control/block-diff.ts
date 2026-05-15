@@ -30,6 +30,11 @@ export interface BlockDiffEntry {
     acceptReason?: string;
 }
 
+export interface BlockDiffLineStats {
+    added: number;
+    removed: number;
+}
+
 export interface RepoSnapshotFileChange {
     id?: string;
     fileID?: string;
@@ -73,7 +78,7 @@ export interface RestoreBlockPayload {
     id?: string;
 }
 
-const SIMPLE_BLOCK_TYPES = new Set(['p', 'h', 'i', 'c', 'm', 'b', 's', 't']);
+const SIMPLE_BLOCK_TYPES = new Set(['p', 'h', 'i', 'l', 'c', 'm', 'b', 's', 't']);
 const CHILD_KEYS = ['children', 'blocks', 'content', 'items', 'rows'];
 
 export function parseSnapshotBlocks(content: string): SnapshotBlock[] {
@@ -97,6 +102,16 @@ export function parseSnapshotBlocks(content: string): SnapshotBlock[] {
 
 export function diffSnapshotBlocks(oldContent: string, newContent: string): BlockDiffEntry[] {
     return diffBlocks(parseSnapshotBlocks(oldContent), parseSnapshotBlocks(newContent));
+}
+
+export function getBlockDiffLineStats(entries: BlockDiffEntry[]): BlockDiffLineStats {
+    return entries.reduce<BlockDiffLineStats>((stats, entry) => {
+        const entryStats = getEntryLineStats(entry);
+        return {
+            added: stats.added + entryStats.added,
+            removed: stats.removed + entryStats.removed,
+        };
+    }, { added: 0, removed: 0 });
 }
 
 export function diffBlocks(oldBlocks: SnapshotBlock[], newBlocks: SnapshotBlock[]): BlockDiffEntry[] {
@@ -239,7 +254,7 @@ export function getRestoreBlockPayload(entry: BlockDiffEntry): RestoreBlockPaylo
     if (!block) return { dataType: 'markdown', data: '' };
 
     const rawDom = typeof block.raw === 'string' ? block.raw.trim() : '';
-    if (rawDom && block.id && /data-node-id=["'][^"']+["']/i.test(rawDom)) {
+    if (shouldWriteRawDom(block, block.id, rawDom)) {
         return {
             dataType: 'dom',
             data: rawDom.replace(/data-node-id=(["'])[^"']+\1/i, `data-node-id="${block.id}"`),
@@ -260,7 +275,7 @@ export function getUpdateBlockPayload(entry: BlockDiffEntry): RestoreBlockPayloa
     if (!block) return { dataType: 'markdown', data: '' };
 
     const rawDom = typeof block.raw === 'string' ? block.raw.trim() : '';
-    if (rawDom && entry.newBlock?.id && /data-node-id=["'][^"']+["']/i.test(rawDom)) {
+    if (shouldWriteRawDom(block, entry.newBlock?.id, rawDom)) {
         return {
             dataType: 'dom',
             data: rawDom.replace(/data-node-id=(["'])[^"']+\1/i, `data-node-id="${entry.newBlock.id}"`),
@@ -311,6 +326,56 @@ function createEntry(status: BlockDiffStatus, oldBlock?: SnapshotBlock, newBlock
         canAcceptBlock,
         ...(canAcceptBlock ? {} : { acceptReason: status === 'unchanged' ? '内容未变化' : '复杂块仅支持查看或整篇回档' }),
     };
+}
+
+function shouldWriteRawDom(block: SnapshotBlock, targetId: string | undefined, rawDom: string): targetId is string {
+    if (!targetId || !rawDom || !/data-node-id=["'][^"']+["']/i.test(rawDom)) return false;
+    return isCodeBlock(block.type, block.subtype);
+}
+
+function getEntryLineStats(entry: BlockDiffEntry): BlockDiffLineStats {
+    if (entry.status === 'unchanged') return { added: 0, removed: 0 };
+    if (entry.status === 'added') return { added: countDisplayLines(getBlockDisplayText(entry.newBlock)), removed: 0 };
+    if (entry.status === 'removed') return { added: 0, removed: countDisplayLines(getBlockDisplayText(entry.oldBlock)) };
+
+    if (entry.oldParts || entry.newParts) {
+        return {
+            added: countChangedPartLines(entry.newParts, 'added'),
+            removed: countChangedPartLines(entry.oldParts, 'removed'),
+        };
+    }
+
+    return {
+        added: countDisplayLines(getBlockDisplayText(entry.newBlock)),
+        removed: countDisplayLines(getBlockDisplayText(entry.oldBlock)),
+    };
+}
+
+function getBlockDisplayText(block: SnapshotBlock | undefined): string {
+    return block?.markdown || block?.text || '';
+}
+
+function countDisplayLines(value: string): number {
+    if (!value) return 0;
+    return value.replace(/\r\n/g, '\n').replace(/\n$/u, '').split('\n').length;
+}
+
+function countChangedPartLines(parts: InlineDiffPart[] | undefined, kind: InlineDiffKind): number {
+    if (!parts?.length) return 0;
+    const changedLines = new Set<number>();
+    let lineIndex = 0;
+
+    for (const part of parts) {
+        const lineBreaks = (part.text.match(/\n/g) ?? []).length;
+        if (part.kind === kind && part.text.length > 0) {
+            for (let offset = 0; offset <= lineBreaks; offset += 1) {
+                changedLines.add(lineIndex + offset);
+            }
+        }
+        lineIndex += lineBreaks;
+    }
+
+    return changedLines.size;
 }
 
 function diffInlineParts(oldText: string, newText: string): { oldParts: InlineDiffPart[]; newParts: InlineDiffPart[] } {
@@ -537,6 +602,7 @@ function parseHtmlBlocks(content: string): SnapshotBlock[] {
         if (!id) continue;
         const domType = getAttr(attrs, 'data-type');
         const type = normalizeDomBlockType(domType);
+        if (type === 'l' && hasNestedListItems(inner)) continue;
         const subtype = getAttr(attrs, 'data-subtype');
         const parentID = getAttr(attrs, 'data-parent-id');
         const rootID = getAttr(attrs, 'data-root-id') || getAttr(attrs, 'data-doc-id') || (type === 'd' ? id : undefined);
@@ -586,10 +652,17 @@ function extractHtmlNodeBlocks(content: string): Array<{ attrs: string; inner: s
             inner: content.slice(openEnd, closeStart),
             raw: content.slice(match.index, closeEnd),
         });
+        if (normalizeDomBlockType(getAttr(attrs, 'data-type')) === 'l') {
+            nodes.push(...extractHtmlNodeBlocks(content.slice(openEnd, closeStart)));
+        }
         startPattern.lastIndex = closeEnd;
     }
 
     return nodes;
+}
+
+function hasNestedListItems(inner: string): boolean {
+    return /\bdata-type=["']NodeListItem["']/i.test(inner);
 }
 
 function findMatchingHtmlClose(content: string, tag: string, start: number): number {
@@ -736,7 +809,8 @@ function buildHtmlSnapshotMarkdown(
     inner: string,
     attrs = '',
 ): string {
-    const fallback = text || decodeHtml(inner.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim());
+    const markdown = htmlInlineToMarkdown(inner);
+    const fallback = markdown || text || decodeHtml(inner.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim());
     if (!fallback) return '';
 
     if (isCodeBlock(type, subtype)) {
@@ -765,6 +839,75 @@ function buildHtmlSnapshotMarkdown(
     }
 
     return fallback;
+}
+
+function htmlInlineToMarkdown(html: string): string {
+    let value = removeProtyleActionToolbar(html)
+        .replace(/<div\b(?=[^>]*class=["'][^"']*protyle-attr[^"']*["'])[^>]*>[\s\S]*?<\/div>/gi, '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/div>\s*<div\b[^>]*>/gi, '\n');
+
+    value = value.replace(/<img\b([^>]*)>/gi, (_match, attrs: string) => {
+        const src = decodeHtml(getAttr(attrs, 'src') ?? '');
+        if (!src) return '';
+        const alt = decodeHtml(getAttr(attrs, 'alt') ?? '');
+        return `![${alt}](${src})`;
+    });
+
+    value = replacePairedInlineTag(value, 'a', (attrs, content) => {
+        const href = decodeHtml(getAttr(attrs, 'href') ?? getAttr(attrs, 'data-href') ?? '');
+        return href ? `[${content}](${href})` : content;
+    });
+    value = replacePairedInlineTag(value, 'strong|b', (_attrs, content) => `**${content}**`);
+    value = replacePairedInlineTag(value, 'em|i', (_attrs, content) => `*${content}*`);
+    value = replacePairedInlineTag(value, 's|strike|del', (_attrs, content) => `~~${content}~~`);
+    value = replacePairedInlineTag(value, 'u', (_attrs, content) => `<u>${content}</u>`);
+    value = replacePairedInlineTag(value, 'mark', (_attrs, content) => `==${content}==`);
+    value = replacePairedInlineTag(value, 'sup', (_attrs, content) => `^${content}^`);
+    value = replacePairedInlineTag(value, 'sub', (_attrs, content) => `~${content}~`);
+    value = replacePairedInlineTag(value, 'code', (_attrs, content) => `\`${content}\``);
+    value = replacePairedInlineTag(value, 'span', (attrs, content) => wrapInlineMarkdownByDataType(content, attrs));
+
+    return decodeHtml(stripUnconvertedHtml(value)).trim();
+}
+
+function replacePairedInlineTag(
+    value: string,
+    tagPattern: string,
+    replace: (attrs: string, content: string) => string,
+): string {
+    const pattern = new RegExp(`<(${tagPattern})\\b([^>]*)>([\\s\\S]*?)<\\/\\1>`, 'gi');
+    let previous = '';
+    let next = value;
+    while (next !== previous) {
+        previous = next;
+        next = next.replace(pattern, (_match, _tag: string, attrs: string, content: string) => replace(attrs, content));
+    }
+    return next;
+}
+
+function wrapInlineMarkdownByDataType(content: string, attrs: string): string {
+    const rawType = getAttr(attrs, 'data-type') ?? '';
+    const types = rawType.split(/\s+/).filter(Boolean);
+    if (types.includes('a')) {
+        const href = decodeHtml(getAttr(attrs, 'data-href') ?? getAttr(attrs, 'href') ?? '');
+        return href ? `[${content}](${href})` : content;
+    }
+
+    let result = content;
+    if (types.includes('code')) result = `\`${result}\``;
+    if (types.includes('strong')) result = `**${result}**`;
+    if (types.includes('em')) result = `*${result}*`;
+    if (types.includes('s') || types.includes('strike') || types.includes('del')) result = `~~${result}~~`;
+    if (types.includes('u')) result = `<u>${result}</u>`;
+    if (types.includes('mark')) result = `==${result}==`;
+    if (types.includes('sup')) result = `^${result}^`;
+    if (types.includes('sub')) result = `~${result}~`;
+    return result;
+}
+
+function stripUnconvertedHtml(value: string): string {
+    return value.replace(/<[^>]+>/g, (tag) => /^<\/?u(?:\s|>)/i.test(tag) ? tag : '');
 }
 
 function isCodeBlock(type: string | undefined, subtype: string | undefined): boolean {
@@ -1089,19 +1232,31 @@ function collectParagraph(lines: string[], start: number): { chunk: string; next
 }
 
 function collectListBlock(lines: string[], start: number): { chunk: string; nextIndex: number } {
+    const baseIndent = getListIndent(lines[start]);
     let index = start + 1;
     while (index < lines.length) {
         const line = lines[index];
         if (isBlankLine(line)) {
             const nextContentIndex = findNextNonBlankLine(lines, index + 1);
-            if (nextContentIndex < 0 || !isIndentedContinuation(lines[nextContentIndex]) && !isListLine(lines[nextContentIndex])) {
+            if (nextContentIndex < 0) {
                 break;
             }
+            const nextLine = lines[nextContentIndex];
+            const nextListIndent = getListIndent(nextLine);
+            if (nextListIndent >= 0 && nextListIndent <= baseIndent) break;
+            if (!isIndentedContinuation(nextLine) && nextListIndent < 0) break;
             index += 1;
             continue;
         }
 
-        if (isListLine(line) || isIndentedContinuation(line)) {
+        const listIndent = getListIndent(line);
+        if (listIndent >= 0) {
+            if (listIndent <= baseIndent) break;
+            index += 1;
+            continue;
+        }
+
+        if (isIndentedContinuation(line)) {
             index += 1;
             continue;
         }
@@ -1154,6 +1309,12 @@ function isHorizontalRule(line: string): boolean {
 
 function isListLine(line: string): boolean {
     return /^(\s*)([-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/.test(line);
+}
+
+function getListIndent(line: string | undefined): number {
+    const match = line?.match(/^(\s*)([-*+]|\d+[.)])\s+(?:\[[ xX]\]\s+)?/);
+    if (!match) return -1;
+    return match[1].replace(/\t/g, '    ').length;
 }
 
 function isIndentedContinuation(line: string): boolean {

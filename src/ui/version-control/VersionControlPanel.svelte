@@ -4,6 +4,7 @@
     import {
         buildChangedFiles,
         diffSnapshotBlocks,
+        getBlockDiffLineStats,
         getUpdateBlockPayload,
         getRestoreBlockPayload,
         getRestoreInsertPlan,
@@ -18,6 +19,7 @@
         formatSnapshotTime,
         getDocumentKey,
         isTimelineSnapshot,
+        selectInitialTimelineEntry,
         snapshotLabel,
         sortSnapshotsNewestFirst,
         type TimelineEntry,
@@ -26,6 +28,28 @@
     } from "./timeline";
 
     type Snapshot = TimelineSnapshot;
+    type CompareMode = "unified" | "split";
+    type DiffEntryDisplayItem = {
+        kind: "entry";
+        key: string;
+        entry: BlockDiffEntry;
+        changeIndex: number;
+        position: number;
+    };
+    type DiffHiddenDisplayItem = {
+        kind: "hidden";
+        key: string;
+        count: number;
+        position: number;
+        entries: DiffEntryDisplayItem[];
+    };
+    type DiffDisplayItem = DiffEntryDisplayItem | DiffHiddenDisplayItem;
+    type DiffMinimapItem = {
+        key: string;
+        entry: BlockDiffEntry;
+        displayIndex: number;
+        total: number;
+    };
 
     type SnapshotFileContent = {
         title?: string;
@@ -33,9 +57,11 @@
         displayInText?: boolean;
         updated?: string | number;
     };
-
     const CURRENT_SNAPSHOT_MEMO_PREFIX = "[Sisyphus Timeline Current]";
+    const ROOT_TIMELINE_SNAPSHOT_LABEL = "root";
     const TIMELINE_AUTO_COLLAPSE_WIDTH = 920;
+    const UNCHANGED_CONTEXT_BLOCKS = 1;
+    const MINIMAP_UNIT_HEIGHT = 34;
 
     export let currentDocumentId = "";
     export let currentDocumentTitle = "";
@@ -60,12 +86,18 @@
     let resolvedDocumentTitle = "";
     let mounted = false;
     let loadedDocumentId = "";
-    let timelineCollapsed = false;
+    let timelineCollapsed = true;
     let autoTimelineCollapsed = false;
     let forceTimelineExpanded = false;
+    let compareMode: CompareMode = "unified";
     let refreshingSelection = false;
+    let expandedHiddenKeys = new Set<string>();
     let shellElement: HTMLDivElement;
+    let diffElement: HTMLElement;
     let shellResizeObserver: ResizeObserver | undefined;
+    let diffViewportTop = 0;
+    let diffViewportHeight = 100;
+    let diffMinimapCapacity = 1;
 
     $: documentEntries = currentDocumentId ? timelineEntries.filter((entry) => entry.documentKey === currentDocumentId) : [];
     $: selectedEntry = documentEntries.find((entry) => entry.key === selectedEntryKey);
@@ -78,6 +110,31 @@
     $: selectedSnapshotTitle = selectedEntry ? snapshotLabel(selectedEntry.snapshot) : "";
     $: selectedSnapshotTime = selectedEntry ? formatSnapshotTime(selectedEntry.snapshot) : "";
     $: currentSnapshotTime = currentSnapshot ? formatSnapshotTime(currentSnapshot) : "";
+    $: diffLineStats = getBlockDiffLineStats(blockEntries);
+    $: diffDisplayItems = buildDiffDisplayItems(blockEntries);
+    $: hiddenDisplayItems = diffDisplayItems.filter((item): item is DiffHiddenDisplayItem => item.kind === "hidden");
+    $: hasHiddenBlocks = hiddenDisplayItems.length > 0;
+    $: allHiddenExpanded = hasHiddenBlocks && hiddenDisplayItems.every((item) => expandedHiddenKeys.has(item.key));
+    $: diffMinimapItems = buildDiffMinimapItems(diffDisplayItems, expandedHiddenKeys, diffMinimapCapacity);
+    $: compareModeTitle = compareMode === "unified"
+        ? t("timeline_compare_split_title", "切换到并排对比")
+        : t("timeline_compare_unified_title", "切换到统一对比");
+    $: compareModeAction = compareMode === "unified"
+        ? t("timeline_action_compare_split", "并排对比")
+        : t("timeline_action_compare_unified", "统一对比");
+    $: changeSummaryLabel = t("timeline_change_summary", "新增 ${added} 行，删除 ${removed} 行", {
+        added: diffLineStats.added,
+        removed: diffLineStats.removed,
+    });
+    $: hiddenToggleTitle = allHiddenExpanded
+        ? t("timeline_action_collapse_all_hidden", "折叠所有隐藏块")
+        : t("timeline_action_expand_all_hidden", "展开所有隐藏块");
+    $: if (mounted) {
+        diffDisplayItems;
+        compareMode;
+        selectedEntryKey;
+        queueDiffViewportUpdate();
+    }
     $: if (mounted && currentDocumentId !== loadedDocumentId && !loadingSnapshots) {
         void loadTimeline();
     }
@@ -107,6 +164,166 @@
             forceTimelineExpanded = false;
         }
         timelineCollapsed = !timelineCollapsed;
+    }
+
+    function toggleCompareMode() {
+        compareMode = compareMode === "unified" ? "split" : "unified";
+    }
+
+    function toggleHiddenBlock(key: string) {
+        const next = new Set(expandedHiddenKeys);
+        if (next.has(key)) {
+            next.delete(key);
+        } else {
+            next.add(key);
+        }
+        expandedHiddenKeys = next;
+        queueDiffViewportUpdate();
+    }
+
+    function toggleAllHiddenBlocks() {
+        if (!hasHiddenBlocks) return;
+        expandedHiddenKeys = allHiddenExpanded
+            ? new Set()
+            : new Set(hiddenDisplayItems.map((item) => item.key));
+        queueDiffViewportUpdate();
+    }
+
+    function handleDiffScroll() {
+        updateDiffViewport();
+    }
+
+    function queueDiffViewportUpdate() {
+        const run = () => updateDiffViewport();
+        if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(run);
+        } else {
+            setTimeout(run, 0);
+        }
+    }
+
+    function updateDiffViewport() {
+        if (!diffElement) {
+            diffViewportTop = 0;
+            diffViewportHeight = 100;
+            diffMinimapCapacity = 1;
+            return;
+        }
+        const scrollHeight = Math.max(diffElement.scrollHeight, 1);
+        const clientHeight = Math.max(diffElement.clientHeight, 1);
+        const maxTop = Math.max(0, 100 - (clientHeight / scrollHeight) * 100);
+        diffViewportHeight = Math.min(100, Math.max(8, (clientHeight / scrollHeight) * 100));
+        diffViewportTop = Math.min(maxTop, Math.max(0, (diffElement.scrollTop / scrollHeight) * 100));
+        diffMinimapCapacity = Math.max(1, Math.ceil(clientHeight / MINIMAP_UNIT_HEIGHT));
+    }
+
+    function buildDiffDisplayItems(entries: BlockDiffEntry[]): DiffDisplayItem[] {
+        const items: DiffDisplayItem[] = [];
+        const changedIndexes = new Set(entries
+            .map((entry, index) => entry.status === "unchanged" ? -1 : index)
+            .filter((index) => index >= 0));
+        let hiddenCount = 0;
+        let hiddenStart = 0;
+        let hiddenEntries: DiffEntryDisplayItem[] = [];
+        let changeIndex = 0;
+
+        entries.forEach((entry, index) => {
+            const shouldShowUnchanged = entry.status === "unchanged" && hasNearbyChange(index, changedIndexes);
+            if (entry.status === "unchanged" && !shouldShowUnchanged) {
+                if (hiddenCount === 0) hiddenStart = index;
+                hiddenCount += 1;
+                hiddenEntries.push({
+                    kind: "entry",
+                    key: entry.key,
+                    entry,
+                    changeIndex: -1,
+                    position: index,
+                });
+                return;
+            }
+
+            if (hiddenCount > 0) {
+                items.push({
+                    kind: "hidden",
+                    key: `hidden:${hiddenStart}:${hiddenCount}`,
+                    count: hiddenCount,
+                    position: hiddenStart,
+                    entries: hiddenEntries,
+                });
+                hiddenCount = 0;
+                hiddenEntries = [];
+            }
+
+            items.push({
+                kind: "entry",
+                key: entry.key,
+                entry,
+                changeIndex: entry.status === "unchanged" ? -1 : changeIndex,
+                position: index,
+            });
+            if (entry.status !== "unchanged") changeIndex += 1;
+        });
+
+        if (hiddenCount > 0) {
+            items.push({
+                kind: "hidden",
+                key: `hidden:${hiddenStart}:${hiddenCount}`,
+                count: hiddenCount,
+                position: hiddenStart,
+                entries: hiddenEntries,
+            });
+        }
+
+        return items;
+    }
+
+    function hasNearbyChange(index: number, changedIndexes: Set<number>): boolean {
+        for (let offset = 1; offset <= UNCHANGED_CONTEXT_BLOCKS; offset += 1) {
+            if (changedIndexes.has(index - offset) || changedIndexes.has(index + offset)) return true;
+        }
+        return false;
+    }
+
+    function hiddenBlocksText(count: number): string {
+        return t("timeline_hidden_blocks", "${count} 个隐藏的块", { count });
+    }
+
+    function buildDiffMinimapItems(items: DiffDisplayItem[], expandedKeys: Set<string>, capacity: number): DiffMinimapItem[] {
+        const changes: Array<Omit<DiffMinimapItem, "total">> = [];
+        let displayIndex = 0;
+
+        for (const item of items) {
+            if (item.kind === "hidden") {
+                if (expandedKeys.has(item.key)) {
+                    for (const hiddenEntry of item.entries) {
+                        if (hiddenEntry.entry.status !== "unchanged") {
+                            changes.push({ key: hiddenEntry.key, entry: hiddenEntry.entry, displayIndex });
+                        }
+                        displayIndex += 1;
+                    }
+                } else {
+                    displayIndex += 1;
+                }
+                continue;
+            }
+
+            if (item.entry.status !== "unchanged") {
+                changes.push({ key: item.key, entry: item.entry, displayIndex });
+            }
+            displayIndex += 1;
+        }
+
+        const total = Math.max(displayIndex, capacity, 1);
+        return changes.map((item) => ({ ...item, total }));
+    }
+
+    function minimapTop(item: DiffMinimapItem): number {
+        if (item.total <= 1) return 0;
+        return Math.min(98, Math.max(0, (item.displayIndex / item.total) * 100));
+    }
+
+    function minimapHeight(item: DiffMinimapItem): number {
+        return Math.min(18, Math.max(4, 100 / item.total));
     }
 
     function post<T>(endpoint: string, data: Record<string, unknown> = {}): Promise<T> {
@@ -148,7 +365,7 @@
         try {
             await refreshDocumentTitle();
             const data = await post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoTagSnapshots", {});
-            taggedSnapshots = sortSnapshotsNewestFirst((data.snapshots ?? []).filter(isTimelineSnapshot));
+            taggedSnapshots = await ensureRootTimelineSnapshot(sortSnapshotsNewestFirst((data.snapshots ?? []).filter(isTimelineSnapshot)));
             currentSnapshot = currentDocumentId ? await createCurrentSnapshot() : null;
             const entryContents: TimelineEntryContent[] = [];
             const contentCache = new Map<string, string>();
@@ -160,7 +377,16 @@
                         right: currentSnapshot.id,
                     });
                     const changedFile = findChangedFileForCurrentDocument(buildChangedFiles(diff));
-                    if (!changedFile) continue;
+                    if (!changedFile) {
+                        if (isRootTimelineSnapshot(snapshot)) {
+                            entryContents.push({
+                                entry: createRootTimelineEntry(snapshot, currentSnapshot),
+                                oldContent: ROOT_TIMELINE_SNAPSHOT_LABEL,
+                                newContent: `${ROOT_TIMELINE_SNAPSHOT_LABEL}:${currentSnapshot.id}`,
+                            });
+                        }
+                        continue;
+                    }
                     const entry = createCurrentComparisonEntry(snapshot, currentSnapshot, changedFile);
                     const [oldSnapshotContent, newSnapshotContent] = await Promise.all([
                         readSnapshotFileContent(entry.oldFileId, contentCache),
@@ -175,9 +401,7 @@
             }
 
             timelineEntries = filterChangedUniqueTimelineEntries(entryContents);
-            const nextEntry = selectedEntryKey
-                ? timelineEntries.find((entry) => entry.key === selectedEntryKey)
-                : undefined;
+            const nextEntry = selectInitialTimelineEntry(timelineEntries, currentDocumentId, selectedEntryKey);
             selectedEntryKey = nextEntry?.key ?? "";
             if (nextEntry) await loadTimelineEntry(nextEntry);
         } catch (err) {
@@ -186,6 +410,27 @@
             loadingSnapshots = false;
             loadingDiff = false;
         }
+    }
+
+    async function ensureRootTimelineSnapshot(snapshots: Snapshot[]): Promise<Snapshot[]> {
+        if (!currentDocumentId || hasRootTimelineSnapshot(snapshots)) return snapshots;
+        await post("/api/repo/createSnapshot", { memo: ROOT_TIMELINE_SNAPSHOT_LABEL });
+        const snapshot = await findNewestSnapshotForMemo(ROOT_TIMELINE_SNAPSHOT_LABEL);
+        if (!snapshot?.id) throw new Error(t("timeline_error_root_snapshot_not_found", "根快照已创建，但未能定位"));
+        await post("/api/repo/tagSnapshot", {
+            id: snapshot.id,
+            name: createTimelineTagName(ROOT_TIMELINE_SNAPSHOT_LABEL, snapshots),
+        });
+        const data = await post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoTagSnapshots", {});
+        return sortSnapshotsNewestFirst((data.snapshots ?? []).filter(isTimelineSnapshot));
+    }
+
+    function hasRootTimelineSnapshot(snapshots: Snapshot[]): boolean {
+        return snapshots.some((snapshot) => snapshotLabel(snapshot) === ROOT_TIMELINE_SNAPSHOT_LABEL);
+    }
+
+    function isRootTimelineSnapshot(snapshot: Snapshot): boolean {
+        return snapshotLabel(snapshot) === ROOT_TIMELINE_SNAPSHOT_LABEL;
     }
 
     async function refreshDocumentTitle() {
@@ -235,7 +480,29 @@
             file,
             oldFileId,
             newFileId,
+            hasDiff: true,
             updated: file.newFile?.updated ?? file.oldFile?.updated ?? snapshot.updated ?? snapshot.created,
+        };
+    }
+
+    function createRootTimelineEntry(snapshot: Snapshot, current: Snapshot): TimelineEntry {
+        return {
+            key: `${snapshot.id}:${current.id}:${currentDocumentId}:root`,
+            documentKey: currentDocumentId,
+            title: currentDocumentTitle || currentDocumentId,
+            kind: "modified",
+            snapshot,
+            previousSnapshot: current,
+            file: {
+                key: `${currentDocumentId}:root`,
+                kind: "modified",
+                title: currentDocumentTitle || currentDocumentId,
+                documentId: currentDocumentId,
+            },
+            oldFileId: "",
+            newFileId: "",
+            hasDiff: false,
+            updated: snapshot.updated ?? snapshot.created,
         };
     }
 
@@ -436,6 +703,10 @@
         blockEntries = [];
     }
 
+    function blockText(block: BlockDiffEntry["oldBlock"]): string {
+        return block?.markdown || block?.text || "";
+    }
+
     function createContentFallback(content: string, fallback: string): string {
         const text = content.trim();
         return text || fallback;
@@ -474,14 +745,53 @@
         <div class="vc-toolbar">
             <div class="vc-toolbar__meta">
                 <strong>{displayDocumentTitle}</strong>
-                <span>{timelineSnapshotCountText(taggedSnapshots.length)}</span>
+                {#if diffOpen}
+                    <span class="vc-change-summary" aria-label={changeSummaryLabel}>
+                        <span class="added">+{diffLineStats.added}</span>
+                        <span class="removed">-{diffLineStats.removed}</span>
+                    </span>
+                {/if}
+                <span class="vc-snapshot-count">{timelineSnapshotCountText(taggedSnapshots.length)}</span>
                 {#if showDebugMeta && currentDocumentId}
-                    <span>{currentDocumentId}</span>
+                    <span class="vc-debug-id">{currentDocumentId}</span>
                 {/if}
             </div>
             <div class="vc-toolbar__actions">
-                <button class="vc-icon-button" on:click={rollbackDocument} disabled={!selectedEntry?.oldFileId || applying} title={t("timeline_action_rollback_document", "整篇回退到历史版本")} aria-label={t("timeline_action_rollback_document", "整篇回退到历史版本")}>↶</button>
-                <button class="vc-icon-button" on:click={toggleTimelineCollapsed} title={autoTimelineCollapsed ? t("timeline_auto_collapsed_title", "窗口过窄，时间线已自动折叠") : effectiveTimelineCollapsed ? t("timeline_action_expand", "展开时间线") : t("timeline_action_collapse", "折叠时间线")} aria-label={autoTimelineCollapsed ? t("timeline_auto_collapsed_title", "窗口过窄，时间线已自动折叠") : effectiveTimelineCollapsed ? t("timeline_action_expand", "展开时间线") : t("timeline_action_collapse", "折叠时间线")}>
+                <button type="button" class="vc-icon-button" on:click={toggleAllHiddenBlocks} disabled={!hasHiddenBlocks} title={hiddenToggleTitle} aria-label={hiddenToggleTitle}>
+                    {#if allHiddenExpanded}
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="m8 14 4-4 4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M6 18h12M6 6h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    {:else}
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="m8 10 4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M6 18h12M6 6h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    {/if}
+                </button>
+                <button type="button" class="vc-icon-button" on:click={toggleCompareMode} title={compareModeTitle} aria-label={compareModeAction}>
+                    {#if compareMode === "unified"}
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M4.5 5.5h6v13h-6zM13.5 5.5h6v13h-6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                            <path d="M6.7 9h1.6M15.7 9h1.6M6.7 12h1.6M15.7 12h1.6M6.7 15h1.6M15.7 15h1.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                    {:else}
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M5 5.5h14v13H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                            <path d="M8 9h8M8 12h8M8 15h8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                    {/if}
+                </button>
+                <button type="button" class="vc-icon-button" on:click={rollbackDocument} disabled={!selectedEntry?.oldFileId || applying} title={t("timeline_action_rollback_document", "整篇回退到历史版本")} aria-label={t("timeline_action_rollback_document", "整篇回退到历史版本")}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M10.8 3.5h3.95L19 7.75v10.5A2.25 2.25 0 0 1 16.75 20.5h-8.5A2.25 2.25 0 0 1 6 18.25V9.9" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M14.5 3.75V8h4.25" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M4.8 9.4V8.5A5 5 0 0 1 9.8 3.5h.65" fill="none" stroke="currentColor" stroke-width="2.05" stroke-linecap="round"/>
+                        <path d="M2 6.55 4.8 9.4l2.85-2.85" fill="none" stroke="currentColor" stroke-width="2.05" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <button type="button" class="vc-icon-button" on:click={toggleTimelineCollapsed} title={autoTimelineCollapsed ? t("timeline_auto_collapsed_title", "窗口过窄，时间线已自动折叠") : effectiveTimelineCollapsed ? t("timeline_action_expand", "展开时间线") : t("timeline_action_collapse", "折叠时间线")} aria-label={autoTimelineCollapsed ? t("timeline_auto_collapsed_title", "窗口过窄，时间线已自动折叠") : effectiveTimelineCollapsed ? t("timeline_action_expand", "展开时间线") : t("timeline_action_collapse", "折叠时间线")}>
                     {effectiveTimelineCollapsed ? "‹" : "›"}
                 </button>
             </div>
@@ -492,68 +802,223 @@
         {/if}
 
         <div class="vc-content">
-            <section class="vc-diff">
+            <section bind:this={diffElement} on:scroll={handleDiffScroll} class:unified-mode={compareMode === "unified"} class:split-mode={compareMode === "split"} class="vc-diff">
                 {#if loadingFile}
                     <div class="vc-empty">{t("timeline_loading_snapshot_file", "正在打开快照文件...")}</div>
                 {:else if !selectedEntry}
                     <div class="vc-empty">{refreshingSelection ? t("timeline_loading_current_diff", "正在创建当前版本并加载差异...") : t("timeline_empty_select_node", "选择右侧时间线节点，查看历史版本与当前状态的差异")}</div>
                 {:else}
-                    <div class="vc-diff-head">
-                        <div>{t("timeline_history_version", "历史版本")} {selectedSnapshotTitle ? `· ${selectedSnapshotTitle}` : ""}{selectedSnapshotTime ? ` · ${selectedSnapshotTime}` : ""}</div>
-                        <div aria-hidden="true"></div>
-                        <div>{t("timeline_current_state", "当前状态")} {currentSnapshotTime ? `· ${currentSnapshotTime}` : newFileContent?.updated ? `· ${newFileContent.updated}` : ""}</div>
+                    <div class:unified={compareMode === "unified"} class="vc-diff-head">
+                        {#if compareMode === "unified"}
+                            <div>{t("timeline_history_version", "历史版本")} {selectedSnapshotTitle ? `· ${selectedSnapshotTitle}` : ""}{selectedSnapshotTime ? ` · ${selectedSnapshotTime}` : ""} → {t("timeline_current_state", "当前状态")} {currentSnapshotTime ? `· ${currentSnapshotTime}` : newFileContent?.updated ? `· ${newFileContent.updated}` : ""}</div>
+                        {:else}
+                            <div>{t("timeline_history_version", "历史版本")} {selectedSnapshotTitle ? `· ${selectedSnapshotTitle}` : ""}{selectedSnapshotTime ? ` · ${selectedSnapshotTime}` : ""}</div>
+                            <div aria-hidden="true"></div>
+                            <div>{t("timeline_current_state", "当前状态")} {currentSnapshotTime ? `· ${currentSnapshotTime}` : newFileContent?.updated ? `· ${newFileContent.updated}` : ""}</div>
+                        {/if}
                     </div>
                     {#if blockEntries.length === 0}
-                        <div class="vc-empty">{t("timeline_empty_unparseable_file", "该文件内容为空，或当前快照内容暂无法解析为可显示块。")}</div>
+                        <div class="vc-empty">{selectedEntry.hasDiff === false ? t("timeline_empty_no_diff", "该节点暂无可显示差异。") : t("timeline_empty_unparseable_file", "该文件内容为空，或当前快照内容暂无法解析为可显示块。")}</div>
                     {/if}
-                    <div class="vc-diff-grid">
-                        {#each blockEntries as entry}
-                            <article class="vc-block old {entry.status}">
-                                {#if showDebugMeta}
-                                    <div class="vc-block__meta">
-                                        <span>{entry.status}</span>
-                                        {#if entry.oldBlock?.id}<code>{entry.oldBlock.id}</code>{/if}
+                    {#if compareMode === "unified"}
+                        <div class="vc-unified-list">
+                            {#each diffDisplayItems as item (item.key)}
+                                {#if item.kind === "hidden"}
+                                    <div class="vc-hidden-blocks">
+                                        <button type="button" on:click={() => toggleHiddenBlock(item.key)} title={expandedHiddenKeys.has(item.key) ? t("timeline_action_collapse_hidden", "折叠隐藏块") : t("timeline_action_expand_hidden", "展开隐藏块")} aria-label={expandedHiddenKeys.has(item.key) ? t("timeline_action_collapse_hidden", "折叠隐藏块") : t("timeline_action_expand_hidden", "展开隐藏块")}>
+                                            <span>{expandedHiddenKeys.has(item.key) ? "⌃" : "⌄"}</span>
+                                            <strong>{hiddenBlocksText(item.count)}</strong>
+                                        </button>
                                     </div>
-                                {/if}
-                                {#if entry.oldParts}
-                                    <div class="vc-inline-diff">
-                                        {#each entry.oldParts as part}
-                                            <span class="vc-diff-part {part.kind}">{part.text}</span>
+                                    {#if expandedHiddenKeys.has(item.key)}
+                                        {#each item.entries as hiddenEntry (hiddenEntry.key)}
+                                            <article class="vc-unified-block unchanged expanded-hidden">
+                                                {#if showDebugMeta}
+                                                    <div class="vc-block__meta">
+                                                        <span>{hiddenEntry.entry.status}</span>
+                                                        {#if hiddenEntry.entry.oldBlock?.id}<code>{hiddenEntry.entry.oldBlock.id}</code>{/if}
+                                                        {#if hiddenEntry.entry.newBlock?.id}<code>{hiddenEntry.entry.newBlock.id}</code>{/if}
+                                                    </div>
+                                                {/if}
+                                                <div class="vc-unified-row unchanged">
+                                                    <span class="vc-line-marker"> </span>
+                                                    <div class="vc-line-content">
+                                                        <pre>{blockText(hiddenEntry.entry.newBlock ?? hiddenEntry.entry.oldBlock)}</pre>
+                                                    </div>
+                                                </div>
+                                            </article>
                                         {/each}
-                                    </div>
-                                {:else}
-                                    <pre>{entry.oldBlock?.markdown || entry.oldBlock?.text || (entry.status === "added" ? t("timeline_old_missing_for_added", "当前新增，历史无内容") : "")}</pre>
-                                {/if}
-                            </article>
-                            <div class="vc-restore-column {entry.status}">
-                                {#if entry.status !== "unchanged"}
-                                    <button class="vc-icon-button" on:click={() => rollbackBlock(entry)} disabled={applying || !entry.canAcceptBlock} title={t("timeline_action_restore_block", "还原块")} aria-label={t("timeline_action_restore_block", "还原块")}>→</button>
-                                    {#if entry.acceptReason}
-                                        <small>{localizeAcceptReason(entry.acceptReason)}</small>
                                     {/if}
-                                {/if}
-                            </div>
-                            <article class="vc-block new {entry.status}">
-                                {#if showDebugMeta}
-                                    <div class="vc-block__meta">
-                                        <span>{entry.status}</span>
-                                        {#if entry.newBlock?.id}<code>{entry.newBlock.id}</code>{/if}
-                                    </div>
-                                {/if}
-                                {#if entry.newParts}
-                                    <div class="vc-inline-diff">
-                                        {#each entry.newParts as part}
-                                            <span class="vc-diff-part {part.kind}">{part.text}</span>
-                                        {/each}
-                                    </div>
                                 {:else}
-                                    <pre>{entry.newBlock?.markdown || entry.newBlock?.text || (entry.status === "removed" ? t("timeline_new_missing_for_removed", "历史存在，当前已删除") : "")}</pre>
+                                    <article class="vc-unified-block {item.entry.status}" class:first-change={item.changeIndex === 0}>
+                                        {#if showDebugMeta}
+                                            <div class="vc-block__meta">
+                                                <span>{item.entry.status}</span>
+                                                {#if item.entry.oldBlock?.id}<code>{item.entry.oldBlock.id}</code>{/if}
+                                                {#if item.entry.newBlock?.id}<code>{item.entry.newBlock.id}</code>{/if}
+                                            </div>
+                                        {/if}
+                                        {#if item.entry.status !== "unchanged"}
+                                            <div class:first-change={item.changeIndex === 0} class="vc-unified-actions">
+                                                <button type="button" class="vc-restore-button" on:click={() => rollbackBlock(item.entry)} disabled={applying || !item.entry.canAcceptBlock} title={t("timeline_action_restore_block", "还原块")} aria-label={t("timeline_action_restore_block", "还原块")}>
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                        <path d="M9 7 4 12l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                        <path d="M5 12h9.5A5.5 5.5 0 0 1 20 17.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                    </svg>
+                                                </button>
+                                                {#if item.entry.acceptReason}
+                                                    <small>{localizeAcceptReason(item.entry.acceptReason)}</small>
+                                                {/if}
+                                            </div>
+                                        {/if}
+                                        {#if item.entry.status === "removed" || item.entry.status === "modified"}
+                                            <div class="vc-unified-row removed">
+                                                <span class="vc-line-marker">-</span>
+                                                <div class="vc-line-content">
+                                                    {#if item.entry.oldParts}
+                                                        <div class="vc-inline-diff">
+                                                            {#each item.entry.oldParts as part}
+                                                                <span class="vc-diff-part {part.kind}">{part.text}</span>
+                                                            {/each}
+                                                        </div>
+                                                    {:else}
+                                                        <pre>{blockText(item.entry.oldBlock)}</pre>
+                                                    {/if}
+                                                </div>
+                                            </div>
+                                        {/if}
+                                        {#if item.entry.status === "added" || item.entry.status === "modified"}
+                                            <div class="vc-unified-row added">
+                                                <span class="vc-line-marker">+</span>
+                                                <div class="vc-line-content">
+                                                    {#if item.entry.newParts}
+                                                        <div class="vc-inline-diff">
+                                                            {#each item.entry.newParts as part}
+                                                                <span class="vc-diff-part {part.kind}">{part.text}</span>
+                                                            {/each}
+                                                        </div>
+                                                    {:else}
+                                                        <pre>{blockText(item.entry.newBlock)}</pre>
+                                                    {/if}
+                                                </div>
+                                            </div>
+                                        {/if}
+                                        {#if item.entry.status === "unchanged"}
+                                            <div class="vc-unified-row unchanged">
+                                                <span class="vc-line-marker"> </span>
+                                                <div class="vc-line-content">
+                                                    <pre>{blockText(item.entry.newBlock ?? item.entry.oldBlock)}</pre>
+                                                </div>
+                                            </div>
+                                        {/if}
+                                    </article>
                                 {/if}
-                            </article>
-                        {/each}
-                    </div>
+                            {/each}
+                        </div>
+                    {:else}
+                        <div class="vc-diff-grid">
+                            {#each diffDisplayItems as item (item.key)}
+                                {#if item.kind === "hidden"}
+                                    <div class="vc-hidden-blocks split">
+                                        <button type="button" on:click={() => toggleHiddenBlock(item.key)} title={expandedHiddenKeys.has(item.key) ? t("timeline_action_collapse_hidden", "折叠隐藏块") : t("timeline_action_expand_hidden", "展开隐藏块")} aria-label={expandedHiddenKeys.has(item.key) ? t("timeline_action_collapse_hidden", "折叠隐藏块") : t("timeline_action_expand_hidden", "展开隐藏块")}>
+                                            <span>{expandedHiddenKeys.has(item.key) ? "⌃" : "⌄"}</span>
+                                            <strong>{hiddenBlocksText(item.count)}</strong>
+                                        </button>
+                                    </div>
+                                    {#if expandedHiddenKeys.has(item.key)}
+                                        {#each item.entries as hiddenEntry (hiddenEntry.key)}
+                                            <div class="vc-diff-row expanded-hidden">
+                                                <article class="vc-block old unchanged">
+                                                    {#if showDebugMeta}
+                                                        <div class="vc-block__meta">
+                                                            <span>{hiddenEntry.entry.status}</span>
+                                                            {#if hiddenEntry.entry.oldBlock?.id}<code>{hiddenEntry.entry.oldBlock.id}</code>{/if}
+                                                        </div>
+                                                    {/if}
+                                                    <pre>{hiddenEntry.entry.oldBlock?.markdown || hiddenEntry.entry.oldBlock?.text || ""}</pre>
+                                                </article>
+                                                <div class="vc-restore-column unchanged"></div>
+                                                <article class="vc-block new unchanged">
+                                                    {#if showDebugMeta}
+                                                        <div class="vc-block__meta">
+                                                            <span>{hiddenEntry.entry.status}</span>
+                                                            {#if hiddenEntry.entry.newBlock?.id}<code>{hiddenEntry.entry.newBlock.id}</code>{/if}
+                                                        </div>
+                                                    {/if}
+                                                    <pre>{hiddenEntry.entry.newBlock?.markdown || hiddenEntry.entry.newBlock?.text || ""}</pre>
+                                                </article>
+                                            </div>
+                                        {/each}
+                                    {/if}
+                                {:else}
+                                    <div class="vc-diff-row" class:first-change={item.changeIndex === 0}>
+                                        <article class="vc-block old {item.entry.status}">
+                                            {#if showDebugMeta}
+                                                <div class="vc-block__meta">
+                                                    <span>{item.entry.status}</span>
+                                                    {#if item.entry.oldBlock?.id}<code>{item.entry.oldBlock.id}</code>{/if}
+                                                </div>
+                                            {/if}
+                                            {#if item.entry.oldParts}
+                                                <div class="vc-inline-diff">
+                                                    {#each item.entry.oldParts as part}
+                                                        <span class="vc-diff-part {part.kind}">{part.text}</span>
+                                                    {/each}
+                                                </div>
+                                            {:else}
+                                                <pre>{item.entry.oldBlock?.markdown || item.entry.oldBlock?.text || (item.entry.status === "added" ? t("timeline_old_missing_for_added", "当前新增，历史无内容") : "")}</pre>
+                                            {/if}
+                                        </article>
+                                        <div class="vc-restore-column {item.entry.status}">
+                                            {#if item.entry.status !== "unchanged"}
+                                                <button type="button" class:first-change={item.changeIndex === 0} class="vc-restore-button" on:click={() => rollbackBlock(item.entry)} disabled={applying || !item.entry.canAcceptBlock} title={t("timeline_action_restore_block", "还原块")} aria-label={t("timeline_action_restore_block", "还原块")}>
+                                                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                        <path d="M9 7 4 12l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                        <path d="M5 12h9.5A5.5 5.5 0 0 1 20 17.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                    </svg>
+                                                </button>
+                                                {#if item.entry.acceptReason}
+                                                    <small>{localizeAcceptReason(item.entry.acceptReason)}</small>
+                                                {/if}
+                                            {/if}
+                                        </div>
+                                        <article class="vc-block new {item.entry.status}">
+                                            {#if showDebugMeta}
+                                                <div class="vc-block__meta">
+                                                    <span>{item.entry.status}</span>
+                                                    {#if item.entry.newBlock?.id}<code>{item.entry.newBlock.id}</code>{/if}
+                                                </div>
+                                            {/if}
+                                            {#if item.entry.newParts}
+                                                <div class="vc-inline-diff">
+                                                    {#each item.entry.newParts as part}
+                                                        <span class="vc-diff-part {part.kind}">{part.text}</span>
+                                                    {/each}
+                                                </div>
+                                            {:else}
+                                                <pre>{item.entry.newBlock?.markdown || item.entry.newBlock?.text || (item.entry.status === "removed" ? t("timeline_new_missing_for_removed", "历史存在，当前已删除") : "")}</pre>
+                                            {/if}
+                                        </article>
+                                    </div>
+                                {/if}
+                            {/each}
+                        </div>
+                    {/if}
                 {/if}
             </section>
+            {#if diffOpen && !loadingFile && diffMinimapItems.length > 0}
+                <div class="vc-diff-minimap" aria-hidden="true">
+                    <span class="viewport" style={`top: ${diffViewportTop}%; height: ${diffViewportHeight}%;`}></span>
+                    {#each diffMinimapItems as item (item.key)}
+                        <span
+                            class:added={item.entry.status === "added"}
+                            class:removed={item.entry.status === "removed"}
+                            class:modified={item.entry.status === "modified"}
+                            style={`top: ${minimapTop(item)}%; height: ${minimapHeight(item)}%;`}
+                        ></span>
+                    {/each}
+                </div>
+            {/if}
         </div>
     </main>
 
@@ -572,7 +1037,7 @@
             <section class="vc-section">
                 <div class="vc-section__title">{t("timeline_snapshot_section_title", "Snapshot")}</div>
                 <textarea bind:value={memo} rows="3" placeholder={t("timeline_node_placeholder", "例如 feat：重构文档工具")}></textarea>
-                <button class="vc-primary" on:click={createTimelineNode} disabled={loadingSnapshots}>{t("timeline_action_create_node", "创建节点")}</button>
+                <button type="button" class="vc-primary" on:click={createTimelineNode} disabled={loadingSnapshots}>{t("timeline_action_create_node", "创建节点")}</button>
             </section>
 
             <section class="vc-section">
@@ -586,7 +1051,7 @@
                 {:else}
                     <div class="vc-timeline">
                         {#each documentEntries as entry}
-                            <button class:selected={entry.key === selectedEntryKey} on:click={() => selectEntry(entry)}>
+                            <button type="button" class:selected={entry.key === selectedEntryKey} on:click={() => selectEntry(entry)}>
                                 <span class:added={entry.kind === "added"} class:removed={entry.kind === "removed"} class:modified={entry.kind === "modified"}></span>
                                 <strong>
                                     <em>{snapshotLabel(entry.snapshot)}</em>
@@ -608,6 +1073,8 @@
 
 <style>
     .vc-shell {
+        position: relative;
+        isolation: isolate;
         display: grid;
         grid-template-columns: minmax(0, 1fr) 320px;
         height: 100%;
@@ -700,6 +1167,12 @@
         line-height: 1;
     }
 
+    .vc-icon-button svg {
+        width: 19px;
+        height: 19px;
+        vertical-align: middle;
+    }
+
     button:disabled {
         cursor: not-allowed;
         opacity: 0.55;
@@ -779,17 +1252,20 @@
 
     .vc-main {
         position: relative;
-        z-index: 1;
+        z-index: 20;
         grid-column: 1;
         min-width: 0;
         min-height: 0;
         height: 100%;
         display: grid;
-        grid-template-rows: auto 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
         overflow: hidden;
     }
 
     .vc-toolbar {
+        position: relative;
+        z-index: 10;
+        background: var(--b3-theme-background);
         display: flex;
         justify-content: space-between;
         gap: 12px;
@@ -799,11 +1275,15 @@
     }
 
     .vc-toolbar__meta {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        flex-wrap: wrap;
         min-width: 0;
     }
 
     .vc-toolbar__meta strong,
-    .vc-toolbar span {
+    .vc-toolbar__meta > span {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -815,15 +1295,32 @@
         vertical-align: bottom;
     }
 
-    .vc-toolbar span {
-        display: inline-block;
+    .vc-toolbar__meta > span {
         max-width: min(38vw, 260px);
-        margin-left: 8px;
         color: var(--b3-theme-on-surface);
         font-size: 12px;
     }
 
+    .vc-toolbar__meta > .vc-change-summary {
+        display: inline-flex;
+        gap: 4px;
+        max-width: none;
+        font-family: var(--b3-font-family-code);
+        font-size: 14px;
+        font-weight: 700;
+    }
+
+    .vc-change-summary .added {
+        color: #00c853;
+    }
+
+    .vc-change-summary .removed {
+        color: #ff624a;
+    }
+
     .vc-toolbar__actions {
+        position: relative;
+        z-index: 30;
         display: flex;
         flex: 0 0 auto;
         gap: 8px;
@@ -839,12 +1336,15 @@
     }
 
     .vc-content {
+        position: relative;
+        z-index: 0;
         min-height: 0;
         height: 100%;
         overflow: hidden;
     }
 
     .vc-diff {
+        position: relative;
         min-width: 0;
         height: 100%;
         overflow: auto;
@@ -853,7 +1353,7 @@
     .vc-diff-head,
     .vc-diff-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) clamp(22px, 4%, 42px) minmax(0, 1fr);
     }
 
     .vc-diff-head {
@@ -870,13 +1370,221 @@
         padding: 8px 12px;
     }
 
+    .vc-diff-head.unified {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .vc-unified-list {
+        display: grid;
+        padding-right: 16px;
+    }
+
+    .vc-hidden-blocks {
+        min-height: 30px;
+        border-top: 1px solid rgba(128, 128, 128, 0.12);
+        border-bottom: 1px solid rgba(128, 128, 128, 0.12);
+        background: color-mix(in srgb, var(--b3-theme-surface) 72%, transparent);
+        color: var(--b3-theme-on-surface);
+        font-size: 12px;
+    }
+
+    .vc-hidden-blocks button {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        width: 100%;
+        min-height: 30px;
+        border: 0;
+        border-radius: 0;
+        padding: 4px 14px;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+    }
+
+    .vc-hidden-blocks button:hover,
+    .vc-hidden-blocks button:focus-visible {
+        background: var(--b3-list-hover);
+    }
+
+    .vc-hidden-blocks span {
+        color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+        font-family: var(--b3-font-family-code);
+        font-size: 15px;
+        line-height: 1;
+    }
+
+    .vc-hidden-blocks strong {
+        font-weight: 500;
+    }
+
+    .vc-hidden-blocks.split {
+        grid-column: 1 / -1;
+    }
+
+    .expanded-hidden {
+        opacity: 0.86;
+    }
+
+    .vc-unified-block {
+        position: relative;
+        min-width: 0;
+        border-bottom: 1px solid var(--b3-border-color);
+    }
+
+    .vc-unified-block.modified,
+    .vc-unified-block.added,
+    .vc-unified-block.removed {
+        padding-right: 34px;
+    }
+
+    .vc-unified-row {
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr);
+        min-width: 0;
+    }
+
+    .vc-unified-row.removed {
+        background: rgba(248, 81, 73, 0.18);
+    }
+
+    .vc-unified-row.added {
+        background: rgba(46, 160, 67, 0.18);
+    }
+
+    .vc-unified-row.unchanged {
+        background: var(--b3-theme-background);
+    }
+
+    .vc-line-marker {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        min-width: 0;
+        padding: 8px 0;
+        border-right: 1px solid var(--b3-border-color);
+        color: var(--b3-theme-on-surface);
+        font-family: var(--b3-font-family-code);
+        font-size: 12px;
+        user-select: none;
+    }
+
+    .vc-unified-row.removed .vc-line-marker {
+        color: #ff624a;
+    }
+
+    .vc-unified-row.added .vc-line-marker {
+        color: #00c853;
+    }
+
+    .vc-line-content {
+        min-width: 0;
+        padding: 4px 12px;
+    }
+
+    .vc-unified-actions {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        opacity: 0;
+        transform: translateY(-50%);
+        transition: opacity 0.15s ease;
+    }
+
+    .vc-unified-actions::before,
+    .vc-unified-actions::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        width: 2px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: rgba(128, 128, 128, 0.48);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+    }
+
+    .vc-unified-actions::before {
+        top: 8px;
+        bottom: calc(50% + 16px);
+    }
+
+    .vc-unified-actions::after {
+        top: calc(50% + 16px);
+        bottom: 8px;
+    }
+
+    .vc-unified-block:hover .vc-unified-actions::before,
+    .vc-unified-block:hover .vc-unified-actions::after,
+    .vc-unified-actions:focus-within::before,
+    .vc-unified-actions:focus-within::after {
+        opacity: 1;
+    }
+
+    .vc-unified-block:hover .vc-unified-actions,
+    .vc-unified-actions:focus-within,
+    .vc-unified-actions.first-change {
+        opacity: 1;
+    }
+
+    .vc-restore-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        min-width: 24px;
+        min-height: 24px;
+        border: 1px solid transparent;
+        border-radius: 5px;
+        padding: 0;
+        background: transparent;
+        color: var(--b3-theme-on-surface);
+        position: relative;
+        z-index: 1;
+    }
+
+    .vc-restore-button svg {
+        width: 15px;
+        height: 15px;
+    }
+
+    .vc-restore-button:hover:not(:disabled),
+    .vc-restore-button:focus-visible {
+        border-color: var(--b3-border-color);
+        background: var(--b3-list-hover);
+        color: var(--b3-theme-primary);
+    }
+
+    .vc-unified-actions small {
+        max-width: 36px;
+        margin: 0;
+        overflow: hidden;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .vc-block {
         min-width: 0;
         border-bottom: 1px solid var(--b3-border-color);
         padding: 8px 12px;
     }
 
+    .vc-diff-row {
+        display: contents;
+    }
+
     .vc-restore-column {
+        position: relative;
         display: flex;
         flex-direction: column;
         gap: 6px;
@@ -888,6 +1596,61 @@
         border-right: 1px solid var(--b3-border-color);
         padding: 8px 5px;
         background: var(--b3-theme-background);
+    }
+
+    .vc-restore-column.modified::before,
+    .vc-restore-column.added::before,
+    .vc-restore-column.removed::before,
+    .vc-restore-column.modified::after,
+    .vc-restore-column.added::after,
+    .vc-restore-column.removed::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        width: 2px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: rgba(128, 128, 128, 0.48);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+    }
+
+    .vc-restore-column.modified::before,
+    .vc-restore-column.added::before,
+    .vc-restore-column.removed::before {
+        top: 8px;
+        bottom: calc(50% + 16px);
+    }
+
+    .vc-restore-column.modified::after,
+    .vc-restore-column.added::after,
+    .vc-restore-column.removed::after {
+        top: calc(50% + 16px);
+        bottom: 8px;
+    }
+
+    .vc-block:hover + .vc-restore-column::before,
+    .vc-block:hover + .vc-restore-column::after,
+    .vc-restore-column:has(+ .vc-block:hover)::before,
+    .vc-restore-column:has(+ .vc-block:hover)::after,
+    .vc-restore-column:hover::before,
+    .vc-restore-column:hover::after,
+    .vc-restore-column:focus-within::before,
+    .vc-restore-column:focus-within::after {
+        opacity: 1;
+    }
+
+    .vc-restore-column .vc-restore-button {
+        opacity: 0;
+    }
+
+    .vc-block:hover + .vc-restore-column .vc-restore-button,
+    .vc-restore-column:has(+ .vc-block:hover) .vc-restore-button,
+    .vc-restore-column:hover .vc-restore-button,
+    .vc-restore-column:focus-within .vc-restore-button,
+    .vc-restore-column .vc-restore-button.first-change {
+        opacity: 1;
     }
 
     .vc-restore-column small {
@@ -947,6 +1710,52 @@
 
     .vc-diff-part.added {
         background: rgba(46, 160, 67, 0.28);
+    }
+
+    .vc-diff-minimap {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 3;
+        width: 16px;
+        min-height: 120px;
+        border-left: 1px solid rgba(128, 128, 128, 0.18);
+        background: color-mix(in srgb, var(--b3-theme-surface) 58%, transparent);
+        pointer-events: none;
+    }
+
+    .vc-diff-minimap span {
+        position: absolute;
+        left: 2px;
+        right: 0;
+        min-height: 4px;
+        opacity: 0.42;
+    }
+
+    .vc-diff-minimap .viewport {
+        left: 1px;
+        right: 1px;
+        z-index: 2;
+        min-height: 22px;
+        border: 1px solid rgba(235, 235, 235, 0.58);
+        border-radius: 4px;
+        background: rgba(135, 142, 152, 0.42);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.24), 0 0 5px rgba(255, 255, 255, 0.12);
+        box-sizing: border-box;
+        opacity: 1;
+    }
+
+    .vc-diff-minimap .added {
+        background: rgba(46, 160, 67, 0.52);
+    }
+
+    .vc-diff-minimap .removed {
+        background: rgba(248, 81, 73, 0.5);
+    }
+
+    .vc-diff-minimap .modified {
+        background: linear-gradient(90deg, rgba(248, 81, 73, 0.5) 0 45%, rgba(46, 160, 67, 0.52) 55% 100%);
     }
 
     small {
@@ -1009,7 +1818,7 @@
     @media (max-width: 520px) {
         .vc-diff-head,
         .vc-diff-grid {
-            grid-template-columns: minmax(0, 1fr) 36px;
+            grid-template-columns: minmax(0, 1fr) clamp(22px, 9%, 36px);
         }
 
         .vc-diff-head div:nth-child(2) {

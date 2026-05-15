@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.0` — 文档时间线版本控制、文档资源导出、工具设置面板重构。
+> **最新版本：**`v0.4.2` — 文档时间线增强：统一/并排双模式对比、diff 缩略图导航、块级回退精度提升。
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">

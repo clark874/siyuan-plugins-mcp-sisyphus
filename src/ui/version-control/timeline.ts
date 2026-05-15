@@ -43,6 +43,7 @@ export interface TimelineEntry {
     file: ChangedSnapshotFile;
     oldFileId: string;
     newFileId: string;
+    hasDiff?: boolean;
     updated?: string | number;
 }
 
@@ -173,6 +174,19 @@ export function filterChangedUniqueTimelineEntries(items: TimelineEntryContent[]
 
 export function sortEntriesNewestFirst(entries: TimelineEntry[]): TimelineEntry[] {
     return [...entries].sort((left, right) => getSnapshotTime(right.snapshot) - getSnapshotTime(left.snapshot));
+}
+
+export function selectInitialTimelineEntry(
+    entries: TimelineEntry[],
+    documentKey: string,
+    selectedKey = '',
+): TimelineEntry | undefined {
+    const ordered = sortEntriesNewestFirst(entries);
+    const currentSelection = selectedKey
+        ? ordered.find((entry) => entry.key === selectedKey && entry.documentKey === documentKey)
+        : undefined;
+    if (currentSelection) return currentSelection;
+    return ordered.find((entry) => entry.documentKey === documentKey);
 }
 
 function sanitizeTimelineTagLabel(label: string): string {

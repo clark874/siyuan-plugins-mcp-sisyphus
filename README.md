@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">📖 Documentation</a>
 </p>
 
-> **Latest:** `v0.4.0` — Document Timeline version control, extract document with assets, and redesigned tool settings panel.
+> **Latest:** `v0.4.2` — Enhanced Document Timeline with unified/split diff, minimap navigation, and improved block rollback accuracy.
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">

@@ -5,6 +5,7 @@ import {
     diffBlocks,
     diffSnapshotBlocks,
     getDocumentIdFromSnapshotFile,
+    getBlockDiffLineStats,
     getRestoreBlockPayload,
     getRestoreInsertPlan,
     getRestoreParentCandidates,
@@ -187,7 +188,28 @@ describe('snapshot block diff', () => {
             '```go\npackage main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, 世界")\n}\n```',
             '$$\n\\frac{1}{\n  \\sqrt{5}\n}\n$$',
             '|header 1|header 2|\n| ----------| ----------|\n|cell 1|cell 2|',
-            '- [X] 发布思源\n- [ ] 预约牙医',
+            '- [X] 发布思源',
+            '- [ ] 预约牙医',
+        ]);
+    });
+
+    it('splits adjacent top-level list items while keeping nested content with its parent item', () => {
+        const blocks = parseSnapshotBlocks([
+            '- 图片',
+            '  可通过复制粘贴或拖拽来上传图片；上传后的图片可通过拖拽进行大小调整。',
+            '  ![](assets/demo.png)',
+            '- 加粗',
+            '- 倾斜',
+            '  - 嵌套项',
+            '    嵌套说明',
+            '- 下划线',
+        ].join('\n'));
+
+        expect(blocks.map((block) => block.markdown)).toEqual([
+            '- 图片\n  可通过复制粘贴或拖拽来上传图片；上传后的图片可通过拖拽进行大小调整。\n  ![](assets/demo.png)',
+            '- 加粗',
+            '- 倾斜\n  - 嵌套项\n    嵌套说明',
+            '- 下划线',
         ]);
     });
 
@@ -254,6 +276,47 @@ describe('snapshot block diff', () => {
         }
     });
 
+    it('summarizes changed lines for added, removed, modified, and unchanged blocks', () => {
+        const entries = diffBlocks(
+            [
+                { id: 'same', type: 'p', text: 'same', markdown: 'same', order: 0, depth: 0 },
+                { id: 'removed', type: 'p', text: 'old A\nold B', markdown: 'old A\nold B', order: 1, depth: 0 },
+                { id: 'modified', type: 'p', text: 'version 0.3.7', markdown: 'version 0.3.7', order: 2, depth: 0 },
+            ],
+            [
+                { id: 'same', type: 'p', text: 'same', markdown: 'same', order: 0, depth: 0 },
+                { id: 'modified', type: 'p', text: 'version 0.3.8', markdown: 'version 0.3.8', order: 1, depth: 0 },
+                { id: 'added', type: 'p', text: 'new A\nnew B\nnew C', markdown: 'new A\nnew B\nnew C', order: 2, depth: 0 },
+            ],
+        );
+
+        expect(getBlockDiffLineStats(entries)).toEqual({ added: 4, removed: 3 });
+    });
+
+    it('counts multi-line modified code block changes by touched lines', () => {
+        const [entry] = diffBlocks(
+            [{
+                id: 'code',
+                type: 'c',
+                text: 'const a = 1;\nconst b = 2;\nconst c = 3;',
+                markdown: '```ts\nconst a = 1;\nconst b = 2;\nconst c = 3;\n```',
+                order: 0,
+                depth: 0,
+            }],
+            [{
+                id: 'code',
+                type: 'c',
+                text: 'const a = 1;\nconst b = 20;\nconst c = 30;',
+                markdown: '```ts\nconst a = 1;\nconst b = 20;\nconst c = 30;\n```',
+                order: 0,
+                depth: 0,
+            }],
+        );
+
+        expect(entry.status).toBe('modified');
+        expect(getBlockDiffLineStats([entry])).toEqual({ added: 2, removed: 2 });
+    });
+
     it('parses SiYuan block DOM into displayable blocks', () => {
         const blocks = parseSnapshotBlocks(`
             <div data-node-id="20260514120003-ddddddd" data-type="NodeParagraph">Old <strong>text</strong></div>
@@ -280,6 +343,49 @@ describe('snapshot block diff', () => {
         ]);
     });
 
+    it('parses SiYuan list DOM as separate list items instead of one merged list block', () => {
+        const blocks = parseSnapshotBlocks(`
+            <div data-node-id="list-root" data-type="NodeList" data-subtype="u">
+                <div data-node-id="item-a" data-type="NodeListItem" data-subtype="u">块级引用</div>
+                <div data-node-id="item-b" data-type="NodeListItem" data-subtype="u">外部链接</div>
+                <div data-node-id="item-c" data-type="NodeListItem" data-subtype="u">插入图片</div>
+            </div>
+        `);
+
+        expect(blocks.map((block) => block.id)).toEqual(['item-a', 'item-b', 'item-c']);
+        expect(blocks.map((block) => block.markdown)).toEqual([
+            '- 块级引用',
+            '- 外部链接',
+            '- 插入图片',
+        ]);
+    });
+
+    it('preserves inline styles, links, and images when parsing ordinary DOM blocks', () => {
+        const blocks = parseSnapshotBlocks(`
+            <div data-node-id="item-rich" data-type="NodeListItem" data-subtype="u">
+                <strong>加粗</strong><em>斜体</em><s>中划线</s><u>下划线</u><mark>标记</mark>
+                <a href="https://example.com">超链接</a><img src="assets/demo.png" alt="图片">
+                <span data-type="strong em">组合</span><span data-type="a" data-href="siyuan://blocks/20260515101010-abcdefg">块引用</span>
+            </div>
+        `);
+
+        expect(blocks[0].markdown).toBe('- **加粗***斜体*~~中划线~~<u>下划线</u>==标记==\n                [超链接](https://example.com)![图片](assets/demo.png)\n                ***组合***[块引用](siyuan://blocks/20260515101010-abcdefg)');
+        expect(getUpdateBlockPayload({
+            key: 'modified-rich',
+            status: 'modified',
+            canAcceptBlock: true,
+            oldBlock: blocks[0],
+            newBlock: {
+                id: 'item-rich-current',
+                type: 'i',
+                text: 'changed',
+                markdown: '- changed',
+                order: 0,
+                depth: 0,
+            },
+        }).data).toContain('[超链接](https://example.com)![图片](assets/demo.png)');
+    });
+
     it('reads SiYuan code block DOM from data-content instead of the language toolbar', () => {
         const blocks = parseSnapshotBlocks(`
             <div data-node-id="20260514120009-jjjjjjj" data-type="NodeCodeBlock" class="render-node" data-subtype="go" data-content="package main&#10;&#10;import &quot;fmt&quot;&#10;&#10;func main() {&#10;    fmt.Println(&quot;Hello&quot;)&#10;}">
@@ -298,7 +404,7 @@ describe('snapshot block diff', () => {
         ]);
     });
 
-    it('restores removed DOM blocks with their original block id', () => {
+    it('restores removed ordinary DOM blocks as markdown with their original block id', () => {
         const [oldBlock] = parseSnapshotBlocks(`
             <div data-node-id="20260514120003-ddddddd" data-type="NodeParagraph">Old <strong>text</strong></div>
         `);
@@ -309,9 +415,38 @@ describe('snapshot block diff', () => {
             canAcceptBlock: true,
             oldBlock,
         })).toEqual({
-            dataType: 'dom',
-            data: '<div data-node-id="20260514120003-ddddddd" data-type="NodeParagraph">Old <strong>text</strong></div>',
+            dataType: 'markdown',
+            data: 'Old **text**\n{: id="20260514120003-ddddddd"}',
             id: '20260514120003-ddddddd',
+        });
+    });
+
+    it('updates ordinary DOM-backed blocks as markdown instead of writing raw protyle HTML', () => {
+        expect(getUpdateBlockPayload({
+            key: 'modified-protyle',
+            status: 'modified',
+            canAcceptBlock: true,
+            oldBlock: {
+                id: 'old-paragraph',
+                type: 'p',
+                text: '可通过复制粘贴或拖拽上传图片',
+                markdown: '可通过复制粘贴或拖拽上传图片',
+                raw: '<div data-node-id="old-paragraph" data-type="NodeParagraph"><protyle-html>可通过复制粘贴或拖拽上传图片</protyle-html></div>',
+                order: 0,
+                depth: 0,
+            },
+            newBlock: {
+                id: 'new-paragraph',
+                type: 'p',
+                text: 'changed',
+                markdown: 'changed',
+                order: 0,
+                depth: 0,
+            },
+        })).toEqual({
+            dataType: 'markdown',
+            data: '可通过复制粘贴或拖拽上传图片',
+            id: 'old-paragraph',
         });
     });
 
@@ -421,6 +556,23 @@ describe('snapshot block diff', () => {
         expect(entry.status).toBe('modified');
         expect(entry.canAcceptBlock).toBe(true);
         expect(entry.acceptReason).toBeUndefined();
+    });
+
+    it('allows ordered and unordered list containers to be restored at block level', () => {
+        const entries = diffBlocks(
+            [
+                { id: 'unordered', type: 'l', subtype: 'u', text: 'old bullet', markdown: '- old bullet', order: 0, depth: 0 },
+                { id: 'ordered', type: 'l', subtype: 'o', text: 'old ordered', markdown: '1. old ordered', order: 1, depth: 0 },
+            ],
+            [
+                { id: 'unordered', type: 'l', subtype: 'u', text: 'new bullet', markdown: '- new bullet', order: 0, depth: 0 },
+                { id: 'ordered', type: 'l', subtype: 'o', text: 'new ordered', markdown: '1. new ordered', order: 1, depth: 0 },
+            ],
+        );
+
+        expect(entries).toHaveLength(2);
+        expect(entries.every((entry) => entry.canAcceptBlock)).toBe(true);
+        expect(entries.every((entry) => entry.acceptReason === undefined)).toBe(true);
     });
 
     it('builds restore parent candidates from block metadata before file fallback', () => {
