@@ -129,6 +129,14 @@
 </div>
 
 <style>
+    .config__tab-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
     .config__input-group {
         display: flex;
         flex-direction: column;
@@ -162,7 +170,9 @@
     }
 
     .config__child-title {
-        font-weight: 500;
+        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+        font-size: var(--mcp-config-title-font-size, 14px);
+        font-weight: var(--mcp-config-title-font-weight, 500);
         margin-bottom: 4px;
     }
 

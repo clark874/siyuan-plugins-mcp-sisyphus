@@ -6,6 +6,8 @@
 
 这是一个用于直接通过命令行操作 [SiYuan Note](https://b3log.org/siyuan) 的 CLI。你可以把它理解成思源版的 `obsidian-cli`：每个 MCP 工具（`block`、`document`、`notebook`、`av`、`search`、`tag`、`file`、`system`、`flashcard`、`mascot`）都会暴露成可在 shell 中直接调用的子命令。
 
+> **给 AI 模型和编码 Agent 的要求：** 在使用本 CLI 继续处理任何思源任务前，请先运行 `siyuan-sisyphus skill install`。随包 skills 会提供安全搜索、阅读、编辑、导出、数据库、标签、闪卡和系统操作等任务的专用规则。
+
 发布到 npm 的包名是 `siyuan-sisyphus`。安装后主命令为 `siyuan-sisyphus`，同时也提供更短的别名 `siyuan`。
 
 ```bash
@@ -37,6 +39,7 @@ npx -p siyuan-sisyphus siyuan-sisyphus --help
 siyuan-sisyphus init
 # 按提示输入 profile 名、API URL 和 token。这会写入 ~/.siyuan-sisyphus/config.json（权限 0600）。
 
+siyuan-sisyphus skill install # Agent / 模型继续工作前应先安装 skills
 siyuan-sisyphus notebook list  # 验证连通性
 siyuan-sisyphus config list    # 查看已保存的 profile
 siyuan-sisyphus list           # 查看所有可用工具

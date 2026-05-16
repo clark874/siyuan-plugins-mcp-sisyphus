@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import {
     buildDocumentTimeline,
@@ -120,6 +122,16 @@ describe('snapshot document timeline', () => {
         expect(formatSnapshotTime({ id: 'hcreated', hCreated: '2026-05-05 06:07' })).toBe('2026-05-05 06:07');
         expect(formatSnapshotTime({ id: 'raw', created: 'not-a-date' })).toBe('not-a-date');
         expect(formatSnapshotTime({ id: 'empty' })).toBe('');
+    });
+
+    it('defers automatic snapshot creation while the timeline dock is hidden', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+
+        expect(source).toContain('if (shouldAutoLoadTimeline()) await loadTimeline();');
+        expect(source).toContain('shouldAutoLoadTimeline() && currentDocumentId !== loadedDocumentId && !loadingSnapshots');
+        expect(source).toContain('return mounted && panelVisible && currentDocumentId !== "";');
+        expect(source).toContain('if (!shouldAutoLoadTimeline()) return;');
+        expect(source).toContain('panelVisible = isShellVisible();');
     });
 });
 

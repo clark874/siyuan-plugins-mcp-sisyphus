@@ -32,7 +32,6 @@ const PUPPY_ROOT_ID = "sy-puppy-root";
 const VERSION_CONTROL_DOCK_TYPE = "sisyphusTimelineDock";
 const VERSION_CONTROL_DOCK_ROOT_ID = "SisyphusTimelineDockPanel";
 const VERSION_CONTROL_ICON = `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 3a3 3 0 0 1 2 5.24v1.27l6 3V8.24A3 3 0 1 1 17 9v5a1 1 0 0 1-1.45.89L9 11.62v4.14A3 3 0 1 1 7 15.76V8.24A3 3 0 0 1 7 3Zm0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm10 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM7 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></svg>`;
-const SETTINGS_ICON = `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.3 7.3 0 0 0-1.69-.98L14.5 2.42A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.5.42L9.12 5.07c-.61.24-1.18.56-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46a.5.5 0 0 0 .12.64l2.11 1.65c-.04.32-.06.65-.06.98s.02.66.07.98l-2.12 1.65a.5.5 0 0 0-.12.64l2 3.46c.13.22.4.31.61.22l2.49-1c.51.4 1.08.73 1.69.98l.38 2.65c.04.24.25.42.5.42h4c.25 0 .46-.18.5-.42l.38-2.65c.61-.24 1.18-.56 1.69-.98l2.49 1c.23.08.48 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64l-2.12-1.65ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z"/></svg>`;
 
 type CurrentDocumentContext = {
     id: string;
@@ -71,12 +70,6 @@ export default class SiyuanMCP extends Plugin {
             hotkey: "",
             callback: () => this.openVersionControl(),
             editorCallback: (protyle: any) => this.openVersionControl(protyle),
-        });
-        (this as any).addTopBar?.({
-            icon: SETTINGS_ICON,
-            title: this.i18n?.mcpToolsSettingTitle || "SiYuan Sisyphus 设置",
-            callback: () => this.openSetting(),
-            position: "right",
         });
         this.registerVersionControlDock();
         this.registerVersionControlEvents();
@@ -325,12 +318,14 @@ export default class SiyuanMCP extends Plugin {
         let dialog = new Dialog({
             title: this.i18n.mcpToolsSettingTitle,
             content: `<div id="SettingPanel" style="height: 100%;"></div>`,
-            width: "800px",
+            width: "min(1120px, calc(100vw - 56px))",
+            height: "min(680px, calc(100vh - 72px))",
             destroyCallback: () => {
                 //You'd better destroy the component when the dialog is closed
                 pannel.$destroy();
             }
         });
+        dialog.element.classList.add("sisyphus-settings-dialog");
         let pannel = new McpConfig({
             target: dialog.element.querySelector("#SettingPanel"),
             props: {
@@ -341,7 +336,7 @@ export default class SiyuanMCP extends Plugin {
 
     openVersionControl(protyle?: unknown): void {
         const context = this.getDocumentContextFromProtyle(protyle) ?? this.currentDocument;
-        this.updateVersionControlDocument(context);
+        this.updateVersionControlDocument(context, { force: true });
         this.showVersionControlDock();
     }
 
@@ -371,6 +366,9 @@ export default class SiyuanMCP extends Plugin {
                         i18n: this.i18n ?? {},
                     },
                 });
+            },
+            update: () => {
+                this.updateVersionControlDocument(this.currentDocument, { force: true });
             },
             destroy: () => this.unmountVersionControlDock(),
         });
@@ -417,12 +415,28 @@ export default class SiyuanMCP extends Plugin {
         };
     }
 
-    private updateVersionControlDocument(context: CurrentDocumentContext) {
+    private updateVersionControlDocument(context: CurrentDocumentContext, options: { force?: boolean } = {}) {
         this.currentDocument = context;
+        if (!options.force && !this.isVersionControlPanelVisible()) return;
         this.versionControlPanel?.$set({
             currentDocumentId: context.id,
             currentDocumentTitle: context.title,
         });
+    }
+
+    private isVersionControlPanelVisible(): boolean {
+        if (!this.versionControlContainer) return false;
+        if (!this.versionControlContainer.getClientRects().length) return false;
+        let element: HTMLElement | null = this.versionControlContainer;
+        while (element) {
+            if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
+            if (typeof getComputedStyle === "function") {
+                const style = getComputedStyle(element);
+                if (style.display === "none" || style.visibility === "hidden") return false;
+            }
+            element = element.parentElement;
+        }
+        return true;
     }
 
     private showVersionControlDock() {

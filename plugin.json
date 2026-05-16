@@ -12,8 +12,8 @@
   ],
   "disabledInPublish": true,
   "displayName": {
-    "default": "SiYuan sisyphus MCP & CLI",
-    "zh_CN": "思源 sisyphus MCP & CLI"
+    "default": "SiYuan sisyphus MCP & CLI & GIT",
+    "zh_CN": "思源 sisyphus MCP & CLI & GIT"
   },
   "description": {
     "default": "Siyuan sisyphus enables AI Agents to operate your Siyuan with notebook-level permission control, covering most of Siyuan's functionality. Supports desktop、 docker、 mobile.",

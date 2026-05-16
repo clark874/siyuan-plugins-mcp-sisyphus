@@ -1,114 +1,112 @@
 ---
 name: siyuan-sisyphus-tag-flashcard
-description: Manage tags and flashcards in SiYuan. Covers inline tag creation, flashcard creation/review, and deck operations. Use when the agent needs to work with SiYuan tags or spaced repetition.
+description: CLI-only playbook for tags and flashcards with `siyuan-sisyphus`. Use for inline tag creation, listing and renaming tags, deck discovery, card creation, due/new card review, and safe card or tag removal.
 ---
 
-# SiYuan Sisyphus — Tags and Flashcards
+# SiYuan Sisyphus CLI - Tags and Flashcards
+
+Tags are created by writing `#tag#` into Markdown content. Flashcards should be created with the `flashcard` tool so SiYuan registers review cards correctly.
 
 ## Tags
 
-**There is no direct `tag.create`**. Tags are created by writing `#tag#` into block markdown content.
+Create tags inline:
 
-### Create Tags Inline
-
-```python
-# Create tags inline in block content
-block(action="append", parentID="doc-id", dataType="markdown", data="#project# #urgent#")
-
-# Hierarchical tags
-block(action="append", parentID="doc-id", dataType="markdown", data="#project/phase1#")
+```bash
+siyuan-sisyphus block append --parent-id "<doc-id>" --data-type markdown --data "#project# #urgent#"
+siyuan-sisyphus block append --parent-id "<doc-id>" --data-type markdown --data "#project/phase1#"
 ```
 
-### List and Manage Tags
+List or filter tags:
 
-```python
-# List all tags
-tag(action="list")
-
-# Search/filter tags
-tag(action="list", keyword="project")
-
-# Rename a tag everywhere it appears
-tag(action="rename", oldLabel="old-tag", newLabel="new-tag")
-
-# Remove a tag label (requires explicit user confirmation)
-tag(action="remove", label="tag-to-remove")
+```bash
+siyuan-sisyphus tag list
+siyuan-sisyphus tag list --keyword "project" --json
 ```
 
-**Note**: Recently written tags may appear with a short indexing delay in tag list/search results. Retry briefly before treating that as a failure.
+Rename a tag label everywhere:
 
-## Flashcards
-
-SiYuan uses heading-based flashcards: h2 heading as the question, following blocks as the answer.
-
-### Create Flashcards
-
-```python
-# Turn existing blocks into flashcards (preferred method)
-flashcard(action="create_card", deckID="deck-id", blockIDs=["heading-block-id"])
-
-# Alternative: low-level attribute writing (not the full workflow)
-block(action="set_attrs", id="heading-block-id", attrs={"custom-riff-decks": "deck-id"})
+```bash
+siyuan-sisyphus tag rename --old-label "old-tag" --new-label "new-tag"
 ```
 
-**Preferred method**: `flashcard(action="create_card")` writes `custom-riff-decks` and registers the riff card together transactionally.
+Remove is destructive. Confirm first:
 
-### Review Flashcards
-
-```python
-# List due cards
-flashcard(action="list_cards", scope="deck", deckID="deck-id", filter="due")
-
-# List new cards
-flashcard(action="list_cards", scope="all", filter="new")
-
-# Review a card with rating (1-4, higher = better)
-flashcard(action="review_card", deckID="deck-id", cardID="card-id", rating=3)
-
-# Skip current card
-flashcard(action="review_card", deckID="deck-id", cardID="card-id", skip=True)
+```bash
+siyuan-sisyphus tag remove --label "tag-to-remove"
 ```
 
-### Deck Operations
+Recently written tags may take a short time to appear in tag search.
 
-```python
-# List all available decks
-flashcard(action="get_decks")
+## Flashcard Structure
 
-# List all cards in a deck (paginated)
-flashcard(action="get_cards", deckID="deck-id", page=1, pageSize=32)
+SiYuan flashcards commonly use a heading as the prompt and following blocks as the answer:
 
-# Remove blocks from a deck (requires explicit user confirmation)
-flashcard(action="remove_card", deckID="deck-id", blockIDs=["block-id"])
+```markdown
+## Question heading
+Answer paragraph.
+Another answer paragraph.
 ```
 
-### Flashcard Structure
+Cloze text can be written as `==answer==` in content.
 
+## Deck Discovery
+
+```bash
+siyuan-sisyphus flashcard get-decks --json
+siyuan-sisyphus flashcard get-cards --deck-id "<deck-id>" --page 1 --page-size 32 --json
 ```
-## Question heading  ← Card Front (h2 with custom-riff-decks attribute)
-Answer paragraph    ← Card Back
-Another paragraph   ← Card Back (continued)
+
+Use an empty deck ID only when the command help says cross-deck queries are supported for that action.
+
+## Create Cards
+
+First create or identify a heading block:
+
+```bash
+siyuan-sisyphus block append --parent-id "<doc-id>" --data-type markdown --data "## What is spaced repetition?
+
+Review just before forgetting."
+siyuan-sisyphus document get-child-blocks --id "<doc-id>" --json
 ```
 
-- **Question**: An `h2` heading with `custom-riff-decks` attribute pointing to a deck ID
-- **Answer**: One or more blocks immediately following the question heading
-- **Cloze**: `==answer==` inside content is treated as a cloze answer
+Then register the heading block as a card:
 
-### Scope Options for list_cards
+```bash
+siyuan-sisyphus flashcard create-card --deck-id "<deck-id>" --block-ids "<heading-block-id>" --json
+```
 
-| scope | Required parameter | Meaning |
-|-------|-------------------|---------|
-| `all` | omit deckID | All decks |
-| `deck` | deckID | Specific deck |
-| `notebook` | notebook | Specific notebook |
-| `tree` | rootID | Document subtree |
+Avoid using `block set-attrs` alone for flashcard creation. It can write metadata, but it does not complete the full card registration workflow.
 
-### Pitfalls
+## Review Cards
 
-1. **`block(action="set_attrs")` with `custom-riff-decks` is not the full workflow**: It only writes metadata binding. Prefer `flashcard(action="create_card")` for proper flashcard creation.
+```bash
+siyuan-sisyphus flashcard list-cards --scope deck --deck-id "<deck-id>" --filter due --json
+siyuan-sisyphus flashcard list-cards --scope all --filter new --json
+siyuan-sisyphus flashcard review-card --deck-id "<deck-id>" --card-id "<card-id>" --rating 3
+siyuan-sisyphus flashcard review-card --deck-id "<deck-id>" --card-id "<card-id>" --skip
+```
 
-2. **`create_card` validates deck IDs**: Non-built-in deck IDs must already exist (use `get_decks` to discover them).
+Ratings are usually 1 to 4, with higher meaning easier or better recall.
 
-3. **`remove_card` requires confirmation** before execution.
+## Scopes for Listing Cards
 
-4. **`list_cards` post-filters by state**: Pass `reviewedCards` to match SiYuan's in-review filtering.
+| Scope | Required flag |
+| --- | --- |
+| `all` | omit `--deck-id` |
+| `deck` | `--deck-id` |
+| `notebook` | `--notebook` |
+| `tree` | `--root-id` |
+
+## Remove Cards
+
+Removing cards changes deck membership. Confirm first:
+
+```bash
+siyuan-sisyphus flashcard remove-card --deck-id "<deck-id>" --block-ids-json '["<block-id>"]'
+```
+
+## Pitfalls
+
+- `create-card` validates deck IDs; run `get-decks` first.
+- `list-cards` can post-filter by due/new/old state.
+- Newly created headings or tags may need a short indexing delay before discovery commands show them.

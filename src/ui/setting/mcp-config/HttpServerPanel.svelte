@@ -612,40 +612,38 @@
 
 <style lang="scss">
     .http-server-section {
-        padding: 16px;
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: var(--mcp-config-section-gap, 14px);
         font-size: 13px;
 
         .http-changelog {
-            background: var(--b3-theme-surface);
-            border-radius: 6px;
-            padding: 10px 12px;
+            background: transparent;
+            border: 1px solid var(--b3-border-color);
+            border-radius: var(--mcp-config-card-radius, 8px);
+            padding: var(--mcp-config-card-padding, 16px);
         }
 
         .http-overview {
-            background: var(--b3-theme-surface);
-            border-radius: 6px;
-            padding: 10px 12px;
+            background: transparent;
+            border: 1px solid var(--b3-border-color);
+            border-radius: var(--mcp-config-card-radius, 8px);
+            padding: var(--mcp-config-card-padding, 16px);
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
 
         .http-overview-title {
-            color: var(--b3-theme-primary);
-            font-weight: 600;
-        }
-
-        .http-overview-text {
-            color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
-            line-height: 1.5;
+            color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+            font-size: var(--mcp-config-title-font-size, 14px);
+            font-weight: var(--mcp-config-title-font-weight, 500);
         }
 
         .http-changelog-title {
-            color: var(--b3-theme-primary);
-            font-weight: 600;
+            color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+            font-size: var(--mcp-config-title-font-size, 14px);
+            font-weight: var(--mcp-config-title-font-weight, 500);
             margin-bottom: 8px;
         }
 
@@ -664,8 +662,8 @@
         }
 
         .http-status-dot {
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             background: var(--b3-theme-error, #d33);
             display: inline-block;
@@ -678,7 +676,8 @@
         .http-status-text code {
             background: var(--b3-theme-surface);
             padding: 1px 6px;
-            border-radius: 3px;
+            border-radius: var(--b3-border-radius);
+            font-family: var(--mcp-config-code-font);
         }
 
         .http-error {
@@ -689,7 +688,7 @@
             padding: 8px 12px;
             background: var(--b3-card-warning-background, rgba(255, 180, 0, 0.12));
             border-left: 3px solid var(--b3-theme-warning, #e0a000);
-            border-radius: 3px;
+            border-radius: var(--mcp-config-card-radius, 8px);
             color: var(--b3-card-warning-color, inherit);
         }
 
@@ -719,7 +718,7 @@
             .http-token-input {
                 flex: 1;
                 min-width: 240px;
-                font-family: monospace;
+                font-family: var(--mcp-config-code-font);
                 font-size: 12px;
             }
         }
@@ -727,13 +726,14 @@
         .http-path-input {
             flex: 1;
             min-width: 280px;
-            font-family: monospace;
+            font-family: var(--mcp-config-code-font);
             font-size: 12px;
         }
 
         .http-snippet {
             background: var(--b3-theme-surface);
-            border-radius: 4px;
+            border: 1px solid var(--b3-border-color);
+            border-radius: var(--mcp-config-card-radius, 8px);
             padding: 8px 12px;
 
             summary {
@@ -745,9 +745,10 @@
                 margin: 8px 0;
                 padding: 8px;
                 background: var(--b3-theme-background);
-                border-radius: 3px;
+                border-radius: var(--b3-border-radius);
                 overflow: auto;
                 max-height: 200px;
+                font-family: var(--mcp-config-code-font);
                 font-size: 12px;
             }
         }
@@ -758,14 +759,17 @@
         }
 
         .http-guide {
-            background: var(--b3-theme-surface);
-            border-radius: 6px;
-            padding: 10px 12px;
+            background: transparent;
+            border: 1px solid var(--b3-border-color);
+            border-radius: var(--mcp-config-card-radius, 8px);
+            padding: var(--mcp-config-card-padding, 16px);
 
             > summary {
                 cursor: pointer;
+                color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+                font-size: var(--mcp-config-title-font-size, 14px);
                 user-select: none;
-                font-weight: 600;
+                font-weight: var(--mcp-config-title-font-weight, 500);
             }
         }
 
@@ -779,14 +783,15 @@
         .http-choice-card,
         .http-subproject {
             background: var(--b3-theme-background);
-            border-radius: 6px;
+            border: 1px solid var(--b3-border-color);
+            border-radius: var(--mcp-config-card-radius, 8px);
             padding: 10px 12px;
         }
 
         .http-subproject > summary {
             cursor: pointer;
             user-select: none;
-            font-weight: 600;
+            font-weight: var(--mcp-config-title-font-weight, 500);
         }
 
         .http-subproject-summary {
@@ -821,7 +826,7 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
             font-size: 12px;
             font-weight: 500;
         }
@@ -834,37 +839,38 @@
             th,
             td {
                 padding: 8px 10px;
-                border: 1px solid var(--b3-border-color);
+                border-bottom: 1px solid var(--b3-border-color);
                 text-align: left;
                 vertical-align: top;
             }
 
+            tr:last-child td {
+                border-bottom: 0;
+            }
+
             th {
                 background: var(--b3-theme-surface);
-                font-weight: 600;
+                border-bottom: 1px solid var(--b3-border-color);
+                color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+                font-size: 12px;
+                font-weight: 500;
             }
         }
 
-        .http-choice-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            line-height: 1.6;
-        }
-
         .http-guide-intro {
-            color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
             line-height: 1.5;
         }
 
         .http-note {
-            color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
             line-height: 1.6;
         }
 
         .mcp-client-presets {
-            background: var(--b3-theme-surface);
-            border-radius: 4px;
+            background: var(--b3-theme-background);
+            border: 1px solid var(--b3-border-color);
+            border-radius: var(--mcp-config-card-radius, 8px);
             padding: 10px 12px;
             display: flex;
             flex-direction: column;
@@ -872,8 +878,8 @@
         }
 
         .mcp-client-presets-title {
-            color: var(--b3-theme-primary);
-            font-weight: 600;
+            color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+            font-weight: var(--mcp-config-title-font-weight, 500);
         }
 
         .mcp-client-preset-row {
@@ -893,9 +899,11 @@
             margin: 0;
             padding: 8px;
             background: var(--b3-theme-background);
-            border-radius: 3px;
+            border: 1px solid var(--b3-border-color);
+            border-radius: var(--b3-border-radius);
             overflow: auto;
             max-height: 220px;
+            font-family: var(--mcp-config-code-font);
             font-size: 12px;
         }
 
@@ -912,11 +920,11 @@
         }
 
         .cli-snippet-title {
-            font-weight: 600;
+            font-weight: var(--mcp-config-title-font-weight, 500);
         }
 
         .cli-snippet-desc {
-            color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
             line-height: 1.5;
         }
 
@@ -927,17 +935,16 @@
             font-size: 11px;
             font-weight: 500;
             line-height: 1.4;
-            color: var(--b3-theme-primary);
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
             background: var(--b3-theme-primary-lightest, rgba(0, 0, 0, 0.05));
-            border: 1px solid var(--b3-theme-primary-light, var(--b3-theme-primary));
-            border-radius: 10px;
+            border: 1px solid var(--b3-border-color);
+            border-radius: var(--b3-border-radius);
             vertical-align: middle;
         }
     }
 
     @media (max-width: 768px) {
         .http-server-section {
-            padding: 10px;
             gap: 10px;
         }
 

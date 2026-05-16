@@ -53,6 +53,16 @@ describe('cli/args', () => {
         });
     });
 
+    it('parses skill install options', () => {
+        expect(parseArgs(['skill', 'install', '--target', '.codex', '--local', '--dry-run'])).toMatchObject({
+            command: 'skill',
+            skillAction: 'install',
+            target: '.codex',
+            local: true,
+            dryRun: true,
+        });
+    });
+
     it('documents common action aliases and fs positionals', () => {
         const help = getHelpText();
 

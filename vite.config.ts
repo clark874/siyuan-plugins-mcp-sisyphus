@@ -304,12 +304,41 @@ function createCliConfig() {
                     if (cliExtraExternals.includes(id)) return true;
                     return false;
                 },
-                plugins: [shebangAndChmod(`${cliOutputDir}/cli.cjs`)],
+                plugins: [
+                    copyCliSkills(),
+                    shebangAndChmod(`${cliOutputDir}/cli.cjs`),
+                ],
                 output: {
                     inlineDynamicImports: true,
                     entryFileNames: "cli.cjs",
                     banner: "#!/usr/bin/env node",
                 },
+            },
+        },
+    };
+}
+
+function copyCliSkills() {
+    return {
+        name: "cli-copy-skills",
+        writeBundle: {
+            sequential: true,
+            order: "post" as const,
+            async handler() {
+                const fs = await import("fs");
+                const path = await import("path");
+                const source = resolve(__dirname, "skills/siyuan-sisyphus");
+                const target = resolve(__dirname, cliOutputDir, "skills/siyuan-sisyphus");
+
+                if (!fs.default.existsSync(source)) {
+                    console.warn(`[cli-copy-skills] source not found: ${source}`);
+                    return;
+                }
+
+                fs.default.rmSync(target, { recursive: true, force: true });
+                fs.default.mkdirSync(path.default.dirname(target), { recursive: true });
+                fs.default.cpSync(source, target, { recursive: true, force: true });
+                console.log(`[cli-copy-skills] copied ${source} -> ${target}`);
             },
         },
     };

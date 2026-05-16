@@ -1,74 +1,126 @@
 ---
-name: siyuan-mcp-sisyphus
-description: Top-level skill for the SiYuan Sisyphus ecosystem. Introduces the MCP/CLI entrypoints, lists the 7 scenario sub-skills, and provides a dangerous-action overview. Use a sub-skill for specific operations; use this skill only for orientation.
+name: siyuan-sisyphus
+description: CLI-only top-level skill for SiYuan Sisyphus. Use when an agent needs to operate SiYuan Note through the packaged `siyuan-sisyphus` command, install/read bundled skills, choose scenario sub-skills, understand command shape, flags, profiles, JSON output, pagination, and safe shell workflows.
 ---
 
-# SiYuan MCP Sisyphus
+# SiYuan Sisyphus CLI
 
-SiYuan Sisyphus is a SiYuan Note plugin + standalone CLI that exposes 11 aggregated tools for AI agents to operate notes safely through the SiYuan HTTP API.
+Use the `siyuan-sisyphus` command for all SiYuan work. Do not use the shorter `siyuan` alias in examples or automation; the full command is clearer for agents and logs.
 
-## Entrypoints
+## Bootstrap
 
-| Mode | When to use | Example |
-|------|-------------|---------|
-| **MCP** | AI client (Claude, Cursor, Cherry Studio) makes tool calls | `block(action="append", parentID="...", dataType="markdown", data="...")` |
-| **CLI** | Shell/script use, one-shot operations, automation | `siyuan-sisyphus block append --parent-id ... --data-type markdown --data "..."` |
+Before doing SiYuan work in a new agent environment:
 
-Each tool takes an `action` parameter in MCP mode. In CLI mode the action is the second positional command and flags are mapped from schema fields.
+```bash
+siyuan-sisyphus skill install
+siyuan-sisyphus system get-version
+siyuan-sisyphus list
+```
+
+If credentials are not configured, initialize or select a profile:
+
+```bash
+siyuan-sisyphus init
+siyuan-sisyphus config list
+siyuan-sisyphus config set work --url http://127.0.0.1:6806 --token "<token>"
+siyuan-sisyphus config use work
+siyuan-sisyphus --profile work system get-version
+```
+
+Configuration precedence is:
+
+1. `--url`, `--token`, and `--profile`
+2. `SIYUAN_API_URL` and `SIYUAN_TOKEN`
+3. Active profile in `~/.siyuan-sisyphus/config.json`
+4. Defaults, usually `http://127.0.0.1:6806`
+
+## Command Shape
+
+General form:
+
+```bash
+siyuan-sisyphus <tool> <action> [--flag value ...]
+```
+
+Examples:
+
+```bash
+siyuan-sisyphus notebook list
+siyuan-sisyphus fs tree --path "/Notebook" --max-depth 3
+siyuan-sisyphus fs read --path "/Notebook/Folder/Doc" --page-size 8000
+siyuan-sisyphus block append --parent-id "<doc-id>" --data-type markdown --data "## Notes"
+siyuan-sisyphus search fulltext --query "keyword" --page-size 10
+```
+
+Current command contract is the source of truth:
+
+```bash
+siyuan-sisyphus list
+siyuan-sisyphus list <tool>
+siyuan-sisyphus help <tool>
+siyuan-sisyphus help <tool> <action>
+```
+
+## Flag Rules
+
+- Field names accept kebab, camel, or snake case: `--parent-id`, `--parentID`, and `--parent_id` map to the same field.
+- Action names accept kebab or snake case: `get-kramdown` and `get_kramdown` are equivalent.
+- Boolean flags accept `--flag`, `--flag=false`, or `--no-flag`.
+- Array flags can be repeated or comma-separated when the field is simple.
+- Object and nested values should use JSON sidecars: `--attrs-json '{"custom-key":"value"}'`.
+- For scriptable output, always add `--json`.
+
+Useful JSON patterns:
+
+```bash
+siyuan-sisyphus block set-attrs --id "<block-id>" --attrs-json '{"custom-source":"agent"}'
+siyuan-sisyphus av set-cells --av-id "<av-id>" --cells-json '[{"rowID":"<row-id>","columnID":"<column-id>","valueType":"text","text":"Done"}]'
+siyuan-sisyphus search fulltext --query "keyword" --page-size 20 --json
+```
+
+## Pagination
+
+Interactive terminals may page results. In automation, specify page controls explicitly:
+
+```bash
+siyuan-sisyphus fs read --path "/Notebook/Long Doc" --page 2 --page-size 8000 --json
+siyuan-sisyphus search fulltext --query "keyword" --page 1 --page-size 20 --json
+siyuan-sisyphus av render --id "<av-id>" --page 1 --page-size 50 --json
+```
 
 ## Scenario Sub-Skills
 
-Pick the sub-skill that matches your current task:
+Use the narrowest sub-skill that matches the task:
 
-| Sub-skill | Use when you need to... |
-|-----------|------------------------|
-| `siyuan-sisyphus-browse-read` | Explore notebooks, list document trees, read content, resolve paths |
-| `siyuan-sisyphus-create-edit` | Create documents, append/insert/update blocks, set metadata |
-| `siyuan-sisyphus-search-query` | Fulltext search, SQL query, backlinks, find/replace |
-| `siyuan-sisyphus-database` | Create or edit SiYuan attribute views (databases), rows, columns, cells |
-| `siyuan-sisyphus-tag-flashcard` | Create tags, manage flashcards, review cards, deck operations |
-| `siyuan-sisyphus-file-export` | Upload assets, export documents/resources, extract docs |
-| `siyuan-sisyphus-system-cli` | System info, permissions, CLI configuration, dangerous action semantics |
+| Sub-skill | Use for |
+| --- | --- |
+| `siyuan-sisyphus-browse-read` | Explore notebooks, trees, documents, IDs, paths, and readable content |
+| `siyuan-sisyphus-create-edit` | Create documents, append/insert/update blocks, replace text, metadata, daily notes |
+| `siyuan-sisyphus-search-query` | Fulltext search, SQL, backlinks, references, assets, find and replace |
+| `siyuan-sisyphus-database` | Attribute views, columns, rows, cells, view rendering |
+| `siyuan-sisyphus-file-export` | Upload assets, export markdown/resources, extract documents and assets |
+| `siyuan-sisyphus-tag-flashcard` | Tags, decks, cards, review workflows |
+| `siyuan-sisyphus-system-cli` | CLI setup, profiles, permissions, dangerous actions, troubleshooting |
+| `siyuan-markup-guide` | Markdown and rich SiYuan markup to write with CLI commands |
 
 ## Tool Quick Reference
 
-| Tool | One-liner | Key actions |
-|------|-----------|-------------|
-| `fs` | Virtual filesystem with human-readable paths | `ls`, `tree`, `read`, `write`, `replace`, `rm`, `mv`, `search` |
-| `notebook` | Notebook management | `list`, `create`, `set_open_state`, `rename`, `get_permissions`, `set_permission` |
-| `document` | Document CRUD and tree | `create`, `lookup`, `rename`, `remove`, `move`, `get_child_blocks`, `get_doc`, `create_daily_note` |
-| `block` | Block-level editing | `insert`, `prepend`, `append`, `update`, `replace`, `delete`, `move`, `set_attrs`, `get_children` |
-| `av` | Database / attribute view | `get`, `render`, `add_rows`, `remove_rows`, `add_column`, `remove_column`, `set_cells` |
-| `search` | Search and query | `fulltext`, `query_sql`, `get_backlinks`, `search_refs`, `find_replace` |
-| `file` | Assets and export | `upload_asset`, `export_md`, `export_resources`, `extract_doc`, `get_doc_assets` |
-| `tag` | Tag management | `list`, `rename`, `remove` |
-| `system` | System info | `get_version`, `get_current_time`, `conf`, `notify` |
-| `flashcard` | Spaced repetition | `list_cards`, `get_decks`, `review_card`, `create_card`, `remove_card` |
-| `mascot` | Balance and shop | `get_balance`, `shop`, `buy` |
+| Tool | Common CLI actions |
+| --- | --- |
+| `fs` | `ls`, `tree`, `read`, `write`, `replace`, `search`, `rm`, `mv` |
+| `notebook` | `list`, `create`, `rename`, `get-conf`, `get-permissions`, `get-child-docs` |
+| `document` | `create`, `lookup`, `rename`, `get-doc`, `get-child-blocks`, `search-docs`, `create-daily-note` |
+| `block` | `append`, `prepend`, `insert`, `update`, `replace`, `get-kramdown`, `get-children`, `set-attrs`, `info` |
+| `av` | `get`, `render`, `search`, `add-column`, `add-rows`, `set-cells`, `get-primary-key-values` |
+| `search` | `fulltext`, `query-sql`, `get-backlinks`, `search-refs`, `search-assets`, `find-replace` |
+| `file` | `upload-asset`, `export-md`, `extract-doc`, `export-resources`, `get-doc-assets` |
+| `tag` | `list`, `rename`, `remove` |
+| `system` | `get-version`, `get-current-time`, `conf`, `network`, `notify` |
+| `flashcard` | `get-decks`, `list-cards`, `get-cards`, `create-card`, `review-card` |
+| `mascot` | `get-balance`, `shop`, `buy` |
 
-## Getting Help
+## Safety
 
-- **Any tool**: Call with `action="help"` to get actions, required fields, hints, and examples.
-- **CLI**: `siyuan-sisyphus list`, `siyuan-sisyphus list <tool>`, `siyuan-sisyphus help <tool> <action>`
-- **MCP resources** (if client supports them):
-  - `siyuan://help/tool-overview` — all tools and guidance
-  - `siyuan://help/document-path-semantics` — path type details
-  - `siyuan://help/examples` — minimal call examples
-  - `siyuan://help/ai-layout-guide` — layout and block-type decision rules
-  - `siyuan://help/action/{tool}/{action}` — per-action parameter shapes
+The CLI treats the command itself as confirmation. Before running destructive or local-filesystem commands, state what will change and get explicit user approval when acting on user data.
 
-## Dangerous Actions Overview
-
-The following actions **require explicit user confirmation** in MCP mode. See `siyuan-sisyphus-system-cli` for the full checklist and flow.
-
-- `notebook` — `remove`, `set_permission`
-- `document` — `remove`, `move`
-- `block` — `delete`, `move`
-- `search` — `find_replace`
-- `file` — `upload_asset`, `export_resources` (with `outputPath`), `remove_unused_assets`, `delete_asset`
-- `tag` — `remove`
-- `flashcard` — `remove_card`
-- `system` — `workspace_info` (disabled by default)
-- `fs` — `rm`, `mv`
-
-Flow: State "I will do X. Proceed?" and only call the tool after the user explicitly agrees. In CLI mode, the command itself is treated as confirmation.
+High-risk actions include `fs rm`, `fs mv`, `notebook remove`, `notebook set-permission`, `document remove`, `document move`, `block delete`, `block move`, `search find-replace`, `file upload-asset`, `file export-resources --output-path`, `file remove-unused-assets`, `file delete-asset`, `tag remove`, and `flashcard remove-card`.

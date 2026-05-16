@@ -1,100 +1,94 @@
 ---
 name: siyuan-sisyphus-search-query
-description: Search and query SiYuan notes. Covers fulltext search, SQL query, backlinks, references, and embed query blocks. Use when the agent needs to find content in SiYuan.
+description: CLI-only playbook for finding and querying SiYuan content with `siyuan-sisyphus`. Use for fulltext search, SQL SELECT queries, backlinks, references, asset search, indexed asset text, and safe find-replace workflows.
 ---
 
-# SiYuan Sisyphus — Search and Query
+# SiYuan Sisyphus CLI - Search and Query
+
+Use search commands to locate content, then read the target by path or ID before editing. Add `--json` for scripts and explicit page controls for repeatable output.
 
 ## Fulltext Search
 
-```python
-# Keyword search (default)
-search(action="fulltext", query="思源笔记")
-
-# Query syntax (methodName="query" or method=1)
-search(action="fulltext", query="foo NOT bar", methodName="query")
-
-# Regex search
-search(action="fulltext", query="pattern", methodName="regex")
-
-# Scoped to document subtree
-search(action="fulltext", query="keyword", parentId="doc-id")
-
-# Filter by tag presence
-search(action="fulltext", query="keyword", hasTags=True)
-
-# Filter by block type (shortcodes auto-expand)
-search(action="fulltext", query="keyword", types={"h": true, "c": true})
+```bash
+siyuan-sisyphus search fulltext --query "keyword" --page 1 --page-size 20
+siyuan-sisyphus search fulltext --query "foo NOT bar" --method-name query --json
+siyuan-sisyphus search fulltext --query "pattern" --method-name regex --json
+siyuan-sisyphus search fulltext --query "keyword" --parent-id "<doc-id>" --json
+siyuan-sisyphus search fulltext --query "keyword" --has-tags --json
+siyuan-sisyphus search fulltext --query "keyword" --type-shortcodes h,p --json
 ```
 
-Search type shortcodes: `d`=document, `h`=heading, `p`=paragraph, `l`=list, `i`=list-item, `b`=blockquote, `c`=code, `m`=math, `t`=table, `html`=html, `video`=video, `audio`=audio, `widget`=widget, `av`=databaseBlock.
+Common block type shortcodes: `d` document, `h` heading, `p` paragraph, `l` list, `i` list item, `b` blockquote, `c` code block, `m` math block, `t` table, `s` super block, `html`, `embed`, and `av`.
 
-Prefer semantic aliases `methodName`/`sortBy` over numeric `method`/`orderBy`.
+Prefer semantic flags such as `--method-name` and `--sort-by` over numeric fields.
 
-## SQL Query
+## SQL Queries
 
-```python
-# Always add LIMIT yourself
-search(action="query_sql", stmt="SELECT * FROM blocks WHERE type = 'p' ORDER BY updated DESC LIMIT 10")
+SQL is read-only. Always include `LIMIT`.
 
-# FTS query (faster for text matching)
-search(action="query_sql", stmt="SELECT * FROM blocks_fts WHERE blocks_fts MATCH 'content:思源' LIMIT 10")
-
-# Tag search via SQL
-search(action="query_sql", stmt="SELECT * FROM spans WHERE type = 'tag' AND content = '#标签名#'")
+```bash
+siyuan-sisyphus search query-sql --stmt "SELECT id, hpath, content FROM blocks WHERE type = 'p' ORDER BY updated DESC LIMIT 10" --json
+siyuan-sisyphus search query-sql --stmt "SELECT id, content FROM blocks_fts WHERE blocks_fts MATCH 'content:keyword' LIMIT 10" --json
+siyuan-sisyphus search query-sql --stmt "SELECT root_id, content FROM spans WHERE type = 'tag' AND content = '#project#' LIMIT 20" --json
 ```
 
-Common `blocks` table columns: `id`, `parent_id`, `root_id`, `box`, `path`, `hpath`, `name`, `alias`, `memo`, `tag`, `content`, `fcontent`, `markdown`, `length`, `type`, `subtype`, `ial`, `sort`, `created`, `updated`.
+Common tables: `blocks`, `blocks_fts`, `blocks_fts_case_insensitive`, `attributes`, `refs`, `spans`, and `assets`.
 
-Common tables: `blocks`, `blocks_fts`, `blocks_fts_case_insensitive`, `attributes`, `refs`, `spans`, `assets`.
+Common `blocks` columns: `id`, `parent_id`, `root_id`, `box`, `path`, `hpath`, `name`, `alias`, `memo`, `tag`, `content`, `fcontent`, `markdown`, `length`, `type`, `subtype`, `ial`, `sort`, `created`, and `updated`.
 
 ## Backlinks and References
 
-```python
-# Get documents/blocks that reference this block
-search(action="get_backlinks", id="block-id", mode="both")
-# mode options: "links" | "mentions" | "both"
-
-# Search references with surrounding context
-search(action="search_refs", id="block-id", beforeLen=512)
-
-# List invalid block references
-search(action="list_invalid_refs")
+```bash
+siyuan-sisyphus search get-backlinks --id "<block-or-doc-id>" --mode both --json
+siyuan-sisyphus search get-backlinks --id "<block-or-doc-id>" --keyword "filter" --json
+siyuan-sisyphus search search-refs --id "<block-id>" --before-len 512 --json
+siyuan-sisyphus search list-invalid-refs --page 1 --page-size 50 --json
 ```
 
-## Search Assets
+Use backlinks to understand references before moving or rewriting content.
 
-```python
-# Search asset filenames
-search(action="search_assets", k="image.png")
+## Assets and OCR Text
 
-# Search indexed asset/OCR text
-search(action="fulltext_asset_content", query="text in image")
+```bash
+siyuan-sisyphus search search-assets --query "image" --json
+siyuan-sisyphus search search-assets --query "diagram" --exts png,jpg,webp --json
+siyuan-sisyphus search fulltext-asset-content --query "text in image" --page 1 --page-size 20 --json
 ```
 
-## Embed Query Blocks
+For document-specific assets, use:
 
-Create a dynamic SQL query block inside a document:
+```bash
+siyuan-sisyphus file get-doc-assets --id "<doc-id>" --asset-type image --json
+```
 
-```python
-block(action="append", parentID="doc-id", dataType="markdown",
-      data="""{{SELECT * FROM blocks WHERE content LIKE '%[ ]%' AND type = 'i' LIMIT 20}}""")
+## Dynamic Query Blocks
+
+To create a query block inside a document, append Markdown containing the query template:
+
+```bash
+siyuan-sisyphus block append --parent-id "<doc-id>" --data-type markdown --data "{{SELECT id, content FROM blocks WHERE content LIKE '%TODO%' LIMIT 20}}"
 ```
 
 ## Find and Replace
 
-**Requires explicit user confirmation** before execution.
+`search find-replace` modifies content. Before running it, show the user the exact scope and replacement, then get explicit approval.
 
-```python
-search(action="find_replace", k="old text", r="new text", ids=["doc-id"])
+```bash
+siyuan-sisyphus search find-replace --k "old text" --r "new text" --ids "<doc-id>"
+siyuan-sisyphus search find-replace --k "old text" --r "" --ids-json '["<doc-id-1>","<doc-id-2>"]'
 ```
+
+Safer workflow:
+
+1. Search for candidate blocks.
+2. Read the target document or block.
+3. Confirm the exact replacement and scope with the user.
+4. Run `search find-replace`.
+5. Read again to verify.
 
 ## Pitfalls
 
-1. **Indexing delay**: Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent. Brief retries are expected.
-
-2. **Always add LIMIT in SQL**: MCP may truncate large result sets and will tell you when to refine the query.
-
-3. **SQL is read-only**: `search(action="query_sql")` only accepts SELECT / WITH statements. Mutation queries are rejected.
-
-4. **Case sensitivity**: Default search is case-insensitive using `blocks_fts_case_insensitive`. For case-sensitive search, use `blocks_fts`.
+- Recent writes may not appear in search immediately. Retry briefly or read by path/ID.
+- SQL must be `SELECT` or `WITH` style read-only queries.
+- Add `LIMIT` to every SQL query.
+- Permission filtering can reduce results; check notebook permissions before treating missing content as an error.

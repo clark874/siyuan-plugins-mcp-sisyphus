@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onDestroy, onMount } from "svelte";
+    import { onDestroy, onMount, tick } from "svelte";
     import { fetchPost, showMessage } from "siyuan";
     import {
         buildChangedFiles,
@@ -87,6 +87,7 @@
     let mounted = false;
     let loadedDocumentId = "";
     let timelineCollapsed = true;
+    let panelVisible = false;
     let autoTimelineCollapsed = false;
     let forceTimelineExpanded = false;
     let compareMode: CompareMode = "unified";
@@ -95,6 +96,7 @@
     let shellElement: HTMLDivElement;
     let diffElement: HTMLElement;
     let shellResizeObserver: ResizeObserver | undefined;
+    let shellMutationObserver: MutationObserver | undefined;
     let diffViewportTop = 0;
     let diffViewportHeight = 100;
     let diffMinimapCapacity = 1;
@@ -135,28 +137,66 @@
         selectedEntryKey;
         queueDiffViewportUpdate();
     }
-    $: if (mounted && currentDocumentId !== loadedDocumentId && !loadingSnapshots) {
+    $: if (shouldAutoLoadTimeline() && currentDocumentId !== loadedDocumentId && !loadingSnapshots) {
         void loadTimeline();
     }
 
     onMount(async () => {
         mounted = true;
         observeShellWidth();
-        await loadTimeline();
+        await tick();
+        await nextFrame();
+        updateShellVisibility();
+        if (shouldAutoLoadTimeline()) await loadTimeline();
     });
 
     onDestroy(() => {
         shellResizeObserver?.disconnect();
+        shellMutationObserver?.disconnect();
     });
 
     function observeShellWidth() {
-        if (!shellElement || typeof ResizeObserver === "undefined") return;
-        shellResizeObserver = new ResizeObserver((entries) => {
-            const width = entries[0]?.contentRect.width ?? shellElement.clientWidth;
-            autoTimelineCollapsed = !forceTimelineExpanded && width > 0 && width < TIMELINE_AUTO_COLLAPSE_WIDTH;
-        });
-        shellResizeObserver.observe(shellElement);
-        autoTimelineCollapsed = !forceTimelineExpanded && shellElement.clientWidth > 0 && shellElement.clientWidth < TIMELINE_AUTO_COLLAPSE_WIDTH;
+        if (!shellElement) return;
+        if (typeof ResizeObserver !== "undefined") {
+            shellResizeObserver = new ResizeObserver((entries) => {
+                updateShellVisibility(entries[0]?.contentRect.width ?? shellElement.clientWidth);
+            });
+            shellResizeObserver.observe(shellElement);
+        }
+        observeShellAncestorVisibility();
+        updateShellVisibility();
+    }
+
+    function observeShellAncestorVisibility() {
+        if (typeof MutationObserver === "undefined") return;
+        shellMutationObserver = new MutationObserver(() => updateShellVisibility());
+        let element: HTMLElement | null = shellElement;
+        while (element) {
+            shellMutationObserver.observe(element, {
+                attributes: true,
+                attributeFilter: ["class", "style", "hidden", "aria-hidden"],
+            });
+            element = element.parentElement;
+        }
+    }
+
+    function updateShellVisibility(width = shellElement?.clientWidth ?? 0) {
+        panelVisible = isShellVisible();
+        autoTimelineCollapsed = !forceTimelineExpanded && width > 0 && width < TIMELINE_AUTO_COLLAPSE_WIDTH;
+    }
+
+    function isShellVisible(): boolean {
+        if (!shellElement?.getClientRects().length) return false;
+        let element: HTMLElement | null = shellElement;
+        while (element) {
+            if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
+            if (typeof getComputedStyle === "function") {
+                const style = getComputedStyle(element);
+                if (style.display === "none" || style.visibility === "hidden") return false;
+            }
+            element = element.parentElement;
+        }
+        return true;
     }
 
     function toggleTimelineCollapsed() {
@@ -166,8 +206,16 @@
         timelineCollapsed = !timelineCollapsed;
     }
 
-    function toggleCompareMode() {
+    function shouldAutoLoadTimeline(): boolean {
+        return mounted && panelVisible && currentDocumentId !== "";
+    }
+
+    async function toggleCompareMode() {
+        const scrollProgress = getDiffScrollProgress();
         compareMode = compareMode === "unified" ? "split" : "unified";
+        await tick();
+        await nextFrame();
+        restoreDiffScrollProgress(scrollProgress);
     }
 
     function toggleHiddenBlock(key: string) {
@@ -202,6 +250,30 @@
         }
     }
 
+    function nextFrame(): Promise<void> {
+        return new Promise((resolve) => {
+            if (typeof requestAnimationFrame === "function") {
+                requestAnimationFrame(() => resolve());
+            } else {
+                setTimeout(resolve, 0);
+            }
+        });
+    }
+
+    function getDiffScrollProgress(): number {
+        if (!diffElement) return 0;
+        const maxScrollTop = Math.max(0, diffElement.scrollHeight - diffElement.clientHeight);
+        if (maxScrollTop === 0) return 0;
+        return Math.min(1, Math.max(0, diffElement.scrollTop / maxScrollTop));
+    }
+
+    function restoreDiffScrollProgress(progress: number) {
+        if (!diffElement) return;
+        const maxScrollTop = Math.max(0, diffElement.scrollHeight - diffElement.clientHeight);
+        diffElement.scrollTop = maxScrollTop * Math.min(1, Math.max(0, progress));
+        updateDiffViewport();
+    }
+
     function updateDiffViewport() {
         if (!diffElement) {
             diffViewportTop = 0;
@@ -211,9 +283,8 @@
         }
         const scrollHeight = Math.max(diffElement.scrollHeight, 1);
         const clientHeight = Math.max(diffElement.clientHeight, 1);
-        const maxTop = Math.max(0, 100 - (clientHeight / scrollHeight) * 100);
         diffViewportHeight = Math.min(100, Math.max(8, (clientHeight / scrollHeight) * 100));
-        diffViewportTop = Math.min(maxTop, Math.max(0, (diffElement.scrollTop / scrollHeight) * 100));
+        diffViewportTop = getDiffScrollProgress() * Math.max(0, 100 - diffViewportHeight);
         diffMinimapCapacity = Math.max(1, Math.ceil(clientHeight / MINIMAP_UNIT_HEIGHT));
     }
 
@@ -357,6 +428,7 @@
     }
 
     async function loadTimeline() {
+        if (!shouldAutoLoadTimeline()) return;
         loadingSnapshots = true;
         loadingDiff = true;
         error = "";
@@ -365,7 +437,9 @@
         try {
             await refreshDocumentTitle();
             const data = await post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoTagSnapshots", {});
+            if (!shouldAutoLoadTimeline()) return;
             taggedSnapshots = await ensureRootTimelineSnapshot(sortSnapshotsNewestFirst((data.snapshots ?? []).filter(isTimelineSnapshot)));
+            if (!shouldAutoLoadTimeline()) return;
             currentSnapshot = currentDocumentId ? await createCurrentSnapshot() : null;
             const entryContents: TimelineEntryContent[] = [];
             const contentCache = new Map<string, string>();
