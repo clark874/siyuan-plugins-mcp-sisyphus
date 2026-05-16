@@ -112,6 +112,7 @@
     $: selectedSnapshotTitle = selectedEntry ? snapshotLabel(selectedEntry.snapshot) : "";
     $: selectedSnapshotTime = selectedEntry ? formatSnapshotTime(selectedEntry.snapshot) : "";
     $: currentSnapshotTime = currentSnapshot ? formatSnapshotTime(currentSnapshot) : "";
+    $: currentVersionTime = currentSnapshotTime || newFileContent?.updated || "";
     $: diffLineStats = getBlockDiffLineStats(blockEntries);
     $: diffDisplayItems = buildDiffDisplayItems(blockEntries);
     $: hiddenDisplayItems = diffDisplayItems.filter((item): item is DiffHiddenDisplayItem => item.kind === "hidden");
@@ -698,7 +699,7 @@
             showMessage(localizeAcceptReason(entry.acceptReason) || t("timeline_msg_block_restore_unsupported", "该块暂不支持块级回退"));
             return;
         }
-        const confirmed = window.confirm(t("timeline_confirm_rollback_block", "将把「${title}」中的这个块回退到左侧历史版本，继续吗？", { title: displayDocumentTitle }));
+        const confirmed = window.confirm(t("timeline_confirm_rollback_block", "将把「${title}」中的这个块回退到历史版本，继续吗？", { title: displayDocumentTitle }));
         if (!confirmed) return;
 
         applying = true;
@@ -755,7 +756,7 @@
             showMessage(t("timeline_msg_no_rollback_version", "该时间线节点没有可回退的左侧版本"));
             return;
         }
-        const confirmed = window.confirm(t("timeline_confirm_rollback_document", "这会把整个文档回退到左侧历史版本。继续吗？"));
+        const confirmed = window.confirm(t("timeline_confirm_rollback_document", "这会把整个文档回退到历史版本。继续吗？"));
         if (!confirmed) return;
         applying = true;
         try {
@@ -884,11 +885,33 @@
                 {:else}
                     <div class:unified={compareMode === "unified"} class="vc-diff-head">
                         {#if compareMode === "unified"}
-                            <div>{t("timeline_history_version", "历史版本")} {selectedSnapshotTitle ? `· ${selectedSnapshotTitle}` : ""}{selectedSnapshotTime ? ` · ${selectedSnapshotTime}` : ""} → {t("timeline_current_state", "当前状态")} {currentSnapshotTime ? `· ${currentSnapshotTime}` : newFileContent?.updated ? `· ${newFileContent.updated}` : ""}</div>
+                            <div class="vc-diff-head-cell vc-version-line">
+                                <div class="vc-version-card old">
+                                    <span class="vc-version-label">{t("timeline_history_version", "历史版本")}</span>
+                                    {#if selectedSnapshotTitle}<strong>{selectedSnapshotTitle}</strong>{/if}
+                                    {#if selectedSnapshotTime}<time>{selectedSnapshotTime}</time>{/if}
+                                </div>
+                                <span class="vc-version-arrow" aria-hidden="true">→</span>
+                                <div class="vc-version-card current">
+                                    <span class="vc-version-label">{t("timeline_current_state", "当前状态")}</span>
+                                    {#if currentVersionTime}<time>{currentVersionTime}</time>{/if}
+                                </div>
+                            </div>
                         {:else}
-                            <div>{t("timeline_history_version", "历史版本")} {selectedSnapshotTitle ? `· ${selectedSnapshotTitle}` : ""}{selectedSnapshotTime ? ` · ${selectedSnapshotTime}` : ""}</div>
-                            <div aria-hidden="true"></div>
-                            <div>{t("timeline_current_state", "当前状态")} {currentSnapshotTime ? `· ${currentSnapshotTime}` : newFileContent?.updated ? `· ${newFileContent.updated}` : ""}</div>
+                            <div class="vc-diff-head-cell">
+                                <div class="vc-version-card old">
+                                    <span class="vc-version-label">{t("timeline_history_version", "历史版本")}</span>
+                                    {#if selectedSnapshotTitle}<strong>{selectedSnapshotTitle}</strong>{/if}
+                                    {#if selectedSnapshotTime}<time>{selectedSnapshotTime}</time>{/if}
+                                </div>
+                            </div>
+                            <div class="vc-diff-head-cell vc-diff-head-arrow" aria-hidden="true">→</div>
+                            <div class="vc-diff-head-cell">
+                                <div class="vc-version-card current">
+                                    <span class="vc-version-label">{t("timeline_current_state", "当前状态")}</span>
+                                    {#if currentVersionTime}<time>{currentVersionTime}</time>{/if}
+                                </div>
+                            </div>
                         {/if}
                     </div>
                     {#if blockEntries.length === 0}
@@ -1434,18 +1457,90 @@
         position: sticky;
         top: 0;
         z-index: 1;
-        background: var(--b3-theme-background);
+        background: color-mix(in srgb, var(--b3-theme-surface) 82%, var(--b3-theme-background));
         border-bottom: 1px solid var(--b3-border-color);
         font-size: 12px;
         color: var(--b3-theme-on-surface);
     }
 
-    .vc-diff-head div {
-        padding: 8px 12px;
+    .vc-diff-head-cell {
+        min-width: 0;
+        padding: 6px 12px;
     }
 
     .vc-diff-head.unified {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .vc-version-line {
+        display: grid;
+        grid-template-columns: minmax(0, auto) 24px minmax(0, auto);
+        gap: 8px;
+        align-items: center;
+        justify-content: start;
+    }
+
+    .vc-version-card {
+        display: flex;
+        min-width: 0;
+        max-width: 100%;
+        align-items: baseline;
+        gap: 6px;
+        overflow: hidden;
+        border: 1px solid color-mix(in srgb, var(--b3-border-color) 78%, transparent);
+        border-radius: 6px;
+        padding: 5px 8px;
+        background: color-mix(in srgb, var(--b3-theme-background) 78%, transparent);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    }
+
+    .vc-version-card.old {
+        border-color: color-mix(in srgb, var(--b3-theme-on-surface) 24%, var(--b3-border-color));
+    }
+
+    .vc-version-card.current {
+        border-color: color-mix(in srgb, var(--b3-theme-primary) 38%, var(--b3-border-color));
+        background: color-mix(in srgb, var(--b3-theme-primary) 8%, var(--b3-theme-background));
+    }
+
+    .vc-version-label {
+        flex: none;
+        color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .vc-version-card strong,
+    .vc-version-card time {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vc-version-card strong {
+        color: var(--b3-theme-on-background);
+        font-weight: 650;
+    }
+
+    .vc-version-card time {
+        color: var(--b3-theme-on-surface);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .vc-version-arrow,
+    .vc-diff-head-arrow {
+        color: var(--b3-theme-primary);
+        font-size: 15px;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .vc-diff-head-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding-inline: 0;
     }
 
     .vc-unified-list {
@@ -1454,7 +1549,7 @@
     }
 
     .vc-hidden-blocks {
-        min-height: 30px;
+        min-height: 26px;
         border-top: 1px solid rgba(128, 128, 128, 0.12);
         border-bottom: 1px solid rgba(128, 128, 128, 0.12);
         background: color-mix(in srgb, var(--b3-theme-surface) 72%, transparent);
@@ -1468,10 +1563,10 @@
         justify-content: flex-start;
         gap: 8px;
         width: 100%;
-        min-height: 30px;
+        min-height: 26px;
         border: 0;
         border-radius: 0;
-        padding: 4px 14px;
+        padding: 2px 12px;
         background: transparent;
         color: inherit;
         text-align: left;
@@ -1536,11 +1631,12 @@
         align-items: flex-start;
         justify-content: center;
         min-width: 0;
-        padding: 8px 0;
+        padding: 4px 0;
         border-right: 1px solid var(--b3-border-color);
         color: var(--b3-theme-on-surface);
         font-family: var(--b3-font-family-code);
         font-size: 12px;
+        line-height: 1.4;
         user-select: none;
     }
 
@@ -1554,7 +1650,7 @@
 
     .vc-line-content {
         min-width: 0;
-        padding: 4px 12px;
+        padding: 1px 10px;
     }
 
     .vc-unified-actions {
@@ -1650,7 +1746,7 @@
     .vc-block {
         min-width: 0;
         border-bottom: 1px solid var(--b3-border-color);
-        padding: 8px 12px;
+        padding: 4px 10px;
     }
 
     .vc-diff-row {
@@ -1668,7 +1764,7 @@
         border-bottom: 1px solid var(--b3-border-color);
         border-left: 1px solid var(--b3-border-color);
         border-right: 1px solid var(--b3-border-color);
-        padding: 8px 5px;
+        padding: 4px 4px;
         background: var(--b3-theme-background);
     }
 
@@ -1763,13 +1859,13 @@
 
     pre,
     .vc-inline-diff {
-        min-height: 22px;
-        margin: 4px 0;
+        min-height: 18px;
+        margin: 1px 0;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         font-family: var(--b3-font-family-code);
         font-size: 12px;
-        line-height: 1.55;
+        line-height: 1.42;
     }
 
     .vc-diff-part {
@@ -1897,6 +1993,21 @@
 
         .vc-diff-head div:nth-child(2) {
             display: none;
+        }
+
+        .vc-version-line {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 4px;
+        }
+
+        .vc-version-line .vc-version-arrow {
+            display: none;
+        }
+
+        .vc-version-card {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 2px;
         }
 
         .vc-block.old {
