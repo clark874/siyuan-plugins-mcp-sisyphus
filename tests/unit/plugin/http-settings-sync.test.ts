@@ -383,6 +383,23 @@ describe('HTTP settings sync', () => {
         expect(puppyInstances).toHaveLength(1);
     });
 
+    it('registers the timeline dock after layout is ready and only once', () => {
+        const addDock = vi.fn();
+        Object.assign(plugin, { addDock });
+
+        plugin.onLayoutReady();
+        plugin.onLayoutReady();
+
+        expect(addDock).toHaveBeenCalledTimes(1);
+        expect(addDock).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'sisyphusTimelineDock',
+            config: expect.objectContaining({
+                position: 'RightBottom',
+                show: true,
+            }),
+        }));
+    });
+
     it('self-heals orphan puppy roots before remounting', () => {
         const orphanRoot = document.createElement('div');
         orphanRoot.id = 'sy-puppy-root';
