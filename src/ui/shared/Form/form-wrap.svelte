@@ -38,17 +38,53 @@
 
 <style>
     span.title {
-        font-weight: bold;
-        color: var(--b3-theme-primary)
+        display: block;
+        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+        font-size: var(--mcp-config-title-font-size, 14px);
+        font-weight: var(--mcp-config-title-font-weight, 500);
+        line-height: 1.5;
     }
+
     .item-wrap.b3-label {
+        box-sizing: border-box;
+        display: flex;
+        height: auto;
+        min-height: 0;
+        max-height: none;
+        overflow: visible;
+        width: 100%;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
         box-shadow: none !important;
-        padding-bottom: 16px;
-        margin-bottom: 16px;
+        padding: 12px 0;
+        margin: 0;
     }
 
     .item-wrap.b3-label:not(:last-child) {
         border-bottom: 1px solid var(--b3-border-color);
+    }
+
+    .item-wrap.fn__flex {
+        align-items: flex-start;
+        gap: 24px;
+    }
+
+    .item-wrap.fn__flex > .fn__flex-1 {
+        min-width: 0;
+    }
+
+    .item-wrap.fn__flex > .fn__space {
+        flex: 0 0 auto;
+        width: 0;
+        min-width: 0;
+    }
+
+    .b3-label__text {
+        margin-top: 6px;
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        font-size: 12px;
+        line-height: 1.55;
     }
 
     @media (max-width: 768px) {
@@ -59,9 +95,6 @@
         }
         .item-wrap.fn__flex > .fn__space {
             display: none;
-        }
-        .item-wrap.fn__flex input.b3-switch {
-            align-self: flex-end;
         }
     }
 </style>

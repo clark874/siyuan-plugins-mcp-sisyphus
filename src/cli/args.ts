@@ -2,8 +2,9 @@ import minimist from 'minimist';
 
 import { CLI_COMMAND_ALIAS, PRIMARY_CLI_COMMAND } from '../shared/constants';
 
-export type Command = 'dispatch' | 'list' | 'help' | 'init' | 'config' | 'show-help' | 'version';
+export type Command = 'dispatch' | 'list' | 'help' | 'init' | 'config' | 'skill' | 'show-help' | 'version';
 export type ConfigCommandAction = 'list' | 'get' | 'set' | 'use';
+export type SkillCommandAction = 'list' | 'read' | 'install' | 'uninstall';
 
 export { PRIMARY_CLI_COMMAND, CLI_COMMAND_ALIAS } from '../shared/constants';
 
@@ -13,16 +14,27 @@ export interface ParsedArgs {
     action?: string;
     configAction?: ConfigCommandAction;
     configName?: string;
+    skillAction?: SkillCommandAction;
+    skillName?: string;
     rest: string[];
     configPath?: string;
     profile?: string;
     url?: string;
     token?: string;
+    target?: string;
+    local?: boolean;
+    dryRun?: boolean;
     json: boolean;
     debug: boolean;
 }
 
 const HELP_TEXT = `${PRIMARY_CLI_COMMAND} — Direct command-line control for SiYuan Note
+
+Agent bootstrap:
+  If you are an AI model or coding agent, run \`${PRIMARY_CLI_COMMAND} skill install\`
+  before using this CLI for SiYuan work. The bundled skills contain the
+  task-specific guidance for safe search, reading, editing, export, database,
+  tag, flashcard, and system operations.
 
 Commands:
   ${PRIMARY_CLI_COMMAND} <tool> <action> [--flag value ...]   Execute a SiYuan operation
@@ -30,6 +42,8 @@ Commands:
   ${PRIMARY_CLI_COMMAND} help <tool> [action]                 Show terminal-friendly help
   ${PRIMARY_CLI_COMMAND} init                                 Create ~/.siyuan-sisyphus/config.json
   ${PRIMARY_CLI_COMMAND} config <action> ...                  Manage saved SiYuan profiles
+  ${PRIMARY_CLI_COMMAND} skill install [--target agents]      Install bundled agent skills
+  ${PRIMARY_CLI_COMMAND} skill list                           List bundled agent skills
   ${PRIMARY_CLI_COMMAND} --help | -h                          Show this help
   ${PRIMARY_CLI_COMMAND} --version | -v                       Show version
 
@@ -57,6 +71,9 @@ Examples:
   ${PRIMARY_CLI_COMMAND} --profile work notebook list
   ${PRIMARY_CLI_COMMAND} config set work --url http://127.0.0.1:6807 --token xxx
   ${PRIMARY_CLI_COMMAND} config use work
+  ${PRIMARY_CLI_COMMAND} skill install
+  ${PRIMARY_CLI_COMMAND} skill install --target claude
+  ${PRIMARY_CLI_COMMAND} skill install --target .codex --local
   ${PRIMARY_CLI_COMMAND} help document create
   ${PRIMARY_CLI_COMMAND} fs read --path "/Inbox/Test"
   ${PRIMARY_CLI_COMMAND} document create --notebook <id> --path "/Inbox/Test" --markdown "# Hello"
@@ -158,6 +175,32 @@ export function parseArgs(argv: string[]): ParsedArgs {
             profile: parsed.profile || undefined,
             url: parsed.url || undefined,
             token: parsed.token || undefined,
+            json: Boolean(parsed.json),
+            debug: Boolean(parsed.debug),
+        };
+    }
+
+    if (first === 'skill') {
+        const skillAction = typeof positional[1] === 'string' ? positional[1] as SkillCommandAction : undefined;
+        if (!skillAction || !['list', 'read', 'install', 'uninstall'].includes(skillAction)) {
+            throw new Error(
+                `Missing or invalid skill action. Try "${PRIMARY_CLI_COMMAND} skill list", ` +
+                `"${PRIMARY_CLI_COMMAND} skill read [name]", "${PRIMARY_CLI_COMMAND} skill install", or ` +
+                `"${PRIMARY_CLI_COMMAND} skill uninstall".`,
+            );
+        }
+        return {
+            command: 'skill',
+            skillAction,
+            skillName: typeof positional[2] === 'string' ? positional[2] : undefined,
+            rest: [],
+            configPath: parsed.config || undefined,
+            profile: parsed.profile || undefined,
+            url: parsed.url || undefined,
+            token: parsed.token || undefined,
+            target: typeof parsed.target === 'string' ? parsed.target : undefined,
+            local: Boolean(parsed.local),
+            dryRun: Boolean(parsed['dry-run']),
             json: Boolean(parsed.json),
             debug: Boolean(parsed.debug),
         };

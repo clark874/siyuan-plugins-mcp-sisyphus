@@ -1,0 +1,36 @@
+.sisyphus-settings-dialog {
+    .b3-dialog__header {
+        display: none !important;
+    }
+
+    .b3-dialog__body {
+        display: flex !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+        width: 100% !important;
+    }
+
+    .b3-dialog__content {
+        box-sizing: border-box;
+        display: flex !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        width: 100% !important;
+    }
+
+    #SettingPanel {
+        display: flex;
+        align-items: stretch;
+        height: 100%;
+        min-height: 0;
+        width: 100%;
+    }
+}

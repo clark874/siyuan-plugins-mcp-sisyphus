@@ -4,6 +4,7 @@ import { runDispatch } from './dispatch';
 import { runInit } from './init';
 import { runHelp, runList } from './list-help';
 import { renderCliError } from './render';
+import { runSkillCommand } from './skill-command';
 
 declare const __CLI_VERSION__: string;
 
@@ -28,6 +29,8 @@ async function main(): Promise<number> {
             return 0;
         case 'config':
             return runConfigCommand(cli);
+        case 'skill':
+            return runSkillCommand(cli);
         case 'list':
             return await runList(cli);
         case 'help':

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     import { fetchPost, showMessage } from "siyuan";
 
     import { buildDefaultToolConfig, normalizeToolConfig, type ToolCategory, type ToolConfig } from "./tool-config";
@@ -67,6 +67,8 @@
     let telemetryConfig: TelemetryConfig = buildDefaultTelemetryConfig();
     let versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
     let focusGroup = "";
+    let lastFocusGroup = "";
+    let tabWrapElement: HTMLDivElement | null = null;
     let notebooks: NotebookInfo[] = [];
     let permissions: Record<string, NotebookPermission> = {};
     let permLoading = true;
@@ -104,6 +106,16 @@
     $: tabIds = tabItems.map((t) => t.id);
     $: if (!tabIds.includes(focusGroup)) {
         focusGroup = tabItems[0]?.id ?? "";
+    }
+
+    $: if (focusGroup && focusGroup !== lastFocusGroup) {
+        const nextFocusGroup = focusGroup;
+        lastFocusGroup = nextFocusGroup;
+        void tick().then(() => {
+            if (focusGroup === nextFocusGroup) {
+                tabWrapElement?.scrollTo({ top: 0, left: 0 });
+            }
+        });
     }
 
     async function loadNotebooks() {
@@ -380,55 +392,147 @@
         {/each}
     </ul>
     <div class="config__tab-wrap">
-        <HttpServerPanel {plugin} group={httpGroupLabel} display={focusGroup === HTTP_GROUP_KEY} bind:httpSettings {getLabel} />
-        <PermissionsPanel group={permGroupLabel} display={focusGroup === PERM_GROUP_KEY} {notebooks} {permissions} {permLoading} {getLabel} {onChanged} />
-        <ToolCategoriesPanel group={toolGroupLabel} display={focusGroup === TOOL_GROUP_KEY} {config} {getLabel} {onChanged} />
-        <PuppyPanel group={puppyGroupLabel} display={focusGroup === PUPPY_GROUP_KEY} {puppySettings} {getLabel} {onChanged} />
-        <TelemetryPanel
-            analyticsGroup={analyticsGroupLabel}
-            analyticsDisplay={focusGroup === ANALYTICS_GROUP_KEY}
-            telemetryGroup=""
-            showTelemetry={false}
-            currentToolConfig={config}
-            {telemetryConfig}
-            {getLabel}
-            {onChanged}
-        />
-        <DebugPanel group={debugGroupLabel} display={focusGroup === DEBUG_GROUP_KEY} {config} {puppySettings} {versionControlSettings} {getLabel} {onChanged} />
-        <UserRulesPanel group={userRulesGroupLabel} display={focusGroup === USER_RULES_GROUP_KEY} {config} {getLabel} {onChanged} />
+        <div class="config__tab-scroll" bind:this={tabWrapElement}>
+            <div class="config__tab-content">
+                <HttpServerPanel {plugin} group={httpGroupLabel} display={focusGroup === HTTP_GROUP_KEY} bind:httpSettings {getLabel} />
+                <PermissionsPanel group={permGroupLabel} display={focusGroup === PERM_GROUP_KEY} {notebooks} {permissions} {permLoading} {getLabel} {onChanged} />
+                <ToolCategoriesPanel group={toolGroupLabel} display={focusGroup === TOOL_GROUP_KEY} {config} {getLabel} {onChanged} />
+                <PuppyPanel group={puppyGroupLabel} display={focusGroup === PUPPY_GROUP_KEY} {puppySettings} {getLabel} {onChanged} />
+                <TelemetryPanel
+                    analyticsGroup={analyticsGroupLabel}
+                    analyticsDisplay={focusGroup === ANALYTICS_GROUP_KEY}
+                    telemetryGroup=""
+                    showTelemetry={false}
+                    currentToolConfig={config}
+                    {telemetryConfig}
+                    {getLabel}
+                    {onChanged}
+                />
+                <DebugPanel group={debugGroupLabel} display={focusGroup === DEBUG_GROUP_KEY} {config} {puppySettings} {versionControlSettings} {getLabel} {onChanged} />
+                <UserRulesPanel group={userRulesGroupLabel} display={focusGroup === USER_RULES_GROUP_KEY} {config} {getLabel} {onChanged} />
+            </div>
+        </div>
     </div>
 </div>
 
 <style lang="scss">
     .config__panel {
+        --mcp-config-sidebar-width: 196px;
+        --mcp-config-content-padding: 24px;
+        --mcp-config-content-max-width: 980px;
+        --mcp-config-card-radius: var(--b3-border-radius, 4px);
+        --mcp-config-card-padding: 14px 16px;
+        --mcp-config-section-gap: 12px;
+        --mcp-config-shell-padding-top: 24px;
+        --mcp-config-shell-padding-x: 24px;
+        --mcp-config-shell-padding-bottom: 24px;
+        --mcp-config-title-color: var(--b3-theme-on-background);
+        --mcp-config-title-font-size: 14px;
+        --mcp-config-title-font-weight: 500;
+        --mcp-config-caption-color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
+        --mcp-config-code-font: var(--b3-font-family-code, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+
+        box-sizing: border-box;
+        color: var(--b3-theme-on-background);
+        font-size: 13px;
+        gap: 24px;
         height: 100%;
+        line-height: 1.5;
         min-height: 0;
+        min-width: 0;
+        padding:
+            var(--mcp-config-shell-padding-top)
+            var(--mcp-config-shell-padding-x)
+            var(--mcp-config-shell-padding-bottom);
+        width: 100%;
+    }
+
+    .config__panel > ul {
+        box-sizing: border-box;
+        flex: 0 0 var(--mcp-config-sidebar-width);
+        width: var(--mcp-config-sidebar-width);
+        min-width: var(--mcp-config-sidebar-width);
+        max-width: var(--mcp-config-sidebar-width);
+        margin: 0;
+        padding: 4px 8px 4px 0;
+        border-right: 1px solid var(--b3-border-color);
+        overflow-x: hidden;
+        overflow-y: auto;
     }
 
     .config__panel > ul > li {
-        padding-left: 1rem;
+        box-sizing: border-box;
+        width: auto;
+        min-width: 0;
+        margin: 2px 0;
+        padding: 0 12px;
+        border-radius: var(--b3-border-radius);
+    }
+
+    .config__panel > ul .b3-list-item__text {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .config__tab-wrap {
-        max-height: calc(100vh - 250px);
+        flex: 1 1 auto;
+        box-sizing: border-box;
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .config__tab-scroll {
+        box-sizing: border-box;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
         scroll-behavior: smooth;
     }
 
+    .config__tab-content {
+        box-sizing: border-box;
+        min-height: 100%;
+        padding: var(--mcp-config-content-padding);
+    }
+
+    .config__tab-content :global(.config__tab-container) {
+        box-sizing: border-box;
+        width: 100%;
+        max-width: var(--mcp-config-content-max-width);
+        margin-right: auto;
+    }
+
     @media (max-width: 768px) {
         .config__panel {
+            --mcp-config-content-padding: 16px 12px;
+            --mcp-config-card-padding: 12px 14px;
+            --mcp-config-section-gap: 10px;
+            --mcp-config-shell-padding-top: 16px;
+            --mcp-config-shell-padding-x: 16px;
+            --mcp-config-shell-padding-bottom: 16px;
+
             flex-direction: column;
+            gap: 12px;
         }
 
         .config__panel > ul {
             flex-shrink: 0;
+            width: 100%;
+            min-width: 0;
+            max-width: none;
             max-height: none;
             overflow-x: hidden;
             overflow-y: hidden;
             display: flex;
             flex-direction: row;
             flex-wrap: wrap;
+            border-right: 0;
             border-bottom: 1px solid var(--b3-border-color);
             padding: 4px 0;
         }
@@ -453,9 +557,8 @@
         }
 
         .config__tab-wrap {
-            max-height: none;
             flex: 1;
-            overflow-y: auto;
+            height: auto;
         }
     }
 
@@ -464,7 +567,7 @@
         align-items: center;
         justify-content: center;
         margin-right: 8px;
-        color: var(--b3-theme-on-background);
+        color: var(--mcp-config-caption-color);
     }
 
     .mcp-tab-icon :global(svg) {

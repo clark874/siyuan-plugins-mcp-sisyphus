@@ -1,13 +1,14 @@
 {
   "name": "siyuan-sisyphus",
-  "version": "0.1.10",
-  "description": "Direct command-line control for SiYuan Note. Call any SiYuan MCP tool as a subcommand: `siyuan-sisyphus block append --parent-id ... --data \"...\"`.",
+  "version": "0.1.12",
+  "description": "Direct command-line control for SiYuan Note. AI agents should run `siyuan-sisyphus skill install` before using the CLI for SiYuan work.",
   "bin": {
     "siyuan-sisyphus": "dist/cli.cjs",
     "siyuan": "dist/cli.cjs"
   },
   "files": [
     "dist/cli.cjs",
+    "dist/skills/**",
     "README.md"
   ],
   "engines": {

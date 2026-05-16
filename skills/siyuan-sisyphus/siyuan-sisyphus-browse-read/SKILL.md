@@ -1,99 +1,108 @@
 ---
 name: siyuan-sisyphus-browse-read
-description: Browse and read SiYuan notes. Covers listing notebooks, document trees, reading content, and the critical path semantics (human-readable vs storage paths). Use when the agent needs to explore or read SiYuan note content.
+description: CLI-only playbook for browsing and reading SiYuan notes with `siyuan-sisyphus`. Use when an agent needs notebooks, document trees, human-readable paths, IDs, block content, storage paths, search-assisted discovery, or read-only inspection.
 ---
 
-# SiYuan Sisyphus — Browse and Read
+# SiYuan Sisyphus CLI - Browse and Read
 
-**Core strategy**: For ordinary browse/read workflows, prefer `fs` because it uses human-readable paths and hides storage paths / block IDs. Only drop down to `document` or `block` tools when you need block-level IDs or low-level metadata.
+Prefer `fs` for normal browsing because it uses human-readable paths. Use `document` or `block` only when you need IDs, storage paths, metadata, or block-level reads.
 
-## List Notebooks
+## Start With Notebooks
 
-```python
-# List all readable notebooks
-notebook(action="list")
-
-# Check notebook permissions
-notebook(action="get_permissions", notebook="all")
+```bash
+siyuan-sisyphus notebook list
+siyuan-sisyphus notebook list --json
+siyuan-sisyphus notebook get-permissions
 ```
 
-## List Document Tree
+Use notebook names in `fs` paths:
 
-```python
-# List direct children of a path
-fs(action="ls", path="/NotebookName")
-fs(action="ls", path="/NotebookName/Folder")
-
-# Recursive tree (default maxDepth=3)
-fs(action="tree", path="/NotebookName")
-fs(action="tree", path="/NotebookName/Folder", maxDepth=5)
+```bash
+siyuan-sisyphus fs ls --path "/"
+siyuan-sisyphus fs ls --path "/NotebookName"
 ```
 
-For low-level tree operations (needing storage paths), use:
-```python
-document(action="list_tree", notebook="notebook-id", path="/")
+## Browse Trees
+
+```bash
+siyuan-sisyphus fs tree --path "/NotebookName" --max-depth 3
+siyuan-sisyphus fs tree --path "/NotebookName/Folder" --max-depth 5 --json
 ```
 
-## Read Document Content
+If you need low-level tree metadata:
 
-```python
-# Read full markdown by human-readable path (recommended)
-fs(action="read", path="/NotebookName/Folder/Doc")
-
-# For long documents, paginate
-fs(action="read", path="/NotebookName/Folder/Doc", page=2, pageSize=8000)
-
-# Low-level: get child blocks by document ID
-document(action="get_child_blocks", id="doc-id")
-
-# Low-level: get markdown by document ID
-document(action="get_doc", id="doc-id", mode="markdown")
+```bash
+siyuan-sisyphus document list-tree --notebook "<notebook-id>" --path "/" --max-depth 3 --json
+siyuan-sisyphus document get-child-docs --id "<doc-id>" --json
 ```
 
-## Search to Locate Content
+## Read Documents
 
-```python
-# Fulltext search
-search(action="fulltext", query="keyword")
-
-# Scoped to a document subtree
-search(action="fulltext", query="keyword", parentId="doc-id")
-
-# Filter by block type (shortcodes auto-expand)
-search(action="fulltext", query="keyword", types={"h": true, "p": true})
+```bash
+siyuan-sisyphus fs read --path "/NotebookName/Folder/Doc"
+siyuan-sisyphus fs read --path "/NotebookName/Folder/Doc" --page 2 --page-size 8000 --json
 ```
 
-## Resolve a Document Path
+Read by ID when the path is unknown:
 
-```python
-# Get storage path and human-readable path from an ID
-info = document(action="lookup", id="doc-id", include=["path", "hpath"])
-# info.path == "/20240318112233-abc123.sy" (storage path)
-# info.hpath == "/Notebook/Folder/Doc" (human-readable path)
+```bash
+siyuan-sisyphus document get-doc --id "<doc-id>" --mode markdown
+siyuan-sisyphus document get-child-blocks --id "<doc-id>" --json
 ```
 
-## Pitfalls: Path Semantics (the #1 Error Source)
+Read a single block:
 
-There are exactly two path types. Do not mix them.
-
-| Type | Used by | Example |
-|------|---------|---------|
-| **Human-readable** | `fs.*`, `document.create`, `document.lookup` (with hpath) | `/Inbox/Weekly Note` |
-| **Storage path** | `document.rename`, `document.remove`, `document.move`, `document.lookup` (with path) | `/20240318112233-abc123.sy` |
-
-**Safe workflow**: When you need a storage path, call `document(action="lookup", id="...", include=["path"])` first, then reuse the returned storage path.
-
-```python
-# WRONG: rename expects storage path, not human-readable path
-document(action="rename", notebook="...", path="/Inbox/Weekly Note", title="New Title")
-
-# CORRECT:
-info = document(action="lookup", id="doc-id", include=["path"])
-# info.path == "/20240318112233-abc123.sy"
-document(action="rename", notebook="...", path=info.path, title="New Title")
+```bash
+siyuan-sisyphus block get-kramdown --id "<block-id>"
+siyuan-sisyphus block info --id "<block-id>" --json
+siyuan-sisyphus block get-children --id "<block-id>" --page 1 --page-size 50 --json
 ```
 
-## Other Path Gotchas
+## Locate Content
 
-- `document(action="lookup", hpath=...)` may briefly lag after creation because it depends on SiYuan indexing. Retry if needed.
-- `document(action="lookup", id=...)` may hit the same short indexing delay right after create; MCP retries briefly and returns a timing-specific hint if indexing hasn't settled.
+Use `fs search` when a human-readable subtree is enough:
+
+```bash
+siyuan-sisyphus fs search --path "/NotebookName" --query "keyword" --page 1 --page-size 20 --json
+```
+
+Use fulltext search for global or structured filtering:
+
+```bash
+siyuan-sisyphus search fulltext --query "keyword" --page-size 20 --json
+siyuan-sisyphus search fulltext --query "keyword" --parent-id "<doc-id>" --json
+siyuan-sisyphus search fulltext --query "keyword" --type-shortcodes h,p --json
+```
+
+## Resolve Paths and IDs
+
+There are two path types:
+
+| Path type | Used by | Example |
+| --- | --- | --- |
+| Human-readable path | `fs`, `document create`, `document lookup --hpath` | `/Notebook/Folder/Doc` |
+| Storage path | Some low-level document operations | `/20240318112233-abc123.sy` |
+
+Safe lookup patterns:
+
+```bash
+siyuan-sisyphus document lookup --notebook "<notebook-id>" --hpath "/Folder/Doc" --include-json '["id","path","hpath"]' --json
+siyuan-sisyphus document lookup --id "<doc-id>" --include-json '["path","hpath"]' --json
+```
+
+Do not pass a human-readable path where a command asks for a storage path. Resolve first, then use the returned storage path.
+
+## Reading Strategy
+
+1. List notebooks or start from a known `/Notebook/...` path.
+2. Use `fs tree` or `fs search` to narrow the target.
+3. Use `fs read` for content.
+4. Use `document lookup` when an ID or storage path is needed.
+5. Use `block get-kramdown` or `document get-child-blocks` only for block-level edits or precise references.
+
+## Pitfalls
+
+- New or edited content may take a moment to appear in search. Read by path or ID when freshness matters.
+- Always use `--json` before piping output into another command.
+- Add explicit `--page` and `--page-size` in scripts.
+- Permission filtering can hide notebooks or results; check `notebook get-permissions` before assuming content is missing.

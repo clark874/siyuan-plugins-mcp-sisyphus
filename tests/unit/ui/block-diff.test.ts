@@ -404,6 +404,58 @@ describe('snapshot block diff', () => {
         ]);
     });
 
+    it('keeps generic HTML DOM blocks visible in timeline diffs', () => {
+        const blocks = parseSnapshotBlocks(`
+            <div data-node-id="iframe-block" data-type="NodeIFrame">
+                <iframe src="https://player.bilibili.com/player.html?bvid=BV1ov41187qM&amp;page=1"></iframe>
+            </div>
+            <div data-node-id="video-block" data-type="NodeVideo" data-src="assets/formatting_elements.mp4"></div>
+            <div data-node-id="audio-block" data-type="NodeAudio">
+                <audio controls="controls" src="assets/record.wav"></audio>
+            </div>
+            <div data-node-id="html-block" data-type="NodeHTMLBlock"><section><strong>Custom</strong> HTML</section></div>
+        `);
+
+        expect(blocks).toMatchObject([
+            { id: 'iframe-block', type: 'html', text: 'https://player.bilibili.com/player.html?bvid=BV1ov41187qM&page=1' },
+            { id: 'video-block', type: 'html', text: 'assets/formatting_elements.mp4' },
+            { id: 'audio-block', type: 'html', text: 'assets/record.wav' },
+            { id: 'html-block', type: 'html', text: 'Custom HTML' },
+        ]);
+        expect(blocks.map((block) => block.markdown)).toEqual([
+            '<iframe src="https://player.bilibili.com/player.html?bvid=BV1ov41187qM&page=1"></iframe>',
+            '<div data-node-id="video-block" data-type="NodeVideo" data-src="assets/formatting_elements.mp4"></div>',
+            '<audio controls="controls" src="assets/record.wav"></audio>',
+            '<section><strong>Custom</strong> HTML</section>',
+        ]);
+    });
+
+    it('keeps standalone HTML markdown blocks visible', () => {
+        const blocks = parseSnapshotBlocks([
+            '<iframe src="https://player.bilibili.com/player.html?bvid=BV1ov41187qM&amp;page=1"></iframe>',
+            '',
+            '<video controls="controls" src="assets/formatting_elements.mp4"></video>',
+            '',
+            '<audio controls="controls" src="assets/record.wav"></audio>',
+            '',
+            '<details><summary>More</summary><p>Custom HTML</p></details>',
+        ].join('\n'));
+
+        expect(blocks.map((block) => block.type)).toEqual(['html', 'html', 'html', 'html']);
+        expect(blocks.map((block) => block.text)).toEqual([
+            'https://player.bilibili.com/player.html?bvid=BV1ov41187qM&page=1',
+            'assets/formatting_elements.mp4',
+            'assets/record.wav',
+            'MoreCustom HTML',
+        ]);
+        expect(blocks.map((block) => block.markdown)).toEqual([
+            '<iframe src="https://player.bilibili.com/player.html?bvid=BV1ov41187qM&amp;page=1"></iframe>',
+            '<video controls="controls" src="assets/formatting_elements.mp4"></video>',
+            '<audio controls="controls" src="assets/record.wav"></audio>',
+            '<details><summary>More</summary><p>Custom HTML</p></details>',
+        ]);
+    });
+
     it('restores removed ordinary DOM blocks as markdown with their original block id', () => {
         const [oldBlock] = parseSnapshotBlocks(`
             <div data-node-id="20260514120003-ddddddd" data-type="NodeParagraph">Old <strong>text</strong></div>

@@ -62,7 +62,13 @@ This repo already keeps release history in:
    - `docs/zh/development/release-cli.md`
 8. Check that English and Chinese descriptions have the same release meaning, even if not literally translated.
 9. Review the diff for consistency.
-10. Prepare:
+10. If releasing from the `dev` branch, merge into `main` with `--no-ff` to preserve the feature branch history and create an explicit merge commit:
+    ```bash
+    git checkout main
+    git merge --no-ff dev -m "feat：合并 dev 分支并发布 vX.Y.Z"
+    ```
+    - Do **not** use a fast-forward merge; the explicit merge commit makes the release boundary clear in the history graph.
+11. Prepare:
    - a recommended commit message
    - exact plugin `git tag` / `git push` commands if the plugin version changed
    - exact CLI publish command if the CLI version changed
@@ -280,7 +286,17 @@ git commit -m "chore: 升级 vitest 到 2.x"
 
 ### Plugin Release
 
-After the commit exists, recommend:
+When releasing from `dev`, always merge with `--no-ff` before tagging:
+
+```bash
+git checkout main
+git merge --no-ff dev -m "feat：合并 dev 分支并发布 vX.Y.Z"
+git tag vX.Y.Z
+git push origin main
+git push origin vX.Y.Z
+```
+
+If the release commit already exists directly on `main`, tag and push only:
 
 ```bash
 git tag vX.Y.Z

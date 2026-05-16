@@ -565,7 +565,7 @@ function collectJsonBlocks(value: unknown, blocks: SnapshotBlock[], depth: numbe
     const explicitMarkdown = firstString(record, ['markdown', 'kramdown']);
     const sourceText = buildSnapshotText(record, type);
     const markdown = explicitMarkdown || buildSnapshotMarkdown(record, type, subtype, sourceText);
-    const hasOwnText = Boolean(firstString(record, ['content', 'text', 'name', 'title', 'fcontent', 'value', 'data', 'code', 'source', 'body', 'formula', 'latex']));
+    const hasOwnText = Boolean(firstString(record, ['content', 'text', 'name', 'title', 'fcontent', 'value', 'data', 'code', 'source', 'body', 'formula', 'latex', 'src', 'dataSrc', 'data-src']));
 
     const isNestedContentFragment = !id && !type && (isCodeBlock(parentType, undefined) || isMathBlock(parentType, undefined));
 
@@ -607,7 +607,7 @@ function parseHtmlBlocks(content: string): SnapshotBlock[] {
         const parentID = getAttr(attrs, 'data-parent-id');
         const rootID = getAttr(attrs, 'data-root-id') || getAttr(attrs, 'data-doc-id') || (type === 'd' ? id : undefined);
         const htmlText = extractHtmlBlockText(type, attrs, inner);
-        const markdown = buildHtmlSnapshotMarkdown(type, subtype, htmlText, inner, attrs);
+        const markdown = buildHtmlSnapshotMarkdown(type, subtype, htmlText, inner, attrs, raw);
         blocks.push({
             id,
             ...(parentID ? { parentID } : {}),
@@ -622,16 +622,7 @@ function parseHtmlBlocks(content: string): SnapshotBlock[] {
         });
     }
 
-    if (blocks.length > 0) return blocks;
-
-    const text = decodeHtml(stripMarkup(content));
-    return text ? [{
-        type: 'p',
-        text,
-        markdown: text,
-        order: 0,
-        depth: 0,
-    }] : [];
+    return blocks;
 }
 
 function extractHtmlNodeBlocks(content: string): Array<{ attrs: string; inner: string; raw: string }> {
@@ -693,6 +684,10 @@ function extractHtmlBlockText(type: string | undefined, attrs: string, inner: st
         return decodeHtml(stripMarkup(removeProtyleActionToolbar(inner)));
     }
 
+    if (isHtmlLikeBlock(type, undefined)) {
+        return getHtmlBlockText(attrs, inner);
+    }
+
     return decodeHtml(stripMarkup(inner));
 }
 
@@ -743,6 +738,7 @@ function normalizeDomBlockType(value: string | undefined): string | undefined {
     if (lower.includes('blockquote')) return 'b';
     if (lower.includes('superblock')) return 's';
     if (lower.includes('document')) return 'd';
+    if (lower.includes('html') || lower.includes('iframe') || lower.includes('video') || lower.includes('audio')) return 'html';
     if (lower.includes('av')) return 'av';
     return undefined;
 }
@@ -758,6 +754,11 @@ function buildSnapshotText(record: Record<string, unknown>, type: string | undef
 
     if (isMathBlock(type, subtype)) {
         return firstString(record, ['content', 'fcontent', 'text', 'value', 'data', 'formula', 'latex', 'source', 'body'])
+            || collectNestedSnapshotText(record);
+    }
+
+    if (isHtmlLikeBlock(type, subtype)) {
+        return firstString(record, ['content', 'markdown', 'kramdown', 'text', 'value', 'data', 'src', 'dataSrc', 'data-src', 'source'])
             || collectNestedSnapshotText(record);
     }
 
@@ -799,6 +800,10 @@ function buildSnapshotMarkdown(
             .join('\n');
     }
 
+    if (isHtmlLikeBlock(type, subtype)) {
+        return buildHtmlBlockMarkdown(sourceText, record);
+    }
+
     return sourceText;
 }
 
@@ -808,7 +813,12 @@ function buildHtmlSnapshotMarkdown(
     text: string,
     inner: string,
     attrs = '',
+    raw = '',
 ): string {
+    if (isHtmlLikeBlock(type, subtype)) {
+        return getHtmlBlockMarkdown(attrs, inner, raw);
+    }
+
     const markdown = htmlInlineToMarkdown(inner);
     const fallback = markdown || text || decodeHtml(inner.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim());
     if (!fallback) return '';
@@ -839,6 +849,69 @@ function buildHtmlSnapshotMarkdown(
     }
 
     return fallback;
+}
+
+function buildHtmlBlockMarkdown(sourceText: string, record: Record<string, unknown>): string {
+    const trimmed = sourceText.trim();
+    if (/^<[a-z][\w:-]*\b/i.test(trimmed)) return trimmed;
+
+    const src = firstString(record, ['src', 'dataSrc', 'data-src', 'source', 'url'])
+        || firstStringDeep(record, ['src', 'dataSrc', 'data-src', 'source', 'url'])
+        || trimmed;
+    if (!src) return trimmed;
+
+    return `<div data-src="${escapeHtmlAttr(src)}"></div>`;
+}
+
+function getHtmlBlockMarkdown(attrs: string, inner: string, raw: string): string {
+    const embedded = extractFirstHtmlTag(inner);
+    if (embedded) return embedded;
+
+    const rawTrimmed = raw.trim();
+    if (rawTrimmed) return rawTrimmed;
+
+    const src = getHtmlBlockSource(attrs, inner);
+    if (src) return `<div data-src="${escapeHtmlAttr(src)}"></div>`;
+
+    return decodeHtml(inner).trim();
+}
+
+function getHtmlBlockText(attrs: string, inner: string): string {
+    const html = extractFirstHtmlTag(inner);
+    const src = getHtmlBlockSource(attrs, inner);
+    return decodeHtml(src || stripMarkup(html || inner)).trim();
+}
+
+function extractFirstHtmlTag(html: string): string {
+    const paired = /<([a-z][\w:-]*)\b[^>]*>[\s\S]*?<\/\1>/i.exec(html);
+    if (paired?.[0]) return decodeHtml(paired[0].trim());
+
+    const selfClosing = /<[a-z][\w:-]*\b[^>]*\/?>/i.exec(html);
+    return selfClosing?.[0] ? decodeHtml(selfClosing[0].trim()) : '';
+}
+
+function getHtmlBlockSource(attrs: string, inner: string): string {
+    const embeddedAttrs = extractFirstHtmlAttrs(inner);
+    return decodeHtml(
+        getAttr(embeddedAttrs, 'src')
+        || getAttr(embeddedAttrs, 'data-src')
+        || getAttr(attrs, 'src')
+        || getAttr(attrs, 'data-src')
+        || '',
+    );
+}
+
+function extractFirstHtmlAttrs(html: string): string {
+    const match = html.match(/<[a-z][\w:-]*\b([^>]*)>/i);
+    return match?.[1] ?? '';
+}
+
+function escapeHtmlAttr(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }
 
 function htmlInlineToMarkdown(html: string): string {
@@ -916,6 +989,17 @@ function isCodeBlock(type: string | undefined, subtype: string | undefined): boo
 
 function isMathBlock(type: string | undefined, subtype: string | undefined): boolean {
     return type === 'm' || type === 'formula' || subtype === 'math' || subtype === 'latex';
+}
+
+function isHtmlLikeBlock(type: string | undefined, subtype: string | undefined): boolean {
+    return type === 'html'
+        || type === 'iframe'
+        || type === 'video'
+        || type === 'audio'
+        || subtype === 'html'
+        || subtype === 'iframe'
+        || subtype === 'video'
+        || subtype === 'audio';
 }
 
 function isInlineMathBlock(type: string | undefined, subtype: string | undefined): boolean {
@@ -1114,10 +1198,11 @@ function parseTextBlocks(content: string): SnapshotBlock[] {
 
     return chunks.map((chunk, index) => {
         const idMatch = chunk.match(/\b([0-9]{14}-[a-z0-9]{7})\b/i);
+        const type = inferMarkdownType(chunk);
         return {
             ...(idMatch?.[1] ? { id: idMatch[1] } : {}),
-            type: inferMarkdownType(chunk),
-            text: stripMarkup(chunk),
+            type,
+            text: stripMarkup(chunk) || (isHtmlLikeBlock(type, undefined) ? getHtmlBlockText('', chunk) : ''),
             markdown: chunk,
             order: index,
             depth: 0,
@@ -1281,6 +1366,7 @@ function inferMarkdownType(value: string): string {
     if (/^\$\$/m.test(value)) return 'm';
     if (isTableStart(value.split('\n'), 0)) return 't';
     if (isBlockquoteLine(value.split('\n')[0] ?? '')) return 'b';
+    if (isHtmlBlockStart(value.split('\n')[0] ?? '')) return 'html';
     return 'p';
 }
 

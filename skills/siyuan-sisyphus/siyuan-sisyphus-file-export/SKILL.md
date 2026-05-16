@@ -1,85 +1,103 @@
 ---
 name: siyuan-sisyphus-file-export
-description: Upload assets and export SiYuan content. Covers asset upload, markdown export, resource export, and document extraction. Use when the agent needs to move files in or out of SiYuan.
+description: CLI-only playbook for moving files and assets through `siyuan-sisyphus`. Use for uploading assets, exporting markdown, extracting documents with assets, exporting resource ZIPs, listing document assets, OCR text, and local filesystem safety.
 ---
 
-# SiYuan Sisyphus — Files and Export
+# SiYuan Sisyphus CLI - Files and Export
+
+File commands can cross the boundary between SiYuan storage and the local filesystem. Treat local reads and writes as high risk unless the user explicitly asked for them.
 
 ## Upload Assets
 
-```python
-file(action="upload_asset", assetsDirPath="/assets/", localFilePath="/local/path/to/image.png")
+Uploads read a local file path. Get explicit approval before running:
+
+```bash
+siyuan-sisyphus file upload-asset --assets-dir-path "/assets/" --local-file-path "/absolute/path/to/image.png"
 ```
 
-**Requires explicit user confirmation** because it reads the local filesystem.
+If the file is larger than the configured threshold, usually 10 MB, stop and ask before retrying:
 
-If the file is larger than the configured large-upload threshold (10 MB by default), you MUST stop, tell the user, and only retry after explicit confirmation using `confirmLargeFile=True`.
-
-## Export Documents
-
-### Export as Markdown
-
-```python
-file(action="export_md", id="doc-id")
+```bash
+siyuan-sisyphus file upload-asset --assets-dir-path "/assets/" --local-file-path "/absolute/path/to/video.mp4" --confirm-large-file
 ```
 
-### Extract Document with Assets (for AI Reading)
+## Export Markdown
 
-```python
-# Exports document markdown + all referenced assets to an uncompressed folder
-file(action="extract_doc", id="doc-id", outputDir="/tmp/exported")
+```bash
+siyuan-sisyphus file export-md --id "<doc-id>" --json
 ```
 
-`extract_doc` clears the entire output directory first to prevent accumulation from previous exports. The returned `extractedDir` is an absolute path ready for direct file access.
+Use this for SiYuan's markdown export representation. For reading a document inside an agent workflow, `fs read` or `document get-doc` is usually simpler.
 
-**Prefer `extract_doc` over `export_resources`** when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.
+## Extract Document With Assets
 
-### Export Resources as ZIP
+Use `extract-doc` when the goal is to inspect a document plus referenced images, spreadsheets, PDFs, or other assets.
 
-```python
-# Export to SiYuan managed temp area
-file(action="export_resources", paths=["assets/file1.png", "assets/file2.pdf"])
-
-# Export to local filesystem (high-risk, requires explicit user confirmation)
-file(action="export_resources", paths=["assets/file.png"], outputPath="/local/path.zip")
+```bash
+siyuan-sisyphus file extract-doc --id "<doc-id>" --output-dir "/tmp/siyuan-extract" --json
 ```
 
-Asset paths like `assets/foo.txt` are normalized to `/data/assets/foo.txt` before export.
+The output directory may be cleared before extraction, so choose a task-specific directory and confirm if it contains user files.
 
-## List and Manage Assets
+## Export Resources as ZIP
 
-```python
-# List unused assets
-file(action="list_unused_assets")
+Export to SiYuan-managed output:
 
-# Get assets referenced by a document
-file(action="get_doc_assets", id="doc-id")
+```bash
+siyuan-sisyphus file export-resources --paths-json '["assets/file1.png","assets/file2.pdf"]' --json
+```
 
-# Get only image assets
-file(action="get_doc_assets", id="doc-id", assetType="image")
+Export to a local filesystem path. Confirm before running:
 
-# OCR text from image asset
-file(action="get_image_ocr_text", path="assets/image.png")
+```bash
+siyuan-sisyphus file export-resources --paths-json '["assets/file.png"]' --output-path "/absolute/path/export.zip" --json
+```
+
+Asset paths such as `assets/foo.txt` are normalized by the tool.
+
+## Inspect Assets
+
+```bash
+siyuan-sisyphus file get-doc-assets --id "<doc-id>" --json
+siyuan-sisyphus file get-doc-assets --id "<doc-id>" --asset-type image --json
+siyuan-sisyphus file get-image-ocr-text --path "assets/image.png" --json
+siyuan-sisyphus search search-assets --query "diagram" --json
+siyuan-sisyphus search fulltext-asset-content --query "invoice" --json
 ```
 
 ## Templates
 
-```python
-# Render with SiYuan workspace template (uses .action{...} delimiters)
-file(action="render", engine="template", id="doc-id", path="template/path")
+Workspace template rendering:
 
-# Render with inline Go/Sprig template (uses {{...}} syntax, no document context)
-file(action="render", engine="sprig", template='{{ now | date "2006-01-02" }}')
+```bash
+siyuan-sisyphus file render --engine template --id "<doc-id>" --path "templates/my-template" --json
 ```
 
-## Pitfalls
+Inline Sprig rendering:
 
-1. **`upload_asset` reads local filesystem** — always get user confirmation first.
+```bash
+siyuan-sisyphus file render --engine sprig --template '{{ now | date "2006-01-02" }}' --json
+```
 
-2. **`export_resources` with `outputPath` writes to local filesystem** — requires explicit user confirmation.
+Template engine notes:
 
-3. **`render` with `engine="template"` requires a template path inside the SiYuan workspace**; arbitrary local paths like `/tmp/...` are rejected by the kernel.
+- `template` uses SiYuan workspace template syntax such as `.title` fields inside template files.
+- `sprig` uses inline Go/Sprig syntax but has no document context.
 
-4. **Template engines use different syntax**:
-   - `template` engine: `.action{.title}`, `.action{.id}`, `.action{.name}`, `.action{.alias}`
-   - `sprig` engine: `{{ now | date "2006-01-02" }}`
+## Asset Maintenance
+
+These actions can change or delete assets. Confirm exact targets before running:
+
+```bash
+siyuan-sisyphus file list-unused-assets --json
+siyuan-sisyphus file rename-asset --old-path "assets/old.png" --new-name "new.png"
+siyuan-sisyphus file delete-asset --path "assets/old.png"
+siyuan-sisyphus file remove-unused-assets
+```
+
+## Safety Checklist
+
+1. Confirm local source or output paths with the user.
+2. Prefer `extract-doc` for agent inspection of attachments.
+3. Use `--json` and record returned paths.
+4. Do not delete or rename assets unless the target is explicit and approved.

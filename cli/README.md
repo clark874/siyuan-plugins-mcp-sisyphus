@@ -6,6 +6,8 @@
 
 Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (block, document, notebook, av, search, tag, file, system, flashcard, mascot) is exposed as a subcommand you can call directly from a shell.
 
+> **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, and system workflows.
+
 The published npm package is `siyuan-sisyphus`. It installs the primary command `siyuan-sisyphus`, and also provides the shorter alias `siyuan`.
 
 ```bash
@@ -37,6 +39,7 @@ npx -p siyuan-sisyphus siyuan-sisyphus --help
 siyuan-sisyphus init
 # …answer the prompts (profile name + API URL + token). This writes ~/.siyuan-sisyphus/config.json (0600).
 
+siyuan-sisyphus skill install # agents/models should do this before further work
 siyuan-sisyphus notebook list  # verify connectivity
 siyuan-sisyphus config list    # see saved profiles
 siyuan-sisyphus list           # see all available tools

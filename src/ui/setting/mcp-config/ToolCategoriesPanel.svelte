@@ -453,13 +453,15 @@
     .tool-settings-accordion {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: var(--mcp-config-section-gap, 14px);
+        width: 100%;
     }
 
     .tool-settings-group {
+        box-sizing: border-box;
         border: 1px solid var(--b3-border-color);
-        border-radius: 12px;
-        background: var(--b3-theme-surface);
+        border-radius: var(--mcp-config-card-radius, 8px);
+        background: transparent;
         overflow: hidden;
     }
 
@@ -468,10 +470,10 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 16px;
-        padding: 14px 16px;
+        gap: 14px;
+        padding: var(--mcp-config-card-padding, 16px);
         border: 0;
-        background: var(--b3-theme-background);
+        background: transparent;
         color: inherit;
         text-align: left;
     }
@@ -480,7 +482,7 @@
         min-width: 0;
         flex: 1 1 auto;
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         gap: 12px;
         border: 0;
         padding: 0;
@@ -497,7 +499,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        color: var(--b3-theme-on-background);
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
     }
 
     .tool-settings-group__icon :global(svg) {
@@ -509,7 +511,7 @@
         min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 6px;
     }
 
     .tool-settings-group__title-row {
@@ -520,12 +522,14 @@
     }
 
     .tool-settings-group__title {
-        font-size: 15px;
-        font-weight: 600;
+        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+        font-size: var(--mcp-config-title-font-size, 14px);
+        font-weight: var(--mcp-config-title-font-weight, 500);
+        line-height: 1.5;
     }
 
     .tool-settings-group__subtitle {
-        color: var(--b3-theme-on-surface-light);
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
         font-size: 12px;
         line-height: 1.5;
     }
@@ -536,11 +540,12 @@
         justify-content: center;
         min-width: 40px;
         padding: 1px 8px;
-        border-radius: 999px;
-        background: var(--b3-theme-surface-lighter);
-        color: var(--b3-theme-on-surface);
+        border: 1px solid var(--b3-border-color);
+        border-radius: var(--b3-border-radius);
+        background: var(--b3-theme-surface);
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
         font-size: 12px;
-        font-weight: 600;
+        font-weight: 500;
     }
 
     .tool-settings-group__badge-danger {
@@ -552,7 +557,7 @@
         flex: 0 0 auto;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 8px;
     }
 
     .tool-settings-group__switch {
@@ -567,7 +572,7 @@
         align-items: center;
         justify-content: center;
         border: 0;
-        border-radius: 4px;
+        border-radius: var(--b3-border-radius);
         background: transparent;
         color: inherit;
         cursor: pointer;
@@ -581,7 +586,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        color: var(--b3-theme-on-surface-light);
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
         transition: transform 0.16s ease;
     }
 
@@ -590,11 +595,16 @@
     }
 
     .tool-settings-group__content {
+        box-sizing: border-box;
+        padding: var(--mcp-config-card-padding, 16px);
         border-top: 1px solid var(--b3-border-color);
+        background: transparent;
     }
 
     .tool-settings-group__content :global(.config__tab-container) {
-        padding: 0 16px 10px;
+        box-sizing: border-box;
+        max-width: none;
+        padding: 0;
     }
 
     @media (max-width: 768px) {
@@ -608,7 +618,7 @@
         }
 
         .tool-settings-group__content :global(.config__tab-container) {
-            padding: 0 12px 10px;
+            padding: 0;
         }
     }
 </style>
