@@ -133,6 +133,21 @@ describe('snapshot document timeline', () => {
         expect(source).toContain('if (!shouldAutoLoadTimeline()) return;');
         expect(source).toContain('panelVisible = isShellVisible();');
     });
+
+    it('anchors diff scrolling to live document blocks by block id', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+
+        expect(source).toContain('queueDocumentScrollSync();');
+        expect(source).toContain('on:click={handleDiffClick}');
+        expect(source).toContain('syncDocumentToBlockId(blockId, { force: true })');
+        expect(source).toContain('shouldIgnoreDiffClick(event.target)');
+        expect(source).toContain("button, input, textarea, select, a, [role='button']");
+        expect(source).toContain('data-sync-block-id={getEntrySyncBlockId(item)}');
+        expect(source).toContain('data-sync-block-id={getHiddenSyncBlockId(item)}');
+        expect(source).toContain('document.querySelectorAll<HTMLElement>(selector)');
+        expect(source).toContain('!shellElement?.contains(element)');
+        expect(source).toContain('.protyle-content');
+    });
 });
 
 function createEntry(id: string, created: string): TimelineEntry {

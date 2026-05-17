@@ -62,6 +62,7 @@
     const TIMELINE_AUTO_COLLAPSE_WIDTH = 920;
     const UNCHANGED_CONTEXT_BLOCKS = 1;
     const MINIMAP_UNIT_HEIGHT = 34;
+    const LIVE_DOCUMENT_ANCHOR_OFFSET = 0.14;
 
     export let currentDocumentId = "";
     export let currentDocumentTitle = "";
@@ -100,6 +101,9 @@
     let diffViewportTop = 0;
     let diffViewportHeight = 100;
     let diffMinimapCapacity = 1;
+    let documentScrollSyncEnabled = true;
+    let documentScrollSyncFrame = 0;
+    let lastSyncedDocumentBlockId = "";
 
     $: documentEntries = currentDocumentId ? timelineEntries.filter((entry) => entry.documentKey === currentDocumentId) : [];
     $: selectedEntry = documentEntries.find((entry) => entry.key === selectedEntryKey);
@@ -125,6 +129,9 @@
     $: compareModeAction = compareMode === "unified"
         ? t("timeline_action_compare_split", "并排对比")
         : t("timeline_action_compare_unified", "统一对比");
+    $: documentScrollSyncTitle = documentScrollSyncEnabled
+        ? t("timeline_action_disable_scroll_sync", "停止同步文档滚动")
+        : t("timeline_action_enable_scroll_sync", "同步文档滚动");
     $: changeSummaryLabel = t("timeline_change_summary", "新增 ${added} 行，删除 ${removed} 行", {
         added: diffLineStats.added,
         removed: diffLineStats.removed,
@@ -154,6 +161,7 @@
     onDestroy(() => {
         shellResizeObserver?.disconnect();
         shellMutationObserver?.disconnect();
+        cancelDocumentScrollSync();
     });
 
     function observeShellWidth() {
@@ -240,6 +248,14 @@
 
     function handleDiffScroll() {
         updateDiffViewport();
+        queueDocumentScrollSync();
+    }
+
+    function handleDiffClick(event: MouseEvent) {
+        if (shouldIgnoreDiffClick(event.target)) return;
+        const blockId = getClickedDiffBlockId(event.target);
+        if (!blockId) return;
+        syncDocumentToBlockId(blockId, { force: true });
     }
 
     function queueDiffViewportUpdate() {
@@ -287,6 +303,183 @@
         diffViewportHeight = Math.min(100, Math.max(8, (clientHeight / scrollHeight) * 100));
         diffViewportTop = getDiffScrollProgress() * Math.max(0, 100 - diffViewportHeight);
         diffMinimapCapacity = Math.max(1, Math.ceil(clientHeight / MINIMAP_UNIT_HEIGHT));
+    }
+
+    function toggleDocumentScrollSync() {
+        documentScrollSyncEnabled = !documentScrollSyncEnabled;
+        lastSyncedDocumentBlockId = "";
+        if (documentScrollSyncEnabled) queueDocumentScrollSync();
+    }
+
+    function resetDocumentScrollSync() {
+        lastSyncedDocumentBlockId = "";
+        queueDocumentScrollSync();
+    }
+
+    function queueDocumentScrollSync() {
+        if (!documentScrollSyncEnabled || !diffElement || loadingFile || !selectedEntry) return;
+        if (documentScrollSyncFrame) return;
+        const run = () => {
+            documentScrollSyncFrame = 0;
+            syncDocumentToDiffViewport();
+        };
+        if (typeof requestAnimationFrame === "function") {
+            documentScrollSyncFrame = requestAnimationFrame(run);
+        } else {
+            documentScrollSyncFrame = window.setTimeout(run, 0);
+        }
+    }
+
+    function cancelDocumentScrollSync() {
+        if (!documentScrollSyncFrame) return;
+        if (typeof cancelAnimationFrame === "function") {
+            cancelAnimationFrame(documentScrollSyncFrame);
+        } else {
+            clearTimeout(documentScrollSyncFrame);
+        }
+        documentScrollSyncFrame = 0;
+    }
+
+    function syncDocumentToDiffViewport() {
+        const blockId = getDiffViewportAnchorBlockId();
+        syncDocumentToBlockId(blockId);
+    }
+
+    function syncDocumentToBlockId(blockId: string, options: { force?: boolean } = {}) {
+        if (!blockId || (!options.force && blockId === lastSyncedDocumentBlockId)) return;
+        const blockElement = findLiveDocumentBlock(blockId);
+        if (!blockElement) return;
+        scrollLiveDocumentBlockIntoView(blockElement);
+        lastSyncedDocumentBlockId = blockId;
+    }
+
+    function shouldIgnoreDiffClick(target: EventTarget | null): boolean {
+        return target instanceof Element && Boolean(target.closest("button, input, textarea, select, a, [role='button']"));
+    }
+
+    function getClickedDiffBlockId(target: EventTarget | null): string {
+        if (!(target instanceof Element) || !diffElement) return "";
+        const anchor = target.closest<HTMLElement>("[data-sync-block-id]");
+        if (!anchor || !diffElement.contains(anchor)) return "";
+        return anchor.dataset.syncBlockId ?? "";
+    }
+
+    function getDiffViewportAnchorBlockId(): string {
+        if (!diffElement) return "";
+        const anchors = Array.from(diffElement.querySelectorAll<HTMLElement>("[data-sync-block-id]"))
+            .filter((element) => Boolean(element.dataset.syncBlockId));
+        if (anchors.length === 0) return "";
+
+        const diffRect = diffElement.getBoundingClientRect();
+        const headHeight = diffElement.querySelector<HTMLElement>(".vc-diff-head")?.getBoundingClientRect().height ?? 0;
+        const viewportTop = diffRect.top + headHeight + 8;
+        let nearestAbove: HTMLElement | null = null;
+        let nearestAboveDistance = Number.POSITIVE_INFINITY;
+        let nearestBelow: HTMLElement | null = null;
+        let nearestBelowDistance = Number.POSITIVE_INFINITY;
+
+        for (const anchor of anchors) {
+            const rect = anchor.getBoundingClientRect();
+            if (rect.height <= 0 || rect.bottom < diffRect.top || rect.top > diffRect.bottom) continue;
+            if (rect.top <= viewportTop && rect.bottom >= viewportTop) {
+                return anchor.dataset.syncBlockId ?? "";
+            }
+            if (rect.bottom < viewportTop) {
+                const distance = viewportTop - rect.bottom;
+                if (distance < nearestAboveDistance) {
+                    nearestAbove = anchor;
+                    nearestAboveDistance = distance;
+                }
+                continue;
+            }
+            const distance = rect.top - viewportTop;
+            if (distance < nearestBelowDistance) {
+                nearestBelow = anchor;
+                nearestBelowDistance = distance;
+            }
+        }
+
+        return nearestBelow?.dataset.syncBlockId ?? nearestAbove?.dataset.syncBlockId ?? "";
+    }
+
+    function getEntrySyncBlockId(item: DiffEntryDisplayItem): string | undefined {
+        return item.entry.newBlock?.id || findNeighborCurrentBlockId(item.position);
+    }
+
+    function getHiddenSyncBlockId(item: DiffHiddenDisplayItem): string | undefined {
+        return item.entries.find((entry) => entry.entry.newBlock?.id)?.entry.newBlock?.id
+            || findNeighborCurrentBlockId(item.position);
+    }
+
+    function findNeighborCurrentBlockId(position: number): string | undefined {
+        for (let index = position + 1; index < blockEntries.length; index += 1) {
+            const id = blockEntries[index]?.newBlock?.id;
+            if (id) return id;
+        }
+        for (let index = position - 1; index >= 0; index -= 1) {
+            const id = blockEntries[index]?.newBlock?.id;
+            if (id) return id;
+        }
+        return undefined;
+    }
+
+    function findLiveDocumentBlock(blockId: string): HTMLElement | null {
+        if (typeof document === "undefined") return null;
+        const selector = `[data-node-id="${escapeCssAttributeValue(blockId)}"]`;
+        const candidates = Array.from(document.querySelectorAll<HTMLElement>(selector))
+            .filter((element) => isVisibleElement(element) && !shellElement?.contains(element));
+        return candidates.find((element) => isInCurrentDocumentEditor(element)) ?? candidates[0] ?? null;
+    }
+
+    function isInCurrentDocumentEditor(element: HTMLElement): boolean {
+        if (!currentDocumentId) return true;
+        const root = element.closest<HTMLElement>(".protyle-wysiwyg");
+        if (!root) return true;
+        return root.dataset.nodeId === currentDocumentId
+            || Boolean(root.querySelector(`[data-node-id="${escapeCssAttributeValue(currentDocumentId)}"]`));
+    }
+
+    function scrollLiveDocumentBlockIntoView(blockElement: HTMLElement) {
+        const container = blockElement.closest<HTMLElement>(".protyle-content") ?? findNearestScrollableAncestor(blockElement);
+        if (!container) {
+            blockElement.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+            return;
+        }
+        const blockRect = blockElement.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const targetTop = container.scrollTop + blockRect.top - containerRect.top - containerRect.height * LIVE_DOCUMENT_ANCHOR_OFFSET;
+        container.scrollTo({
+            top: Math.max(0, targetTop),
+            behavior: "auto",
+        });
+    }
+
+    function findNearestScrollableAncestor(element: HTMLElement): HTMLElement | null {
+        let parent = element.parentElement;
+        while (parent && parent !== document.body) {
+            const style = getComputedStyle(parent);
+            if (/(auto|scroll|overlay)/.test(style.overflowY) && parent.scrollHeight > parent.clientHeight + 4) {
+                return parent;
+            }
+            parent = parent.parentElement;
+        }
+        return null;
+    }
+
+    function isVisibleElement(element: HTMLElement): boolean {
+        if (!element.getClientRects().length) return false;
+        let current: HTMLElement | null = element;
+        while (current) {
+            if (current.hidden || current.getAttribute("aria-hidden") === "true") return false;
+            const style = getComputedStyle(current);
+            if (style.display === "none" || style.visibility === "hidden") return false;
+            current = current.parentElement;
+        }
+        return true;
+    }
+
+    function escapeCssAttributeValue(value: string): string {
+        return value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
     }
 
     function buildDiffDisplayItems(entries: BlockDiffEntry[]): DiffDisplayItem[] {
@@ -682,6 +875,7 @@
             error = getErrorMessage(err);
         } finally {
             loadingFile = false;
+            resetDocumentScrollSync();
         }
     }
 
@@ -776,6 +970,7 @@
         oldFileContent = null;
         newFileContent = null;
         blockEntries = [];
+        lastSyncedDocumentBlockId = "";
     }
 
     function blockText(block: BlockDiffEntry["oldBlock"]): string {
@@ -832,6 +1027,13 @@
                 {/if}
             </div>
             <div class="vc-toolbar__actions">
+                <button type="button" class:active={documentScrollSyncEnabled} class="vc-icon-button" on:click={toggleDocumentScrollSync} disabled={!diffOpen || loadingFile} title={documentScrollSyncTitle} aria-label={documentScrollSyncTitle}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M7.5 5.5h9M7.5 18.5h9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="M12 8.5v7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                        <path d="m9.5 13.2 2.5 2.5 2.5-2.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
                 <button type="button" class="vc-icon-button" on:click={toggleAllHiddenBlocks} disabled={!hasHiddenBlocks} title={hiddenToggleTitle} aria-label={hiddenToggleTitle}>
                     {#if allHiddenExpanded}
                         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -877,7 +1079,7 @@
         {/if}
 
         <div class="vc-content">
-            <section bind:this={diffElement} on:scroll={handleDiffScroll} class:unified-mode={compareMode === "unified"} class:split-mode={compareMode === "split"} class="vc-diff">
+            <section bind:this={diffElement} on:scroll={handleDiffScroll} on:click={handleDiffClick} class:unified-mode={compareMode === "unified"} class:split-mode={compareMode === "split"} class="vc-diff">
                 {#if loadingFile}
                     <div class="vc-empty">{t("timeline_loading_snapshot_file", "正在打开快照文件...")}</div>
                 {:else if !selectedEntry}
@@ -921,7 +1123,7 @@
                         <div class="vc-unified-list">
                             {#each diffDisplayItems as item (item.key)}
                                 {#if item.kind === "hidden"}
-                                    <div class="vc-hidden-blocks">
+                                    <div class="vc-hidden-blocks" data-sync-block-id={getHiddenSyncBlockId(item)}>
                                         <button type="button" on:click={() => toggleHiddenBlock(item.key)} title={expandedHiddenKeys.has(item.key) ? t("timeline_action_collapse_hidden", "折叠隐藏块") : t("timeline_action_expand_hidden", "展开隐藏块")} aria-label={expandedHiddenKeys.has(item.key) ? t("timeline_action_collapse_hidden", "折叠隐藏块") : t("timeline_action_expand_hidden", "展开隐藏块")}>
                                             <span>{expandedHiddenKeys.has(item.key) ? "⌃" : "⌄"}</span>
                                             <strong>{hiddenBlocksText(item.count)}</strong>
@@ -929,7 +1131,7 @@
                                     </div>
                                     {#if expandedHiddenKeys.has(item.key)}
                                         {#each item.entries as hiddenEntry (hiddenEntry.key)}
-                                            <article class="vc-unified-block unchanged expanded-hidden">
+                                            <article class="vc-unified-block unchanged expanded-hidden" data-sync-block-id={getEntrySyncBlockId(hiddenEntry)}>
                                                 {#if showDebugMeta}
                                                     <div class="vc-block__meta">
                                                         <span>{hiddenEntry.entry.status}</span>
@@ -947,7 +1149,7 @@
                                         {/each}
                                     {/if}
                                 {:else}
-                                    <article class="vc-unified-block {item.entry.status}" class:first-change={item.changeIndex === 0}>
+                                    <article class="vc-unified-block {item.entry.status}" class:first-change={item.changeIndex === 0} data-sync-block-id={getEntrySyncBlockId(item)}>
                                         {#if showDebugMeta}
                                             <div class="vc-block__meta">
                                                 <span>{item.entry.status}</span>
@@ -1016,7 +1218,7 @@
                         <div class="vc-diff-grid">
                             {#each diffDisplayItems as item (item.key)}
                                 {#if item.kind === "hidden"}
-                                    <div class="vc-hidden-blocks split">
+                                    <div class="vc-hidden-blocks split" data-sync-block-id={getHiddenSyncBlockId(item)}>
                                         <button type="button" on:click={() => toggleHiddenBlock(item.key)} title={expandedHiddenKeys.has(item.key) ? t("timeline_action_collapse_hidden", "折叠隐藏块") : t("timeline_action_expand_hidden", "展开隐藏块")} aria-label={expandedHiddenKeys.has(item.key) ? t("timeline_action_collapse_hidden", "折叠隐藏块") : t("timeline_action_expand_hidden", "展开隐藏块")}>
                                             <span>{expandedHiddenKeys.has(item.key) ? "⌃" : "⌄"}</span>
                                             <strong>{hiddenBlocksText(item.count)}</strong>
@@ -1035,7 +1237,7 @@
                                                     <pre>{hiddenEntry.entry.oldBlock?.markdown || hiddenEntry.entry.oldBlock?.text || ""}</pre>
                                                 </article>
                                                 <div class="vc-restore-column unchanged"></div>
-                                                <article class="vc-block new unchanged">
+                                                <article class="vc-block new unchanged" data-sync-block-id={getEntrySyncBlockId(hiddenEntry)}>
                                                     {#if showDebugMeta}
                                                         <div class="vc-block__meta">
                                                             <span>{hiddenEntry.entry.status}</span>
@@ -1079,7 +1281,7 @@
                                                 {/if}
                                             {/if}
                                         </div>
-                                        <article class="vc-block new {item.entry.status}">
+                                        <article class="vc-block new {item.entry.status}" data-sync-block-id={getEntrySyncBlockId(item)}>
                                             {#if showDebugMeta}
                                                 <div class="vc-block__meta">
                                                     <span>{item.entry.status}</span>
@@ -1268,6 +1470,12 @@
         width: 19px;
         height: 19px;
         vertical-align: middle;
+    }
+
+    .vc-icon-button.active {
+        border-color: color-mix(in srgb, var(--b3-theme-primary) 52%, var(--b3-border-color));
+        background: color-mix(in srgb, var(--b3-theme-primary) 12%, var(--b3-theme-surface));
+        color: var(--b3-theme-primary);
     }
 
     button:disabled {
