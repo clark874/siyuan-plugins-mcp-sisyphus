@@ -133,21 +133,6 @@ describe('snapshot document timeline', () => {
         expect(source).toContain('if (!shouldAutoLoadTimeline()) return;');
         expect(source).toContain('panelVisible = isShellVisible();');
     });
-
-    it('keeps the sticky diff header above inline rollback controls', () => {
-        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
-        const diffHeadZIndex = Number(source.match(/\.vc-diff-head\s*\{[\s\S]*?z-index:\s*(\d+);/)?.[1]);
-        const restoreButtonZIndex = Number(source.match(/\.vc-restore-button\s*\{[\s\S]*?z-index:\s*(\d+);/)?.[1]);
-
-        expect(diffHeadZIndex).toBeGreaterThan(restoreButtonZIndex);
-    });
-
-    it('shows the current document timeline count instead of all tagged snapshots', () => {
-        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
-
-        expect(source).toContain('timelineSnapshotCountText(documentEntries.length)');
-        expect(source).not.toContain('timelineSnapshotCountText(taggedSnapshots.length)');
-    });
 });
 
 function createEntry(id: string, created: string): TimelineEntry {

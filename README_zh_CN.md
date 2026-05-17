@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.6` — 修复冷启动后文档时间线 dock 按钮未显示的问题，校正文档快照计数，并避免 diff 顶栏被回退按钮遮挡。
+> **最新版本：**`v0.4.3` — 优化 MCP/HTTP 连接稳定性，修复 `extract_doc` 图片资源解析，并补充 CLI skills 安装引导。
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">

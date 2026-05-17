@@ -47,7 +47,6 @@ export default class SiyuanMCP extends Plugin {
     private puppyContainer: HTMLElement | null = null;
     private puppySettings: PuppySettings = buildDefaultPuppySettings();
     private versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
-    private versionControlDockRegistered = false;
     public httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
     public httpLauncher: HttpServerLauncher | null = null;
 
@@ -72,6 +71,7 @@ export default class SiyuanMCP extends Plugin {
             callback: () => this.openVersionControl(),
             editorCallback: (protyle: any) => this.openVersionControl(protyle),
         });
+        this.registerVersionControlDock();
         this.registerVersionControlEvents();
 
         const support = HttpServerLauncher.getSupportInfo();
@@ -211,7 +211,6 @@ export default class SiyuanMCP extends Plugin {
 
     onLayoutReady() {
         this.mountPuppy();
-        this.registerVersionControlDock();
     }
 
 
@@ -342,10 +341,7 @@ export default class SiyuanMCP extends Plugin {
     }
 
     private registerVersionControlDock() {
-        const addDock = (this as any).addDock;
-        if (this.versionControlDockRegistered || typeof addDock !== "function") return;
-        this.versionControlDockRegistered = true;
-        addDock.call(this, {
+        (this as any).addDock?.({
             config: {
                 position: "RightBottom",
                 size: { width: 420, height: null },

@@ -826,7 +826,7 @@
                         <span class="removed">-{diffLineStats.removed}</span>
                     </span>
                 {/if}
-                <span class="vc-snapshot-count">{timelineSnapshotCountText(documentEntries.length)}</span>
+                <span class="vc-snapshot-count">{timelineSnapshotCountText(taggedSnapshots.length)}</span>
                 {#if showDebugMeta && currentDocumentId}
                     <span class="vc-debug-id">{currentDocumentId}</span>
                 {/if}
@@ -1127,7 +1127,7 @@
                     {#if showDebugMeta && currentDocumentId}
                         <code>{currentDocumentId}</code>
                     {/if}
-                    <small>{timelineSnapshotCountText(documentEntries.length)}</small>
+                    <small>{timelineSnapshotCountText(taggedSnapshots.length)}</small>
                 </section>
             {/if}
 
@@ -1456,7 +1456,7 @@
     .vc-diff-head {
         position: sticky;
         top: 0;
-        z-index: 40;
+        z-index: 1;
         background: color-mix(in srgb, var(--b3-theme-surface) 82%, var(--b3-theme-background));
         border-bottom: 1px solid var(--b3-border-color);
         font-size: 12px;

@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **Latest:** `v0.4.6` — Fixed Document Timeline dock registration on cold startup, corrected per-document snapshot counts, and kept the diff header above rollback controls.
+> **Latest:** `v0.4.3` — Improved MCP/HTTP connection stability, fixed `extract_doc` image asset parsing, and added clearer CLI skill installation guidance.
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">
