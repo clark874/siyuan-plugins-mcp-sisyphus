@@ -2,7 +2,6 @@ import {
     Plugin,
     showMessage,
     Dialog,
-    saveLayout,
 } from "siyuan";
 import "./index.scss";
 
@@ -31,6 +30,7 @@ import { HttpServerLauncher } from "@/server-launcher";
 
 const PUPPY_ROOT_ID = "sy-puppy-root";
 const VERSION_CONTROL_DOCK_TYPE = "sisyphusTimelineDock";
+const VERSION_CONTROL_DOCK_POSITION = "RightBottom";
 const VERSION_CONTROL_DOCK_ROOT_ID = "SisyphusTimelineDockPanel";
 const VERSION_CONTROL_ICON_ID = "iconSisyphusTimelineDock";
 const VERSION_CONTROL_ICON_SYMBOL = `<symbol id="${VERSION_CONTROL_ICON_ID}" viewBox="0 0 24 24"><path fill="currentColor" d="M7 3a3 3 0 0 1 2 5.24v1.27l6 3V8.24A3 3 0 1 1 17 9v5a1 1 0 0 1-1.45.89L9 11.62v4.14A3 3 0 1 1 7 15.76V8.24A3 3 0 0 1 7 3Zm0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm10 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM7 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></symbol>`;
@@ -54,6 +54,17 @@ export default class SiyuanMCP extends Plugin {
     public httpLauncher: HttpServerLauncher | null = null;
 
     async onload() {
+        this.addIcons(VERSION_CONTROL_ICON_SYMBOL);
+        this.registerVersionControlDock();
+        (this as any).addCommand?.({
+            langKey: "openSnapshotVersionControl",
+            langText: this.i18n?.timeline_open_command || "打开文档时间线",
+            hotkey: "",
+            callback: () => this.openVersionControl(),
+            editorCallback: (protyle: any) => this.openVersionControl(protyle),
+        });
+        this.registerVersionControlEvents();
+
         const { config: normalized, warning } = await loadPersistedToolConfigState(this);
         if (warning) {
             emitToolConfigWarningOnce(warning, (message) => {
@@ -66,17 +77,9 @@ export default class SiyuanMCP extends Plugin {
         this.puppyVisible = this.puppySettings.visible;
         this.httpSettings = await loadPersistedHttpServerSettings(this);
         this.versionControlSettings = await loadPersistedVersionControlSettings(this);
-
-        (this as any).addCommand?.({
-            langKey: "openSnapshotVersionControl",
-            langText: this.i18n?.timeline_open_command || "打开文档时间线",
-            hotkey: "",
-            callback: () => this.openVersionControl(),
-            editorCallback: (protyle: any) => this.openVersionControl(protyle),
+        this.versionControlPanel?.$set({
+            showDebugMeta: this.versionControlSettings.showDebugMeta,
         });
-        this.addIcons(VERSION_CONTROL_ICON_SYMBOL);
-        this.registerVersionControlDock();
-        this.registerVersionControlEvents();
 
         const support = HttpServerLauncher.getSupportInfo();
         if (!support.supported) {
@@ -347,10 +350,9 @@ export default class SiyuanMCP extends Plugin {
     private registerVersionControlDock() {
         if (this.versionControlDockRegistered) return;
         this.versionControlDockRegistered = true;
-        this.normalizeVersionControlDockLayout();
         this.addDock({
             config: {
-                position: "RightBottom",
+                position: VERSION_CONTROL_DOCK_POSITION,
                 size: { width: 420, height: 0 },
                 icon: VERSION_CONTROL_ICON_ID,
                 title: this.i18n?.timeline_dock_title || "文档时间线",
@@ -379,63 +381,6 @@ export default class SiyuanMCP extends Plugin {
             },
             destroy: () => this.unmountVersionControlDock(),
         });
-    }
-
-    private normalizeVersionControlDockLayout() {
-        const uiLayout = (window as any)?.siyuan?.config?.uiLayout;
-        const dockTypes = new Set([
-            VERSION_CONTROL_DOCK_TYPE,
-            `${this.name}${VERSION_CONTROL_DOCK_TYPE}`,
-        ]);
-        let seen = false;
-        let changed = false;
-
-        for (const sideName of ["left", "right"]) {
-            const side = uiLayout?.[sideName];
-            if (!Array.isArray(side?.data)) continue;
-            for (const group of side.data) {
-                if (!Array.isArray(group)) continue;
-                for (let index = group.length - 1; index >= 0; index -= 1) {
-                    const tab = group[index];
-                    if (!tab || !dockTypes.has(tab.type)) continue;
-                    if (seen) {
-                        group.splice(index, 1);
-                        changed = true;
-                        continue;
-                    }
-                    seen = true;
-                    if (tab.icon !== VERSION_CONTROL_ICON_ID) {
-                        tab.icon = VERSION_CONTROL_ICON_ID;
-                        changed = true;
-                    }
-                    if (!tab.size || typeof tab.size !== "object") {
-                        tab.size = { width: 420, height: 0 };
-                        changed = true;
-                    } else {
-                        if (!Number.isFinite(tab.size.width)) {
-                            tab.size.width = 420;
-                            changed = true;
-                        }
-                        if (!Number.isFinite(tab.size.height)) {
-                            tab.size.height = 0;
-                            changed = true;
-                        }
-                    }
-                    if (!tab.title) {
-                        tab.title = this.i18n?.timeline_dock_title || "文档时间线";
-                        changed = true;
-                    }
-                }
-            }
-        }
-
-        if (changed) {
-            try {
-                saveLayout(() => undefined);
-            } catch (err) {
-                console.warn("[MCP] failed to normalize timeline dock layout:", err);
-            }
-        }
     }
 
     private registerVersionControlEvents() {
@@ -505,8 +450,12 @@ export default class SiyuanMCP extends Plugin {
 
     private showVersionControlDock() {
         const layout = (window as any)?.siyuan?.layout;
-        layout?.rightDock?.showDock?.();
-        layout?.leftDock?.showDock?.();
+        const targetDock = getDockByPosition(layout, VERSION_CONTROL_DOCK_POSITION);
+        if (typeof targetDock?.toggleModel === "function") {
+            targetDock.toggleModel(VERSION_CONTROL_DOCK_TYPE, true, false, false, true);
+            return;
+        }
+        targetDock?.showDock?.();
     }
 
     private unmountVersionControlDock() {
@@ -531,4 +480,10 @@ function getDocumentTitleFromPath(path: unknown): string {
     if (typeof path !== "string" || !path.trim()) return "";
     const segment = path.split("/").filter(Boolean).at(-1) ?? "";
     return segment.replace(/\.sy$/i, "") || "";
+}
+
+function getDockByPosition(layout: any, position: string): any {
+    if (position.startsWith("Left")) return layout?.leftDock;
+    if (position.startsWith("Bottom")) return layout?.bottomDock;
+    return layout?.rightDock;
 }

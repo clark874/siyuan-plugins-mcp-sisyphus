@@ -6,10 +6,15 @@ const puppyInstances: Array<{
     $destroy: ReturnType<typeof vi.fn>;
 }> = [];
 
+const versionControlInstances: Array<{
+    args: unknown;
+    $set: ReturnType<typeof vi.fn>;
+    $destroy: ReturnType<typeof vi.fn>;
+}> = [];
+
 vi.mock('siyuan', () => ({
     Plugin: class {},
     showMessage: vi.fn(),
-    saveLayout: vi.fn((cb?: () => void) => cb?.()),
     Dialog: class {},
 }));
 
@@ -44,7 +49,24 @@ vi.mock('@/ui/components/ToolPuppy.svelte', () => ({
 
 vi.mock('@/ui/version-control/VersionControlPanel.svelte', () => ({
     default: class {
-        $destroy() {}
+        private readonly instance: typeof versionControlInstances[number];
+
+        constructor(args: unknown) {
+            this.instance = {
+                args,
+                $set: vi.fn(),
+                $destroy: vi.fn(),
+            };
+            versionControlInstances.push(this.instance);
+        }
+
+        $set(args: unknown) {
+            this.instance.$set(args);
+        }
+
+        $destroy() {
+            this.instance.$destroy();
+        }
     },
 }));
 
@@ -53,7 +75,7 @@ import { resetToolConfigWarningStateForTests } from '@/core/config';
 import type { HttpServerSettings } from '@/ui/setting/tool-config-storage';
 
 import { HttpServerLauncher } from '@/server-launcher';
-import { saveLayout, showMessage } from 'siyuan';
+import { showMessage } from 'siyuan';
 
 class FakeElement {
     id = '';
@@ -89,6 +111,14 @@ class FakeElement {
 
     get innerHTML() {
         return '';
+    }
+
+    querySelector(selector: string) {
+        if (!selector.startsWith('#')) return null;
+        const child = new FakeElement();
+        child.id = selector.slice(1);
+        this.appendChild(child);
+        return child;
     }
 }
 
@@ -140,6 +170,7 @@ describe('HTTP settings sync', () => {
         resetToolConfigWarningStateForTests();
         vi.mocked(showMessage).mockClear();
         puppyInstances.length = 0;
+        versionControlInstances.length = 0;
         installFakeDom();
         document.body.innerHTML = '';
         plugin = new SiyuanMCP();
@@ -165,6 +196,20 @@ describe('HTTP settings sync', () => {
 
         (globalThis as any).window = {
             siyuan: {
+                layout: {
+                    rightDock: {
+                        toggleModel: vi.fn(),
+                        showDock: vi.fn(),
+                    },
+                    leftDock: {
+                        toggleModel: vi.fn(),
+                        showDock: vi.fn(),
+                    },
+                    bottomDock: {
+                        toggleModel: vi.fn(),
+                        showDock: vi.fn(),
+                    },
+                },
                 config: {
                     api: { token: 'siyuan-token' },
                     system: { workspaceDir: '/mock/workspace' },
@@ -177,7 +222,10 @@ describe('HTTP settings sync', () => {
         };
 
         vi.restoreAllMocks();
-        vi.mocked(saveLayout).mockClear();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it('syncs settings into plugin state before start', async () => {
@@ -395,11 +443,21 @@ describe('HTTP settings sync', () => {
         expect(puppyInstances).toHaveLength(1);
     });
 
-    it('registers the timeline dock once during plugin load with a stable icon and size', async () => {
+    it('registers the timeline dock synchronously during plugin load with a stable icon and size', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        let resolveFirstLoad: (value: unknown) => void = () => {};
+        let firstLoad = true;
+        loadData.mockImplementation(() => {
+            if (firstLoad) {
+                firstLoad = false;
+                return new Promise((resolve) => {
+                    resolveFirstLoad = resolve;
+                });
+            }
+            return Promise.resolve(undefined);
+        });
 
-        await plugin.onload();
-        plugin.onLayoutReady();
+        const loading = plugin.onload();
 
         expect(addIcons).toHaveBeenCalledTimes(1);
         expect(addIcons).toHaveBeenCalledWith(expect.stringContaining('<symbol id="iconSisyphusTimelineDock"'));
@@ -408,35 +466,63 @@ describe('HTTP settings sync', () => {
             icon: 'iconSisyphusTimelineDock',
             size: { width: 420, height: 0 },
         }));
+
+        resolveFirstLoad(undefined);
+        await loading;
+        plugin.onLayoutReady();
+        plugin.onLayoutReady();
+
+        expect(addDock).toHaveBeenCalledTimes(1);
     });
 
-    it('normalizes duplicated timeline dock layout entries during plugin load', async () => {
+    it('pushes loaded timeline settings into an already initialized dock panel', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
-        (globalThis as any).window.siyuan.config.uiLayout.right.data = [[
-            {
-                type: 'siyuan-plugins-mcp-sisyphussisyphusTimelineDock',
-                icon: '<svg viewBox="0 0 24 24"></svg>',
-                show: true,
-                size: { width: 420, height: null },
-            },
-            {
-                type: 'siyuan-plugins-mcp-sisyphussisyphusTimelineDock',
-                icon: '<svg viewBox="0 0 24 24"></svg>',
-                show: true,
-                size: { width: Number.NaN, height: Number.NaN },
-            },
-        ]];
+        let resolveToolConfig: (value: unknown) => void = () => {};
+        loadData.mockImplementation((storageName: string) => {
+            if (storageName === 'mcpToolsConfig') {
+                return new Promise((resolve) => {
+                    resolveToolConfig = resolve;
+                });
+            }
+            if (storageName === 'versionControlSettings') {
+                return Promise.resolve({ showDebugMeta: true });
+            }
+            return Promise.resolve(undefined);
+        });
+
+        const loading = plugin.onload();
+        const dockElement = new FakeElement();
+        addDock.mock.calls[0][0].init({ element: dockElement });
+
+        expect(versionControlInstances).toHaveLength(1);
+        expect((versionControlInstances[0].args as any).props.showDebugMeta).toBe(false);
+
+        resolveToolConfig(undefined);
+        await loading;
+
+        expect(versionControlInstances[0].$set).toHaveBeenCalledWith({ showDebugMeta: true });
+    });
+
+    it('opens the timeline dock through toggleModel when available', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
 
         await plugin.onload();
+        plugin.openVersionControl();
 
-        const tabs = (globalThis as any).window.siyuan.config.uiLayout.right.data[0];
-        expect(tabs).toHaveLength(1);
-        expect(tabs[0]).toEqual(expect.objectContaining({
-            icon: 'iconSisyphusTimelineDock',
-            title: '文档时间线',
-            size: { width: 420, height: 0 },
-        }));
-        expect(saveLayout).toHaveBeenCalledTimes(1);
+        const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        expect(rightDock.toggleModel).toHaveBeenCalledWith('sisyphusTimelineDock', true, false, false, true);
+        expect(rightDock.showDock).not.toHaveBeenCalled();
+    });
+
+    it('falls back to showDock when toggleModel is unavailable', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        rightDock.toggleModel = undefined;
+
+        await plugin.onload();
+        plugin.openVersionControl();
+
+        expect(rightDock.showDock).toHaveBeenCalledTimes(1);
     });
 
     it('self-heals orphan puppy roots before remounting', () => {

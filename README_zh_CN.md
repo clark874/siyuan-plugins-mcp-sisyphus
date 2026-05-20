@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.3` — 优化 MCP/HTTP 连接稳定性，修复 `extract_doc` 图片资源解析，并补充 CLI skills 安装引导。
+> **最新版本：**`v0.4.7` — 优化文档时间线滚动联动，提升启动后 dock 入口注册稳定性，并补充赞赏支持入口。
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">

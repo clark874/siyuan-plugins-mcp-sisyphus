@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **Latest:** `v0.4.3` — Improved MCP/HTTP connection stability, fixed `extract_doc` image asset parsing, and added clearer CLI skill installation guidance.
+> **Latest:** `v0.4.7` — Improved Document Timeline scroll synchronization, made dock registration more reliable after startup, and added support links.
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">
