@@ -558,6 +558,11 @@ describe('HTTP settings sync', () => {
             testModeIntervalMs: 1500,
             showBubble: true,
             showClickHint: false,
+            appearance: {
+                bodyColor: '#ff7aa8',
+                pawColor: '#d94878',
+                eyeColor: '#26211a',
+            },
         });
 
         expect(mountedPuppy.$set).toHaveBeenCalledWith({
@@ -566,6 +571,11 @@ describe('HTTP settings sync', () => {
             testModeIntervalMs: 1500,
             showBubble: true,
             showClickHint: false,
+            appearance: {
+                bodyColor: '#ff7aa8',
+                pawColor: '#d94878',
+                eyeColor: '#26211a',
+            },
         });
     });
 });

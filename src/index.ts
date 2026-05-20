@@ -197,6 +197,7 @@ export default class SiyuanMCP extends Plugin {
                 testModeIntervalMs: this.puppySettings.testModeIntervalMs,
                 showBubble: this.puppySettings.showBubble,
                 showClickHint: this.puppySettings.showClickHint,
+                appearance: this.puppySettings.appearance,
             },
         });
     }
@@ -231,6 +232,7 @@ export default class SiyuanMCP extends Plugin {
                 testModeIntervalMs: settings.testModeIntervalMs,
                 showBubble: settings.showBubble,
                 showClickHint: settings.showClickHint,
+                appearance: settings.appearance,
             });
         }
     }

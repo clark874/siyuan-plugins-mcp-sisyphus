@@ -5,9 +5,11 @@
     import { buildDefaultToolConfig, normalizeToolConfig, type ToolCategory, type ToolConfig } from "./tool-config";
     import {
         buildDefaultHttpServerSettings,
+        buildDefaultPuppyAppearance,
         buildDefaultPuppySettings,
         buildDefaultTelemetryConfig,
         buildDefaultVersionControlSettings,
+        buildRandomPuppyAppearance,
         loadPersistedHttpServerSettings,
         loadPersistedPuppySettings,
         loadPersistedTelemetryConfig,
@@ -253,6 +255,39 @@
             };
             await persistPuppySettings();
             return;
+        }
+
+        if (key === "puppy__appearance__randomize") {
+            puppySettings = {
+                ...puppySettings,
+                appearance: buildRandomPuppyAppearance(),
+            };
+            await persistPuppySettings();
+            return;
+        }
+
+        if (key === "puppy__appearance__reset") {
+            puppySettings = {
+                ...puppySettings,
+                appearance: buildDefaultPuppyAppearance(),
+            };
+            await persistPuppySettings();
+            return;
+        }
+
+        if (key.startsWith("puppy__appearance__")) {
+            const field = key.slice("puppy__appearance__".length).split("__")[0];
+            if (field === "bodyColor" || field === "pawColor" || field === "eyeColor") {
+                puppySettings = {
+                    ...puppySettings,
+                    appearance: {
+                        ...puppySettings.appearance,
+                        [field]: String(value ?? ""),
+                    },
+                };
+                await persistPuppySettings();
+                return;
+            }
         }
 
         if (key.startsWith("perm__") && key !== "perm__hint") {

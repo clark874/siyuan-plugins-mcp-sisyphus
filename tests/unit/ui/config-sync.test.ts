@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 
 import * as mcpConfig from '@/core/config';
 import * as settingConfig from '@/ui/setting/tool-config';
+import { normalizePuppySettings } from '@/ui/setting/tool-config-storage';
 
 describe('setting and mcp config stay behaviorally aligned', () => {
     it('re-exports the mcp config helpers directly', () => {
@@ -125,5 +126,44 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(puppySource).not.toContain('mascot__action__');
         expect(panelSource).toContain('category: "mascot"');
         expect(panelSource).toContain('groupKey: "Mascot Tool"');
+    });
+
+    it('keeps mascot display appearance settings in the mascot display panel', () => {
+        const puppySource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/PuppyPanel.svelte'), 'utf8');
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+        const formSource = readFileSync(resolve(process.cwd(), 'src/ui/shared/Form/form-input.svelte'), 'utf8');
+
+        expect(puppySource).toContain('puppy__appearance__randomize');
+        expect(puppySource).toContain('puppy__appearance__reset');
+        expect(puppySource).toContain('puppy__appearance__bodyColor');
+        expect(puppySource).toContain('puppy__appearance__pawColor');
+        expect(puppySource).toContain('puppy__appearance__eyeColor');
+        expect(rootSource).toContain('buildRandomPuppyAppearance');
+        expect(rootSource).toContain('buildDefaultPuppyAppearance');
+        expect(rootSource).toContain('key.startsWith("puppy__appearance__")');
+        expect(formSource).toContain('type === "color"');
+    });
+
+    it('normalizes mascot appearance colors and preserves legacy settings', () => {
+        expect(normalizePuppySettings({ visible: false })).toMatchObject({
+            visible: false,
+            appearance: {
+                bodyColor: '#4a7fff',
+                pawColor: '#3060d0',
+                eyeColor: '#1a1f3c',
+            },
+        });
+
+        expect(normalizePuppySettings({
+            appearance: {
+                bodyColor: '#ABCDEF',
+                pawColor: 'not-a-color',
+                eyeColor: '#123456',
+            },
+        }).appearance).toEqual({
+            bodyColor: '#abcdef',
+            pawColor: '#3060d0',
+            eyeColor: '#123456',
+        });
     });
 });

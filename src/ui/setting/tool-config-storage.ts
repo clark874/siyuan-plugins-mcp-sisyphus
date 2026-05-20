@@ -20,6 +20,35 @@ const VERSION_CONTROL_SETTINGS_STORAGE_KEY = "versionControlSettings";
 const DEFAULT_PUPPY_TEST_INTERVAL_MS = 2200;
 const DEFAULT_HTTP_PORT = 36806;
 const DEFAULT_HTTP_HOST = "127.0.0.1";
+const DEFAULT_PUPPY_BODY_COLOR = "#4a7fff";
+const DEFAULT_PUPPY_PAW_COLOR = "#3060d0";
+const DEFAULT_PUPPY_EYE_COLOR = "#1a1f3c";
+const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
+
+const BODY_COLOR_PALETTE = [
+    "#6f83a8", "#9a7384", "#6f938d", "#9a8662", "#81779f", "#789076", "#956f6a", "#6d8b99",
+    "#f2eee7", "#e8e5dc", "#d7d9d5", "#efd9df", "#d7e2e8", "#d8e7df", "#f0e6d2", "#ece7df",
+    "#ffffff", "#f5f5f2", "#d9d9d6", "#a8a8a3", "#6f6f6a", "#3f4242",
+    "#5f7fbf", "#7890c2", "#4a6fa8", "#8a9ec4", "#6b7f9f",
+    "#9f7769", "#b08a72", "#8f6558", "#a89775", "#c0a37c", "#7e5f57",
+    "#3f536c", "#405d5c", "#504862", "#59606a", "#2f3f4a", "#47505f",
+];
+const PAW_COLOR_PALETTE = [
+    "#536786", "#765765", "#55736f", "#766746", "#625a7c", "#5c7158", "#76534f", "#52707b",
+    "#d8d2c7", "#cdc9bf", "#bfc2be", "#d8bdc6", "#bdccd3", "#bed1c8", "#d6c6a8", "#d2cabe",
+    "#e6e6e2", "#dbdbd6", "#b9b9b4", "#868681", "#565652", "#2f3232",
+    "#486a9c", "#5f77a5", "#385986", "#6f82a8", "#51647f",
+    "#7f5e54", "#8f6b58", "#704c44", "#827254", "#987b55", "#60453f",
+    "#2f4056", "#304a49", "#3c354b", "#444a52", "#26343d", "#363d49",
+];
+const EYE_COLOR_PALETTE = [
+    "#252a35", "#30282c", "#253331", "#312d25", "#2c2835", "#293228", "#332827", "#253038",
+    "#2f302d", "#343230", "#263131", "#362d31", "#28323a", "#26332c", "#3a3025", "#2e2d2b",
+    "#1f1f1e", "#2a2a28", "#3a3a36", "#4a4a45", "#5a5a55", "#202323",
+    "#1f2b40", "#25334a", "#1d2d44", "#2e394d", "#253040",
+    "#3a2924", "#422f28", "#33251f", "#3f3526", "#473621", "#2f2421",
+    "#1d2632", "#1e2b2a", "#282431", "#292e34", "#17252c", "#222832",
+];
 
 type PluginStorage = {
     loadData?: (storageName: string) => Promise<unknown>;
@@ -37,6 +66,13 @@ export interface PuppySettings {
     testModeIntervalMs: number;
     showBubble: boolean;
     showClickHint: boolean;
+    appearance: PuppyAppearanceSettings;
+}
+
+export interface PuppyAppearanceSettings {
+    bodyColor: string;
+    pawColor: string;
+    eyeColor: string;
 }
 
 export interface VersionControlSettings {
@@ -67,6 +103,48 @@ export function buildDefaultPuppySettings(): PuppySettings {
         testModeIntervalMs: DEFAULT_PUPPY_TEST_INTERVAL_MS,
         showBubble: false,
         showClickHint: true,
+        appearance: buildDefaultPuppyAppearance(),
+    };
+}
+
+export function buildDefaultPuppyAppearance(): PuppyAppearanceSettings {
+    return {
+        bodyColor: DEFAULT_PUPPY_BODY_COLOR,
+        pawColor: DEFAULT_PUPPY_PAW_COLOR,
+        eyeColor: DEFAULT_PUPPY_EYE_COLOR,
+    };
+}
+
+function pickRandomColor(palette: string[]): string {
+    return palette[Math.floor(Math.random() * palette.length)] ?? palette[0];
+}
+
+export function buildRandomPuppyAppearance(): PuppyAppearanceSettings {
+    return {
+        bodyColor: pickRandomColor(BODY_COLOR_PALETTE),
+        pawColor: pickRandomColor(PAW_COLOR_PALETTE),
+        eyeColor: pickRandomColor(EYE_COLOR_PALETTE),
+    };
+}
+
+export function normalizePuppyColor(raw: unknown, fallback: string): string {
+    if (typeof raw !== "string") {
+        return fallback;
+    }
+    const color = raw.trim();
+    return HEX_COLOR_RE.test(color) ? color.toLowerCase() : fallback;
+}
+
+export function normalizePuppyAppearance(raw: unknown): PuppyAppearanceSettings {
+    const defaults = buildDefaultPuppyAppearance();
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return defaults;
+    }
+    const record = raw as Record<string, unknown>;
+    return {
+        bodyColor: normalizePuppyColor(record.bodyColor, defaults.bodyColor),
+        pawColor: normalizePuppyColor(record.pawColor, defaults.pawColor),
+        eyeColor: normalizePuppyColor(record.eyeColor, defaults.eyeColor),
     };
 }
 
@@ -87,6 +165,7 @@ export function normalizePuppySettings(raw: unknown): PuppySettings {
         testModeIntervalMs: Math.max(800, Math.min(10000, rawInterval)),
         showBubble: typeof record.showBubble === "boolean" ? record.showBubble : defaults.showBubble,
         showClickHint: typeof record.showClickHint === "boolean" ? record.showClickHint : defaults.showClickHint,
+        appearance: normalizePuppyAppearance(record.appearance),
     };
 }
 
