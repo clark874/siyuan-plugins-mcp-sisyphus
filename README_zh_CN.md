@@ -100,6 +100,13 @@ SiYuan Sisyphus 的默认设计是让用户明确控制 AI 的操作范围：
 - [开发文档](./docs/zh/development/index.md)
 - [English README](./README.md)
 
+## 赞赏支持
+
+如果你觉得这个项目对你有帮助，欢迎赞赏支持！你的支持是我持续维护和改进的动力。
+<p align="left">
+  <img src="docs/archive/thank.jpeg" alt="赞赏码" width="200">
+</p>
+
 ## 许可证
 
 MIT

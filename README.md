@@ -100,6 +100,13 @@ For full setup steps, use the documentation links below.
 - [Development Guide](./docs/development/index.md)
 - [中文 README](./README_zh_CN.md)
 
+## Support
+
+If you find this project helpful, please consider supporting it! Your support is what keeps me motivated to maintain and improve it.
+<p align="left">
+  <img src="docs/archive/thank.jpeg" alt="Support QR code" width="280">
+</p>
+
 ## License
 
 MIT
