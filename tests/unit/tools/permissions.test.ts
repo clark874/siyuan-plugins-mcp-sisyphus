@@ -461,9 +461,9 @@ describe('tool permission and filtering behavior', () => {
         expect(parsed.iconHint).toContain('Unicode hex code string');
     });
 
-    it('resolves the real ID after parentPath + title document creation', async () => {
-        vi.spyOn(documentApi, 'createEmptyDoc').mockResolvedValue({ id: 'AI Interface Root 202604270724' });
-        vi.spyOn(documentApi, 'getIDsByHPath').mockResolvedValue(['doc-real']);
+    it('creates parentPath + title documents through the reliable path flow', async () => {
+        vi.spyOn(documentApi, 'createDoc').mockResolvedValue('doc-real');
+        vi.spyOn(documentApi, 'createEmptyDoc').mockResolvedValue({ id: 'raw-create-result' });
 
         const result = await callDocumentTool({} as never, {
             action: 'create',
@@ -474,13 +474,44 @@ describe('tool permission and filtering behavior', () => {
         }, documentConfig, permMgr as never);
         const parsed = parseResult(result);
 
-        expect(documentApi.getIDsByHPath).toHaveBeenCalledWith(
+        expect(documentApi.createDoc).toHaveBeenCalledWith(
             expect.anything(),
-            '/AI Interface Root 202604270724/Child Doc 202604270724',
             'allowed',
+            '/AI Interface Root 202604270724/Child Doc 202604270724',
+            '# Test',
         );
         expect(parsed.id).toBe('doc-real');
-        expect(parsed.warning).toBeUndefined();
+        expect(parsed.path).toBe('/AI Interface Root 202604270724/Child Doc 202604270724');
+        expect(documentApi.createEmptyDoc).not.toHaveBeenCalled();
+    });
+
+    it('converts storage parentPath before title-based document creation', async () => {
+        vi.spyOn(documentApi, 'getHPathByPath').mockResolvedValue('/AI Interface Root 202604270724');
+        vi.spyOn(documentApi, 'createDoc').mockResolvedValue('doc-real');
+
+        const result = await callDocumentTool({} as never, {
+            action: 'create',
+            notebook: 'allowed',
+            parentPath: '/20260427072400-abcdefg.sy',
+            title: 'Child Doc 202604270724',
+            markdown: '# Test',
+        }, documentConfig, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(documentApi.getHPathByPath).toHaveBeenCalledWith(
+            expect.anything(),
+            'allowed',
+            '/20260427072400-abcdefg.sy',
+        );
+        expect(documentApi.createDoc).toHaveBeenCalledWith(
+            expect.anything(),
+            'allowed',
+            '/AI Interface Root 202604270724/Child Doc 202604270724',
+            '# Test',
+        );
+        expect(parsed.id).toBe('doc-real');
+        expect(parsed.path).toBe('/AI Interface Root 202604270724/Child Doc 202604270724');
+        expect(parsed.resolvedParentPath).toBe('/AI Interface Root 202604270724');
     });
 
     it('adds an icon reminder to daily note create results', async () => {

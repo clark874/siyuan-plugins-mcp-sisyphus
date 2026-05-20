@@ -27,7 +27,7 @@ import { DOCUMENT_ACTION_HANDLERS } from './handlers';
 export const DOCUMENT_TOOL_NAME = 'document';
 
 export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
-    createZodActionVariant('create', DocumentCreateSchema, 'Create a new document. Prefer path for child documents; parentPath + title is supported and MCP resolves the real document ID after creation.'),
+    createZodActionVariant('create', DocumentCreateSchema, 'Create a new document. Prefer path for child documents; parentPath + title also accepts a human-readable parent path or a storage path ending in .sy.'),
     createZodActionVariant('lookup', DocumentLookupSchema, 'Look up document IDs, storage paths, human-readable paths, and document metadata from one document reference.'),
     createZodActionVariant('rename', DocumentRenameSchema, 'Rename a document'),
     createZodActionVariant('remove', DocumentRemoveSchema, 'Delete a document'),
@@ -54,6 +54,7 @@ const documentTool = defineTool<DocumentAction>({
         actionHints: DOCUMENT_ACTION_HINTS,
         propertyDescriptionOverrides: {
             path: 'Path value. For action="create", use a human-readable target path such as /Inbox/Weekly Note. For action="lookup" and path-based rename/remove/move, use a storage path returned by document(action="lookup", id=..., include=["path"]); use hpath for human-readable lookup.',
+            parentPath: 'Parent path for title-based creation. Accepts a human-readable parent path such as /Inbox or a storage path ending in .sy returned by document(action="lookup").',
             fromPaths: 'Source storage paths returned by document(action="lookup").',
             toPath: 'Target storage path. Use the storage path of an existing destination document returned by document(action="lookup").',
         },

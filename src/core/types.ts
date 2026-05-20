@@ -207,10 +207,10 @@ export const DocumentCreateSchema = z.object({
     action: z.literal("create"),
     notebook: z.string().describe("Notebook ID"),
     path: z.string().optional().describe("Human-readable target path, must start with / (e.g., /foo/bar). Parent paths must already exist."),
-    parentPath: z.string().optional().describe("Parent human-readable path for title-based creation, must start with /"),
+    parentPath: z.string().optional().describe("Parent human-readable path or storage path ending in .sy for title-based creation, must start with /"),
     title: z.string().optional().describe("Document title when creating under parentPath"),
     markdown: z.string().optional().describe("Markdown content, defaults to empty"),
-    sorts: z.array(z.string()).optional().describe("Optional sorting path segments passed through to SiYuan for parentPath + title creation"),
+    sorts: z.array(z.string()).optional().describe("Compatibility option retained for older callers; title-based creation now uses the reliable path flow"),
     icon: z.string().optional().describe("Optional document icon. Prefer a Unicode hex code string such as '1f4d4' for 📔 instead of a raw emoji character."),
 }).superRefine((value, ctx) => {
     const hasPath = typeof value.path === "string";

@@ -20,7 +20,7 @@ Related pages:
 
 ## Parameters and Semantics
 
-- `create` takes either a human-readable `path`, or `parentPath` + `title`; omit `markdown` to create an empty document. Prefer `path` for child documents. The `parentPath` + `title` mode is supported, but MCP resolves the real document ID after creation because SiYuan may return a non-ID raw value for that endpoint.
+- `create` takes either a human-readable `path`, or `parentPath` + `title`; omit `markdown` to create an empty document. Prefer `path` for child documents. The `parentPath` + `title` mode accepts either a human-readable parent path or a storage path ending in `.sy` returned by `lookup`.
 - `lookup` resolves by `id`, storage `path`, or human-readable `hpath` / `hPath`; use `include` to request `id`, `ids`, `path`, `hpath`, or `docInfo`.
 - `rename`, `remove`, and `move` often need a storage path if you are not using document IDs.
 - `get_child_docs` requires a document `id`; it does not accept `notebook + path`.

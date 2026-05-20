@@ -1219,7 +1219,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/create",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1229,7 +1229,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "For recently created documents, document(action="lookup", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
           "document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
-        "hint": "Use notebook plus path for the most reliable child-document creation flow. parentPath + title is supported, but SiYuan may return a non-ID raw value, so MCP resolves the real document ID by hpath after creation. markdown is optional and defaults to empty.",
+        "hint": "Use notebook plus path for the most direct child-document creation flow. parentPath + title is also supported; parentPath may be a human-readable parent path or a storage path ending in .sy. markdown is optional and defaults to empty.",
         "requiredFields": [
           "notebook",
         ],
@@ -1248,7 +1248,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/create_daily_note",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1278,7 +1278,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/doc_to_heading",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1307,7 +1307,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/duplicate",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1335,7 +1335,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/get_child_blocks",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1364,7 +1364,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/get_child_docs",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1393,7 +1393,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/get_doc",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1423,7 +1423,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/heading_to_doc",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1453,7 +1453,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/list_tree",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1482,7 +1482,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/lookup",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1508,7 +1508,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/move",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1534,7 +1534,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/remove",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1561,7 +1561,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/rename",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1591,7 +1591,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/search_docs",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1624,7 +1624,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "fullDocResource": "siyuan://help/action/document/set_attr",
         "guidance": [
           "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
           "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
           "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
           "A safe path-based workflow is lookup -> rename/remove/move.",
@@ -1669,10 +1669,10 @@ document.duplicate: required [id] | optional []
 document.heading_to_doc: required [headingID, targetNotebook] | optional [targetPath, previousPath]
 document.doc_to_heading: required [srcID, targetID] | optional [after]
 
-For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs. document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it. Requires user confirmation before: remove, move.",
+For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs. document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy. Requires user confirmation before: remove, move.",
     "overview": {
       "actionSummaries": {
-        "create": "Use notebook plus path for the most reliable child-document creation flow. parentPath + title is supported, but SiYuan may return a non-ID raw value, so MCP resolves the real document ID by hpath after creation. markdown is optional and defaults to empty.",
+        "create": "Use notebook plus path for the most direct child-document creation flow. parentPath + title is also supported; parentPath may be a human-readable parent path or a storage path ending in .sy. markdown is optional and defaults to empty.",
         "create_daily_note": "Use a notebook ID and optionally pass app for downstream SiYuan event routing. When the user asks for a diary, journal entry, daily log, or today’s note in a notebook, prefer this action over manually creating a path and then appending content.",
         "doc_to_heading": "requires: srcID, targetID",
         "duplicate": "requires: id",
@@ -1690,7 +1690,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
       },
       "actions": {
         "create": {
-          "hint": "Use notebook plus path for the most reliable child-document creation flow. parentPath + title is supported, but SiYuan may return a non-ID raw value, so MCP resolves the real document ID by hpath after creation. markdown is optional and defaults to empty.",
+          "hint": "Use notebook plus path for the most direct child-document creation flow. parentPath + title is also supported; parentPath may be a human-readable parent path or a storage path ending in .sy. markdown is optional and defaults to empty.",
           "requiresConfirmation": false,
         },
         "create_daily_note": {
@@ -1769,7 +1769,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
       "detailsHint": "Call document(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
         "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
-        "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported but MCP must resolve the real document ID after SiYuan creates it.",
+        "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.",
         "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
         "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
         "A safe path-based workflow is lookup -> rename/remove/move.",
