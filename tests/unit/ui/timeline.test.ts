@@ -7,10 +7,12 @@ import {
     buildTimelinePairDiff,
     createTimelineTagName,
     createAdjacentSnapshotPairs,
+    canReuseLiveDocumentBlock,
     filterChangedUniqueTimelineEntries,
     formatSnapshotTime,
     isTimelineSnapshot,
     selectInitialTimelineEntry,
+    shouldUpdateDiffViewportState,
     snapshotLabel,
     sortSnapshotsNewestFirst,
     TIMELINE_TAG_PREFIX,
@@ -147,6 +149,45 @@ describe('snapshot document timeline', () => {
         expect(source).toContain('document.querySelectorAll<HTMLElement>(selector)');
         expect(source).toContain('!shellElement?.contains(element)');
         expect(source).toContain('.protyle-content');
+    });
+
+    it('skips diff viewport state writes when measurements do not materially change', () => {
+        const current = { top: 12.345, height: 40.005, capacity: 18 };
+
+        expect(shouldUpdateDiffViewportState(current, { top: 12.349, height: 40.01, capacity: 18 })).toBe(false);
+        expect(shouldUpdateDiffViewportState(current, { top: 12.36, height: 40.005, capacity: 18 })).toBe(true);
+        expect(shouldUpdateDiffViewportState(current, { top: 12.345, height: 40.02, capacity: 18 })).toBe(true);
+        expect(shouldUpdateDiffViewportState(current, { top: 12.345, height: 40.005, capacity: 19 })).toBe(true);
+    });
+
+    it('reuses a live document block only when the cached target is still valid', () => {
+        const cachedBlock = { isConnected: true };
+        const base = {
+            blockId: 'block-a',
+            cachedBlockId: 'block-a',
+            cachedBlock,
+            isVisible: true,
+            isOutsideTimeline: true,
+            isInCurrentDocument: true,
+        };
+
+        expect(canReuseLiveDocumentBlock(base)).toBe(true);
+        expect(canReuseLiveDocumentBlock({ ...base, blockId: 'block-b' })).toBe(false);
+        expect(canReuseLiveDocumentBlock({ ...base, cachedBlock: { isConnected: false } })).toBe(false);
+        expect(canReuseLiveDocumentBlock({ ...base, isVisible: false })).toBe(false);
+        expect(canReuseLiveDocumentBlock({ ...base, isOutsideTimeline: false })).toBe(false);
+        expect(canReuseLiveDocumentBlock({ ...base, isInCurrentDocument: false })).toBe(false);
+    });
+
+    it('guards diff viewport raf scheduling and live block lookup caches in the panel source', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+
+        expect(source).toContain('let diffViewportFrame = 0;');
+        expect(source).toContain('if (diffViewportFrame) return;');
+        expect(source).toContain('cancelDiffViewportUpdate();');
+        expect(source).toContain('if (!shouldUpdateDiffViewportState(current, next)) return;');
+        expect(source).toContain('if (!blockId || blockId === lastDiffAnchorBlockId) return;');
+        expect(source).toContain('canReuseLiveDocumentBlock({');
     });
 });
 

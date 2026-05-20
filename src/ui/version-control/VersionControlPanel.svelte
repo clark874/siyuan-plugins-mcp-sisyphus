@@ -18,8 +18,10 @@
         filterChangedUniqueTimelineEntries,
         formatSnapshotTime,
         getDocumentKey,
+        canReuseLiveDocumentBlock,
         isTimelineSnapshot,
         selectInitialTimelineEntry,
+        shouldUpdateDiffViewportState,
         snapshotLabel,
         sortSnapshotsNewestFirst,
         type TimelineEntry,
@@ -101,9 +103,13 @@
     let diffViewportTop = 0;
     let diffViewportHeight = 100;
     let diffMinimapCapacity = 1;
+    let diffViewportFrame = 0;
     let documentScrollSyncEnabled = true;
     let documentScrollSyncFrame = 0;
     let lastSyncedDocumentBlockId = "";
+    let lastDiffAnchorBlockId = "";
+    let lastLiveDocumentBlock: HTMLElement | null = null;
+    let lastLiveDocumentBlockId = "";
 
     $: documentEntries = currentDocumentId ? timelineEntries.filter((entry) => entry.documentKey === currentDocumentId) : [];
     $: selectedEntry = documentEntries.find((entry) => entry.key === selectedEntryKey);
@@ -161,6 +167,7 @@
     onDestroy(() => {
         shellResizeObserver?.disconnect();
         shellMutationObserver?.disconnect();
+        cancelDiffViewportUpdate();
         cancelDocumentScrollSync();
     });
 
@@ -259,12 +266,29 @@
     }
 
     function queueDiffViewportUpdate() {
+        if (diffViewportFrame) return;
         const run = () => updateDiffViewport();
         if (typeof requestAnimationFrame === "function") {
-            requestAnimationFrame(run);
+            diffViewportFrame = requestAnimationFrame(() => {
+                diffViewportFrame = 0;
+                run();
+            });
         } else {
-            setTimeout(run, 0);
+            diffViewportFrame = window.setTimeout(() => {
+                diffViewportFrame = 0;
+                run();
+            }, 0);
         }
+    }
+
+    function cancelDiffViewportUpdate() {
+        if (!diffViewportFrame) return;
+        if (typeof cancelAnimationFrame === "function") {
+            cancelAnimationFrame(diffViewportFrame);
+        } else {
+            clearTimeout(diffViewportFrame);
+        }
+        diffViewportFrame = 0;
     }
 
     function nextFrame(): Promise<void> {
@@ -293,16 +317,32 @@
 
     function updateDiffViewport() {
         if (!diffElement) {
-            diffViewportTop = 0;
-            diffViewportHeight = 100;
-            diffMinimapCapacity = 1;
+            setDiffViewportState(0, 100, 1);
             return;
         }
         const scrollHeight = Math.max(diffElement.scrollHeight, 1);
         const clientHeight = Math.max(diffElement.clientHeight, 1);
-        diffViewportHeight = Math.min(100, Math.max(8, (clientHeight / scrollHeight) * 100));
-        diffViewportTop = getDiffScrollProgress() * Math.max(0, 100 - diffViewportHeight);
-        diffMinimapCapacity = Math.max(1, Math.ceil(clientHeight / MINIMAP_UNIT_HEIGHT));
+        const nextHeight = Math.min(100, Math.max(8, (clientHeight / scrollHeight) * 100));
+        const nextTop = getDiffScrollProgress() * Math.max(0, 100 - nextHeight);
+        const nextCapacity = Math.max(1, Math.ceil(clientHeight / MINIMAP_UNIT_HEIGHT));
+        setDiffViewportState(nextTop, nextHeight, nextCapacity);
+    }
+
+    function setDiffViewportState(nextTop: number, nextHeight: number, nextCapacity: number) {
+        const current = {
+            top: diffViewportTop,
+            height: diffViewportHeight,
+            capacity: diffMinimapCapacity,
+        };
+        const next = {
+            top: nextTop,
+            height: nextHeight,
+            capacity: nextCapacity,
+        };
+        if (!shouldUpdateDiffViewportState(current, next)) return;
+        diffViewportTop = next.top;
+        diffViewportHeight = next.height;
+        diffMinimapCapacity = next.capacity;
     }
 
     function toggleDocumentScrollSync() {
@@ -313,6 +353,9 @@
 
     function resetDocumentScrollSync() {
         lastSyncedDocumentBlockId = "";
+        lastDiffAnchorBlockId = "";
+        lastLiveDocumentBlockId = "";
+        lastLiveDocumentBlock = null;
         queueDocumentScrollSync();
     }
 
@@ -342,15 +385,19 @@
 
     function syncDocumentToDiffViewport() {
         const blockId = getDiffViewportAnchorBlockId();
-        syncDocumentToBlockId(blockId);
+        if (!blockId || blockId === lastDiffAnchorBlockId) return;
+        if (syncDocumentToBlockId(blockId)) {
+            lastDiffAnchorBlockId = blockId;
+        }
     }
 
-    function syncDocumentToBlockId(blockId: string, options: { force?: boolean } = {}) {
-        if (!blockId || (!options.force && blockId === lastSyncedDocumentBlockId)) return;
+    function syncDocumentToBlockId(blockId: string, options: { force?: boolean } = {}): boolean {
+        if (!blockId || (!options.force && blockId === lastSyncedDocumentBlockId)) return false;
         const blockElement = findLiveDocumentBlock(blockId);
-        if (!blockElement) return;
+        if (!blockElement) return false;
         scrollLiveDocumentBlockIntoView(blockElement);
         lastSyncedDocumentBlockId = blockId;
+        return true;
     }
 
     function shouldIgnoreDiffClick(target: EventTarget | null): boolean {
@@ -425,10 +472,28 @@
 
     function findLiveDocumentBlock(blockId: string): HTMLElement | null {
         if (typeof document === "undefined") return null;
+        const cachedBlock = lastLiveDocumentBlock;
+        if (
+            cachedBlock
+            &&
+            canReuseLiveDocumentBlock({
+                blockId,
+                cachedBlockId: lastLiveDocumentBlockId,
+                cachedBlock,
+                isVisible: isVisibleElement(cachedBlock),
+                isOutsideTimeline: !shellElement?.contains(cachedBlock),
+                isInCurrentDocument: isInCurrentDocumentEditor(cachedBlock),
+            })
+        ) {
+            return cachedBlock;
+        }
         const selector = `[data-node-id="${escapeCssAttributeValue(blockId)}"]`;
         const candidates = Array.from(document.querySelectorAll<HTMLElement>(selector))
             .filter((element) => isVisibleElement(element) && !shellElement?.contains(element));
-        return candidates.find((element) => isInCurrentDocumentEditor(element)) ?? candidates[0] ?? null;
+        const block = candidates.find((element) => isInCurrentDocumentEditor(element)) ?? candidates[0] ?? null;
+        lastLiveDocumentBlockId = block ? blockId : "";
+        lastLiveDocumentBlock = block;
+        return block;
     }
 
     function isInCurrentDocumentEditor(element: HTMLElement): boolean {
