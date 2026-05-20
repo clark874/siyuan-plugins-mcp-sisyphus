@@ -9,6 +9,7 @@ const puppyInstances: Array<{
 vi.mock('siyuan', () => ({
     Plugin: class {},
     showMessage: vi.fn(),
+    saveLayout: vi.fn((cb?: () => void) => cb?.()),
     Dialog: class {},
 }));
 
@@ -52,7 +53,7 @@ import { resetToolConfigWarningStateForTests } from '@/core/config';
 import type { HttpServerSettings } from '@/ui/setting/tool-config-storage';
 
 import { HttpServerLauncher } from '@/server-launcher';
-import { showMessage } from 'siyuan';
+import { saveLayout, showMessage } from 'siyuan';
 
 class FakeElement {
     id = '';
@@ -132,6 +133,8 @@ describe('HTTP settings sync', () => {
     let loadData: ReturnType<typeof vi.fn>;
     let launcherStart: ReturnType<typeof vi.fn>;
     let launcherStop: ReturnType<typeof vi.fn>;
+    let addDock: ReturnType<typeof vi.fn>;
+    let addIcons: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         resetToolConfigWarningStateForTests();
@@ -144,11 +147,15 @@ describe('HTTP settings sync', () => {
         saveData = vi.fn().mockResolvedValue(undefined);
         launcherStart = vi.fn().mockResolvedValue(undefined);
         launcherStop = vi.fn().mockResolvedValue(undefined);
+        addDock = vi.fn();
+        addIcons = vi.fn();
 
         Object.assign(plugin, {
             name: 'siyuan-plugins-mcp-sisyphus',
             loadData,
             saveData,
+            addDock,
+            addIcons,
         });
         plugin.httpLauncher = {
             start: launcherStart,
@@ -161,11 +168,16 @@ describe('HTTP settings sync', () => {
                 config: {
                     api: { token: 'siyuan-token' },
                     system: { workspaceDir: '/mock/workspace' },
+                    uiLayout: {
+                        left: { data: [] },
+                        right: { data: [] },
+                    },
                 },
             },
         };
 
         vi.restoreAllMocks();
+        vi.mocked(saveLayout).mockClear();
     });
 
     it('syncs settings into plugin state before start', async () => {
@@ -381,6 +393,50 @@ describe('HTTP settings sync', () => {
 
         expect(document.querySelectorAll('#sy-puppy-root')).toHaveLength(1);
         expect(puppyInstances).toHaveLength(1);
+    });
+
+    it('registers the timeline dock once during plugin load with a stable icon and size', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+
+        await plugin.onload();
+        plugin.onLayoutReady();
+
+        expect(addIcons).toHaveBeenCalledTimes(1);
+        expect(addIcons).toHaveBeenCalledWith(expect.stringContaining('<symbol id="iconSisyphusTimelineDock"'));
+        expect(addDock).toHaveBeenCalledTimes(1);
+        expect(addDock.mock.calls[0][0].config).toEqual(expect.objectContaining({
+            icon: 'iconSisyphusTimelineDock',
+            size: { width: 420, height: 0 },
+        }));
+    });
+
+    it('normalizes duplicated timeline dock layout entries during plugin load', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        (globalThis as any).window.siyuan.config.uiLayout.right.data = [[
+            {
+                type: 'siyuan-plugins-mcp-sisyphussisyphusTimelineDock',
+                icon: '<svg viewBox="0 0 24 24"></svg>',
+                show: true,
+                size: { width: 420, height: null },
+            },
+            {
+                type: 'siyuan-plugins-mcp-sisyphussisyphusTimelineDock',
+                icon: '<svg viewBox="0 0 24 24"></svg>',
+                show: true,
+                size: { width: Number.NaN, height: Number.NaN },
+            },
+        ]];
+
+        await plugin.onload();
+
+        const tabs = (globalThis as any).window.siyuan.config.uiLayout.right.data[0];
+        expect(tabs).toHaveLength(1);
+        expect(tabs[0]).toEqual(expect.objectContaining({
+            icon: 'iconSisyphusTimelineDock',
+            title: '文档时间线',
+            size: { width: 420, height: 0 },
+        }));
+        expect(saveLayout).toHaveBeenCalledTimes(1);
     });
 
     it('self-heals orphan puppy roots before remounting', () => {
