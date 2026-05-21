@@ -16,7 +16,8 @@ Check these first:
 - Is SiYuan running and its API reachable on `6806`?
 - Is the plugin enabled?
 - If using HTTP, is the MCP server started on `36806`?
-- If using stdio, is the `mcp-server.cjs` path correct?
+- If using stdio, is the `mcp-server.cjs` path correct and readable from the MCP client machine?
+- In Docker setups, do not use a container-only path like `/siyuan/workspace/data/plugins/.../mcp-server.cjs` unless that path is mounted on the client machine. Copy `mcp-server.cjs` to a client-side path or extract it from the release package.
 
 ## Tools Not Visible
 
@@ -55,3 +56,7 @@ Useful locations:
 
 - Plugin bundle: `{workspace}/data/plugins/siyuan-plugins-mcp-sisyphus/`
 - `mcp-server.cjs`: same directory as the plugin bundle
+
+Common stdio error:
+
+- `Failed to reconnect ... -32000`: often means the MCP client could not start `mcp-server.cjs` or the server could not reach `SIYUAN_API_URL`. For Docker, first check that `args` points to a client-side file path and `SIYUAN_API_URL` points to the reachable SiYuan API endpoint, usually `http://<docker-host-ip>:6806`.
