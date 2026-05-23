@@ -20,6 +20,8 @@ describe('setting tool config', () => {
         expect(config.mascot.actions.buy).toBe(true);
         expect(config.feedback.actions.submit).toBe(true);
         expect(config.userRulesText).toBe('创建文档/日记后主动设图标');
+        expect(config.agentSiyuanMemoryText).toBe('');
+        expect(config.agentSiyuanMemoryUpdatedAt).toBe('');
         expect(config.debug.includeUiRefreshMetadata).toBe(false);
         expect(config.debug.slimResponses).toBe(true);
     });
@@ -129,6 +131,8 @@ describe('setting tool config', () => {
     it('keeps userRulesText in nested config and defaults it for old config', () => {
         const configWithRules = normalizeToolConfig({
             userRulesText: 'Always prefer setting icons after create.',
+            agentSiyuanMemoryText: 'Workspace has Inbox and Projects notebooks.',
+            agentSiyuanMemoryUpdatedAt: '2026-05-20T10:00:00.000Z',
             document: {
                 enabled: true,
                 actions: {
@@ -146,7 +150,11 @@ describe('setting tool config', () => {
         });
 
         expect(configWithRules.userRulesText).toBe('Always prefer setting icons after create.');
+        expect(configWithRules.agentSiyuanMemoryText).toBe('Workspace has Inbox and Projects notebooks.');
+        expect(configWithRules.agentSiyuanMemoryUpdatedAt).toBe('2026-05-20T10:00:00.000Z');
         expect(configWithoutRules.userRulesText).toBe('创建文档/日记后主动设图标');
+        expect(configWithoutRules.agentSiyuanMemoryText).toBe('');
+        expect(configWithoutRules.agentSiyuanMemoryUpdatedAt).toBe('');
     });
 
     it('keeps debug settings in nested config', () => {

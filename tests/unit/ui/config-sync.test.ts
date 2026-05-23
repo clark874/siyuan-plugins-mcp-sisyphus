@@ -150,9 +150,24 @@ describe('setting and mcp config stay behaviorally aligned', () => {
 
         expect(source).not.toContain('$: userRulesText = config.userRulesText');
         expect(source).toContain('hasDraftChanges');
+        expect(source).toContain('agentSiyuanMemoryText');
+        expect(source).toContain('AGENT_MEMORY_KEY = "agentSiyuanMemoryText"');
+        expect(source).toContain('agent_memory_title');
         expect(source).toContain('on:input={markDraftChanged}');
+        expect(source).toContain('on:input={markAgentMemoryDraftChanged}');
         expect(source).toContain('on:blur={dispatchChanged}');
+        expect(source).toContain('on:blur={dispatchAgentMemoryChanged}');
         expect(source).toContain('lastSyncedUserRulesText = userRulesText');
+        expect(source).toContain('lastSyncedAgentSiyuanMemoryText = agentSiyuanMemoryText');
+    });
+
+    it('persists agent memory through the same instruction refresh path as user rules', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+
+        expect(source).toContain('key === "userRulesText" || key === "agentSiyuanMemoryText"');
+        expect(source).toContain('agentSiyuanMemoryUpdatedAt');
+        expect(source).toContain('refreshHttpServerAfterInstructionConfigChange');
+        expect(source).toContain('refreshHttpServerAfterUserRulesChange');
     });
 
     it('keeps mascot display appearance settings in the mascot display panel', () => {

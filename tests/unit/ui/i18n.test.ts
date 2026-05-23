@@ -57,4 +57,17 @@ describe('settings i18n', () => {
             }
         }
     });
+
+    it('covers agent memory settings copy in bundled locales', () => {
+        for (const locale of ['en_US', 'zh_CN']) {
+            const i18n = readI18n(locale);
+
+            expect(i18n.agent_memory_title, `${locale} agent_memory_title`).toEqual(expect.any(String));
+            expect(i18n.agent_memory_desc, `${locale} agent_memory_desc`).toEqual(expect.any(String));
+            expect(i18n.agent_memory_placeholder, `${locale} agent_memory_placeholder`).toEqual(expect.any(String));
+            expect(i18n.agent_memory_http_restarted, `${locale} agent_memory_http_restarted`).toEqual(expect.any(String));
+            expect(i18n.agent_memory_saved_reconnect, `${locale} agent_memory_saved_reconnect`).toEqual(expect.any(String));
+            expect(i18n.agent_memory_refresh_failed, `${locale} agent_memory_refresh_failed`).toEqual(expect.any(String));
+        }
+    });
 });

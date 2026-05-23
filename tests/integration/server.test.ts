@@ -166,6 +166,51 @@ describe('MCP Server Integration', () => {
             expect(instructions).not.toContain('User custom rules override the general style and workflow suggestions below when they apply.');
         });
 
+        it('injects agent siyuan memory as a lower-priority independent section', () => {
+            const instructions = buildServerInstructions({
+                userRulesText: 'Prefer Chinese titles.',
+                agentSiyuanMemoryText: 'Workspace has Inbox and Projects notebooks.',
+                agentSiyuanMemoryUpdatedAt: new Date().toISOString(),
+            });
+
+            expect(instructions).toContain('# Active user custom rules');
+            expect(instructions).toContain('# Agent siyuan memory');
+            expect(instructions).toContain('Status: fresh');
+            expect(instructions).toContain('Last updated:');
+            expect(instructions).toContain('Stale threshold: 7 days');
+            expect(instructions).toContain('## What to write in /AGENTS.md');
+            expect(instructions).toContain('Workspace has Inbox and Projects notebooks.');
+            expect(instructions).toContain('lower priority than user requests, active user custom rules, safety confirmation requirements');
+            expect(instructions.indexOf('# Active user custom rules')).toBeLessThan(instructions.indexOf('# Agent siyuan memory'));
+            expect(instructions.indexOf('# Agent siyuan memory')).toBeLessThan(instructions.indexOf('## Help and progressive disclosure'));
+        });
+
+        it('prompts agents to ask before initializing missing agent siyuan memory', () => {
+            const instructions = buildServerInstructions({
+                userRulesText: '',
+                agentSiyuanMemoryText: '',
+                agentSiyuanMemoryUpdatedAt: '',
+            });
+
+            expect(instructions).toContain('# Agent siyuan memory');
+            expect(instructions).toContain('Status: missing');
+            expect(instructions).toContain('Last updated: not created');
+            expect(instructions).toContain('ask the user whether to create `/AGENTS.md`');
+            expect(instructions).toContain('(not created yet)');
+        });
+
+        it('prompts agents to ask before relying on stale agent siyuan memory', () => {
+            const instructions = buildServerInstructions({
+                userRulesText: '',
+                agentSiyuanMemoryText: 'Old workspace state.',
+                agentSiyuanMemoryUpdatedAt: '2020-01-01T00:00:00.000Z',
+            });
+
+            expect(instructions).toContain('Status: stale');
+            expect(instructions).toContain('ask the user whether to refresh `/AGENTS.md`');
+            expect(instructions).toContain('Old workspace state.');
+        });
+
         it('includes block update guidance for multi-line content', () => {
             const instructions = buildServerInstructions('');
 

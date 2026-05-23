@@ -58,6 +58,8 @@ function createAllEnabledConfig(): ToolConfig {
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.feedback.map((action) => [action, true])) as ToolConfig['feedback']['actions'],
         },
         userRulesText: '',
+        agentSiyuanMemoryText: '',
+        agentSiyuanMemoryUpdatedAt: '',
         debug: {
             includeUiRefreshMetadata: false,
             slimResponses: true,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { buildDefaultToolConfig } from '@/core/config';
+import { AGENT_MEMORY_VIRTUAL_PATH, MCP_TOOLS_CONFIG_API_PATH, buildDefaultToolConfig } from '@/core/config';
 import { callFsTool } from '@/tools/fs';
 import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
@@ -25,8 +25,13 @@ function fsConfig() {
     return buildDefaultToolConfig().fs;
 }
 
-function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[] } = {}) {
+function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[]; agentMemory?: string; agentMemoryUpdatedAt?: string } = {}) {
     const missing = new Set(options.missingPaths ?? []);
+    let storedConfig = {
+        ...buildDefaultToolConfig(),
+        agentSiyuanMemoryText: options.agentMemory ?? '',
+        agentSiyuanMemoryUpdatedAt: options.agentMemoryUpdatedAt ?? '',
+    };
     return createMockClient({
         request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
             if (endpoint.startsWith('/api/ui/')) return null;
@@ -79,6 +84,20 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[] 
             if (endpoint === '/api/filetree/renameDocByID') return null;
             return null;
         }),
+        readFile: vi.fn(async (path: string) => {
+            if (path === MCP_TOOLS_CONFIG_API_PATH) {
+                return JSON.stringify(storedConfig);
+            }
+            throw new Error(`Unexpected readFile path: ${path}`);
+        }),
+        writeFile: vi.fn(async (path: string, content: string) => {
+            if (path === MCP_TOOLS_CONFIG_API_PATH) {
+                storedConfig = JSON.parse(content);
+                return;
+            }
+            throw new Error(`Unexpected writeFile path: ${path}`);
+        }),
+        getStoredConfig: () => storedConfig,
     });
 }
 
@@ -99,7 +118,10 @@ describe('fs tool', () => {
         const result = await callFsTool(client, { action: 'ls', path: '/' }, fsConfig(), createPermMgr({ 'nb-1': 'r', 'nb-2': 'none' }));
         const parsed = parseResult(result);
 
-        expect(parsed.items).toEqual([{ name: 'Notebook', path: '/Notebook', children: 1 }]);
+        expect(parsed.items).toEqual([
+            { name: 'AGENTS.md', path: AGENT_MEMORY_VIRTUAL_PATH, children: 0, virtual: true },
+            { name: 'Notebook', path: '/Notebook', children: 1 },
+        ]);
         expect(JSON.stringify(parsed)).not.toContain('/Archive');
     });
 
@@ -142,8 +164,9 @@ describe('fs tool', () => {
         const result = await callFsTool(client, { action: 'tree', path: '/' }, fsConfig(), createPermMgr({ 'nb-1': 'r', 'nb-2': 'none' }));
         const parsed = parseResult(result);
 
-        expect(parsed.tree).toHaveLength(1);
-        expect(parsed.tree[0].path).toBe('/Notebook');
+        expect(parsed.tree).toHaveLength(2);
+        expect(parsed.tree[0]).toEqual({ name: 'AGENTS.md', path: AGENT_MEMORY_VIRTUAL_PATH, children: [], virtual: true });
+        expect(parsed.tree[1].path).toBe('/Notebook');
         expect(JSON.stringify(parsed)).not.toContain('/Archive');
     });
 
@@ -156,6 +179,23 @@ describe('fs tool', () => {
         expect(parsed.content).toBe('alpha');
         expect(parsed.truncated).toBe(true);
         expect(parsed.hasNextPage).toBe(true);
+    });
+
+    it('reads agent memory from the virtual root file without document APIs', async () => {
+        const client = createFsClient({ agentMemory: 'alpha\nworkspace memory' });
+        const result = await callFsTool(client, { action: 'read', path: AGENT_MEMORY_VIRTUAL_PATH, pageSize: 5 }, fsConfig(), createPermMgr('none'));
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            virtual: true,
+            updatedAt: null,
+            content: 'alpha',
+            truncated: true,
+        });
+        expect(client.readFile).toHaveBeenCalledWith(MCP_TOOLS_CONFIG_API_PATH);
+        expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/notebook/lsNotebooks', expect.anything());
     });
 
     it('denies reads when notebook permission is none', async () => {
@@ -189,6 +229,20 @@ describe('fs tool', () => {
         ]);
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'new-doc' });
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
+    });
+
+    it('writes agent memory through the virtual root file while preserving config', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'write', path: AGENT_MEMORY_VIRTUAL_PATH, markdown: 'New memory' }, fsConfig(), createPermMgr('none'));
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, path: AGENT_MEMORY_VIRTUAL_PATH, virtual: true, overwritten: true });
+        expect(client.getStoredConfig().agentSiyuanMemoryText).toBe('New memory');
+        expect(client.getStoredConfig().agentSiyuanMemoryUpdatedAt).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/));
+        expect(parsed.updatedAt).toBe(client.getStoredConfig().agentSiyuanMemoryUpdatedAt);
+        expect(client.getStoredConfig().userRulesText).toBe('创建文档/日记后主动设图标');
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/createDocWithMd', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/ui/reloadFiletree', expect.anything());
     });
 
     it('denies creates when notebook permission is read-only', async () => {
@@ -258,6 +312,22 @@ describe('fs tool', () => {
         ]);
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
+    });
+
+    it('replaces agent memory through the virtual root file', async () => {
+        const client = createFsClient({ agentMemory: 'Notebook: Inbox\nNotebook: Projects' });
+        const result = await callFsTool(client, {
+            action: 'replace',
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            edit: { old: 'Inbox', new: 'Capture' },
+        }, fsConfig(), createPermMgr('none'));
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, path: AGENT_MEMORY_VIRTUAL_PATH, virtual: true, changed: true, editsApplied: 1 });
+        expect(client.getStoredConfig().agentSiyuanMemoryText).toBe('Notebook: Capture\nNotebook: Projects');
+        expect(client.getStoredConfig().agentSiyuanMemoryUpdatedAt).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/));
+        expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
     });
 
     it('denies replacements when notebook permission is read-only', async () => {
@@ -397,6 +467,28 @@ describe('fs tool', () => {
         expect(parsed.total).toBe(1);
     });
 
+    it('searches only agent memory when scoped to the virtual root file', async () => {
+        const client = createFsClient({ agentMemory: 'Inbox notebook\nProject archive' });
+        const result = await callFsTool(client, { action: 'search', path: AGENT_MEMORY_VIRTUAL_PATH, query: 'inbox' }, fsConfig(), createPermMgr('none'));
+        const parsed = parseResult(result);
+
+        expect(parsed.data).toEqual([{ path: AGENT_MEMORY_VIRTUAL_PATH, line: 1, text: 'Inbox notebook' }]);
+        expect(parsed.virtual).toBe(true);
+        expect(client.request).not.toHaveBeenCalledWith('/api/notebook/lsNotebooks', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
+    });
+
+    it('includes agent memory matches in root search results', async () => {
+        const client = createFsClient({ agentMemory: 'budget workspace memory' });
+        const result = await callFsTool(client, { action: 'search', path: '/', query: 'budget' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(parsed.data).toEqual([
+            { path: AGENT_MEMORY_VIRTUAL_PATH, line: 1, text: 'budget workspace memory' },
+            { path: '/Notebook/Doc 1', line: 2, text: 'budget line' },
+        ]);
+    });
+
     it('denies scoped search when notebook permission is none', async () => {
         const client = createFsClient();
         const result = await callFsTool(client, { action: 'search', path: '/Notebook/Doc 1', query: 'budget' }, fsConfig(), createPermMgr('none'));
@@ -434,6 +526,17 @@ describe('fs tool', () => {
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/removeDocByID', expect.anything());
     });
 
+    it('clears agent memory instead of hiding the virtual root file', async () => {
+        const client = createFsClient({ agentMemory: 'Old memory' });
+        const result = await callFsTool(client, { action: 'rm', path: AGENT_MEMORY_VIRTUAL_PATH }, fsConfig(), createPermMgr('none'));
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, path: AGENT_MEMORY_VIRTUAL_PATH, virtual: true, cleared: true });
+        expect(client.getStoredConfig().agentSiyuanMemoryText).toBe('');
+        expect(client.getStoredConfig().agentSiyuanMemoryUpdatedAt).toBe('');
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/removeDocByID', expect.anything());
+    });
+
     it('accepts remove as an alias for rm', async () => {
         const client = createFsClient();
         const result = await callFsTool(client, { action: 'remove', path: '/Notebook/Doc 1' }, fsConfig(), createPermMgr());
@@ -463,6 +566,15 @@ describe('fs tool', () => {
         ]);
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
+    });
+
+    it('rejects moving or renaming the virtual agent memory file', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'mv', from: AGENT_MEMORY_VIRTUAL_PATH, to: '/Notebook/Renamed' }, fsConfig(), createPermMgr());
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('fixed virtual file');
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/moveDocsByID', expect.anything());
     });
 
     it('accepts move as an alias for mv', async () => {

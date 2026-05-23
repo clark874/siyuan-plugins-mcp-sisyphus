@@ -152,7 +152,7 @@ export default class SiyuanMCP extends Plugin {
         return this.httpSettings;
     }
 
-    async refreshHttpServerAfterUserRulesChange(): Promise<boolean> {
+    async refreshHttpServerAfterInstructionConfigChange(): Promise<boolean> {
         const wasRunning = this.httpLauncher?.getStatus().running ?? false;
         if (!wasRunning) {
             return false;
@@ -167,6 +167,10 @@ export default class SiyuanMCP extends Plugin {
         }
         await this.startHttpServer();
         return true;
+    }
+
+    async refreshHttpServerAfterUserRulesChange(): Promise<boolean> {
+        return this.refreshHttpServerAfterInstructionConfigChange();
     }
 
     private mountPuppy() {

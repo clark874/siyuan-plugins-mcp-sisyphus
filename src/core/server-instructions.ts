@@ -1,4 +1,4 @@
-import { formatDangerousActionsList } from './config';
+import { AGENT_MEMORY_STALE_AFTER_DAYS, formatDangerousActionsList } from './config';
 
 function formatUserRules(userRulesText = ''): string {
     const normalizedUserRules = typeof userRulesText === 'string' ? userRulesText.trim() : '';
@@ -14,9 +14,64 @@ function formatUserRules(userRulesText = ''): string {
     return lines.map(line => `- ${line}`).join('\n');
 }
 
-export function buildServerInstructions(userRulesText = ''): string {
+export interface ServerInstructionInput {
+    userRulesText?: string;
+    agentSiyuanMemoryText?: string;
+    agentSiyuanMemoryUpdatedAt?: string;
+}
+
+function normalizeInstructionInput(input: string | ServerInstructionInput = '', agentSiyuanMemoryText = ''): Required<ServerInstructionInput> {
+    if (typeof input === 'string') {
+        return {
+            userRulesText: input,
+            agentSiyuanMemoryText,
+            agentSiyuanMemoryUpdatedAt: '',
+        };
+    }
+    return {
+        userRulesText: typeof input.userRulesText === 'string' ? input.userRulesText : '',
+        agentSiyuanMemoryText: typeof input.agentSiyuanMemoryText === 'string' ? input.agentSiyuanMemoryText : '',
+        agentSiyuanMemoryUpdatedAt: typeof input.agentSiyuanMemoryUpdatedAt === 'string' ? input.agentSiyuanMemoryUpdatedAt : '',
+    };
+}
+
+function getAgentMemoryStatus(memoryText: string, updatedAt: string): {
+    status: 'missing' | 'fresh' | 'stale';
+    updatedAtLabel: string;
+    ageLabel: string;
+} {
+    if (!memoryText.trim()) {
+        return {
+            status: 'missing',
+            updatedAtLabel: 'not created',
+            ageLabel: 'unknown',
+        };
+    }
+
+    const updatedTime = Date.parse(updatedAt);
+    if (!updatedAt.trim() || Number.isNaN(updatedTime)) {
+        return {
+            status: 'stale',
+            updatedAtLabel: updatedAt.trim() ? `${updatedAt} (invalid)` : 'unknown',
+            ageLabel: 'unknown',
+        };
+    }
+
+    const ageMs = Date.now() - updatedTime;
+    const ageDays = Math.max(0, Math.floor(ageMs / 86_400_000));
+    return {
+        status: ageDays > AGENT_MEMORY_STALE_AFTER_DAYS ? 'stale' : 'fresh',
+        updatedAtLabel: new Date(updatedTime).toISOString(),
+        ageLabel: `${ageDays} day${ageDays === 1 ? '' : 's'}`,
+    };
+}
+
+export function buildServerInstructions(input: string | ServerInstructionInput = '', agentSiyuanMemoryText = ''): string {
+    const instructionInput = normalizeInstructionInput(input, agentSiyuanMemoryText);
     const dangerousActionsList = formatDangerousActionsList().join('\n');
-    const formattedUserRules = formatUserRules(userRulesText);
+    const formattedUserRules = formatUserRules(instructionInput.userRulesText);
+    const normalizedAgentMemory = instructionInput.agentSiyuanMemoryText.trim();
+    const agentMemoryStatus = getAgentMemoryStatus(normalizedAgentMemory, instructionInput.agentSiyuanMemoryUpdatedAt);
     const userRulesPrioritySection = formattedUserRules
         ? `
 # Active user custom rules
@@ -33,11 +88,43 @@ These user custom rules are active for this MCP session. Apply them before choos
 ${formattedUserRules}
 `
         : '';
+    const agentMemoryAction = agentMemoryStatus.status === 'missing'
+        ? '- The virtual memory file has not been initialized. Before doing workspace-aware planning or assuming notebook structure, ask the user whether to create `/AGENTS.md`; if they agree, inspect the workspace with `fs`/search, then write a concise initialization memory.'
+        : agentMemoryStatus.status === 'stale'
+            ? `- The memory is stale because it is older than ${AGENT_MEMORY_STALE_AFTER_DAYS} days or has no valid update time. Before relying on it for workspace-aware work, ask the user whether to refresh \`/AGENTS.md\`; if they agree, verify current state first, then update it.`
+            : '- The memory is fresh enough to use as startup context, but still verify details before high-impact edits.';
+    const agentMemorySection = `
+# Agent siyuan memory
+
+This is an AI-maintained summary of the current SiYuan workspace state, stored as the virtual fs file \`/AGENTS.md\`. Use it as startup context before browsing notes, but treat it as lower priority than user requests, active user custom rules, safety confirmation requirements, notebook permissions, disabled tools, and disabled actions.
+- Status: ${agentMemoryStatus.status}
+- Last updated: ${agentMemoryStatus.updatedAtLabel}
+- Approximate age: ${agentMemoryStatus.ageLabel}
+- Stale threshold: ${AGENT_MEMORY_STALE_AFTER_DAYS} days
+${agentMemoryAction}
+- Do not silently create or update \`/AGENTS.md\` without user consent when the memory is missing or stale.
+
+## What to write in /AGENTS.md
+
+Keep this memory concise and durable. Prefer facts that help future agents orient quickly:
+- Workspace map: important notebooks, root folders, dashboards, inboxes, archives, and where active work lives.
+- Current projects: active project names, key documents, status, next likely entry points, and known open questions.
+- User preferences learned from notes: naming conventions, icon/layout habits, language defaults, tagging style, and database usage.
+- Operating cautions: sensitive notebooks to avoid, workflows that require confirmation, conventions that prevent duplicate or misplaced notes.
+- Maintenance notes: what was inspected before updating the memory and which areas may still be stale.
+
+Avoid secrets, private credentials, long transcripts, volatile one-off task details, and facts you have not verified. Update this file through \`fs.write\` or \`fs.replace\` after the user agrees.
+
+## Current memory
+
+${normalizedAgentMemory || '(not created yet)'}
+`;
     const userRulesReminder = formattedUserRules
         ? '\nActive user custom rules override the general style and workflow suggestions below when they apply. Re-check siyuan://help/user-rules if current preferences matter.\n'
         : '';
     return `
 ${userRulesPrioritySection}
+${agentMemorySection}
 
 ## Help and progressive disclosure
 

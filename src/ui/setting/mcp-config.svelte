@@ -322,20 +322,42 @@
             return;
         }
 
-        if (key === "userRulesText") {
+        if (key === "userRulesText" || key === "agentSiyuanMemoryText") {
+            const nextText = typeof value === "string" ? value : String(value ?? "");
             config = {
                 ...config,
-                userRulesText: typeof value === "string" ? value : String(value ?? ""),
+                [key]: nextText,
+                ...(key === "agentSiyuanMemoryText"
+                    ? { agentSiyuanMemoryUpdatedAt: nextText.trim() ? new Date().toISOString() : "" }
+                    : {}),
             };
             await persistConfig();
             try {
-                const restarted = await plugin?.refreshHttpServerAfterUserRulesChange?.();
+                const refreshInstructionConfig = plugin?.refreshHttpServerAfterInstructionConfigChange ?? plugin?.refreshHttpServerAfterUserRulesChange;
+                const restarted = await refreshInstructionConfig?.call(plugin);
+                const isAgentMemoryChange = key === "agentSiyuanMemoryText";
                 showMessage(restarted
-                    ? getLabel("user_rules_http_restarted", "MCP HTTP server restarted. Reconnect or refresh connected MCP clients to apply updated user rules.")
-                    : getLabel("user_rules_saved_reconnect", "User rules saved. Reconnect or refresh MCP clients to apply updated initialize instructions."));
+                    ? getLabel(
+                        isAgentMemoryChange ? "agent_memory_http_restarted" : "user_rules_http_restarted",
+                        isAgentMemoryChange
+                            ? "MCP HTTP server restarted. Reconnect or refresh connected MCP clients to apply updated agent memory."
+                            : "MCP HTTP server restarted. Reconnect or refresh connected MCP clients to apply updated user rules.",
+                    )
+                    : getLabel(
+                        isAgentMemoryChange ? "agent_memory_saved_reconnect" : "user_rules_saved_reconnect",
+                        isAgentMemoryChange
+                            ? "Agent memory saved. Reconnect or refresh MCP clients to apply updated initialize instructions."
+                            : "User rules saved. Reconnect or refresh MCP clients to apply updated initialize instructions.",
+                    ));
             } catch (err) {
                 console.error("[MCP] refresh after user rules change failed:", err);
-                showMessage(getLabel("user_rules_refresh_failed", "User rules saved, but MCP HTTP server restart failed. Reconnect or restart it manually to apply updated rules."));
+                const isAgentMemoryChange = key === "agentSiyuanMemoryText";
+                showMessage(getLabel(
+                    isAgentMemoryChange ? "agent_memory_refresh_failed" : "user_rules_refresh_failed",
+                    isAgentMemoryChange
+                        ? "Agent memory saved, but MCP HTTP server restart failed. Reconnect or restart it manually to apply updated memory."
+                        : "User rules saved, but MCP HTTP server restart failed. Reconnect or restart it manually to apply updated rules.",
+                ));
             }
             return;
         }
