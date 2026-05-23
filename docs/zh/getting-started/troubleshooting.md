@@ -1,4 +1,4 @@
-# Troubleshooting
+# 故障排查
 
 这个页面汇总了 MCP 连接和调用的常见问题，以及最快的检查路径。
 
@@ -6,8 +6,8 @@
 
 相关页面：
 
-- [Deployment](./deployment.md)
-- [HTTPS](./https.md)
+- [部署指南](./deployment.md)
+- [HTTPS 配置](./https.md)
 
 ## 连接失败
 

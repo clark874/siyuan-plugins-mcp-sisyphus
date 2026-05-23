@@ -1,6 +1,6 @@
 # 工具索引
 
-这个页面汇总项目暴露的 11 个聚合工具。
+这个页面汇总项目暴露的 12 个聚合工具。
 
 适用场景：你已经知道大致领域，但还需要定位到具体工具页面。
 
@@ -9,21 +9,22 @@
 - [参考首页](../index.md)
 - [常见任务](../common-tasks.md)
 
-| 工具 | Action 数量 | 页面 |
+| 工具 | 动作数量 | 页面 |
 |------|-------------|------|
-| `fs` | 7 | [fs](./fs.md) |
-| `notebook` | 11 | [notebook](./notebook.md) |
-| `document` | 15 | [document](./document.md) |
-| `block` | 19 | [block](./block.md) |
-| `av` | 12 | [av](./av.md) |
-| `file` | 10 | [file](./file.md) |
-| `search` | 8 | [search](./search.md) |
-| `tag` | 3 | [tag](./tag.md) |
-| `system` | 6 | [system](./system.md) |
-| `flashcard` | 6 | [flashcard](./flashcard.md) |
-| `mascot` | 3 | [mascot](./mascot.md) |
+| `fs` | 7 | [fs 工具](./fs.md) |
+| `notebook` | 11 | [notebook 工具](./notebook.md) |
+| `document` | 15 | [document 工具](./document.md) |
+| `block` | 19 | [block 工具](./block.md) |
+| `av` | 12 | [av 工具](./av.md) |
+| `file` | 10 | [file 工具](./file.md) |
+| `search` | 8 | [search 工具](./search.md) |
+| `tag` | 3 | [tag 工具](./tag.md) |
+| `system` | 6 | [system 工具](./system.md) |
+| `flashcard` | 6 | [flashcard 工具](./flashcard.md) |
+| `mascot` | 3 | [mascot 工具](./mascot.md) |
+| `feedback` | 1 | [feedback 工具](./feedback.md) |
 
-## Action 汇总
+## 动作汇总
 
 - `fs`: ls, tree, read, write, rm, mv, search
 - `notebook`: list, create, set_open_state, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs
@@ -36,3 +37,4 @@
 - `system`: workspace_info, network, conf, notify, get_version, get_current_time
 - `flashcard`: list_cards, get_decks, get_cards, review_card, create_card, remove_card
 - `mascot`: get_balance, shop, buy
+- `feedback`: submit

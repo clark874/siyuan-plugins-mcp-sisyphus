@@ -53,6 +53,10 @@ function createAllEnabledConfig(): ToolConfig {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.mascot.map((action) => [action, true])) as ToolConfig['mascot']['actions'],
         },
+        feedback: {
+            enabled: true,
+            actions: Object.fromEntries(ACTIONS_BY_CATEGORY.feedback.map((action) => [action, true])) as ToolConfig['feedback']['actions'],
+        },
         userRulesText: '',
         debug: {
             includeUiRefreshMetadata: false,
@@ -89,5 +93,25 @@ async function collectHelpOutputs() {
 describe('tool description and help outputs', () => {
     it('matches the locked snapshot for all aggregated tools', async () => {
         await expect(collectHelpOutputs()).resolves.toMatchSnapshot();
+    });
+
+    it('documents child document creation path semantics in document create help', async () => {
+        const config = createAllEnabledConfig();
+        const client = createMockClient();
+        const permMgr = createMockPermissionManager();
+        const output = parseResult(await TOOL_REGISTRY.document.callTool(
+            client,
+            { action: 'help', topic: 'create' },
+            config.document,
+            permMgr,
+        )) as Record<string, unknown>;
+
+        expect(JSON.stringify(output)).toContain('/Folder/Parent/New Child');
+        expect(JSON.stringify(output)).toContain('/Folder/Parent');
+        expect(JSON.stringify(output)).toContain('/20240318112233-abc123.sy');
+        expect(JSON.stringify(output)).toContain('notebook-local hpath');
+        expect(JSON.stringify(output)).toContain('not /Notebook/...');
+        expect(JSON.stringify(output)).toContain('not .sy');
+        expect(JSON.stringify(output)).toContain('duplicate-name error');
     });
 });

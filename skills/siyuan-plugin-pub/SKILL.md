@@ -1,16 +1,28 @@
 ---
 name: siyuan-plugin-pub
-description: Publish the SiYuan Sisyphus plugin and/or standalone CLI from this repo, keeping plugin and CLI versions separate, updating release notes/docs, and preparing exact commit/tag/publish commands.
+description: Publish the SiYuan Sisyphus plugin, standalone CLI, or both. Use for version bumps, release notes, docs, commit messages, tags, and npm publish prep.
 ---
 
 # SiYuan Plugin Pub
 
-Use this skill when the user wants to publish a new version of this SiYuan Sisyphus repo. The repo now ships two related but independently versioned products:
+Use this skill when the user wants to publish a new version of this SiYuan Sisyphus repo. The repo ships two related but independently versioned products:
 
 - **SiYuan plugin / MCP server**: marketplace plugin metadata and bundled `dist/mcp-server.cjs`
 - **Standalone CLI**: npm package `siyuan-sisyphus`, with `siyuan-sisyphus` and `siyuan` binaries
 
-Always decide whether the requested release is plugin-only, CLI-only, or combined before editing files.
+## Release Type Gate
+
+Before editing release files, classify the request as exactly one path.
+
+Use the user's explicit wording first. If they do not specify a release type, infer from mentioned features and changed files:
+
+- **plugin-only**: plugin UI, MCP server, non-CLI docs, marketplace metadata, or plugin-only fixes changed.
+- **CLI-only**: `src/cli/`, `cli/`, CLI install/config/rendering behavior, npm package docs, or CLI publish docs changed.
+- **combined**: shared tool/API behavior changed in `src/api/`, `src/core/`, `src/tools/`, or the user wants both the plugin and npm CLI published.
+
+If a required version number is missing, stop and ask for it.
+
+If the release type is still unclear after checking the request and `git status --short`, state the inferred path and ask for confirmation before changing versions.
 
 This repo already keeps release history in:
 
@@ -40,63 +52,62 @@ This repo already keeps release history in:
 
 ## Recommended Workflow
 
-1. Classify the release:
-   - plugin-only: MCP server/plugin behavior, plugin UI, shared tools, or docs for the plugin changed
-   - CLI-only: CLI parser/rendering/config/npm package docs changed without a plugin release
-   - combined: shared tool behavior or API surface changed and both packages should be published
-2. Inspect current versions in `plugin.json`, root `package.json`, and `cli/package.json`.
-3. For plugin releases, update both plugin version fields to the new numeric version without the leading `v`.
-4. For CLI releases, update `cli/package.json` → `version` independently.
-5. For plugin releases, add a new top entry to `CHANGELOG.md` in the existing style:
-   - heading format: `## vX.Y.Z - YYYY-MM-DD`
-   - usually 2-3 concise bullets
-   - focus on user-visible changes, not raw file diffs
-   - mention CLI version bump only for combined releases, e.g. "CLI 包同步提升至 v0.1.5"
-6. For plugin releases, update the latest-version callout / timeline content in:
-   - `README.md`
-   - `README_zh_CN.md`
-7. For CLI releases, update CLI docs when user-visible behavior changed:
-   - `cli/README.md`
-   - `cli/README_zh_CN.md`
-   - `docs/development/release-cli.md`
-   - `docs/zh/development/release-cli.md`
-8. Check that English and Chinese descriptions have the same release meaning, even if not literally translated.
-9. Review the diff for consistency.
-10. If releasing from the `dev` branch, merge into `main` with `--no-ff` to preserve the feature branch history and create an explicit merge commit:
+1. Run `git status --short` and inspect current versions in `plugin.json`, root `package.json`, and `cli/package.json`.
+2. Apply the checklist for the chosen release path below.
+3. Check that English and Chinese descriptions have the same release meaning, even if not literally translated.
+4. Review the diff for version consistency and scope.
+5. If releasing from the `dev` branch, merge into `main` with `--no-ff` to preserve the feature branch history and create an explicit merge commit:
     ```bash
     git checkout main
     git merge --no-ff dev -m "feat：合并 dev 分支并发布 vX.Y.Z"
     ```
     - Do **not** use a fast-forward merge; the explicit merge commit makes the release boundary clear in the history graph.
-11. Prepare:
-   - a recommended commit message
-   - exact plugin `git tag` / `git push` commands if the plugin version changed
-   - exact CLI publish command if the CLI version changed
+6. Prepare a recommended commit message and the exact next commands. Do not run `git tag`, `git push`, or `pnpm publish:cli` unless the user explicitly asks.
 
-## Version Bump Guidance
+### Plugin-Only Checklist
 
-If the user asks for a plugin version bump, update:
+- Update `plugin.json` and root `package.json` to the same numeric version without leading `v`.
+- Add a top `CHANGELOG.md` entry: `## vX.Y.Z - YYYY-MM-DD`, with 2-3 concise Chinese bullets.
+- Update latest-version callouts / timeline content in `README.md` and `README_zh_CN.md`.
+- Leave `cli/package.json` unchanged.
+- Prepare plugin tag/push commands only.
 
-- `plugin.json` → `version`
-- `package.json` → `version`
+### CLI-Only Checklist
 
-This repo also includes an interactive helper:
+- Update `cli/package.json` to the new CLI version.
+- Update CLI docs only when user-visible CLI behavior, install flow, command syntax, config, or publish procedure changed:
+  - `cli/README.md`
+  - `cli/README_zh_CN.md`
+  - `docs/development/release-cli.md`
+  - `docs/zh/development/release-cli.md`
+- Do not edit `plugin.json`, root `package.json`, or `CHANGELOG.md` unless the user explicitly asks.
+- Prepare `pnpm publish:cli` only.
 
-```bash
-npm run update-version
-```
+### Combined Checklist
 
-Prefer direct file edits when the target version is already known. Use the script only when the user wants an interactive plugin bump choice.
+- Update plugin versions in `plugin.json` and root `package.json`.
+- Update CLI version in `cli/package.json`.
+- Add a plugin `CHANGELOG.md` entry and mention the CLI bump, e.g. `CLI 包同步提升至 v0.1.5`.
+- Update root bilingual READMEs for plugin release notes.
+- Update CLI docs if CLI behavior or publish procedure changed.
+- Prepare both plugin tag/push commands and `pnpm publish:cli`.
 
-### CLI Version Bump
+### Stop Conditions
 
-The CLI sub-package lives in `cli/` and is published to npm as `siyuan-sisyphus`. Its version is **independent** of the plugin version.
+Stop and ask before editing or publishing if:
 
-- Bump `cli/package.json` → `version` manually when CLI code changed.
-- The `scripts/update_version.js` helper does **not** touch `cli/package.json`.
-- If the CLI did not change in this release, leave its version untouched.
-- A CLI-only release does not require a plugin tag, `plugin.json`, root `package.json`, or `CHANGELOG.md` changes unless docs intentionally mention the CLI package version.
-- Build output for CLI releases is `cli/dist/cli.cjs`; run or recommend `pnpm build:cli` before publish.
+- the target plugin or CLI version is missing
+- the release path remains ambiguous after checking the request and changed files
+- required version files disagree, such as `plugin.json` and root `package.json` having different plugin versions
+- a required release note/doc update is absent for the chosen path
+- the diff includes unrelated changes that make the release scope unclear
+
+## Version Notes
+
+- Plugin versions live in both `plugin.json` and root `package.json`; keep them identical.
+- CLI version lives only in `cli/package.json`; never force it to match the plugin version.
+- `scripts/update_version.js` updates plugin versions only. Prefer direct edits when the target version is known.
+- For CLI releases, run or recommend `pnpm build:cli` before publish because the npm artifact is `cli/dist/cli.cjs`.
 
 ## Changelog Writing Guidance
 
@@ -141,19 +152,16 @@ When updating `README.md` and `README_zh_CN.md`:
 - preserve the existing tone of each language
 - ensure the version number matches `CHANGELOG.md`
 
-## Diff Review Checklist
+## Final Review
 
 Before proposing release commands, verify:
 
-- `plugin.json` and `package.json` versions match
-- plugin version did not accidentally overwrite `cli/package.json`
-- `cli/package.json` version did not accidentally overwrite plugin versions
-- for plugin releases: `CHANGELOG.md` has the new plugin version at the top
-- for plugin releases: `README.md` and `README_zh_CN.md` latest-version text includes the new plugin version
-- for CLI releases: CLI usage docs are updated if command behavior, config, install, or publish flow changed
+- plugin versions match when the plugin is released
+- CLI version changed only when the CLI is released
+- required changelog, README, and CLI docs match the chosen release path
 - release wording is semantically aligned across all edited English and Chinese docs
 - the diff scope matches the intended release
-- **if CLI changed**: `cli/package.json` version was bumped and `cli/dist/cli.cjs` was rebuilt (or will be rebuilt during publish)
+- if CLI changed: `cli/package.json` version was bumped and `cli/dist/cli.cjs` was rebuilt or will be rebuilt during publish
 
 ## Commit Message Guidance
 
@@ -174,24 +182,7 @@ Before proposing release commands, verify:
 - 使用中文全角冒号 `：`（与近期历史保持一致）。
 - 描述用**动宾结构**，说明"做了什么"而不是"怎么做的"。
 
-### 2. Type 前缀体系
-
-| 前缀 | 含义 | 使用场景 |
-|------|------|----------|
-| `feat` | 新功能 / 发布 | **默认发布前缀**。新增能力、重大改进、版本发布 |
-| `fix` | 修复 | 紧急补丁、线上 bug 修复后的小版本发布 |
-| `docs` | 文档 | 仅文档、注释、README 更新，无代码变更 |
-| `refactor` | 重构 | 代码结构调整，无用户可见功能变化 |
-| `test` | 测试 | 补充测试用例、测试框架升级 |
-| `chore` | 杂项 | 构建脚本、依赖升级、CI 配置等非业务代码 |
-| `style` | 代码格式 | 仅格式化、分号、空行调整，无逻辑变化 |
-
-**发布场景优先级**：
-- 正常功能发布 → `feat`
-- 线上热修复后发布 → `fix`
-- 文档站点大修后若需要打标签 → `feat` 或 `docs`（优先匹配近期历史）
-
-### 3. 发布专用模板
+### 2. 发布专用模板
 
 #### Plugin 发布
 
@@ -232,7 +223,7 @@ git commit -m "feat：<核心价值>并发布 vX.Y.Z / CLI vA.B.C"
 git commit -m "feat：统一权限校验逻辑并发布 v0.3.6 / CLI v0.1.9"
 ```
 
-### 4. Body 与 Footer（何时需要）
+### 3. Body 与 Footer（何时需要）
 
 当变更涉及以下情况时，在标题后留空一行写 body：
 
@@ -261,7 +252,7 @@ BREAKING CHANGE: config.json 中的 dangerousActions 字段已废弃，
 请在设置面板重新配置各笔记本权限。"
 ```
 
-### 5. 非发布提交（日常开发）
+### 4. 非发布提交（日常开发）
 
 日常 push 不需要带版本后缀，保持简洁：
 
@@ -275,7 +266,7 @@ git commit -m "chore: 升级 vitest 到 2.x"
 
 **注意**：日常提交可保留英文 scope（如 `(search)`），但标题主体描述仍建议用中文，以与仓库主要提交历史保持一致。
 
-### 6. 避坑清单
+### 5. 避坑清单
 
 - ❌ 不要写 `"update"`、`"fix bug"`、`"一些修改"` 等无意义描述。
 - ❌ 不要把提交信息写成变更列表（那是 CHANGELOG.md 的职责）。

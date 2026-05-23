@@ -10,6 +10,7 @@ import {
     type SystemAction,
     type TagAction,
     type MascotAction,
+    type FeedbackAction,
     type FsAction,
     type ToolCategory,
 } from './config';
@@ -33,9 +34,12 @@ export const NOTEBOOK_GUIDANCE: string[] = [
 
 export const DOCUMENT_GUIDANCE: string[] = [
     'For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.',
-    'document(action="create") creates both non-empty and empty documents. Prefer path for child documents; parentPath + title is supported and accepts either a human-readable parent path or a storage path ending in .sy.',
+    'document(action="create") creates both non-empty and empty documents. Prefer path for child documents; path is a notebook-local human-readable hpath such as /Folder/Parent/New Child, not /Notebook/Folder/... and not a .sy storage path.',
+    'document(action="create", parentPath=..., title=...) is also supported. parentPath accepts either a notebook-local human-readable parent hpath such as /Folder/Parent, or a storage path ending in .sy returned by document(action="lookup").',
+    'fs(action="write", path="/Notebook/Folder/Doc") uses a workspace path that includes the notebook name; document(action="create", notebook=..., path="/Folder/Doc") uses a notebook-local hpath. Do not mix these two path formats.',
     'For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.',
     'Other document actions that use notebook + path expect storage paths returned by document(action="lookup").',
+    'If document(action="create") reports a duplicate-name error, verify the intended child with document(action="lookup", notebook=..., hpath="/Folder/Parent/New Child", include=["id","path","hpath"]) or document(action="get_child_docs", id=<parent-doc-id>). New create results may take a short indexing delay before lookup/search sees them.',
     'A safe path-based workflow is lookup -> rename/remove/move.',
     'document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.',
     'document(action="set_attr") updates document metadata such as icon and cover; use attrs.cover=null or an empty string to clear the cover.',
@@ -109,6 +113,12 @@ export const MASCOT_GUIDANCE: string[] = [
     'Use mascot(action="buy", item_id=...) to purchase an item and spend from the balance.',
 ];
 
+export const FEEDBACK_GUIDANCE: string[] = [
+    'feedback submits plain-text product feedback to the developer through the configured WPS form channel.',
+    'Use feedback(action="submit") when the user asks you to pass along feedback, or when an AI client needs to report MCP tool friction after explaining what will be sent.',
+    'Do not include secrets, private note content, API tokens, or sensitive document paths in feedback.',
+];
+
 export const FS_ACTION_HINTS: Partial<Record<FsAction, string>> = {
     ls: 'Use a human-readable path. "/" lists readable notebook roots; /Notebook or /Notebook/Folder lists direct child documents.',
     tree: 'Use a human-readable path. maxDepth defaults to 3 and keeps output compact.',
@@ -128,7 +138,7 @@ export const NOTEBOOK_ACTION_HINTS: Partial<Record<NotebookAction, string>> = {
 };
 
 export const DOCUMENT_ACTION_HINTS: Partial<Record<DocumentAction, string>> = {
-    create: 'Use notebook plus path for the most direct child-document creation flow. parentPath + title is also supported; parentPath may be a human-readable parent path or a storage path ending in .sy. markdown is optional and defaults to empty.',
+    create: 'Use notebook + path for the most direct child-document flow. path is a notebook-local hpath like /Folder/Parent/New Child, not /Notebook/... and not .sy. parentPath + title is also supported; parentPath may be a notebook-local parent hpath or a .sy storage path returned by lookup. markdown is optional and defaults to empty.',
     lookup: 'Look up one reference at a time. Use id, notebook + storage path, or notebook + hpath/hPath. The path field means storage path like /20240318112233-abc123.sy; use hpath for human-readable paths.',
     rename: 'Use either id + title or notebook + path + title.',
     remove: 'Use either id or notebook + storage path. This action requires explicit user confirmation. If bulk ids/paths hit SiYuan\'s short indexing window, retry by deleting one document at a time with notebook + storage path.',
@@ -237,6 +247,10 @@ export const MASCOT_ACTION_HINTS: Partial<Record<MascotAction, string>> = {
     buy: 'Buys one shop item by item_id and deducts its configured cost from balance.',
 };
 
+export const FEEDBACK_ACTION_HINTS: Partial<Record<FeedbackAction, string>> = {
+    submit: 'Sends plain-text feedback. description is required; impact, suggestion, and agent are optional. Source and plugin version are filled automatically. Avoid private note content and secrets.',
+};
+
 export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
     fs: FS_GUIDANCE,
     notebook: NOTEBOOK_GUIDANCE,
@@ -249,6 +263,7 @@ export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
     system: SYSTEM_GUIDANCE,
     flashcard: FLASHCARD_GUIDANCE,
     mascot: MASCOT_GUIDANCE,
+    feedback: FEEDBACK_GUIDANCE,
 };
 
 export const TOOL_ACTION_HINTS: Record<ToolCategory, Partial<Record<string, string>>> = {
@@ -263,6 +278,62 @@ export const TOOL_ACTION_HINTS: Record<ToolCategory, Partial<Record<string, stri
     system: SYSTEM_ACTION_HINTS,
     flashcard: FLASHCARD_ACTION_HINTS,
     mascot: MASCOT_ACTION_HINTS,
+    feedback: FEEDBACK_ACTION_HINTS,
+};
+
+export interface HelpExample {
+    title: string;
+    description?: string;
+    mcp: Record<string, unknown>;
+}
+
+export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, HelpExample[]>>> = {
+    document: {
+        create: [
+            {
+                title: 'Create a child document by notebook-local hpath (recommended)',
+                description: 'The path is inside the notebook. Do not include the notebook name, and do not pass a .sy storage path here.',
+                mcp: {
+                    action: 'create',
+                    notebook: '20210808180117-czj9bvb',
+                    path: '/Folder/Parent/New Child',
+                    markdown: '# New Child',
+                },
+            },
+            {
+                title: 'Create with a human-readable parent hpath plus title',
+                description: 'Use this when the parent hpath is already known and you want the title separated from the parent path.',
+                mcp: {
+                    action: 'create',
+                    notebook: '20210808180117-czj9bvb',
+                    parentPath: '/Folder/Parent',
+                    title: 'New Child',
+                    markdown: '# New Child',
+                },
+            },
+            {
+                title: 'Create with a storage parent path returned by lookup',
+                description: 'Only parentPath accepts this .sy storage path form; path does not.',
+                mcp: {
+                    action: 'create',
+                    notebook: '20210808180117-czj9bvb',
+                    parentPath: '/20240318112233-abc123.sy',
+                    title: 'New Child',
+                },
+            },
+        ],
+    },
+    fs: {},
+    notebook: {},
+    block: {},
+    av: {},
+    file: {},
+    search: {},
+    tag: {},
+    system: {},
+    flashcard: {},
+    mascot: {},
+    feedback: {},
 };
 
 export { ACTIONS_BY_CATEGORY } from './config';

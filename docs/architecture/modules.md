@@ -14,7 +14,7 @@ src/
 ├── core/                     # MCP Server core
 │   ├── server.ts             # MCP Server creation & handler registration
 │   ├── http-transport.ts     # HTTP/S MCP transport layer
-│   ├── tool-registry.ts      # Static registry of 11 aggregated tools
+│   ├── tool-registry.ts      # Static registry of 12 aggregated tools
 │   ├── tool-lifecycle.ts     # Tool call AOP wrapper (analytics/telemetry/puppy)
 │   ├── permissions.ts        # Notebook-level 4-tier permission management
 │   ├── config.ts             # ToolConfig schema / defaults / migration
@@ -33,7 +33,7 @@ src/
 │   └── noops/                # No-op shims for heavy MCP SDK modules
 │       ├── noop-schema-validator.ts
 │       └── noop-experimental-tasks.ts
-├── tools/                    # 11 aggregated tool implementations
+├── tools/                    # 12 aggregated tool implementations
 │   ├── index.ts              # Barrel export: re-exports all tool modules
 │   ├── internal/             # Shared infrastructure for the tool layer
 │   │   ├── types.ts          # Shared types for the tool layer

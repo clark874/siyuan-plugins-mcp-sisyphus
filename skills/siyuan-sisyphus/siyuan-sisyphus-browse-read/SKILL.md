@@ -76,12 +76,13 @@ siyuan-sisyphus search fulltext --query "keyword" --type-shortcodes h,p --json
 
 ## Resolve Paths and IDs
 
-There are two path types:
+There are three path forms that look similar but are not interchangeable:
 
 | Path type | Used by | Example |
 | --- | --- | --- |
-| Human-readable path | `fs`, `document create`, `document lookup --hpath` | `/Notebook/Folder/Doc` |
-| Storage path | Some low-level document operations | `/20240318112233-abc123.sy` |
+| Workspace human-readable path | `fs` commands | `/NotebookName/Folder/Doc` |
+| Notebook-local human-readable hpath | `document create --path`, `document lookup --hpath`, `document create --parent-path` | `/Folder/Doc` |
+| Storage path | Some low-level document operations, and `document create --parent-path` when returned by lookup | `/20240318112233-abc123.sy` |
 
 Safe lookup patterns:
 
@@ -90,7 +91,7 @@ siyuan-sisyphus document lookup --notebook "<notebook-id>" --hpath "/Folder/Doc"
 siyuan-sisyphus document lookup --id "<doc-id>" --include-json '["path","hpath"]' --json
 ```
 
-Do not pass a human-readable path where a command asks for a storage path. Resolve first, then use the returned storage path.
+Do not pass a workspace path such as `/NotebookName/Folder/Doc` to `document create --path`; use the notebook-local hpath `/Folder/Doc`. Do not pass a storage path such as `/20240318112233-abc123.sy` to `document create --path`; only `--parent-path` accepts a storage parent path. For rename, remove, move, or storage-path lookup, resolve first, then use the returned storage path.
 
 ## Reading Strategy
 

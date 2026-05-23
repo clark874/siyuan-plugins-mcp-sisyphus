@@ -92,7 +92,7 @@ export default defineConfig({
                 { text: '概述', link: '/zh/' },
                 { text: '开始使用', link: '/zh/getting-started/' },
                 { text: '部署指南', link: '/zh/getting-started/deployment' },
-                { text: 'HTTPS', link: '/zh/getting-started/https' },
+                { text: 'HTTPS 配置', link: '/zh/getting-started/https' },
                 { text: '故障排查', link: '/zh/getting-started/troubleshooting' },
               ],
             },

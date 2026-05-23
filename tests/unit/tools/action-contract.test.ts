@@ -4,6 +4,7 @@ import { buildDefaultToolConfig } from '@/core/config';
 import { callBlockTool, BLOCK_VARIANTS } from '@/tools/block';
 import { callDocumentTool, DOCUMENT_VARIANTS } from '@/tools/document';
 import { callFileTool, FILE_VARIANTS } from '@/tools/file';
+import { callFeedbackTool, FEEDBACK_VARIANTS } from '@/tools/feedback';
 import { callNotebookTool, NOTEBOOK_VARIANTS } from '@/tools/notebook';
 import { callFsTool, FS_VARIANTS } from '@/tools/fs';
 import { callSearchTool, SEARCH_VARIANTS } from '@/tools/search';
@@ -272,5 +273,10 @@ describe('tool action contract coverage', () => {
             { action: 'rename', args: { action: 'rename', oldLabel: 'old', newLabel: 'new' }, expectedEndpoint: '/api/tag/renameTag' },
             { action: 'remove', args: { action: 'remove', label: 'old' }, expectedEndpoint: '/api/tag/removeTag' },
         ]);
+    });
+
+    it('keeps feedback action contracts covered separately from SiYuan API endpoints', () => {
+        expect(FEEDBACK_VARIANTS.map((variant) => variant.action)).toEqual(['submit']);
+        expect(callFeedbackTool).toEqual(expect.any(Function));
     });
 });

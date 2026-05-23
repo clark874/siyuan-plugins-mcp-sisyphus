@@ -123,6 +123,11 @@ export function translatePresentationPayload(payload: unknown, target: Presentat
         if (Array.isArray(translated.shapes)) translated.shapes = translated.shapes.map((item) => typeof item === 'string' ? translatePresentationText(item, target) : item);
         translated.requiredFields = translateRequiredFields(translated.requiredFields, target);
         translated.example = translateActionHelpExample(translated.tool, translated.action, translated.example, target);
+        if (Array.isArray(translated.examples)) {
+            translated.examples = translated.examples.map((item) =>
+                translateCuratedActionHelpExample(translated.tool, translated.action, item, target),
+            );
+        }
         if (Array.isArray(translated.guidance)) translated.guidance = translated.guidance.map((item) => typeof item === 'string' ? translatePresentationText(item, target) : item);
         if (typeof translated.fullDocResource === 'string') translated.fullDocResource = `${PRIMARY_CLI_COMMAND} help ${translated.tool} ${toKebab(String(translated.action))}`;
         return translated;
@@ -196,6 +201,17 @@ function translateActionHelpExample(tool: unknown, action: unknown, example: unk
     const args = { ...example };
     delete args.action;
     return formatActionCall(tool, action, args, target);
+}
+
+function translateCuratedActionHelpExample(tool: unknown, action: unknown, example: unknown, target: PresentationTarget): unknown {
+    if (target !== 'cli' || !isObject(example)) return example;
+
+    const translated = { ...example };
+    if (typeof translated.description === 'string') {
+        translated.description = translatePresentationText(translated.description, target);
+    }
+    translated.mcp = translateActionHelpExample(tool, action, translated.mcp, target);
+    return translated;
 }
 
 function translateRequiredFields(value: unknown, target: PresentationTarget): unknown {

@@ -136,6 +136,16 @@ describe('snapshot document timeline', () => {
         expect(source).toContain('panelVisible = isShellVisible();');
     });
 
+    it('continues root timeline tagging when SiYuan rejects duplicate root snapshot creation', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+
+        expect(source).toContain('await createRootTimelineSnapshot();');
+        expect(source).toContain('async function createRootTimelineSnapshot()');
+        expect(source).toContain('SiYuan rejects duplicate snapshots when an equivalent automatic snapshot already exists.');
+        expect(source).toContain("const snapshot = await findNewestSnapshotForMemo(ROOT_TIMELINE_SNAPSHOT_LABEL);");
+        expect(source).toContain("?? ordered[0]");
+    });
+
     it('anchors diff scrolling to live document blocks by block id', () => {
         const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
 

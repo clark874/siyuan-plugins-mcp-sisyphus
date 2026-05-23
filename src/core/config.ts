@@ -1,4 +1,4 @@
-export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot'] as const;
+export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot', 'feedback'] as const;
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
@@ -13,6 +13,7 @@ export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'get_version', 'get_current_time'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
+export const FEEDBACK_ACTIONS = ['submit'] as const;
 
 export type FsAction = typeof FS_ACTIONS[number];
 export type NotebookAction = typeof NOTEBOOK_ACTIONS[number];
@@ -25,6 +26,7 @@ export type TagAction = typeof TAG_ACTIONS[number];
 export type SystemAction = typeof SYSTEM_ACTIONS[number];
 export type FlashcardAction = typeof FLASHCARD_ACTIONS[number];
 export type MascotAction = typeof MASCOT_ACTIONS[number];
+export type FeedbackAction = typeof FEEDBACK_ACTIONS[number];
 
 export type ToolActionMap = {
     fs: FsAction;
@@ -38,6 +40,7 @@ export type ToolActionMap = {
     system: SystemAction;
     flashcard: FlashcardAction;
     mascot: MascotAction;
+    feedback: FeedbackAction;
 };
 
 export interface CategoryToolConfig<Action extends string = string> {
@@ -66,6 +69,7 @@ export type ToolConfig = {
     system: CategoryToolConfig<SystemAction>;
     flashcard: CategoryToolConfig<FlashcardAction>;
     mascot: CategoryToolConfig<MascotAction>;
+    feedback: CategoryToolConfig<FeedbackAction>;
     userRulesText: string;
     debug: DebugToolConfig;
 };
@@ -85,6 +89,7 @@ export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolAct
     system: SYSTEM_ACTIONS,
     flashcard: FLASHCARD_ACTIONS,
     mascot: MASCOT_ACTIONS,
+    feedback: FEEDBACK_ACTIONS,
 };
 
 export type ActionTier = 'basic' | 'advanced';
@@ -156,6 +161,9 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     mascot: {
         get_balance: 'basic', shop: 'basic', buy: 'basic',
     },
+    feedback: {
+        submit: 'basic',
+    },
 };
 
 export function getActionTier(category: ToolCategory, action: string): ActionTier {
@@ -174,6 +182,7 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     system: new Set(['workspace_info']),
     flashcard: new Set(['remove_card']),
     mascot: new Set(),
+    feedback: new Set(),
 };
 
 const createActionsRecord = <Action extends string>(
@@ -233,6 +242,10 @@ export function buildDefaultToolConfig(): ToolConfig {
         mascot: {
             enabled: true,
             actions: createActionsRecord(MASCOT_ACTIONS, ['get_balance', 'shop', 'buy']),
+        },
+        feedback: {
+            enabled: true,
+            actions: createActionsRecord(FEEDBACK_ACTIONS, ['submit']),
         },
         userRulesText: '创建文档/日记后主动设图标',
         debug: {

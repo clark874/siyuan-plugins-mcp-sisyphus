@@ -1,5 +1,5 @@
 import { getActionTier, isDangerousAction, type ActionTier, type ToolCategory } from '../../core/config';
-import { TOOL_ACTION_HINTS, TOOL_GUIDANCE_BY_CATEGORY } from '../../core/help';
+import { TOOL_ACTION_EXAMPLES, TOOL_ACTION_HINTS, TOOL_GUIDANCE_BY_CATEGORY, type HelpExample } from '../../core/help';
 import { getSchemaProperties, getSchemaRequired } from './schema-analyzer';
 import type { ActionVariant, JsonSchema } from './types';
 
@@ -137,6 +137,10 @@ export function buildActionExampleObjects<Action extends string>(
     });
 }
 
+export function getCuratedActionExamples(category: ToolCategory, action: string): HelpExample[] {
+    return TOOL_ACTION_EXAMPLES[category]?.[action] ?? [];
+}
+
 export function buildActionShapes<Action extends string>(
     variants: ActionVariant<Action>[],
     action: string,
@@ -233,6 +237,9 @@ export function buildActionHelp<Action extends string>(
 ): Record<string, unknown> {
     const matching = enabledVariants.filter((variant) => variant.action === action);
     const requiredFieldSets = matching.map((variant) => getSchemaFieldNames(variant.schema, true));
+    const generatedExamples = buildActionExampleObjects(matching, action);
+    const curatedExamples = getCuratedActionExamples(category, action);
+    const example = generatedExamples.length === 1 ? generatedExamples[0] : generatedExamples;
 
     return {
         tool: category,
@@ -240,10 +247,8 @@ export function buildActionHelp<Action extends string>(
         ...(TOOL_ACTION_HINTS[category]?.[action] ? { hint: TOOL_ACTION_HINTS[category][action] } : {}),
         shapes: requiredFieldSets.map((fields) => fields.length > 0 ? fields.join(' + ') : 'action only'),
         requiredFields: requiredFieldSets.length === 1 ? requiredFieldSets[0] : requiredFieldSets,
-        example: (() => {
-            const examples = buildActionExampleObjects(matching, action);
-            return examples.length === 1 ? examples[0] : examples;
-        })(),
+        example,
+        ...(curatedExamples.length > 0 ? { examples: curatedExamples } : {}),
         guidance: TOOL_GUIDANCE_BY_CATEGORY[category] ?? [],
         requiresConfirmation: isDangerousAction(category, action),
         fullDocResource: `siyuan://help/action/${category}/${action}`,
@@ -254,7 +259,20 @@ export function buildActionHelp<Action extends string>(
 export function buildActionExamplesMarkdown<Action extends string>(
     variants: ActionVariant<Action>[],
     action: string,
+    category?: ToolCategory,
 ): string[] {
+    if (category) {
+        const curated = getCuratedActionExamples(category, action);
+        if (curated.length > 0) {
+            return curated.map((example) => [
+                `### ${example.title}`,
+                '',
+                ...(example.description ? [example.description, ''] : []),
+                `\`\`\`json\n${JSON.stringify(example.mcp, null, 2)}\n\`\`\``,
+            ].join('\n'));
+        }
+    }
+
     return buildActionExampleObjects(variants, action).map((example) =>
         `\`\`\`json\n${JSON.stringify(example, null, 2)}\n\`\`\``,
     );

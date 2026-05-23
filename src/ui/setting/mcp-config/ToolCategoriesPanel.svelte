@@ -7,6 +7,7 @@
         type AvAction,
         type BlockAction,
         type DocumentAction,
+        type FeedbackAction,
         type FileAction,
         type FlashcardAction,
         type FsAction,
@@ -27,7 +28,7 @@
     export let onChanged: (event: CustomEvent<ChangeEvent>) => void | Promise<void>;
 
     interface ChangeEvent { key: string; value: any; }
-    type GroupAction = FsAction | NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | SystemAction | FlashcardAction | MascotAction;
+    type GroupAction = FsAction | NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | SystemAction | FlashcardAction | MascotAction | FeedbackAction;
 
     interface GroupDefinition {
         category: ToolCategory;
@@ -230,6 +231,15 @@
                 { key: "get_balance", title: "Get Balance", description: "Get the mascot's current balance. Every successful MCP tool call earns 1 coin." },
                 { key: "shop", title: "Shop", description: "List the mascot shop inventory." },
                 { key: "buy", title: "Buy", description: "Buy one item from the mascot shop by item ID." },
+            ],
+        },
+        {
+            category: "feedback",
+            icon: "💬",
+            groupKey: "Feedback Tool",
+            iconSvg: ICON_SVGS.message,
+            actions: [
+                { key: "submit", title: "Submit Feedback", description: "Submit plain-text feedback, suggestions, or experience reports to the developer." },
             ],
         },
     ];

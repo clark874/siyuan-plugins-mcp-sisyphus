@@ -27,6 +27,7 @@
     } from "./tool-config-storage";
     import HttpServerPanel from "./mcp-config/HttpServerPanel.svelte";
     import DebugPanel from "./mcp-config/DebugPanel.svelte";
+    import FeedbackPanel from "./mcp-config/FeedbackPanel.svelte";
     import PermissionsPanel from "./mcp-config/PermissionsPanel.svelte";
     import PuppyPanel from "./mcp-config/PuppyPanel.svelte";
     import TelemetryPanel from "./mcp-config/TelemetryPanel.svelte";
@@ -40,6 +41,7 @@
         PUPPY_GROUP_KEY,
         ANALYTICS_GROUP_KEY,
         DEBUG_GROUP_KEY,
+        FEEDBACK_GROUP_KEY,
         USER_RULES_GROUP_KEY,
         type TabItem,
     } from "./mcp-config-tabs";
@@ -62,6 +64,7 @@
     const PERM_GROUP_LABEL = "Permissions";
     const ANALYTICS_GROUP_LABEL = "Usage Stats";
     const DEBUG_GROUP_LABEL = "Debug";
+    const FEEDBACK_GROUP_LABEL = "Feedback";
 
     let config: ToolConfig = buildDefaultToolConfig();
     let httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
@@ -92,6 +95,7 @@
     $: puppyGroupLabel = getLabel(PUPPY_GROUP_KEY, PUPPY_GROUP_LABEL);
     $: analyticsGroupLabel = getLabel(ANALYTICS_GROUP_KEY, ANALYTICS_GROUP_LABEL);
     $: debugGroupLabel = getLabel(DEBUG_GROUP_KEY, DEBUG_GROUP_LABEL);
+    $: feedbackGroupLabel = getLabel(FEEDBACK_GROUP_KEY, FEEDBACK_GROUP_LABEL);
     $: userRulesGroupLabel = getLabel(USER_RULES_GROUP_KEY, USER_RULES_GROUP_LABEL);
 
     $: toolGroupLabel = getLabel(TOOL_GROUP_KEY, TOOL_GROUP_KEY);
@@ -100,6 +104,7 @@
         { id: PERM_GROUP_KEY, label: permGroupLabel, iconSvg: ICON_SVGS.lock },
         { id: TOOL_GROUP_KEY, label: toolGroupLabel, iconSvg: ICON_SVGS.folder },
         { id: PUPPY_GROUP_KEY, label: puppyGroupLabel, iconSvg: ICON_SVGS.paw },
+        { id: FEEDBACK_GROUP_KEY, label: feedbackGroupLabel, iconSvg: ICON_SVGS.message },
         { id: ANALYTICS_GROUP_KEY, label: analyticsGroupLabel, iconSvg: ICON_SVGS.barChart },
         { id: DEBUG_GROUP_KEY, label: debugGroupLabel, iconSvg: ICON_SVGS.bug },
         { id: USER_RULES_GROUP_KEY, label: userRulesGroupLabel, iconSvg: ICON_SVGS.compass },
@@ -433,6 +438,7 @@
                 <PermissionsPanel group={permGroupLabel} display={focusGroup === PERM_GROUP_KEY} {notebooks} {permissions} {permLoading} {getLabel} {onChanged} />
                 <ToolCategoriesPanel group={toolGroupLabel} display={focusGroup === TOOL_GROUP_KEY} {config} {getLabel} {onChanged} />
                 <PuppyPanel group={puppyGroupLabel} display={focusGroup === PUPPY_GROUP_KEY} {puppySettings} {getLabel} {onChanged} />
+                <FeedbackPanel group={feedbackGroupLabel} display={focusGroup === FEEDBACK_GROUP_KEY} {plugin} {getLabel} />
                 <TelemetryPanel
                     analyticsGroup={analyticsGroupLabel}
                     analyticsDisplay={focusGroup === ANALYTICS_GROUP_KEY}

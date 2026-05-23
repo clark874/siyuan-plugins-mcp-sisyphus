@@ -1,4 +1,4 @@
-# Design Decisions
+# 设计决策
 
 这个页面记录项目的主要架构决策及其背后的权衡。每个决策都包含**问题背景**、**做出的选择**、**拒绝的替代方案**和**当前结果**。
 
@@ -17,9 +17,9 @@ SiYuan 提供了约 459 个 HTTP API 端点。如果为每个端点暴露一个�
 
 ### 做出的选择
 
-将相关 API 按领域聚合为 **11 个 MCP tool**：
+将相关 API 按领域聚合为 **12 个 MCP tool**：
 
-| MCP Tool | 覆盖的 SiYuan 领域 | Action 数量 |
+| MCP 工具 | 覆盖的 SiYuan 领域 | 动作数量 |
 |----------|-------------------|------------|
 | `notebook` | 笔记本 CRUD | ~10 |
 | `document` | 文档树操作 | ~17 |
@@ -31,6 +31,7 @@ SiYuan 提供了约 459 个 HTTP API 端点。如果为每个端点暴露一个�
 | `system` | 系统与 UI | ~10 |
 | `flashcard` | 闪卡复习 | ~8 |
 | `mascot` | 吉祥物交互 | ~3 |
+| `feedback` | 反馈提交 | 1 |
 
 每个 tool 通过 `action` 参数区分具体操作，例如：
 ```
@@ -68,13 +69,13 @@ notebook(action="rename")
 设计三层信息暴露策略：
 
 ```
-Layer 1: Tool Description（MCP tool.description）
+Layer 1: 工具描述（MCP tool.description）
     → 只包含最常见 action 的简要说明
     → 面向 LLM，控制 token 成本
 
-Layer 2: Action Help（MCP Resource 动态请求）
+Layer 2: 动作帮助（MCP 资源动态请求）
     → siyuan://help/action/{tool}/{action}
-    → 包含 accepted shapes、required fields、example
+    → 包含可接受参数形态、必填字段、示例
     → LLM 按需读取
 
 Layer 3: 完整参考文档（docs/ 站点）
@@ -85,13 +86,13 @@ Layer 3: 完整参考文档（docs/ 站点）
 
 ### 拒绝的替代方案
 
-- **方案 A：把所有 help 塞进 tool description**：会导致 description 过长，消耗大量 LLM context。
-- **方案 B：只有静态文档，没有 MCP Resource**：LLM 无法动态获取特定 action 的详细帮助。
+- **方案 A：把所有帮助塞进工具描述**：会导致描述过长，消耗大量 LLM 上下文。
+- **方案 B：只有静态文档，没有 MCP 资源**：LLM 无法动态获取特定动作的详细帮助。
 
 ### 当前结果
 
 - `tool.description` 保持在 200~500 tokens
-- LLM 遇到不确定的 action 时，可通过 `ReadResourceRequest` 获取详细帮助
+- LLM 遇到不确定的动作时，可通过 `ReadResourceRequest` 获取详细帮助
 - 人类用户可在 VitePress 文档站点查阅完整参考
 
 ---
@@ -198,10 +199,10 @@ MCP 协议支持多种传输方式，需要根据使用场景选择最合适的�
 | HTTP | `StreamableHTTP` (MCP 2025-03-26 spec) | 远程访问、浏览器、多客户端共享 |
 
 **HTTP 模式的增强设计**：
-- **Session 管理**：支持多客户端并发，每个 session 独立 state
+- **会话管理**：支持多客户端并发，每个 session 独立 state
 - **Bearer Token 认证**：防止未授权访问
 - **TLS 支持**：生产环境加密传输
-- **Parent Watchdog**：SiYuan 主进程退出时自动清理
+- **父进程看门狗**：SiYuan 主进程退出时自动清理
 
 ### 拒绝的替代方案
 

@@ -29,6 +29,35 @@ Create through the document tool when you need the returned ID:
 siyuan-sisyphus document create --notebook "<notebook-id>" --path "/Folder/New Doc" --markdown "# Title" --json
 ```
 
+For child documents, `document create --path` is a notebook-local hpath. It starts at the notebook root, does not include the notebook name, and must not be a `.sy` storage path. This differs from `fs write`, whose path is a workspace path that includes the notebook name.
+
+```bash
+# Workspace path, preferred for ordinary document writes.
+siyuan-sisyphus fs write --path "/NotebookName/Folder/Parent/New Child" --markdown "# New Child"
+
+# Notebook-local hpath, preferred when you need the returned document ID.
+siyuan-sisyphus document create --notebook "<notebook-id>" --path "/Folder/Parent/New Child" --markdown "# New Child" --json
+```
+
+`parent-path + title` is supported when the parent is known separately:
+
+```bash
+# Human-readable parent hpath inside the notebook.
+siyuan-sisyphus document create --notebook "<notebook-id>" --parent-path "/Folder/Parent" --title "New Child" --markdown "# New Child" --json
+
+# Storage parent path returned by document lookup.
+siyuan-sisyphus document create --notebook "<notebook-id>" --parent-path "/20240318112233-abc123.sy" --title "New Child" --json
+```
+
+If create reports a duplicate-name error, verify the intended child before retrying:
+
+```bash
+siyuan-sisyphus document lookup --notebook "<notebook-id>" --hpath "/Folder/Parent/New Child" --include-json '["id","path","hpath"]' --json
+siyuan-sisyphus document get-child-docs --id "<parent-doc-id>" --json
+```
+
+Do not pass `/NotebookName/Folder/...` to `document create --path`; use `/Folder/...` there. Do not pass `/20240318112233-abc123.sy` to `document create --path`; only `--parent-path` accepts a storage parent path.
+
 ## Append or Prepend Content
 
 Append to the end of a document:

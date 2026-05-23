@@ -18,6 +18,7 @@ describe('setting tool config', () => {
         expect(config.mascot.actions.get_balance).toBe(true);
         expect(config.mascot.actions.shop).toBe(true);
         expect(config.mascot.actions.buy).toBe(true);
+        expect(config.feedback.actions.submit).toBe(true);
         expect(config.userRulesText).toBe('创建文档/日记后主动设图标');
         expect(config.debug.includeUiRefreshMetadata).toBe(false);
         expect(config.debug.slimResponses).toBe(true);
@@ -56,6 +57,20 @@ describe('setting tool config', () => {
         expect(config.mascot.actions.get_balance).toBe(true);
         expect(config.mascot.actions.shop).toBe(false);
         expect(config.mascot.actions.buy).toBe(true);
+    });
+
+    it('keeps feedback nested action toggles', () => {
+        const config = normalizeToolConfig({
+            feedback: {
+                enabled: true,
+                actions: {
+                    submit: false,
+                },
+            },
+        });
+
+        expect(config.feedback.enabled).toBe(false);
+        expect(config.feedback.actions.submit).toBe(false);
     });
 
     it('keeps flashcard nested action toggles', () => {

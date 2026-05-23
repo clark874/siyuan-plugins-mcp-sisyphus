@@ -1,4 +1,4 @@
-# document
+# document 工具
 
 这个工具覆盖文档 CRUD、树结构查询、元数据，以及与日记/转换相关的文档操作。
 
@@ -9,9 +9,9 @@
 - [路径语义](../path-semantics.md)
 - [权限模型](../permissions.md)
 
-## 常见 Action
+## 常见动作
 
-| 分组 | Actions |
+| 分组 | 动作 |
 |------|---------|
 | 创建与读取 | `create`, `lookup`, `get_doc` |
 | 树结构查询 | `get_child_blocks`, `get_child_docs`, `list_tree`, `search_docs` |
@@ -61,7 +61,7 @@ siyuan document create --notebook <notebook-id> --path "/Inbox/Weekly Note" --ma
 siyuan document lookup --id <doc-id> --include path
 ```
 
-## Action 列表
+## 动作列表
 
 - `create`
 - `lookup`

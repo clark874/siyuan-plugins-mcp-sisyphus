@@ -453,7 +453,11 @@ function renderActionHelp(obj: Record<string, unknown>, out: OutputStream): void
         writeBulletList(required, out);
     }
 
-    if (obj.example !== undefined) {
+    const examples = Array.isArray(obj.examples) ? obj.examples : [];
+    if (examples.length > 0) {
+        writeSection('Examples', out);
+        renderCuratedHelpExamples(examples, out);
+    } else if (obj.example !== undefined) {
         writeSection('Example', out);
         renderHelpExample(obj.example, out);
     }
@@ -506,6 +510,27 @@ function renderHelpExample(example: unknown, out: OutputStream): void {
     }
 
     writeLine(out, indentBlock(prettyJson(example), 2));
+}
+
+function renderCuratedHelpExamples(examples: unknown[], out: OutputStream): void {
+    for (const example of examples) {
+        if (!isObject(example)) {
+            renderHelpExample(example, out);
+            continue;
+        }
+
+        const title = typeof example.title === 'string' ? example.title : 'Example';
+        writeLine(out, `  ${paint(out, ANSI.bold, title)}`);
+
+        if (typeof example.description === 'string' && example.description) {
+            writeLine(out, `  ${example.description}`);
+        }
+
+        const command = example.mcp ?? example.command ?? example.example;
+        if (command !== undefined) {
+            renderHelpExample(command, out);
+        }
+    }
 }
 
 function pickSummaryEntries(

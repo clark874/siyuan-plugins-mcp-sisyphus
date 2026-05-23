@@ -174,6 +174,57 @@ describe('cli/render', () => {
         io.restore();
     });
 
+    it('formats curated help examples for terminal reading', () => {
+        const io = captureStdIO();
+        const result: ToolResult = {
+            content: [{
+                type: 'text',
+                text: JSON.stringify({
+                    tool: 'document',
+                    action: 'create',
+                    shapes: ['notebook'],
+                    requiredFields: ['notebook'],
+                    example: { action: 'create', notebook: 'nb' },
+                    examples: [
+                        {
+                            title: 'Create a child document by notebook-local hpath (recommended)',
+                            description: 'The path is inside the notebook. Do not include the notebook name, and do not pass a .sy storage path here.',
+                            mcp: {
+                                action: 'create',
+                                notebook: 'nb',
+                                path: '/Folder/Parent/New Child',
+                                markdown: '# New Child',
+                            },
+                        },
+                        {
+                            title: 'Create with a storage parent path returned by lookup',
+                            description: 'Only parentPath accepts this .sy storage path form; path does not.',
+                            mcp: {
+                                action: 'create',
+                                notebook: 'nb',
+                                parentPath: '/20240318112233-abc123.sy',
+                                title: 'New Child',
+                            },
+                        },
+                    ],
+                    guidance: [],
+                    requiresConfirmation: false,
+                }),
+            }],
+        };
+
+        renderToolResult(result, { json: false, debug: false });
+
+        expect(io.stdout).toContain('Examples');
+        expect(io.stdout).toContain('Create a child document by notebook-local hpath (recommended)');
+        expect(io.stdout).toContain('Do not include the notebook name');
+        expect(io.stdout).toContain('siyuan-sisyphus document create --notebook nb --path "/Folder/Parent/New Child" --markdown "# New Child"');
+        expect(io.stdout).toContain('Create with a storage parent path returned by lookup');
+        expect(io.stdout).toContain('siyuan-sisyphus document create --notebook nb --parent-path /20240318112233-abc123.sy --title "New Child"');
+        expect(io.stdout).not.toContain('siyuan-sisyphus document create --notebook nb\n');
+        io.restore();
+    });
+
     it('renders validation errors with fields and hints', () => {
         const io = captureStdIO();
         const result: ToolResult = {

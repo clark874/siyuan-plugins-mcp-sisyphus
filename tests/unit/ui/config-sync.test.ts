@@ -30,6 +30,7 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(settingConfig.SYSTEM_ACTIONS).toEqual(mcpConfig.SYSTEM_ACTIONS);
         expect(settingConfig.FLASHCARD_ACTIONS).toEqual(mcpConfig.FLASHCARD_ACTIONS);
         expect(settingConfig.MASCOT_ACTIONS).toEqual(mcpConfig.MASCOT_ACTIONS);
+        expect(settingConfig.FEEDBACK_ACTIONS).toEqual(mcpConfig.FEEDBACK_ACTIONS);
     });
 
     it('keeps normalization aligned for nested shapes', () => {
@@ -78,6 +79,7 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(source).toContain('key: "replace"');
         expect(source).toContain('Replace Block Text');
         expect(source).toContain('category: "mascot"');
+        expect(source).toContain('category: "feedback"');
     });
 
     it('keeps tool categories grouped under one settings page', () => {
@@ -97,6 +99,7 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
 
         expect(rootSource).toContain('analyticsDisplay={focusGroup === ANALYTICS_GROUP_KEY}');
+        expect(rootSource).toContain('display={focusGroup === FEEDBACK_GROUP_KEY}');
         expect(panelSource).toContain('export let analyticsDisplay = true;');
         expect(panelSource).toContain('display={analyticsDisplay}');
         expect(panelSource).not.toContain('display={focusGroup === analyticsGroup}');
@@ -126,6 +129,20 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(puppySource).not.toContain('mascot__action__');
         expect(panelSource).toContain('category: "mascot"');
         expect(panelSource).toContain('groupKey: "Mascot Tool"');
+    });
+
+    it('keeps feedback form separate from tool toggles', () => {
+        const feedbackSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/FeedbackPanel.svelte'), 'utf8');
+        const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
+
+        expect(feedbackSource).toContain('submitFeedback');
+        expect(feedbackSource).toContain('feedback_description_label');
+        expect(feedbackSource).toContain('feedback_impact_label');
+        expect(feedbackSource).toContain('feedback_suggestion_label');
+        expect(feedbackSource).not.toContain('feedback_agent_label');
+        expect(feedbackSource).not.toContain('bind:value={agent}');
+        expect(panelSource).toContain('groupKey: "Feedback Tool"');
+        expect(panelSource).toContain('key: "submit"');
     });
 
     it('keeps mascot display appearance settings in the mascot display panel', () => {

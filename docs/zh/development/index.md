@@ -6,11 +6,11 @@
 
 相关页面：
 
-- [Setup](./setup.md)
-- [Build and Workflow](./build-and-workflow.md)
-- [Testing](./testing.md)
-- [Conventions](./conventions.md)
-- [Adding Tools](./adding-tools.md)
-- [Adding Actions](./adding-actions.md)
-- [Debugging](./debugging.md)
-- [Release CLI](./release-cli.md)
+- [环境搭建](./setup.md)
+- [构建与工作流](./build-and-workflow.md)
+- [测试](./testing.md)
+- [规范约定](./conventions.md)
+- [添加工具](./adding-tools.md)
+- [添加动作](./adding-actions.md)
+- [调试](./debugging.md)
+- [发布 CLI](./release-cli.md)

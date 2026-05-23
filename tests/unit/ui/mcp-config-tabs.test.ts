@@ -7,13 +7,14 @@ import {
     PERM_GROUP_KEY,
     TOOL_GROUP_KEY,
     PUPPY_GROUP_KEY,
+    FEEDBACK_GROUP_KEY,
     ANALYTICS_GROUP_KEY,
     USER_RULES_GROUP_KEY,
 } from '@/ui/setting/mcp-config-tabs';
 import { TOOL_CATEGORIES } from '@/ui/setting/tool-config';
 
 describe('mcp-config-tabs icon system', () => {
-    it('has all 14 required icon keys', () => {
+    it('has all 15 required icon keys', () => {
         const requiredKeys = [
             'globe',
             'lock',
@@ -29,6 +30,7 @@ describe('mcp-config-tabs icon system', () => {
             'paw',
             'barChart',
             'compass',
+            'message',
         ];
         for (const key of requiredKeys) {
             expect(ICON_SVGS).toHaveProperty(key);
@@ -57,6 +59,7 @@ describe('mcp-config-tabs icon system', () => {
         expect(PERM_GROUP_KEY).toBe('Permissions');
         expect(TOOL_GROUP_KEY).toBe('Tool Settings');
         expect(PUPPY_GROUP_KEY).toBe('Mascot Display');
+        expect(FEEDBACK_GROUP_KEY).toBe('feedbackGroupTitle');
         expect(ANALYTICS_GROUP_KEY).toBe('analyticsGroupTitle');
         expect(USER_RULES_GROUP_KEY).toBe('User Rules');
     });

@@ -7,7 +7,7 @@
 相关页面：
 
 - [权限模型](./permissions.md)
-- [Troubleshooting](../getting-started/troubleshooting.md)
+- [故障排查](../getting-started/troubleshooting.md)
 
 | 错误类型 | 含义 |
 |----------|------|

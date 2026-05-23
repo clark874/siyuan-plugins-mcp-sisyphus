@@ -1,4 +1,4 @@
-# search
+# search 工具
 
 这个工具覆盖全文搜索、反链、SQL 只读查询、资源搜索，以及受控查找替换。
 
@@ -9,9 +9,9 @@
 - [权限模型](../permissions.md)
 - [错误类型](../error-types.md)
 
-## 常见 Action
+## 常见动作
 
-| 分组 | Actions |
+| 分组 | 动作 |
 |------|---------|
 | 文本搜索 | `fulltext`, `search_refs` |
 | 图谱 / 引用关系 | `get_backlinks`, `list_invalid_refs` |
@@ -58,7 +58,7 @@ siyuan search query-sql --sql "SELECT id, content, type FROM blocks LIMIT 10"
 - `fulltext` 默认返回 `plainContent` 和 `excerpt`，不需要仅为了纯文本而设置 `stripHtml=true`。
 - 涉及 `parentId`、`hasTags` 或权限过滤时，`kernel*` 元数据描述思源原始搜索页，`returned*` 元数据描述当前响应中的过滤后数据。
 
-## Action 列表
+## 动作列表
 
 - `fulltext`
 - `query_sql`

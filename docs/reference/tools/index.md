@@ -1,6 +1,6 @@
 # Tools Index
 
-This page summarizes the 11 aggregated tools exposed by the project.
+This page summarizes the 12 aggregated tools exposed by the project.
 
 When to read this page: you know the general domain but need the right tool page.
 
@@ -22,6 +22,7 @@ Related pages:
 | `system` | 6 | [system](./system.md) |
 | `flashcard` | 6 | [flashcard](./flashcard.md) |
 | `mascot` | 3 | [mascot](./mascot.md) |
+| `feedback` | 1 | [feedback](./feedback.md) |
 
 ## Action Summary
 
@@ -36,3 +37,4 @@ Related pages:
 - `system`: workspace_info, network, conf, notify, get_version, get_current_time
 - `flashcard`: list_cards, get_decks, get_cards, review_card, create_card, remove_card
 - `mascot`: get_balance, shop, buy
+- `feedback`: submit

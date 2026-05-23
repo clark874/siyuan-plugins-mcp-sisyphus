@@ -1,4 +1,4 @@
-# Deployment
+# 部署指南
 
 这个页面覆盖安装、连接方式和不同运行环境下的配置。
 
@@ -7,8 +7,8 @@
 相关页面：
 
 - [快速开始](./index.md)
-- [HTTPS](./https.md)
-- [Troubleshooting](./troubleshooting.md)
+- [HTTPS 配置](./https.md)
+- [故障排查](./troubleshooting.md)
 
 ## 安装
 

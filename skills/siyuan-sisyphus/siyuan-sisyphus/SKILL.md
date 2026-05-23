@@ -61,6 +61,8 @@ siyuan-sisyphus help <tool>
 siyuan-sisyphus help <tool> <action>
 ```
 
+For creating or editing documents, read `siyuan-sisyphus-create-edit` first; it distinguishes `fs` workspace paths like `/Notebook/Folder/Doc` from `document create` notebook-local hpaths like `/Folder/Doc`.
+
 ## Flag Rules
 
 - Field names accept kebab, camel, or snake case: `--parent-id`, `--parentID`, and `--parent_id` map to the same field.

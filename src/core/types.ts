@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS } from "./config";
+import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FEEDBACK_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS } from "./config";
 import type { NotebookConf } from "../types/shared";
 
 const NotebookConfSchema: z.ZodType<Partial<NotebookConf>> = z.object({
@@ -79,6 +79,7 @@ export const AvActionSchema = z.enum(AV_ACTIONS);
 export const FileActionSchema = z.enum(FILE_ACTIONS);
 export const FlashcardActionSchema = z.enum(FLASHCARD_ACTIONS);
 export const MascotActionSchema = z.enum(MASCOT_ACTIONS);
+export const FeedbackActionSchema = z.enum(FEEDBACK_ACTIONS);
 
 export const FsLsSchema = z.object({
     action: z.literal("ls"),
@@ -375,6 +376,15 @@ export const MascotShopSchema = z.object({
 export const MascotBuySchema = z.object({
     action: z.literal("buy"),
     item_id: z.string().describe("Stable shop item ID returned by mascot(action=\"shop\")"),
+});
+
+export const FeedbackSubmitSchema = z.object({
+    action: z.literal("submit"),
+    description: z.string().trim().min(1).max(4000).describe("Required feedback text: issue, suggestion, or experience to send to the developer."),
+    impact: z.string().trim().max(1000).optional().describe("Optional impact or context, such as affected workflow, error, or inconvenience."),
+    suggestion: z.string().trim().max(1000).optional().describe("Optional improvement suggestion."),
+    agent: z.string().trim().max(200).optional().describe("Optional Agent product and model name, such as Claude Desktop / Claude Sonnet 4.5. Defaults to 无."),
+    source: z.string().trim().max(100).optional().describe("Internal source label. Defaults to the current runtime transport."),
 });
 
 const FlashcardScopeSchema = z.enum(["all", "deck", "notebook", "tree"]);

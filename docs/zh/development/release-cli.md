@@ -1,4 +1,4 @@
-# Release CLI
+# 发布 CLI
 
 这个页面描述独立 CLI 包的发布流程。
 

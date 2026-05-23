@@ -15,5 +15,5 @@ export function isActionHelpPayload(value: unknown): value is Record<string, unk
 
     return typeof value.tool === 'string'
         && typeof value.action === 'string'
-        && (value.example !== undefined || Array.isArray(value.shapes));
+        && (value.example !== undefined || Array.isArray(value.examples) || Array.isArray(value.shapes));
 }

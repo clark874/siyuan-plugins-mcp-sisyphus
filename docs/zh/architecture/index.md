@@ -6,16 +6,16 @@
 
 相关页面：
 
-- [Overview](./overview.md)
-- [Modules](./modules.md)
-- [Data Flow](./data-flow.md)
-- [Design Decisions](./design-decisions.md)
-- [Extension Points](./extension-points.md)
+- [总览](./overview.md)
+- [模块划分](./modules.md)
+- [数据流](./data-flow.md)
+- [设计决策](./design-decisions.md)
+- [扩展点](./extension-points.md)
 
 ## 建议阅读顺序
 
-1. [Overview](./overview.md)
-2. [Modules](./modules.md)
-3. [Data Flow](./data-flow.md)
-4. [Design Decisions](./design-decisions.md)
-5. [Extension Points](./extension-points.md)
+1. [总览](./overview.md)
+2. [模块划分](./modules.md)
+3. [数据流](./data-flow.md)
+4. [设计决策](./design-decisions.md)
+5. [扩展点](./extension-points.md)

@@ -1,4 +1,4 @@
-# av
+# av 工具
 
 这个工具覆盖属性视图与数据库式操作。
 
@@ -9,9 +9,9 @@
 - [常见任务](../common-tasks.md)
 - [权限模型](../permissions.md)
 
-## 常见 Action
+## 常见动作
 
-| 分组 | Actions |
+| 分组 | 动作 |
 |------|---------|
 | 读取 | `get`, `render`, `get_attribute_view_keys`, `get_attribute_view_filter_sort`, `search`, `get_primary_key_values` |
 | 行操作 | `add_rows`, `remove_rows` |
@@ -63,7 +63,7 @@ siyuan av add-rows --av-id <attribute-view-id> --block-ids <block-id>
 siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "Plain text row"
 ```
 
-## Action 列表
+## 动作列表
 
 - `get`
 - `render`
