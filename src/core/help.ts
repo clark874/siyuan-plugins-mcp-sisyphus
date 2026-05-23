@@ -116,6 +116,9 @@ export const MASCOT_GUIDANCE: string[] = [
 export const FEEDBACK_GUIDANCE: string[] = [
     'feedback submits plain-text product feedback to the developer through the configured WPS form channel.',
     'Use feedback(action="submit") when the user asks you to pass along feedback, or when an AI client needs to report MCP tool friction after explaining what will be sent.',
+    'Prefer GitHub Issue-style feedback for bugs, confusing names/parameters/help/errors, or rough workflows encountered during an AI session.',
+    'Put the full issue-style body in description with these headings when useful: ## Summary, ## What happened, ## Expected behavior, ## Steps or context, ## Impact, ## Suggested fix.',
+    'Use impact for a one- or two-sentence impact summary, and suggestion for the most direct improvement idea without repeating the full description.',
     'Do not include secrets, private note content, API tokens, or sensitive document paths in feedback.',
 ];
 
@@ -248,7 +251,7 @@ export const MASCOT_ACTION_HINTS: Partial<Record<MascotAction, string>> = {
 };
 
 export const FEEDBACK_ACTION_HINTS: Partial<Record<FeedbackAction, string>> = {
-    submit: 'Sends plain-text feedback. description is required; impact, suggestion, and agent are optional. Source and plugin version are filled automatically. Avoid private note content and secrets.',
+    submit: 'Sends plain-text feedback. Put a GitHub Issue-style report in description when reporting bugs, confusing behavior, or rough workflows. Recommended headings: ## Summary, ## What happened, ## Expected behavior, ## Steps or context, ## Impact, ## Suggested fix. impact should be a short impact summary; suggestion should be the direct fix idea. Avoid private note content and secrets.',
 };
 
 export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {

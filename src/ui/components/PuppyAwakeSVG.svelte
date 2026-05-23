@@ -6,9 +6,18 @@
     export let resultState: ResultState = 'none';
     export let eyeState: 'blink' | 'happy' | 'sad' | 'danger' | 'flat' | 'normal' = 'normal';
     export let balance = 0;
+    export let bodyColor = '#4a7fff';
+    export let pawColor = '#3060d0';
+    export let eyeColor = '#1a1f3c';
+
+    $: appearanceStyle = [
+        `--sy-puppy-body-color: ${bodyColor}`,
+        `--sy-puppy-paw-color: ${pawColor}`,
+        `--sy-puppy-eye-color: ${eyeColor}`,
+    ].join('; ');
 </script>
 
-    <div class="sy-puppy__char">
+    <div class="sy-puppy__char" style={appearanceStyle}>
         <svg viewBox="0 0 96 96" width="52" height="52" xmlns="http://www.w3.org/2000/svg" overflow="visible">
             <g class="sy-puppy__cat">
                 <rect x="18" y="0" width="6" height="6" fill="#4a7fff"/>

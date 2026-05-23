@@ -104,10 +104,10 @@
         { id: PERM_GROUP_KEY, label: permGroupLabel, iconSvg: ICON_SVGS.lock },
         { id: TOOL_GROUP_KEY, label: toolGroupLabel, iconSvg: ICON_SVGS.folder },
         { id: PUPPY_GROUP_KEY, label: puppyGroupLabel, iconSvg: ICON_SVGS.paw },
-        { id: FEEDBACK_GROUP_KEY, label: feedbackGroupLabel, iconSvg: ICON_SVGS.message },
         { id: ANALYTICS_GROUP_KEY, label: analyticsGroupLabel, iconSvg: ICON_SVGS.barChart },
         { id: DEBUG_GROUP_KEY, label: debugGroupLabel, iconSvg: ICON_SVGS.bug },
         { id: USER_RULES_GROUP_KEY, label: userRulesGroupLabel, iconSvg: ICON_SVGS.compass },
+        { id: FEEDBACK_GROUP_KEY, label: feedbackGroupLabel, iconSvg: ICON_SVGS.message },
     ] satisfies TabItem[];
 
     $: tabIds = tabItems.map((t) => t.id);
@@ -438,7 +438,6 @@
                 <PermissionsPanel group={permGroupLabel} display={focusGroup === PERM_GROUP_KEY} {notebooks} {permissions} {permLoading} {getLabel} {onChanged} />
                 <ToolCategoriesPanel group={toolGroupLabel} display={focusGroup === TOOL_GROUP_KEY} {config} {getLabel} {onChanged} />
                 <PuppyPanel group={puppyGroupLabel} display={focusGroup === PUPPY_GROUP_KEY} {puppySettings} {getLabel} {onChanged} />
-                <FeedbackPanel group={feedbackGroupLabel} display={focusGroup === FEEDBACK_GROUP_KEY} {plugin} {getLabel} />
                 <TelemetryPanel
                     analyticsGroup={analyticsGroupLabel}
                     analyticsDisplay={focusGroup === ANALYTICS_GROUP_KEY}
@@ -451,6 +450,7 @@
                 />
                 <DebugPanel group={debugGroupLabel} display={focusGroup === DEBUG_GROUP_KEY} {config} {puppySettings} {versionControlSettings} {getLabel} {onChanged} />
                 <UserRulesPanel group={userRulesGroupLabel} display={focusGroup === USER_RULES_GROUP_KEY} {config} {getLabel} {onChanged} />
+                <FeedbackPanel group={feedbackGroupLabel} display={focusGroup === FEEDBACK_GROUP_KEY} {plugin} {getLabel} />
             </div>
         </div>
     </div>

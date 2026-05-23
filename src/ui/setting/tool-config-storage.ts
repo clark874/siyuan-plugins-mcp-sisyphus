@@ -20,9 +20,11 @@ const VERSION_CONTROL_SETTINGS_STORAGE_KEY = "versionControlSettings";
 const DEFAULT_PUPPY_TEST_INTERVAL_MS = 2200;
 const DEFAULT_HTTP_PORT = 36806;
 const DEFAULT_HTTP_HOST = "127.0.0.1";
-const DEFAULT_PUPPY_BODY_COLOR = "#4a7fff";
-const DEFAULT_PUPPY_PAW_COLOR = "#3060d0";
-const DEFAULT_PUPPY_EYE_COLOR = "#1a1f3c";
+export const DEFAULT_PUPPY_APPEARANCE: PuppyAppearanceSettings = {
+    bodyColor: "#4a7fff",
+    pawColor: "#3060d0",
+    eyeColor: "#1a1f3c",
+};
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
 const BODY_COLOR_PALETTE = [
@@ -109,9 +111,7 @@ export function buildDefaultPuppySettings(): PuppySettings {
 
 export function buildDefaultPuppyAppearance(): PuppyAppearanceSettings {
     return {
-        bodyColor: DEFAULT_PUPPY_BODY_COLOR,
-        pawColor: DEFAULT_PUPPY_PAW_COLOR,
-        eyeColor: DEFAULT_PUPPY_EYE_COLOR,
+        ...DEFAULT_PUPPY_APPEARANCE,
     };
 }
 

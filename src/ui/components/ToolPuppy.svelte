@@ -11,18 +11,14 @@
     import PuppyBubble from './PuppyBubble.svelte';
     import PuppySleepingSVG from './PuppySleepingSVG.svelte';
     import { resolveActionState, resolveToolVariant, RANDOM_TEST_ACTIONS, type PuppyState, type TestActionEntry, type ToolVariant } from './puppy-tool-visuals';
-    import type { PuppyAppearanceSettings } from '../setting/tool-config-storage';
+    import { buildDefaultPuppyAppearance, type PuppyAppearanceSettings } from '../setting/tool-config-storage';
 
     export let visible = true;
     export let testModeEnabled = false;
     export let testModeIntervalMs = 2200;
     export let showBubble = false;
     export let showClickHint = true;
-    export let appearance: PuppyAppearanceSettings = {
-        bodyColor: '#4a7fff',
-        pawColor: '#3060d0',
-        eyeColor: '#1a1f3c',
-    };
+    export let appearance: PuppyAppearanceSettings = buildDefaultPuppyAppearance();
 
     const EVENTS_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/puppyEvents.json';
     const API_FILE_ENDPOINT = '/api/file/getFile';
@@ -521,7 +517,15 @@
         {feedPropEmoji}
     />
     <PuppySleepingSVG {isSleeping} />
-    <PuppyAwakeSVG {state} {resultState} {eyeState} {balance} />
+    <PuppyAwakeSVG
+        {state}
+        {resultState}
+        {eyeState}
+        {balance}
+        bodyColor={appearance.bodyColor}
+        pawColor={appearance.pawColor}
+        eyeColor={appearance.eyeColor}
+    />
 </div>
 {/if}
 

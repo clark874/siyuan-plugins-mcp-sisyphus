@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 
 import * as mcpConfig from '@/core/config';
 import * as settingConfig from '@/ui/setting/tool-config';
-import { normalizePuppySettings } from '@/ui/setting/tool-config-storage';
+import { DEFAULT_PUPPY_APPEARANCE, normalizePuppySettings } from '@/ui/setting/tool-config-storage';
 
 describe('setting and mcp config stay behaviorally aligned', () => {
     it('re-exports the mcp config helpers directly', () => {
@@ -155,20 +155,29 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(puppySource).toContain('puppy__appearance__bodyColor');
         expect(puppySource).toContain('puppy__appearance__pawColor');
         expect(puppySource).toContain('puppy__appearance__eyeColor');
+        expect(puppySource).toContain('value={puppySettings.appearance.bodyColor}');
+        expect(puppySource).toContain('on:input={(event) => emitColor("bodyColor", event)}');
         expect(rootSource).toContain('buildRandomPuppyAppearance');
         expect(rootSource).toContain('buildDefaultPuppyAppearance');
         expect(rootSource).toContain('key.startsWith("puppy__appearance__")');
         expect(formSource).toContain('type === "color"');
     });
 
+    it('keeps mascot appearance defaults shared across settings and runtime display', () => {
+        const toolPuppySource = readFileSync(resolve(process.cwd(), 'src/ui/components/ToolPuppy.svelte'), 'utf8');
+        const awakeSvgSource = readFileSync(resolve(process.cwd(), 'src/ui/components/PuppyAwakeSVG.svelte'), 'utf8');
+
+        expect(toolPuppySource).toContain('buildDefaultPuppyAppearance');
+        expect(toolPuppySource).toContain('appearance: PuppyAppearanceSettings = buildDefaultPuppyAppearance()');
+        expect(awakeSvgSource).toContain(`var(--sy-puppy-body-color, ${DEFAULT_PUPPY_APPEARANCE.bodyColor})`);
+        expect(awakeSvgSource).toContain(`var(--sy-puppy-paw-color, ${DEFAULT_PUPPY_APPEARANCE.pawColor})`);
+        expect(awakeSvgSource).toContain(`var(--sy-puppy-eye-color, ${DEFAULT_PUPPY_APPEARANCE.eyeColor})`);
+    });
+
     it('normalizes mascot appearance colors and preserves legacy settings', () => {
         expect(normalizePuppySettings({ visible: false })).toMatchObject({
             visible: false,
-            appearance: {
-                bodyColor: '#4a7fff',
-                pawColor: '#3060d0',
-                eyeColor: '#1a1f3c',
-            },
+            appearance: DEFAULT_PUPPY_APPEARANCE,
         });
 
         expect(normalizePuppySettings({
@@ -179,7 +188,7 @@ describe('setting and mcp config stay behaviorally aligned', () => {
             },
         }).appearance).toEqual({
             bodyColor: '#abcdef',
-            pawColor: '#3060d0',
+            pawColor: DEFAULT_PUPPY_APPEARANCE.pawColor,
             eyeColor: '#123456',
         });
     });

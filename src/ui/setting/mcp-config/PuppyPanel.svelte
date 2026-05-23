@@ -15,12 +15,6 @@
     }
 
     function buildPuppyItems(): ISettingItem[] {
-        const appearanceKey = [
-            puppySettings.appearance.bodyColor,
-            puppySettings.appearance.pawColor,
-            puppySettings.appearance.eyeColor,
-        ].join(":");
-
         return [
             {
                 type: "checkbox",
@@ -43,55 +37,107 @@
                 title: getLabel("puppy_showBubble_title", "Show Bubble"),
                 description: getLabel("puppy_showBubble_desc", "Show a pixel-style status bubble with tool-aware offsets and extra spacing for errors."),
             },
-            {
-                type: "button",
-                key: "puppy__appearance__randomize",
-                value: "",
-                title: getLabel("puppy_appearance_random_title", "Random Appearance"),
-                description: getLabel("puppy_appearance_random_desc", "Randomly pick colors for the mascot body, paws, and eyes."),
-                inputCompact: true,
-                button: {
-                    label: getLabel("puppy_appearance_random_button", "Randomize"),
-                    callback: () => emitChange("puppy__appearance__randomize", true),
-                },
-            },
-            {
-                type: "button",
-                key: "puppy__appearance__reset",
-                value: "",
-                title: getLabel("puppy_appearance_reset_title", "Reset Appearance"),
-                description: getLabel("puppy_appearance_reset_desc", "Restore the mascot body, paws, and eyes to their default colors."),
-                inputCompact: true,
-                button: {
-                    label: getLabel("puppy_appearance_reset_button", "Reset"),
-                    callback: () => emitChange("puppy__appearance__reset", true),
-                },
-            },
-            {
-                type: "color",
-                key: `puppy__appearance__bodyColor__${appearanceKey}`,
-                value: puppySettings.appearance.bodyColor,
-                title: getLabel("puppy_appearance_body_title", "Body Color"),
-                description: getLabel("puppy_appearance_body_desc", "Choose the mascot body and tail color."),
-            },
-            {
-                type: "color",
-                key: `puppy__appearance__pawColor__${appearanceKey}`,
-                value: puppySettings.appearance.pawColor,
-                title: getLabel("puppy_appearance_paw_title", "Paw Color"),
-                description: getLabel("puppy_appearance_paw_desc", "Choose the mascot paw color."),
-            },
-            {
-                type: "color",
-                key: `puppy__appearance__eyeColor__${appearanceKey}`,
-                value: puppySettings.appearance.eyeColor,
-                title: getLabel("puppy_appearance_eye_title", "Eye Color"),
-                description: getLabel("puppy_appearance_eye_desc", "Choose the mascot eye color."),
-            },
         ];
+    }
+
+    function emitColor(field: "bodyColor" | "pawColor" | "eyeColor", event: Event) {
+        const target = event.currentTarget as HTMLInputElement;
+        emitChange(`puppy__appearance__${field}`, target.value);
     }
 
     $: puppyItems = buildPuppyItems();
 </script>
 
 <SettingPanel {group} settingItems={puppyItems} {display} on:changed={onChanged} />
+
+<div class="config__tab-container puppy-appearance-panel" class:fn__none={!display} data-name={`${group}-appearance`}>
+    <div class="puppy-appearance-actions">
+        <div>
+            <div class="puppy-appearance-title">{getLabel("puppy_appearance_random_title", "Random Appearance")}</div>
+            <div class="b3-label__text">{getLabel("puppy_appearance_random_desc", "Randomly pick colors for the mascot body, paws, and eyes.")}</div>
+        </div>
+        <div class="puppy-appearance-buttons">
+            <button class="b3-button b3-button--outline" type="button" on:click={() => emitChange("puppy__appearance__randomize", true)}>
+                {getLabel("puppy_appearance_random_button", "Randomize")}
+            </button>
+            <button class="b3-button b3-button--outline" type="button" on:click={() => emitChange("puppy__appearance__reset", true)}>
+                {getLabel("puppy_appearance_reset_button", "Reset")}
+            </button>
+        </div>
+    </div>
+
+    <div class="puppy-appearance-row">
+        <div>
+            <div class="puppy-appearance-title">{getLabel("puppy_appearance_body_title", "Body Color")}</div>
+            <div class="b3-label__text">{getLabel("puppy_appearance_body_desc", "Choose the mascot body and tail color.")}</div>
+        </div>
+        <input id="puppy__appearance__bodyColor" class="b3-text-field puppy-color-field" type="color" value={puppySettings.appearance.bodyColor} on:input={(event) => emitColor("bodyColor", event)} />
+    </div>
+    <div class="puppy-appearance-row">
+        <div>
+            <div class="puppy-appearance-title">{getLabel("puppy_appearance_paw_title", "Paw Color")}</div>
+            <div class="b3-label__text">{getLabel("puppy_appearance_paw_desc", "Choose the mascot paw color.")}</div>
+        </div>
+        <input id="puppy__appearance__pawColor" class="b3-text-field puppy-color-field" type="color" value={puppySettings.appearance.pawColor} on:input={(event) => emitColor("pawColor", event)} />
+    </div>
+    <div class="puppy-appearance-row">
+        <div>
+            <div class="puppy-appearance-title">{getLabel("puppy_appearance_eye_title", "Eye Color")}</div>
+            <div class="b3-label__text">{getLabel("puppy_appearance_eye_desc", "Choose the mascot eye color.")}</div>
+        </div>
+        <input id="puppy__appearance__eyeColor" class="b3-text-field puppy-color-field" type="color" value={puppySettings.appearance.eyeColor} on:input={(event) => emitColor("eyeColor", event)} />
+    </div>
+</div>
+
+<style>
+    .puppy-appearance-panel {
+        border-top: 1px solid var(--b3-border-color);
+        margin-top: 12px;
+        padding-top: 12px;
+    }
+
+    .puppy-appearance-actions,
+    .puppy-appearance-row {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        min-height: 46px;
+        padding: 8px 0;
+    }
+
+    .puppy-appearance-title {
+        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+        font-size: var(--mcp-config-title-font-size, 14px);
+        font-weight: var(--mcp-config-title-font-weight, 500);
+        margin-bottom: 4px;
+    }
+
+    .puppy-appearance-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+    }
+
+    .puppy-color-field {
+        box-sizing: border-box;
+        flex: 0 0 72px;
+        height: 32px;
+        min-width: 72px;
+        padding: 2px 4px;
+        width: 72px;
+    }
+
+    @media (max-width: 768px) {
+        .puppy-appearance-actions,
+        .puppy-appearance-row {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .puppy-appearance-buttons {
+            justify-content: flex-start;
+        }
+    }
+</style>

@@ -13,12 +13,12 @@ import { createJsonResult, createZodActionVariant, type ActionVariant, type Tool
 export const FEEDBACK_TOOL_NAME = 'feedback';
 
 export const FEEDBACK_VARIANTS: ActionVariant<FeedbackAction>[] = [
-    createZodActionVariant('submit', FeedbackSubmitSchema, 'Submit plain-text feedback to the developer.'),
+    createZodActionVariant('submit', FeedbackSubmitSchema, 'Submit plain-text GitHub Issue-style feedback to the developer.'),
 ];
 
 const feedbackTool = defineTool<FeedbackAction>({
     name: FEEDBACK_TOOL_NAME,
-    description: '💬 Submit plain-text feedback, suggestions, or experience reports to the plugin developer.',
+    description: '💬 Submit plain-text GitHub Issue-style feedback, suggestions, or experience reports to the plugin developer.',
     variants: FEEDBACK_VARIANTS,
     actionSchema: FeedbackActionSchema,
     aggregateOptions: {
