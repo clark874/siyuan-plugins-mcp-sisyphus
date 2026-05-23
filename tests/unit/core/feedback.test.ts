@@ -133,7 +133,7 @@ describe('feedback submission', () => {
         expect(resolveFeedbackSource('stdio')).toBe('stdio');
         expect(resolveFeedbackSource('http')).toBe('http');
         expect(resolvePluginVersion(' 0.4.9 ')).toBe('0.4.9');
-        expect(resolvePluginVersion('   ')).toBe('0.4.7');
+        expect(resolvePluginVersion('   ')).toBe('0.4.8');
     });
 
     it('fails clearly when the form requires login or submit returns an error', async () => {

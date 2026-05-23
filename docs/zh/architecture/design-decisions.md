@@ -48,7 +48,7 @@ notebook(action="rename")
 
 ### 当前结果
 
-- MCP 工具表面从 100+ 减少到 **11 个**
+- MCP 工具表面从 100+ 减少到 **12 个**
 - `list_tools` 响应大小从约 50KB 减少到约 **8KB**
 - LLM 对工具的可发现性显著提升
 - 每个 action 的参数通过 Zod schema 严格校验，错误率降低

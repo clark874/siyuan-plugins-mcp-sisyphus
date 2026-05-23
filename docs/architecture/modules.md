@@ -183,7 +183,7 @@ src/
 
 ## 3. Tool Registry: `src/core/tool-registry.ts`
 
-**Responsibility**: Maintain static `TOOL_REGISTRY` mapping table, converging 11 categories into the `ToolModule` interface.
+**Responsibility**: Maintain static `TOOL_REGISTRY` mapping table, converging 12 categories into the `ToolModule` interface.
 
 **Key interface**:
 
@@ -199,7 +199,7 @@ interface ToolModule {
 
 | Export | Description |
 |--------|-------------|
-| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | Static mapping of 11 categories, determined at compile time |
+| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | Static mapping of 12 categories, determined at compile time |
 | `listAllTools(config)` | Flatten and aggregate all enabled tool descriptors |
 | `resolveCategory(name)` | Reverse lookup category from tool name (e.g. `"notebook"`) |
 | `TOOL_CATEGORIES` | Constant array determining enumeration order |
@@ -289,7 +289,7 @@ runToolCall(ctx, handler)
 type ToolConfig = {
     notebook:  { enabled: boolean, actions: { list: boolean, create: boolean, ... } };
     document:  { enabled: boolean, actions: { ... } };
-    // ... 11 categories total
+    // ... 12 categories total
     file:      { enabled: boolean, actions: { ... }, uploadLargeFileThresholdMB: number };
     // ...
     userRulesText: string;  // User custom rules text
