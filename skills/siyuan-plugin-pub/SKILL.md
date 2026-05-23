@@ -24,10 +24,11 @@ If a required version number is missing, stop and ask for it.
 
 If the release type is still unclear after checking the request and `git status --short`, state the inferred path and ask for confirmation before changing versions.
 
-This repo already keeps release history in:
+This repo already keeps release metadata, fallback versions, and release notes in:
 
 - `plugin.json`
 - `package.json`
+- `src/core/feedback.ts`
 - `CHANGELOG.md`
 - `README.md`
 - `README_zh_CN.md`
@@ -40,6 +41,7 @@ This repo already keeps release history in:
 ## Repo-Specific Rules
 
 - Keep plugin versions in `plugin.json` and root `package.json` on the exact same version string such as `0.3.4`.
+- Keep the feedback tool fallback version in `src/core/feedback.ts` (`FEEDBACK_PLUGIN_VERSION`) on the same plugin version. It is used when the compiled `__PLUGIN_VERSION__` define is unavailable.
 - Keep CLI version in `cli/package.json` independent from the plugin version, such as `0.1.5`. Do not force it to match the plugin version.
 - `CHANGELOG.md` is the source of truth for plugin release notes and uses Chinese entries with newest plugin version on top.
 - `README.md` and `README_zh_CN.md` both maintain the latest plugin version callout near the top; update both for plugin releases.
@@ -52,7 +54,7 @@ This repo already keeps release history in:
 
 ## Recommended Workflow
 
-1. Run `git status --short` and inspect current versions in `plugin.json`, root `package.json`, and `cli/package.json`.
+1. Run `git status --short` and inspect current versions in `plugin.json`, root `package.json`, `src/core/feedback.ts`, and `cli/package.json`.
 2. Apply the checklist for the chosen release path below.
 3. Check that English and Chinese descriptions have the same release meaning, even if not literally translated.
 4. Review the diff for version consistency and scope.
@@ -66,7 +68,7 @@ This repo already keeps release history in:
 
 ### Plugin-Only Checklist
 
-- Update `plugin.json` and root `package.json` to the same numeric version without leading `v`.
+- Update `plugin.json`, root `package.json`, and `src/core/feedback.ts` (`FEEDBACK_PLUGIN_VERSION`) to the same numeric version without leading `v`.
 - Add a top `CHANGELOG.md` entry: `## vX.Y.Z - YYYY-MM-DD`, with 2-3 concise Chinese bullets.
 - Update latest-version callouts / timeline content in `README.md` and `README_zh_CN.md`.
 - Leave `cli/package.json` unchanged.
@@ -85,7 +87,7 @@ This repo already keeps release history in:
 
 ### Combined Checklist
 
-- Update plugin versions in `plugin.json` and root `package.json`.
+- Update plugin versions in `plugin.json`, root `package.json`, and `src/core/feedback.ts`.
 - Update CLI version in `cli/package.json`.
 - Add a plugin `CHANGELOG.md` entry and mention the CLI bump, e.g. `CLI 包同步提升至 v0.1.5`.
 - Update root bilingual READMEs for plugin release notes.
@@ -98,15 +100,15 @@ Stop and ask before editing or publishing if:
 
 - the target plugin or CLI version is missing
 - the release path remains ambiguous after checking the request and changed files
-- required version files disagree, such as `plugin.json` and root `package.json` having different plugin versions
+- required version files disagree, such as `plugin.json`, root `package.json`, and `src/core/feedback.ts` having different plugin versions
 - a required release note/doc update is absent for the chosen path
 - the diff includes unrelated changes that make the release scope unclear
 
 ## Version Notes
 
-- Plugin versions live in both `plugin.json` and root `package.json`; keep them identical.
+- Plugin versions live in `plugin.json`, root `package.json`, and `src/core/feedback.ts` (`FEEDBACK_PLUGIN_VERSION` fallback); keep them identical.
 - CLI version lives only in `cli/package.json`; never force it to match the plugin version.
-- `scripts/update_version.js` updates plugin versions only. Prefer direct edits when the target version is known.
+- `scripts/update_version.js` updates plugin package metadata only. After using it, still update or verify `src/core/feedback.ts`.
 - For CLI releases, run or recommend `pnpm build:cli` before publish because the npm artifact is `cli/dist/cli.cjs`.
 
 ## Changelog Writing Guidance
@@ -156,7 +158,7 @@ When updating `README.md` and `README_zh_CN.md`:
 
 Before proposing release commands, verify:
 
-- plugin versions match when the plugin is released
+- plugin versions match in `plugin.json`, root `package.json`, and `src/core/feedback.ts` when the plugin is released
 - CLI version changed only when the CLI is released
 - required changelog, README, and CLI docs match the chosen release path
 - release wording is semantically aligned across all edited English and Chinese docs
@@ -187,7 +189,7 @@ Before proposing release commands, verify:
 #### Plugin 发布
 
 ```bash
-git add plugin.json package.json CHANGELOG.md README.md README_zh_CN.md
+git add plugin.json package.json src/core/feedback.ts CHANGELOG.md README.md README_zh_CN.md
 git commit -m "feat：<核心价值>并发布 vX.Y.Z"
 ```
 
@@ -214,7 +216,7 @@ git commit -m "feat：修复 CLI 配置读取优先级问题并发布 CLI v0.1.7
 #### 组合发布（Plugin + CLI 同时更新）
 
 ```bash
-git add plugin.json package.json cli/package.json CHANGELOG.md README.md README_zh_CN.md cli/README.md cli/README_zh_CN.md
+git add plugin.json package.json src/core/feedback.ts cli/package.json CHANGELOG.md README.md README_zh_CN.md cli/README.md cli/README_zh_CN.md
 git commit -m "feat：<核心价值>并发布 vX.Y.Z / CLI vA.B.C"
 ```
 
@@ -316,7 +318,7 @@ This runs `npm run build:cli && cd cli && npm publish --access public` through t
 
 When both the plugin and CLI changed in the same cycle:
 
-1. Bump plugin versions (`package.json`, `plugin.json`) and CLI version (`cli/package.json`)
+1. Bump plugin versions (`package.json`, `plugin.json`, `src/core/feedback.ts`) and CLI version (`cli/package.json`)
 2. Update `CHANGELOG.md`, root bilingual READMEs, and CLI bilingual docs as needed
 3. Commit and tag the plugin release
 4. Push tag and main branch
