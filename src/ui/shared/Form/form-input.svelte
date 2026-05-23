@@ -71,6 +71,16 @@
         on:change={changed}
         style={style}
     />
+{:else if type === "color"}
+    <input
+        class="b3-text-field sy-color-field"
+        class:fn__flex-center={true}
+        id={key}
+        type="color"
+        bind:value={value}
+        on:change={changed}
+        style={style}
+    />
 {:else if type === "button"}
     <!-- Button Input -->
     <button
@@ -121,3 +131,13 @@
         {value}
     </div>
 {/if}
+
+<style>
+    .sy-color-field {
+        box-sizing: border-box;
+        height: 32px;
+        min-width: 72px;
+        padding: 2px 4px;
+        width: 72px;
+    }
+</style>

@@ -1,4 +1,4 @@
-# Extension Points
+# 扩展点
 
 这个页面说明如何安全地扩展系统，以及需要遵守的边界约束。
 
@@ -8,7 +8,7 @@
 
 ## 可扩展区域
 
-### 1. 新增工具类别（Tool Category）
+### 1. 新增工具类别
 
 如果你想暴露一组全新的 SiYuan API 能力给 MCP 客户端，需要按以下步骤操作：
 
@@ -80,7 +80,7 @@ resources.ts (可选)
 
 ---
 
-### 2. 在现有工具类别中新增 Action
+### 2. 在现有工具类别中新增动作
 
 如果只是为已有 category 增加新 action，步骤大幅简化：
 
@@ -95,9 +95,9 @@ resources.ts (可选)
 
 ---
 
-### 3. 新增帮助资源（MCP Resource）
+### 3. 新增帮助资源
 
-MCP Resources 是静态或动态的帮助文档，AI 客户端可通过 `ReadResourceRequest` 获取。
+MCP 资源是静态或动态的帮助文档，AI 客户端可通过 `ReadResourceRequest` 获取。
 
 #### 新增静态资源
 
@@ -151,7 +151,7 @@ CLI 的结果渲染在 `src/cli/render.ts` 中。如需支持新的 payload 类�
 当前支持 stdio 和 HTTP/S。如需新增传输方式：
 
 1. 在 `src/core/` 下新建传输实现文件（如 `websocket-transport.ts`）
-2. 实现 MCP SDK 的 Transport 接口
+2. 实现 MCP SDK 的传输接口
 3. 在 `src/core/server.ts` 的 `startMcpServer()` 中新增 transport mode 分支
 4. 在设置面板 `HttpServerPanel`（或新建面板）中添加配置 UI
 5. 更新文档说明新传输方式的使用方法
@@ -184,7 +184,7 @@ CLI 的结果渲染在 `src/cli/render.ts` 中。如需支持新的 payload 类�
 
 | 约束 | 说明 |
 |------|------|
-| **Tool docs 必须与 config action 列表对齐** | `docs/zh|en/reference/tools/{category}.md` 中的 action 列表必须与 `src/core/config.ts` 中的 `ACTIONS_BY_CATEGORY` 完全一致 |
+| **工具文档必须与配置动作列表对齐** | `docs/zh|en/reference/tools/{category}.md` 中的动作列表必须与 `src/core/config.ts` 中的 `ACTIONS_BY_CATEGORY` 完全一致 |
 | **双语同步** | 所有文档变更必须同时更新 `zh/` 和 `en/` 版本 |
 | **API 映射文档必须同步更新** | 新增 action 必须更新 `API_MCP_MAPPING.md` 和 `API_COMPLETE_MAPPING.md` |
 
@@ -192,11 +192,11 @@ CLI 的结果渲染在 `src/cli/render.ts` 中。如需支持新的 payload 类�
 
 ## 测试策略
 
-### 新增工具/Action 的测试要求
+### 新增工具/动作的测试要求
 
 | 测试类型 | 必做 | 验证内容 |
 |----------|------|----------|
-| **Action Schema 暴露** | ✓ | 新 action 出现在 `inputSchema.properties.action.enum` 中 |
+| **动作 Schema 暴露** | ✓ | 新动作出现在 `inputSchema.properties.action.enum` 中 |
 | **Handler 逻辑** | ✓ | mock `SiYuanClient` 和 `PermissionManager`，验证 handler 行为 |
 | **Zod 校验** | ✓ | 有效/无效参数分别测试 |
 | **权限检查** | ✓（若涉及 notebook-scoped mutation） | mock 不同权限级别，验证拦截行为 |
@@ -216,7 +216,7 @@ pnpm test:smoke        # 冒烟测试（需要真实 SiYuan 实例）
 
 ---
 
-## 发布 checklist
+## 发布检查清单
 
 当你完成扩展开发后，按以下顺序验证：
 

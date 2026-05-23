@@ -17,7 +17,7 @@ SiYuan provides approximately 459 HTTP API endpoints. Exposing one MCP tool per 
 
 ### Choice Made
 
-Aggregate related APIs by domain into **11 MCP tools**:
+Aggregate related APIs by domain into **12 MCP tools**:
 
 | MCP Tool | SiYuan Domain Covered | Action Count |
 |----------|----------------------|-------------|
@@ -32,6 +32,7 @@ Aggregate related APIs by domain into **11 MCP tools**:
 | `system` | System & UI | ~10 |
 | `flashcard` | Flashcard review | ~8 |
 | `mascot` | Mascot interaction | ~3 |
+| `feedback` | Product feedback submission | 1 |
 
 Each tool distinguishes specific operations via the `action` parameter, e.g.:
 ```
@@ -48,7 +49,7 @@ notebook(action="rename")
 
 ### Current Outcome
 
-- MCP tool surface reduced from 100+ to **11**
+- MCP tool surface reduced from 100+ to **12**
 - `list_tools` response size reduced from ~50KB to ~**8KB**
 - Significantly improved LLM tool discoverability
 - Each action's parameters are strictly validated via Zod schema, reducing error rates

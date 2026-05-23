@@ -11,12 +11,14 @@
     import PuppyBubble from './PuppyBubble.svelte';
     import PuppySleepingSVG from './PuppySleepingSVG.svelte';
     import { resolveActionState, resolveToolVariant, RANDOM_TEST_ACTIONS, type PuppyState, type TestActionEntry, type ToolVariant } from './puppy-tool-visuals';
+    import { buildDefaultPuppyAppearance, type PuppyAppearanceSettings } from '../setting/tool-config-storage';
 
     export let visible = true;
     export let testModeEnabled = false;
     export let testModeIntervalMs = 2200;
     export let showBubble = false;
     export let showClickHint = true;
+    export let appearance: PuppyAppearanceSettings = buildDefaultPuppyAppearance();
 
     const EVENTS_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/puppyEvents.json';
     const API_FILE_ENDPOINT = '/api/file/getFile';
@@ -480,13 +482,18 @@
         ? `sy-puppy--tool-${toolVariant} ${toolAction ? `sy-puppy--action-${toolVariant}-${toolAction}` : ''}`
         : '';
     $: wageCardClass = showWageCard ? 'sy-puppy--show-wage-card' : '';
+    $: appearanceStyle = [
+        `--sy-puppy-body-color: ${appearance.bodyColor}`,
+        `--sy-puppy-paw-color: ${appearance.pawColor}`,
+        `--sy-puppy-eye-color: ${appearance.eyeColor}`,
+    ].join('; ');
     $: mounted, testModeEnabled, testModeIntervalMs, visible, syncTestMode();
 </script>
 
 {#if visible}
 <div
     class="sy-puppy {containerClass} {idleMotionClass} {pointerClass} {toolClass} {wageCardClass}"
-    style="left: {posX}px; top: {posY}px;"
+    style="left: {posX}px; top: {posY}px; {appearanceStyle};"
     on:mousedown={onMouseDown}
     on:touchstart={onTouchStart}
     role="status"
@@ -510,7 +517,15 @@
         {feedPropEmoji}
     />
     <PuppySleepingSVG {isSleeping} />
-    <PuppyAwakeSVG {state} {resultState} {eyeState} {balance} />
+    <PuppyAwakeSVG
+        {state}
+        {resultState}
+        {eyeState}
+        {balance}
+        bodyColor={appearance.bodyColor}
+        pawColor={appearance.pawColor}
+        eyeColor={appearance.eyeColor}
+    />
 </div>
 {/if}
 

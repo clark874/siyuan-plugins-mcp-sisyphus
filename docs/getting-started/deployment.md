@@ -107,6 +107,7 @@ Notes:
 
 - `6806` is the SiYuan API port, not the MCP port
 - `mcp-server.cjs` is usually under `{workspace}/data/plugins/siyuan-plugins-mcp-sisyphus/`
+- The `args` path must be readable by the MCP client machine, because Claude Code, Cursor, Cline, and similar clients start this file as a local subprocess
 - stdio serves one client process at a time
 
 ## `mcp-remote` Bridge
@@ -156,6 +157,33 @@ HTTP mode:
 - Run `mcp-server.cjs` on the client side
 - Keep the SiYuan API token enabled
 - Do not expose `6806` publicly without extra protection
+
+In Docker setups, the path copied from the SiYuan plugin panel may point inside the container, for example `/siyuan/workspace/data/plugins/siyuan-plugins-mcp-sisyphus/mcp-server.cjs`. A desktop MCP client cannot execute that container path unless the same path is mounted and visible on the client machine.
+
+Use this layout instead:
+
+```json
+{
+  "mcpServers": {
+    "siyuan-local": {
+      "command": "node",
+      "args": ["/any/client-side/path/mcp-server.cjs"],
+      "env": {
+        "SIYUAN_API_URL": "http://<docker-host-ip>:6806",
+        "SIYUAN_TOKEN": "<siyuan-token>"
+      },
+      "type": "stdio"
+    }
+  }
+}
+```
+
+You can get `mcp-server.cjs` from either:
+
+- the plugin directory in the SiYuan Docker workspace, then copy it to the MCP client machine
+- the release `package.zip`, then extract `mcp-server.cjs`
+
+If you copy the file manually, update it again after plugin upgrades so the client-side server matches the installed plugin version.
 
 ### WSL
 

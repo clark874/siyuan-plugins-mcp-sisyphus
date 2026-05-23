@@ -32,7 +32,11 @@ export function measureApproxContent(content: { type: 'text'; text: string }[] |
 }
 
 export function calculateMcpInitialTokenCost(config: ToolConfig): McpInitialTokenCost {
-    const instructions = buildServerInstructions(config.userRulesText).trim();
+    const instructions = buildServerInstructions({
+        userRulesText: config.userRulesText,
+        agentSiyuanMemoryText: config.agentSiyuanMemoryText,
+        agentSiyuanMemoryUpdatedAt: config.agentSiyuanMemoryUpdatedAt,
+    }).trim();
     const toolsPayload = JSON.stringify({ tools: listAllTools(config) });
     const totalChars = instructions.length + toolsPayload.length;
     return {

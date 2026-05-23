@@ -1,4 +1,4 @@
-# Adding Actions
+# 添加动作
 
 这个页面描述给现有聚合工具新增 action 时的工作流。
 

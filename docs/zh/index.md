@@ -43,7 +43,7 @@ SiYuan Sisyphus MCP & CLI 在这个仓库里同时提供两种产物：
 
 ## 这个项目包含什么
 
-- 11 个聚合工具，按 action 路由
+- 12 个聚合工具，按 action 路由
 - 笔记本级权限控制：`none`、`r`、`rw`、`rwd`
 - HTTP 和 stdio 两种传输模式
 - MCP 与 CLI 共用的一套核心实现
@@ -51,5 +51,5 @@ SiYuan Sisyphus MCP & CLI 在这个仓库里同时提供两种产物：
 ## 相关页面
 
 - [项目 README](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/blob/main/README_zh_CN.md)
-- [English Docs](/)
+- [英文文档](/)
 - [架构洞察](/zh/insights)

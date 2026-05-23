@@ -6,9 +6,18 @@
     export let resultState: ResultState = 'none';
     export let eyeState: 'blink' | 'happy' | 'sad' | 'danger' | 'flat' | 'normal' = 'normal';
     export let balance = 0;
+    export let bodyColor = '#4a7fff';
+    export let pawColor = '#3060d0';
+    export let eyeColor = '#1a1f3c';
+
+    $: appearanceStyle = [
+        `--sy-puppy-body-color: ${bodyColor}`,
+        `--sy-puppy-paw-color: ${pawColor}`,
+        `--sy-puppy-eye-color: ${eyeColor}`,
+    ].join('; ');
 </script>
 
-    <div class="sy-puppy__char">
+    <div class="sy-puppy__char" style={appearanceStyle}>
         <svg viewBox="0 0 96 96" width="52" height="52" xmlns="http://www.w3.org/2000/svg" overflow="visible">
             <g class="sy-puppy__cat">
                 <rect x="18" y="0" width="6" height="6" fill="#4a7fff"/>
@@ -441,6 +450,23 @@
         filter: drop-shadow(0 8px 16px rgba(40, 59, 97, 0.18));
     }
 
+    :global(.sy-puppy__cat > rect:not(.sy-puppy__paw)) {
+        fill: var(--sy-puppy-body-color, #4a7fff);
+    }
+
+    :global(.sy-puppy__paw) {
+        fill: var(--sy-puppy-paw-color, #3060d0);
+        transform-origin: center top;
+    }
+
+    :global(.sy-puppy__eyes rect) {
+        fill: var(--sy-puppy-eye-color, #1a1f3c);
+    }
+
+    :global(.sy-puppy__eyes line) {
+        stroke: var(--sy-puppy-eye-color, #1a1f3c);
+    }
+
     :global(.sy-puppy__cat),
     :global(.sy-puppy__prop),
     :global(.sy-puppy__overlay),
@@ -452,10 +478,6 @@
 
     :global(.sy-puppy__tail) {
         transform-origin: 82px 65px;
-    }
-
-    :global(.sy-puppy__paw) {
-        transform-origin: center top;
     }
 
     :global(.sy-puppy__tool) {

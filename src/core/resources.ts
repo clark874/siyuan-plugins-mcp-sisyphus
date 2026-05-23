@@ -16,6 +16,7 @@ import {
     AV_VARIANTS,
     BLOCK_VARIANTS,
     DOCUMENT_VARIANTS,
+    FEEDBACK_VARIANTS,
     FILE_VARIANTS,
     FLASHCARD_VARIANTS,
     FS_VARIANTS,
@@ -60,6 +61,7 @@ const VARIANTS_BY_CATEGORY: Record<ToolCategory, ActionVariant<string>[]> = {
     system: SYSTEM_VARIANTS,
     flashcard: FLASHCARD_VARIANTS,
     mascot: MASCOT_VARIANTS,
+    feedback: FEEDBACK_VARIANTS,
 };
 
 function formatJsonExample(value: unknown): string {
@@ -67,7 +69,7 @@ function formatJsonExample(value: unknown): string {
 }
 
 function buildActionExamples(tool: ToolCategory, action: string): string[] {
-    return buildActionExamplesMarkdown(VARIANTS_BY_CATEGORY[tool], action);
+    return buildActionExamplesMarkdown(VARIANTS_BY_CATEGORY[tool], action, tool);
 }
 
 function buildShapeSummary(tool: ToolCategory, action: string): string[] {
@@ -84,7 +86,7 @@ function renderToolOverview(): string {
     return [
         '# SiYuan MCP Tool Overview',
         '',
-        'This server exposes 11 aggregated tools. Use `fs` first for basic path-style notebook and document operations; advanced tools remain available for SiYuan-specific workflows.',
+        'This server exposes 12 aggregated tools. Use `fs` first for basic path-style notebook and document operations; advanced tools remain available for SiYuan-specific workflows.',
         '',
         '## High-risk actions',
         '',
@@ -102,6 +104,7 @@ function renderToolOverview(): string {
         '- Flashcards: prefer `flashcard(action="create_card")` to turn existing blocks into real flashcards; it writes `custom-riff-decks` and registers the riff card together.',
         '- Review flow: use `flashcard(action="list_cards")` plus `review_card` / `review_card(skip=true)` for scheduled flashcard study.',
         '- Mascot earnings: every successful MCP tool call earns 1 coin. To earn balance quickly, keep using SiYuan MCP tools, then check `mascot(action="get_balance")` or spend with `mascot(action="buy")`.',
+        '- Feedback: use `feedback(action="submit")` to send plain-text product feedback to the plugin developer. Avoid secrets and private note content.',
         '- AI layout guide: use the layout guide when you need to decide whether content should become headings, callouts, tables, super blocks, visual code blocks, embeds, media blocks, or database blocks.',
         '',
         `- AI layout guide: \`${AI_LAYOUT_GUIDE_RESOURCE_URI}\``,

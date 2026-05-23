@@ -2,7 +2,7 @@ import * as blockApi from '../../api/block';
 import * as documentApi from '../../api/document';
 import * as fileApi from '../../api/file';
 import * as notebookApi from '../../api/notebook';
-import type { FsAction } from '../../core/config';
+import { AGENT_MEMORY_VIRTUAL_PATH, loadToolConfigFromApiFile, writeAgentSiyuanMemory, type FsAction } from '../../core/config';
 import { normalizeMarkdownContent } from '../../core/normalize';
 import {
     FsLsSchema,
@@ -33,6 +33,7 @@ interface FsListItem {
     name: string;
     path: string;
     children: number;
+    virtual?: boolean;
 }
 
 interface ExportedMarkdownPayload {
@@ -52,6 +53,37 @@ function lastSegment(path: string | undefined): string | undefined {
 function joinHumanPath(parent: string, name: string): string {
     const base = parent === '/' ? '' : parent.replace(/\/+$/, '');
     return `${base}/${name.replace(/^\/+/, '')}`;
+}
+
+function normalizeFsPath(path: string): string {
+    const trimmed = path.trim();
+    if (!trimmed) throw new Error('fs path must not be empty.');
+    const withLeadingSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    const collapsed = withLeadingSlash.replace(/\/+/g, '/');
+    return collapsed.length > 1 ? collapsed.replace(/\/+$/, '') : collapsed;
+}
+
+function isAgentMemoryPath(path: string): boolean {
+    return normalizeFsPath(path) === AGENT_MEMORY_VIRTUAL_PATH;
+}
+
+function isAgentMemoryDescendantPath(path: string): boolean {
+    return normalizeFsPath(path).startsWith(`${AGENT_MEMORY_VIRTUAL_PATH}/`);
+}
+
+function assertNotAgentMemoryDescendant(path: string) {
+    if (isAgentMemoryDescendantPath(path)) {
+        throw new Error(`${AGENT_MEMORY_VIRTUAL_PATH} is a virtual file and has no children.`);
+    }
+}
+
+function createAgentMemoryListItem(): FsListItem {
+    return {
+        name: AGENT_MEMORY_VIRTUAL_PATH.slice(1),
+        path: AGENT_MEMORY_VIRTUAL_PATH,
+        children: 0,
+        virtual: true,
+    };
 }
 
 function canonicalNotebookPath(notebookName: string, hPath: string): string {
@@ -260,12 +292,38 @@ function createMatcher(query: string, regex?: boolean, caseSensitive?: boolean):
     return (line) => (caseSensitive ? line : line.toLowerCase()).includes(needle);
 }
 
+function collectMemoryMatches(content: string, matcher: (line: string) => boolean): Array<{ path: string; line: number; text: string }> {
+    const matches: Array<{ path: string; line: number; text: string }> = [];
+    content.split(/\r?\n/).forEach((line, index) => {
+        if (matcher(line)) {
+            matches.push({
+                path: AGENT_MEMORY_VIRTUAL_PATH,
+                line: index + 1,
+                text: line.length > 300 ? `${line.slice(0, 297)}...` : line,
+            });
+        }
+    });
+    return matches;
+}
+
+async function readAgentMemoryState(client: Parameters<FsActionHandler>[0]['client']) {
+    const config = await loadToolConfigFromApiFile(client);
+    return {
+        content: config.agentSiyuanMemoryText ?? '',
+        updatedAt: config.agentSiyuanMemoryUpdatedAt ?? '',
+    };
+}
+
 const handleLs: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsLsSchema.parse(rawArgs);
+    assertNotAgentMemoryDescendant(parsed.path);
+    if (isAgentMemoryPath(parsed.path)) {
+        throw new Error(`${AGENT_MEMORY_VIRTUAL_PATH} is a virtual file and has no children.`);
+    }
     const scope = await resolveFsScopePath(client, permMgr, parsed.path, 'read');
     if (scope.type === 'root') {
         const notebooks = await listReadableNotebooks(client, permMgr);
-        const items: FsListItem[] = [];
+        const items: FsListItem[] = [createAgentMemoryListItem()];
         for (const notebook of notebooks) {
             let children = 0;
             try {
@@ -284,11 +342,25 @@ const handleLs: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleTree: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsTreeSchema.parse(rawArgs);
+    assertNotAgentMemoryDescendant(parsed.path);
+    if (isAgentMemoryPath(parsed.path)) {
+        return createJsonResult({
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            tree: [],
+            virtual: true,
+            maxDepth: parsed.maxDepth ?? 3,
+        });
+    }
     const scope = await resolveFsScopePath(client, permMgr, parsed.path, 'read');
     const maxDepth = parsed.maxDepth ?? 3;
     if (scope.type === 'root') {
         const notebooks = await listReadableNotebooks(client, permMgr);
-        const tree = [];
+        const tree: Array<{ name: string; path: string; children: unknown[]; virtual?: boolean }> = [{
+            name: AGENT_MEMORY_VIRTUAL_PATH.slice(1),
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            children: [],
+            virtual: true,
+        }];
         for (const notebook of notebooks) {
             const result = await documentApi.listDocTree(client, notebook.id, '/');
             tree.push({
@@ -311,6 +383,26 @@ const handleTree: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleRead: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsReadSchema.parse(rawArgs);
+    assertNotAgentMemoryDescendant(parsed.path);
+    if (isAgentMemoryPath(parsed.path)) {
+        const memory = await readAgentMemoryState(client);
+        const paged = paginateContent(memory.content, parsed.page, parsed.pageSize);
+        return createJsonResult({
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            virtual: true,
+            updatedAt: memory.updatedAt || null,
+            content: paged.content,
+            ...(paged.truncated ? {
+                truncated: true,
+                contentLength: paged.contentLength,
+                showing: paged.showing,
+                page: paged.page,
+                pageSize: paged.pageSize,
+                pageCount: paged.pageCount,
+                hasNextPage: paged.hasNextPage,
+            } : {}),
+        });
+    }
     const scope = await resolveFsScopePath(client, permMgr, parsed.path, 'read');
     if (scope.type !== 'document') throw new Error(`fs.read requires a document path, got "${parsed.path}".`);
     const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'read');
@@ -335,6 +427,17 @@ const handleRead: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsWriteSchema.parse(rawArgs);
+    assertNotAgentMemoryDescendant(parsed.path);
+    if (isAgentMemoryPath(parsed.path)) {
+        const config = await writeAgentSiyuanMemory(client, parsed.markdown);
+        return createJsonResult({
+            success: true,
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            virtual: true,
+            overwritten: true,
+            updatedAt: config.agentSiyuanMemoryUpdatedAt || null,
+        });
+    }
     const target = await resolveFsCreateTarget(client, permMgr, parsed.path);
     const denied = await ensurePermissionForNotebook(permMgr, target.notebook, 'write');
     if (denied) return denied;
@@ -368,6 +471,28 @@ const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsReplaceSchema.parse(rawArgs);
+    assertNotAgentMemoryDescendant(parsed.path);
+    if (isAgentMemoryPath(parsed.path)) {
+        const memory = await readAgentMemoryState(client);
+        const originalContent = memory.content;
+        const edits = Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit];
+        const { content: nextContent, summary } = applyExactReplaceEdits(originalContent, edits, 'fs.replace');
+        const changed = nextContent !== originalContent;
+        let updatedAt = memory.updatedAt;
+        if (changed) {
+            const config = await writeAgentSiyuanMemory(client, nextContent);
+            updatedAt = config.agentSiyuanMemoryUpdatedAt;
+        }
+        return createJsonResult({
+            success: true,
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            virtual: true,
+            changed,
+            editsApplied: summary.length,
+            replacements: summary,
+            updatedAt: updatedAt || null,
+        });
+    }
     const scope = await resolveFsScopePath(client, permMgr, parsed.path, 'write');
     if (scope.type !== 'document') throw new Error(`fs.replace requires a document path, got "${parsed.path}".`);
     const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'write');
@@ -400,6 +525,17 @@ const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleRm: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsRmSchema.parse(rawArgs);
+    assertNotAgentMemoryDescendant(parsed.path);
+    if (isAgentMemoryPath(parsed.path)) {
+        const config = await writeAgentSiyuanMemory(client, '');
+        return createJsonResult({
+            success: true,
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            virtual: true,
+            cleared: true,
+            updatedAt: config.agentSiyuanMemoryUpdatedAt || null,
+        });
+    }
     const scope = await resolveFsScopePath(client, permMgr, parsed.path, 'delete');
     if (scope.type !== 'document') throw new Error(`fs.rm requires a document path, got "${parsed.path}".`);
     const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'delete');
@@ -413,6 +549,9 @@ const handleRm: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleMv: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsMvSchema.parse(rawArgs);
+    if (isAgentMemoryPath(parsed.from) || isAgentMemoryPath(parsed.to) || isAgentMemoryDescendantPath(parsed.from) || isAgentMemoryDescendantPath(parsed.to)) {
+        throw new Error(`${AGENT_MEMORY_VIRTUAL_PATH} is a fixed virtual file and cannot be moved or renamed.`);
+    }
     const source = await resolveFsScopePath(client, permMgr, parsed.from, 'write');
     if (source.type !== 'document') throw new Error(`fs.mv source must be a document path, got "${parsed.from}".`);
     const destination = await resolveFsDestinationTarget(client, permMgr, parsed.to);
@@ -447,6 +586,31 @@ const handleMv: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsSearchSchema.parse(rawArgs);
+    assertNotAgentMemoryDescendant(parsed.path);
+    const matcher = createMatcher(parsed.query, parsed.regex, parsed.caseSensitive);
+    if (isAgentMemoryPath(parsed.path)) {
+        const memory = await readAgentMemoryState(client);
+        const matches = collectMemoryMatches(memory.content, matcher);
+        const page = parsed.page ?? 1;
+        const pageSize = parsed.pageSize ?? 50;
+        const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
+        const normalizedPage = Math.min(page, pageCount);
+        const start = (normalizedPage - 1) * pageSize;
+        return createPaginatedResult(matches.slice(start, start + pageSize), {
+            total: matches.length,
+            page: normalizedPage,
+            pageSize,
+            pageCount,
+            hasNextPage: normalizedPage < pageCount,
+        }, {
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            virtual: true,
+            updatedAt: memory.updatedAt || null,
+            query: parsed.query,
+            regex: parsed.regex ?? false,
+            caseSensitive: parsed.caseSensitive ?? false,
+        });
+    }
     const scope = await resolveFsScopePath(client, permMgr, parsed.path, 'read');
     if (scope.type !== 'root') {
         const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'read');
@@ -454,8 +618,9 @@ const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     }
 
     const docs = await collectSearchDocuments(client, permMgr, scope);
-    const matches: Array<{ path: string; line: number; text: string }> = [];
-    const matcher = createMatcher(parsed.query, parsed.regex, parsed.caseSensitive);
+    const matches: Array<{ path: string; line: number; text: string }> = scope.type === 'root'
+        ? collectMemoryMatches((await readAgentMemoryState(client)).content, matcher)
+        : [];
     for (const doc of docs) {
         const markdown = normalizeMarkdownContent(await fileApi.exportMdContent(client, doc.id));
         const content = typeof markdown.content === 'string' ? markdown.content : '';

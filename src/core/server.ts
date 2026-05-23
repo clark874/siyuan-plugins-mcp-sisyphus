@@ -68,7 +68,11 @@ export async function createSiYuanServer(): Promise<Server> {
         { name: 'siyuan-mcp', version: '2.0.0' },
         {
             capabilities: { tools: {}, resources: {} },
-            instructions: buildServerInstructions(initialConfig.userRulesText).trim(),
+            instructions: buildServerInstructions({
+                userRulesText: initialConfig.userRulesText,
+                agentSiyuanMemoryText: initialConfig.agentSiyuanMemoryText,
+                agentSiyuanMemoryUpdatedAt: initialConfig.agentSiyuanMemoryUpdatedAt,
+            }).trim(),
             jsonSchemaValidator: noopSchemaValidator,
         },
     );

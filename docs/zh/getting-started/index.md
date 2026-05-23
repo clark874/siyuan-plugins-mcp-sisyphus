@@ -6,16 +6,16 @@
 
 相关页面：
 
-- [Deployment](./deployment.md)
-- [HTTPS](./https.md)
-- [Troubleshooting](./troubleshooting.md)
+- [部署指南](./deployment.md)
+- [HTTPS 配置](./https.md)
+- [故障排查](./troubleshooting.md)
 - [常见任务](../reference/common-tasks.md)
 
 ## 建议阅读顺序
 
-1. [Deployment](./deployment.md)
-2. 如果需要 TLS，再看 [HTTPS](./https.md)
-3. 如果连接失败，再看 [Troubleshooting](./troubleshooting.md)
+1. [部署指南](./deployment.md)
+2. 如果需要 TLS，再看 [HTTPS 配置](./https.md)
+3. 如果连接失败，再看 [故障排查](./troubleshooting.md)
 
 ## 本节覆盖内容
 

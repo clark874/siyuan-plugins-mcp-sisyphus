@@ -5,9 +5,11 @@
     import { buildDefaultToolConfig, normalizeToolConfig, type ToolCategory, type ToolConfig } from "./tool-config";
     import {
         buildDefaultHttpServerSettings,
+        buildDefaultPuppyAppearance,
         buildDefaultPuppySettings,
         buildDefaultTelemetryConfig,
         buildDefaultVersionControlSettings,
+        buildRandomPuppyAppearance,
         loadPersistedHttpServerSettings,
         loadPersistedPuppySettings,
         loadPersistedTelemetryConfig,
@@ -25,6 +27,7 @@
     } from "./tool-config-storage";
     import HttpServerPanel from "./mcp-config/HttpServerPanel.svelte";
     import DebugPanel from "./mcp-config/DebugPanel.svelte";
+    import FeedbackPanel from "./mcp-config/FeedbackPanel.svelte";
     import PermissionsPanel from "./mcp-config/PermissionsPanel.svelte";
     import PuppyPanel from "./mcp-config/PuppyPanel.svelte";
     import TelemetryPanel from "./mcp-config/TelemetryPanel.svelte";
@@ -38,6 +41,7 @@
         PUPPY_GROUP_KEY,
         ANALYTICS_GROUP_KEY,
         DEBUG_GROUP_KEY,
+        FEEDBACK_GROUP_KEY,
         USER_RULES_GROUP_KEY,
         type TabItem,
     } from "./mcp-config-tabs";
@@ -60,6 +64,7 @@
     const PERM_GROUP_LABEL = "Permissions";
     const ANALYTICS_GROUP_LABEL = "Usage Stats";
     const DEBUG_GROUP_LABEL = "Debug";
+    const FEEDBACK_GROUP_LABEL = "Feedback";
 
     let config: ToolConfig = buildDefaultToolConfig();
     let httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
@@ -90,6 +95,7 @@
     $: puppyGroupLabel = getLabel(PUPPY_GROUP_KEY, PUPPY_GROUP_LABEL);
     $: analyticsGroupLabel = getLabel(ANALYTICS_GROUP_KEY, ANALYTICS_GROUP_LABEL);
     $: debugGroupLabel = getLabel(DEBUG_GROUP_KEY, DEBUG_GROUP_LABEL);
+    $: feedbackGroupLabel = getLabel(FEEDBACK_GROUP_KEY, FEEDBACK_GROUP_LABEL);
     $: userRulesGroupLabel = getLabel(USER_RULES_GROUP_KEY, USER_RULES_GROUP_LABEL);
 
     $: toolGroupLabel = getLabel(TOOL_GROUP_KEY, TOOL_GROUP_KEY);
@@ -101,6 +107,7 @@
         { id: ANALYTICS_GROUP_KEY, label: analyticsGroupLabel, iconSvg: ICON_SVGS.barChart },
         { id: DEBUG_GROUP_KEY, label: debugGroupLabel, iconSvg: ICON_SVGS.bug },
         { id: USER_RULES_GROUP_KEY, label: userRulesGroupLabel, iconSvg: ICON_SVGS.compass },
+        { id: FEEDBACK_GROUP_KEY, label: feedbackGroupLabel, iconSvg: ICON_SVGS.message },
     ] satisfies TabItem[];
 
     $: tabIds = tabItems.map((t) => t.id);
@@ -255,6 +262,39 @@
             return;
         }
 
+        if (key === "puppy__appearance__randomize") {
+            puppySettings = {
+                ...puppySettings,
+                appearance: buildRandomPuppyAppearance(),
+            };
+            await persistPuppySettings();
+            return;
+        }
+
+        if (key === "puppy__appearance__reset") {
+            puppySettings = {
+                ...puppySettings,
+                appearance: buildDefaultPuppyAppearance(),
+            };
+            await persistPuppySettings();
+            return;
+        }
+
+        if (key.startsWith("puppy__appearance__")) {
+            const field = key.slice("puppy__appearance__".length).split("__")[0];
+            if (field === "bodyColor" || field === "pawColor" || field === "eyeColor") {
+                puppySettings = {
+                    ...puppySettings,
+                    appearance: {
+                        ...puppySettings.appearance,
+                        [field]: String(value ?? ""),
+                    },
+                };
+                await persistPuppySettings();
+                return;
+            }
+        }
+
         if (key.startsWith("perm__") && key !== "perm__hint") {
             const notebookId = key.slice("perm__".length);
             permissions = { ...permissions, [notebookId]: value as NotebookPermission };
@@ -282,20 +322,42 @@
             return;
         }
 
-        if (key === "userRulesText") {
+        if (key === "userRulesText" || key === "agentSiyuanMemoryText") {
+            const nextText = typeof value === "string" ? value : String(value ?? "");
             config = {
                 ...config,
-                userRulesText: typeof value === "string" ? value : String(value ?? ""),
+                [key]: nextText,
+                ...(key === "agentSiyuanMemoryText"
+                    ? { agentSiyuanMemoryUpdatedAt: nextText.trim() ? new Date().toISOString() : "" }
+                    : {}),
             };
             await persistConfig();
             try {
-                const restarted = await plugin?.refreshHttpServerAfterUserRulesChange?.();
+                const refreshInstructionConfig = plugin?.refreshHttpServerAfterInstructionConfigChange ?? plugin?.refreshHttpServerAfterUserRulesChange;
+                const restarted = await refreshInstructionConfig?.call(plugin);
+                const isAgentMemoryChange = key === "agentSiyuanMemoryText";
                 showMessage(restarted
-                    ? getLabel("user_rules_http_restarted", "MCP HTTP server restarted. Reconnect or refresh connected MCP clients to apply updated user rules.")
-                    : getLabel("user_rules_saved_reconnect", "User rules saved. Reconnect or refresh MCP clients to apply updated initialize instructions."));
+                    ? getLabel(
+                        isAgentMemoryChange ? "agent_memory_http_restarted" : "user_rules_http_restarted",
+                        isAgentMemoryChange
+                            ? "MCP HTTP server restarted. Reconnect or refresh connected MCP clients to apply updated agent memory."
+                            : "MCP HTTP server restarted. Reconnect or refresh connected MCP clients to apply updated user rules.",
+                    )
+                    : getLabel(
+                        isAgentMemoryChange ? "agent_memory_saved_reconnect" : "user_rules_saved_reconnect",
+                        isAgentMemoryChange
+                            ? "Agent memory saved. Reconnect or refresh MCP clients to apply updated initialize instructions."
+                            : "User rules saved. Reconnect or refresh MCP clients to apply updated initialize instructions.",
+                    ));
             } catch (err) {
                 console.error("[MCP] refresh after user rules change failed:", err);
-                showMessage(getLabel("user_rules_refresh_failed", "User rules saved, but MCP HTTP server restart failed. Reconnect or restart it manually to apply updated rules."));
+                const isAgentMemoryChange = key === "agentSiyuanMemoryText";
+                showMessage(getLabel(
+                    isAgentMemoryChange ? "agent_memory_refresh_failed" : "user_rules_refresh_failed",
+                    isAgentMemoryChange
+                        ? "Agent memory saved, but MCP HTTP server restart failed. Reconnect or restart it manually to apply updated memory."
+                        : "User rules saved, but MCP HTTP server restart failed. Reconnect or restart it manually to apply updated rules.",
+                ));
             }
             return;
         }
@@ -410,6 +472,7 @@
                 />
                 <DebugPanel group={debugGroupLabel} display={focusGroup === DEBUG_GROUP_KEY} {config} {puppySettings} {versionControlSettings} {getLabel} {onChanged} />
                 <UserRulesPanel group={userRulesGroupLabel} display={focusGroup === USER_RULES_GROUP_KEY} {config} {getLabel} {onChanged} />
+                <FeedbackPanel group={feedbackGroupLabel} display={focusGroup === FEEDBACK_GROUP_KEY} {plugin} {getLabel} />
             </div>
         </div>
     </div>

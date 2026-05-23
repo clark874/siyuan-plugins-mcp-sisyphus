@@ -1,4 +1,4 @@
-# system
+# system 工具
 
 这个工具覆盖思源系统读取、网络状态、配置读取与用户通知。
 
@@ -8,9 +8,9 @@
 
 - [权限模型](../permissions.md)
 
-## Actions
+## 动作
 
-| 分组 | Actions |
+| 分组 | 动作 |
 |------|---------|
 | 基础信息 | `get_version`, `get_current_time` |
 | 配置 / 环境 | `conf`, `network`, `workspace_info` |
@@ -22,7 +22,7 @@
 - `conf` 是只读操作。用 `mode="summary"` 获取紧凑概览，或用 `mode="get"` + `keyPath` 读取具体字段。
 - `notify` 通过 `msg`、`level` 和可选 `timeout` 显示思源通知。
 
-## Action 列表
+## 动作列表
 
 - `workspace_info`
 - `network`

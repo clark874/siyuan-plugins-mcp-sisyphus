@@ -1,4 +1,4 @@
-# HTTPS
+# HTTPS 配置
 
 这个页面说明如何为插件的 HTTP 连接启用 TLS。
 
@@ -6,8 +6,8 @@
 
 相关页面：
 
-- [Deployment](./deployment.md)
-- [Troubleshooting](./troubleshooting.md)
+- [部署指南](./deployment.md)
+- [故障排查](./troubleshooting.md)
 
 ## 第一步：准备证书
 

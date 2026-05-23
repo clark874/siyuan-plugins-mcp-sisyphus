@@ -1,4 +1,4 @@
-# Modules
+# 模块划分
 
 这个页面按职责划分核心模块，详细说明每个模块的职责边界、关键接口与依赖关系。
 
@@ -14,7 +14,7 @@ src/
 ├── core/                     # MCP Server 核心
 │   ├── server.ts             # MCP Server 创建与 Handler 注册
 │   ├── http-transport.ts     # HTTP/S MCP 传输层
-│   ├── tool-registry.ts      # 11 个聚合工具的静态注册表
+│   ├── tool-registry.ts      # 12 个聚合工具的静态注册表
 │   ├── tool-lifecycle.ts     # 工具调用 AOP 切面（analytics/telemetry/puppy）
 │   ├── permissions.ts        # 笔记本级四级权限管理
 │   ├── config.ts             # ToolConfig schema / 默认值 / 迁移
@@ -26,14 +26,14 @@ src/
 │   ├── token-usage.ts        # Token 近似计算
 │   ├── runtime.ts            # 运行时环境检测
 │   ├── process.ts            # 进程管理辅助
-│   ├── resources.ts          # MCP Resource 注册（帮助文档）
+│   ├── resources.ts          # MCP 资源注册（帮助文档）
 │   ├── server-instructions.ts# MCP Server instructions 构建
 │   ├── help.ts               # 帮助文案中心
 │   ├── normalize.ts          # 请求参数归一化
 │   └── noops/                # MCP SDK 重模块的 no-op shim
 │       ├── noop-schema-validator.ts
 │       └── noop-experimental-tasks.ts
-├── tools/                    # 11 个聚合工具的实现
+├── tools/                    # 12 个聚合工具的实现
 │   ├── index.ts              # Barrel export：统一导出所有工具
 │   ├── internal/             # 工具层共享基础设施
 │   │   ├── types.ts          # 工具层共享类型
@@ -183,7 +183,7 @@ src/
 
 ## 3. 工具注册表：`src/core/tool-registry.ts`
 
-**职责**：维护静态 `TOOL_REGISTRY` 映射表，将 11 个 category 统一收敛为 `ToolModule` 接口。
+**职责**：维护静态 `TOOL_REGISTRY` 映射表，将 12 个 category 统一收敛为 `ToolModule` 接口。
 
 **关键接口**：
 
@@ -199,7 +199,7 @@ interface ToolModule {
 
 | 导出 | 说明 |
 |------|------|
-| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | 11 个 category 的静态映射，编译期确定 |
+| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | 12 个 category 的静态映射，编译期确定 |
 | `listAllTools(config)` | 扁平化聚合所有启用状态下的 tool descriptor |
 | `resolveCategory(name)` | 从 tool name（如 `"notebook"`）反查 category |
 | `TOOL_CATEGORIES` | 常量数组，决定枚举顺序 |
@@ -289,7 +289,7 @@ runToolCall(ctx, handler)
 type ToolConfig = {
     notebook:  { enabled: boolean, actions: { list: boolean, create: boolean, ... } };
     document:  { enabled: boolean, actions: { ... } };
-    // ... 共 11 个 category
+    // ... 共 12 个 category
     file:      { enabled: boolean, actions: { ... }, uploadLargeFileThresholdMB: number };
     // ...
     userRulesText: string;  // 用户自定义规则文本
@@ -347,10 +347,10 @@ type ToolConfig = {
 **职责**：基于 `@modelcontextprotocol/sdk/server/streamableHttp.js` 实现 Streamable HTTP MCP Server。
 
 **特性**：
-- **Session 管理**：`Map<string, SessionEntry>`，按 `mcp-session-id` header 分发
+- **会话管理**：`Map<string, SessionEntry>`，按 `mcp-session-id` header 分发
 - **Bearer Token 认证**：通过 `SIYUAN_MCP_TOKEN` 环境变量验证
 - **TLS**：`SIYUAN_MCP_TLS_CERT` + `SIYUAN_MCP_TLS_KEY` + optional CA
-- **Parent Watchdog**：监控 `SIYUAN_MCP_PARENT_PID`，父进程退出则 shutdown
+- **父进程看门狗**：监控 `SIYUAN_MCP_PARENT_PID`，父进程退出则 shutdown
 - **MCP 2025-03-26 spec**：支持 Streamable HTTP 最新规范
 
 ---
@@ -387,7 +387,7 @@ resolveCategory(tool) → action.replace(/-/g, '_') 标准化
 → 若 TTY 且多页 → runInteractivePaging()
 ```
 
-### `flag-mapper.ts` — Schema-aware Flag 映射
+### `flag-mapper.ts` — 基于 Schema 的 Flag 映射
 
 对 `inputSchema.properties` 中的每个 property：
 - 生成 **4 种别名**：原始名、kebab-case、snake_case、camelCase
@@ -465,7 +465,7 @@ CLI flag (--url / --token)
 
 ### `tool-config.ts` — Schema 定义
 
-定义 11 个 `ToolCategory`，每个含 `enabled` + `actions` + 额外字段（如 `file` 的 `uploadLargeFileThresholdMB`）。
+定义 12 个 `ToolCategory`，每个含 `enabled` + `actions` + 额外字段（如 `file` 的 `uploadLargeFileThresholdMB`）。
 
 ### `tool-config-storage.ts` — 持久化层
 

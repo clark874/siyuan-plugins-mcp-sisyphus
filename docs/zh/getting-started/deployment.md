@@ -1,4 +1,4 @@
-# Deployment
+# 部署指南
 
 这个页面覆盖安装、连接方式和不同运行环境下的配置。
 
@@ -7,8 +7,8 @@
 相关页面：
 
 - [快速开始](./index.md)
-- [HTTPS](./https.md)
-- [Troubleshooting](./troubleshooting.md)
+- [HTTPS 配置](./https.md)
+- [故障排查](./troubleshooting.md)
 
 ## 安装
 
@@ -107,6 +107,7 @@ Cherry Studio 使用 `streamableHttp`：
 
 - `6806` 是思源 API 端口，不是 MCP 端口
 - `mcp-server.cjs` 一般在 `{workspace}/data/plugins/siyuan-plugins-mcp-sisyphus/`
+- `args` 中的路径必须能被 MCP 客户端所在机器读取，因为 Claude Code、Cursor、Cline 等客户端会把这个文件作为本地子进程启动
 - stdio 每次只服务一个客户端进程
 
 ## `mcp-remote` 桥接
@@ -156,6 +157,33 @@ HTTP 模式：
 - 在客户端侧运行 `mcp-server.cjs`
 - 保持思源 API Token 开启
 - 不要在没有额外保护的情况下暴露 `6806`
+
+Docker 场景下，思源插件面板复制出来的路径可能是容器内路径，例如 `/siyuan/workspace/data/plugins/siyuan-plugins-mcp-sisyphus/mcp-server.cjs`。桌面 MCP 客户端无法执行这个容器路径，除非同一个路径已经挂载并且在客户端机器上可见。
+
+应改成下面这种结构：
+
+```json
+{
+  "mcpServers": {
+    "siyuan-local": {
+      "command": "node",
+      "args": ["/客户端机器上的任意路径/mcp-server.cjs"],
+      "env": {
+        "SIYUAN_API_URL": "http://<docker-host-ip>:6806",
+        "SIYUAN_TOKEN": "<siyuan-token>"
+      },
+      "type": "stdio"
+    }
+  }
+}
+```
+
+`mcp-server.cjs` 可以从两个地方获取：
+
+- 从思源 Docker 工作空间里的插件目录复制到 MCP 客户端机器
+- 下载 release 的 `package.zip`，解压其中的 `mcp-server.cjs`
+
+如果手动复制该文件，后续升级插件后也需要重新复制，保证客户端侧 server 与已安装的插件版本一致。
 
 ### WSL
 

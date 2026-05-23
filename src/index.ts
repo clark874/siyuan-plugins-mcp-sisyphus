@@ -22,6 +22,7 @@ import {
     type VersionControlSettings,
 } from "@/ui/setting/tool-config-storage";
 import { emitToolConfigWarningOnce } from "@/core/config";
+import { submitFeedback, type FeedbackInput, type FeedbackSubmitResult } from "@/core/feedback";
 import McpConfig from "@/ui/setting/mcp-config.svelte";
 import ToolPuppy from "@/ui/components/ToolPuppy.svelte";
 import VersionControlPanel from "@/ui/version-control/VersionControlPanel.svelte";
@@ -151,7 +152,7 @@ export default class SiyuanMCP extends Plugin {
         return this.httpSettings;
     }
 
-    async refreshHttpServerAfterUserRulesChange(): Promise<boolean> {
+    async refreshHttpServerAfterInstructionConfigChange(): Promise<boolean> {
         const wasRunning = this.httpLauncher?.getStatus().running ?? false;
         if (!wasRunning) {
             return false;
@@ -166,6 +167,10 @@ export default class SiyuanMCP extends Plugin {
         }
         await this.startHttpServer();
         return true;
+    }
+
+    async refreshHttpServerAfterUserRulesChange(): Promise<boolean> {
+        return this.refreshHttpServerAfterInstructionConfigChange();
     }
 
     private mountPuppy() {
@@ -197,6 +202,7 @@ export default class SiyuanMCP extends Plugin {
                 testModeIntervalMs: this.puppySettings.testModeIntervalMs,
                 showBubble: this.puppySettings.showBubble,
                 showClickHint: this.puppySettings.showClickHint,
+                appearance: this.puppySettings.appearance,
             },
         });
     }
@@ -231,6 +237,7 @@ export default class SiyuanMCP extends Plugin {
                 testModeIntervalMs: settings.testModeIntervalMs,
                 showBubble: settings.showBubble,
                 showClickHint: settings.showClickHint,
+                appearance: settings.appearance,
             });
         }
     }
@@ -240,6 +247,82 @@ export default class SiyuanMCP extends Plugin {
         this.versionControlPanel?.$set({
             showDebugMeta: this.versionControlSettings.showDebugMeta,
         });
+    }
+
+    async submitFeedback(input: FeedbackInput): Promise<FeedbackSubmitResult> {
+        return submitFeedback(input, this.createFeedbackFetch());
+    }
+
+    private createFeedbackFetch(): typeof fetch {
+        const req = this.getNodeRequire();
+        if (req) {
+            try {
+                const https = req("https") as typeof import("https");
+                const http = req("http") as typeof import("http");
+                return ((url: string, init: RequestInit = {}) => new Promise<Response>((resolve, reject) => {
+                    const target = new URL(url);
+                    const transport = target.protocol === "http:" ? http : https;
+                    const headers = init.headers instanceof Headers
+                        ? Object.fromEntries(init.headers.entries())
+                        : (init.headers ?? {}) as Record<string, string>;
+                    const rawBody = init.body
+                        ? (typeof init.body === "string" || Buffer.isBuffer(init.body) ? init.body : String(init.body))
+                        : undefined;
+                    const request = transport.request(target, {
+                        method: init.method ?? "GET",
+                        headers: {
+                            ...headers,
+                            ...(rawBody && !Object.keys(headers).some((key) => key.toLowerCase() === "content-length")
+                                ? { "Content-Length": Buffer.byteLength(rawBody) }
+                                : {}),
+                        },
+                    }, (response) => {
+                        const chunks: Buffer[] = [];
+                        response.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+                        response.on("end", () => {
+                            const responseHeaders = new Headers();
+                            for (const [key, value] of Object.entries(response.headers)) {
+                                if (Array.isArray(value)) {
+                                    for (const item of value) responseHeaders.append(key, item);
+                                } else if (typeof value === "string") {
+                                    responseHeaders.set(key, value);
+                                }
+                            }
+                            resolve(new Response(Buffer.concat(chunks), {
+                                status: response.statusCode ?? 0,
+                                statusText: response.statusMessage ?? "",
+                                headers: responseHeaders,
+                            }));
+                        });
+                    });
+                    request.on("error", reject);
+                    if (rawBody) {
+                        request.write(rawBody);
+                    }
+                    request.end();
+                })) as typeof fetch;
+            } catch {
+                // Fall through to global fetch below.
+            }
+        }
+        if (typeof fetch === "function") {
+            return fetch.bind(globalThis);
+        }
+        throw new Error("Feedback submission is unavailable in this environment.");
+    }
+
+    private getNodeRequire(): NodeRequire | undefined {
+        if (typeof require === "function") {
+            try {
+                require("https");
+                return require;
+            } catch { /* not Node require */ }
+        }
+        if (typeof window !== "undefined") {
+            const w = window as unknown as { require?: NodeRequire };
+            if (typeof w.require === "function") return w.require;
+        }
+        return undefined;
     }
 
     async onunload() {

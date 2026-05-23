@@ -1,4 +1,4 @@
-# file
+# file 工具
 
 这个工具覆盖资源上传、导出、模板渲染、OCR 与资源维护。
 
@@ -9,9 +9,9 @@
 - [权限模型](../permissions.md)
 - [故障排查](../../getting-started/troubleshooting.md)
 
-## 常见 Actions
+## 常见动作
 
-| 分组 | Actions |
+| 分组 | 动作 |
 |------|---------|
 | 上传 / 导出 | `upload_asset`, `export_md`, `export_resources`, `extract_doc` |
 | 渲染 | `render` |
@@ -92,7 +92,7 @@ siyuan file get-doc-assets --id <doc-id> --asset-type image
 siyuan file extract-doc --id <doc-id> --output-dir ./siyuan-extracted
 ```
 
-## Action 列表
+## 动作列表
 
 - `upload_asset`
 - `render`

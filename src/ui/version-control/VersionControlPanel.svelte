@@ -747,7 +747,7 @@
 
     async function ensureRootTimelineSnapshot(snapshots: Snapshot[]): Promise<Snapshot[]> {
         if (!currentDocumentId || hasRootTimelineSnapshot(snapshots)) return snapshots;
-        await post("/api/repo/createSnapshot", { memo: ROOT_TIMELINE_SNAPSHOT_LABEL });
+        await createRootTimelineSnapshot();
         const snapshot = await findNewestSnapshotForMemo(ROOT_TIMELINE_SNAPSHOT_LABEL);
         if (!snapshot?.id) throw new Error(t("timeline_error_root_snapshot_not_found", "根快照已创建，但未能定位"));
         await post("/api/repo/tagSnapshot", {
@@ -756,6 +756,15 @@
         });
         const data = await post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoTagSnapshots", {});
         return sortSnapshotsNewestFirst((data.snapshots ?? []).filter(isTimelineSnapshot));
+    }
+
+    async function createRootTimelineSnapshot() {
+        try {
+            await post("/api/repo/createSnapshot", { memo: ROOT_TIMELINE_SNAPSHOT_LABEL });
+        } catch {
+            // SiYuan rejects duplicate snapshots when an equivalent automatic snapshot already exists.
+            // Root creation can still tag that newest snapshot via findNewestSnapshotForMemo's fallback.
+        }
     }
 
     function hasRootTimelineSnapshot(snapshots: Snapshot[]): boolean {

@@ -13,15 +13,53 @@
 
     const dispatch = createEventDispatcher();
     const USER_RULES_KEY = "userRulesText";
+    const AGENT_MEMORY_KEY = "agentSiyuanMemoryText";
 
     let userRulesText = "";
+    let lastSyncedUserRulesText = "";
+    let hasDraftChanges = false;
+    let agentSiyuanMemoryText = "";
+    let lastSyncedAgentSiyuanMemoryText = "";
+    let hasAgentMemoryDraftChanges = false;
 
-    $: userRulesText = config.userRulesText;
+    $: {
+        const nextUserRulesText = typeof config?.userRulesText === "string" ? config.userRulesText : "";
+        if (nextUserRulesText !== lastSyncedUserRulesText) {
+            lastSyncedUserRulesText = nextUserRulesText;
+            if (!hasDraftChanges) {
+                userRulesText = nextUserRulesText;
+            }
+        }
+    }
+    $: {
+        const nextAgentSiyuanMemoryText = typeof config?.agentSiyuanMemoryText === "string" ? config.agentSiyuanMemoryText : "";
+        if (nextAgentSiyuanMemoryText !== lastSyncedAgentSiyuanMemoryText) {
+            lastSyncedAgentSiyuanMemoryText = nextAgentSiyuanMemoryText;
+            if (!hasAgentMemoryDraftChanges) {
+                agentSiyuanMemoryText = nextAgentSiyuanMemoryText;
+            }
+        }
+    }
     $: title = getLabel("user_rules_title", "User Custom Rules");
     $: description = getLabel("user_rules_desc", "Additional instructions appended to the MCP server prompt at startup. Use this for personal preferences like icon behavior, naming, language, or formatting defaults. Avoid secrets and keep it concise.");
     $: placeholder = getLabel("user_rules_placeholder", "创建文档/日记后主动设图标");
+    $: agentMemoryTitle = getLabel("agent_memory_title", "Agent siyuan Memory");
+    $: agentMemoryDescription = getLabel("agent_memory_desc", "AI-maintained summary of the SiYuan workspace state. This memory is injected into MCP startup instructions and exposed as /AGENTS.md through the fs tool. Avoid secrets and sensitive personal data.");
+    $: agentMemoryPlaceholder = getLabel("agent_memory_placeholder", "Summarize durable workspace facts, important notebooks, naming conventions, and current project context.");
+
+    function markDraftChanged(event: Event) {
+        const target = event.currentTarget as HTMLTextAreaElement;
+        userRulesText = target.value;
+        hasDraftChanges = userRulesText !== lastSyncedUserRulesText;
+    }
 
     function dispatchChanged() {
+        if (userRulesText === lastSyncedUserRulesText) {
+            hasDraftChanges = false;
+            return;
+        }
+        hasDraftChanges = false;
+        lastSyncedUserRulesText = userRulesText;
         const event = new CustomEvent<ChangeEvent>("changed", {
             detail: {
                 key: USER_RULES_KEY,
@@ -30,6 +68,29 @@
         });
         onChanged?.(event);
         dispatch("changed", { group, key: USER_RULES_KEY, value: userRulesText });
+    }
+
+    function markAgentMemoryDraftChanged(event: Event) {
+        const target = event.currentTarget as HTMLTextAreaElement;
+        agentSiyuanMemoryText = target.value;
+        hasAgentMemoryDraftChanges = agentSiyuanMemoryText !== lastSyncedAgentSiyuanMemoryText;
+    }
+
+    function dispatchAgentMemoryChanged() {
+        if (agentSiyuanMemoryText === lastSyncedAgentSiyuanMemoryText) {
+            hasAgentMemoryDraftChanges = false;
+            return;
+        }
+        hasAgentMemoryDraftChanges = false;
+        lastSyncedAgentSiyuanMemoryText = agentSiyuanMemoryText;
+        const event = new CustomEvent<ChangeEvent>("changed", {
+            detail: {
+                key: AGENT_MEMORY_KEY,
+                value: agentSiyuanMemoryText,
+            },
+        });
+        onChanged?.(event);
+        dispatch("changed", { group, key: AGENT_MEMORY_KEY, value: agentSiyuanMemoryText });
     }
 </script>
 
@@ -46,7 +107,27 @@
             class="b3-text-field user-rules-editor__textarea"
             bind:value={userRulesText}
             {placeholder}
+            on:input={markDraftChanged}
             on:change={dispatchChanged}
+            on:blur={dispatchChanged}
+        />
+
+        <div class="user-rules-editor__divider" aria-hidden="true"></div>
+
+        <div class="user-rules-editor__header">
+            <div>
+                <h3 class="user-rules-editor__title">{agentMemoryTitle}</h3>
+                <p class="user-rules-editor__desc">{agentMemoryDescription}</p>
+            </div>
+        </div>
+
+        <textarea
+            class="b3-text-field user-rules-editor__textarea"
+            bind:value={agentSiyuanMemoryText}
+            placeholder={agentMemoryPlaceholder}
+            on:input={markAgentMemoryDraftChanged}
+            on:change={dispatchAgentMemoryChanged}
+            on:blur={dispatchAgentMemoryChanged}
         />
     </section>
 </SettingPanel>
@@ -92,6 +173,12 @@
         resize: vertical;
         white-space: pre-wrap;
         line-height: 1.55;
+    }
+
+    .user-rules-editor__divider {
+        height: 1px;
+        margin: 4px 0;
+        background: var(--b3-border-color);
     }
 
     @media (max-width: 768px) {

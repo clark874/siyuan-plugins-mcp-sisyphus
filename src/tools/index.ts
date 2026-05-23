@@ -9,6 +9,7 @@ export { callAvTool, listAvTools, AV_VARIANTS } from './av';
 export { callBlockTool, listBlockTools, BLOCK_VARIANTS } from './block';
 export { callDocumentTool, listDocumentTools, DOCUMENT_VARIANTS } from './document';
 export { callFileTool, listFileTools, FILE_VARIANTS } from './file';
+export { callFeedbackTool, listFeedbackTools, FEEDBACK_VARIANTS } from './feedback';
 export { callFlashcardTool, listFlashcardTools, FLASHCARD_VARIANTS } from './flashcard';
 export { callFsTool, listFsTools, FS_VARIANTS } from './fs';
 export { callMascotTool, listMascotTools, MASCOT_VARIANTS } from './mascot';

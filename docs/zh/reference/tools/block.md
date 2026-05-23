@@ -1,4 +1,4 @@
-# block
+# block 工具
 
 这个工具覆盖块插入、块更新、块移动、元数据、引用与文档上下文辅助操作。
 
@@ -7,11 +7,11 @@
 相关页面：
 
 - [权限模型](../permissions.md)
-- [document](./document.md)
+- [document 工具](./document.md)
 
-## 常见 Action
+## 常见动作
 
-| 分组 | Actions |
+| 分组 | 动作 |
 |------|---------|
 | 插入与更新 | `insert`, `prepend`, `append`, `update` |
 | 移动与结构 | `move`, `set_fold_state`, `get_children`, `breadcrumb` |
@@ -52,7 +52,7 @@ CLI：
 siyuan block append --parent-id <doc-id> --data-type markdown --data "- [ ] Todo item"
 ```
 
-## Action 列表
+## 动作列表
 
 - `insert`
 - `prepend`

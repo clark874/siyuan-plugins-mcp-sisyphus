@@ -1,4 +1,4 @@
-# document
+# document 工具
 
 这个工具覆盖文档 CRUD、树结构查询、元数据，以及与日记/转换相关的文档操作。
 
@@ -9,9 +9,9 @@
 - [路径语义](../path-semantics.md)
 - [权限模型](../permissions.md)
 
-## 常见 Action
+## 常见动作
 
-| 分组 | Actions |
+| 分组 | 动作 |
 |------|---------|
 | 创建与读取 | `create`, `lookup`, `get_doc` |
 | 树结构查询 | `get_child_blocks`, `get_child_docs`, `list_tree`, `search_docs` |
@@ -20,7 +20,7 @@
 
 ## 参数与语义
 
-- `create` 支持人类可读 `path`，也支持 `parentPath` + `title`；省略 `markdown` 即创建空文档。创建子文档时优先使用 `path`。`parentPath` + `title` 模式仍可用，但思源该接口可能返回非 ID 的原始值，因此 MCP 会在创建后再按 hpath 解析真实文档 ID。
+- `create` 支持人类可读 `path`，也支持 `parentPath` + `title`；省略 `markdown` 即创建空文档。创建子文档时优先使用 `path`。`parentPath` + `title` 可传人类可读父路径，也可传 `lookup` 返回的 `.sy` 结尾 storage path。
 - `lookup` 可按 `id`、存储 `path`、人类可读 `hpath` / `hPath` 查找；用 `include` 请求 `id`、`ids`、`path`、`hpath` 或 `docInfo`。
 - `rename`、`remove`、`move` 在非 ID 模式下通常需要存储路径。
 - `get_child_docs` 必须传文档 `id`，不接受 `notebook + path`。
@@ -61,7 +61,7 @@ siyuan document create --notebook <notebook-id> --path "/Inbox/Weekly Note" --ma
 siyuan document lookup --id <doc-id> --include path
 ```
 
-## Action 列表
+## 动作列表
 
 - `create`
 - `lookup`

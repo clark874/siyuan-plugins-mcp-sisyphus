@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS } from "./config";
+import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FEEDBACK_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS } from "./config";
 import type { NotebookConf } from "../types/shared";
 
 const NotebookConfSchema: z.ZodType<Partial<NotebookConf>> = z.object({
@@ -79,6 +79,7 @@ export const AvActionSchema = z.enum(AV_ACTIONS);
 export const FileActionSchema = z.enum(FILE_ACTIONS);
 export const FlashcardActionSchema = z.enum(FLASHCARD_ACTIONS);
 export const MascotActionSchema = z.enum(MASCOT_ACTIONS);
+export const FeedbackActionSchema = z.enum(FEEDBACK_ACTIONS);
 
 export const FsLsSchema = z.object({
     action: z.literal("ls"),
@@ -207,10 +208,10 @@ export const DocumentCreateSchema = z.object({
     action: z.literal("create"),
     notebook: z.string().describe("Notebook ID"),
     path: z.string().optional().describe("Human-readable target path, must start with / (e.g., /foo/bar). Parent paths must already exist."),
-    parentPath: z.string().optional().describe("Parent human-readable path for title-based creation, must start with /"),
+    parentPath: z.string().optional().describe("Parent human-readable path or storage path ending in .sy for title-based creation, must start with /"),
     title: z.string().optional().describe("Document title when creating under parentPath"),
     markdown: z.string().optional().describe("Markdown content, defaults to empty"),
-    sorts: z.array(z.string()).optional().describe("Optional sorting path segments passed through to SiYuan for parentPath + title creation"),
+    sorts: z.array(z.string()).optional().describe("Compatibility option retained for older callers; title-based creation now uses the reliable path flow"),
     icon: z.string().optional().describe("Optional document icon. Prefer a Unicode hex code string such as '1f4d4' for 📔 instead of a raw emoji character."),
 }).superRefine((value, ctx) => {
     const hasPath = typeof value.path === "string";
@@ -375,6 +376,15 @@ export const MascotShopSchema = z.object({
 export const MascotBuySchema = z.object({
     action: z.literal("buy"),
     item_id: z.string().describe("Stable shop item ID returned by mascot(action=\"shop\")"),
+});
+
+export const FeedbackSubmitSchema = z.object({
+    action: z.literal("submit"),
+    description: z.string().trim().min(1).max(4000).describe("Required feedback text. Prefer a GitHub Issue-style body for bugs, confusing behavior, or rough workflows, with headings such as ## Summary, ## What happened, ## Expected behavior, ## Steps or context, ## Impact, and ## Suggested fix."),
+    impact: z.string().trim().max(1000).optional().describe("Optional one- or two-sentence impact summary, such as affected workflow, error risk, confusion, or inconvenience."),
+    suggestion: z.string().trim().max(1000).optional().describe("Optional direct improvement suggestion; keep it focused and avoid repeating the full description."),
+    agent: z.string().trim().max(200).optional().describe("Optional Agent product and model name, such as Claude Desktop / Claude Sonnet 4.5. Defaults to 无."),
+    source: z.string().trim().max(100).optional().describe("Internal source label. Defaults to the current runtime transport."),
 });
 
 const FlashcardScopeSchema = z.enum(["all", "deck", "notebook", "tree"]);

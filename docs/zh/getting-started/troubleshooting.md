@@ -1,4 +1,4 @@
-# Troubleshooting
+# 故障排查
 
 这个页面汇总了 MCP 连接和调用的常见问题，以及最快的检查路径。
 
@@ -6,8 +6,8 @@
 
 相关页面：
 
-- [Deployment](./deployment.md)
-- [HTTPS](./https.md)
+- [部署指南](./deployment.md)
+- [HTTPS 配置](./https.md)
 
 ## 连接失败
 
@@ -16,7 +16,8 @@
 - 思源是否正在运行，`6806` API 是否可访问
 - 插件是否已启用
 - 如果使用 HTTP，MCP 服务是否已在 `36806` 启动
-- 如果使用 stdio，`mcp-server.cjs` 路径是否正确
+- 如果使用 stdio，`mcp-server.cjs` 路径是否正确，并且是否能被 MCP 客户端所在机器读取
+- Docker 场景下，不要直接使用 `/siyuan/workspace/data/plugins/.../mcp-server.cjs` 这类仅容器内可见的路径，除非该路径也挂载到了客户端机器。请把 `mcp-server.cjs` 复制到客户端侧路径，或从 release package 中解压
 
 ## 工具不可见
 
@@ -55,3 +56,7 @@
 
 - 插件目录：`{workspace}/data/plugins/siyuan-plugins-mcp-sisyphus/`
 - `mcp-server.cjs`：与插件 bundle 同目录
+
+常见 stdio 错误：
+
+- `Failed to reconnect ... -32000`：通常表示 MCP 客户端无法启动 `mcp-server.cjs`，或 server 无法访问 `SIYUAN_API_URL`。Docker 场景下先检查 `args` 是否指向客户端侧文件路径，以及 `SIYUAN_API_URL` 是否指向可访问的思源 API 地址，通常是 `http://<docker-host-ip>:6806`。

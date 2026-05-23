@@ -1,4 +1,6 @@
-export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot'] as const;
+import type { SiYuanClient } from '../api/client';
+
+export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot', 'feedback'] as const;
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
@@ -13,6 +15,7 @@ export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'get_version', 'get_current_time'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
+export const FEEDBACK_ACTIONS = ['submit'] as const;
 
 export type FsAction = typeof FS_ACTIONS[number];
 export type NotebookAction = typeof NOTEBOOK_ACTIONS[number];
@@ -25,6 +28,7 @@ export type TagAction = typeof TAG_ACTIONS[number];
 export type SystemAction = typeof SYSTEM_ACTIONS[number];
 export type FlashcardAction = typeof FLASHCARD_ACTIONS[number];
 export type MascotAction = typeof MASCOT_ACTIONS[number];
+export type FeedbackAction = typeof FEEDBACK_ACTIONS[number];
 
 export type ToolActionMap = {
     fs: FsAction;
@@ -38,6 +42,7 @@ export type ToolActionMap = {
     system: SystemAction;
     flashcard: FlashcardAction;
     mascot: MascotAction;
+    feedback: FeedbackAction;
 };
 
 export interface CategoryToolConfig<Action extends string = string> {
@@ -66,11 +71,16 @@ export type ToolConfig = {
     system: CategoryToolConfig<SystemAction>;
     flashcard: CategoryToolConfig<FlashcardAction>;
     mascot: CategoryToolConfig<MascotAction>;
+    feedback: CategoryToolConfig<FeedbackAction>;
     userRulesText: string;
+    agentSiyuanMemoryText: string;
+    agentSiyuanMemoryUpdatedAt: string;
     debug: DebugToolConfig;
 };
 
 export const MCP_TOOLS_CONFIG_API_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
+export const AGENT_MEMORY_VIRTUAL_PATH = '/AGENTS.md';
+export const AGENT_MEMORY_STALE_AFTER_DAYS = 7;
 const EMITTED_TOOL_CONFIG_WARNINGS = new Set<string>();
 
 export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolActionMap[Category][] } = {
@@ -85,6 +95,7 @@ export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolAct
     system: SYSTEM_ACTIONS,
     flashcard: FLASHCARD_ACTIONS,
     mascot: MASCOT_ACTIONS,
+    feedback: FEEDBACK_ACTIONS,
 };
 
 export type ActionTier = 'basic' | 'advanced';
@@ -156,6 +167,9 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     mascot: {
         get_balance: 'basic', shop: 'basic', buy: 'basic',
     },
+    feedback: {
+        submit: 'basic',
+    },
 };
 
 export function getActionTier(category: ToolCategory, action: string): ActionTier {
@@ -174,6 +188,7 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     system: new Set(['workspace_info']),
     flashcard: new Set(['remove_card']),
     mascot: new Set(),
+    feedback: new Set(),
 };
 
 const createActionsRecord = <Action extends string>(
@@ -234,7 +249,13 @@ export function buildDefaultToolConfig(): ToolConfig {
             enabled: true,
             actions: createActionsRecord(MASCOT_ACTIONS, ['get_balance', 'shop', 'buy']),
         },
+        feedback: {
+            enabled: true,
+            actions: createActionsRecord(FEEDBACK_ACTIONS, ['submit']),
+        },
         userRulesText: '创建文档/日记后主动设图标',
+        agentSiyuanMemoryText: '',
+        agentSiyuanMemoryUpdatedAt: '',
         debug: {
             includeUiRefreshMetadata: false,
             slimResponses: true,
@@ -261,7 +282,7 @@ function collectLegacyToolConfigSignals(raw: Record<string, unknown>): string[] 
     }
 
     const flatActionKeys = Object.entries(raw)
-        .filter(([key, value]) => key !== 'userRulesText' && !TOOL_CATEGORIES.includes(key as ToolCategory) && typeof value === 'boolean')
+        .filter(([key, value]) => !['userRulesText', 'agentSiyuanMemoryText', 'agentSiyuanMemoryUpdatedAt'].includes(key) && !TOOL_CATEGORIES.includes(key as ToolCategory) && typeof value === 'boolean')
         .map(([key]) => key);
     if (flatActionKeys.length > 0) {
         const preview = flatActionKeys.slice(0, 3).join(', ');
@@ -324,6 +345,12 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
     if (typeof raw.userRulesText === 'string') {
         config.userRulesText = raw.userRulesText;
     }
+    if (typeof raw.agentSiyuanMemoryText === 'string') {
+        config.agentSiyuanMemoryText = raw.agentSiyuanMemoryText;
+    }
+    if (typeof raw.agentSiyuanMemoryUpdatedAt === 'string') {
+        config.agentSiyuanMemoryUpdatedAt = raw.agentSiyuanMemoryUpdatedAt;
+    }
     if (isRecord(raw.debug)) {
         if (typeof raw.debug.includeUiRefreshMetadata === 'boolean') {
             config.debug.includeUiRefreshMetadata = raw.debug.includeUiRefreshMetadata;
@@ -372,6 +399,35 @@ export function getEnabledActions(categoryConfig: CategoryToolConfig<string>): s
     return Object.entries(categoryConfig.actions)
         .filter(([, enabled]) => enabled)
         .map(([action]) => action);
+}
+
+export async function loadToolConfigFromApiFile(client: SiYuanClient): Promise<ToolConfig> {
+    try {
+        const content = await client.readFile(MCP_TOOLS_CONFIG_API_PATH);
+        if (!content) return buildDefaultToolConfig();
+        return normalizeToolConfig(JSON.parse(content));
+    } catch {
+        return buildDefaultToolConfig();
+    }
+}
+
+export async function saveToolConfigToApiFile(client: SiYuanClient, config: ToolConfig): Promise<ToolConfig> {
+    const normalized = normalizeToolConfig(config);
+    await client.writeFile(MCP_TOOLS_CONFIG_API_PATH, JSON.stringify(normalized, null, 2));
+    return normalized;
+}
+
+export async function readAgentSiyuanMemory(client: SiYuanClient): Promise<string> {
+    return (await loadToolConfigFromApiFile(client)).agentSiyuanMemoryText ?? '';
+}
+
+export async function writeAgentSiyuanMemory(client: SiYuanClient, text: string): Promise<ToolConfig> {
+    const config = await loadToolConfigFromApiFile(client);
+    return saveToolConfigToApiFile(client, {
+        ...config,
+        agentSiyuanMemoryText: text,
+        agentSiyuanMemoryUpdatedAt: text.trim() ? new Date().toISOString() : '',
+    });
 }
 
 export function isDangerousAction(category: ToolCategory, action: string): boolean {

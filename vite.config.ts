@@ -60,6 +60,7 @@ type BuildTarget = typeof validTargets[number];
 const buildTarget: BuildTarget = (validTargets as readonly string[]).includes(env.BUILD_TARGET ?? "")
     ? (env.BUILD_TARGET as BuildTarget)
     : "renderer";
+const pluginVersion = readPluginVersion();
 
 console.log("isDev=>", isDev);
 console.log("isSrcmap=>", isSrcmap);
@@ -99,6 +100,7 @@ function createRendererConfig() {
         define: {
             "process.env.DEV_MODE": JSON.stringify(isDev),
             "process.env.NODE_ENV": JSON.stringify(env.NODE_ENV),
+            __PLUGIN_VERSION__: JSON.stringify(pluginVersion),
         },
         build: {
             outDir: outputDir,
@@ -175,6 +177,7 @@ function createServerConfig() {
         define: {
             "process.env.DEV_MODE": JSON.stringify(isDev),
             "process.env.NODE_ENV": JSON.stringify(env.NODE_ENV),
+            __PLUGIN_VERSION__: JSON.stringify(pluginVersion),
         },
         build: {
             outDir: outputDir,
@@ -256,6 +259,16 @@ function readCliVersion(): string {
     }
 }
 
+function readPluginVersion(): string {
+    try {
+        const raw = readFileSync(resolve(__dirname, "plugin.json"), "utf8");
+        const parsed = JSON.parse(raw);
+        return typeof parsed.version === "string" ? parsed.version : "0.0.0";
+    } catch {
+        return "0.0.0";
+    }
+}
+
 function createCliConfig() {
     const version = readCliVersion();
     return {
@@ -287,6 +300,7 @@ function createCliConfig() {
             "process.env.DEV_MODE": JSON.stringify(isDev),
             "process.env.NODE_ENV": JSON.stringify(env.NODE_ENV),
             __CLI_VERSION__: JSON.stringify(version),
+            __PLUGIN_VERSION__: JSON.stringify(pluginVersion),
         },
         build: {
             outDir: cliOutputDir,

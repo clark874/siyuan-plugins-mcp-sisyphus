@@ -1,4 +1,4 @@
-# Data Flow
+# 数据流
 
 这个页面描述请求从 MCP 客户端到 SiYuan 的完整流转路径，包括工具发现、工具调用、CLI 直接调用、资源请求、错误处理等全部链路。
 
@@ -17,7 +17,7 @@ getToolConfig()  [30s TTL 缓存 / in-flight 去重]
     ↓ 从 SiYuan 存储读取 /data/storage/petal/.../mcpToolsConfig
     ↓ normalizeToolConfig(raw)  [三种格式兼容迁移]
 listAllTools(config)
-    ↓ 遍历 TOOL_REGISTRY 的 11 个 category
+    ↓ 遍历 TOOL_REGISTRY 的 12 个 category
     ↓ 对每个 module: module.listTools(config[category])
         ↓ tools/internal/define-tool.ts: listTools()
             ↓ 过滤出 enabled 的 action
@@ -218,7 +218,7 @@ Step 7: 渲染
 
 ## 4. 资源请求流程（`resources/read`）
 
-MCP Resources 用于提供静态帮助文档和动态 action help，**不走普通 tool call**。
+MCP 资源用于提供静态帮助文档和动态动作帮助，**不走普通工具调用**。
 
 ### 4.1 静态资源
 
@@ -266,9 +266,9 @@ server.ts: ReadResourceRequestSchema handler
 
 ---
 
-## 5. HTTP Transport 特殊流程
+## 5. HTTP 传输层特殊流程
 
-### 5.1 Session 管理
+### 5.1 会话管理
 
 ```
 AI Client → POST /mcp (初始化请求，无 mcp-session-id)
@@ -294,7 +294,7 @@ http-transport.ts → 读取 SIYUAN_MCP_TOKEN 环境变量
                   → 匹配 → 继续处理
 ```
 
-### 5.3 Parent Watchdog
+### 5.3 父进程看门狗
 
 ```
 启动 HTTP server 时读取 SIYUAN_MCP_PARENT_PID
