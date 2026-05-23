@@ -145,6 +145,16 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(panelSource).toContain('key: "submit"');
     });
 
+    it('keeps user custom rules editable while preserving deferred save behavior', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/UserRulesPanel.svelte'), 'utf8');
+
+        expect(source).not.toContain('$: userRulesText = config.userRulesText');
+        expect(source).toContain('hasDraftChanges');
+        expect(source).toContain('on:input={markDraftChanged}');
+        expect(source).toContain('on:blur={dispatchChanged}');
+        expect(source).toContain('lastSyncedUserRulesText = userRulesText');
+    });
+
     it('keeps mascot display appearance settings in the mascot display panel', () => {
         const puppySource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/PuppyPanel.svelte'), 'utf8');
         const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');

@@ -15,13 +15,35 @@
     const USER_RULES_KEY = "userRulesText";
 
     let userRulesText = "";
+    let lastSyncedUserRulesText = "";
+    let hasDraftChanges = false;
 
-    $: userRulesText = config.userRulesText;
+    $: {
+        const nextUserRulesText = typeof config?.userRulesText === "string" ? config.userRulesText : "";
+        if (nextUserRulesText !== lastSyncedUserRulesText) {
+            lastSyncedUserRulesText = nextUserRulesText;
+            if (!hasDraftChanges) {
+                userRulesText = nextUserRulesText;
+            }
+        }
+    }
     $: title = getLabel("user_rules_title", "User Custom Rules");
     $: description = getLabel("user_rules_desc", "Additional instructions appended to the MCP server prompt at startup. Use this for personal preferences like icon behavior, naming, language, or formatting defaults. Avoid secrets and keep it concise.");
     $: placeholder = getLabel("user_rules_placeholder", "创建文档/日记后主动设图标");
 
+    function markDraftChanged(event: Event) {
+        const target = event.currentTarget as HTMLTextAreaElement;
+        userRulesText = target.value;
+        hasDraftChanges = userRulesText !== lastSyncedUserRulesText;
+    }
+
     function dispatchChanged() {
+        if (userRulesText === lastSyncedUserRulesText) {
+            hasDraftChanges = false;
+            return;
+        }
+        hasDraftChanges = false;
+        lastSyncedUserRulesText = userRulesText;
         const event = new CustomEvent<ChangeEvent>("changed", {
             detail: {
                 key: USER_RULES_KEY,
@@ -46,7 +68,9 @@
             class="b3-text-field user-rules-editor__textarea"
             bind:value={userRulesText}
             {placeholder}
+            on:input={markDraftChanged}
             on:change={dispatchChanged}
+            on:blur={dispatchChanged}
         />
     </section>
 </SettingPanel>
