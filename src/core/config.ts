@@ -78,8 +78,17 @@ export type ToolConfig = {
     debug: DebugToolConfig;
 };
 
+export interface ToolConfigLoadResult {
+    config: ToolConfig;
+    ok: boolean;
+    source: 'api_file' | 'default_fallback';
+    errorMessage?: string;
+    rawLength?: number;
+}
+
 export const MCP_TOOLS_CONFIG_API_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
 export const AGENT_MEMORY_VIRTUAL_PATH = '/AGENTS.md';
+export const USER_RULES_VIRTUAL_PATH = '/USER_RULES.md';
 export const AGENT_MEMORY_STALE_AFTER_DAYS = 7;
 const EMITTED_TOOL_CONFIG_WARNINGS = new Set<string>();
 
@@ -401,14 +410,42 @@ export function getEnabledActions(categoryConfig: CategoryToolConfig<string>): s
         .map(([action]) => action);
 }
 
-export async function loadToolConfigFromApiFile(client: SiYuanClient): Promise<ToolConfig> {
+function formatConfigLoadError(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return String(error);
+}
+
+export async function loadToolConfigFromApiFileWithStatus(client: SiYuanClient): Promise<ToolConfigLoadResult> {
     try {
         const content = await client.readFile(MCP_TOOLS_CONFIG_API_PATH);
-        if (!content) return buildDefaultToolConfig();
-        return normalizeToolConfig(JSON.parse(content));
-    } catch {
-        return buildDefaultToolConfig();
+        if (!content) {
+            return {
+                config: buildDefaultToolConfig(),
+                ok: true,
+                source: 'api_file',
+                rawLength: 0,
+            };
+        }
+        const raw = JSON.parse(content);
+        warnLegacyToolConfigOnce(raw, { source: `SiYuan API file "${MCP_TOOLS_CONFIG_API_PATH}"` });
+        return {
+            config: normalizeToolConfig(raw),
+            ok: true,
+            source: 'api_file',
+            rawLength: content.length,
+        };
+    } catch (error) {
+        return {
+            config: buildDefaultToolConfig(),
+            ok: false,
+            source: 'default_fallback',
+            errorMessage: formatConfigLoadError(error),
+        };
     }
+}
+
+export async function loadToolConfigFromApiFile(client: SiYuanClient): Promise<ToolConfig> {
+    return (await loadToolConfigFromApiFileWithStatus(client)).config;
 }
 
 export async function saveToolConfigToApiFile(client: SiYuanClient, config: ToolConfig): Promise<ToolConfig> {

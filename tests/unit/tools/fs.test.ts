@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { AGENT_MEMORY_VIRTUAL_PATH, MCP_TOOLS_CONFIG_API_PATH, buildDefaultToolConfig } from '@/core/config';
+import { AGENT_MEMORY_VIRTUAL_PATH, MCP_TOOLS_CONFIG_API_PATH, USER_RULES_VIRTUAL_PATH, buildDefaultToolConfig } from '@/core/config';
 import { callFsTool } from '@/tools/fs';
 import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
@@ -25,10 +25,11 @@ function fsConfig() {
     return buildDefaultToolConfig().fs;
 }
 
-function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[]; agentMemory?: string; agentMemoryUpdatedAt?: string } = {}) {
+function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[]; agentMemory?: string; agentMemoryUpdatedAt?: string; userRulesText?: string } = {}) {
     const missing = new Set(options.missingPaths ?? []);
     let storedConfig = {
         ...buildDefaultToolConfig(),
+        userRulesText: options.userRulesText ?? '创建文档/日记后主动设图标',
         agentSiyuanMemoryText: options.agentMemory ?? '',
         agentSiyuanMemoryUpdatedAt: options.agentMemoryUpdatedAt ?? '',
     };
@@ -120,6 +121,7 @@ describe('fs tool', () => {
 
         expect(parsed.items).toEqual([
             { name: 'AGENTS.md', path: AGENT_MEMORY_VIRTUAL_PATH, children: 0, virtual: true },
+            { name: 'USER_RULES.md', path: USER_RULES_VIRTUAL_PATH, children: 0, virtual: true },
             { name: 'Notebook', path: '/Notebook', children: 1 },
         ]);
         expect(JSON.stringify(parsed)).not.toContain('/Archive');
@@ -164,9 +166,10 @@ describe('fs tool', () => {
         const result = await callFsTool(client, { action: 'tree', path: '/' }, fsConfig(), createPermMgr({ 'nb-1': 'r', 'nb-2': 'none' }));
         const parsed = parseResult(result);
 
-        expect(parsed.tree).toHaveLength(2);
+        expect(parsed.tree).toHaveLength(3);
         expect(parsed.tree[0]).toEqual({ name: 'AGENTS.md', path: AGENT_MEMORY_VIRTUAL_PATH, children: [], virtual: true });
-        expect(parsed.tree[1].path).toBe('/Notebook');
+        expect(parsed.tree[1]).toEqual({ name: 'USER_RULES.md', path: USER_RULES_VIRTUAL_PATH, children: [], virtual: true });
+        expect(parsed.tree[2].path).toBe('/Notebook');
         expect(JSON.stringify(parsed)).not.toContain('/Archive');
     });
 
@@ -196,6 +199,42 @@ describe('fs tool', () => {
         expect(client.readFile).toHaveBeenCalledWith(MCP_TOOLS_CONFIG_API_PATH);
         expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
         expect(client.request).not.toHaveBeenCalledWith('/api/notebook/lsNotebooks', expect.anything());
+    });
+
+    it('reads user rules from the read-only virtual root file without document APIs', async () => {
+        const client = createFsClient({ userRulesText: 'Rule one\nRule two' });
+        const result = await callFsTool(client, { action: 'read', path: USER_RULES_VIRTUAL_PATH }, fsConfig(), createPermMgr('none'));
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({
+            path: USER_RULES_VIRTUAL_PATH,
+            virtual: true,
+            content: 'Rule one\nRule two',
+        });
+        expect(client.readFile).toHaveBeenCalledWith(MCP_TOOLS_CONFIG_API_PATH);
+        expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/notebook/lsNotebooks', expect.anything());
+    });
+
+    it('returns empty content for the user rules virtual file when no rules are configured', async () => {
+        const client = createFsClient({ userRulesText: '' });
+        const result = await callFsTool(client, { action: 'read', path: USER_RULES_VIRTUAL_PATH }, fsConfig(), createPermMgr('none'));
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({
+            path: USER_RULES_VIRTUAL_PATH,
+            virtual: true,
+            content: '',
+        });
+    });
+
+    it('rejects child paths under virtual root files', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'read', path: `${USER_RULES_VIRTUAL_PATH}/child` }, fsConfig(), createPermMgr());
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain(`${USER_RULES_VIRTUAL_PATH} is a virtual file and has no children`);
+        expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
     });
 
     it('denies reads when notebook permission is none', async () => {
@@ -243,6 +282,18 @@ describe('fs tool', () => {
         expect(client.getStoredConfig().userRulesText).toBe('创建文档/日记后主动设图标');
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/createDocWithMd', expect.anything());
         expect(client.request).not.toHaveBeenCalledWith('/api/ui/reloadFiletree', expect.anything());
+    });
+
+    it('rejects writes to the read-only user rules virtual file', async () => {
+        const client = createFsClient({ userRulesText: 'Existing rule' });
+        const result = await callFsTool(client, { action: 'write', path: USER_RULES_VIRTUAL_PATH, markdown: 'New rule' }, fsConfig(), createPermMgr('none'));
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('read-only virtual file');
+        expect(result.content[0].text).toContain('plugin settings');
+        expect(client.getStoredConfig().userRulesText).toBe('Existing rule');
+        expect(client.writeFile).not.toHaveBeenCalled();
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/createDocWithMd', expect.anything());
     });
 
     it('denies creates when notebook permission is read-only', async () => {
@@ -328,6 +379,21 @@ describe('fs tool', () => {
         expect(client.getStoredConfig().agentSiyuanMemoryUpdatedAt).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/));
         expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
         expect(client.request).not.toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
+    });
+
+    it('rejects replacements in the read-only user rules virtual file', async () => {
+        const client = createFsClient({ userRulesText: 'Always set icons.' });
+        const result = await callFsTool(client, {
+            action: 'replace',
+            path: USER_RULES_VIRTUAL_PATH,
+            edit: { old: 'icons', new: 'emoji' },
+        }, fsConfig(), createPermMgr('none'));
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('read-only virtual file');
+        expect(client.getStoredConfig().userRulesText).toBe('Always set icons.');
+        expect(client.writeFile).not.toHaveBeenCalled();
+        expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
     });
 
     it('denies replacements when notebook permission is read-only', async () => {
@@ -478,13 +544,28 @@ describe('fs tool', () => {
         expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
     });
 
-    it('includes agent memory matches in root search results', async () => {
-        const client = createFsClient({ agentMemory: 'budget workspace memory' });
+    it('searches only user rules when scoped to the read-only virtual root file', async () => {
+        const client = createFsClient({ userRulesText: 'Always set icons\nPrefer concise titles' });
+        const result = await callFsTool(client, { action: 'search', path: USER_RULES_VIRTUAL_PATH, query: 'icons' }, fsConfig(), createPermMgr('none'));
+        const parsed = parseResult(result);
+
+        expect(parsed.data).toEqual([{ path: USER_RULES_VIRTUAL_PATH, line: 1, text: 'Always set icons' }]);
+        expect(parsed.virtual).toBe(true);
+        expect(client.request).not.toHaveBeenCalledWith('/api/notebook/lsNotebooks', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
+    });
+
+    it('includes virtual file matches in root search results', async () => {
+        const client = createFsClient({
+            agentMemory: 'budget workspace memory',
+            userRulesText: 'Prefer budget summaries',
+        });
         const result = await callFsTool(client, { action: 'search', path: '/', query: 'budget' }, fsConfig(), createPermMgr());
         const parsed = parseResult(result);
 
         expect(parsed.data).toEqual([
             { path: AGENT_MEMORY_VIRTUAL_PATH, line: 1, text: 'budget workspace memory' },
+            { path: USER_RULES_VIRTUAL_PATH, line: 1, text: 'Prefer budget summaries' },
             { path: '/Notebook/Doc 1', line: 2, text: 'budget line' },
         ]);
     });
@@ -537,6 +618,17 @@ describe('fs tool', () => {
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/removeDocByID', expect.anything());
     });
 
+    it('rejects removing the read-only user rules virtual file', async () => {
+        const client = createFsClient({ userRulesText: 'Existing rule' });
+        const result = await callFsTool(client, { action: 'rm', path: USER_RULES_VIRTUAL_PATH }, fsConfig(), createPermMgr('none'));
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('read-only virtual file');
+        expect(client.getStoredConfig().userRulesText).toBe('Existing rule');
+        expect(client.writeFile).not.toHaveBeenCalled();
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/removeDocByID', expect.anything());
+    });
+
     it('accepts remove as an alias for rm', async () => {
         const client = createFsClient();
         const result = await callFsTool(client, { action: 'remove', path: '/Notebook/Doc 1' }, fsConfig(), createPermMgr());
@@ -574,6 +666,16 @@ describe('fs tool', () => {
 
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toContain('fixed virtual file');
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/moveDocsByID', expect.anything());
+    });
+
+    it('rejects moving or renaming the read-only user rules virtual file', async () => {
+        const client = createFsClient({ userRulesText: 'Existing rule' });
+        const result = await callFsTool(client, { action: 'mv', from: USER_RULES_VIRTUAL_PATH, to: '/Notebook/Renamed' }, fsConfig(), createPermMgr());
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('read-only virtual file');
+        expect(client.getStoredConfig().userRulesText).toBe('Existing rule');
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/moveDocsByID', expect.anything());
     });
 

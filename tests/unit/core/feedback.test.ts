@@ -95,7 +95,7 @@ describe('feedback submission', () => {
             suggestion: '希望增加反馈入口',
             agent: 'Codex / GPT-5',
             source: 'http',
-            pluginVersion: '0.4.8',
+            pluginVersion: '0.4.9',
         }, fetcher);
 
         expect(result).toEqual({
@@ -122,7 +122,7 @@ describe('feedback submission', () => {
             isManualInput: true,
         });
         expect(posted.answerJson.answers.fu27dr.strValue).toBe('Codex / GPT-5');
-        expect(posted.answerJson.answers.yl3by8.strValue).toBe('0.4.8');
+        expect(posted.answerJson.answers.yl3by8.strValue).toBe('0.4.9');
         expect(posted.answerJson.answersProperty.commitInfo.optionId).toBe('7p65io');
         expect(posted.csrfmiddlewaretoken).toEqual(expect.any(String));
     });
@@ -133,7 +133,7 @@ describe('feedback submission', () => {
         expect(resolveFeedbackSource('stdio')).toBe('stdio');
         expect(resolveFeedbackSource('http')).toBe('http');
         expect(resolvePluginVersion(' 0.4.9 ')).toBe('0.4.9');
-        expect(resolvePluginVersion('   ')).toBe('0.4.8');
+        expect(resolvePluginVersion('   ')).toBe('0.4.9');
     });
 
     it('fails clearly when the form requires login or submit returns an error', async () => {

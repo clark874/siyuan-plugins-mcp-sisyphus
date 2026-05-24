@@ -5,7 +5,7 @@ import { startHttpMcpServer, type TlsOptions } from './http-transport';
 import { buildServerInstructions } from './server-instructions';
 
 import { SiYuanClient } from '../api/client';
-import { MCP_TOOLS_CONFIG_API_PATH, buildDefaultToolConfig, normalizeToolConfig, warnLegacyToolConfigOnce, type ToolConfig } from './config';
+import { buildDefaultToolConfig, loadToolConfigFromApiFileWithStatus, type ToolConfig, type ToolConfigLoadResult } from './config';
 import { noopSchemaValidator } from './noops/noop-schema-validator';
 
 import { PermissionManager } from './permissions';
@@ -16,17 +16,8 @@ import { runToolCall } from './tool-lifecycle';
 export { buildServerInstructions } from './server-instructions';
 
 async function tryReadConfigFromAPI(client: SiYuanClient): Promise<ToolConfig | null> {
-    try {
-        const content = await client.readFile(MCP_TOOLS_CONFIG_API_PATH);
-        if (content) {
-            const raw = JSON.parse(content);
-            warnLegacyToolConfigOnce(raw, { source: `SiYuan API file "${MCP_TOOLS_CONFIG_API_PATH}"` });
-            return normalizeToolConfig(raw);
-        }
-    } catch {
-        // Ignore missing or invalid config files.
-    }
-    return null;
+    const result = await loadToolConfigFromApiFileWithStatus(client);
+    return result.ok && result.rawLength !== 0 ? result.config : null;
 }
 
 async function initSiYuanClient(): Promise<SiYuanClient> {
@@ -49,9 +40,19 @@ function createFastClient(): SiYuanClient {
     return client;
 }
 
+function createInstructionClient(): SiYuanClient {
+    const client = new SiYuanClient({ timeout: 10000 });
+    const envToken = process.env.SIYUAN_TOKEN;
+    if (envToken) {
+        client.setToken(envToken);
+    }
+    return client;
+}
+
 export async function createSiYuanServer(): Promise<Server> {
     const client = await initSiYuanClient();
     const fastClient = createFastClient();
+    const instructionClient = createInstructionClient();
 
     async function getToolConfig(): Promise<ToolConfig> {
         try {
@@ -63,7 +64,8 @@ export async function createSiYuanServer(): Promise<Server> {
         return buildDefaultToolConfig();
     }
 
-    const initialConfig = await getToolConfig();
+    const initialConfigLoad: ToolConfigLoadResult = await loadToolConfigFromApiFileWithStatus(instructionClient);
+    const initialConfig = initialConfigLoad.config;
     const server = new Server(
         { name: 'siyuan-mcp', version: '2.0.0' },
         {
@@ -72,6 +74,9 @@ export async function createSiYuanServer(): Promise<Server> {
                 userRulesText: initialConfig.userRulesText,
                 agentSiyuanMemoryText: initialConfig.agentSiyuanMemoryText,
                 agentSiyuanMemoryUpdatedAt: initialConfig.agentSiyuanMemoryUpdatedAt,
+                agentSiyuanMemoryConfigSource: initialConfigLoad.source,
+                agentSiyuanMemoryConfigOk: initialConfigLoad.ok,
+                agentSiyuanMemoryConfigError: initialConfigLoad.errorMessage,
             }).trim(),
             jsonSchemaValidator: noopSchemaValidator,
         },

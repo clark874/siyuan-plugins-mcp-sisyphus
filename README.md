@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **Latest:** `v0.4.8` — Custom cat colors, built-in feedback from both agents and users, and virtual `/AGENTS.md` memory for agent context.
+> **Latest:** `v0.4.9` — Fallback agent instructions for clients that do not inject MCP `server.instructions`, keeping `/AGENTS.md` memory and user-rule guidance discoverable.
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">

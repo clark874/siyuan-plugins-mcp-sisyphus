@@ -1,5 +1,5 @@
 import type { SiYuanClient } from '../api/client';
-import { TOOL_CATEGORIES, type ToolCategory, type ToolConfig } from './config';
+import { AGENT_MEMORY_VIRTUAL_PATH, TOOL_CATEGORIES, USER_RULES_VIRTUAL_PATH, type ToolCategory, type ToolConfig } from './config';
 import type { PermissionManager } from './permissions';
 import type { ToolResult } from '@/tools/internal/shared';
 
@@ -76,7 +76,8 @@ export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
     mascot: { category: 'mascot', listTools: listMascotTools as ToolModule['listTools'], callTool: callMascotTool as ToolModule['callTool'] },
 };
 
-export const USER_RULES_TOOL_DESCRIPTION_REMINDER = 'Active user custom rules apply. Check the server instructions or siyuan://help/user-rules before choosing actions.';
+export const USER_RULES_TOOL_DESCRIPTION_REMINDER = `Active user custom rules apply. Read fs(action="read", path="${USER_RULES_VIRTUAL_PATH}") or siyuan://help/user-rules before choosing actions.`;
+export const AGENT_MEMORY_TOOL_DESCRIPTION_REMINDER = `For SiYuan workspace-aware tasks, first read the virtual memory file with fs(action="read", path="${AGENT_MEMORY_VIRTUAL_PATH}").`;
 
 export function resolveCategory(name: string): ToolCategory | null {
     return TOOL_CATEGORIES.includes(name as ToolCategory) ? (name as ToolCategory) : null;
@@ -84,14 +85,13 @@ export function resolveCategory(name: string): ToolCategory | null {
 
 export function listAllTools(config: ToolConfig): ToolDescriptor[] {
     const tools = TOOL_CATEGORIES.flatMap((cat) => TOOL_REGISTRY[cat].listTools(config[cat]));
-    if (!config.userRulesText.trim()) {
-        return tools;
-    }
 
     return tools.map((tool) => ({
         ...tool,
-        description: tool.description
-            ? `${tool.description}\n\n${USER_RULES_TOOL_DESCRIPTION_REMINDER}`
-            : USER_RULES_TOOL_DESCRIPTION_REMINDER,
+        description: [
+            tool.description,
+            AGENT_MEMORY_TOOL_DESCRIPTION_REMINDER,
+            config.userRulesText.trim() ? USER_RULES_TOOL_DESCRIPTION_REMINDER : '',
+        ].filter(Boolean).join('\n\n'),
     }));
 }

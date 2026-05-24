@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { resetToolConfigWarningStateForTests } from '@/core/config';
+import { USER_RULES_VIRTUAL_PATH, resetToolConfigWarningStateForTests } from '@/core/config';
 import { USER_RULES_RESOURCE_URI } from '@/core/help';
 import { buildServerInstructions, createSiYuanServer } from '@/core/server';
-import { USER_RULES_TOOL_DESCRIPTION_REMINDER } from '@/core/tool-registry';
+import { AGENT_MEMORY_TOOL_DESCRIPTION_REMINDER, USER_RULES_TOOL_DESCRIPTION_REMINDER } from '@/core/tool-registry';
 
 const jsonResponse = (payload: unknown): Response => ({
     ok: true,
@@ -15,10 +15,12 @@ const jsonResponse = (payload: unknown): Response => ({
 describe('MCP Server Integration', () => {
     let client: Client;
     let storedFiles: Record<string, string>;
+    let failConfigRead = false;
 
     beforeEach(async () => {
         resetToolConfigWarningStateForTests();
         global.fetch = vi.fn();
+        failConfigRead = false;
         process.env.SIYUAN_TOKEN = 'test-token';
         storedFiles = {
             '/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions': '{}',
@@ -31,6 +33,9 @@ describe('MCP Server Integration', () => {
 
             if (urlStr.includes('/api/file/getFile')) {
                 const body = init?.body ? JSON.parse(String(init.body)) as { path?: string } : {};
+                if (failConfigRead && body.path?.endsWith('/mcpToolsConfig')) {
+                    throw new Error('config read unavailable');
+                }
                 return {
                     ok: true,
                     text: async () => storedFiles[body.path ?? ''] ?? '',
@@ -147,6 +152,7 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain(userRule);
             expect(instructions.indexOf('# Active user custom rules')).toBeLessThan(instructions.indexOf('## Help and progressive disclosure'));
             expect(instructions).toContain('User custom rules do not override safety confirmation requirements, notebook permissions, disabled tools, or disabled actions.');
+            expect(instructions).toContain(`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")`);
             expect(instructions).toContain('siyuan://help/user-rules');
         });
 
@@ -178,6 +184,7 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('Status: fresh');
             expect(instructions).toContain('Last updated:');
             expect(instructions).toContain('Stale threshold: 7 days');
+            expect(instructions).toContain('Config source: api file');
             expect(instructions).toContain('## What to write in /AGENTS.md');
             expect(instructions).toContain('Workspace has Inbox and Projects notebooks.');
             expect(instructions).toContain('lower priority than user requests, active user custom rules, safety confirmation requirements');
@@ -211,6 +218,64 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('Old workspace state.');
         });
 
+        it('marks agent memory with missing timestamp as stale while preserving content', () => {
+            const instructions = buildServerInstructions({
+                userRulesText: '',
+                agentSiyuanMemoryText: 'Workspace state without timestamp.',
+                agentSiyuanMemoryUpdatedAt: '',
+                agentSiyuanMemoryConfigSource: 'api_file',
+                agentSiyuanMemoryConfigOk: true,
+            });
+
+            expect(instructions).toContain('Status: stale');
+            expect(instructions).toContain('Last updated: unknown');
+            expect(instructions).toContain('Config source: api file');
+            expect(instructions).toContain('Workspace state without timestamp.');
+            expect(instructions).not.toContain('(not created yet)');
+        });
+
+        it('exposes config read failures in initialize instructions without blocking server startup', async () => {
+            failConfigRead = true;
+
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+
+            const fallbackClient = new Client({ name: 'config-failure-client', version: '1.0.0' });
+            await fallbackClient.connect(clientTransport);
+            const instructions = fallbackClient.getInstructions() ?? '';
+
+            expect(instructions).toContain('# Agent siyuan memory');
+            expect(instructions).toContain('Config source: default fallback; read failed: config read unavailable');
+            expect(instructions).toContain('MCP could not read the configured virtual memory during initialize.');
+            expect(instructions).not.toContain('ask the user whether to create `/AGENTS.md`');
+
+            await fallbackClient.close();
+        });
+
+        it('injects configured agent memory into the MCP initialize result', async () => {
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify({
+                userRulesText: '',
+                agentSiyuanMemoryText: 'Workspace has Inbox and Projects notebooks.',
+                agentSiyuanMemoryUpdatedAt: new Date().toISOString(),
+            });
+
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+
+            const memoryClient = new Client({ name: 'memory-initialize-client', version: '1.0.0' });
+            await memoryClient.connect(clientTransport);
+            const instructions = memoryClient.getInstructions() ?? '';
+
+            expect(instructions).toContain('# Agent siyuan memory');
+            expect(instructions).toContain('Status: fresh');
+            expect(instructions).toContain('Config source: api file');
+            expect(instructions).toContain('Workspace has Inbox and Projects notebooks.');
+
+            await memoryClient.close();
+        });
+
         it('includes block update guidance for multi-line content', () => {
             const instructions = buildServerInstructions('');
 
@@ -228,6 +293,7 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('fs(action="write", path="/Notebook/Folder/Doc", markdown="...", overwrite=true)');
             expect(instructions).toContain('fs(action="mv", from="/Notebook/Old", to="/Notebook/New")');
             expect(instructions).toContain('Prefer `fs` for basic browse/read/write/edit/search/move/delete workflows.');
+            expect(instructions).toContain(`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")`);
         });
 
         it('should list tools with expected names', async () => {
@@ -305,9 +371,35 @@ describe('MCP Server Integration', () => {
             expect(tools.length).toBeGreaterThan(0);
             for (const tool of tools) {
                 expect(tool.description).toContain(USER_RULES_TOOL_DESCRIPTION_REMINDER);
+                expect(tool.description).toContain(`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")`);
+                expect(tool.description).not.toContain('Always set document icons.');
             }
 
             await rulesClient.close();
+        });
+
+        it('adds a light agent memory reminder to tool descriptions without embedding memory content', async () => {
+            storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify({
+                userRulesText: '',
+                agentSiyuanMemoryText: 'Workspace has sensitive project map.',
+                agentSiyuanMemoryUpdatedAt: new Date().toISOString(),
+            });
+
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+
+            const memoryDescriptionClient = new Client({ name: 'memory-description-client', version: '1.0.0' });
+            await memoryDescriptionClient.connect(clientTransport);
+            const { tools } = await memoryDescriptionClient.listTools();
+
+            expect(tools.length).toBeGreaterThan(0);
+            for (const tool of tools) {
+                expect(tool.description).toContain(AGENT_MEMORY_TOOL_DESCRIPTION_REMINDER);
+                expect(tool.description).not.toContain('Workspace has sensitive project map.');
+            }
+
+            await memoryDescriptionClient.close();
         });
     });
 
