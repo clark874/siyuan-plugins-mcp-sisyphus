@@ -2,7 +2,7 @@ import * as blockApi from '../../api/block';
 import * as documentApi from '../../api/document';
 import * as fileApi from '../../api/file';
 import * as notebookApi from '../../api/notebook';
-import { AGENT_MEMORY_VIRTUAL_PATH, loadToolConfigFromApiFile, writeAgentSiyuanMemory, type FsAction } from '../../core/config';
+import { AGENT_MEMORY_VIRTUAL_PATH, USER_RULES_VIRTUAL_PATH, loadToolConfigFromApiFile, writeAgentSiyuanMemory, type FsAction } from '../../core/config';
 import { normalizeMarkdownContent } from '../../core/normalize';
 import {
     FsLsSchema,
@@ -63,25 +63,47 @@ function normalizeFsPath(path: string): string {
     return collapsed.length > 1 ? collapsed.replace(/\/+$/, '') : collapsed;
 }
 
-function isAgentMemoryPath(path: string): boolean {
-    return normalizeFsPath(path) === AGENT_MEMORY_VIRTUAL_PATH;
+const VIRTUAL_ROOT_FILES = [AGENT_MEMORY_VIRTUAL_PATH, USER_RULES_VIRTUAL_PATH] as const;
+type VirtualRootFilePath = typeof VIRTUAL_ROOT_FILES[number];
+
+function getVirtualRootFilePath(path: string): VirtualRootFilePath | null {
+    const normalized = normalizeFsPath(path);
+    return VIRTUAL_ROOT_FILES.find((virtualPath) => normalized === virtualPath) ?? null;
 }
 
-function isAgentMemoryDescendantPath(path: string): boolean {
-    return normalizeFsPath(path).startsWith(`${AGENT_MEMORY_VIRTUAL_PATH}/`);
+function getVirtualRootFileDescendantPath(path: string): VirtualRootFilePath | null {
+    const normalized = normalizeFsPath(path);
+    return VIRTUAL_ROOT_FILES.find((virtualPath) => normalized.startsWith(`${virtualPath}/`)) ?? null;
 }
 
-function assertNotAgentMemoryDescendant(path: string) {
-    if (isAgentMemoryDescendantPath(path)) {
-        throw new Error(`${AGENT_MEMORY_VIRTUAL_PATH} is a virtual file and has no children.`);
+function assertNotVirtualRootFileDescendant(path: string) {
+    const virtualPath = getVirtualRootFileDescendantPath(path);
+    if (virtualPath) {
+        throw new Error(`${virtualPath} is a virtual file and has no children.`);
     }
 }
 
-function createAgentMemoryListItem(): FsListItem {
+function assertUserRulesWritable(path: string) {
+    const virtualPath = getVirtualRootFilePath(path) ?? getVirtualRootFileDescendantPath(path);
+    if (virtualPath === USER_RULES_VIRTUAL_PATH) {
+        throw new Error(`${USER_RULES_VIRTUAL_PATH} is a read-only virtual file. Edit user rules in the plugin settings.`);
+    }
+}
+
+function createVirtualListItem(path: VirtualRootFilePath): FsListItem {
     return {
-        name: AGENT_MEMORY_VIRTUAL_PATH.slice(1),
-        path: AGENT_MEMORY_VIRTUAL_PATH,
+        name: path.slice(1),
+        path,
         children: 0,
+        virtual: true,
+    };
+}
+
+function createVirtualTreeNode(path: VirtualRootFilePath): { name: string; path: string; children: unknown[]; virtual: true } {
+    return {
+        name: path.slice(1),
+        path,
+        children: [],
         virtual: true,
     };
 }
@@ -292,12 +314,12 @@ function createMatcher(query: string, regex?: boolean, caseSensitive?: boolean):
     return (line) => (caseSensitive ? line : line.toLowerCase()).includes(needle);
 }
 
-function collectMemoryMatches(content: string, matcher: (line: string) => boolean): Array<{ path: string; line: number; text: string }> {
+function collectVirtualTextMatches(content: string, matcher: (line: string) => boolean, path: VirtualRootFilePath): Array<{ path: string; line: number; text: string }> {
     const matches: Array<{ path: string; line: number; text: string }> = [];
     content.split(/\r?\n/).forEach((line, index) => {
         if (matcher(line)) {
             matches.push({
-                path: AGENT_MEMORY_VIRTUAL_PATH,
+                path,
                 line: index + 1,
                 text: line.length > 300 ? `${line.slice(0, 297)}...` : line,
             });
@@ -314,16 +336,24 @@ async function readAgentMemoryState(client: Parameters<FsActionHandler>[0]['clie
     };
 }
 
+async function readUserRulesState(client: Parameters<FsActionHandler>[0]['client']) {
+    const config = await loadToolConfigFromApiFile(client);
+    return {
+        content: config.userRulesText ?? '',
+    };
+}
+
 const handleLs: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsLsSchema.parse(rawArgs);
-    assertNotAgentMemoryDescendant(parsed.path);
-    if (isAgentMemoryPath(parsed.path)) {
-        throw new Error(`${AGENT_MEMORY_VIRTUAL_PATH} is a virtual file and has no children.`);
+    assertNotVirtualRootFileDescendant(parsed.path);
+    const virtualPath = getVirtualRootFilePath(parsed.path);
+    if (virtualPath) {
+        throw new Error(`${virtualPath} is a virtual file and has no children.`);
     }
     const scope = await resolveFsScopePath(client, permMgr, parsed.path, 'read');
     if (scope.type === 'root') {
         const notebooks = await listReadableNotebooks(client, permMgr);
-        const items: FsListItem[] = [createAgentMemoryListItem()];
+        const items: FsListItem[] = VIRTUAL_ROOT_FILES.map((path) => createVirtualListItem(path));
         for (const notebook of notebooks) {
             let children = 0;
             try {
@@ -342,10 +372,11 @@ const handleLs: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleTree: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsTreeSchema.parse(rawArgs);
-    assertNotAgentMemoryDescendant(parsed.path);
-    if (isAgentMemoryPath(parsed.path)) {
+    assertNotVirtualRootFileDescendant(parsed.path);
+    const virtualPath = getVirtualRootFilePath(parsed.path);
+    if (virtualPath) {
         return createJsonResult({
-            path: AGENT_MEMORY_VIRTUAL_PATH,
+            path: virtualPath,
             tree: [],
             virtual: true,
             maxDepth: parsed.maxDepth ?? 3,
@@ -355,12 +386,7 @@ const handleTree: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const maxDepth = parsed.maxDepth ?? 3;
     if (scope.type === 'root') {
         const notebooks = await listReadableNotebooks(client, permMgr);
-        const tree: Array<{ name: string; path: string; children: unknown[]; virtual?: boolean }> = [{
-            name: AGENT_MEMORY_VIRTUAL_PATH.slice(1),
-            path: AGENT_MEMORY_VIRTUAL_PATH,
-            children: [],
-            virtual: true,
-        }];
+        const tree: Array<{ name: string; path: string; children: unknown[]; virtual?: boolean }> = VIRTUAL_ROOT_FILES.map((path) => createVirtualTreeNode(path));
         for (const notebook of notebooks) {
             const result = await documentApi.listDocTree(client, notebook.id, '/');
             tree.push({
@@ -383,14 +409,33 @@ const handleTree: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleRead: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsReadSchema.parse(rawArgs);
-    assertNotAgentMemoryDescendant(parsed.path);
-    if (isAgentMemoryPath(parsed.path)) {
+    assertNotVirtualRootFileDescendant(parsed.path);
+    const virtualPath = getVirtualRootFilePath(parsed.path);
+    if (virtualPath === AGENT_MEMORY_VIRTUAL_PATH) {
         const memory = await readAgentMemoryState(client);
         const paged = paginateContent(memory.content, parsed.page, parsed.pageSize);
         return createJsonResult({
             path: AGENT_MEMORY_VIRTUAL_PATH,
             virtual: true,
             updatedAt: memory.updatedAt || null,
+            content: paged.content,
+            ...(paged.truncated ? {
+                truncated: true,
+                contentLength: paged.contentLength,
+                showing: paged.showing,
+                page: paged.page,
+                pageSize: paged.pageSize,
+                pageCount: paged.pageCount,
+                hasNextPage: paged.hasNextPage,
+            } : {}),
+        });
+    }
+    if (virtualPath === USER_RULES_VIRTUAL_PATH) {
+        const rules = await readUserRulesState(client);
+        const paged = paginateContent(rules.content, parsed.page, parsed.pageSize);
+        return createJsonResult({
+            path: USER_RULES_VIRTUAL_PATH,
+            virtual: true,
             content: paged.content,
             ...(paged.truncated ? {
                 truncated: true,
@@ -427,8 +472,10 @@ const handleRead: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsWriteSchema.parse(rawArgs);
-    assertNotAgentMemoryDescendant(parsed.path);
-    if (isAgentMemoryPath(parsed.path)) {
+    assertUserRulesWritable(parsed.path);
+    assertNotVirtualRootFileDescendant(parsed.path);
+    const virtualPath = getVirtualRootFilePath(parsed.path);
+    if (virtualPath === AGENT_MEMORY_VIRTUAL_PATH) {
         const config = await writeAgentSiyuanMemory(client, parsed.markdown);
         return createJsonResult({
             success: true,
@@ -471,8 +518,10 @@ const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsReplaceSchema.parse(rawArgs);
-    assertNotAgentMemoryDescendant(parsed.path);
-    if (isAgentMemoryPath(parsed.path)) {
+    assertUserRulesWritable(parsed.path);
+    assertNotVirtualRootFileDescendant(parsed.path);
+    const virtualPath = getVirtualRootFilePath(parsed.path);
+    if (virtualPath === AGENT_MEMORY_VIRTUAL_PATH) {
         const memory = await readAgentMemoryState(client);
         const originalContent = memory.content;
         const edits = Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit];
@@ -525,8 +574,10 @@ const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleRm: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsRmSchema.parse(rawArgs);
-    assertNotAgentMemoryDescendant(parsed.path);
-    if (isAgentMemoryPath(parsed.path)) {
+    assertUserRulesWritable(parsed.path);
+    assertNotVirtualRootFileDescendant(parsed.path);
+    const virtualPath = getVirtualRootFilePath(parsed.path);
+    if (virtualPath === AGENT_MEMORY_VIRTUAL_PATH) {
         const config = await writeAgentSiyuanMemory(client, '');
         return createJsonResult({
             success: true,
@@ -549,7 +600,12 @@ const handleRm: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleMv: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsMvSchema.parse(rawArgs);
-    if (isAgentMemoryPath(parsed.from) || isAgentMemoryPath(parsed.to) || isAgentMemoryDescendantPath(parsed.from) || isAgentMemoryDescendantPath(parsed.to)) {
+    assertUserRulesWritable(parsed.from);
+    assertUserRulesWritable(parsed.to);
+    if (getVirtualRootFilePath(parsed.from) === AGENT_MEMORY_VIRTUAL_PATH
+        || getVirtualRootFilePath(parsed.to) === AGENT_MEMORY_VIRTUAL_PATH
+        || getVirtualRootFileDescendantPath(parsed.from) === AGENT_MEMORY_VIRTUAL_PATH
+        || getVirtualRootFileDescendantPath(parsed.to) === AGENT_MEMORY_VIRTUAL_PATH) {
         throw new Error(`${AGENT_MEMORY_VIRTUAL_PATH} is a fixed virtual file and cannot be moved or renamed.`);
     }
     const source = await resolveFsScopePath(client, permMgr, parsed.from, 'write');
@@ -586,11 +642,12 @@ const handleMv: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsSearchSchema.parse(rawArgs);
-    assertNotAgentMemoryDescendant(parsed.path);
+    assertNotVirtualRootFileDescendant(parsed.path);
     const matcher = createMatcher(parsed.query, parsed.regex, parsed.caseSensitive);
-    if (isAgentMemoryPath(parsed.path)) {
+    const virtualPath = getVirtualRootFilePath(parsed.path);
+    if (virtualPath === AGENT_MEMORY_VIRTUAL_PATH) {
         const memory = await readAgentMemoryState(client);
-        const matches = collectMemoryMatches(memory.content, matcher);
+        const matches = collectVirtualTextMatches(memory.content, matcher, AGENT_MEMORY_VIRTUAL_PATH);
         const page = parsed.page ?? 1;
         const pageSize = parsed.pageSize ?? 50;
         const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
@@ -611,6 +668,28 @@ const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
             caseSensitive: parsed.caseSensitive ?? false,
         });
     }
+    if (virtualPath === USER_RULES_VIRTUAL_PATH) {
+        const rules = await readUserRulesState(client);
+        const matches = collectVirtualTextMatches(rules.content, matcher, USER_RULES_VIRTUAL_PATH);
+        const page = parsed.page ?? 1;
+        const pageSize = parsed.pageSize ?? 50;
+        const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
+        const normalizedPage = Math.min(page, pageCount);
+        const start = (normalizedPage - 1) * pageSize;
+        return createPaginatedResult(matches.slice(start, start + pageSize), {
+            total: matches.length,
+            page: normalizedPage,
+            pageSize,
+            pageCount,
+            hasNextPage: normalizedPage < pageCount,
+        }, {
+            path: USER_RULES_VIRTUAL_PATH,
+            virtual: true,
+            query: parsed.query,
+            regex: parsed.regex ?? false,
+            caseSensitive: parsed.caseSensitive ?? false,
+        });
+    }
     const scope = await resolveFsScopePath(client, permMgr, parsed.path, 'read');
     if (scope.type !== 'root') {
         const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'read');
@@ -618,9 +697,11 @@ const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     }
 
     const docs = await collectSearchDocuments(client, permMgr, scope);
-    const matches: Array<{ path: string; line: number; text: string }> = scope.type === 'root'
-        ? collectMemoryMatches((await readAgentMemoryState(client)).content, matcher)
-        : [];
+    const matches: Array<{ path: string; line: number; text: string }> = [];
+    if (scope.type === 'root') {
+        matches.push(...collectVirtualTextMatches((await readAgentMemoryState(client)).content, matcher, AGENT_MEMORY_VIRTUAL_PATH));
+        matches.push(...collectVirtualTextMatches((await readUserRulesState(client)).content, matcher, USER_RULES_VIRTUAL_PATH));
+    }
     for (const doc of docs) {
         const markdown = normalizeMarkdownContent(await fileApi.exportMdContent(client, doc.id));
         const content = typeof markdown.content === 'string' ? markdown.content : '';

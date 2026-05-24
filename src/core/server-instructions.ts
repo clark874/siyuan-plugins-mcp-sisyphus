@@ -1,4 +1,4 @@
-import { AGENT_MEMORY_STALE_AFTER_DAYS, formatDangerousActionsList } from './config';
+import { AGENT_MEMORY_STALE_AFTER_DAYS, USER_RULES_VIRTUAL_PATH, formatDangerousActionsList } from './config';
 
 function formatUserRules(userRulesText = ''): string {
     const normalizedUserRules = typeof userRulesText === 'string' ? userRulesText.trim() : '';
@@ -18,9 +18,18 @@ export interface ServerInstructionInput {
     userRulesText?: string;
     agentSiyuanMemoryText?: string;
     agentSiyuanMemoryUpdatedAt?: string;
+    agentSiyuanMemoryConfigSource?: 'api_file' | 'default_fallback';
+    agentSiyuanMemoryConfigOk?: boolean;
+    agentSiyuanMemoryConfigError?: string;
 }
 
-function normalizeInstructionInput(input: string | ServerInstructionInput = '', agentSiyuanMemoryText = ''): Required<ServerInstructionInput> {
+type NormalizedServerInstructionInput = Required<Pick<ServerInstructionInput,
+    'userRulesText' | 'agentSiyuanMemoryText' | 'agentSiyuanMemoryUpdatedAt'
+>> & Pick<ServerInstructionInput,
+    'agentSiyuanMemoryConfigSource' | 'agentSiyuanMemoryConfigOk' | 'agentSiyuanMemoryConfigError'
+>;
+
+function normalizeInstructionInput(input: string | ServerInstructionInput = '', agentSiyuanMemoryText = ''): NormalizedServerInstructionInput {
     if (typeof input === 'string') {
         return {
             userRulesText: input,
@@ -32,6 +41,9 @@ function normalizeInstructionInput(input: string | ServerInstructionInput = '', 
         userRulesText: typeof input.userRulesText === 'string' ? input.userRulesText : '',
         agentSiyuanMemoryText: typeof input.agentSiyuanMemoryText === 'string' ? input.agentSiyuanMemoryText : '',
         agentSiyuanMemoryUpdatedAt: typeof input.agentSiyuanMemoryUpdatedAt === 'string' ? input.agentSiyuanMemoryUpdatedAt : '',
+        agentSiyuanMemoryConfigSource: input.agentSiyuanMemoryConfigSource,
+        agentSiyuanMemoryConfigOk: input.agentSiyuanMemoryConfigOk,
+        agentSiyuanMemoryConfigError: typeof input.agentSiyuanMemoryConfigError === 'string' ? input.agentSiyuanMemoryConfigError : undefined,
     };
 }
 
@@ -66,6 +78,19 @@ function getAgentMemoryStatus(memoryText: string, updatedAt: string): {
     };
 }
 
+function formatAgentMemoryConfigSource(input: NormalizedServerInstructionInput): string {
+    const source = input.agentSiyuanMemoryConfigSource === 'default_fallback'
+        ? 'default fallback'
+        : 'api file';
+    if (input.agentSiyuanMemoryConfigOk === false) {
+        const error = input.agentSiyuanMemoryConfigError?.trim();
+        return error
+            ? `default fallback; read failed: ${error}`
+            : 'default fallback; read failed';
+    }
+    return source;
+}
+
 export function buildServerInstructions(input: string | ServerInstructionInput = '', agentSiyuanMemoryText = ''): string {
     const instructionInput = normalizeInstructionInput(input, agentSiyuanMemoryText);
     const dangerousActionsList = formatDangerousActionsList().join('\n');
@@ -81,14 +106,16 @@ These user custom rules are active for this MCP session. Apply them before choos
 - User custom rules do not override safety confirmation requirements, notebook permissions, disabled tools, or disabled actions.
 - If a user custom rule conflicts with a general recommendation in these instructions, follow the user custom rule unless it would violate one of those hard limits.
 - If the configured rules change, the client must reconnect or the MCP HTTP server must restart before updated rules enter initialize-time instructions.
-- To re-check the current configured rules, read \`siyuan://help/user-rules\`.
+- To re-check the current configured rules, read \`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")\` or \`siyuan://help/user-rules\`.
 
 ## Rule list
 
 ${formattedUserRules}
 `
         : '';
-    const agentMemoryAction = agentMemoryStatus.status === 'missing'
+    const agentMemoryAction = instructionInput.agentSiyuanMemoryConfigOk === false
+        ? '- MCP could not read the configured virtual memory during initialize. Before assuming `/AGENTS.md` is missing, retry `fs(action="read", path="/AGENTS.md")` or ask the user to reconnect after the SiYuan API is reachable.'
+        : agentMemoryStatus.status === 'missing'
         ? '- The virtual memory file has not been initialized. Before doing workspace-aware planning or assuming notebook structure, ask the user whether to create `/AGENTS.md`; if they agree, inspect the workspace with `fs`/search, then write a concise initialization memory.'
         : agentMemoryStatus.status === 'stale'
             ? `- The memory is stale because it is older than ${AGENT_MEMORY_STALE_AFTER_DAYS} days or has no valid update time. Before relying on it for workspace-aware work, ask the user whether to refresh \`/AGENTS.md\`; if they agree, verify current state first, then update it.`
@@ -101,6 +128,7 @@ This is an AI-maintained summary of the current SiYuan workspace state, stored a
 - Last updated: ${agentMemoryStatus.updatedAtLabel}
 - Approximate age: ${agentMemoryStatus.ageLabel}
 - Stale threshold: ${AGENT_MEMORY_STALE_AFTER_DAYS} days
+- Config source: ${formatAgentMemoryConfigSource(instructionInput)}
 ${agentMemoryAction}
 - Do not silently create or update \`/AGENTS.md\` without user consent when the memory is missing or stale.
 
@@ -120,7 +148,7 @@ Avoid secrets, private credentials, long transcripts, volatile one-off task deta
 ${normalizedAgentMemory || '(not created yet)'}
 `;
     const userRulesReminder = formattedUserRules
-        ? '\nActive user custom rules override the general style and workflow suggestions below when they apply. Re-check siyuan://help/user-rules if current preferences matter.\n'
+        ? `\nActive user custom rules override the general style and workflow suggestions below when they apply. Re-check \`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")\` or siyuan://help/user-rules if current preferences matter.\n`
         : '';
     return `
 ${userRulesPrioritySection}
@@ -130,7 +158,7 @@ ${agentMemorySection}
 
 Each tool exposes common actions in its description. For detailed help on any action (including advanced ones):
 - Read MCP resources: siyuan://help/action/{tool}/{action}, siyuan://help/tool-overview, siyuan://help/document-path-semantics, siyuan://help/examples, siyuan://help/ai-layout-guide
-- Read siyuan://help/user-rules when user-specific preferences may affect tool choice, naming, formatting, icon behavior, or content style.
+- Read \`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")\` or siyuan://help/user-rules when user-specific preferences may affect tool choice, naming, formatting, icon behavior, or content style.
 - If your client cannot read siyuan:// resources, call any tool with action=”help” to get the same guidance (actions, required fields, hints, and examples).
 
 ## Path semantics (critical — the most common error source)
