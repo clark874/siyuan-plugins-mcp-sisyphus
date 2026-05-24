@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.8` — 猫猫支持自定义配色，新增 AI 与用户双入口反馈工具，并提供虚拟 `/AGENTS.md` Agent 记忆。
+> **最新版本：**`v0.4.9` — 为不会注入 MCP `server.instructions` 的客户端提供兜底提示词，让 `/AGENTS.md` 记忆与用户规则入口更容易被发现。
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">
