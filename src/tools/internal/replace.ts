@@ -29,7 +29,10 @@ export function applyExactReplaceEdit(
 ): { content: string; replaced: number; replaceAll: boolean } {
     const occurrences = countOccurrences(content, edit.old);
     if (occurrences === 0) {
-        throw new Error(`${actionName} edit #${editIndex + 1} did not match any text.`);
+        const scopeHint = actionName === 'block.replace'
+            ? ' block.replace only searches the kramdown of the single block identified by id; it does not include child blocks, sibling blocks, or the whole document. Read block(action="get_kramdown") for the target id first, or use fs(action="replace") for exact replacement across one document.'
+            : '';
+        throw new Error(`${actionName} edit #${editIndex + 1} did not match any text.${scopeHint}`);
     }
 
     if (edit.replace_all) {

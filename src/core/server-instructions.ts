@@ -208,6 +208,7 @@ Additional rules:
 - block(action=”append”) with a document ID inserts at the end of the document.
 - With a block ID, prepend/append operate on that block's child list.
 - block(action=”update”) is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use block(action=”append”), prepend, or insert when you need multiple blocks, tables, or longer multi-line content.
+- block(action=”replace”) searches only the kramdown of the single block identified by id. It does not include child blocks, sibling blocks, heading sections, or the whole document. Read block(action=”get_kramdown”) first and copy an exact old snippet from that result; use fs(action=”replace”) for document-level exact replacement.
 
 ## Tag creation semantics
 

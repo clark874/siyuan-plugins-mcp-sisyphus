@@ -111,7 +111,7 @@
                 { key: "prepend", title: "Prepend Block", description: "Insert a block at the beginning of a parent." },
                 { key: "append", title: "Append Block", description: "Insert a block at the end of a parent." },
                 { key: "update", title: "Update Block", description: "Update block content." },
-                { key: "replace", title: "Replace Block Text", description: "Apply exact old/new text replacement edits inside one block." },
+                { key: "replace", title: "Replace Block Text", description: "Apply exact old/new text replacement edits inside one block kramdown only." },
                 { key: "delete", title: "Delete Block", description: "Delete a block." },
                 { key: "move", title: "Move Block", description: "Move a block to a new position." },
                 { key: "set_fold_state", title: "Fold/Unfold Block", description: "Set the fold state of a foldable block." },
