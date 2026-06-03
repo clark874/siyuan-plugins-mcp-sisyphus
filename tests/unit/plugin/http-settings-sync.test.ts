@@ -12,6 +12,11 @@ const versionControlInstances: Array<{
     $destroy: ReturnType<typeof vi.fn>;
 }> = [];
 
+const PLUGIN_NAME = 'siyuan-plugins-mcp-sisyphus';
+const TIMELINE_DOCK_TYPE = 'sisyphusTimelineDock';
+const TIMELINE_REGISTERED_DOCK_TYPE = `${PLUGIN_NAME}${TIMELINE_DOCK_TYPE}`;
+const TIMELINE_ICON_ID = 'iconSisyphusTimelineDock';
+
 vi.mock('siyuan', () => ({
     Plugin: class {},
     showMessage: vi.fn(),
@@ -79,8 +84,10 @@ import { showMessage } from 'siyuan';
 
 class FakeElement {
     id = '';
+    className = '';
     parentNode: FakeElement | null = null;
     children: FakeElement[] = [];
+    private readonly attributes: Record<string, string> = {};
 
     appendChild(child: FakeElement) {
         child.remove();
@@ -113,6 +120,29 @@ class FakeElement {
         return '';
     }
 
+    setAttribute(name: string, value: string) {
+        this.attributes[name] = value;
+        if (name === 'class') {
+            this.className = value;
+        }
+    }
+
+    getAttribute(name: string) {
+        return this.attributes[name] ?? null;
+    }
+
+    closest(selector: string) {
+        if (selector !== '.dock__item') return null;
+        let element: FakeElement | null = this;
+        while (element) {
+            if (element.className.split(/\s+/).includes('dock__item')) {
+                return element;
+            }
+            element = element.parentNode;
+        }
+        return null;
+    }
+
     querySelector(selector: string) {
         if (!selector.startsWith('#')) return null;
         const child = new FakeElement();
@@ -140,9 +170,27 @@ class FakeDocument {
     }
 
     querySelectorAll(selector: string) {
-        if (!selector.startsWith('#')) return [];
-        const id = selector.slice(1);
-        return this.body.children.filter((child) => child.id === id);
+        if (selector.startsWith('#')) {
+            const id = selector.slice(1);
+            return this.body.children.filter((child) => child.id === id);
+        }
+
+        const dockTypes = Array.from(selector.matchAll(/\[data-type="([^"]+)"\]/g)).map((match) => match[1]);
+        const dockTypeSuffixes = Array.from(selector.matchAll(/\[data-type\$="([^"]+)"\]/g)).map((match) => match[1]);
+        const dockIds = Array.from(selector.matchAll(/\[data-id="([^"]+)"\]/g)).map((match) => match[1]);
+        const dockIdSuffixes = Array.from(selector.matchAll(/\[data-id\$="([^"]+)"\]/g)).map((match) => match[1]);
+        const dockIcons = Array.from(selector.matchAll(/\[data-icon="([^"]+)"\]/g)).map((match) => match[1]);
+        if (dockTypes.length === 0 && dockTypeSuffixes.length === 0 && dockIds.length === 0 && dockIdSuffixes.length === 0 && dockIcons.length === 0) return [];
+        return this.body.children.filter((child) => (
+            child.className.split(/\s+/).includes('dock__item') &&
+            (
+                dockTypes.includes(child.getAttribute('data-type') ?? '') ||
+                dockTypeSuffixes.some((suffix) => (child.getAttribute('data-type') ?? '').endsWith(suffix)) ||
+                dockIds.includes(child.getAttribute('data-id') ?? '') ||
+                dockIdSuffixes.some((suffix) => (child.getAttribute('data-id') ?? '').endsWith(suffix)) ||
+                dockIcons.includes(child.getAttribute('data-icon') ?? '')
+            )
+        ));
     }
 
     getElementById(id: string) {
@@ -165,6 +213,8 @@ describe('HTTP settings sync', () => {
     let launcherStop: ReturnType<typeof vi.fn>;
     let addDock: ReturnType<typeof vi.fn>;
     let addIcons: ReturnType<typeof vi.fn>;
+    let eventBusOn: ReturnType<typeof vi.fn>;
+    let eventBusOff: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
         resetToolConfigWarningStateForTests();
@@ -178,15 +228,28 @@ describe('HTTP settings sync', () => {
         saveData = vi.fn().mockResolvedValue(undefined);
         launcherStart = vi.fn().mockResolvedValue(undefined);
         launcherStop = vi.fn().mockResolvedValue(undefined);
-        addDock = vi.fn();
+        addDock = vi.fn((options) => ({
+            config: { ...options.config, type: `${PLUGIN_NAME}${options.type}` },
+            model: { type: `${PLUGIN_NAME}${options.type}` },
+        }));
         addIcons = vi.fn();
+        eventBusOn = vi.fn();
+        eventBusOff = vi.fn();
 
         Object.assign(plugin, {
-            name: 'siyuan-plugins-mcp-sisyphus',
+            name: PLUGIN_NAME,
             loadData,
             saveData,
             addDock,
             addIcons,
+            commands: [],
+            docks: {
+                [TIMELINE_REGISTERED_DOCK_TYPE]: {},
+            },
+            eventBus: {
+                on: eventBusOn,
+                off: eventBusOff,
+            },
         });
         plugin.httpLauncher = {
             start: launcherStart,
@@ -200,14 +263,22 @@ describe('HTTP settings sync', () => {
                     rightDock: {
                         toggleModel: vi.fn(),
                         showDock: vi.fn(),
+                        remove: vi.fn(),
+                        data: {
+                            [TIMELINE_REGISTERED_DOCK_TYPE]: {},
+                        },
                     },
                     leftDock: {
                         toggleModel: vi.fn(),
                         showDock: vi.fn(),
+                        remove: vi.fn(),
+                        data: {},
                     },
                     bottomDock: {
                         toggleModel: vi.fn(),
                         showDock: vi.fn(),
+                        remove: vi.fn(),
+                        data: {},
                     },
                 },
                 config: {
@@ -216,6 +287,7 @@ describe('HTTP settings sync', () => {
                     uiLayout: {
                         left: { data: [] },
                         right: { data: [] },
+                        bottom: { data: [] },
                     },
                 },
             },
@@ -458,8 +530,12 @@ describe('HTTP settings sync', () => {
         expect(puppyInstances).toHaveLength(1);
     });
 
-    it('registers the timeline dock synchronously during plugin load with a stable icon and size', async () => {
+    it('defers timeline dock registration until persisted timeline settings are loaded', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        const addCommand = vi.fn((command) => {
+            (plugin as any).commands.push(command);
+        });
+        Object.assign(plugin, { addCommand });
         let resolveFirstLoad: (value: unknown) => void = () => {};
         let firstLoad = true;
         loadData.mockImplementation(() => {
@@ -476,11 +552,9 @@ describe('HTTP settings sync', () => {
 
         expect(addIcons).toHaveBeenCalledTimes(1);
         expect(addIcons).toHaveBeenCalledWith(expect.stringContaining('<symbol id="iconSisyphusTimelineDock"'));
-        expect(addDock).toHaveBeenCalledTimes(1);
-        expect(addDock.mock.calls[0][0].config).toEqual(expect.objectContaining({
-            icon: 'iconSisyphusTimelineDock',
-            size: { width: 420, height: 0 },
-        }));
+        expect(addDock).not.toHaveBeenCalled();
+        expect(addCommand).not.toHaveBeenCalled();
+        expect(eventBusOn).not.toHaveBeenCalled();
 
         resolveFirstLoad(undefined);
         await loading;
@@ -488,34 +562,126 @@ describe('HTTP settings sync', () => {
         plugin.onLayoutReady();
 
         expect(addDock).toHaveBeenCalledTimes(1);
+        expect(addDock.mock.calls[0][0].config).toEqual(expect.objectContaining({
+            icon: 'iconSisyphusTimelineDock',
+            size: { width: 420, height: 0 },
+        }));
+        expect(addCommand).toHaveBeenCalledTimes(1);
+        expect(eventBusOn).toHaveBeenCalledTimes(3);
     });
 
-    it('pushes loaded timeline settings into an already initialized dock panel', async () => {
+    it('passes loaded timeline settings into the dock panel when it initializes', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
-        let resolveToolConfig: (value: unknown) => void = () => {};
         loadData.mockImplementation((storageName: string) => {
-            if (storageName === 'mcpToolsConfig') {
-                return new Promise((resolve) => {
-                    resolveToolConfig = resolve;
-                });
-            }
             if (storageName === 'versionControlSettings') {
                 return Promise.resolve({ showDebugMeta: true });
             }
             return Promise.resolve(undefined);
         });
 
-        const loading = plugin.onload();
+        await plugin.onload();
         const dockElement = new FakeElement();
         addDock.mock.calls[0][0].init({ element: dockElement });
 
         expect(versionControlInstances).toHaveLength(1);
-        expect((versionControlInstances[0].args as any).props.showDebugMeta).toBe(false);
+        expect((versionControlInstances[0].args as any).props.showDebugMeta).toBe(true);
+    });
 
-        resolveToolConfig(undefined);
-        await loading;
+    it('disables the timeline dock, command, events, and panel when persisted setting is off', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        const addCommand = vi.fn((command) => {
+            (plugin as any).commands.push(command);
+        });
+        Object.assign(plugin, { addCommand });
+        loadData.mockImplementation((storageName: string) => {
+            if (storageName === 'versionControlSettings') {
+                return Promise.resolve({ enabled: false, showDebugMeta: true });
+            }
+            return Promise.resolve(undefined);
+        });
 
-        expect(versionControlInstances[0].$set).toHaveBeenCalledWith({ showDebugMeta: true });
+        await plugin.onload();
+        plugin.openVersionControl();
+
+        const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        expect(addDock).not.toHaveBeenCalled();
+        expect(addCommand).not.toHaveBeenCalled();
+        expect(eventBusOn).not.toHaveBeenCalled();
+        expect(versionControlInstances).toHaveLength(0);
+        expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE);
+        expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_DOCK_TYPE);
+        expect(rightDock.toggleModel).not.toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE, true, false, false, true);
+        expect(showMessage).toHaveBeenCalledWith('文档时间树已关闭');
+    });
+
+    it('unregisters timeline runtime hooks when settings are turned off after enablement', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        const addCommand = vi.fn((command) => {
+            (plugin as any).commands.push(command);
+        });
+        Object.assign(plugin, { addCommand });
+
+        await plugin.onload();
+        const dockElement = new FakeElement();
+        addDock.mock.calls[0][0].init({ element: dockElement });
+
+        expect(addCommand).toHaveBeenCalledTimes(1);
+        expect((plugin as any).commands).toHaveLength(1);
+        expect(eventBusOn).toHaveBeenCalledTimes(3);
+        expect(versionControlInstances).toHaveLength(1);
+
+        await plugin.updateVersionControlSettings({ enabled: false, showDebugMeta: true });
+
+        const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        expect((plugin as any).commands).toHaveLength(0);
+        expect(eventBusOff).toHaveBeenCalledTimes(3);
+        expect(versionControlInstances[0].$destroy).toHaveBeenCalledTimes(1);
+        expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE);
+        expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_DOCK_TYPE);
+    });
+
+    it('removes the registered prefixed timeline sidebar button and layout entry when disabled at runtime', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        const addCommand = vi.fn((command) => {
+            (plugin as any).commands.push(command);
+        });
+        Object.assign(plugin, { addCommand });
+        const sidebarButton = document.createElement('button');
+        sidebarButton.className = 'dock__item';
+        sidebarButton.setAttribute('data-type', TIMELINE_REGISTERED_DOCK_TYPE);
+        document.body.appendChild(sidebarButton);
+        (globalThis as any).window.siyuan.config.uiLayout.right.data = [[
+            {
+                type: TIMELINE_REGISTERED_DOCK_TYPE,
+                icon: TIMELINE_ICON_ID,
+                show: true,
+                size: { width: 420, height: 0 },
+            },
+        ]];
+
+        await plugin.onload();
+        await plugin.updateVersionControlSettings({ enabled: false, showDebugMeta: false });
+
+        const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        expect(rightDock.toggleModel).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE, false, true, true, true);
+        expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE);
+        expect((plugin as any).docks[TIMELINE_REGISTERED_DOCK_TYPE]).toBeUndefined();
+        expect(rightDock.data[TIMELINE_REGISTERED_DOCK_TYPE]).toBeUndefined();
+        expect(document.querySelector(`[data-type="${TIMELINE_REGISTERED_DOCK_TYPE}"]`)).toBeNull();
+        expect((globalThis as any).window.siyuan.config.uiLayout.right.data).toEqual([]);
+    });
+
+    it('removes timeline sidebar buttons identified only by the timeline icon', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        const iconOnlyButton = document.createElement('button');
+        iconOnlyButton.className = 'dock__item';
+        iconOnlyButton.setAttribute('data-icon', TIMELINE_ICON_ID);
+        document.body.appendChild(iconOnlyButton);
+
+        await plugin.onload();
+        await plugin.updateVersionControlSettings({ enabled: false, showDebugMeta: false });
+
+        expect(document.querySelector(`[data-icon="${TIMELINE_ICON_ID}"]`)).toBeNull();
     });
 
     it('opens the timeline dock through toggleModel when available', async () => {
@@ -525,7 +691,7 @@ describe('HTTP settings sync', () => {
         plugin.openVersionControl();
 
         const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
-        expect(rightDock.toggleModel).toHaveBeenCalledWith('sisyphusTimelineDock', true, false, false, true);
+        expect(rightDock.toggleModel).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE, true, false, false, true);
         expect(rightDock.showDock).not.toHaveBeenCalled();
     });
 

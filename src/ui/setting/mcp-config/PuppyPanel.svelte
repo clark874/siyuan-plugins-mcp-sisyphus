@@ -14,28 +14,31 @@
         void onChanged(new CustomEvent<ChangeEvent>("changed", { detail: { key, value } }));
     }
 
-    function buildPuppyItems(): ISettingItem[] {
+    function buildPuppyItems(
+        currentPuppySettings: PuppySettings,
+        label: (key: string, fallback: string) => string,
+    ): ISettingItem[] {
         return [
             {
                 type: "checkbox",
                 key: "puppy__visible",
-                value: puppySettings.visible,
-                title: getLabel("puppy_visible_title", "Show Mascot"),
-                description: getLabel("puppy_visible_desc", "Show or hide the mascot on screen."),
+                value: currentPuppySettings.visible,
+                title: label("puppy_visible_title", "Show Mascot"),
+                description: label("puppy_visible_desc", "Show or hide the mascot on screen."),
             },
             {
                 type: "checkbox",
                 key: "puppy__showClickHint",
-                value: puppySettings.showClickHint,
-                title: getLabel("puppy_showClickHint_title", "Show Click Hint"),
-                description: getLabel("puppy_showClickHint_desc", "Show a hint on click that this mascot is provided by the MCP plugin and can be turned off here."),
+                value: currentPuppySettings.showClickHint,
+                title: label("puppy_showClickHint_title", "Show Click Hint"),
+                description: label("puppy_showClickHint_desc", "Show a hint on click that this mascot is provided by the MCP plugin and can be turned off here."),
             },
             {
                 type: "checkbox",
                 key: "puppy__showBubble",
-                value: puppySettings.showBubble,
-                title: getLabel("puppy_showBubble_title", "Show Bubble"),
-                description: getLabel("puppy_showBubble_desc", "Show a pixel-style status bubble with tool-aware offsets and extra spacing for errors."),
+                value: currentPuppySettings.showBubble,
+                title: label("puppy_showBubble_title", "Show Bubble"),
+                description: label("puppy_showBubble_desc", "Show a pixel-style status bubble with tool-aware offsets and extra spacing for errors."),
             },
         ];
     }
@@ -45,7 +48,7 @@
         emitChange(`puppy__appearance__${field}`, target.value);
     }
 
-    $: puppyItems = buildPuppyItems();
+    $: puppyItems = buildPuppyItems(puppySettings, getLabel);
 </script>
 
 <SettingPanel {group} settingItems={puppyItems} {display} on:changed={onChanged} />

@@ -26,8 +26,12 @@
         dispatch("click", { key: key });
     }
 
-    function changed() {
-        dispatch("changed", { key: key, value: value });
+    function changed(event: Event) {
+        const target = event.currentTarget as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null;
+        const nextValue = target && "checked" in target && target.type === "checkbox"
+            ? target.checked
+            : target?.value ?? value;
+        dispatch("changed", { key: key, value: nextValue });
     }
 </script>
 

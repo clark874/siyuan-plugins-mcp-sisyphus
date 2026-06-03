@@ -51,20 +51,18 @@ export default class SiyuanMCP extends Plugin {
     private puppySettings: PuppySettings = buildDefaultPuppySettings();
     private versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
     private versionControlDockRegistered = false;
+    private versionControlCommandRegistered = false;
+    private versionControlEventsRegistered = false;
+    private versionControlIconRegistered = false;
+    private versionControlSettingsLoaded = false;
+    private versionControlDockElement: HTMLElement | null = null;
+    private versionControlDockRegistration: { config?: any; model?: any } | null = null;
+    private versionControlDockRegisteredType = "";
     public httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
     public httpLauncher: HttpServerLauncher | null = null;
 
     async onload() {
-        this.addIcons(VERSION_CONTROL_ICON_SYMBOL);
-        this.registerVersionControlDock();
-        (this as any).addCommand?.({
-            langKey: "openSnapshotVersionControl",
-            langText: this.i18n?.timeline_open_command || "打开文档时间线",
-            hotkey: "",
-            callback: () => this.openVersionControl(),
-            editorCallback: (protyle: any) => this.openVersionControl(protyle),
-        });
-        this.registerVersionControlEvents();
+        this.registerVersionControlIcon();
 
         const { config: normalized, warning } = await loadPersistedToolConfigState(this);
         if (warning) {
@@ -78,9 +76,8 @@ export default class SiyuanMCP extends Plugin {
         this.puppyVisible = this.puppySettings.visible;
         this.httpSettings = await loadPersistedHttpServerSettings(this);
         this.versionControlSettings = await loadPersistedVersionControlSettings(this);
-        this.versionControlPanel?.$set({
-            showDebugMeta: this.versionControlSettings.showDebugMeta,
-        });
+        this.versionControlSettingsLoaded = true;
+        this.syncVersionControlFeature();
 
         const support = HttpServerLauncher.getSupportInfo();
         if (!support.supported) {
@@ -224,6 +221,9 @@ export default class SiyuanMCP extends Plugin {
 
     onLayoutReady() {
         this.mountPuppy();
+        if (!this.versionControlSettings.enabled) {
+            this.removeVersionControlDock();
+        }
     }
 
 
@@ -244,9 +244,7 @@ export default class SiyuanMCP extends Plugin {
 
     async updateVersionControlSettings(settings: VersionControlSettings): Promise<void> {
         this.versionControlSettings = await savePersistedVersionControlSettings(settings, this);
-        this.versionControlPanel?.$set({
-            showDebugMeta: this.versionControlSettings.showDebugMeta,
-        });
+        this.syncVersionControlFeature();
     }
 
     async submitFeedback(input: FeedbackInput): Promise<FeedbackSubmitResult> {
@@ -425,15 +423,82 @@ export default class SiyuanMCP extends Plugin {
     }
 
     openVersionControl(protyle?: unknown): void {
+        if (!this.versionControlSettings.enabled) {
+            showMessage(this.i18n?.timeline_disabled_msg || "文档时间树已关闭");
+            return;
+        }
+        this.syncVersionControlFeature();
         const context = this.getDocumentContextFromProtyle(protyle) ?? this.currentDocument;
         this.updateVersionControlDocument(context, { force: true });
         this.showVersionControlDock();
     }
 
+    private syncVersionControlFeature() {
+        if (!this.versionControlSettings.enabled) {
+            this.disableVersionControlFeature();
+            return;
+        }
+        this.enableVersionControlFeature();
+    }
+
+    private enableVersionControlFeature() {
+        this.registerVersionControlIcon();
+        this.registerVersionControlCommand();
+        this.registerVersionControlDock();
+        this.registerVersionControlEvents();
+        this.ensureVersionControlPanelMounted();
+        this.versionControlPanel?.$set({
+            showDebugMeta: this.versionControlSettings.showDebugMeta,
+        });
+    }
+
+    private disableVersionControlFeature() {
+        this.unregisterVersionControlCommand();
+        this.unregisterVersionControlEvents();
+        this.unmountVersionControlPanel();
+        this.removeVersionControlDock();
+    }
+
+    private registerVersionControlIcon() {
+        if (this.versionControlIconRegistered) return;
+        this.addIcons(VERSION_CONTROL_ICON_SYMBOL);
+        this.versionControlIconRegistered = true;
+    }
+
+    private registerVersionControlCommand() {
+        if (!this.versionControlSettingsLoaded) return;
+        if (this.versionControlCommandRegistered) return;
+        const addCommand = (this as any).addCommand;
+        if (typeof addCommand !== "function") return;
+        addCommand.call(this, {
+            langKey: "openSnapshotVersionControl",
+            langText: this.i18n?.timeline_open_command || "打开文档时间线",
+            hotkey: "",
+            callback: () => this.openVersionControl(),
+            editorCallback: (protyle: any) => this.openVersionControl(protyle),
+        });
+        this.versionControlCommandRegistered = true;
+    }
+
+    private unregisterVersionControlCommand() {
+        if (!this.versionControlCommandRegistered) return;
+        const commands = (this as any).commands;
+        if (Array.isArray(commands)) {
+            for (let i = commands.length - 1; i >= 0; i--) {
+                if (commands[i]?.langKey === "openSnapshotVersionControl") {
+                    commands.splice(i, 1);
+                }
+            }
+        }
+        this.versionControlCommandRegistered = false;
+    }
+
     private registerVersionControlDock() {
+        if (!this.versionControlSettingsLoaded) return;
+        if (!this.versionControlSettings.enabled) return;
         if (this.versionControlDockRegistered) return;
         this.versionControlDockRegistered = true;
-        this.addDock({
+        const registration = this.addDock({
             config: {
                 position: VERSION_CONTROL_DOCK_POSITION,
                 size: { width: 420, height: 0 },
@@ -446,39 +511,71 @@ export default class SiyuanMCP extends Plugin {
             init: (dock: any) => {
                 const element = dock?.element as HTMLElement | undefined;
                 if (!element) return;
-                element.innerHTML = `<div id="${VERSION_CONTROL_DOCK_ROOT_ID}" style="height: 100%;"></div>`;
-                this.versionControlContainer = element.querySelector(`#${VERSION_CONTROL_DOCK_ROOT_ID}`);
-                if (!this.versionControlContainer) return;
-                this.versionControlPanel = new VersionControlPanel({
-                    target: this.versionControlContainer,
-                    props: {
-                        currentDocumentId: this.currentDocument.id,
-                        currentDocumentTitle: this.currentDocument.title,
-                        showDebugMeta: this.versionControlSettings.showDebugMeta,
-                        i18n: this.i18n ?? {},
-                    },
-                });
+                this.versionControlDockElement = element;
+                this.mountVersionControlPanel(element);
             },
             update: () => {
+                if (!this.versionControlSettings.enabled) return;
                 this.updateVersionControlDocument(this.currentDocument, { force: true });
             },
             destroy: () => this.unmountVersionControlDock(),
         });
+        this.versionControlDockRegistration = registration ?? null;
+        const registeredConfig = registration?.config as any;
+        const registeredModel = registration?.model as any;
+        this.versionControlDockRegisteredType = firstNonEmptyString([
+            registeredConfig?.type,
+            registeredModel?.type,
+            this.name ? `${this.name}${VERSION_CONTROL_DOCK_TYPE}` : "",
+            VERSION_CONTROL_DOCK_TYPE,
+        ]);
+    }
+
+    private ensureVersionControlPanelMounted() {
+        if (this.versionControlPanel || !this.versionControlDockElement) return;
+        this.mountVersionControlPanel(this.versionControlDockElement);
+    }
+
+    private mountVersionControlPanel(element: HTMLElement) {
+        if (!this.versionControlSettings.enabled) return;
+        if (!this.versionControlSettingsLoaded) return;
+        this.unmountVersionControlPanel();
+        element.innerHTML = `<div id="${VERSION_CONTROL_DOCK_ROOT_ID}" style="height: 100%;"></div>`;
+        this.versionControlContainer = element.querySelector(`#${VERSION_CONTROL_DOCK_ROOT_ID}`);
+        if (!this.versionControlContainer) return;
+        this.versionControlPanel = new VersionControlPanel({
+            target: this.versionControlContainer,
+            props: {
+                currentDocumentId: this.currentDocument.id,
+                currentDocumentTitle: this.currentDocument.title,
+                showDebugMeta: this.versionControlSettings.showDebugMeta,
+                i18n: this.i18n ?? {},
+            },
+        });
     }
 
     private registerVersionControlEvents() {
-        (this as any).eventBus?.on?.("switch-protyle", this.handleVersionControlProtyleChange as any);
-        (this as any).eventBus?.on?.("loaded-protyle-dynamic", this.handleVersionControlProtyleChange as any);
-        (this as any).eventBus?.on?.("loaded-protyle-static", this.handleVersionControlProtyleChange as any);
+        if (!this.versionControlSettingsLoaded) return;
+        if (!this.versionControlSettings.enabled || this.versionControlEventsRegistered) return;
+        const eventBus = (this as any).eventBus;
+        if (typeof eventBus?.on !== "function") return;
+        eventBus.on("switch-protyle", this.handleVersionControlProtyleChange as any);
+        eventBus.on("loaded-protyle-dynamic", this.handleVersionControlProtyleChange as any);
+        eventBus.on("loaded-protyle-static", this.handleVersionControlProtyleChange as any);
+        this.versionControlEventsRegistered = true;
     }
 
     private unregisterVersionControlEvents() {
-        (this as any).eventBus?.off?.("switch-protyle", this.handleVersionControlProtyleChange as any);
-        (this as any).eventBus?.off?.("loaded-protyle-dynamic", this.handleVersionControlProtyleChange as any);
-        (this as any).eventBus?.off?.("loaded-protyle-static", this.handleVersionControlProtyleChange as any);
+        if (!this.versionControlEventsRegistered) return;
+        const eventBus = (this as any).eventBus;
+        eventBus?.off?.("switch-protyle", this.handleVersionControlProtyleChange as any);
+        eventBus?.off?.("loaded-protyle-dynamic", this.handleVersionControlProtyleChange as any);
+        eventBus?.off?.("loaded-protyle-static", this.handleVersionControlProtyleChange as any);
+        this.versionControlEventsRegistered = false;
     }
 
     private readonly handleVersionControlProtyleChange = (event: CustomEvent<{ protyle?: unknown }>) => {
+        if (!this.versionControlSettings.enabled) return;
         const context = this.getDocumentContextFromProtyle(event?.detail?.protyle);
         if (context) this.updateVersionControlDocument(context);
     };
@@ -508,6 +605,7 @@ export default class SiyuanMCP extends Plugin {
     }
 
     private updateVersionControlDocument(context: CurrentDocumentContext, options: { force?: boolean } = {}) {
+        if (!this.versionControlSettings.enabled) return;
         this.currentDocument = context;
         if (!options.force && !this.isVersionControlPanelVisible()) return;
         this.versionControlPanel?.$set({
@@ -532,21 +630,128 @@ export default class SiyuanMCP extends Plugin {
     }
 
     private showVersionControlDock() {
+        if (!this.versionControlSettings.enabled) return;
         const layout = (window as any)?.siyuan?.layout;
         const targetDock = getDockByPosition(layout, VERSION_CONTROL_DOCK_POSITION);
         if (typeof targetDock?.toggleModel === "function") {
-            targetDock.toggleModel(VERSION_CONTROL_DOCK_TYPE, true, false, false, true);
+            targetDock.toggleModel(this.getVersionControlDockTypes()[0] ?? VERSION_CONTROL_DOCK_TYPE, true, false, false, true);
             return;
         }
         targetDock?.showDock?.();
     }
 
-    private unmountVersionControlDock() {
+    private unmountVersionControlPanel() {
         this.versionControlPanel?.$destroy();
         this.versionControlPanel = null;
         if (this.versionControlContainer) {
             this.versionControlContainer.innerHTML = "";
             this.versionControlContainer = null;
+        }
+    }
+
+    private unmountVersionControlDock() {
+        this.unmountVersionControlPanel();
+        this.versionControlDockElement = null;
+    }
+
+    private removeVersionControlDock() {
+        const layout = (window as any)?.siyuan?.layout;
+        const targetDock = getDockByPosition(layout, VERSION_CONTROL_DOCK_POSITION);
+        const dockTypes = this.getVersionControlDockTypes();
+        if (typeof targetDock?.toggleModel === "function") {
+            for (const dockType of dockTypes) {
+                targetDock.toggleModel(dockType, false, true, true, true);
+            }
+        }
+        if (typeof targetDock?.remove === "function") {
+            for (const dockType of dockTypes) {
+                targetDock.remove(dockType);
+            }
+        }
+        this.removeVersionControlDockRegistry(dockTypes, layout);
+        this.removeVersionControlDockLayout(dockTypes);
+        this.removeVersionControlDockButtons(dockTypes);
+        this.versionControlDockRegistered = false;
+        this.versionControlDockElement = null;
+        this.versionControlDockRegistration = null;
+        this.versionControlDockRegisteredType = "";
+    }
+
+    private getVersionControlDockTypes(): string[] {
+        const registeredConfig = this.versionControlDockRegistration?.config as any;
+        const registeredModel = this.versionControlDockRegistration?.model as any;
+        return [
+            registeredConfig?.type,
+            registeredModel?.type,
+            this.versionControlDockRegisteredType,
+            this.name ? `${this.name}${VERSION_CONTROL_DOCK_TYPE}` : "",
+            VERSION_CONTROL_DOCK_TYPE,
+        ].filter((value, index, values): value is string => (
+            typeof value === "string" &&
+            value.length > 0 &&
+            values.indexOf(value) === index
+        ));
+    }
+
+    private removeVersionControlDockRegistry(dockTypes: string[], layout: any) {
+        const pluginDocks = (this as any).docks;
+        if (pluginDocks && typeof pluginDocks === "object") {
+            for (const dockType of dockTypes) {
+                delete pluginDocks[dockType];
+            }
+        }
+
+        for (const dock of [layout?.leftDock, layout?.rightDock, layout?.bottomDock]) {
+            const dockData = dock?.data;
+            if (!dockData || typeof dockData !== "object") continue;
+            for (const dockType of dockTypes) {
+                delete dockData[dockType];
+            }
+        }
+    }
+
+    private removeVersionControlDockLayout(dockTypes: string[]) {
+        const uiLayout = (window as any)?.siyuan?.config?.uiLayout;
+        for (const position of ["left", "right", "bottom"]) {
+            const dock = uiLayout?.[position];
+            if (!Array.isArray(dock?.data)) continue;
+            dock.data = dock.data
+                .map((group: any) => Array.isArray(group)
+                    ? group.filter((item) => !dockTypes.includes(item?.type))
+                    : group)
+                .filter((group: any) => !Array.isArray(group) || group.length > 0);
+        }
+    }
+
+    private removeVersionControlDockButtons(dockTypes: string[]) {
+        if (typeof document === "undefined") return;
+        for (const dockType of dockTypes) {
+            const escapedDockType = escapeCssAttributeValue(dockType);
+            const selectors = [
+                `.dock__item[data-type="${escapedDockType}"]`,
+                `.dock__item[data-id="${escapedDockType}"]`,
+                `[data-type="${escapedDockType}"].dock__item`,
+                `[data-id="${escapedDockType}"].dock__item`,
+                `.dock__item[data-type$="${escapeCssAttributeValue(VERSION_CONTROL_DOCK_TYPE)}"]`,
+                `.dock__item[data-id$="${escapeCssAttributeValue(VERSION_CONTROL_DOCK_TYPE)}"]`,
+            ];
+            for (const element of Array.from(document.querySelectorAll<HTMLElement>(selectors.join(", ")))) {
+                const dockItem = element.closest?.(".dock__item") as HTMLElement | null;
+                (dockItem ?? element).remove();
+            }
+        }
+
+        const escapedIconId = escapeCssAttributeValue(`#${VERSION_CONTROL_ICON_ID}`);
+        const iconSelectors = [
+            `.dock__item[data-icon="${escapeCssAttributeValue(VERSION_CONTROL_ICON_ID)}"]`,
+            `.dock__item use[href="${escapedIconId}"]`,
+            `.dock__item use[xlink\\:href="${escapedIconId}"]`,
+            `.dock__item [href="${escapedIconId}"]`,
+            `.dock__item [xlink\\:href="${escapedIconId}"]`,
+        ];
+        for (const element of Array.from(document.querySelectorAll<HTMLElement>(iconSelectors.join(", ")))) {
+            const dockItem = element.closest?.(".dock__item") as HTMLElement | null;
+            (dockItem ?? element).remove();
         }
     }
 
@@ -569,4 +774,8 @@ function getDockByPosition(layout: any, position: string): any {
     if (position.startsWith("Left")) return layout?.leftDock;
     if (position.startsWith("Bottom")) return layout?.bottomDock;
     return layout?.rightDock;
+}
+
+function escapeCssAttributeValue(value: string): string {
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
