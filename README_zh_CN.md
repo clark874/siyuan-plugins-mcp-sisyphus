@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.9` — 为不会注入 MCP `server.instructions` 的客户端提供兜底提示词，让 `/AGENTS.md` 记忆与用户规则入口更容易被发现。
+> **最新版本：**`v0.4.10` — 文档时间树现在可在设置中完整关闭，会同步移除 Dock、命令和编辑器监听，并保持设置状态一致。
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">

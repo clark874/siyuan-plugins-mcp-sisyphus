@@ -4,7 +4,12 @@ import { resolve } from 'node:path';
 
 import * as mcpConfig from '@/core/config';
 import * as settingConfig from '@/ui/setting/tool-config';
-import { DEFAULT_PUPPY_APPEARANCE, normalizePuppySettings } from '@/ui/setting/tool-config-storage';
+import {
+    DEFAULT_PUPPY_APPEARANCE,
+    buildDefaultVersionControlSettings,
+    normalizePuppySettings,
+    normalizeVersionControlSettings,
+} from '@/ui/setting/tool-config-storage';
 
 describe('setting and mcp config stay behaviorally aligned', () => {
     it('re-exports the mcp config helpers directly', () => {
@@ -188,6 +193,61 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(formSource).toContain('type === "color"');
     });
 
+    it('keeps document timeline enable switch in debug settings', () => {
+        const debugSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/DebugPanel.svelte'), 'utf8');
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+
+        expect(debugSource).toContain('versionControl__enabled');
+        expect(debugSource).toContain('version_control_enabled_title');
+        expect(debugSource).toContain('buildDebugItems(config, puppySettings, versionControlSettings, getLabel)');
+        expect(rootSource).toContain('key === "versionControl__enabled"');
+    });
+
+    it('rebuilds persisted settings panels from explicit Svelte reactive dependencies', () => {
+        const debugSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/DebugPanel.svelte'), 'utf8');
+        const puppySource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/PuppyPanel.svelte'), 'utf8');
+        const telemetrySource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/TelemetryPanel.svelte'), 'utf8');
+        const permissionsSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/PermissionsPanel.svelte'), 'utf8');
+
+        expect(debugSource).toContain('buildDebugItems(config, puppySettings, versionControlSettings, getLabel)');
+        expect(debugSource).not.toContain('$: debugItems = buildDebugItems();');
+        expect(puppySource).toContain('buildPuppyItems(puppySettings, getLabel)');
+        expect(puppySource).not.toContain('$: puppyItems = buildPuppyItems();');
+        expect(telemetrySource).toContain('buildTelemetryItems(telemetryConfig, getLabel)');
+        expect(telemetrySource).not.toContain('$: telemetryItems = buildTelemetryItems();');
+        expect(permissionsSource).toContain('permItems = buildPermItems();');
+    });
+
+    it('handles non-tool enabled toggles before generic category toggles', () => {
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+        const genericEnabledIndex = rootSource.indexOf('key.endsWith("__enabled")');
+
+        expect(rootSource.indexOf('key === "versionControl__enabled"')).toBeGreaterThanOrEqual(0);
+        expect(rootSource.indexOf('key === "telemetry__enabled"')).toBeGreaterThanOrEqual(0);
+        expect(rootSource.indexOf('key === "versionControl__enabled"')).toBeLessThan(genericEnabledIndex);
+        expect(rootSource.indexOf('key === "telemetry__enabled"')).toBeLessThan(genericEnabledIndex);
+    });
+
+    it('saves independent debug-related setting stores from the settings dialog save hook', () => {
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+        const saveSettingsIndex = rootSource.indexOf('export async function saveSettings()');
+
+        expect(saveSettingsIndex).toBeGreaterThanOrEqual(0);
+        expect(rootSource.indexOf('await persistPuppySettings();', saveSettingsIndex)).toBeGreaterThan(saveSettingsIndex);
+        expect(rootSource.indexOf('await persistTelemetryConfig();', saveSettingsIndex)).toBeGreaterThan(saveSettingsIndex);
+        expect(rootSource.indexOf('await persistVersionControlSettings();', saveSettingsIndex)).toBeGreaterThan(saveSettingsIndex);
+        expect(rootSource.indexOf('await persistConfig();', saveSettingsIndex)).toBeGreaterThan(saveSettingsIndex);
+    });
+
+    it('dispatches checkbox changes from DOM checked state', () => {
+        const formSource = readFileSync(resolve(process.cwd(), 'src/ui/shared/Form/form-input.svelte'), 'utf8');
+
+        expect(formSource).toContain('event.currentTarget');
+        expect(formSource).toContain('target.checked');
+        expect(formSource).toContain('target.type === "checkbox"');
+        expect(formSource).toContain('dispatch("changed", { key: key, value: nextValue })');
+    });
+
     it('keeps mascot appearance defaults shared across settings and runtime display', () => {
         const toolPuppySource = readFileSync(resolve(process.cwd(), 'src/ui/components/ToolPuppy.svelte'), 'utf8');
         const awakeSvgSource = readFileSync(resolve(process.cwd(), 'src/ui/components/PuppyAwakeSVG.svelte'), 'utf8');
@@ -215,6 +275,21 @@ describe('setting and mcp config stay behaviorally aligned', () => {
             bodyColor: '#abcdef',
             pawColor: DEFAULT_PUPPY_APPEARANCE.pawColor,
             eyeColor: '#123456',
+        });
+    });
+
+    it('normalizes document timeline settings while preserving legacy debug-only settings', () => {
+        expect(buildDefaultVersionControlSettings()).toEqual({
+            enabled: true,
+            showDebugMeta: false,
+        });
+        expect(normalizeVersionControlSettings({ showDebugMeta: true })).toEqual({
+            enabled: true,
+            showDebugMeta: true,
+        });
+        expect(normalizeVersionControlSettings({ enabled: false, showDebugMeta: true })).toEqual({
+            enabled: false,
+            showDebugMeta: true,
         });
     });
 });

@@ -34,7 +34,7 @@ pnpm make-link
 | 场景 | 推荐方式 | 原因 |
 |------|----------|------|
 | 桌面端本机使用 | HTTP 或 stdio | 两者都可直接使用 |
-| Docker / 远程思源 | stdio | 更适合把 `mcp-server.cjs` 运行在客户端侧 |
+| Docker / 远程思源 | stdio，或 HTTP sidecar | 桌面客户端用 stdio 最简单；如果需要 Docker 内常驻 HTTP 服务，可以再起一个 Node 容器 |
 | WSL / 跨机器 | HTTP | 更容易跨环境连接 |
 | 只支持 stdio 的 MCP 客户端 | `mcp-remote` bridge | 复用 HTTP 端点 |
 
@@ -184,6 +184,52 @@ Docker 场景下，思源插件面板复制出来的路径可能是容器内路�
 - 下载 release 的 `package.zip`，解压其中的 `mcp-server.cjs`
 
 如果手动复制该文件，后续升级插件后也需要重新复制，保证客户端侧 server 与已安装的插件版本一致。
+
+如果 MCP 客户端所在机器不能或不想安装 Node/npm，也可以再起一个 Node 容器作为 HTTP MCP sidecar。关键点是：`SIYUAN_API_URL` 必须填写从 Node 容器内部可以访问到的思源地址。不要保留默认的 `127.0.0.1`，因为它会指向 Node 容器自己，常见现象是返回 `kernel_unreachable`。
+
+示例 `docker-compose.yml`：
+
+```yaml
+services:
+  siyuan:
+    image: b3log/siyuan:latest
+    container_name: siyuan
+    command:
+      - --workspace=/siyuan/workspace/
+      - --accessAuthCode=${SIYUAN_ACCESS_AUTH_CODE}
+    ports:
+      - "6806:6806"
+    volumes:
+      - siyuan-workspace:/siyuan/workspace
+
+  siyuan-mcp:
+    image: node:20-alpine
+    container_name: siyuan-mcp
+    depends_on:
+      - siyuan
+    working_dir: /siyuan/workspace/data/plugins/siyuan-plugins-mcp-sisyphus
+    command: ["node", "mcp-server.cjs", "--http"]
+    environment:
+      SIYUAN_API_URL: http://siyuan:6806
+      SIYUAN_TOKEN: ${SIYUAN_TOKEN}
+      SIYUAN_MCP_HOST: 0.0.0.0
+      SIYUAN_MCP_PORT: 36806
+      SIYUAN_MCP_TOKEN: ${SIYUAN_MCP_TOKEN}
+    ports:
+      - "36806:36806"
+    volumes:
+      - siyuan-workspace:/siyuan/workspace:ro
+
+volumes:
+  siyuan-workspace:
+```
+
+这个结构里：
+
+- 需要先把插件安装或解压到思源工作空间，确保共享卷里存在 `data/plugins/siyuan-plugins-mcp-sisyphus/mcp-server.cjs`
+- 客户端连接 `http://<docker-host-ip>:36806/mcp`，并带上 `Authorization: Bearer <SIYUAN_MCP_TOKEN>`
+- 在同一个 Compose 网络里，`http://siyuan:6806` 会通过 Docker service name 访问思源容器
+- 如果 MCP 容器不在同一个 Compose 网络里，请改用它能访问到的宿主机或局域网地址，例如 `http://host.docker.internal:6806` 或 `http://<docker-host-ip>:6806`
 
 ### WSL
 

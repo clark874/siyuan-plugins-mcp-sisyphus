@@ -160,6 +160,8 @@ describe('block tool', () => {
 
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toContain('block.replace edit #1 did not match any text');
+        expect(result.content[0].text).toContain('only searches the kramdown of the single block');
+        expect(result.content[0].text).toContain('fs(action=\\"replace\\")');
         expect(client.request).not.toHaveBeenCalledWith('/api/block/updateBlock', expect.anything());
     });
 

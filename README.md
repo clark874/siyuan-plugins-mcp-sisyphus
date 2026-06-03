@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **Latest:** `v0.4.9` — Fallback agent instructions for clients that do not inject MCP `server.instructions`, keeping `/AGENTS.md` memory and user-rule guidance discoverable.
+> **Latest:** `v0.4.10` — Document Timeline can now be disabled cleanly from settings, removing its dock, command, and editor listeners while keeping settings state in sync.
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">

@@ -302,6 +302,21 @@
             return;
         }
 
+        if (key === "versionControl__enabled") {
+            versionControlSettings = {
+                ...versionControlSettings,
+                enabled: Boolean(value),
+            };
+            await persistVersionControlSettings();
+            return;
+        }
+
+        if (key === "telemetry__enabled") {
+            telemetryConfig = { ...telemetryConfig, enabled: Boolean(value) };
+            await persistTelemetryConfig();
+            return;
+        }
+
         if (key.endsWith("__enabled")) {
             const category = key.replace("__enabled", "") as ToolCategory;
             setCategoryEnabled(category, Boolean(value));
@@ -383,12 +398,6 @@
             return;
         }
 
-        if (key === "telemetry__enabled") {
-            telemetryConfig = { ...telemetryConfig, enabled: Boolean(value) };
-            await persistTelemetryConfig();
-            return;
-        }
-
         if (key === "telemetry__interval") {
             const hours = parseInt(String(value), 10);
             telemetryConfig = {
@@ -416,6 +425,9 @@
     };
 
     export async function saveSettings() {
+        await persistPuppySettings();
+        await persistTelemetryConfig();
+        await persistVersionControlSettings();
         await persistConfig();
         showMessage(plugin?.i18n?.mcpConfigSaved || "✅ MCP Tools configuration saved");
     }

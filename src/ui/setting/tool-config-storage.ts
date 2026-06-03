@@ -78,11 +78,13 @@ export interface PuppyAppearanceSettings {
 }
 
 export interface VersionControlSettings {
+    enabled: boolean;
     showDebugMeta: boolean;
 }
 
 export function buildDefaultVersionControlSettings(): VersionControlSettings {
     return {
+        enabled: true,
         showDebugMeta: false,
     };
 }
@@ -94,6 +96,7 @@ export function normalizeVersionControlSettings(raw: unknown): VersionControlSet
     }
     const record = raw as Record<string, unknown>;
     return {
+        enabled: typeof record.enabled === "boolean" ? record.enabled : defaults.enabled,
         showDebugMeta: typeof record.showDebugMeta === "boolean" ? record.showDebugMeta : defaults.showDebugMeta,
     };
 }

@@ -34,7 +34,7 @@ pnpm make-link
 | Scenario | Recommended Mode | Why |
 |----------|------------------|-----|
 | Desktop local machine | HTTP or stdio | Both are supported directly |
-| Docker / remote SiYuan | stdio | Plugin-side HTTP server is not the best fit |
+| Docker / remote SiYuan | stdio, or HTTP sidecar | stdio is simplest for desktop clients; a second Node container can host HTTP when you need a long-running Docker service |
 | WSL / cross-machine | HTTP | Easier cross-environment connectivity |
 | stdio-only MCP client | `mcp-remote` bridge | Reuses the HTTP endpoint |
 
@@ -184,6 +184,52 @@ You can get `mcp-server.cjs` from either:
 - the release `package.zip`, then extract `mcp-server.cjs`
 
 If you copy the file manually, update it again after plugin upgrades so the client-side server matches the installed plugin version.
+
+If you cannot or do not want to run Node/npm on the MCP client machine, you can also run a second Node container as an HTTP MCP sidecar. The important detail is that `SIYUAN_API_URL` must point to the SiYuan container or host from inside the Node container. Do not leave it as `127.0.0.1`, because that points back to the Node container itself and commonly causes `kernel_unreachable`.
+
+Example `docker-compose.yml`:
+
+```yaml
+services:
+  siyuan:
+    image: b3log/siyuan:latest
+    container_name: siyuan
+    command:
+      - --workspace=/siyuan/workspace/
+      - --accessAuthCode=${SIYUAN_ACCESS_AUTH_CODE}
+    ports:
+      - "6806:6806"
+    volumes:
+      - siyuan-workspace:/siyuan/workspace
+
+  siyuan-mcp:
+    image: node:20-alpine
+    container_name: siyuan-mcp
+    depends_on:
+      - siyuan
+    working_dir: /siyuan/workspace/data/plugins/siyuan-plugins-mcp-sisyphus
+    command: ["node", "mcp-server.cjs", "--http"]
+    environment:
+      SIYUAN_API_URL: http://siyuan:6806
+      SIYUAN_TOKEN: ${SIYUAN_TOKEN}
+      SIYUAN_MCP_HOST: 0.0.0.0
+      SIYUAN_MCP_PORT: 36806
+      SIYUAN_MCP_TOKEN: ${SIYUAN_MCP_TOKEN}
+    ports:
+      - "36806:36806"
+    volumes:
+      - siyuan-workspace:/siyuan/workspace:ro
+
+volumes:
+  siyuan-workspace:
+```
+
+In this layout:
+
+- install or extract the plugin into the SiYuan workspace first, so the shared volume contains `data/plugins/siyuan-plugins-mcp-sisyphus/mcp-server.cjs`
+- clients connect to `http://<docker-host-ip>:36806/mcp` with `Authorization: Bearer <SIYUAN_MCP_TOKEN>`
+- inside Compose, `http://siyuan:6806` works because both containers share the same Docker network
+- if the MCP container is not in the same Compose network, use a reachable host/LAN address instead, for example `http://host.docker.internal:6806` or `http://<docker-host-ip>:6806`
 
 ### WSL
 

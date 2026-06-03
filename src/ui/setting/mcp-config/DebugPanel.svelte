@@ -13,37 +13,49 @@
 
     interface ChangeEvent { key: string; value: any; }
 
-    function buildDebugItems(): ISettingItem[] {
+    function buildDebugItems(
+        currentConfig: ToolConfig,
+        currentPuppySettings: PuppySettings,
+        currentVersionControlSettings: VersionControlSettings,
+        label: (key: string, fallback: string) => string,
+    ): ISettingItem[] {
         return [
             {
                 type: "checkbox",
+                key: "versionControl__enabled",
+                value: currentVersionControlSettings.enabled,
+                title: label("version_control_enabled_title", "Enable Document Timeline"),
+                description: label("version_control_enabled_desc", "Register the document timeline dock, command, and editor listeners. Turn this off to remove the dock and stop loading the timeline UI."),
+            },
+            {
+                type: "checkbox",
                 key: "debug__slimResponses",
-                value: config.debug.slimResponses,
-                title: getLabel("debug_slimResponses_title", "Slim Responses"),
-                description: getLabel("debug_slimResponses_desc", "Return only the data an agent usually needs. Turn this off to inspect full debug fields, pagination internals, UI refresh metadata, and raw helper metadata."),
+                value: currentConfig.debug.slimResponses,
+                title: label("debug_slimResponses_title", "Slim Responses"),
+                description: label("debug_slimResponses_desc", "Return only the data an agent usually needs. Turn this off to inspect full debug fields, pagination internals, UI refresh metadata, and raw helper metadata."),
             },
             {
                 type: "checkbox",
                 key: "versionControl__showDebugMeta",
-                value: versionControlSettings.showDebugMeta,
-                title: getLabel("version_control_show_debug_meta_title", "Timeline Debug Metadata"),
-                description: getLabel("version_control_show_debug_meta_desc", "Show document/block IDs and raw diff statuses such as unchanged in the document timeline."),
+                value: currentVersionControlSettings.showDebugMeta,
+                title: label("version_control_show_debug_meta_title", "Timeline Debug Metadata"),
+                description: label("version_control_show_debug_meta_desc", "Show document/block IDs and raw diff statuses such as unchanged in the document timeline."),
             },
             {
                 type: "checkbox",
                 key: "puppy__testModeEnabled",
-                value: puppySettings.testModeEnabled,
-                title: getLabel("puppy_testMode_title", "Random Mascot Test"),
-                description: getLabel("puppy_testMode_desc", "Randomly cycle real MCP actions for animation testing without calling tools."),
+                value: currentPuppySettings.testModeEnabled,
+                title: label("puppy_testMode_title", "Random Mascot Test"),
+                description: label("puppy_testMode_desc", "Randomly cycle real MCP actions for animation testing without calling tools."),
                 layout: "inline",
                 children: [
-                    ...(puppySettings.testModeEnabled
+                    ...(currentPuppySettings.testModeEnabled
                         ? [{
                             type: "number" as const,
                             key: "puppy__testModeIntervalMs",
-                            value: puppySettings.testModeIntervalMs,
-                            title: getLabel("puppy_testMode_interval_title", "Interval"),
-                            description: getLabel("puppy_testMode_interval_desc", "Delay between random test actions."),
+                            value: currentPuppySettings.testModeIntervalMs,
+                            title: label("puppy_testMode_interval_title", "Interval"),
+                            description: label("puppy_testMode_interval_desc", "Delay between random test actions."),
                             inputCompact: true,
                             unit: "ms",
                         }]
@@ -53,7 +65,7 @@
         ];
     }
 
-    $: debugItems = buildDebugItems();
+    $: debugItems = buildDebugItems(config, puppySettings, versionControlSettings, getLabel);
 </script>
 
 <SettingPanel {group} settingItems={debugItems} {display} on:changed={onChanged} />

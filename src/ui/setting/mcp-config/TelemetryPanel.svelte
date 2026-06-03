@@ -25,33 +25,36 @@
     let telemetryItems: ISettingItem[] = [];
     let telemetryPreviewJson = "";
 
-    function buildTelemetryItems(): ISettingItem[] {
+    function buildTelemetryItems(
+        currentTelemetryConfig: TelemetryConfig,
+        label: (key: string, fallback: string) => string,
+    ): ISettingItem[] {
         return [
             {
                 type: "checkbox",
                 key: "telemetry__enabled",
-                value: telemetryConfig.enabled,
-                title: getLabel("telemetry_enabled_title", "Enable Anonymous Telemetry"),
-                description: getLabel("telemetry_enabled_desc", "Send aggregated usage statistics to help improve the MCP plugin. No note content, IDs, or paths are ever uploaded."),
+                value: currentTelemetryConfig.enabled,
+                title: label("telemetry_enabled_title", "Enable Anonymous Telemetry"),
+                description: label("telemetry_enabled_desc", "Send aggregated usage statistics to help improve the MCP plugin. No note content, IDs, or paths are ever uploaded."),
             },
             {
                 type: "select",
                 key: "telemetry__interval",
-                value: String(telemetryConfig.reportIntervalHours),
-                title: getLabel("telemetry_interval_title", "Report Interval"),
-                description: getLabel("telemetry_interval_desc", "How often to send a telemetry report."),
+                value: String(currentTelemetryConfig.reportIntervalHours),
+                title: label("telemetry_interval_title", "Report Interval"),
+                description: label("telemetry_interval_desc", "How often to send a telemetry report."),
                 options: {
-                    "12": getLabel("telemetry_interval_option_12", "12 hours"),
-                    "24": getLabel("telemetry_interval_option_24", "24 hours"),
-                    "72": getLabel("telemetry_interval_option_72", "72 hours"),
+                    "12": label("telemetry_interval_option_12", "12 hours"),
+                    "24": label("telemetry_interval_option_24", "24 hours"),
+                    "72": label("telemetry_interval_option_72", "72 hours"),
                 },
             },
             {
                 type: "text",
                 key: "telemetry__endpoint",
-                value: telemetryConfig.endpoint ?? "",
-                title: getLabel("telemetry_endpoint_title", "Telemetry Endpoint"),
-                description: getLabel("telemetry_endpoint_desc", "Optional HTTPS endpoint for aggregated telemetry. Leave empty to disable all telemetry uploads."),
+                value: currentTelemetryConfig.endpoint ?? "",
+                title: label("telemetry_endpoint_title", "Telemetry Endpoint"),
+                description: label("telemetry_endpoint_desc", "Optional HTTPS endpoint for aggregated telemetry. Leave empty to disable all telemetry uploads."),
                 placeholder: "https://example.com/v1/collect",
             },
         ];
@@ -264,7 +267,7 @@
         void loadAnalyticsSummary();
     }
 
-    $: telemetryItems = buildTelemetryItems();
+    $: telemetryItems = buildTelemetryItems(telemetryConfig, getLabel);
 </script>
 
 <SettingPanel group={analyticsGroup} settingItems={[]} display={analyticsDisplay}>
