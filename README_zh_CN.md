@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.10` — 文档时间树现在可在设置中完整关闭，会同步移除 Dock、命令和编辑器监听，并保持设置状态一致。
+> **最新版本：**`v0.4.11` — 新增赞助致谢，感谢近期赞赏支持者；文档时间树仍可在设置中完整关闭。
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">
@@ -104,6 +104,11 @@ SiYuan Sisyphus 的默认设计是让用户明确控制 AI 的操作范围：
 
 如果你觉得这个项目对你有帮助，欢迎赞赏支持！
 给孩子买点 token 吧！
+
+### 赞助致谢
+
+感谢 **undefined**、**Fngd Z** 和其他好心人对本项目的赞助支持。
+
 <p align="left">
   <img src="docs/archive/thank.jpeg" alt="赞赏码" width="200">
 </p>
