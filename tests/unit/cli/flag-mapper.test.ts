@@ -24,6 +24,17 @@ const schema = {
     },
 };
 
+const blockSchema = {
+    type: 'object',
+    properties: {
+        action: { type: 'string' },
+        parentID: { type: 'string' },
+        id: { type: 'string' },
+        dataType: { type: 'string' },
+        data: { type: 'string' },
+    },
+};
+
 describe('cli/flag-mapper', () => {
     it('maps kebab-case flags onto snake_case properties', () => {
         const { args, warnings } = mapFlagsToArgs(['--item-id', 'milk'], schema);
@@ -74,6 +85,40 @@ describe('cli/flag-mapper', () => {
         expect(args).toEqual({
             assets: [{ type: 'image', content: '/assets/a.png' }],
         });
+    });
+
+    it.each([
+        '- [ ] 收拾行李',
+        '- [X] 已完成',
+        '- 列表项',
+    ])('preserves block append data that starts with a markdown list marker: %s', (data) => {
+        const { args, warnings } = mapFlagsToArgs([
+            '--parent-id', 'doc-1',
+            '--data-type', 'markdown',
+            '--data', data,
+        ], blockSchema, { category: 'block', action: 'append' });
+
+        expect(args).toEqual({
+            parentID: 'doc-1',
+            dataType: 'markdown',
+            data,
+        });
+        expect(warnings).toEqual([]);
+    });
+
+    it('preserves block update data that starts with a markdown list marker', () => {
+        const { args, warnings } = mapFlagsToArgs([
+            '--id', 'block-1',
+            '--data-type', 'markdown',
+            '--data', '- [ ] 收拾行李',
+        ], blockSchema, { category: 'block', action: 'update' });
+
+        expect(args).toEqual({
+            id: 'block-1',
+            dataType: 'markdown',
+            data: '- [ ] 收拾行李',
+        });
+        expect(warnings).toEqual([]);
     });
 
     it('does not inject implicit false booleans when a flag is absent', () => {
