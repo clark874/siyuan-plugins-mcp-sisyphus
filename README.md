@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **Latest:** `v0.4.10` — Document Timeline can now be disabled cleanly from settings, removing its dock, command, and editor listeners while keeping settings state in sync.
+> **Latest:** `v0.4.11` — Adds sponsor acknowledgements to thank recent supporters. Document Timeline can still be disabled cleanly from settings.
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">
@@ -103,6 +103,11 @@ For full setup steps, use the documentation links below.
 ## Support
 
 If you find this project helpful, please consider supporting it! Your support is what keeps me motivated to maintain and improve it.
+
+### Sponsor Thanks
+
+Thanks to **undefined**, **Fngd Z**, and all other kind supporters for sponsoring this project.
+
 <p align="left">
   <img src="docs/archive/thank.jpeg" alt="Support QR code" width="280">
 </p>
