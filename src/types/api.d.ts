@@ -34,6 +34,11 @@ interface IResGetTemplates {
     path: string;
 }
 
+interface IResSearchTemplates {
+    templates: IResGetTemplates[];
+    k: string;
+}
+
 interface IResReadDir {
     isDir: boolean;
     isSymlink: boolean;
@@ -364,10 +369,21 @@ interface IResGetBackmentionDoc {
 interface IReqRenderTemplate {
     id: string;
     path: string;
+    preview?: boolean;
+}
+
+interface IReqDocSaveAsTemplate {
+    id: string;
+    name: string;
+    overwrite: boolean;
 }
 
 interface IReqRenderSprig {
     template: string;
+}
+
+interface IReqSearchTemplates {
+    k: string;
 }
 
 interface IReqGetFile {
@@ -524,6 +540,7 @@ export type {
     IReqRenameNotebook,
     IReqRenderSprig,
     IReqRenderTemplate,
+    IReqSearchTemplates,
     IReqSearchTag,
     IReqSetNotebookConf,
     IReqSetNotebookIcon,
@@ -554,6 +571,7 @@ export type {
     IResPushMsg,
     IResReadDir,
     IResReadDirItem,
+    IResSearchTemplates,
     IResSearchTag,
     IResSetNotebookConf,
     IResUpload,

@@ -102,8 +102,8 @@ export const FsReadSchema = z.object({
 export const FsWriteSchema = z.object({
     action: z.literal("write"),
     path: z.string().describe("Human-readable document path"),
-    markdown: z.string().describe("Markdown content to create or write"),
-    overwrite: z.boolean().optional().describe("When true, replace an existing document body while keeping the document node and title"),
+    markdown: z.string().describe("Markdown content to create or write. Do not include a leading # Title; a matching create-time H1 is stripped automatically."),
+    overwrite: z.boolean().optional().describe("When true, replace an existing document body while keeping the document node and title. This is a full body replacement."),
 });
 
 export const FsReplaceEditSchema = z.object({
@@ -118,7 +118,7 @@ export const FsReplaceSchema = z.object({
     edit: z.union([
         FsReplaceEditSchema,
         z.array(FsReplaceEditSchema).min(1),
-    ]).describe("One replacement edit or an array of edits to apply sequentially within the same document"),
+    ]).describe("One replacement edit or an array of edits to apply sequentially inside editable non-complex Markdown blocks without rebuilding the document"),
 });
 
 export const FsRmSchema = z.object({
@@ -210,7 +210,7 @@ export const DocumentCreateSchema = z.object({
     path: z.string().optional().describe("Human-readable target path, must start with / (e.g., /foo/bar). Parent paths must already exist."),
     parentPath: z.string().optional().describe("Parent human-readable path or storage path ending in .sy for title-based creation, must start with /"),
     title: z.string().optional().describe("Document title when creating under parentPath"),
-    markdown: z.string().optional().describe("Markdown content, defaults to empty"),
+    markdown: z.string().optional().describe("Markdown content, defaults to empty. Do not include a leading # Title; a matching H1 is stripped automatically."),
     sorts: z.array(z.string()).optional().describe("Compatibility option retained for older callers; title-based creation now uses the reliable path flow"),
     icon: z.string().optional().describe("Optional document icon. Prefer a Unicode hex code string such as '1f4d4' for 📔 instead of a raw emoji character."),
 }).superRefine((value, ctx) => {
@@ -540,10 +540,18 @@ export const BlockDeleteSchema = z.object({
 
 export const BlockMoveSchema = z.object({
     action: z.literal("move"),
-    id: z.string().describe("Block ID"),
+    id: z.string().optional().describe("Single block ID"),
+    ids: z.array(z.string()).min(1).optional().describe("Multiple block IDs to move as a group. Pass IDs in the desired final order; the tool calls SiYuan's low-level move API from last to first internally to preserve that order."),
     previousID: z.string().optional().describe("Previous block ID"),
     parentID: z.string().optional().describe("New parent block ID"),
 }).superRefine((value, ctx) => {
+    if ((value.id && value.ids) || (!value.id && !value.ids)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide exactly one of id or ids.",
+            path: ["id"],
+        });
+    }
     if (!value.previousID && !value.parentID) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -842,12 +850,52 @@ export const FileUploadAssetSchema = z.object({
     confirmLargeFile: z.boolean().optional().describe("Set to true only after the user explicitly confirms uploading a file larger than the configured safety threshold."),
 });
 
+export const FileListTemplatesSchema = z.object({
+    action: z.literal("list_templates"),
+    query: z.string().optional().describe("Optional keyword used by SiYuan's template picker. Omit or pass an empty string to list all templates."),
+    page: z.number().int().min(1).optional().describe("Page number (1-based), default 1"),
+    pageSize: z.number().int().min(1).max(128).optional().describe("Templates per page, default 20"),
+});
+
+export const FileReadTemplateSchema = z.object({
+    action: z.literal("read_template"),
+    path: z.string().describe("Template path returned by list_templates, /data/templates/... path, /templates/... static path, or path relative to data/templates"),
+    offset: z.number().int().min(0).optional().describe("Character offset for partial template source reading, default 0"),
+    limit: z.number().int().min(1).max(20000).optional().describe("Maximum characters to return, default 8000"),
+});
+
+export const FileCreateTemplateSchema = z.object({
+    action: z.literal("create_template"),
+    path: z.string().describe("Template path to create under data/templates. Accepts relative paths such as reports/monthly.md."),
+    markdown: z.string().describe("Full Markdown template source to write."),
+    overwrite: z.boolean().optional().describe("When true, replace an existing template at the same path. Defaults to false."),
+});
+
+export const FileUpdateTemplateSchema = z.object({
+    action: z.literal("update_template"),
+    path: z.string().describe("Existing template path returned by list_templates, /data/templates/... path, /templates/... static path, or path relative to data/templates."),
+    markdown: z.string().describe("Full Markdown template source to replace the existing template with."),
+});
+
+export const FileDeleteTemplateSchema = z.object({
+    action: z.literal("delete_template"),
+    path: z.string().describe("Existing template path returned by list_templates, /data/templates/... path, /templates/... static path, or path relative to data/templates."),
+});
+
+export const FileSaveDocAsTemplateSchema = z.object({
+    action: z.literal("save_doc_as_template"),
+    id: z.string().describe("Document ID to save as a root-level template."),
+    name: z.string().describe("Root template name. Slashes are not supported; .md suffix is optional."),
+    overwrite: z.boolean().optional().describe("When true, replace an existing template with the same root name. Defaults to false."),
+});
+
 export const FileRenderSchema = z.object({
     action: z.literal("render"),
     engine: z.enum(["template", "sprig"]).describe("Template engine to use"),
     id: z.string().optional().describe("Document ID for template context"),
     path: z.string().optional().describe("Template file path inside the SiYuan workspace"),
     template: z.string().optional().describe("Sprig template content"),
+    preview: z.boolean().optional().describe("When engine=\"template\", ask SiYuan to render preview DOM instead of insertion DOM."),
 }).superRefine((value, ctx) => {
     if (value.engine === "template") {
         if (!value.id) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "id is required when engine=\"template\".", path: ["id"] });
@@ -1063,6 +1111,14 @@ export const SystemNotifySchema = z.object({
     msg: z.string().describe("Message content"),
     level: z.enum(["info", "error"]).describe("Notification level"),
     timeout: z.number().optional().describe("Display timeout in milliseconds"),
+});
+
+export const SystemChangelogSchema = z.object({
+    action: z.literal("changelog"),
+    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.4.11 or v0.4.11"),
+    fromVersion: z.string().optional().describe("Previous plugin version; returns entries newer than this version"),
+    limit: z.number().int().min(1).max(50).optional().describe("Maximum number of entries to return when version is omitted"),
+    includeRaw: z.boolean().optional().describe("Include raw Markdown for each returned changelog entry"),
 });
 
 export const SystemGetVersionSchema = z.object({

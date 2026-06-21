@@ -4,16 +4,22 @@ import { FILE_ACTION_HINTS, FILE_GUIDANCE } from '../../core/help';
 import type { PermissionManager } from '../../core/permissions';
 import {
     FileActionSchema,
+    FileCreateTemplateSchema,
+    FileDeleteTemplateSchema,
     FileDeleteAssetSchema,
     FileExportMdSchema,
     FileExportResourcesSchema,
     FileExtractDocSchema,
     FileGetDocAssetsSchema,
     FileGetImageOCRTextSchema,
+    FileListTemplatesSchema,
     FileListUnusedAssetsSchema,
+    FileReadTemplateSchema,
     FileRemoveUnusedAssetsSchema,
     FileRenameAssetSchema,
     FileRenderSchema,
+    FileSaveDocAsTemplateSchema,
+    FileUpdateTemplateSchema,
     FileUploadAssetSchema,
 } from '../../core/types';
 import { defineTool } from '../internal/define-tool';
@@ -24,6 +30,12 @@ export { FILE_TOOL_NAME };
 
 export const FILE_VARIANTS: ActionVariant<FileAction>[] = [
     createZodActionVariant('upload_asset', FileUploadAssetSchema, 'Read a local file and upload it to the specified assets directory.'),
+    createZodActionVariant('list_templates', FileListTemplatesSchema, 'List or search SiYuan workspace templates available under data/templates.'),
+    createZodActionVariant('read_template', FileReadTemplateSchema, 'Read a Markdown template source through SiYuan’s authenticated template route.'),
+    createZodActionVariant('create_template', FileCreateTemplateSchema, 'Create a Markdown template under data/templates through SiYuan’s workspace file API.'),
+    createZodActionVariant('update_template', FileUpdateTemplateSchema, 'Replace an existing Markdown template under data/templates.'),
+    createZodActionVariant('delete_template', FileDeleteTemplateSchema, 'Delete an existing Markdown template under data/templates.'),
+    createZodActionVariant('save_doc_as_template', FileSaveDocAsTemplateSchema, 'Save an existing SiYuan document as a root-level template.'),
     createZodActionVariant('render', FileRenderSchema, 'Render a SiYuan workspace template (.action{.title}) or an inline Sprig template ({{...}}).'),
     createZodActionVariant('export_md', FileExportMdSchema, 'Export document content as Markdown.'),
     createZodActionVariant('export_resources', FileExportResourcesSchema, 'Export resources as a ZIP archive.'),

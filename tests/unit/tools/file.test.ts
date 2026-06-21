@@ -16,6 +16,24 @@ vi.mock('@/api/file', () => ({
 }));
 
 vi.mock('@/api/template', () => ({
+    normalizeTemplatePath: vi.fn((input: string) => {
+        const normalized = input.replace(/\\/g, '/');
+        const marker = '/data/templates/';
+        const relativePath = normalized.includes(marker)
+            ? normalized.slice(normalized.lastIndexOf(marker) + marker.length)
+            : normalized.replace(/^\/?data\/templates\//, '').replace(/^\/?templates\//, '');
+        return {
+            path: normalized,
+            relativePath,
+            staticPath: `/templates/${relativePath}`,
+        };
+    }),
+    searchTemplates: vi.fn(),
+    resolveTemplate: vi.fn(),
+    readTemplateSource: vi.fn(),
+    writeTemplateSource: vi.fn(),
+    deleteTemplate: vi.fn(),
+    saveDocAsTemplate: vi.fn(),
     renderTemplate: vi.fn(),
     renderSprig: vi.fn(),
 }));
@@ -42,6 +60,17 @@ describe('file tool asset actions', () => {
         vi.mocked(fileApi.getImageOCRText).mockReset();
         vi.mocked(fileApi.deleteAsset).mockReset();
 
+        const templateApi = await import('@/api/template');
+        vi.mocked(templateApi.normalizeTemplatePath).mockClear();
+        vi.mocked(templateApi.searchTemplates).mockReset();
+        vi.mocked(templateApi.resolveTemplate).mockReset();
+        vi.mocked(templateApi.readTemplateSource).mockReset();
+        vi.mocked(templateApi.writeTemplateSource).mockReset();
+        vi.mocked(templateApi.deleteTemplate).mockReset();
+        vi.mocked(templateApi.saveDocAsTemplate).mockReset();
+        vi.mocked(templateApi.renderTemplate).mockReset();
+        vi.mocked(templateApi.renderSprig).mockReset();
+
         vi.mocked(fileApi.exportMdContent).mockResolvedValue({
             content: '![image](assets/cover.png)\n\nSome text\n',
             hPath: '/My Document',
@@ -52,17 +81,332 @@ describe('file tool asset actions', () => {
         vi.mocked(fileApi.getDocImageAssets).mockResolvedValue(['assets/cover.png']);
         vi.mocked(fileApi.getImageOCRText).mockResolvedValue({ text: 'recognized text' });
         vi.mocked(fileApi.deleteAsset).mockResolvedValue(null);
+        vi.mocked(templateApi.searchTemplates).mockResolvedValue({ k: '', templates: [] });
+        vi.mocked(templateApi.resolveTemplate).mockRejectedValue(Object.assign(new Error('Template not found: demo.md'), { reason: 'template_not_found' }));
+        vi.mocked(templateApi.readTemplateSource).mockResolvedValue({
+            path: '/workspace/data/templates/demo.md',
+            relativePath: 'demo.md',
+            markdown: 'demo',
+        });
+        vi.mocked(templateApi.writeTemplateSource).mockResolvedValue({
+            path: '/data/templates/demo.md',
+            relativePath: 'demo.md',
+            totalChars: 4,
+        });
+        vi.mocked(templateApi.deleteTemplate).mockResolvedValue({
+            path: '/workspace/data/templates/demo.md',
+            relativePath: 'demo.md',
+        });
+        vi.mocked(templateApi.saveDocAsTemplate).mockResolvedValue({
+            id: 'doc-1',
+            name: 'demo',
+            relativePath: 'demo.md',
+        });
+        vi.mocked(templateApi.renderTemplate).mockResolvedValue({
+            path: '/workspace/data/templates/demo.md',
+            content: '<div>rendered</div>',
+        });
+        vi.mocked(templateApi.renderSprig).mockResolvedValue('sprig');
     });
 
     it('exposes asset management actions in the grouped schema', () => {
-        const [tool] = listFileTools(config.file);
+        const schemaConfig = buildDefaultToolConfig();
+        schemaConfig.file.actions.delete_template = true;
+        const [tool] = listFileTools(schemaConfig.file);
         const actionDescription = tool.inputSchema.properties.action.description;
+        expect(actionDescription).toContain('list_templates');
+        expect(actionDescription).toContain('read_template');
+        expect(actionDescription).toContain('create_template');
+        expect(actionDescription).toContain('update_template');
+        expect(actionDescription).toContain('delete_template');
+        expect(actionDescription).toContain('save_doc_as_template');
         expect(actionDescription).toContain('list_unused_assets');
         expect(actionDescription).toContain('get_doc_assets');
         expect(actionDescription).toContain('get_image_ocr_text');
         expect(actionDescription).toContain('remove_unused_assets');
         expect(actionDescription).toContain('rename_asset');
         expect(actionDescription).toContain('delete_asset');
+    });
+
+    it('lists templates with reusable read and render arguments', async () => {
+        const templateApi = await import('@/api/template');
+        vi.mocked(templateApi.searchTemplates).mockResolvedValueOnce({
+            k: 'report',
+            templates: [
+                { path: '/workspace/data/templates/reports/monthly.md', content: 'reports/monthly' },
+                { path: '/workspace/data/templates/reports/weekly.md', content: 'reports/weekly' },
+            ],
+        });
+
+        const result = await callFileTool(client, {
+            action: 'list_templates',
+            query: 'report',
+            page: 1,
+            pageSize: 1,
+        }, config.file, {} as never);
+
+        expect(templateApi.searchTemplates).toHaveBeenCalledWith(client, 'report');
+        expect(parseResult(result)).toEqual({
+            data: [{
+                path: '/workspace/data/templates/reports/monthly.md',
+                relativePath: 'reports/monthly.md',
+                name: 'monthly',
+                content: 'reports/monthly',
+                readArgs: {
+                    action: 'read_template',
+                    path: '/workspace/data/templates/reports/monthly.md',
+                },
+                renderArgsTemplate: {
+                    action: 'render',
+                    engine: 'template',
+                    id: '<doc-id>',
+                    path: '/workspace/data/templates/reports/monthly.md',
+                },
+            }],
+            total: 2,
+            page: 1,
+            pageSize: 1,
+            pageCount: 2,
+            hasNextPage: true,
+            query: 'report',
+            showing: 1,
+            truncated: true,
+        });
+    });
+
+    it('reads template markdown with offset and limit pagination', async () => {
+        const templateApi = await import('@/api/template');
+        vi.mocked(templateApi.readTemplateSource).mockResolvedValueOnce({
+            path: '/workspace/data/templates/demo.md',
+            relativePath: 'demo.md',
+            markdown: 'hello world!',
+        });
+
+        const result = await callFileTool(client, {
+            action: 'read_template',
+            path: '/workspace/data/templates/demo.md',
+            offset: 6,
+            limit: 5,
+        }, config.file, {} as never);
+
+        expect(templateApi.readTemplateSource).toHaveBeenCalledWith(client, '/workspace/data/templates/demo.md');
+        expect(parseResult(result)).toEqual({
+            path: '/workspace/data/templates/demo.md',
+            relativePath: 'demo.md',
+            markdown: 'world',
+            totalChars: 12,
+            offset: 6,
+            limit: 5,
+            truncated: true,
+            nextOffset: 11,
+        });
+    });
+
+    it('returns a structured error when template source cannot be read', async () => {
+        const templateApi = await import('@/api/template');
+        const error = new Error('Template path must not traverse directories.') as Error & { reason?: string };
+        error.reason = 'invalid_template_path';
+        vi.mocked(templateApi.readTemplateSource).mockRejectedValueOnce(error);
+
+        const result = await callFileTool(client, {
+            action: 'read_template',
+            path: '../secret.md',
+        }, config.file, {} as never);
+
+        expect(result.isError).toBe(true);
+        expect(parseResult(result)).toEqual({
+            error: {
+                type: 'api_error',
+                tool: 'file',
+                action: 'read_template',
+                message: 'Template path must not traverse directories.',
+                reason: 'invalid_template_path',
+                hint: 'Use file(action="list_templates") to resolve a valid Markdown template path. If you only need rendered output, use file(action="render", engine="template").',
+            },
+        });
+    });
+
+    it('creates a template when no existing template resolves', async () => {
+        const templateApi = await import('@/api/template');
+        vi.mocked(templateApi.writeTemplateSource).mockResolvedValueOnce({
+            path: '/data/templates/reports/monthly.md',
+            relativePath: 'reports/monthly.md',
+            totalChars: 8,
+        });
+        vi.mocked(templateApi.resolveTemplate)
+            .mockRejectedValueOnce(Object.assign(new Error('Template not found: reports/monthly.md'), { reason: 'template_not_found' }))
+            .mockResolvedValueOnce({
+                path: '/workspace/data/templates/reports/monthly.md',
+                relativePath: 'reports/monthly.md',
+                content: 'reports/monthly',
+            });
+
+        const result = await callFileTool(client, {
+            action: 'create_template',
+            path: 'reports/monthly.md',
+            markdown: '# Report',
+        }, config.file, {} as never);
+
+        expect(templateApi.writeTemplateSource).toHaveBeenCalledWith(client, 'reports/monthly.md', '# Report');
+        expect(parseResult(result)).toEqual({
+            success: true,
+            path: '/workspace/data/templates/reports/monthly.md',
+            relativePath: 'reports/monthly.md',
+            name: 'monthly',
+            totalChars: 8,
+            readArgs: {
+                action: 'read_template',
+                path: '/workspace/data/templates/reports/monthly.md',
+            },
+            renderArgsTemplate: {
+                action: 'render',
+                engine: 'template',
+                id: '<doc-id>',
+                path: '/workspace/data/templates/reports/monthly.md',
+            },
+        });
+    });
+
+    it('returns template_exists when creating without overwrite over an existing template', async () => {
+        const templateApi = await import('@/api/template');
+        vi.mocked(templateApi.resolveTemplate).mockResolvedValueOnce({
+            path: '/workspace/data/templates/demo.md',
+            relativePath: 'demo.md',
+            content: 'demo',
+        });
+
+        const result = await callFileTool(client, {
+            action: 'create_template',
+            path: 'demo.md',
+            markdown: 'demo',
+        }, config.file, {} as never);
+
+        expect(result.isError).toBe(true);
+        expect(templateApi.writeTemplateSource).not.toHaveBeenCalled();
+        expect(parseResult(result)).toEqual({
+            error: {
+                type: 'api_error',
+                tool: 'file',
+                action: 'create_template',
+                message: 'Template already exists: demo.md',
+                reason: 'template_exists',
+                path: '/workspace/data/templates/demo.md',
+                relativePath: 'demo.md',
+                hint: 'Pass overwrite=true to replace the existing template, or choose a different template path.',
+            },
+        });
+    });
+
+    it('updates an existing template with full markdown source', async () => {
+        const templateApi = await import('@/api/template');
+        vi.mocked(templateApi.resolveTemplate)
+            .mockResolvedValueOnce({
+                path: '/workspace/data/templates/demo.md',
+                relativePath: 'demo.md',
+                content: 'demo',
+            })
+            .mockResolvedValueOnce({
+                path: '/workspace/data/templates/demo.md',
+                relativePath: 'demo.md',
+                content: 'demo',
+            });
+        vi.mocked(templateApi.writeTemplateSource).mockResolvedValueOnce({
+            path: '/data/templates/demo.md',
+            relativePath: 'demo.md',
+            totalChars: 12000,
+        });
+        const markdown = 'x'.repeat(12000);
+
+        const result = await callFileTool(client, {
+            action: 'update_template',
+            path: '/workspace/data/templates/demo.md',
+            markdown,
+        }, config.file, {} as never);
+
+        expect(templateApi.writeTemplateSource).toHaveBeenCalledWith(client, 'demo.md', markdown);
+        expect(parseResult(result)).toMatchObject({
+            success: true,
+            path: '/workspace/data/templates/demo.md',
+            relativePath: 'demo.md',
+            totalChars: 12000,
+        });
+    });
+
+    it('deletes an enabled template action through the template API', async () => {
+        const templateApi = await import('@/api/template');
+        const enabledConfig = buildDefaultToolConfig();
+        enabledConfig.file.actions.delete_template = true;
+
+        const result = await callFileTool(client, {
+            action: 'delete_template',
+            path: '/workspace/data/templates/demo.md',
+        }, enabledConfig.file, {} as never);
+
+        expect(templateApi.deleteTemplate).toHaveBeenCalledWith(client, '/workspace/data/templates/demo.md');
+        expect(parseResult(result)).toEqual({
+            success: true,
+            path: '/workspace/data/templates/demo.md',
+            relativePath: 'demo.md',
+        });
+    });
+
+    it('saves a document as a template after permission check', async () => {
+        const templateApi = await import('@/api/template');
+        vi.mocked(templateApi.resolveTemplate).mockResolvedValueOnce({
+            path: '/workspace/data/templates/demo.md',
+            relativePath: 'demo.md',
+            content: 'demo',
+        });
+
+        const result = await callFileTool(client, {
+            action: 'save_doc_as_template',
+            id: 'doc-1',
+            name: 'demo',
+        }, config.file, {} as never);
+
+        expect(templateApi.saveDocAsTemplate).toHaveBeenCalledWith(client, 'doc-1', 'demo', false);
+        expect(parseResult(result)).toEqual({
+            success: true,
+            id: 'doc-1',
+            name: 'demo',
+            template: {
+                path: '/workspace/data/templates/demo.md',
+                relativePath: 'demo.md',
+                name: 'demo',
+                readArgs: {
+                    action: 'read_template',
+                    path: '/workspace/data/templates/demo.md',
+                },
+                renderArgsTemplate: {
+                    action: 'render',
+                    engine: 'template',
+                    id: '<doc-id>',
+                    path: '/workspace/data/templates/demo.md',
+                },
+            },
+        });
+    });
+
+    it('passes preview through while rendering workspace templates', async () => {
+        const templateApi = await import('@/api/template');
+        vi.mocked(templateApi.renderTemplate).mockResolvedValueOnce({
+            path: '/workspace/data/templates/demo.md',
+            content: '<div>preview</div>',
+        });
+
+        const result = await callFileTool(client, {
+            action: 'render',
+            engine: 'template',
+            id: 'doc-1',
+            path: '/workspace/data/templates/demo.md',
+            preview: true,
+        }, config.file, {} as never);
+
+        expect(templateApi.renderTemplate).toHaveBeenCalledWith(client, 'doc-1', '/workspace/data/templates/demo.md', true);
+        expect(parseResult(result)).toEqual({
+            path: '/workspace/data/templates/demo.md',
+            content: '<div>preview</div>',
+        });
     });
 
     it('calls unused assets endpoint', async () => {
@@ -188,6 +532,9 @@ describe('file tool asset actions', () => {
         }, config.file, {} as never);
 
         const parsed = parseResult(result);
+        expect(parsed.outputRoot).toContain('siyuan-extracted');
+        expect(parsed.defaultOutputDirUsed).toBe(true);
+        expect(parsed.hint).toContain('~/siyuan-extracted');
         expect(parsed.extractedDir).toContain('My Document-dw9cpey');
         expect(parsed.docMdFile).toBe('My Document.md');
         expect(parsed.extractedAssetCount).toBe(1);

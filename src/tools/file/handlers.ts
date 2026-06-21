@@ -7,21 +7,27 @@ import { normalizeMarkdownContent } from '../../core/normalize';
 import type { FileAction } from '../../core/config';
 import type { PermissionManager } from '../../core/permissions';
 import {
+    FileCreateTemplateSchema,
+    FileDeleteTemplateSchema,
     FileDeleteAssetSchema,
     FileExportMdSchema,
     FileExportResourcesSchema,
     FileExtractDocSchema,
     FileGetDocAssetsSchema,
     FileGetImageOCRTextSchema,
+    FileListTemplatesSchema,
     FileListUnusedAssetsSchema,
+    FileReadTemplateSchema,
     FileRemoveUnusedAssetsSchema,
     FileRenameAssetSchema,
     FileRenderSchema,
+    FileSaveDocAsTemplateSchema,
+    FileUpdateTemplateSchema,
     FileUploadAssetSchema,
 } from '../../core/types';
 import { ensurePermissionForDocumentId } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
-import { createJsonResult, type ToolResult } from '../internal/shared';
+import { createJsonResult, createPaginatedResult, paginate, type ToolResult } from '../internal/shared';
 
 export const FILE_TOOL_NAME = 'file';
 export const DEFAULT_LARGE_UPLOAD_THRESHOLD_MB = 10;
@@ -56,6 +62,101 @@ function resolveLocalInputPath(inputPath: string): string {
 
 function isWorkspaceTemplatePathError(error: unknown): error is Error {
     return error instanceof Error && /is not in workspace/i.test(error.message);
+}
+
+function templateErrorResult(
+    action: 'render' | 'read_template' | 'create_template' | 'update_template' | 'delete_template' | 'save_doc_as_template',
+    error: unknown,
+    reason: string,
+    hint: string,
+    extra?: Record<string, unknown>,
+): ToolResult {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+        content: [{
+            type: 'text',
+            text: JSON.stringify({
+                error: {
+                    type: 'api_error',
+                    tool: FILE_TOOL_NAME,
+                    action,
+                    message,
+                    reason,
+                    ...(extra ?? {}),
+                    hint,
+                },
+            }, null, 2),
+        }],
+        isError: true,
+    };
+}
+
+function getTemplateErrorReason(error: unknown): string {
+    if (error && typeof error === 'object' && 'reason' in error && typeof (error as { reason?: unknown }).reason === 'string') {
+        return (error as { reason: string }).reason;
+    }
+    return 'template_source_unavailable';
+}
+
+function isTemplateNotFoundError(error: unknown): boolean {
+    return getTemplateErrorReason(error) === 'template_not_found';
+}
+
+function getTemplateName(relativePath: string): string {
+    return path.basename(relativePath).replace(/\.md$/i, '');
+}
+
+function buildTemplateListItem(item: { path: string; content: string }) {
+    const normalized = templateApi.normalizeTemplatePath(item.path);
+    return {
+        path: item.path,
+        relativePath: normalized.relativePath,
+        name: getTemplateName(normalized.relativePath),
+        content: item.content,
+        readArgs: {
+            action: 'read_template',
+            path: item.path,
+        },
+        renderArgsTemplate: {
+            action: 'render',
+            engine: 'template',
+            id: '<doc-id>',
+            path: item.path,
+        },
+    };
+}
+
+function buildTemplateMutationPayload(pathValue: string, relativePath: string, totalChars?: number) {
+    return {
+        path: pathValue,
+        relativePath,
+        name: getTemplateName(relativePath),
+        ...(typeof totalChars === 'number' ? { totalChars } : {}),
+        readArgs: {
+            action: 'read_template',
+            path: pathValue,
+        },
+        renderArgsTemplate: {
+            action: 'render',
+            engine: 'template',
+            id: '<doc-id>',
+            path: pathValue,
+        },
+    };
+}
+
+async function resolveTemplateAfterWrite(
+    client: SiYuanClient,
+    relativePath: string,
+    fallbackPath: string,
+    totalChars: number,
+) {
+    try {
+        const resolved = await templateApi.resolveTemplate(client, relativePath);
+        return buildTemplateMutationPayload(resolved.path, resolved.relativePath, totalChars);
+    } catch {
+        return buildTemplateMutationPayload(fallbackPath, relativePath, totalChars);
+    }
 }
 
 const handleUploadAsset = (thresholdMB: number, largeUploadThresholdBytes: number): ToolActionHandler =>
@@ -101,29 +202,185 @@ const handleRender: ToolActionHandler = async ({ client, permMgr, rawArgs }) => 
     const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id!, 'read');
     if (denied) return denied;
     try {
-        const result = await templateApi.renderTemplate(client, parsed.id!, parsed.path!);
+        const result = await templateApi.renderTemplate(client, parsed.id!, parsed.path!, parsed.preview);
         return createJsonResult(result);
     } catch (error) {
         if (isWorkspaceTemplatePathError(error)) {
-            return {
-                content: [{
-                    type: 'text',
-                    text: JSON.stringify({
-                        error: {
-                            type: 'api_error',
-                            tool: FILE_TOOL_NAME,
-                            action: 'render',
-                            message: error.message,
-                            reason: 'path_not_in_workspace',
-                            workspacePathRequired: true,
-                            hint: 'The template path must point to a file inside the SiYuan workspace, not an arbitrary local path such as /tmp/... or your repo checkout.',
-                        },
-                    }, null, 2),
-                }],
-                isError: true,
-            };
+            return templateErrorResult(
+                'render',
+                error,
+                'path_not_in_workspace',
+                'The template path must point to a file inside the SiYuan workspace, not an arbitrary local path such as /tmp/... or your repo checkout. Use file(action="list_templates") to resolve a valid template path.',
+                { workspacePathRequired: true },
+            );
         }
         throw error;
+    }
+};
+
+const handleListTemplates: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileListTemplatesSchema.parse(rawArgs);
+    const query = parsed.query ?? '';
+    const result = await templateApi.searchTemplates(client, query);
+    const templates = (Array.isArray(result.templates) ? result.templates : []).map(buildTemplateListItem);
+    const paged = paginate(templates, parsed.page ?? 1, parsed.pageSize ?? 20);
+    return createPaginatedResult(paged.items, paged, {
+        query: result.k,
+        showing: paged.showing,
+        truncated: paged.truncated,
+    });
+};
+
+const handleReadTemplate: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileReadTemplateSchema.parse(rawArgs);
+    try {
+        const source = await templateApi.readTemplateSource(client, parsed.path);
+        const totalChars = source.markdown.length;
+        const offset = parsed.offset ?? 0;
+        const limit = parsed.limit ?? 8000;
+        const markdown = source.markdown.slice(offset, offset + limit);
+        const nextOffset = offset + markdown.length;
+        const truncated = nextOffset < totalChars;
+        return createJsonResult({
+            path: source.path,
+            relativePath: source.relativePath,
+            markdown,
+            totalChars,
+            offset,
+            limit,
+            truncated,
+            ...(truncated ? { nextOffset } : {}),
+        });
+    } catch (error) {
+        return templateErrorResult(
+            'read_template',
+            error,
+            getTemplateErrorReason(error),
+            'Use file(action="list_templates") to resolve a valid Markdown template path. If you only need rendered output, use file(action="render", engine="template").',
+        );
+    }
+};
+
+const handleCreateTemplate: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileCreateTemplateSchema.parse(rawArgs);
+    if (parsed.overwrite !== true) {
+        try {
+            const existing = await templateApi.resolveTemplate(client, parsed.path);
+            return templateErrorResult(
+                'create_template',
+                new Error(`Template already exists: ${existing.relativePath}`),
+                'template_exists',
+                'Pass overwrite=true to replace the existing template, or choose a different template path.',
+                {
+                    path: existing.path,
+                    relativePath: existing.relativePath,
+                },
+            );
+        } catch (error) {
+            if (!isTemplateNotFoundError(error)) {
+                return templateErrorResult(
+                    'create_template',
+                    error,
+                    getTemplateErrorReason(error),
+                    'Use a Markdown template path under data/templates, such as "reports/monthly.md".',
+                );
+            }
+        }
+    }
+
+    try {
+        const written = await templateApi.writeTemplateSource(client, parsed.path, parsed.markdown);
+        const payload = await resolveTemplateAfterWrite(client, written.relativePath, written.path, written.totalChars);
+        return createJsonResult({
+            success: true,
+            ...payload,
+        });
+    } catch (error) {
+        return templateErrorResult(
+            'create_template',
+            error,
+            getTemplateErrorReason(error),
+            'Use a Markdown template path under data/templates, such as "reports/monthly.md".',
+        );
+    }
+};
+
+const handleUpdateTemplate: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileUpdateTemplateSchema.parse(rawArgs);
+    let existing: templateApi.TemplateSearchItem;
+    try {
+        existing = await templateApi.resolveTemplate(client, parsed.path);
+    } catch (error) {
+        return templateErrorResult(
+            'update_template',
+            error,
+            getTemplateErrorReason(error),
+            'Use file(action="list_templates") to resolve an existing Markdown template before updating it.',
+        );
+    }
+
+    try {
+        const written = await templateApi.writeTemplateSource(client, existing.relativePath, parsed.markdown);
+        const payload = await resolveTemplateAfterWrite(client, written.relativePath, existing.path, written.totalChars);
+        return createJsonResult({
+            success: true,
+            ...payload,
+        });
+    } catch (error) {
+        return templateErrorResult(
+            'update_template',
+            error,
+            getTemplateErrorReason(error),
+            'The template was found, but writing the replacement Markdown failed.',
+        );
+    }
+};
+
+const handleDeleteTemplate: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileDeleteTemplateSchema.parse(rawArgs);
+    try {
+        const result = await templateApi.deleteTemplate(client, parsed.path);
+        return createJsonResult({
+            success: true,
+            ...result,
+        });
+    } catch (error) {
+        return templateErrorResult(
+            'delete_template',
+            error,
+            getTemplateErrorReason(error),
+            'Use file(action="list_templates") to resolve an existing Markdown template before deleting it.',
+        );
+    }
+};
+
+const handleSaveDocAsTemplate: ToolActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = FileSaveDocAsTemplateSchema.parse(rawArgs);
+    const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+    if (denied) return denied;
+
+    try {
+        const saved = await templateApi.saveDocAsTemplate(client, parsed.id, parsed.name, parsed.overwrite ?? false);
+        let template;
+        try {
+            const resolved = await templateApi.resolveTemplate(client, saved.relativePath);
+            template = buildTemplateMutationPayload(resolved.path, resolved.relativePath);
+        } catch {
+            template = undefined;
+        }
+        return createJsonResult({
+            success: true,
+            id: saved.id,
+            name: saved.name,
+            ...(template ? { template } : {}),
+        });
+    } catch (error) {
+        return templateErrorResult(
+            'save_doc_as_template',
+            error,
+            getTemplateErrorReason(error),
+            'Use a root-level template name without slashes. Pass overwrite=true to replace an existing template.',
+        );
     }
 };
 
@@ -242,6 +499,7 @@ const handleExtractDoc: ToolActionHandler = async ({ client, rawArgs }) => {
     const outputRoot = parsed.outputDir
         ? path.resolve(parsed.outputDir)
         : path.join(homeDir, 'siyuan-extracted');
+    const defaultOutputDirUsed = !parsed.outputDir;
     const targetDir = path.join(outputRoot, folderName);
     const assetsDir = path.join(targetDir, 'assets');
 
@@ -274,17 +532,28 @@ const handleExtractDoc: ToolActionHandler = async ({ client, rawArgs }) => {
     }
 
     return createJsonResult({
+        outputRoot,
+        defaultOutputDirUsed,
         extractedDir: targetDir,
         docMdFile: `${docName}.md`,
         extractedAssetCount: extractedCount,
         skippedAssetCount: skippedCount,
         structure,
+        hint: defaultOutputDirUsed
+            ? 'No outputDir was provided, so extract_doc used the default ~/siyuan-extracted/ output root. Pass outputDir explicitly when you need a specific location such as /private/tmp.'
+            : 'extract_doc wrote to the explicit outputDir root.',
     });
 };
 
 export function createFileActionHandlers(thresholdMB: number, largeUploadThresholdBytes: number): Record<FileAction, ToolActionHandler> {
     return {
         upload_asset: handleUploadAsset(thresholdMB, largeUploadThresholdBytes),
+        list_templates: handleListTemplates,
+        read_template: handleReadTemplate,
+        create_template: handleCreateTemplate,
+        update_template: handleUpdateTemplate,
+        delete_template: handleDeleteTemplate,
+        save_doc_as_template: handleSaveDocAsTemplate,
         render: handleRender,
         export_md: handleExportMd,
         export_resources: handleExportResources,

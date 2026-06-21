@@ -14,13 +14,20 @@ import {
     type FsAction,
     type ToolCategory,
 } from './config';
+import { CHANGELOG_RESOURCE_URI } from './changelog';
 
 export const FS_GUIDANCE: string[] = [
     'Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.',
     'fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.',
-    'Use document, block, search, or av only for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.',
-    'fs(action="write") creates missing documents. If the document already exists, pass overwrite=true to replace its body while preserving the document node and title.',
-    'fs(action="replace") performs exact string replacement inside one document using old/new text snippets, including multi-line snippets, without requiring line numbers.',
+    'fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.',
+    'fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id \'title\')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.',
+    'Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or `hello`, not "**hello**" or "`hello`"; DOM writeback preserves the existing inline style.',
+    'Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.',
+    'fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.',
+    'For double-links in fs.write or fs.replace replacement text, use ((block-id \'anchor text\')) with a real block ID and human-readable anchor text. Naked ((id)) is resolved before writing; if anchor lookup fails, MCP falls back to ((id \'id\')) with a warning.',
+    'For tags in fs.write or fs.replace replacement text, use #tag# or hierarchical tag syntax such as #parent/child#; verify global tag state with tag(action="list", query="tag").',
+    'fs(action="replace") performs exact string replacement only inside non-complex Markdown blocks. If a document also contains complex SiYuan-native blocks, those blocks are skipped; replacements that only exist inside skipped blocks, or cross block boundaries, are rejected without writing.',
+    'If fs.read reports attributeViews or avToolHint, the document contains real database blocks. Use av(action="get"|"render"|"set_cells"|"add_rows"|"remove_rows"|"add_column"|"remove_column") for AV rows, columns, and cells instead of editing the database placeholder as Markdown.',
     'fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.',
 ];
 
@@ -35,6 +42,7 @@ export const NOTEBOOK_GUIDANCE: string[] = [
 export const DOCUMENT_GUIDANCE: string[] = [
     'For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.',
     'document(action="create") creates both non-empty and empty documents. Prefer path for child documents; path is a notebook-local human-readable hpath such as /Folder/Parent/New Child, not /Notebook/Folder/... and not a .sy storage path.',
+    'Do not put # Title at the start of document(action="create") markdown. SiYuan renders the document title as H1 automatically, and MCP strips a matching leading H1 to avoid duplicate titles.',
     'document(action="create", parentPath=..., title=...) is also supported. parentPath accepts either a notebook-local human-readable parent hpath such as /Folder/Parent, or a storage path ending in .sy returned by document(action="lookup").',
     'fs(action="write", path="/Notebook/Folder/Doc") uses a workspace path that includes the notebook name; document(action="create", notebook=..., path="/Folder/Doc") uses a notebook-local hpath. Do not mix these two path formats.',
     'For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.',
@@ -52,9 +60,9 @@ export const BLOCK_GUIDANCE: string[] = [
     'block(action="prepend") or block(action="append") with a document ID targets the document start or end.',
     'block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.',
     'block(action="replace") only searches the kramdown of the single block identified by id. It does not traverse child blocks, sibling blocks, headings with their following content, or the whole document.',
-    'Before block(action="replace"), call block(action="get_kramdown", id=...) and copy an exact old snippet from that result. For document-level exact replacement, use fs(action="replace", path=..., edit=...).',
+    'Before block(action="replace"), call block(action="get_kramdown", id=...) and copy an exact old snippet from that result. It writes back through the original DOM text nodes; naked ((id)) references, footnotes, and siyuan://blocks links are allowed with backlink-semantics hints.',
     'block(action="prepend") or block(action="append") with a block ID targets that block\'s child list.',
-    'To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters.',
+    'To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters, then verify with tag(action="list", query="tag").',
     'To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.',
     'block(action="set_fold_state") requires a foldable block ID, not a document ID.',
     'block(action="recent_updated") is read-only; MCP filters unreadable notebooks first and then applies count.',
@@ -77,6 +85,11 @@ export const FILE_GUIDANCE: string[] = [
     'If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.',
     'file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.',
     'file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.',
+    'Use file(action="list_templates") before rendering when you need to discover valid workspace template paths under data/templates.',
+    'file(action="read_template") reads Markdown template source through SiYuan’s authenticated /templates/ route; it does not expose arbitrary workspace files.',
+    'file(action="create_template"|"update_template") writes Markdown templates through SiYuan’s /api/file/putFile workspace API; it does not write data/templates through the local filesystem.',
+    'file(action="delete_template") removes an existing Markdown template resolved from SiYuan’s template picker and requires explicit user confirmation before execution.',
+    'file(action="save_doc_as_template") saves an existing document as a root-level template after read-permission checks; use create_template when you need a nested template path.',
     'file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.',
     'file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.',
     'file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.',
@@ -94,6 +107,7 @@ export const SYSTEM_GUIDANCE: string[] = [
     'All system actions in this tool are read-only.',
     'system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.',
     'system(action="conf") returns masked configuration, not raw secrets.',
+    'Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.',
     'Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].',
 ];
 
@@ -103,7 +117,10 @@ export const FLASHCARD_GUIDANCE: string[] = [
     'get_cards returns all cards in a deck (not just due ones), with pagination. Use it to browse or audit deck contents.',
     'Prefer flashcard(action="create_card", deckID, blockIDs) when the goal is to turn existing blocks into real flashcards.',
     'create_card validates non-built-in deck IDs against get_decks, then calls SiYuan\'s riff add-card operation, which writes "custom-riff-decks" and registers the riff card transactionally.',
+    'Create or locate the intended content block IDs first, then pass those IDs to create_card. Document block IDs are rejected; use content blocks such as headings or paragraphs.',
     'create_card(mode="attach") is retained for compatibility; SiYuan still writes the deck binding during the riff add-card operation. remove_card removes existing content block IDs such as paragraphs or headings from a deck; document blocks are rejected for creation.',
+    'review_card requires a concrete deckID and cardID. Use list_cards or get_cards to resolve them; an empty deckID is not valid for review.',
+    'Flashcard removal only removes riff card bindings from a deck. It does not delete the underlying note blocks; deleting note blocks is a separate block/document delete workflow.',
     'flashcard(action="remove_card") requires explicit user confirmation before execution.',
 ];
 
@@ -126,9 +143,9 @@ export const FEEDBACK_GUIDANCE: string[] = [
 export const FS_ACTION_HINTS: Partial<Record<FsAction, string>> = {
     ls: 'Use a human-readable path. "/" lists readable notebook roots; /Notebook or /Notebook/Folder lists direct child documents.',
     tree: 'Use a human-readable path. maxDepth defaults to 3 and keeps output compact.',
-    read: 'Use a human-readable document path. Returns Markdown content only, with pagination for long documents.',
-    write: 'Creates a missing document. Existing documents are protected unless overwrite=true; overwrite replaces the body while preserving the document node and title.',
-    replace: 'Edits one existing document by exact old/new string matching. edit accepts one object or an array for sequential replacements. replace_all=true replaces every exact match of that old snippet.',
+    read: 'Use a human-readable document path. Returns an AI-editable Markdown view with pagination for long documents: SiYuan double-links stay as ((id \'title\')), tags stay as #tag#, zero-width tag markers and normal block/list-item IAL metadata are hidden. When complex SiYuan blocks are detected, use block.dom, file.export_md, av, or other advanced tools for inspection and editing.',
+    write: 'Creates a missing document. Do not include a leading # Title in markdown; the document title is automatic. Existing pure Markdown documents are protected unless overwrite=true; overwrite refuses documents containing complex SiYuan-native blocks. Use ((id \'title\')) for double-links and #tag# for tags; use advanced tools for database rows, cells, super blocks, embeds, widgets, HTML, and media.',
+    replace: 'Edits matched non-complex Markdown blocks by exact old/new matching against the same AI-editable view returned by fs.read. Canonical input is edit={old,new}; shorthand old + new is also accepted. If the document contains complex SiYuan-native blocks, fs.replace skips those blocks and returns skippedComplexBlocks; matches only inside skipped blocks or across block boundaries are rejected without writing. For inline formatting, old should be plain text without Markdown style delimiters such as **, *, `, or ~~; existing DOM inline styles are preserved. Naked ((id)) refs are normalized, and footnotes/siyuan://blocks links are allowed but do not create backlinks. replace_all=true replaces every exact match across editable blocks. Use ((id \'title\')) for new double-links and #tag# for tags.',
     rm: 'Deletes a document by human-readable path. This action requires explicit user confirmation.',
     mv: 'Moves or renames a document using human-readable paths. This action requires explicit user confirmation.',
     search: 'Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.',
@@ -142,7 +159,7 @@ export const NOTEBOOK_ACTION_HINTS: Partial<Record<NotebookAction, string>> = {
 };
 
 export const DOCUMENT_ACTION_HINTS: Partial<Record<DocumentAction, string>> = {
-    create: 'Use notebook + path for the most direct child-document flow. path is a notebook-local hpath like /Folder/Parent/New Child, not /Notebook/... and not .sy. parentPath + title is also supported; parentPath may be a notebook-local parent hpath or a .sy storage path returned by lookup. markdown is optional and defaults to empty.',
+    create: 'Use notebook + path for the most direct child-document flow. path is a notebook-local hpath like /Folder/Parent/New Child, not /Notebook/... and not .sy. parentPath + title is also supported. markdown is optional and must not start with # Title; a matching leading H1 is stripped to avoid duplicate titles.',
     lookup: 'Look up one reference at a time. Use id, notebook + storage path, or notebook + hpath/hPath. The path field means storage path like /20240318112233-abc123.sy; use hpath for human-readable paths.',
     rename: 'Use either id + title or notebook + path + title.',
     remove: 'Use either id or notebook + storage path. This action requires explicit user confirmation. If bulk ids/paths hit SiYuan\'s short indexing window, retry by deleting one document at a time with notebook + storage path.',
@@ -161,10 +178,10 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
     prepend: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
     append: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Prefer append when you need to add multi-line markdown, tables, or multiple new blocks. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
     update: 'Use dataType + data + id to replace block content. Returns a slim success object instead of raw DOM operations. block(action="update") is best for single-block replacement; multi-line markdown may be truncated to the first line by SiYuan, so use append/prepend/insert when you need multiple blocks or tables. If the content should create tags, write them as #tag#.',
-    replace: 'Use id + edit to replace exact text inside one block kramdown only. First read block(action="get_kramdown", id=...) and copy old from that exact result. Do not pass a document fragment that spans a heading plus following image/table/list blocks; use fs(action="replace") for one document, or update/insert/delete the affected blocks separately. edit accepts one object or an array for sequential replacements. replace_all=true replaces every exact match of that old snippet inside the same block.',
+    replace: 'Use id + edit to replace exact text inside one block kramdown content only. First read block(action="get_kramdown", id=...) and copy old from the block body. The writeback patches original DOM text nodes, preserving inline structure while rejecting IAL metadata edits. Naked ((id)) refs are normalized; footnotes and siyuan://blocks links are allowed but do not create backlinks.',
     set_attrs: 'Use attrs to write block attributes such as custom metadata. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.',
     delete: 'This action requires explicit user confirmation.',
-    move: 'Provide id plus previousID, parentID, or both to describe the destination. On success, MCP returns a structured success object instead of SiYuan\'s raw null. This action requires explicit user confirmation.',
+    move: 'Provide id or ids plus previousID, parentID, or both to describe the destination. When ids is provided, pass IDs in the desired final order; MCP calls SiYuan from last to first internally and returns apiCallOrder for debugging. This action requires explicit user confirmation.',
     set_fold_state: 'Use a foldable block ID + folded (true to fold, false to unfold).',
     get_children: 'Accepts both document IDs and block IDs. Returns direct child blocks. Use page/pageSize to paginate when there are many children.',
     info: 'Returns root document positioning metadata for a block.',
@@ -177,7 +194,7 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
 
 export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
     get: 'Use an attribute view ID. Returns the full AV payload after permission checks. blockID is optional and only needed for an exact database-block context or fallback permission resolution.',
-    render: 'Use id (the AV ID; this action does not accept avID) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.',
+    render: 'Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.',
     get_attribute_view_keys: 'Use id to return database keys/columns for a block-bound attribute view.',
     get_attribute_view_filter_sort: 'Use id + blockID to return the filters and sorts applied to that database block view.',
     search: 'Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.',
@@ -191,12 +208,18 @@ export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
 };
 
 export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
-    upload_asset: 'Use assetsDirPath + localFilePath to read a local file and upload it into SiYuan assets. This action reads the local filesystem and requires explicit user confirmation. Files larger than the configured large-upload threshold (10 MB by default) must be stopped, confirmed by the user, and retried with confirmLargeFile=true.',
-    render: 'Use engine="template" with id + path for a workspace template; that engine uses .action{...} delimiters and exposes limited document fields such as id/title/name/alias. Use engine="sprig" with inline template for {{...}} syntax; Sprig has functions but no document context.',
+    upload_asset: 'Use assetsDirPath + localFilePath to read a local file and upload it into SiYuan assets. The file alias is accepted for localFilePath, and omitted assetsDirPath uses /assets/. This action reads the local filesystem and requires explicit user confirmation. Files larger than the configured large-upload threshold (10 MB by default) must be stopped, confirmed by the user, and retried with confirmLargeFile=true.',
+    list_templates: 'Searches SiYuan data/templates via the kernel template picker endpoint. Empty query lists all visible Markdown templates. Results include readArgs and renderArgsTemplate for reuse.',
+    read_template: 'Use a path from list_templates, /data/templates/..., /templates/..., or a path relative to data/templates. Reads only Markdown template source and supports offset/limit pagination.',
+    create_template: 'Use path + markdown to create a Markdown template under data/templates. overwrite=false by default returns template_exists when the path already exists; pass overwrite=true to replace it.',
+    update_template: 'Use path + markdown to replace an existing Markdown template. The template must resolve through list_templates first; otherwise MCP returns template_not_found.',
+    delete_template: 'Deletes an existing Markdown template after resolving it through SiYuan’s template picker. This action is dangerous and disabled by default.',
+    save_doc_as_template: 'Use id + name to save a document as a root-level template through SiYuan’s docSaveAsTemplate API. Slashes are rejected; pass overwrite=true to replace an existing root template.',
+    render: 'Use engine="template" with id + path for a workspace template; that engine uses .action{...} delimiters and exposes limited document fields such as id/title/name/alias. Set preview=true for SiYuan preview DOM. Use engine="sprig" with inline template for {{...}} syntax; Sprig has functions but no document context.',
     export_resources: 'Provide one or more existing resource paths. Asset paths like assets/foo.txt are normalized to /data/assets/foo.txt before export. Set outputPath to also copy the exported ZIP to a local filesystem path. Using outputPath is high-risk and requires explicit user confirmation. To extract attachments for direct reading without a ZIP archive, prefer extract_doc which produces an uncompressed folder.',
     get_doc_assets: 'Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full document content and assets, guide them to file(action="extract_doc") instead. Use assetType="image" to return only direct image assets.',
     get_image_ocr_text: 'Use an asset path to read stored OCR text. If path is omitted, SiYuan returns an empty text payload.',
-    extract_doc: 'Use a document ID + optional outputDir. Exports the document markdown and all referenced assets into an uncompressed folder, preserving original filenames. Clears the entire output root directory first to prevent accumulation from previous exports. The returned extractedDir is an absolute path ready for direct file access.',
+    extract_doc: 'Use a document ID + optional outputDir. Exports the document markdown and all referenced assets into an uncompressed folder, preserving original filenames. If outputDir is omitted, the default output root is ~/siyuan-extracted/; pass outputDir explicitly for a predictable path such as /private/tmp. Clears the entire output root directory first to prevent accumulation from previous exports. The returned extractedDir is an absolute path ready for direct file access.',
 };
 
 export const SEARCH_GUIDANCE: string[] = [
@@ -232,6 +255,7 @@ export const SYSTEM_ACTION_HINTS: Partial<Record<SystemAction, string>> = {
     network: 'Returns masked proxy information only.',
     conf: 'Defaults to a navigable summary. Use mode="get" with keyPath to read one config field or subtree at a time, e.g. conf.appearance.mode or conf.langs[0].',
     notify: 'Show an info or error notification in the SiYuan UI. Optional timeout is in milliseconds.',
+    changelog: 'Reads the bundled plugin CHANGELOG with structured personalizationReview hints. Pass fromVersion after upgrades, version for one exact entry, or includeRaw=true for Markdown.',
     get_version: 'Returns the current SiYuan version as {version}.',
     get_current_time: 'Returns the current system time as {currentTime} epoch milliseconds and {iso} ISO 8601 text.',
 };
@@ -240,9 +264,9 @@ export const FLASHCARD_ACTION_HINTS: Partial<Record<FlashcardAction, string>> = 
     list_cards: 'Use scope="all" | "deck" | "notebook" | "tree" plus filter="due" | "new" | "old". For scope="all", omit deckID; an empty string is treated as omitted. For scope="deck", pass a non-empty deckID. For scope="notebook", pass notebook. For scope="tree", pass rootID. reviewedCards is optional and follows SiYuan\'s review flow.',
     get_decks: 'Returns available flashcard decks so the caller can discover deckID values.',
     get_cards: 'Use deckID + optional page/pageSize to list all cards in a deck (regardless of due state). Use empty string deckID to query across all decks. Returns cards, total count, and pageCount.',
-    review_card: 'Use deckID + cardID + rating, or pass skip=true to skip. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.',
-    create_card: 'Use deckID + blockIDs to turn existing blocks into flashcards. Non-built-in deck IDs must already exist. This calls SiYuan\'s addRiffCards flow, which writes custom-riff-decks and creates deck records together.',
-    remove_card: 'Use deckID + blockIDs to remove existing blocks from a deck. This action requires explicit user confirmation.',
+    review_card: 'Use a concrete deckID + cardID + rating, or pass skip=true to skip. Resolve deckID/cardID through list_cards or get_cards first; empty deckID is rejected. reviewedCards is optional; each entry must include cardID because SiYuan only reads reviewedCards[].cardID.',
+    create_card: 'Use deckID + content blockIDs to turn existing blocks into flashcards; single blockID is accepted as a convenience alias. Non-built-in deck IDs must already exist. Document block IDs are rejected. This calls SiYuan\'s addRiffCards flow, writes custom-riff-decks, verifies the binding, and creates deck records together.',
+    remove_card: 'Use deckID + blockIDs to remove flashcard bindings from a deck. This does not delete the underlying note blocks. This action requires explicit user confirmation.',
 };
 
 export const MASCOT_ACTION_HINTS: Partial<Record<MascotAction, string>> = {
@@ -301,7 +325,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
                     action: 'create',
                     notebook: '20210808180117-czj9bvb',
                     path: '/Folder/Parent/New Child',
-                    markdown: '# New Child',
+                    markdown: '正文从这里开始，不要再写 # New Child。',
                 },
             },
             {
@@ -312,7 +336,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
                     notebook: '20210808180117-czj9bvb',
                     parentPath: '/Folder/Parent',
                     title: 'New Child',
-                    markdown: '# New Child',
+                    markdown: '正文从这里开始，不要再写 # New Child。',
                 },
             },
             {
@@ -327,15 +351,177 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
             },
         ],
     },
-    fs: {},
+    fs: {
+        replace: [
+            {
+                title: 'Replace exact text with canonical edit object',
+                mcp: {
+                    action: 'replace',
+                    path: '/Notebook/Folder/Doc',
+                    edit: {
+                        old: 'ORIGINAL_TEXT',
+                        new: 'NEW_TEXT',
+                    },
+                },
+            },
+            {
+                title: 'Replace exact text with shorthand old/new',
+                description: 'Equivalent CLI form: siyuan-sisyphus fs replace --path "/Notebook/Folder/Doc" --old ORIGINAL_TEXT --new NEW_TEXT',
+                mcp: {
+                    action: 'replace',
+                    path: '/Notebook/Folder/Doc',
+                    old: 'ORIGINAL_TEXT',
+                    new: 'NEW_TEXT',
+                    replace_all: false,
+                },
+            },
+        ],
+    },
     notebook: {},
-    block: {},
-    av: {},
-    file: {},
+    block: {
+        word_count: [
+            {
+                title: 'Get word count for one block',
+                description: 'id is accepted as a convenience alias for ids=[id].',
+                mcp: {
+                    action: 'word_count',
+                    id: '20240318112233-abc123',
+                },
+            },
+            {
+                title: 'Get word count for multiple blocks',
+                mcp: {
+                    action: 'word_count',
+                    ids: ['20240318112233-abc123', '20240318112233-def456'],
+                },
+            },
+        ],
+    },
+    av: {
+        render: [
+            {
+                title: 'Render an AV returned by search',
+                description: 'av.search results include renderArgs; pass id or the compatibility alias avID.',
+                mcp: {
+                    action: 'render',
+                    id: '20240318112233-abc123',
+                    page: 1,
+                    pageSize: 20,
+                },
+            },
+            {
+                title: 'Render with avID compatibility alias',
+                mcp: {
+                    action: 'render',
+                    avID: '20240318112233-abc123',
+                },
+            },
+        ],
+    },
+    file: {
+        upload_asset: [
+            {
+                title: 'Upload a local file with canonical fields',
+                mcp: {
+                    action: 'upload_asset',
+                    assetsDirPath: '/assets/',
+                    localFilePath: '/private/tmp/demo.txt',
+                },
+            },
+            {
+                title: 'Upload a local file with file shorthand',
+                description: 'When assetsDirPath is omitted, upload_asset uses /assets/.',
+                mcp: {
+                    action: 'upload_asset',
+                    file: '/private/tmp/demo.txt',
+                },
+            },
+        ],
+        create_template: [
+            {
+                title: 'Create a nested Markdown template',
+                mcp: {
+                    action: 'create_template',
+                    path: 'reports/monthly.md',
+                    markdown: '# .action{.title}\n\n## Summary\n',
+                },
+            },
+        ],
+        update_template: [
+            {
+                title: 'Replace an existing template source',
+                mcp: {
+                    action: 'update_template',
+                    path: 'reports/monthly.md',
+                    markdown: '# .action{.title}\n\n## Updated Summary\n',
+                },
+            },
+        ],
+        save_doc_as_template: [
+            {
+                title: 'Save a document as a root template',
+                mcp: {
+                    action: 'save_doc_as_template',
+                    id: '20240318112233-abc123',
+                    name: 'meeting-note',
+                },
+            },
+        ],
+        extract_doc: [
+            {
+                title: 'Extract a document to an explicit local output root',
+                description: 'If outputDir is omitted, extract_doc defaults to ~/siyuan-extracted/.',
+                mcp: {
+                    action: 'extract_doc',
+                    id: '20240318112233-abc123',
+                    outputDir: '/private/tmp/siyuan-extracted',
+                },
+            },
+        ],
+    },
     search: {},
     tag: {},
-    system: {},
-    flashcard: {},
+    system: {
+        changelog: [
+            {
+                title: 'Review changes after a known previous plugin version',
+                description: 'Use this after an upgrade to decide whether user rules, /AGENTS.md memory, connection snippets, permissions, appearance, timeline settings, or tool config need attention.',
+                mcp: {
+                    action: 'changelog',
+                    fromVersion: '0.4.8',
+                },
+            },
+            {
+                title: 'Read one exact release entry with raw Markdown',
+                mcp: {
+                    action: 'changelog',
+                    version: '0.4.11',
+                    includeRaw: true,
+                },
+            },
+        ],
+    },
+    flashcard: {
+        create_card: [
+            {
+                title: 'Create one flashcard from a content block',
+                description: 'blockID is accepted as a convenience alias for blockIDs=[blockID].',
+                mcp: {
+                    action: 'create_card',
+                    deckID: '20230218211946-2kw8jgx',
+                    blockID: '20240318112233-abc123',
+                },
+            },
+            {
+                title: 'Create flashcards from multiple content blocks',
+                mcp: {
+                    action: 'create_card',
+                    deckID: '20230218211946-2kw8jgx',
+                    blockIDs: ['20240318112233-abc123', '20240318112233-def456'],
+                },
+            },
+        ],
+    },
     mascot: {},
     feedback: {},
 };
@@ -348,6 +534,7 @@ export const EXAMPLES_RESOURCE_URI = 'siyuan://help/examples';
 export const AI_LAYOUT_GUIDE_RESOURCE_URI = 'siyuan://help/ai-layout-guide';
 export const USER_RULES_RESOURCE_URI = 'siyuan://help/user-rules';
 export const ACTION_RESOURCE_TEMPLATE_URI = 'siyuan://help/action/{tool}/{action}';
+export { CHANGELOG_RESOURCE_URI };
 
 export function getActionHint(tool?: string, action?: string): string | undefined {
     if (!tool || !action) return undefined;
