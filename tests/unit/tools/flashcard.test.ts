@@ -303,6 +303,26 @@ describe('flashcard tool', () => {
         });
     });
 
+    it('accepts blockID alias for create_card', async () => {
+        const api = await import('@/api/flashcard');
+        const attributeApi = await import('@/api/block');
+        vi.mocked(attributeApi.getBlockAttrs)
+            .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': 'deck-b' })
+            .mockResolvedValueOnce({ type: 'p', 'custom-riff-decks': 'deck-b' });
+        vi.mocked(api.getRiffDecks).mockResolvedValue([{ id: 'deck-b', name: 'Deck B' }]);
+        vi.mocked(api.addRiffCards).mockResolvedValue({ id: 'deck-b' });
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'create_card',
+            deckID: 'deck-b',
+            blockID: 'block-1',
+        }, enabledActions as any, {} as any);
+
+        expect(result.isError).toBeUndefined();
+        expect(vi.mocked(api.addRiffCards)).toHaveBeenCalledWith(expect.anything(), 'deck-b', ['block-1']);
+        expect(JSON.parse(result.content[0].text).blockIDs).toEqual(['block-1']);
+    });
+
     it('normalizes empty create_card deck IDs to the built-in deck', async () => {
         const api = await import('@/api/flashcard');
         const attributeApi = await import('@/api/block');

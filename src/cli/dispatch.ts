@@ -50,7 +50,10 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         const inputSchema = resolveInputSchema(category, toolConfig);
 
         const restWithPositional = applyPositionalActionArgs(category, normalizedAction, rest);
-        const { args: mappedArgs, warnings } = mapFlagsToArgs(restWithPositional, inputSchema);
+        const { args: mappedArgs, warnings } = mapFlagsToArgs(restWithPositional, inputSchema, {
+            category,
+            action: normalizedAction,
+        });
         if (warnings.length > 0 && cli.debug) {
             for (const w of warnings) process.stderr.write(`[warn] ${w}\n`);
         }

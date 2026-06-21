@@ -96,9 +96,6 @@ export function translatePresentationText(text: string, target: PresentationTarg
     translated = translated.replace(/\b([A-Za-z][A-Za-z0-9_]*)(\s*\+\s*[A-Za-z][A-Za-z0-9_]*)+\b/g, (match) =>
         translateFieldSequence(match, '+'),
     );
-    translated = translated.replace(/(?<![\/\-=])\b([A-Za-z][A-Za-z0-9_]*)(\s*\/\s*[A-Za-z][A-Za-z0-9_]*)+\b/g, (match) =>
-        translateFieldSequence(match, '/'),
-    );
     translated = translated.replace(/\brequires:\s*([A-Za-z][A-Za-z0-9_]*(?:\s*,\s*[A-Za-z][A-Za-z0-9_]*)*)/g, (_match, fields: string) =>
         `requires: ${fields.split(/\s*,\s*/).map((field) => formatFieldRef(field, 'cli')).join(', ')}`,
     );

@@ -116,4 +116,52 @@ describe('cli/flag-mapper', () => {
         expect(args).toEqual({ notebook: 'nb-1', opened: true });
         expect(warnings).toEqual([]);
     });
+
+    it('accepts action-specific fs replace shorthand flags', () => {
+        const fsSchema = {
+            type: 'object',
+            properties: {
+                action: { type: 'string' },
+                path: { type: 'string' },
+                edit: { type: 'object' },
+            },
+        };
+
+        const { args, warnings } = mapFlagsToArgs([
+            '--path', '/Notebook/Doc',
+            '--old', 'A',
+            '--new', 'B',
+            '--replace-all',
+        ], fsSchema, { category: 'fs', action: 'replace' });
+
+        expect(args).toEqual({
+            path: '/Notebook/Doc',
+            old: 'A',
+            new: 'B',
+            replace_all: true,
+        });
+        expect(warnings).toEqual([]);
+    });
+
+    it('maps avID and single block id aliases to canonical fields', () => {
+        const avSchema = {
+            type: 'object',
+            properties: {
+                action: { type: 'string' },
+                id: { type: 'string' },
+            },
+        };
+        const blockSchema = {
+            type: 'object',
+            properties: {
+                action: { type: 'string' },
+                ids: { type: 'array', items: { type: 'string' } },
+            },
+        };
+
+        expect(mapFlagsToArgs(['--av-id', 'av-1'], avSchema, { category: 'av', action: 'render' }).args)
+            .toEqual({ id: 'av-1' });
+        expect(mapFlagsToArgs(['--id', 'block-1'], blockSchema, { category: 'block', action: 'word_count' }).args)
+            .toEqual({ ids: ['block-1'] });
+    });
 });

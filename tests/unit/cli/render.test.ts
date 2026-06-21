@@ -151,7 +151,7 @@ describe('cli/render', () => {
                     hint: 'Use notebook + path + markdown, then verify with document(action="resolve", id="...", include=["path"]).',
                     shapes: ['notebook + path + markdown'],
                     requiredFields: ['notebook', 'path', 'markdown'],
-                    example: { action: 'create', notebook: 'nb', path: '/Inbox/Test', markdown: '# Hello' },
+                    example: { action: 'create', notebook: 'nb', path: '/Inbox/Test', markdown: 'Hello' },
                     guidance: ['Parent paths must already exist. Use document(action="resolve", notebook="nb", hpath="/Inbox/Test", include=["ids"]) to resolve IDs.'],
                     requiresConfirmation: false,
                     fullDocResource: 'siyuan://help/action/document/create',
@@ -168,7 +168,7 @@ describe('cli/render', () => {
         expect(io.stdout).toContain('--notebook + --path + --markdown');
         expect(io.stdout).toContain('Required Fields');
         expect(io.stdout).toContain('--notebook, --path, --markdown');
-        expect(io.stdout).toContain('siyuan-sisyphus document create --notebook nb --path /Inbox/Test --markdown "# Hello"');
+        expect(io.stdout).toContain('siyuan-sisyphus document create --notebook nb --path /Inbox/Test --markdown Hello');
         expect(io.stdout).toContain('siyuan-sisyphus document resolve --notebook nb --hpath /Inbox/Test --include "[\\"ids\\"]"');
         expect(io.stdout).toContain('Resource: siyuan-sisyphus help document create');
         io.restore();
@@ -193,7 +193,7 @@ describe('cli/render', () => {
                                 action: 'create',
                                 notebook: 'nb',
                                 path: '/Folder/Parent/New Child',
-                                markdown: '# New Child',
+                                markdown: 'Body',
                             },
                         },
                         {
@@ -218,7 +218,7 @@ describe('cli/render', () => {
         expect(io.stdout).toContain('Examples');
         expect(io.stdout).toContain('Create a child document by notebook-local hpath (recommended)');
         expect(io.stdout).toContain('Do not include the notebook name');
-        expect(io.stdout).toContain('siyuan-sisyphus document create --notebook nb --path "/Folder/Parent/New Child" --markdown "# New Child"');
+        expect(io.stdout).toContain('siyuan-sisyphus document create --notebook nb --path "/Folder/Parent/New Child" --markdown Body');
         expect(io.stdout).toContain('Create with a storage parent path returned by lookup');
         expect(io.stdout).toContain('siyuan-sisyphus document create --notebook nb --parent-path /20240318112233-abc123.sy --title "New Child"');
         expect(io.stdout).not.toContain('siyuan-sisyphus document create --notebook nb\n');
@@ -257,7 +257,7 @@ describe('cli/render', () => {
         expect(io.stderr).toContain('siyuan-sisyphus block info --id ...');
         expect(io.stderr).toContain('siyuan-sisyphus search fulltext --query ...');
         expect(io.stderr).toContain('Details');
-        expect(io.stderr).toContain('--query / --page-size');
+        expect(io.stderr).toContain('query/pageSize');
         io.restore();
     });
 

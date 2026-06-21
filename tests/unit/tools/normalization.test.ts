@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { normalizeToolArguments } from '@/core/argument-aliases';
 import { callBlockTool } from '@/tools/block';
 import { callDocumentTool } from '@/tools/document';
 import { callFileTool } from '@/tools/file';
 import { callSearchTool } from '@/tools/search';
 
 vi.mock('@/tools/internal/context', () => ({
+    escapeSqlString: (value: string) => value.replace(/\0/g, '').replace(/'/g, "''"),
     ensurePermissionForDocumentId: vi.fn(async () => ({
         context: { documentId: 'doc-1', notebook: 'nb-1', path: '/doc-1.sy' },
         denied: null,
@@ -40,6 +42,7 @@ vi.mock('@/api/block', () => ({
     updateBlock: vi.fn(),
     getBlockKramdown: vi.fn(),
     getChildBlocks: vi.fn(),
+    getBlocksWordCount: vi.fn(),
 }));
 
 vi.mock('@/api/transaction', () => ({
@@ -88,14 +91,15 @@ describe('tool result normalization', () => {
         vi.mocked(blockApi.getBlockKramdown).mockReset();
         vi.mocked(blockApi.getChildBlocks).mockReset();
         vi.mocked(searchApi.fullTextSearchBlock).mockReset();
+        vi.mocked(searchApi.querySQL).mockReset();
     });
 
     it('returns clean markdown for document.get_doc markdown mode', async () => {
-        const fileApi = await import('@/api/file');
-        vi.mocked(fileApi.exportMdContent).mockResolvedValue({
-            hPath: '/Doc',
-            content: 'hello\u200B #tag#\u200B',
-        });
+        const blockApi = await import('@/api/block');
+        const documentApi = await import('@/api/document');
+        vi.mocked(blockApi.getChildBlocks).mockResolvedValue([{ id: 'block-1', type: 'p' } as any]);
+        vi.mocked(blockApi.getBlockKramdown).mockResolvedValue({ id: 'block-1', kramdown: 'hello #tag#\n{: id="block-1"}' });
+        vi.mocked(documentApi.getHPathByID).mockResolvedValue('/Doc');
 
         const result = await callDocumentTool(client, {
             action: 'get_doc',
@@ -143,6 +147,64 @@ describe('tool result normalization', () => {
             succMap: { 'demo.txt': '/assets/demo.txt' },
             localFilePath: expect.stringMatching(/tmp[\\/]+demo\.txt$/),
             uploadedFileName: 'demo.txt',
+        });
+    });
+
+    it('uploads an asset from file alias with the default assets directory', async () => {
+        const fileApi = await import('@/api/file');
+        const fs = (await import('node:fs')).default;
+        vi.spyOn(fs, 'existsSync').mockReturnValue(true);
+        vi.spyOn(fs, 'statSync').mockReturnValue({
+            isFile: () => true,
+        } as any);
+        vi.spyOn(fs, 'readFileSync').mockReturnValue(new Uint8Array([65]) as any);
+        vi.mocked(fileApi.uploadAsset).mockResolvedValue({
+            errFiles: [],
+            succMap: { 'demo.txt': '/assets/demo.txt' },
+        });
+
+        const result = await callFileTool(client, {
+            action: 'upload_asset',
+            file: 'tmp/demo.txt',
+        }, enabledActions('upload_asset'), permMgr);
+
+        expect(result.isError).toBeUndefined();
+        expect(vi.mocked(fileApi.uploadAsset)).toHaveBeenCalledWith(
+            client,
+            '/assets/',
+            new Uint8Array([65]),
+            'demo.txt',
+        );
+    });
+
+    it('maps block.word_count id alias to ids', async () => {
+        const blockApi = await import('@/api/block');
+        vi.mocked(blockApi.getBlocksWordCount).mockResolvedValue({ wordCount: 12 } as any);
+
+        const result = await callBlockTool(client, {
+            action: 'word_count',
+            id: 'block-1',
+        }, enabledActions('word_count'), permMgr);
+
+        expect(result.isError).toBeUndefined();
+        expect(vi.mocked(blockApi.getBlocksWordCount)).toHaveBeenCalledWith(client, ['block-1']);
+    });
+
+    it('normalizes fs.replace old/new shorthand before validation', () => {
+        expect(normalizeToolArguments('fs', {
+            action: 'replace',
+            path: '/Notebook/Doc',
+            old: 'alpha',
+            new: 'beta',
+            replace_all: true,
+        })).toEqual({
+            action: 'replace',
+            path: '/Notebook/Doc',
+            edit: {
+                old: 'alpha',
+                new: 'beta',
+                replace_all: true,
+            },
         });
     });
 
@@ -302,7 +364,7 @@ describe('tool result normalization', () => {
                 message: 'Path [/tmp/siyuan.tpl] is not in workspace',
                 reason: 'path_not_in_workspace',
                 workspacePathRequired: true,
-                hint: 'The template path must point to a file inside the SiYuan workspace, not an arbitrary local path such as /tmp/... or your repo checkout.',
+                hint: 'The template path must point to a file inside the SiYuan workspace, not an arbitrary local path such as /tmp/... or your repo checkout. Use file(action="list_templates") to resolve a valid template path.',
             },
         });
     });
@@ -331,11 +393,11 @@ describe('tool result normalization', () => {
     });
 
     it('paginates markdown content for document.get_doc', async () => {
-        const fileApi = await import('@/api/file');
-        vi.mocked(fileApi.exportMdContent).mockResolvedValue({
-            hPath: '/Doc',
-            content: 'abcdefghij',
-        });
+        const blockApi = await import('@/api/block');
+        const documentApi = await import('@/api/document');
+        vi.mocked(blockApi.getChildBlocks).mockResolvedValue([{ id: 'block-1', type: 'p' } as any]);
+        vi.mocked(blockApi.getBlockKramdown).mockResolvedValue({ id: 'block-1', kramdown: 'abcdefghij\n{: id="block-1"}' });
+        vi.mocked(documentApi.getHPathByID).mockResolvedValue('/Doc');
 
         const result = await callDocumentTool(client, {
             action: 'get_doc',

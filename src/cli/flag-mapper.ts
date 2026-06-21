@@ -1,5 +1,7 @@
 import minimist from 'minimist';
 
+import { getFlagAliasRules, type ArgumentAliasContext } from '../core/argument-aliases';
+
 type JsonSchema = Record<string, any>;
 
 export interface FlagMapResult {
@@ -16,7 +18,7 @@ export interface FlagMapResult {
  * - Array flags: repeat the flag, or pass a comma-separated string.
  * - Object / nested flags: use --<key>-json '<json-fragment>'.
  */
-export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMapResult {
+export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema, context?: Partial<ArgumentAliasContext>): FlagMapResult {
     const props = collectInputProperties(inputSchema);
 
     const canonicalByLower = new Map<string, string>();
@@ -32,6 +34,21 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMap
         } else {
             for (const alias of aliases) stringKeys.add(alias);
         }
+    }
+    for (const rule of getFlagAliasRules(context)) {
+        const schema = rule.schema ?? props[rule.canonical] ?? {};
+        const aliases = new Set<string>([
+            ...getFlagAliases(rule.canonical),
+            ...rule.aliases.flatMap(getFlagAliases),
+        ]);
+        for (const alias of aliases) canonicalByLower.set(alias.toLowerCase(), rule.canonical);
+        const type = inferType(schema);
+        if (type === 'boolean') {
+            for (const alias of aliases) booleanKeys.add(alias);
+        } else {
+            for (const alias of aliases) stringKeys.add(alias);
+        }
+        props[rule.canonical] ??= schema;
     }
 
     // Every potential --<key>-json sidecar is declared as string so values
