@@ -4,6 +4,7 @@ import { SYSTEM_ACTION_HINTS, SYSTEM_GUIDANCE } from '../../core/help';
 import type { PermissionManager } from '../../core/permissions';
 import {
     SystemActionSchema,
+    SystemChangelogSchema,
     SystemConfSchema,
     SystemGetCurrentTimeSchema,
     SystemGetVersionSchema,
@@ -22,6 +23,7 @@ export const SYSTEM_VARIANTS: ActionVariant<SystemAction>[] = [
     createZodActionVariant('network', SystemNetworkSchema, 'Get current network proxy information.'),
     createZodActionVariant('conf', SystemConfSchema, 'Get masked system configuration with summary-first progressive reading.'),
     createZodActionVariant('notify', SystemNotifySchema, 'Push a notification message.'),
+    createZodActionVariant('changelog', SystemChangelogSchema, 'Read the bundled plugin changelog with structured personalization-impact hints.'),
     createZodActionVariant('get_version', SystemGetVersionSchema, 'Get the SiYuan system version.'),
     createZodActionVariant('get_current_time', SystemGetCurrentTimeSchema, 'Get the current system time.'),
 ];

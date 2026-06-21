@@ -23,7 +23,7 @@ const READING_ACTIONS = new Set([
     'dom', 'word_count', 'recent_updated', 'lookup',
     'get_child_blocks', 'get_child_docs', 'search_docs', 'get_doc', 'list_tree',
     'list', 'get_conf', 'get_permissions', 'conf', 'get_version',
-    'get_current_time', 'network',
+    'get_current_time', 'network', 'changelog',
     'fulltext', 'query_sql', 'get_backlinks',
     'get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort',
     'search', 'get_primary_key_values', 'get_doc_assets', 'get_image_ocr_text',
