@@ -106,7 +106,7 @@ If you find this project helpful, please consider supporting it! Your support is
 
 ### Sponsor Thanks
 
-Thanks to **undefined**, **Fngd Z**, and all other kind supporters for sponsoring this project.
+Thanks to **undefined**, **Fngd Z**, **ou** and all other kind supporters for sponsoring this project.
 
 <p align="left">
   <img src="docs/archive/thank.jpeg" alt="Support QR code" width="280">

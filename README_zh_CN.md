@@ -107,7 +107,7 @@ SiYuan Sisyphus 的默认设计是让用户明确控制 AI 的操作范围：
 
 ### 赞助致谢
 
-感谢 **undefined**、**Fngd Z** 和其他好心人对本项目的赞助支持。
+感谢 **undefined**、**Fngd Z** 、**ou** 和其他好心人对本项目的赞助支持。
 
 <p align="left">
   <img src="docs/archive/thank.jpeg" alt="赞赏码" width="200">

@@ -162,7 +162,7 @@ siyuan-plugins-mcp-sisyphus/
 │   └── zh_CN.json
 │
 ├── dist/                        # 生产构建输出（自动生成）
-├── dev/                         # 开发模式输出（pnpm dev 时生成）
+├── dev/                         # 我测试时插件实际上运行的输出，开发模式输出（pnpm dev 时生成）
 │
 ├── package.json                 # 根包（插件本体）
 ├── plugin.json                  # 思源插件元数据
