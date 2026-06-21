@@ -26,6 +26,7 @@
 - `prepend` 和 `append` 既可以作用于文档，也可以作用于块的子列表。
 - `update` 更适合单块替换。
 - `move` 至少需要一个目标定位字段，例如 `parentID` 或 `previousID`。
+- 批量 `move` 时，`ids` 按期望的最终顺序传入。工具只会在内部倒序调用思源底层 API，并在结果中返回 `apiCallOrder` 便于排查。
 - `add_to_daily_note` 通过 `position` 把内容追加或前置到当天日记。
 
 ## 安全规则

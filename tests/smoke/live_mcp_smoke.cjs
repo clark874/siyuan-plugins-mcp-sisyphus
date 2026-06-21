@@ -482,31 +482,31 @@ async function runLiveSmoke() {
                 action: 'create',
                 notebook: notebookId,
                 path: '/SourceDoc',
-                markdown: '# Source\n\nseed',
+                markdown: 'seed',
             });
             const target = await callToolJson(client, 'document', {
                 action: 'create',
                 notebook: notebookId,
                 path: '/TargetDoc',
-                markdown: '# Target',
+                markdown: 'target body',
             });
             const pathMove = await callToolJson(client, 'document', {
                 action: 'create',
                 notebook: notebookId,
                 path: '/PathMoveDoc',
-                markdown: '# Path Move',
+                markdown: 'path move body',
             });
             const childDoc = await callToolJson(client, 'document', {
                 action: 'create',
                 notebook: notebookId,
                 path: '/TargetDoc/ChildDoc',
-                markdown: '# Child',
+                markdown: 'child body',
             });
             const deleteDoc = await callToolJson(client, 'document', {
                 action: 'create',
                 notebook: notebookId,
                 path: '/DeleteDoc',
-                markdown: '# Delete',
+                markdown: 'delete body',
             });
 
             createdDocIds.push(source.json.id, target.json.id, pathMove.json.id, childDoc.json.id, deleteDoc.json.id);
@@ -884,7 +884,7 @@ async function runLiveSmoke() {
                 action: 'create',
                 notebook: notebookId,
                 path: '/ReadonlyCreateShouldFail',
-                markdown: '# denied',
+                markdown: 'denied',
             });
             await assertPermissionDenied(client, 'document', {
                 action: 'rename',
@@ -981,7 +981,7 @@ async function runLiveSmoke() {
                 action: 'create',
                 notebook: notebookId,
                 path: '/NoneCreateShouldFail',
-                markdown: '# denied',
+                markdown: 'denied',
             });
             await assertPermissionDenied(client, 'document', {
                 action: 'rename',
@@ -1056,7 +1056,7 @@ async function runLiveSmoke() {
                 action: 'create',
                 notebook: notebookId,
                 path: '/WriteModeCreateCheck',
-                markdown: '# write ok',
+                markdown: 'write ok',
             })).json;
             createdDocIds.push(writeCreatedDoc.id);
             assert.equal(typeof writeCreatedDoc.id, 'string');

@@ -61,7 +61,7 @@ export function buildExampleValue(fieldName: string, schema: JsonSchema): unknow
         case 'name':
             return description.includes('Export file name') ? 'assets-export.zip' : 'Research';
         case 'markdown':
-            return '# Weekly Notes\n\n- Seed item';
+            return '- Seed item';
         case 'dataType':
             return 'markdown';
         case 'data':

@@ -28,10 +28,11 @@ import {
 } from '../../core/types';
 import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
-import { applyExactReplaceEdits } from '../internal/replace';
 import { filterItemsByPermission } from '../search';
 import { createJsonResult, createPaginatedResult, createWriteSuccessResult, paginate, type ToolResult } from '../internal/shared';
 import { applyUiRefresh } from '../internal/ui-refresh';
+import { createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks, normalizeDomInlineRefsAndTags, replaceEditTouchesIndexedInline, replaceSingleKramdownBlockContentInDom } from '../internal/kramdown-safe';
+import { normalizeMarkdownInputRefs, normalizeReplaceEditsRefs } from '../internal/markdown-input';
 
 
 type RecentUpdatedDocumentSummary = {
@@ -51,6 +52,52 @@ type RecentUpdatedDocumentSummary = {
 };
 
 type BlockActionHandler = ToolActionHandler;
+
+async function getBlockType(client: SiYuanClient, id: string): Promise<string | undefined> {
+    if (typeof (client as { request?: unknown }).request !== 'function') {
+        return undefined;
+    }
+
+    try {
+        const rows = await client.request<unknown[]>('/api/query/sql', {
+            stmt: `SELECT type FROM blocks WHERE id = '${String(id).replace(/\0/g, '').replace(/'/g, "''")}' LIMIT 1`,
+        });
+        const first = Array.isArray(rows) ? rows[0] : undefined;
+        return first && typeof first === 'object' && typeof (first as Record<string, unknown>).type === 'string'
+            ? (first as Record<string, string>).type
+            : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function createDatabaseBlockHint(actionName: string): Record<string, unknown> {
+    return {
+        databaseBlock: true,
+        warning: `${actionName} operated on a database/attribute-view block container. To read or edit database rows, columns, or cells, use av(action="get"|"render"|"add_rows"|"remove_rows"|"add_column"|"remove_column"|"set_cells") with the attribute view ID instead of editing the block as markdown.`,
+        avToolHint: {
+            read: 'av(action="get", id="<av-id>") or av(action="render", id="<av-id>", blockID="<database-block-id>")',
+            write: 'av(action="set_cells"|"add_rows"|"remove_rows"|"add_column"|"remove_column", avID="<av-id>", ...)',
+        },
+    };
+}
+
+function withReferenceSemanticsHints(payload: Record<string, unknown>, data: string): Record<string, unknown> {
+    return {
+        ...payload,
+        ...(hasSiyuanBlockLinks(data) ? createSiyuanBlockLinkHint() : {}),
+        ...(hasFootnoteReferences(data) ? createFootnoteReferenceHint() : {}),
+        ...(hasBlockRefIdFallbackAnchors(data) ? createUnresolvedBlockRefHint() : {}),
+    };
+}
+
+function hasReferenceSemanticsHints(data: string): boolean {
+    return hasSiyuanBlockLinks(data) || hasFootnoteReferences(data) || hasBlockRefIdFallbackAnchors(data);
+}
+
+function createReferenceSemanticsHints(data: string): Record<string, unknown> {
+    return withReferenceSemanticsHints({}, data);
+}
 
 function isLowLevelRecentBlockType(value: unknown): boolean {
     if (typeof value !== 'string') return false;
@@ -139,7 +186,7 @@ function createSlimWriteResult(
         parentID?: string;
         previousID?: string;
         nextID?: string;
-    },
+    } & Record<string, unknown>,
 ): ToolResult {
     const operationBatch = Array.isArray(rawResult) ? rawResult[0] : rawResult;
     const firstOperation = operationBatch && typeof operationBatch === 'object' && Array.isArray((operationBatch as { doOperations?: unknown[] }).doOperations)
@@ -151,14 +198,21 @@ function createSlimWriteResult(
     const previousID = typeof firstOperation?.previousID === 'string' ? firstOperation.previousID : context.previousID;
     const nextID = typeof firstOperation?.nextID === 'string' ? firstOperation.nextID : context.nextID;
 
-    return createWriteSuccessResult({
+    const payload: Record<string, unknown> = {
         action: context.action,
         ...(id ? { id } : {}),
         ...(parentID ? { parentID } : {}),
         ...(previousID ? { previousID } : {}),
         ...(nextID ? { nextID } : {}),
         dataType: context.dataType,
-    });
+    };
+    for (const [key, value] of Object.entries(context)) {
+        if (!['action', 'dataType', 'parentID', 'previousID', 'nextID'].includes(key)) {
+            payload[key] = value;
+        }
+    }
+
+    return createWriteSuccessResult(payload);
 }
 
 function createUpdateResult(
@@ -167,17 +221,24 @@ function createUpdateResult(
         id: string;
         dataType: 'markdown' | 'dom';
         data: string;
-    },
+    } & Record<string, unknown>,
 ): ToolResult {
     const payload: Record<string, unknown> = {
         success: true,
         id: context.id,
         dataType: context.dataType,
     };
+    for (const [key, value] of Object.entries(context)) {
+        if (!['id', 'dataType', 'data'].includes(key)) {
+            payload[key] = value;
+        }
+    }
 
     if (context.dataType === 'markdown') {
         payload.markdown = stripZeroWidthChars(context.data);
     }
+
+    Object.assign(payload, createReferenceSemanticsHints(context.data));
 
     if (rawResult && typeof rawResult === 'object' && !Array.isArray(rawResult)) {
         const updated = (rawResult as Record<string, unknown>).updated;
@@ -214,7 +275,8 @@ function createBatchInsertAnchorValidationResult(itemIndex: number): ToolResult 
     };
 }
 
-function normalizeBatchInsertBlocks(
+async function normalizeBatchInsertBlocks(
+    client: SiYuanClient,
     blocks: Array<{
         dataType: 'markdown' | 'dom';
         data: string;
@@ -234,12 +296,39 @@ function normalizeBatchInsertBlocks(
     previousID?: string;
     parentID?: string;
 }> {
-    return blocks.map((block) => ({
+    return Promise.all(blocks.map(async (block) => ({
         ...block,
+        data: await normalizeWriteData(client, block.dataType, block.data, 'block.insert'),
         nextID: block.nextID ?? defaults.nextID,
         previousID: block.previousID ?? defaults.previousID,
         parentID: block.parentID ?? defaults.parentID,
-    }));
+    })));
+}
+
+async function normalizeWriteData(client: SiYuanClient, dataType: 'markdown' | 'dom', data: string, actionName: string): Promise<string> {
+    if (dataType === 'dom') {
+        return normalizeDomInlineRefsAndTags(data, actionName);
+    }
+
+    return normalizeMarkdownInputRefs(client, data, actionName);
+}
+
+async function normalizeBatchUpdateItems(
+    client: SiYuanClient,
+    items: Array<{
+        id: string;
+        dataType: 'markdown' | 'dom';
+        data: string;
+    }>,
+): Array<{
+    id: string;
+    dataType: 'markdown' | 'dom';
+    data: string;
+}> {
+    return Promise.all(items.map(async (item) => ({
+        ...item,
+        data: await normalizeWriteData(client, item.dataType, item.data, 'block.update'),
+    })));
 }
 
 function extractBatchInsertCreatedBlockIds(rawResult: unknown): string[] {
@@ -289,7 +378,7 @@ function createBatchInsertVerificationErrorResult(
 const handleInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockInsertSchema.parse(rawArgs);
     if (parsed.blocks) {
-        const normalizedBlocks = normalizeBatchInsertBlocks(parsed.blocks, {
+        const normalizedBlocks = await normalizeBatchInsertBlocks(client, parsed.blocks, {
             parentID: parsed.parentID,
             previousID: parsed.previousID,
             nextID: parsed.nextID,
@@ -313,6 +402,7 @@ const handleInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
             count: normalizedBlocks.length,
             createdBlockIDs: createdBlockIds,
             transactions: result,
+            ...(normalizedBlocks.some((block) => hasReferenceSemanticsHints(block.data)) ? createReferenceSemanticsHints(normalizedBlocks.map((block) => block.data).join('\n')) : {}),
         }), [...reloadIds].map((id) => ({ type: 'reloadProtyle' as const, id })));
     }
     const refId = parsed.nextID || parsed.previousID || parsed.parentID;
@@ -322,64 +412,80 @@ const handleInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
         if (denied) return denied;
         targetDocumentId = context.documentId;
     }
-    const result = await blockApi.insertBlock(client, parsed.dataType!, parsed.data!, parsed.nextID, parsed.previousID, parsed.parentID);
-    return applyUiRefresh(client, createSlimWriteResult(result, {
+    const data = await normalizeWriteData(client, parsed.dataType!, parsed.data!, 'block.insert');
+    const result = await blockApi.insertBlock(client, parsed.dataType!, data, parsed.nextID, parsed.previousID, parsed.parentID);
+    return applyUiRefresh(client, createSlimWriteResult(result, withReferenceSemanticsHints({
         action: 'insert',
         dataType: parsed.dataType!,
         parentID: parsed.parentID,
         previousID: parsed.previousID,
         nextID: parsed.nextID,
-    }), targetDocumentId ? [{ type: 'reloadProtyle', id: targetDocumentId }] : []);
+    }, data)), targetDocumentId ? [{ type: 'reloadProtyle', id: targetDocumentId }] : []);
 };
 
 const handlePrepend: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockPrependSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.parentID, 'write');
     if (denied) return denied;
-    const result = await blockApi.prependBlock(client, parsed.dataType, parsed.data, parsed.parentID);
-    return applyUiRefresh(client, createSlimWriteResult(result, {
+    const data = await normalizeWriteData(client, parsed.dataType, parsed.data, 'block.prepend');
+    const result = await blockApi.prependBlock(client, parsed.dataType, data, parsed.parentID);
+    return applyUiRefresh(client, createSlimWriteResult(result, withReferenceSemanticsHints({
         action: 'prepend',
         dataType: parsed.dataType,
         parentID: parsed.parentID,
-    }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    }, data)), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
 const handleAppend: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockAppendSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.parentID, 'write');
     if (denied) return denied;
-    const result = await blockApi.appendBlock(client, parsed.dataType, parsed.data, parsed.parentID);
-    return applyUiRefresh(client, createSlimWriteResult(result, {
+    const data = await normalizeWriteData(client, parsed.dataType, parsed.data, 'block.append');
+    const result = await blockApi.appendBlock(client, parsed.dataType, data, parsed.parentID);
+    return applyUiRefresh(client, createSlimWriteResult(result, withReferenceSemanticsHints({
         action: 'append',
         dataType: parsed.dataType,
         parentID: parsed.parentID,
-    }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    }, data)), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
 const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockUpdateSchema.parse(rawArgs);
     if (parsed.items) {
+        const items = await normalizeBatchUpdateItems(client, parsed.items);
         const reloadIds = new Set<string>();
-        for (const block of parsed.items) {
+        const databaseBlockIds: string[] = [];
+        for (const block of items) {
             const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, block.id, 'write');
             if (denied) return denied;
+            if (await getBlockType(client, block.id) === 'av') {
+                databaseBlockIds.push(block.id);
+            }
             reloadIds.add(context.documentId);
         }
-        const result = await blockApi.batchUpdateBlock(client, parsed.items);
+        const result = await blockApi.batchUpdateBlock(client, items);
         return applyUiRefresh(client, createJsonResult({
             success: true,
             action: 'update',
             count: parsed.items.length,
             transactions: result,
+            ...(items.some((item) => hasReferenceSemanticsHints(item.data)) ? createReferenceSemanticsHints(items.map((item) => item.data).join('\n')) : {}),
+            ...(databaseBlockIds.length > 0 ? {
+                databaseBlockIds,
+                ...createDatabaseBlockHint('block.update'),
+            } : {}),
         }), [...reloadIds].map((id) => ({ type: 'reloadProtyle' as const, id })));
     }
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id!, 'write');
     if (denied) return denied;
-    const result = await blockApi.updateBlock(client, parsed.dataType!, parsed.data!, parsed.id!);
+    const isDatabaseBlock = await getBlockType(client, parsed.id!) === 'av';
+    const data = await normalizeWriteData(client, parsed.dataType!, parsed.data!, 'block.update');
+    const result = await blockApi.updateBlock(client, parsed.dataType!, data, parsed.id!);
     return applyUiRefresh(client, createUpdateResult(result, {
         id: parsed.id!,
         dataType: parsed.dataType!,
-        data: parsed.data!,
+        data,
+        ...(isDatabaseBlock ? createDatabaseBlockHint('block.update') : {}),
     }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
@@ -390,12 +496,20 @@ const handleReplace: BlockActionHandler = async ({ client, permMgr, rawArgs }) =
 
     const current = normalizeKramdownResult(await blockApi.getBlockKramdown(client, parsed.id));
     const originalContent = typeof current.kramdown === 'string' ? current.kramdown : '';
-    const edits = Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit];
-    const { content: nextContent, summary } = applyExactReplaceEdits(originalContent, edits, 'block.replace');
+    const dom = await blockApi.getBlockDOM(client, parsed.id);
+    const originalDom = typeof dom.dom === 'string' ? dom.dom : '';
+    const edits = await normalizeReplaceEditsRefs(client, Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit], 'block.replace');
+    const { kramdown: nextContent, markdown: nextMarkdown, dom: nextDom, summary } = replaceSingleKramdownBlockContentInDom(originalContent, originalDom, edits, 'block.replace');
     const changed = nextContent !== originalContent;
 
     if (changed) {
-        await blockApi.updateBlock(client, 'markdown', nextContent, parsed.id);
+        const shouldReparseIndexedInline = edits.some(replaceEditTouchesIndexedInline);
+        await blockApi.updateBlock(
+            client,
+            shouldReparseIndexedInline ? 'markdown' : 'dom',
+            shouldReparseIndexedInline ? nextMarkdown : nextDom,
+            parsed.id,
+        );
     }
 
     return applyUiRefresh(client, createJsonResult({
@@ -405,6 +519,7 @@ const handleReplace: BlockActionHandler = async ({ client, permMgr, rawArgs }) =
         changed,
         editsApplied: summary.length,
         replacements: summary,
+        ...(hasReferenceSemanticsHints(nextContent) ? createReferenceSemanticsHints(nextContent) : {}),
     }), changed ? [{ type: 'reloadProtyle', id: context.documentId }] : []);
 };
 
@@ -412,14 +527,24 @@ const handleDelete: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
     const parsed = BlockDeleteSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'delete');
     if (denied) return denied;
+    const isDatabaseBlock = await getBlockType(client, parsed.id) === 'av';
     await blockApi.deleteBlock(client, parsed.id);
-    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        id: parsed.id,
+        ...(isDatabaseBlock ? createDatabaseBlockHint('block.delete') : {}),
+    }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
 const handleMove: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockMoveSchema.parse(rawArgs);
-    const source = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
-    if (source.denied) return source.denied;
+    const sourceIds = parsed.ids ?? [parsed.id!];
+    const sourceDocumentIds = new Set<string>();
+    for (const id of sourceIds) {
+        const source = await ensurePermissionForDocumentId(client, permMgr, id, 'write');
+        if (source.denied) return source.denied;
+        sourceDocumentIds.add(source.context.documentId);
+    }
     if (parsed.parentID) {
         const destination = await ensurePermissionForDocumentId(client, permMgr, parsed.parentID, 'write');
         if (destination.denied) return destination.denied;
@@ -428,8 +553,13 @@ const handleMove: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
         const sibling = await ensurePermissionForDocumentId(client, permMgr, parsed.previousID, 'write');
         if (sibling.denied) return sibling.denied;
     }
-    const result = await blockApi.moveBlock(client, parsed.id, parsed.previousID, parsed.parentID);
-    const operations = [{ type: 'reloadProtyle' as const, id: source.context.documentId }];
+    const movedResults = [];
+    const apiCallOrder = [...sourceIds].reverse();
+    for (const id of apiCallOrder) {
+        movedResults.push(await blockApi.moveBlock(client, id, parsed.previousID, parsed.parentID));
+    }
+    const result = parsed.ids ? movedResults : movedResults[0];
+    const operations = [...sourceDocumentIds].map((id) => ({ type: 'reloadProtyle' as const, id }));
     if (parsed.parentID) {
         const destination = await ensurePermissionForDocumentId(client, permMgr, parsed.parentID, 'write');
         if (destination.denied) return destination.denied;
@@ -441,7 +571,12 @@ const handleMove: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
         operations.push({ type: 'reloadProtyle', id: sibling.context.documentId });
     }
     return applyUiRefresh(client, createWriteSuccessResult({
-        id: parsed.id,
+        ...(parsed.ids ? {
+            ids: parsed.ids,
+            finalOrder: parsed.ids,
+            apiCallOrder,
+            count: parsed.ids.length,
+        } : { id: parsed.id }),
         ...(parsed.previousID ? { previousID: parsed.previousID } : {}),
         ...(parsed.parentID ? { parentID: parsed.parentID } : {}),
     }, result), operations);
@@ -580,9 +715,10 @@ const handleAddToDailyNote: BlockActionHandler = async ({ client, permMgr, rawAr
     const parsed = BlockAddToDailyNoteSchema.parse(rawArgs);
     const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
     if (denied) return denied;
+    const data = await normalizeWriteData(client, parsed.dataType, parsed.data, 'block.add_to_daily_note');
     const result = parsed.position === 'append'
-        ? await blockApi.appendDailyNoteBlock(client, parsed.notebook, parsed.dataType, parsed.data)
-        : await blockApi.prependDailyNoteBlock(client, parsed.notebook, parsed.dataType, parsed.data);
+        ? await blockApi.appendDailyNoteBlock(client, parsed.notebook, parsed.dataType, data)
+        : await blockApi.prependDailyNoteBlock(client, parsed.notebook, parsed.dataType, data);
     return applyUiRefresh(client, createJsonResult({
         success: true,
         action: 'add_to_daily_note',

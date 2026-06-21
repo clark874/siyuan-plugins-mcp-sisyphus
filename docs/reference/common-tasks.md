@@ -26,13 +26,47 @@ siyuan notebook list
   "action": "create",
   "notebook": "<notebook-id>",
   "path": "/Inbox/Note",
-  "markdown": "# Hello"
+  "markdown": "Hello"
 }
 ```
 
 ```bash
-siyuan document create --notebook <notebook-id> --path "/Inbox/Note" --markdown "# Hello"
+siyuan document create --notebook <notebook-id> --path "/Inbox/Note" --markdown "Hello"
 ```
+
+Do not repeat the document title as a leading `# Note` in `markdown`. `document.create` and `fs.write` strip a matching leading H1 automatically to avoid duplicate titles; a different leading H1 is preserved.
+
+Use `document.create` when you need the document ID immediately. Use `fs.write` when a human-readable path is enough. Both accept real tags and block refs directly in Markdown:
+
+```json
+{
+  "action": "create",
+  "notebook": "<notebook-id>",
+  "path": "/Inbox/Linked Note",
+  "markdown": "Related ((20260610000000-abcdefg 'Full title')) #research/todo#"
+}
+```
+
+Naked refs such as `((id))` are resolved before writing and expanded to `((id 'anchor'))`. If anchor lookup fails, MCP falls back to `((id 'id'))` with a warning. Footnote-style refs and `siyuan://blocks` Markdown links are allowed, but results include hints because they do not create SiYuan backlinks.
+
+## Edit existing content
+
+Current builds can use `fs.replace` or `block.replace` directly on paragraphs containing tags and block refs. External DOM injection scripts are not required.
+
+```json
+{
+  "action": "replace",
+  "path": "/Inbox/Linked Note",
+  "edit": {
+    "old": "Related ((20260610000000-abcdefg 'Full title')) #research/todo#",
+    "new": "Done ((20260610000000-abcdefg 'Full title')) #research/done#"
+  }
+}
+```
+
+Verified safe cases include replacing a whole paragraph containing a block ref, replacing a whole paragraph containing a tag, replacing a full `#tag#` token with plain text, and the same operations through `block.replace`.
+
+`block.update` with `dataType="markdown"` or `dataType="dom"` also normalizes Markdown-looking `((id 'title'))`, `((id))`, and `#tag#` into real SiYuan inline structures. Do not hand-build complex DOM.
 
 ## Append a block
 
@@ -48,6 +82,8 @@ siyuan document create --notebook <notebook-id> --path "/Inbox/Note" --markdown 
 ```bash
 siyuan block append --parent-id <doc-or-block-id> --data-type markdown --data "New paragraph"
 ```
+
+When moving several blocks, pass `ids` in the desired final order. The tool calls the low-level move API from last to first internally so the final order is preserved.
 
 ## Search content
 
@@ -74,3 +110,18 @@ siyuan search fulltext --query "TODO"
 ```bash
 siyuan av get --id <attribute-view-id>
 ```
+
+## Duplicate document names
+
+When multiple documents under the same parent share a human-readable path, use:
+
+```json
+{
+  "action": "lookup",
+  "notebook": "<notebook-id>",
+  "hpath": "/Inbox/Same Name",
+  "include": ["ids", "path", "hpath"]
+}
+```
+
+The returned `idPath.ids` lists all matching document IDs. The tool includes a SQL fallback, so callers do not need to hand-write `SELECT ... WHERE hpath = ... AND type = 'd'`.

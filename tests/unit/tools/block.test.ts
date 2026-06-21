@@ -15,7 +15,12 @@ describe('block tool', () => {
         get: () => 'rwd',
     };
 
-    function createBlockReplaceClient(kramdown = 'alpha\nbudget line\nbudget tail') {
+    function createTestDom(kramdown: string) {
+        const content = kramdown.replace(/\n?\{:[\s\S]*$/, '');
+        return `<div data-node-id="block-1" data-type="NodeParagraph">${content.replace(/\n/g, '<br>')}</div>`;
+    }
+
+    function createBlockReplaceClient(kramdown = 'alpha\nbudget line\nbudget tail', dom = createTestDom(kramdown)) {
         return createMockClient({
             request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
                 if (endpoint === '/api/query/sql') {
@@ -31,6 +36,9 @@ describe('block tool', () => {
                 }
                 if (endpoint === '/api/block/getBlockKramdown') {
                     return { id: body?.id, kramdown };
+                }
+                if (endpoint === '/api/block/getBlockDOM') {
+                    return { id: body?.id, dom };
                 }
                 if (endpoint === '/api/block/updateBlock') {
                     return { updated: true };
@@ -100,6 +108,212 @@ describe('block tool', () => {
         expect(parseResult(result).success).toBe(true);
     });
 
+    it('converts plain DOM block references and tags before block update', async () => {
+        const client = createBlockReplaceClient();
+
+        const result = await callBlockTool(client, {
+            action: 'update',
+            id: 'block-1',
+            dataType: 'dom',
+            data: '<div data-node-id="block-1" data-type="NodeParagraph">See ((20260508123456-abcdefg \'完整标题\')) and #测试标签#</div>',
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(parseResult(result)).toMatchObject({ success: true, id: 'block-1', dataType: 'dom' });
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'dom',
+            data: '<div data-node-id="block-1" data-type="NodeParagraph">See <span data-type="block-ref" data-subtype="s" data-id="20260508123456-abcdefg">完整标题</span> and <span data-type="tag">测试标签</span></div>',
+        });
+    });
+
+    it('expands naked block references before markdown block update', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    return [{
+                        id: body?.id ?? 'block-1',
+                        root_id: 'doc-1',
+                        box: 'nb-1',
+                        path: '/doc-1.sy',
+                        hpath: '/Doc 1',
+                        content: 'Doc 1',
+                        type: 'p',
+                    }];
+                }
+                if (endpoint === '/api/block/getBlockKramdown' && body?.id === '20260508123456-abcdefg') {
+                    return { id: body.id, kramdown: '完整标题\n{: id="20260508123456-abcdefg"}' };
+                }
+                if (endpoint === '/api/block/updateBlock') return { updated: true };
+                if (endpoint.startsWith('/api/ui/')) return null;
+                return null;
+            }),
+        });
+
+        const result = await callBlockTool(client, {
+            action: 'update',
+            id: 'block-1',
+            dataType: 'markdown',
+            data: 'See ((20260508123456-abcdefg))',
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(result.isError).toBeUndefined();
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'markdown',
+            data: "See ((20260508123456-abcdefg '完整标题'))",
+        });
+    });
+
+    it('falls back to the id as anchor when a naked block reference cannot be resolved during append', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    return [{
+                        id: body?.id ?? 'block-1',
+                        root_id: 'doc-1',
+                        box: 'nb-1',
+                        path: '/doc-1.sy',
+                        hpath: '/Doc 1',
+                        content: 'Doc 1',
+                        type: 'p',
+                    }];
+                }
+                if (endpoint === '/api/block/getBlockKramdown' && body?.id === '20250321001215-j3k2u2v') {
+                    throw new Error('missing block');
+                }
+                if (endpoint === '/api/block/getBlockInfo' && body?.id === '20250321001215-j3k2u2v') {
+                    throw new Error('missing block');
+                }
+                if (endpoint === '/api/block/appendBlock') return [{ doOperations: [{ id: 'new-block', parentID: 'block-1' }] }];
+                if (endpoint.startsWith('/api/ui/')) return null;
+                return null;
+            }),
+        });
+
+        const result = await callBlockTool(client, {
+            action: 'append',
+            parentID: 'block-1',
+            dataType: 'markdown',
+            data: 'See ((20250321001215-j3k2u2v))',
+        }, buildDefaultToolConfig().block, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.warning).toBe('Some naked block references used the block ID as fallback anchor text.');
+        expect(parsed.hint).toContain('fallback anchor text');
+        expect(client.request).toHaveBeenCalledWith('/api/block/appendBlock', {
+            dataType: 'markdown',
+            data: "See ((20250321001215-j3k2u2v '20250321001215-j3k2u2v'))",
+            parentID: 'block-1',
+        });
+    });
+
+    it('allows siyuan block links during markdown block update with a hint', async () => {
+        const client = createBlockReplaceClient();
+
+        const result = await callBlockTool(client, {
+            action: 'update',
+            id: 'block-1',
+            dataType: 'markdown',
+            data: '[目标](siyuan://blocks/20260508123456-abcdefg)',
+        }, buildDefaultToolConfig().block, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed).toMatchObject({
+            success: true,
+            warning: 'siyuan://blocks Markdown links create mentions, not backlinks.',
+        });
+        expect(parsed.hint).toContain('mentions, not backlinks');
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'markdown',
+            data: '[目标](siyuan://blocks/20260508123456-abcdefg)',
+        });
+    });
+
+    it('allows updating an attribute-view block but returns av tool guidance', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    return [{
+                        id: body?.id ?? 'av-block-1',
+                        root_id: 'doc-1',
+                        box: 'nb-1',
+                        path: '/doc-1.sy',
+                        hpath: '/Doc 1',
+                        content: 'Doc 1',
+                        type: 'av',
+                    }];
+                }
+                if (endpoint === '/api/block/updateBlock') return { updated: true };
+                if (endpoint.startsWith('/api/ui/')) return null;
+                return null;
+            }),
+        });
+
+        const result = await callBlockTool(client, {
+            action: 'update',
+            id: 'av-block-1',
+            dataType: 'markdown',
+            data: '降级为普通文本',
+        }, buildDefaultToolConfig().block, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({
+            success: true,
+            id: 'av-block-1',
+            databaseBlock: true,
+        });
+        expect(parsed.warning).toContain('use av');
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'av-block-1',
+            dataType: 'markdown',
+            data: '降级为普通文本',
+        });
+    });
+
+    it('allows deleting an attribute-view block but returns av tool guidance', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string) => {
+                if (endpoint === '/api/query/sql') {
+                    return [{
+                        id: 'av-block-1',
+                        root_id: 'doc-1',
+                        box: 'nb-1',
+                        path: '/doc-1.sy',
+                        hpath: '/Doc 1',
+                        content: 'Doc 1',
+                        type: 'av',
+                    }];
+                }
+                if (endpoint === '/api/block/deleteBlock') return {};
+                if (endpoint.startsWith('/api/ui/')) return null;
+                return null;
+            }),
+        });
+
+        const result = await callBlockTool(client, {
+            action: 'delete',
+            id: 'av-block-1',
+        }, {
+            ...buildDefaultToolConfig().block,
+            actions: {
+                ...buildDefaultToolConfig().block.actions,
+                delete: true,
+            },
+        }, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({
+            success: true,
+            id: 'av-block-1',
+            databaseBlock: true,
+        });
+        expect(parsed.warning).toContain('use av');
+        expect(client.request).toHaveBeenCalledWith('/api/block/deleteBlock', { id: 'av-block-1' });
+    });
+
     it('replaces the first exact match inside one block', async () => {
         const client = createBlockReplaceClient();
 
@@ -120,8 +334,8 @@ describe('block tool', () => {
         });
         expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
             id: 'block-1',
-            dataType: 'markdown',
-            data: 'alpha\nforecast line\nbudget tail',
+            dataType: 'dom',
+            data: '<div data-node-id="block-1" data-type="NodeParagraph">alpha<br>forecast line<br>budget tail</div>',
         });
     });
 
@@ -144,8 +358,8 @@ describe('block tool', () => {
         ]);
         expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
             id: 'block-1',
-            dataType: 'markdown',
-            data: 'bar\nqux\nqux',
+            dataType: 'dom',
+            data: '<div data-node-id="block-1" data-type="NodeParagraph">bar<br>qux<br>qux</div>',
         });
     });
 
@@ -160,9 +374,167 @@ describe('block tool', () => {
 
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toContain('block.replace edit #1 did not match any text');
-        expect(result.content[0].text).toContain('only searches the kramdown of the single block');
-        expect(result.content[0].text).toContain('fs(action=\\"replace\\")');
+        expect(result.content[0].text).toContain('only searches the content body of the single block');
         expect(client.request).not.toHaveBeenCalledWith('/api/block/updateBlock', expect.anything());
+    });
+
+    it('writes block references and tags through DOM spans during block replace', async () => {
+        const client = createBlockReplaceClient(
+            "引用 ((20260609192804-xrabk3d '目标标题')) old #tag#\n{: id=\"block-1\"}",
+            '<div data-node-id="block-1" data-type="NodeParagraph">引用 <span data-type="block-ref" data-subtype="s" data-id="20260609192804-xrabk3d">目标标题</span> old <span data-type="tag">#tag#</span></div>',
+        );
+
+        await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: 'old', new: 'new' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'dom',
+            data: '<div data-node-id="block-1" data-type="NodeParagraph">引用 <span data-type="block-ref" data-subtype="s" data-id="20260609192804-xrabk3d">目标标题</span> new <span data-type="tag">#tag#</span></div>',
+        });
+    });
+
+    it('replaces a full paragraph containing a block reference', async () => {
+        const client = createBlockReplaceClient(
+            '引用 ((20260609201939-1qvlh19 "测试笔记本")) 完成\n{: id="block-1"}',
+            '<div data-node-id="block-1" data-type="NodeParagraph">引用 <span data-type="block-ref" data-subtype="s" data-id="20260609201939-1qvlh19"><span>测试笔记本</span></span> 完成</div>',
+        );
+
+        await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: {
+                old: '引用 ((20260609201939-1qvlh19 "测试笔记本")) 完成',
+                new: '替换后的普通文本',
+            },
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'markdown',
+            data: '替换后的普通文本',
+        });
+    });
+
+    it('replaces a full paragraph containing a tag', async () => {
+        const client = createBlockReplaceClient(
+            '这是一段 #测试标签# 内容\n{: id="block-1"}',
+            '<div data-node-id="block-1" data-type="NodeParagraph">这是一段 <span data-type="tag">测试标签</span> 内容</div>',
+        );
+
+        await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: '这是一段 #测试标签# 内容', new: '替换后的普通文本' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'markdown',
+            data: '替换后的普通文本',
+        });
+    });
+
+    it('replaces protected inline spans when SiYuan DOM data-type has multiple tokens', async () => {
+        const client = createBlockReplaceClient(
+            '引用 ((20260609201939-1qvlh19 "测试笔记本")) 和 #测试标签#\n{: id="block-1"}',
+            '<div data-node-id="block-1" data-type="NodeParagraph">引用 <span data-type="block-ref a" data-subtype="s" data-id="20260609201939-1qvlh19"><span>测试笔记本</span></span> 和 <span data-type="tag strong">测试标签</span></div>',
+        );
+
+        await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: {
+                old: '引用 ((20260609201939-1qvlh19 "测试笔记本")) 和 #测试标签#',
+                new: '替换后的普通文本',
+            },
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'markdown',
+            data: '替换后的普通文本',
+        });
+    });
+
+    it('replaces a whole tag token with plain text', async () => {
+        const client = createBlockReplaceClient(
+            '这是一段 #测试标签# 内容\n{: id="block-1"}',
+            '<div data-node-id="block-1" data-type="NodeParagraph">这是一段 <span data-type="tag">测试标签</span> 内容</div>',
+        );
+
+        await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: '#测试标签#', new: '普通文本' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'markdown',
+            data: '这是一段 普通文本 内容',
+        });
+    });
+
+    it('replaces tags when SiYuan DOM inserts zero-width characters around tag text', async () => {
+        const client = createBlockReplaceClient(
+            '这是一段 #测试标签# 内容\n{: id="block-1"}',
+            '<div data-node-id="block-1" data-type="NodeParagraph">这是一段 <span data-type="tag">#\u200B测试标签#\u200B</span> 内容\u200B</div>',
+        );
+
+        await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: '#测试标签#', new: '普通文本' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'markdown',
+            data: '这是一段 普通文本 内容',
+        });
+    });
+
+    it('preserves existing inline formatting during block replace', async () => {
+        const client = createBlockReplaceClient(
+            'alpha **old** tail\n{: id="block-1"}',
+            '<div data-node-id="block-1" data-type="NodeParagraph">alpha <strong>old</strong> tail</div>',
+        );
+
+        await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: 'old', new: 'new' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'dom',
+            data: '<div data-node-id="block-1" data-type="NodeParagraph">alpha <strong>new</strong> tail</div>',
+        });
+    });
+
+    it('allows footnote-style references during block replace with a hint', async () => {
+        const client = createBlockReplaceClient('old [^1]\n{: id="block-1"}');
+
+        const result = await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: 'old', new: 'new' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.warning).toBe('Footnote-style references create footnotes or note markers, not backlinks.');
+        expect(parsed.hint).toContain('not SiYuan backlinks');
+        expect(client.request).toHaveBeenCalledWith('/api/block/updateBlock', {
+            id: 'block-1',
+            dataType: 'dom',
+            data: '<div data-node-id="block-1" data-type="NodeParagraph">new [^1]</div>',
+        });
     });
 
     it('denies block replacements when notebook permission is read-only', async () => {
@@ -363,5 +735,46 @@ describe('block tool', () => {
                 }],
             },
         });
+    });
+
+    it('accepts batch ids in final order and calls SiYuan from last to first internally', async () => {
+        const moveCalls: Array<Record<string, unknown>> = [];
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    return [{
+                        id: body?.id ?? 'block-1',
+                        root_id: 'doc-1',
+                        box: 'nb-1',
+                        path: '/doc-1.sy',
+                        hpath: '/Doc 1',
+                        content: 'Doc 1',
+                        type: 'p',
+                    }];
+                }
+                if (endpoint === '/api/block/moveBlock') {
+                    moveCalls.push(body ?? {});
+                    return { moved: true };
+                }
+                if (endpoint === '/api/ui/reloadProtyle') return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+
+        const result = await callBlockTool(client, {
+            action: 'move',
+            ids: ['block-a', 'block-b', 'block-c'],
+            parentID: 'doc-1',
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(parseResult(result)).toMatchObject({
+            success: true,
+            ids: ['block-a', 'block-b', 'block-c'],
+            finalOrder: ['block-a', 'block-b', 'block-c'],
+            apiCallOrder: ['block-c', 'block-b', 'block-a'],
+            count: 3,
+            parentID: 'doc-1',
+        });
+        expect(moveCalls.map((call) => call.id)).toEqual(['block-c', 'block-b', 'block-a']);
     });
 });

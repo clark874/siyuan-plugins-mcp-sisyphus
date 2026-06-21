@@ -24,8 +24,11 @@ import {
     type FsScopePath,
 } from '../internal/helpers/fs-path';
 import { applyExactReplaceEdits } from '../internal/replace';
-import { createJsonResult, createPaginatedResult } from '../internal/shared';
+import { createJsonResult, createPaginatedResult, type ToolResult } from '../internal/shared';
 import { applyUiRefresh } from '../internal/ui-refresh';
+import { applyDocumentKramdownDomReplacements, createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks, stripRedundantTitleHeading } from '../internal/kramdown-safe';
+import { listDocumentBlocksInTreeOrder, readDocumentEditableMarkdown } from '../internal/document-kramdown';
+import { normalizeMarkdownInputRefs, normalizeReplaceEditsRefs } from '../internal/markdown-input';
 
 type FsActionHandler = ToolActionHandler;
 
@@ -39,6 +42,71 @@ interface FsListItem {
 interface ExportedMarkdownPayload {
     content: string;
     hPath?: string;
+}
+
+const AV_ID_ATTR_PATTERN = /\bdata-av-id=(?:"([^"]+)"|'([^']+)')/i;
+const NON_FIDELITY_BLOCK_TYPES = new Set([
+    's',
+    'av',
+    'iframe',
+    'widget',
+    'query_embed',
+    'html',
+    'video',
+    'audio',
+]);
+
+function isNonFidelityBlockType(type: string | undefined): boolean {
+    return Boolean(type && NON_FIDELITY_BLOCK_TYPES.has(type));
+}
+
+function createFsNonFidelityHint(blocks: Array<{ type?: string }>): Record<string, unknown> {
+    const complexBlockTypes = Array.from(new Set(blocks
+        .map((block) => block.type)
+        .filter((type): type is string => isNonFidelityBlockType(type))));
+    if (complexBlockTypes.length === 0) return {};
+    return {
+        nonFidelityWarning: 'fs is intentionally limited to pure Markdown-style document operations. This document contains SiYuan-native structures; inspect or modify those blocks with advanced tools instead of fs.',
+        complexBlockTypes,
+        recommendedReads: ['file.export_md', 'block.dom'],
+    };
+}
+
+function findComplexFsBlocks(blocks: Array<{ id?: string; type?: string }>): Array<{ id?: string; type: string }> {
+    return blocks.flatMap((block) => (
+        isNonFidelityBlockType(block.type)
+            ? [{ ...(block.id ? { id: block.id } : {}), type: block.type! }]
+            : []
+    ));
+}
+
+function isFsReplaceCandidateBlock(block: { type?: string }): boolean {
+    return Boolean(block.type && !isNonFidelityBlockType(block.type));
+}
+
+function createComplexBlocksNotSupportedResult(
+    action: 'write' | 'replace',
+    path: string,
+    documentId: string,
+    complexBlocks: Array<{ id?: string; type: string }>,
+): ToolResult {
+    return {
+        content: [{
+            type: 'text',
+            text: JSON.stringify({
+                error: {
+                    type: 'complex_blocks_not_supported_by_fs',
+                    message: `fs.${action} is limited to pure Markdown documents and will not modify documents containing SiYuan-native complex blocks.`,
+                    path,
+                    id: documentId,
+                    complexBlocks,
+                    recommendedTools: ['file.export_md', 'block.dom', 'block.update', 'block.append', 'av'],
+                    hint: 'Use fs for pure Markdown content only. For database blocks, super blocks, embeds, widgets, HTML/media, or precise native structure changes, inspect with block.dom and edit with the matching advanced tool.',
+                },
+            }, null, 2),
+        }],
+        isError: true,
+    };
 }
 
 function stripSySuffix(name: string | undefined): string | undefined {
@@ -282,6 +350,84 @@ async function overwriteDocumentBody(
     }
 }
 
+function extractAttributeViewIdFromKramdown(kramdown: string): string | undefined {
+    const match = kramdown.match(AV_ID_ATTR_PATTERN);
+    return match?.[1] ?? match?.[2];
+}
+
+async function listDocumentAttributeViews(
+    client: Parameters<FsActionHandler>[0]['client'],
+    documentId: string,
+): Promise<Array<{ blockID: string; avID?: string }>> {
+    const blocks = await listDocumentBlocksInTreeOrder(client, documentId);
+    const avBlocks = blocks.filter((block) => block.type === 'av');
+    return Promise.all(avBlocks.map(async (block) => {
+        const result = await blockApi.getBlockKramdown(client, block.id);
+        const kramdown = typeof result.kramdown === 'string' ? result.kramdown : '';
+        return {
+            blockID: block.id,
+            ...(extractAttributeViewIdFromKramdown(kramdown) ? { avID: extractAttributeViewIdFromKramdown(kramdown) } : {}),
+        };
+    }));
+}
+
+function createAttributeViewFsHint(attributeViews: Array<{ blockID: string; avID?: string }>): Record<string, unknown> {
+    return {
+        attributeViews,
+        warning: 'This document contains database/attribute-view blocks. fs is only a pure Markdown convenience layer and will not safely edit these SiYuan-native structures. Use av(action="get"|"render"|"set_cells"|"add_rows"|"remove_rows"|"add_column"|"remove_column") for rows, columns, and cells.',
+        avToolHint: {
+            read: 'av(action="get", id="<av-id>") or av(action="render", id="<av-id>", blockID="<database-block-id>")',
+            write: 'av(action="set_cells"|"add_rows"|"remove_rows"|"add_column"|"remove_column", avID="<av-id>", ...)',
+        },
+    };
+}
+
+async function replaceDocumentBlocksSafely(
+    client: Parameters<FsActionHandler>[0]['client'],
+    documentId: string,
+    edits: Array<{ old: string; new: string; replace_all?: boolean }>,
+) {
+    const documentBlocks = await listDocumentBlocksInTreeOrder(client, documentId);
+    const complexBlocks = findComplexFsBlocks(documentBlocks);
+    const blocks = documentBlocks
+        .filter(isFsReplaceCandidateBlock)
+        .map((block) => ({ id: block.id, type: block.type }));
+    if (blocks.length === 0) {
+        throw new Error('fs.replace found no editable non-complex Markdown blocks in this document.');
+    }
+
+    const kramdownBlocks = await Promise.all(blocks.map(async (block) => {
+        const [result, dom] = await Promise.all([
+            blockApi.getBlockKramdown(client, block.id),
+            blockApi.getBlockDOM(client, block.id),
+        ]);
+        return {
+            id: block.id,
+            type: block.type,
+            kramdown: typeof result.kramdown === 'string' ? result.kramdown : '',
+            dom: typeof dom.dom === 'string' ? dom.dom : '',
+        };
+    }));
+    const replaced = applyDocumentKramdownDomReplacements(kramdownBlocks, edits, 'fs.replace');
+
+    for (const block of replaced.blocks) {
+        const shouldReparseIndexedInline = block.touchesIndexedInline && block.type !== 'l';
+        await blockApi.updateBlock(
+            client,
+            shouldReparseIndexedInline ? 'markdown' : 'dom',
+            shouldReparseIndexedInline ? block.markdown : block.dom,
+            block.id,
+        );
+    }
+
+    return {
+        summary: replaced.summary,
+        changedBlockCount: replaced.blocks.length,
+        changedMarkdown: replaced.blocks.map((block) => block.markdown).join('\n'),
+        skippedComplexBlocks: complexBlocks,
+    };
+}
+
 async function collectSearchDocuments(
     client: Parameters<FsActionHandler>[0]['client'],
     permMgr: Parameters<FsActionHandler>[0]['permMgr'],
@@ -452,12 +598,15 @@ const handleRead: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     if (scope.type !== 'document') throw new Error(`fs.read requires a document path, got "${parsed.path}".`);
     const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'read');
     if (denied) return denied;
-    const markdown = normalizeMarkdownContent(await fileApi.exportMdContent(client, scope.id));
-    const content = typeof markdown.content === 'string' ? markdown.content : '';
+    const blocks = await listDocumentBlocksInTreeOrder(client, scope.id);
+    const content = await readDocumentEditableMarkdown(client, scope.id, blocks);
+    const attributeViews = await listDocumentAttributeViews(client, scope.id);
     const paged = paginateContent(content, parsed.page, parsed.pageSize);
     return createJsonResult({
         path: scope.canonicalPath,
         content: paged.content,
+        ...(attributeViews.length > 0 ? createAttributeViewFsHint(attributeViews) : {}),
+        ...createFsNonFidelityHint(blocks),
         ...(paged.truncated ? {
             truncated: true,
             contentLength: paged.contentLength,
@@ -498,8 +647,17 @@ const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     }
 
     if (!existing) {
-        const id = await documentApi.createDoc(client, target.notebook, target.hPath, parsed.markdown);
-        return applyUiRefresh(client, createJsonResult({ success: true, path: target.canonicalPath, created: true }), [
+        const markdown = await normalizeMarkdownInputRefs(client, stripRedundantTitleHeading(parsed.markdown, target.title), 'fs.write');
+        const id = await documentApi.createDoc(client, target.notebook, target.hPath, markdown);
+        return applyUiRefresh(client, createJsonResult({
+            success: true,
+            path: target.canonicalPath,
+            id,
+            created: true,
+            ...(hasSiyuanBlockLinks(markdown) ? createSiyuanBlockLinkHint() : {}),
+            ...(hasFootnoteReferences(markdown) ? createFootnoteReferenceHint() : {}),
+            ...(hasBlockRefIdFallbackAnchors(markdown) ? createUnresolvedBlockRefHint() : {}),
+        }), [
             { type: 'reloadProtyle', id },
             { type: 'reloadFiletree' },
         ]);
@@ -509,8 +667,24 @@ const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         throw new Error(`Document already exists at "${existing.canonicalPath}". Pass overwrite=true to replace its body.`);
     }
 
-    await overwriteDocumentBody(client, existing.id, parsed.markdown);
-    return applyUiRefresh(client, createJsonResult({ success: true, path: existing.canonicalPath, overwritten: true }), [
+    const markdown = await normalizeMarkdownInputRefs(client, parsed.markdown, 'fs.write');
+    const existingBlocks = await listDocumentBlocksInTreeOrder(client, existing.id);
+    const complexBlocks = findComplexFsBlocks(existingBlocks);
+    if (complexBlocks.length > 0) {
+        return createComplexBlocksNotSupportedResult('write', existing.canonicalPath, existing.id, complexBlocks);
+    }
+    const attributeViews = await listDocumentAttributeViews(client, existing.id);
+    await overwriteDocumentBody(client, existing.id, markdown);
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        path: existing.canonicalPath,
+        id: existing.id,
+        overwritten: true,
+        ...(hasSiyuanBlockLinks(markdown) ? createSiyuanBlockLinkHint() : {}),
+        ...(hasFootnoteReferences(markdown) ? createFootnoteReferenceHint() : {}),
+        ...(hasBlockRefIdFallbackAnchors(markdown) ? createUnresolvedBlockRefHint() : {}),
+        ...(attributeViews.length > 0 ? createAttributeViewFsHint(attributeViews) : {}),
+    }), [
         { type: 'reloadProtyle', id: existing.id },
         { type: 'reloadFiletree' },
     ]);
@@ -547,18 +721,10 @@ const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'write');
     if (denied) return denied;
 
-    const markdown = normalizeMarkdownContent(await fileApi.exportMdContent(client, scope.id));
-    const originalContent = stripExportedDocumentWrapper({
-        content: typeof markdown.content === 'string' ? markdown.content : '',
-        hPath: typeof markdown.hPath === 'string' ? markdown.hPath : undefined,
-    });
-    const edits = Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit];
-    const { content: nextContent, summary } = applyExactReplaceEdits(originalContent, edits, 'fs.replace');
-
-    const changed = nextContent !== originalContent;
-    if (changed) {
-        await overwriteDocumentBody(client, scope.id, nextContent);
-    }
+    const edits = await normalizeReplaceEditsRefs(client, Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit], 'fs.replace');
+    const replaceResult = await replaceDocumentBlocksSafely(client, scope.id, edits);
+    const { summary, changedBlockCount, changedMarkdown, skippedComplexBlocks } = replaceResult;
+    const changed = changedBlockCount > 0;
 
     return applyUiRefresh(client, createJsonResult({
         success: true,
@@ -566,6 +732,14 @@ const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         changed,
         editsApplied: summary.length,
         replacements: summary,
+        ...(skippedComplexBlocks.length > 0 ? {
+            warning: 'This document contains SiYuan-native complex blocks. fs.replace edited only matched non-complex Markdown blocks; complex blocks were skipped.',
+            skippedComplexBlocks,
+            recommendedTools: ['block.dom', 'block.update', 'av', 'file.export_md'],
+        } : {}),
+        ...(hasSiyuanBlockLinks(changedMarkdown) ? createSiyuanBlockLinkHint() : {}),
+        ...(hasFootnoteReferences(changedMarkdown) ? createFootnoteReferenceHint() : {}),
+        ...(hasBlockRefIdFallbackAnchors(changedMarkdown) ? createUnresolvedBlockRefHint() : {}),
     }), changed ? [
         { type: 'reloadProtyle', id: scope.id },
         { type: 'reloadFiletree' },

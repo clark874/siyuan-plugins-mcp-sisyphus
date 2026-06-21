@@ -1,10 +1,9 @@
 import type { SiYuanClient } from '../../api/client';
 import * as blockApi from '../../api/block';
 import * as documentApi from '../../api/document';
-import * as fileApi from '../../api/file';
+import * as searchApi from '../../api/search';
 import * as transactionApi from '../../api/transaction';
 import type { DocumentAction } from '../../core/config';
-import { normalizeMarkdownContent } from '../../core/normalize';
 import type { PermissionManager } from '../../core/permissions';
 import {
     DocumentCreateSchema,
@@ -26,6 +25,7 @@ import {
 import {
     ensurePermissionForDocumentId,
     ensurePermissionForNotebook,
+    escapeSqlString,
     listChildDocumentsByPath,
     resolveMoveTargetNotebook,
     resolveNotebookForPath,
@@ -36,6 +36,10 @@ import { filterBacklinkResultByPermission, filterItemsByPermissionAndPath } from
 import { createJsonResult, createPermissionDeniedResult, createSetIconReminder } from '../internal/shared';
 import { applyUiRefresh, type UiRefreshOperation } from '../internal/ui-refresh';
 import { sleep } from '../../shared/async';
+import { stripRedundantTitleHeading } from '../internal/kramdown-safe';
+import { readDocumentEditableMarkdown } from '../internal/document-kramdown';
+import { createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks } from '../internal/kramdown-safe';
+import { normalizeMarkdownInputRefs } from '../internal/markdown-input';
 
 type DocumentActionHandler = ToolActionHandler;
 
@@ -91,6 +95,8 @@ function createLookupPathResult(fields: {
     notebookName?: string;
     path?: { notebook: string; path: string } | string;
     hPath?: string;
+    id?: string;
+    ids?: string[];
 }) {
     const storageNotebook = typeof fields.path === 'object' ? fields.path.notebook : fields.notebook;
     const storagePath = typeof fields.path === 'object' ? fields.path.path : fields.path;
@@ -101,6 +107,8 @@ function createLookupPathResult(fields: {
             hPath: fields.hPath,
         },
         idPath: {
+            id: fields.id,
+            ids: fields.ids,
             notebook: storageNotebook,
             path: storagePath,
         },
@@ -134,8 +142,35 @@ function normalizeChildDocPath(parentPath: string, title: string): string {
     return `${normalizedParent}/${title.replace(/^\/+/, '')}`;
 }
 
+function deriveTitleFromCreatePath(path: string): string | undefined {
+    return path.split('/').filter(Boolean).at(-1);
+}
+
 function isStorageDocumentPath(path: string): boolean {
     return /(?:^|\/)\d{14}-[a-z0-9]{7}\.sy$/i.test(path);
+}
+
+async function getDocumentIdsByHPathWithSqlFallback(
+    client: SiYuanClient,
+    notebook: string,
+    hpath: string,
+): Promise<string[]> {
+    const ids = await documentApi.getIDsByHPath(client, hpath, notebook);
+    if (ids.length > 0) return ids;
+
+    const rows = await searchApi.querySQL(
+        client,
+        [
+            'SELECT id FROM blocks',
+            `WHERE box = '${escapeSqlString(notebook)}'`,
+            `AND hpath = '${escapeSqlString(hpath)}'`,
+            "AND type = 'd'",
+            'ORDER BY updated DESC',
+        ].join(' '),
+    );
+    return rows
+        .map((row) => row && typeof row === 'object' ? (row as Record<string, unknown>).id : undefined)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
 async function resolveCreateParentPath(client: SiYuanClient, notebook: string, parentPath: string): Promise<string> {
@@ -294,11 +329,15 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
     if (!permMgr.canWrite(parsed.notebook)) {
         return createPermissionDeniedResult(parsed.notebook, permMgr.get(parsed.notebook), 'write');
     }
-    const markdown = parsed.markdown ?? '';
     const parentPath = parsed.parentPath
         ? await resolveCreateParentPath(client, parsed.notebook, parsed.parentPath)
         : undefined;
     const path = parsed.path ?? normalizeChildDocPath(parentPath!, parsed.title!);
+    const markdown = await normalizeMarkdownInputRefs(
+        client,
+        stripRedundantTitleHeading(parsed.markdown ?? '', parsed.title ?? deriveTitleFromCreatePath(path)),
+        'document.create',
+    );
     const docId = await documentApi.createDoc(client, parsed.notebook, path, markdown);
     if (parsed.icon) {
         await setDocumentAttrsViaTransaction(client, docId, { icon: parsed.icon });
@@ -307,6 +346,9 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         success: true,
         notebook: parsed.notebook,
         path,
+        ...(hasSiyuanBlockLinks(markdown) ? createSiyuanBlockLinkHint() : {}),
+        ...(hasFootnoteReferences(markdown) ? createFootnoteReferenceHint() : {}),
+        ...(hasBlockRefIdFallbackAnchors(markdown) ? createUnresolvedBlockRefHint() : {}),
         ...(parsed.parentPath ? { parentPath: parsed.parentPath } : {}),
         ...(parentPath && parentPath !== parsed.parentPath ? { resolvedParentPath: parentPath } : {}),
         ...(parsed.title ? { title: parsed.title } : {}),
@@ -360,7 +402,7 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         result.path = parsed.path;
 
         if (!looksLikeStoragePath(parsed.path)) {
-            const ids = await documentApi.getIDsByHPath(client, parsed.path, parsed.notebook!);
+            const ids = await getDocumentIdsByHPathWithSqlFallback(client, parsed.notebook!, parsed.path);
             const primaryId = ids[0];
             result.source = { type: 'hpath', notebook: parsed.notebook, hPath: parsed.path, providedAs: 'path' };
             result.hPath = parsed.path;
@@ -382,7 +424,7 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         const resolvedHPath = await documentApi.getHPathByPath(client, parsed.notebook!, parsed.path);
         result.hPath = resolvedHPath;
         if (include.has('id') || include.has('ids')) {
-            const ids = await documentApi.getIDsByHPath(client, resolvedHPath ?? parsed.path, parsed.notebook!);
+            const ids = await getDocumentIdsByHPathWithSqlFallback(client, parsed.notebook!, resolvedHPath ?? parsed.path);
             result.ids = ids;
             if (include.has('id')) result.id = ids[0];
         }
@@ -392,7 +434,7 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         return createJsonResult(createLookupPathResult(result));
     }
 
-    const ids = await documentApi.getIDsByHPath(client, hpathInput!, parsed.notebook!);
+    const ids = await getDocumentIdsByHPathWithSqlFallback(client, parsed.notebook!, hpathInput!);
     result.notebook = parsed.notebook;
     if (notebookName) result.notebookName = notebookName;
     result.hPath = hpathInput;
@@ -631,8 +673,7 @@ const handleGetDoc: DocumentActionHandler = async ({ client, permMgr, rawArgs })
             ...((result && typeof result === 'object') ? result as Record<string, unknown> : { content: result }),
         });
     }
-    const markdown = normalizeMarkdownContent(await fileApi.exportMdContent(client, parsed.id));
-    const content = typeof markdown.content === 'string' ? markdown.content : '';
+    const content = await readDocumentEditableMarkdown(client, parsed.id);
     const page = parsed.page ?? 1;
     const pageSize = parsed.pageSize ?? 8000;
     const pageCount = Math.max(1, Math.ceil(content.length / pageSize));
@@ -645,7 +686,7 @@ const handleGetDoc: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         mode: 'markdown',
         notebook: context.notebook,
         ...(notebookName ? { notebookName } : {}),
-        hPath: markdown.hPath,
+        hPath: await getHPathByIdWithRetry(client, parsed.id),
         content: pagedContent,
         ...(isPaginated ? {
             truncated: true,

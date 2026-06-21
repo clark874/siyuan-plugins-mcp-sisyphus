@@ -1,7 +1,9 @@
 import type { SiYuanClient } from '../../../api/client';
 import * as documentApi from '../../../api/document';
 import * as notebookApi from '../../../api/notebook';
+import * as searchApi from '../../../api/search';
 import type { PermissionManager } from '../../../core/permissions';
+import { escapeSqlString } from '../context';
 
 type PermissionRequirement = 'read' | 'write' | 'delete';
 
@@ -95,29 +97,49 @@ async function getDocByHPath(
     client: SiYuanClient,
     notebook: FsNotebook,
     hPath: string,
-): Promise<FsDocumentPath | null> {
+): Promise<FsDocumentPath[]> {
     let ids: string[];
     try {
         ids = await documentApi.getIDsByHPath(client, hPath, notebook.id);
     } catch {
-        return null;
+        ids = [];
     }
-    const id = ids[0];
-    if (!id) return null;
-    const pathInfo = await documentApi.getPathByID(client, id);
-    const resolvedHPath = await documentApi.getHPathByID(client, id).catch(() => hPath);
-    const normalizedHPath = normalizeHumanPath(resolvedHPath);
-    const name = lastPathSegment(normalizedHPath) || stripSySuffix(lastPathSegment(pathInfo.path)) || id;
-    return {
-        type: 'document',
-        id,
-        notebook: pathInfo.notebook || notebook.id,
-        notebookName: notebook.name,
-        hPath: normalizedHPath,
-        storagePath: pathInfo.path,
-        canonicalPath: canonicalPath(notebook.name, normalizedHPath),
-        name,
-    };
+    const rows = await searchApi.querySQL(
+        client,
+        [
+            'SELECT id',
+            'FROM blocks',
+            `WHERE type = 'd'`,
+            `AND box = '${escapeSqlString(notebook.id)}'`,
+            `AND hpath = '${escapeSqlString(hPath)}'`,
+            'LIMIT 100',
+        ].join(' '),
+    ).catch(() => []);
+    for (const row of rows) {
+        if (row && typeof row === 'object' && typeof (row as Record<string, unknown>).id === 'string') {
+            ids.push((row as Record<string, string>).id);
+        }
+    }
+
+    const uniqueIds = [...new Set(ids)];
+    const docs: FsDocumentPath[] = [];
+    for (const id of uniqueIds) {
+        const pathInfo = await documentApi.getPathByID(client, id);
+        const resolvedHPath = await documentApi.getHPathByID(client, id).catch(() => hPath);
+        const normalizedHPath = normalizeHumanPath(resolvedHPath);
+        const name = lastPathSegment(normalizedHPath) || stripSySuffix(lastPathSegment(pathInfo.path)) || id;
+        docs.push({
+            type: 'document',
+            id,
+            notebook: pathInfo.notebook || notebook.id,
+            notebookName: notebook.name,
+            hPath: normalizedHPath,
+            storagePath: pathInfo.path,
+            canonicalPath: canonicalPath(notebook.name, normalizedHPath),
+            name,
+        });
+    }
+    return docs;
 }
 
 function formatCandidates(candidates: FsDocumentPath[]): string {
@@ -163,19 +185,21 @@ export async function resolveFsScopePath(
                 canonicalPath: canonicalPath(canonicalNotebook.name, '/'),
             };
         }
-        const doc = await getDocByHPath(client, canonicalNotebook, hPath);
-        if (!doc) {
+        const docs = await getDocByHPath(client, canonicalNotebook, hPath);
+        if (docs.length === 0) {
             throw createFsError('not_found', `No document found at "${path}".`);
         }
-        return doc;
+        if (docs.length > 1) {
+            throw createFsError('ambiguous_path', `Ambiguous fs path "${path}". Candidates: ${formatCandidates(docs)}.`);
+        }
+        return docs[0];
     }
 
     const candidates: FsDocumentPath[] = [];
     for (const notebook of notebooks) {
         if (!canAccess(permMgr, notebook.id, required)) continue;
         try {
-            const doc = await getDocByHPath(client, notebook, path);
-            if (doc) candidates.push(doc);
+            candidates.push(...await getDocByHPath(client, notebook, path));
         } catch {
             // Try the next notebook; not every notebook contains every hPath.
         }
@@ -213,8 +237,10 @@ export async function resolveFsCreateTarget(
         let parentStoragePath = '/';
         let parentId: string | undefined;
         if (parentHPath !== '/') {
-            const parent = await getDocByHPath(client, canonicalNotebook, parentHPath);
-            if (!parent) throw createFsError('not_found', `Parent document not found at "${canonicalPath(canonicalNotebook.name, parentHPath)}".`);
+            const parents = await getDocByHPath(client, canonicalNotebook, parentHPath);
+            if (parents.length === 0) throw createFsError('not_found', `Parent document not found at "${canonicalPath(canonicalNotebook.name, parentHPath)}".`);
+            if (parents.length > 1) throw createFsError('ambiguous_path', `Ambiguous parent path "${canonicalPath(canonicalNotebook.name, parentHPath)}". Candidates: ${formatCandidates(parents)}.`);
+            const parent = parents[0];
             parentStoragePath = parent.storagePath;
             parentId = parent.id;
         }

@@ -26,6 +26,7 @@ Related pages:
 - `prepend` and `append` work on either a document or a block child list.
 - `update` is best for single-block replacement.
 - `move` requires at least one destination hint such as `parentID` or `previousID`.
+- For batch `move`, pass `ids` in the desired final order. The tool reverses only the internal SiYuan API call order and returns `apiCallOrder` for debugging.
 - `add_to_daily_note` appends or prepends content to today's daily note via `position`.
 
 ## Safety Rules

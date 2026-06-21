@@ -1,6 +1,6 @@
 # fs 工具
 
-普通文档文件操作优先使用 `fs`。它接收人类可读的工作空间路径，并隐藏 notebook ID、block ID 和存储路径。
+普通的纯 Markdown 文档文件操作优先使用 `fs`。它接收人类可读的工作空间路径，并隐藏 notebook ID、block ID 和存储路径。
 
 路径形态：
 
@@ -18,6 +18,24 @@
 | `write` | 创建文档，或用 `overwrite=true` 替换正文 |
 | `search` | 在文档或目录路径下搜索 Markdown 行 |
 
+## AI 可编辑 Markdown 视图
+
+- `read` 返回面向 AI 编辑的 Markdown 视图，而不是 `/api/export/exportMdContent` 的导出 Markdown。这样可以避免双链被降级为脚注或普通链接。
+- 这个视图从块 kramdown 构建：双链保留为 `((id '标题'))`，标签保留为 `#标签#`，并清理思源 DOM 中用于标签定位的零宽字符。
+- 普通块和列表项的 IAL 元数据会隐藏，例如 `{: id="..." updated="..."}` 不会出现在列表文本里；因此可以直接把 `fs.read` 里复制出的 `- 列表项` 用作 `fs.replace` 的 `old`。
+- 代码块、数学块和普通文本中的 literal 内容不会为了清理元数据而全局删改。
+- 引用块、表格、超级块等容器块按容器读取，避免把内部子块重复输出。`fs.read` 会过滤思源生成的容器内部 IAL，但包含复杂块时仍会返回 non-fidelity warning，写回应改用高级工具。
+
+## Markdown 安全语义
+
+- `write` 支持直接写 `((id '标题'))`、裸 `((id))` 和 `#标签#`。裸双链会自动解析目标块标题并补齐锚文本；如果解析失败，会降级为 `((id 'id'))` 并返回 warning。
+- `write` 会移除与文档名相同的开头 `# 标题`，避免正文和思源自动标题重复。
+- `write overwrite=true` 会拒绝覆盖包含 AV / 数据库块、超级块、嵌入块、挂件、HTML、媒体等复杂思源原生块的文档。此类结构请使用高级工具。
+- `replace` 按块处理非复杂 Markdown 块。如果文档包含复杂思源原生块，这些块会被跳过并在结果中返回 `skippedComplexBlocks`；如果匹配只存在于被跳过的复杂块里，或跨越块边界，则拒绝写入。
+- `replace` 使用和 `read` 相同的 AI 可编辑视图做精确匹配，可以直接替换包含双链或标签的普通 Markdown 块，也可以把整个 `#标签#` 替换为普通文本。它仍然是 Markdown 文本操作，不是复杂块编辑器。
+- 替换行内样式文字时，`old` 应使用样式内部的纯文本，不包含 Markdown 样式标记。例如替换 `**hello**` 或 `` `hello` `` 中的内容时，`old` 写 `hello`，不要写 `**hello**` 或 `` `hello` ``；DOM 写回会保留原有粗体、行内代码等样式。
+- `replace` 允许脚注式引用和 `siyuan://blocks` Markdown 链接写入，但结果会提示它们不会创建思源真实反链。
+
 ## 高风险动作
 
 - `rm` 删除文档，需要明确确认。
@@ -34,11 +52,11 @@
 ```
 
 ```json
-{ "action": "write", "path": "/Inbox/会议记录/新文档", "markdown": "# 记录\n\n正文" }
+{ "action": "write", "path": "/Inbox/会议记录/新文档", "markdown": "正文" }
 ```
 
 ```json
 { "action": "search", "path": "/Inbox/会议记录", "query": "预算", "caseSensitive": false }
 ```
 
-只有在需要块级排版、元数据、SQL、反链、资源文件或数据库操作时，再使用 `document`、`block`、`search` 或 `av` 等高级工具。
+当 `fs.read` 提示存在复杂块，或任务需要块级排版、元数据、SQL、反链、资源文件或数据库操作时，切换到 `document`、`block`、`search`、`file` 或 `av` 等高级工具。
