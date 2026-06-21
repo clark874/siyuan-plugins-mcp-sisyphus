@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildDefaultToolConfig } from '@/core/config';
+import { buildDefaultToolConfig, isDangerousAction } from '@/core/config';
 import { callSystemTool, listSystemTools, SYSTEM_VARIANTS } from '@/tools/system';
 import { parseResult } from '../../helpers/parse-result';
 
@@ -9,6 +9,7 @@ describe('system tool schemas', () => {
         const conf = SYSTEM_VARIANTS.find((variant) => variant.action === 'conf');
         const notify = SYSTEM_VARIANTS.find((variant) => variant.action === 'notify');
         const changelog = SYSTEM_VARIANTS.find((variant) => variant.action === 'changelog');
+        const performSync = SYSTEM_VARIANTS.find((variant) => variant.action === 'perform_sync');
 
         expect(conf?.schema.properties?.mode?.enum).toEqual(['summary', 'get']);
         expect(conf?.schema.properties?.maxDepth?.type).toBe('integer');
@@ -21,6 +22,15 @@ describe('system tool schemas', () => {
         expect(changelog?.schema.properties?.fromVersion?.type).toBe('string');
         expect(changelog?.schema.properties?.limit?.minimum).toBe(1);
         expect(changelog?.schema.properties?.limit?.maximum).toBe(50);
+        expect(performSync?.schema.required).toEqual(['action']);
+        expect(performSync?.schema.additionalProperties).toBe(false);
+    });
+
+    it('keeps perform_sync enabled by default and marked high-risk', () => {
+        const config = buildDefaultToolConfig().system;
+
+        expect(config.actions.perform_sync).toBe(true);
+        expect(isDangerousAction('system', 'perform_sync')).toBe(true);
     });
 
     it('publishes typed system parameters plus strict internal branches', () => {

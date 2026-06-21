@@ -12,7 +12,7 @@ export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attr
 export const FILE_ACTIONS = ['upload_asset', 'list_templates', 'read_template', 'create_template', 'update_template', 'delete_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
-export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'get_version', 'get_current_time'] as const;
+export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 export const FEEDBACK_ACTIONS = ['submit'] as const;
@@ -170,7 +170,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     },
     system: {
         get_version: 'basic', get_current_time: 'basic', conf: 'basic', changelog: 'basic',
-        workspace_info: 'advanced', network: 'advanced', notify: 'advanced',
+        workspace_info: 'advanced', network: 'advanced', notify: 'advanced', perform_sync: 'advanced',
     },
     flashcard: {
         list_cards: 'basic', get_decks: 'basic', get_cards: 'basic',
@@ -197,7 +197,7 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     file: new Set(['upload_asset', 'delete_template', 'remove_unused_assets', 'delete_asset']),
     search: new Set(['find_replace']),
     tag: new Set(['remove']),
-    system: new Set(['workspace_info']),
+    system: new Set(['workspace_info', 'perform_sync']),
     flashcard: new Set(['remove_card']),
     mascot: new Set(),
     feedback: new Set(),
@@ -251,7 +251,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         system: {
             enabled: true,
-            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'conf', 'notify', 'changelog', 'get_version', 'get_current_time']),
+            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time']),
         },
         flashcard: {
             enabled: true,

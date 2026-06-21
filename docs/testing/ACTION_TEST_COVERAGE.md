@@ -6,17 +6,18 @@
 
 ## 覆盖结论
 
-截至当前代码，源码中声明的 action 总数为 94 个。
+截至当前代码，源码中声明的 action 总数为 112 个。
 
 | 工具 | action 数 | 覆盖方式 |
 | --- | ---: | --- |
+| `fs` | 8 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
 | `notebook` | 11 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
 | `document` | 15 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
-| `block` | 19 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
+| `block` | 20 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
 | `av` | 12 | `tests/unit/tools/av.test.ts` 对每个 action 有直接调用覆盖 |
 | `search` | 8 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
-| `file` | 10 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
-| `system` | 6 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
+| `file` | 17 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
+| `system` | 8 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
 | `flashcard` | 6 | `tests/unit/tools/flashcard.test.ts` 对每个 action 有直接调用覆盖 |
 | `tag` | 3 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
 | `mascot` | 3 | `tests/unit/tools/mascot.test.ts` 对每个 action 有直接调用覆盖 |

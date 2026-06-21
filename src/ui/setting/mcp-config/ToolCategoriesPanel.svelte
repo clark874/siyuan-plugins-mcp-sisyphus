@@ -212,6 +212,7 @@
                 { key: "conf", title: "Masked Config", description: "Get masked system configuration via summary-first progressive reading." },
                 { key: "notify", title: "Notify", description: "Push an info or error notification message." },
                 { key: "changelog", title: "Changelog", description: "Read bundled plugin update notes with personalization-impact hints." },
+                { key: "perform_sync", title: "Perform Sync", description: "Trigger SiYuan sync immediately. High risk: affects local and remote sync state." },
                 { key: "get_version", title: "Get Version", description: "Get the SiYuan system version." },
                 { key: "get_current_time", title: "Get Current Time", description: "Get the current system time." },
             ],

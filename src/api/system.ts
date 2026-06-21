@@ -24,6 +24,10 @@ export async function getBootProgress(client: SiYuanClient): Promise<{ progress:
     return client.request<{ progress: number; details: string }>('/api/system/bootProgress', {});
 }
 
+export async function performSync(client: SiYuanClient): Promise<unknown> {
+    return client.request('/api/sync/performSync', {});
+}
+
 export async function getVersion(client: SiYuanClient): Promise<string> {
     return client.request<string>('/api/system/version');
 }

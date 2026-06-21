@@ -1121,6 +1121,10 @@ export const SystemChangelogSchema = z.object({
     includeRaw: z.boolean().optional().describe("Include raw Markdown for each returned changelog entry"),
 });
 
+export const SystemPerformSyncSchema = z.object({
+    action: z.literal("perform_sync"),
+});
+
 export const SystemGetVersionSchema = z.object({
     action: z.literal("get_version"),
 });

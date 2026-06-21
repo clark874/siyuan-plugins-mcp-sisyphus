@@ -129,6 +129,7 @@ function createContractClient() {
             if (endpoint === '/api/system/getWorkspaceInfo') return { workspace: '/workspace' };
             if (endpoint === '/api/system/getNetwork') return { proxy: '' };
             if (endpoint === '/api/system/getConf') return { conf: { appearance: { mode: 0 } } };
+            if (endpoint === '/api/sync/performSync') return { synced: true };
             if (endpoint === '/api/system/version') return '3.3.0';
             if (endpoint === '/api/system/currentTime') return 1710000000000;
             if (endpoint === '/api/notification/pushMsg') return { id: 'msg-1' };
@@ -296,6 +297,7 @@ describe('tool action contract coverage', () => {
             { action: 'conf', args: { action: 'conf' }, expectedEndpoint: '/api/system/getConf' },
             { action: 'notify', args: { action: 'notify', msg: 'hello', level: 'info' }, expectedEndpoint: '/api/notification/pushMsg' },
             { action: 'changelog', args: { action: 'changelog', fromVersion: '0.4.8' } },
+            { action: 'perform_sync', args: { action: 'perform_sync' }, expectedEndpoint: '/api/sync/performSync' },
             { action: 'get_version', args: { action: 'get_version' }, expectedEndpoint: '/api/system/version' },
             { action: 'get_current_time', args: { action: 'get_current_time' }, expectedEndpoint: '/api/system/currentTime' },
         ]);

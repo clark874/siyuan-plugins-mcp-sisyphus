@@ -10,6 +10,7 @@ import {
     SystemGetVersionSchema,
     SystemNetworkSchema,
     SystemNotifySchema,
+    SystemPerformSyncSchema,
     SystemWorkspaceInfoSchema,
 } from '../../core/types';
 import type { ToolActionHandler } from '../internal/define-tool';
@@ -185,6 +186,14 @@ const handleChangelog: ToolActionHandler = async ({ rawArgs }) => {
     return createJsonResult(buildChangelogResponse(parsed));
 };
 
+const handlePerformSync: ToolActionHandler = async ({ client, rawArgs }) => {
+    SystemPerformSyncSchema.parse(rawArgs);
+    return createJsonResult({
+        ok: true,
+        result: await systemApi.performSync(client),
+    });
+};
+
 const handleGetVersion: ToolActionHandler = async ({ client, rawArgs }) => {
     SystemGetVersionSchema.parse(rawArgs);
     return createJsonResult({ version: await systemApi.getVersion(client) });
@@ -202,6 +211,7 @@ export const SYSTEM_ACTION_HANDLERS: Record<SystemAction, ToolActionHandler> = {
     conf: handleConf,
     notify: handleNotify,
     changelog: handleChangelog,
+    perform_sync: handlePerformSync,
     get_version: handleGetVersion,
     get_current_time: handleGetCurrentTime,
 };

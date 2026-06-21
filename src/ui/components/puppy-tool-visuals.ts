@@ -47,7 +47,7 @@ const EDIT_ACTIONS = new Set([
 
 const DELETING_ACTIONS = new Set(['delete', 'remove', 'remove_card', 'rm']);
 const MOVING_ACTIONS = new Set(['move', 'mv']);
-const DANGEROUS_ACTIONS = new Set(['set_permission', 'upload_asset', 'workspace_info']);
+const DANGEROUS_ACTIONS = new Set(['set_permission', 'upload_asset', 'workspace_info', 'perform_sync']);
 
 export const RANDOM_TEST_ACTIONS: TestActionEntry[] = [
     ...FS_ACTIONS.map((action) => ({ tool: 'fs' as const, action })),

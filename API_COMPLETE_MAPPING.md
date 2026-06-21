@@ -353,7 +353,7 @@
 
 ## sync 模块
 
-**统计**: 共 21 个 API，已覆盖 0 个，覆盖率 0.0%
+**统计**: 共 21 个 API，已覆盖 1 个，覆盖率 4.8%
 
 | 序号 | 方法 | API 路径 | 处理函数 | 功能描述 | MCP 映射 | 状态 |
 |------|------|----------|----------|----------|----------|------|
@@ -370,7 +370,7 @@
 | 11 | POST | `/api/sync/createCloudSyncDir` | createCloudSyncDir | 同步创建CloudSyncDir | - | ❌ 未覆盖 |
 | 12 | POST | `/api/sync/removeCloudSyncDir` | removeCloudSyncDir | 同步删除CloudSyncDir | - | ❌ 未覆盖 |
 | 13 | POST | `/api/sync/listCloudSyncDir` | listCloudSyncDir | 同步列出CloudSyncDir | - | ❌ 未覆盖 |
-| 14 | POST | `/api/sync/performSync` | performSync | 同步performSync | - | ❌ 未覆盖 |
+| 14 | POST | `/api/sync/performSync` | performSync | 主动触发同步 | `system.perform_sync` | ✅ 已覆盖 |
 | 15 | POST | `/api/sync/performBootSync` | performBootSync | 同步performBootSync | - | ❌ 未覆盖 |
 | 16 | POST | `/api/sync/getBootSync` | getBootSync | 同步获取BootSync | - | ❌ 未覆盖 |
 | 17 | POST | `/api/sync/getSyncInfo` | getSyncInfo | 同步获取Sync信息 | - | ❌ 未覆盖 |

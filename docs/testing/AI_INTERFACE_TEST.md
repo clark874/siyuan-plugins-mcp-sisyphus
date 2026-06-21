@@ -251,7 +251,7 @@ AI 在正式执行前必须先确认本轮模式：
 | 工具 | 必测 | 建议测 | 条件测 / 高风险 |
 | --- | --- | --- | --- |
 | `fs` | `ls`、`tree`、`read`、`write`、`replace`、`search` | 根路径 `/` 的可读笔记本过滤、跨笔记本路径消歧 | `rm`、`mv`；必须纳入权限矩阵，`rm/mv` 只作用于本轮测试文档 |
-| `system` | `get_version`、`get_current_time`、`conf` | `network`、`notify` | `workspace_info` |
+| `system` | `get_version`、`get_current_time`、`conf` | `network`、`notify` | `workspace_info`、`perform_sync` |
 | `notebook` | `list`、`create`、`rename`、`get_conf`、`get_child_docs`、`set_open_state`、`get_permissions`、`set_permission`、`remove` | `set_icon`、`set_conf` | 仅对本轮测试笔记本改权限 |
 | `document` | `create`、`lookup`、`get_child_docs`、`list_tree`、`search_docs`、`get_doc`、`remove` | `get_child_blocks`、`duplicate`、`set_attr` | `move`、`create_daily_note` |
 | `block` | `append`、`prepend`、`insert`、`update`、`get_children`、`get_kramdown`、`get_attrs`、`set_attrs`、`info`、`word_count`、`breadcrumb`、`dom`、`delete` | `insert.blocks`、`update.items`、`recent_updated`、`transfer_references`、`add_to_daily_note`、`docs_info` | `move`、`set_fold_state` |
@@ -283,6 +283,7 @@ AI 在正式执行前必须先确认本轮模式：
 
 - `system.notify`（分别覆盖 `level="info"` 和 `level="error"`）
 - `system.workspace_info`（高风险，仅在用户允许时）
+- `system.perform_sync`（高风险，仅在用户允许且测试环境允许触发同步时）
 
 通过标准：
 

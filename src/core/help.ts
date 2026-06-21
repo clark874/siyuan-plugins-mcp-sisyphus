@@ -104,8 +104,9 @@ export const TAG_GUIDANCE: string[] = [
 ];
 
 export const SYSTEM_GUIDANCE: string[] = [
-    'All system actions in this tool are read-only.',
+    'Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.',
     'system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.',
+    'system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.',
     'system(action="conf") returns masked configuration, not raw secrets.',
     'Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.',
     'Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].',
@@ -256,6 +257,7 @@ export const SYSTEM_ACTION_HINTS: Partial<Record<SystemAction, string>> = {
     conf: 'Defaults to a navigable summary. Use mode="get" with keyPath to read one config field or subtree at a time, e.g. conf.appearance.mode or conf.langs[0].',
     notify: 'Show an info or error notification in the SiYuan UI. Optional timeout is in milliseconds.',
     changelog: 'Reads the bundled plugin CHANGELOG with structured personalizationReview hints. Pass fromVersion after upgrades, version for one exact entry, or includeRaw=true for Markdown.',
+    perform_sync: 'Triggers SiYuan sync immediately through /api/sync/performSync. This action can change local and remote sync state and requires explicit user confirmation.',
     get_version: 'Returns the current SiYuan version as {version}.',
     get_current_time: 'Returns the current system time as {currentTime} epoch milliseconds and {iso} ISO 8601 text.',
 };

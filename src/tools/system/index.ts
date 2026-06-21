@@ -10,6 +10,7 @@ import {
     SystemGetVersionSchema,
     SystemNetworkSchema,
     SystemNotifySchema,
+    SystemPerformSyncSchema,
     SystemWorkspaceInfoSchema,
 } from '../../core/types';
 import { defineTool } from '../internal/define-tool';
@@ -24,6 +25,7 @@ export const SYSTEM_VARIANTS: ActionVariant<SystemAction>[] = [
     createZodActionVariant('conf', SystemConfSchema, 'Get masked system configuration with summary-first progressive reading.'),
     createZodActionVariant('notify', SystemNotifySchema, 'Push a notification message.'),
     createZodActionVariant('changelog', SystemChangelogSchema, 'Read the bundled plugin changelog with structured personalization-impact hints.'),
+    createZodActionVariant('perform_sync', SystemPerformSyncSchema, 'Trigger SiYuan sync immediately. High-risk: affects local and remote sync state.'),
     createZodActionVariant('get_version', SystemGetVersionSchema, 'Get the SiYuan system version.'),
     createZodActionVariant('get_current_time', SystemGetCurrentTimeSchema, 'Get the current system time.'),
 ];

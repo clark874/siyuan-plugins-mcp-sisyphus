@@ -4299,8 +4299,9 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "fullDocResource": "siyuan://help/action/system/changelog",
         "guidance": [
-          "All system actions in this tool are read-only.",
+          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
           "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
           "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
@@ -4320,8 +4321,9 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/conf",
         "guidance": [
-          "All system actions in this tool are read-only.",
+          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
           "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
           "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
@@ -4341,8 +4343,9 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/get_current_time",
         "guidance": [
-          "All system actions in this tool are read-only.",
+          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
           "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
           "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
@@ -4362,8 +4365,9 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/get_version",
         "guidance": [
-          "All system actions in this tool are read-only.",
+          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
           "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
           "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
@@ -4383,8 +4387,9 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/network",
         "guidance": [
-          "All system actions in this tool are read-only.",
+          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
           "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
           "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
@@ -4406,8 +4411,9 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/notify",
         "guidance": [
-          "All system actions in this tool are read-only.",
+          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
           "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
           "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
@@ -4423,6 +4429,28 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "tool": "system",
       },
+      "perform_sync": {
+        "action": "perform_sync",
+        "example": {
+          "action": "perform_sync",
+        },
+        "fullDocResource": "siyuan://help/action/system/perform_sync",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Triggers SiYuan sync immediately through /api/sync/performSync. This action can change local and remote sync state and requires explicit user confirmation.",
+        "requiredFields": [],
+        "requiresConfirmation": true,
+        "shapes": [
+          "action only",
+        ],
+        "tool": "system",
+      },
       "workspace_info": {
         "action": "workspace_info",
         "example": {
@@ -4430,8 +4458,9 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/workspace_info",
         "guidance": [
-          "All system actions in this tool are read-only.",
+          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
           "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
           "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
@@ -4449,7 +4478,7 @@ All search actions are read-only except find_replace, which modifies content and
 
 Common actions: conf, changelog, get_version, get_current_time. Required fields: conf: no additional fields; changelog: no additional fields; get_version: no additional fields; get_current_time: no additional fields.
 
-Additional actions: workspace_info, network, notify. Read siyuan://help/action/system/{action} for details, or call action="help" if resources are unavailable.
+Additional actions: workspace_info, network, notify, perform_sync. Read siyuan://help/action/system/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 system.workspace_info: required [] | optional []
@@ -4457,10 +4486,11 @@ system.network: required [] | optional []
 system.conf: required [] | optional [mode, keyPath, maxDepth, maxItems]
 system.notify: required [msg, level] | optional [timeout]
 system.changelog: required [] | optional [version, fromVersion, limit, includeRaw]
+system.perform_sync: required [] | optional []
 system.get_version: required [] | optional []
 system.get_current_time: required [] | optional []
 
-All system actions in this tool are read-only. system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default. Requires user confirmation before: workspace_info.",
+Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution. system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default. Requires user confirmation before: workspace_info, perform_sync.",
     "overview": {
       "actionSummaries": {
         "changelog": "Reads the bundled plugin CHANGELOG with structured personalizationReview hints. Pass fromVersion after upgrades, version for one exact entry, or includeRaw=true for Markdown.",
@@ -4469,6 +4499,7 @@ All system actions in this tool are read-only. system(action="workspace_info") e
         "get_version": "Returns the current SiYuan version as {version}.",
         "network": "Returns masked proxy information only.",
         "notify": "Show an info or error notification in the SiYuan UI. Optional timeout is in milliseconds.",
+        "perform_sync": "Triggers SiYuan sync immediately through /api/sync/performSync. This action can change local and remote sync state and requires explicit user confirmation.",
         "workspace_info": "Returns workspace path metadata and current SiYuan version. High-risk: leaks the absolute workspace path; disabled by default and requires explicit user confirmation.",
       },
       "actions": {
@@ -4496,6 +4527,10 @@ All system actions in this tool are read-only. system(action="workspace_info") e
           "hint": "Show an info or error notification in the SiYuan UI. Optional timeout is in milliseconds.",
           "requiresConfirmation": false,
         },
+        "perform_sync": {
+          "hint": "Triggers SiYuan sync immediately through /api/sync/performSync. This action can change local and remote sync state and requires explicit user confirmation.",
+          "requiresConfirmation": true,
+        },
         "workspace_info": {
           "hint": "Returns workspace path metadata and current SiYuan version. High-risk: leaks the absolute workspace path; disabled by default and requires explicit user confirmation.",
           "requiresConfirmation": true,
@@ -4505,6 +4540,7 @@ All system actions in this tool are read-only. system(action="workspace_info") e
         "workspace_info",
         "network",
         "notify",
+        "perform_sync",
       ],
       "commonActions": [
         "conf",
@@ -4514,8 +4550,9 @@ All system actions in this tool are read-only. system(action="workspace_info") e
       ],
       "detailsHint": "Call system(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
-        "All system actions in this tool are read-only.",
+        "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
         "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+        "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
         "system(action="conf") returns masked configuration, not raw secrets.",
         "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
         "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
@@ -4528,6 +4565,7 @@ All system actions in this tool are read-only. system(action="workspace_info") e
       ],
       "requiresConfirmation": [
         "workspace_info",
+        "perform_sync",
       ],
       "tool": "system",
     },
