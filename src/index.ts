@@ -27,7 +27,7 @@ import McpConfig from "@/ui/setting/mcp-config.svelte";
 import ToolPuppy from "@/ui/components/ToolPuppy.svelte";
 import VersionControlPanel from "@/ui/version-control/VersionControlPanel.svelte";
 
-import { HttpServerLauncher } from "@/server-launcher";
+import { HttpServerLauncher, appendHttpLifecycleLog } from "@/server-launcher";
 
 const PUPPY_ROOT_ID = "sy-puppy-root";
 const VERSION_CONTROL_DOCK_TYPE = "sisyphusTimelineDock";
@@ -62,6 +62,7 @@ export default class SiyuanMCP extends Plugin {
     public httpLauncher: HttpServerLauncher | null = null;
 
     async onload() {
+        appendHttpLifecycleLog("[plugin] onload begin");
         this.registerVersionControlIcon();
 
         const { config: normalized, warning } = await loadPersistedToolConfigState(this);
@@ -77,37 +78,48 @@ export default class SiyuanMCP extends Plugin {
         this.httpSettings = await loadPersistedHttpServerSettings(this);
         this.versionControlSettings = await loadPersistedVersionControlSettings(this);
         this.versionControlSettingsLoaded = true;
+        appendHttpLifecycleLog(`[plugin] settings loaded: httpEnabled=${this.httpSettings.enabled} timelineEnabled=${this.versionControlSettings.enabled}`);
         this.syncVersionControlFeature();
 
         const support = HttpServerLauncher.getSupportInfo();
         if (!support.supported) {
+            appendHttpLifecycleLog(`[plugin] HTTP launcher unsupported: ${support.reason ?? "unknown"}`);
             return;
         }
 
         const scriptPath = HttpServerLauncher.resolveServerScriptPath(this.name);
         if (!scriptPath) {
+            appendHttpLifecycleLog("[plugin] HTTP launcher unsupported: server script path unavailable");
             return;
         }
 
         try {
             this.httpLauncher = new HttpServerLauncher(scriptPath);
+            appendHttpLifecycleLog(`[plugin] HTTP launcher initialized: ${scriptPath}`);
             if (this.httpSettings.enabled) {
                 try {
                     await this.startHttpServer();
                 } catch (err) {
+                    appendHttpLifecycleLog(`[plugin] auto-start HTTP server failed: ${err instanceof Error ? err.message : String(err)}`);
                     console.error("[MCP] auto-start HTTP server failed:", err);
                 }
             }
         } catch (err) {
+            appendHttpLifecycleLog(`[plugin] failed to init HTTP launcher: ${err instanceof Error ? err.message : String(err)}`);
             console.error("[MCP] failed to init HttpServerLauncher:", err);
         }
     }
 
     async startHttpServer(): Promise<void> {
-        if (!this.httpLauncher) return;
+        if (!this.httpLauncher) {
+            appendHttpLifecycleLog("[plugin] start HTTP skipped: launcher unavailable");
+            return;
+        }
         if (!hasValidHttpTlsFiles(this.httpSettings)) {
+            appendHttpLifecycleLog("[plugin] start HTTP rejected: missing TLS certificate or key");
             throw new Error("HTTPS requires both certificate and key file paths.");
         }
+        appendHttpLifecycleLog(`[plugin] start HTTP requested: ${this.httpSettings.host}:${this.httpSettings.port}`);
         const siyuanToken = (window as any)?.siyuan?.config?.api?.token ?? undefined;
         await this.httpLauncher.start({
             host: this.httpSettings.host,
@@ -122,7 +134,12 @@ export default class SiyuanMCP extends Plugin {
     }
 
     async stopHttpServer(): Promise<void> {
+        appendHttpLifecycleLog("[plugin] stop HTTP requested");
         await this.httpLauncher?.stop();
+    }
+
+    getHttpServerSupportInfo() {
+        return HttpServerLauncher.getSupportInfo();
     }
 
     async setHttpServerSettings(next: HttpServerSettings): Promise<HttpServerSettings> {
@@ -132,6 +149,7 @@ export default class SiyuanMCP extends Plugin {
 
     async updateHttpServerSettings(next: HttpServerSettings): Promise<HttpServerSettings> {
         const wasRunning = this.httpLauncher?.getStatus().running ?? false;
+        appendHttpLifecycleLog(`[plugin] update HTTP settings: wasRunning=${wasRunning} nextEnabled=${next.enabled} host=${next.host} port=${next.port}`);
         if ((wasRunning || next.enabled) && !hasValidHttpTlsFiles(next)) {
             throw new Error("HTTPS requires both certificate and key file paths.");
         }
@@ -143,6 +161,7 @@ export default class SiyuanMCP extends Plugin {
             try {
                 await this.startHttpServer();
             } catch (err) {
+                appendHttpLifecycleLog(`[plugin] restart after settings change failed: ${err instanceof Error ? err.message : String(err)}`);
                 console.error("[MCP] restart after settings change failed:", err);
             }
         }
@@ -151,6 +170,7 @@ export default class SiyuanMCP extends Plugin {
 
     async refreshHttpServerAfterInstructionConfigChange(): Promise<boolean> {
         const wasRunning = this.httpLauncher?.getStatus().running ?? false;
+        appendHttpLifecycleLog(`[plugin] refresh HTTP after instruction config change: wasRunning=${wasRunning}`);
         if (!wasRunning) {
             return false;
         }
@@ -244,6 +264,7 @@ export default class SiyuanMCP extends Plugin {
 
     async updateVersionControlSettings(settings: VersionControlSettings): Promise<void> {
         this.versionControlSettings = await savePersistedVersionControlSettings(settings, this);
+        appendHttpLifecycleLog(`[timeline] settings updated: enabled=${this.versionControlSettings.enabled} showDebugMeta=${this.versionControlSettings.showDebugMeta}`);
         this.syncVersionControlFeature();
     }
 
@@ -324,6 +345,7 @@ export default class SiyuanMCP extends Plugin {
     }
 
     async onunload() {
+        appendHttpLifecycleLog("[plugin] onunload begin");
         this.unregisterVersionControlEvents();
         this.unmountVersionControlDock();
         this.unmountPuppy();
@@ -331,9 +353,11 @@ export default class SiyuanMCP extends Plugin {
             try {
                 await this.stopHttpServer();
             } catch (err) {
+                appendHttpLifecycleLog(`[plugin] stop HTTP during unload failed: ${err instanceof Error ? err.message : String(err)}`);
                 console.error("[MCP] stop HTTP server during unload failed:", err);
             }
         }
+        appendHttpLifecycleLog("[plugin] onunload end");
     }
 
     uninstall() {
@@ -434,6 +458,7 @@ export default class SiyuanMCP extends Plugin {
     }
 
     private syncVersionControlFeature() {
+        appendHttpLifecycleLog(`[timeline] sync feature: enabled=${this.versionControlSettings.enabled}`);
         if (!this.versionControlSettings.enabled) {
             this.disableVersionControlFeature();
             return;
@@ -442,6 +467,7 @@ export default class SiyuanMCP extends Plugin {
     }
 
     private enableVersionControlFeature() {
+        appendHttpLifecycleLog("[timeline] enable feature");
         this.registerVersionControlIcon();
         this.registerVersionControlCommand();
         this.registerVersionControlDock();
@@ -453,6 +479,7 @@ export default class SiyuanMCP extends Plugin {
     }
 
     private disableVersionControlFeature() {
+        appendHttpLifecycleLog("[timeline] disable feature");
         this.unregisterVersionControlCommand();
         this.unregisterVersionControlEvents();
         this.unmountVersionControlPanel();
@@ -498,6 +525,7 @@ export default class SiyuanMCP extends Plugin {
         if (!this.versionControlSettings.enabled) return;
         if (this.versionControlDockRegistered) return;
         this.versionControlDockRegistered = true;
+        appendHttpLifecycleLog("[timeline] register dock");
         const registration = this.addDock({
             config: {
                 position: VERSION_CONTROL_DOCK_POSITION,
@@ -655,6 +683,7 @@ export default class SiyuanMCP extends Plugin {
     }
 
     private removeVersionControlDock() {
+        appendHttpLifecycleLog("[timeline] remove dock");
         const layout = (window as any)?.siyuan?.layout;
         const targetDock = getDockByPosition(layout, VERSION_CONTROL_DOCK_POSITION);
         const dockTypes = this.getVersionControlDockTypes();

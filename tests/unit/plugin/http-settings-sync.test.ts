@@ -640,6 +640,22 @@ describe('HTTP settings sync', () => {
         expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_DOCK_TYPE);
     });
 
+    it('does not stop a running HTTP server when timeline is disabled', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        plugin.httpLauncher = {
+            start: launcherStart,
+            stop: launcherStop,
+            getStatus: vi.fn(() => ({ running: true, host: '127.0.0.1', port: 36806 })),
+        } as any;
+
+        await plugin.onload();
+        await plugin.updateVersionControlSettings({ enabled: false, showDebugMeta: false });
+
+        expect(launcherStop).not.toHaveBeenCalled();
+        expect(launcherStart).not.toHaveBeenCalled();
+        expect(plugin.httpLauncher?.getStatus().running).toBe(true);
+    });
+
     it('removes the registered prefixed timeline sidebar button and layout entry when disabled at runtime', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
         const addCommand = vi.fn((command) => {

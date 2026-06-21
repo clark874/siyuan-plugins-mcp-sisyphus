@@ -3,7 +3,7 @@
     import { showMessage } from "siyuan";
 
     import SettingPanel from "../../shared/setting-panel.svelte";
-    import type { HttpServerStatus } from "../../server-launcher";
+    import { getHttpLifecycleLogs, onHttpLifecycleLogsChange, type HttpServerStatus } from "@/server-launcher";
     import { hasValidHttpTlsFiles, regenerateHttpServerToken, savePersistedHttpServerSettings, type HttpServerSettings } from "../tool-config-storage";
 
     export let plugin: any;
@@ -116,15 +116,20 @@
     let httpBusy = false;
     let httpUnsubStatus: (() => void) | null = null;
     let httpUnsubLogs: (() => void) | null = null;
+    let httpUnsubLifecycleLogs: (() => void) | null = null;
     let selectedMcpClientPreset: McpClientPresetId = "claude-code";
     let selectedMcpTransport: McpTransportId = "stdio";
     $: changelogTitle = getLabel("toolSettingsChangelogTitle", "更新日志");
     $: changelogText = getLabel("toolSettingsChangelogText", "连接设置现按 MCP / CLI 分组，MCP 下再区分 HTTP/HTTPS 与 stdio。");
+    $: httpSupportReason = plugin?.httpLauncher ? "" : getHttpUnsupportedReason();
 
     onMount(() => {
+        httpRecentLogs = getHttpLifecycleLogs();
+        httpUnsubLifecycleLogs = onHttpLifecycleLogsChange((lines: string[]) => {
+            httpRecentLogs = lines;
+        });
         if (plugin?.httpLauncher) {
             httpStatus = plugin.httpLauncher.getStatus();
-            httpRecentLogs = plugin.httpLauncher.getRecentLogs();
             httpUnsubStatus = plugin.httpLauncher.onStatusChange((s: HttpServerStatus) => {
                 httpStatus = s;
             });
@@ -137,7 +142,16 @@
     onDestroy(() => {
         httpUnsubStatus?.();
         httpUnsubLogs?.();
+        httpUnsubLifecycleLogs?.();
     });
+
+    function getHttpUnsupportedReason(): string {
+        const reason = plugin?.getHttpServerSupportInfo?.()?.reason;
+        if (typeof reason === "string" && reason) {
+            return reason;
+        }
+        return "";
+    }
 
     function getWorkspaceScriptPath(): string {
         const workspaceDir = (window as any)?.siyuan?.config?.system?.workspaceDir;
@@ -506,7 +520,12 @@
                         </div>
 
                         {#if !plugin?.httpLauncher}
-                            <div class="http-warning">{getLabel("httpUnsupported", "HTTP server is only available in the SiYuan desktop app.")}</div>
+                            <div class="http-warning">
+                                {getLabel("httpUnsupported", "HTTP server is only available in the SiYuan desktop app.")}
+                                {#if httpSupportReason}
+                                    <code>{httpSupportReason}</code>
+                                {/if}
+                            </div>
                         {/if}
 
                         <div class="http-actions">

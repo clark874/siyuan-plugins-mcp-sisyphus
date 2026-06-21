@@ -15,6 +15,39 @@ import { runToolCall } from './tool-lifecycle';
 
 export { buildServerInstructions } from './server-instructions';
 
+export function getMcpServerHelpText(): string {
+    return [
+        'SiYuan MCP Sisyphus server',
+        '',
+        'Usage:',
+        '  node mcp-server.cjs                  Start MCP over stdio (default)',
+        '  node mcp-server.cjs --http           Start MCP over HTTP/SSE',
+        '  SIYUAN_MCP_TRANSPORT=http node mcp-server.cjs',
+        '',
+        'SiYuan API environment:',
+        '  SIYUAN_API_URL=http://127.0.0.1:6806  SiYuan API base URL',
+        '  SIYUAN_TOKEN=...                      SiYuan API token',
+        '',
+        'HTTP MCP environment:',
+        '  SIYUAN_MCP_HOST=127.0.0.1             Bind host, default 127.0.0.1',
+        '  SIYUAN_MCP_PORT=36806                 Bind port, default 36806',
+        '  SIYUAN_MCP_PATH=/mcp                  HTTP MCP path, default /mcp',
+        '  SIYUAN_MCP_TOKEN=...                  Bearer token for MCP HTTP clients',
+        '',
+        'TLS environment:',
+        '  SIYUAN_MCP_TLS_CERT=/path/cert.pem',
+        '  SIYUAN_MCP_TLS_KEY=/path/key.pem',
+        '  SIYUAN_MCP_TLS_CA=/path/ca.pem        Optional client CA',
+        '',
+        'Examples:',
+        '  node mcp-server.cjs',
+        '  SIYUAN_TOKEN=xxx node mcp-server.cjs',
+        '  SIYUAN_MCP_TOKEN=secret node mcp-server.cjs --http',
+        '  SIYUAN_MCP_HOST=127.0.0.1 SIYUAN_MCP_PORT=36806 node mcp-server.cjs --http',
+        '',
+    ].join('\n');
+}
+
 async function tryReadConfigFromAPI(client: SiYuanClient): Promise<ToolConfig | null> {
     const result = await loadToolConfigFromApiFileWithStatus(client);
     return result.ok && result.rawLength !== 0 ? result.config : null;
@@ -208,6 +241,10 @@ export async function startMcpServer() {
 }
 
 if (require.main === module) {
+    if (process.argv.includes('--help') || process.argv.includes('-h')) {
+        process.stdout.write(getMcpServerHelpText());
+        process.exit(0);
+    }
     startMcpServer().catch((error) => {
         console.error('[MCP] Failed to start server:', error instanceof Error ? error.message : String(error));
         process.exit(1);
