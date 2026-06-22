@@ -3,14 +3,47 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { FEEDBACK_ACTIONS, FS_ACTIONS } from '@/core/config';
+import { ACTIONS_BY_CATEGORY, FEEDBACK_ACTIONS, FS_ACTIONS, TOOL_CATEGORIES } from '@/core/config';
 
 function readI18n(locale: string): Record<string, unknown> {
     const raw = readFileSync(join(process.cwd(), 'public', 'i18n', `${locale}.json`), 'utf8');
     return JSON.parse(raw) as Record<string, unknown>;
 }
 
+function readPackageVersion(): string {
+    const raw = readFileSync(join(process.cwd(), 'package.json'), 'utf8');
+    return (JSON.parse(raw) as { version: string }).version;
+}
+
 describe('settings i18n', () => {
+    it('keeps the settings changelog aligned with the current plugin version', () => {
+        const version = readPackageVersion();
+
+        for (const locale of ['en_US', 'zh_CN']) {
+            const i18n = readI18n(locale);
+
+            expect(i18n.toolSettingsChangelogTitle, `${locale} toolSettingsChangelogTitle`).toEqual(expect.any(String));
+            expect(i18n.toolSettingsChangelogText, `${locale} toolSettingsChangelogText`).toEqual(expect.any(String));
+            expect(i18n.toolSettingsChangelogText, `${locale} toolSettingsChangelogText`).toContain(`v${version}`);
+        }
+    });
+
+    it('covers all tool action labels in bundled locales', () => {
+        for (const locale of ['en_US', 'zh_CN']) {
+            const i18n = readI18n(locale);
+
+            for (const category of TOOL_CATEGORIES) {
+                expect(i18n[`${category}_tool_title`], `${locale} ${category}_tool_title`).toEqual(expect.any(String));
+                expect(i18n[`${category}_tool_desc`], `${locale} ${category}_tool_desc`).toEqual(expect.any(String));
+
+                for (const action of ACTIONS_BY_CATEGORY[category]) {
+                    expect(i18n[`${category}_action_${action}`], `${locale} ${category}_action_${action}`).toEqual(expect.any(String));
+                    expect(i18n[`desc_${category}_action_${action}`], `${locale} desc_${category}_action_${action}`).toEqual(expect.any(String));
+                }
+            }
+        }
+    });
+
     it('covers filesystem tool labels in bundled locales', () => {
         for (const locale of ['en_US', 'zh_CN']) {
             const i18n = readI18n(locale);

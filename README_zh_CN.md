@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.11` — 新增赞助致谢，感谢近期赞赏支持者；文档时间树仍可在设置中完整关闭。
+> **最新版本：**`v0.4.12` — 强化 AI 安全文档读写、系统更新日志/同步操作与发布 smoke 验证；CLI 同步提升至 `v0.1.15`。
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">
