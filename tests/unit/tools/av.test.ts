@@ -690,7 +690,7 @@ describe('av tool', () => {
                 kernel: 'attribute_view_name_or_kernel_candidates',
                 fallback: 'primary_key_values',
             },
-            results: [{ id: 'av-a' }],
+            results: [{ id: 'av-a', avID: 'av-a', renderArgs: { action: 'render', id: 'av-a' } }],
             unresolvedResults: [],
             rawResultCount: 2,
             filteredOutCount: 1,
@@ -759,7 +759,13 @@ describe('av tool', () => {
                 kernel: 'attribute_view_name_or_kernel_candidates',
                 fallback: 'primary_key_values',
             },
-            results: [{ avID: 'av-a', avName: '测试', blockID: 'db-block-1' }],
+            results: [{
+                avID: 'av-a',
+                id: 'av-a',
+                avName: '测试',
+                blockID: 'db-block-1',
+                renderArgs: { action: 'render', id: 'av-a' },
+            }],
             unresolvedResults: [],
             rawResultCount: 1,
             filteredOutCount: 0,
@@ -802,9 +808,11 @@ describe('av tool', () => {
             },
             results: [{
                 avID: '20260407011715-lmkb6df',
+                id: '20260407011715-lmkb6df',
                 avName: '测试',
                 blockID: 'row-block-1',
                 blockIDs: ['row-block-1'],
+                renderArgs: { action: 'render', id: '20260407011715-lmkb6df' },
                 rows: { values: [{ id: 'row-1', blockID: 'item-1', block: { id: 'row-block-1', content: 'av row seed' } }] },
                 matchedRowCount: 1,
                 matchSource: 'primary_key',
@@ -2257,6 +2265,45 @@ describe('av tool', () => {
             id: 'av-1',
             viewID: 'view-1',
             viewType: 'table',
+        });
+    });
+
+    it('accepts avID alias and adds a lightweight table view when render rows are parseable', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-1',
+            viewID: 'view-1',
+            viewType: 'table',
+            keyValues: [
+                { key: { id: 'col-title', name: 'Title', type: 'text' } },
+            ],
+            rows: [
+                {
+                    id: 'row-1',
+                    values: [
+                        { key: { id: 'col-title' }, content: 'Paper A' },
+                    ],
+                },
+            ],
+            rowCount: 1,
+        });
+
+        const result = await callAvTool(client, {
+            action: 'render',
+            avID: 'av-1',
+        }, enabledActions('render'), permMgr);
+
+        const parsed = JSON.parse(result.content[0].text);
+        expect(result.isError).toBeUndefined();
+        expect(vi.mocked(avApi.renderAttributeView)).toHaveBeenCalledWith(client, expect.objectContaining({ id: 'av-1' }));
+        expect(parsed).toMatchObject({
+            avID: 'av-1',
+            id: 'av-1',
+            table: {
+                columns: [{ id: 'col-title', name: 'Title', type: 'text' }],
+                rows: [{ id: 'row-1', cells: { 'col-title': 'Paper A' } }],
+                rowCount: 1,
+            },
         });
     });
 

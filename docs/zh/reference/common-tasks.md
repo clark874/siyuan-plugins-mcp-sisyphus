@@ -26,13 +26,52 @@ siyuan notebook list
   "action": "create",
   "notebook": "<notebook-id>",
   "path": "/Inbox/Note",
-  "markdown": "# Hello"
+  "markdown": "正文内容"
 }
 ```
 
 ```bash
-siyuan document create --notebook <notebook-id> --path "/Inbox/Note" --markdown "# Hello"
+siyuan document create --notebook <notebook-id> --path "/Inbox/Note" --markdown "正文内容"
 ```
+
+不要在 `markdown` 正文开头重复写同名 `# Note`。`document.create` 和 `fs.write` 会自动把“与文档标题相同”的开头 H1 去掉，避免双标题；不同标题的 H1 会保留。
+
+如果需要立即拿到文档 ID，优先用 `document.create`，它会直接返回 `id`。如果只想按人类可读路径创建或覆盖正文，用 `fs.write` 更简单。两者都支持在 Markdown 中直接写真实标签和双链：
+
+```json
+{
+  "action": "create",
+  "notebook": "<notebook-id>",
+  "path": "/Inbox/带链接的笔记",
+  "markdown": "关联 ((20260610000000-abcdefg '完整标题')) #研究/待整理#"
+}
+```
+
+`((id))` 裸双链会在写入前自动解析目标块并补成 `((id '锚文本'))`。如果锚文本解析失败，MCP 会降级写成 `((id 'id'))` 并返回 warning。`[^1]` 脚注式引用和 `[text](siyuan://blocks/id)` 都允许写入，但结果会提示它们不会创建思源真实反链。
+
+## 修改已有内容
+
+当前版本可以直接使用 `fs.replace` 或 `block.replace` 修改包含标签和双链的段落，不需要外部 DOM 注入脚本。
+
+```json
+{
+  "action": "replace",
+  "path": "/Inbox/带链接的笔记",
+  "edit": {
+    "old": "关联 ((20260610000000-abcdefg '完整标题')) #研究/待整理#",
+    "new": "已整理 ((20260610000000-abcdefg '完整标题')) #研究/完成#"
+  }
+}
+```
+
+已验证的安全场景包括：
+
+- 替换包含双链的整段
+- 替换包含标签的整段
+- 把整个 `#标签#` 替换为普通文本
+- `block.replace` 对同类场景同样有效
+
+`block.update` 的 `dataType="markdown"` 和 `dataType="dom"` 也会把 Markdown 里的 `((id '标题'))`、`((id))`、`#标签#` 规范化为真实思源 inline 结构。不要手工拼复杂 DOM。
 
 ## 追加块
 
@@ -48,6 +87,8 @@ siyuan document create --notebook <notebook-id> --path "/Inbox/Note" --markdown 
 ```bash
 siyuan block append --parent-id <doc-or-block-id> --data-type markdown --data "New paragraph"
 ```
+
+批量移动多个块时传 `ids` 数组即可。工具内部会倒序调用底层移动接口来保持最终顺序，不需要调用方自己倒序。
 
 ## 搜索内容
 
@@ -74,3 +115,18 @@ siyuan search fulltext --query "TODO"
 ```bash
 siyuan av get --id <attribute-view-id>
 ```
+
+## 同名文档
+
+当同一父级下存在同名文档时，使用：
+
+```json
+{
+  "action": "lookup",
+  "notebook": "<notebook-id>",
+  "hpath": "/Inbox/同名文档",
+  "include": ["ids", "path", "hpath"]
+}
+```
+
+返回的 `idPath.ids` 会列出匹配到的多个文档 ID。工具内部已包含 SQL 兜底，不需要调用方手写 `SELECT ... WHERE hpath = ... AND type = 'd'`。

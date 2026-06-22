@@ -1,8 +1,8 @@
 # file
 
-This tool covers asset upload, export, template rendering, OCR, and asset maintenance.
+This tool covers asset upload, export, template discovery and management, template rendering, OCR, and asset maintenance.
 
-When to read this page: you need to upload assets, export content, render templates, or query document-linked resources.
+When to read this page: you need to upload assets, export content, find/read/create/update/delete/render templates, or query document-linked resources.
 
 Related pages:
 
@@ -14,7 +14,7 @@ Related pages:
 | Group | Actions |
 |------|---------|
 | Upload / export | `upload_asset`, `export_md`, `export_resources`, `extract_doc` |
-| Rendering | `render` |
+| Templates | `list_templates`, `read_template`, `create_template`, `update_template`, `delete_template`, `save_doc_as_template`, `render` |
 | Asset inspection | `get_doc_assets`, `get_image_ocr_text`, `list_unused_assets` |
 | Asset mutations | `remove_unused_assets`, `rename_asset`, `delete_asset` |
 
@@ -22,11 +22,12 @@ Related pages:
 
 ## Safety Rules
 
-- `upload_asset` requires confirmation and reads a local file path as an explicit binary-transfer exception.
+- `upload_asset` requires confirmation and reads a local file path as an explicit binary-transfer exception. Canonical input is `assetsDirPath + localFilePath`; `file` is accepted as a shorthand for `localFilePath`, and `assetsDirPath` defaults to `/assets/`.
 - Large uploads need explicit large-file confirmation.
-- `delete_asset` and `remove_unused_assets` require confirmation.
+- `delete_template`, `delete_asset`, and `remove_unused_assets` require confirmation. `delete_template` is disabled by default.
+- Template writes use SiYuan's workspace file API for `/data/templates/...`; they do not write the local filesystem directly.
 - `export_resources` with a local output path should be treated carefully.
-- `extract_doc` writes to the local filesystem (default `~/siyuan-extracted/`) and clears the entire output directory before each export to prevent accumulation of old extracts.
+- `extract_doc` writes to the local filesystem (default `~/siyuan-extracted/`) and clears the entire output directory before each export to prevent accumulation of old extracts. Results include `outputRoot` and `defaultOutputDirUsed`; pass `outputDir` explicitly for predictable paths such as `/private/tmp/...`.
 
 ## Examples
 
@@ -35,8 +36,7 @@ MCP:
 ```json
 {
   "action": "upload_asset",
-  "assetsDirPath": "/assets/",
-  "localFilePath": "/Users/me/image.png"
+  "file": "/Users/me/image.png"
 }
 ```
 
@@ -64,12 +64,74 @@ Extract a document and its assets into a local folder:
 
 Template rendering:
 
+Find templates first:
+
+```json
+{
+  "action": "list_templates",
+  "query": "report"
+}
+```
+
+`list_templates` uses SiYuan's own template picker endpoint and returns reusable `readArgs` and `renderArgsTemplate`.
+
+Read a template source:
+
+```json
+{
+  "action": "read_template",
+  "path": "/path/to/siyuan/data/templates/report.md"
+}
+```
+
+`read_template` only reads Markdown templates under `data/templates` through SiYuan's authenticated `/templates/` route. It is not a general workspace file reader.
+
+Create or replace a template from Markdown:
+
+```json
+{
+  "action": "create_template",
+  "path": "reports/monthly.md",
+  "markdown": "# .action{.title}\n\n## Summary\n"
+}
+```
+
+`create_template` returns `template_exists` unless `overwrite=true` is passed for an existing template. Use `update_template` when the template must already exist:
+
+```json
+{
+  "action": "update_template",
+  "path": "reports/monthly.md",
+  "markdown": "# .action{.title}\n\n## Updated Summary\n"
+}
+```
+
+Save an existing document as a root-level template:
+
+```json
+{
+  "action": "save_doc_as_template",
+  "id": "<doc-id>",
+  "name": "meeting-note"
+}
+```
+
+Delete an existing template only after resolving it with `list_templates`:
+
+```json
+{
+  "action": "delete_template",
+  "path": "/path/to/siyuan/data/templates/reports/monthly.md"
+}
+```
+
 ```json
 {
   "action": "render",
   "engine": "template",
   "id": "<doc-id>",
-  "path": "/path/to/siyuan/data/templates/report.md"
+  "path": "/path/to/siyuan/data/templates/report.md",
+  "preview": true
 }
 ```
 
@@ -95,6 +157,12 @@ siyuan file extract-doc --id <doc-id> --output-dir ./siyuan-extracted
 ## Action List
 
 - `upload_asset`
+- `list_templates`
+- `read_template`
+- `create_template`
+- `update_template`
+- `delete_template`
+- `save_doc_as_template`
 - `render`
 - `export_md`
 - `export_resources`

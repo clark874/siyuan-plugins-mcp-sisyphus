@@ -167,6 +167,33 @@ describe('cli/dispatch', () => {
         io.restore();
     });
 
+    it('passes block append data starting with a markdown list marker through to MCP payloads', async () => {
+        const io = captureStdIO();
+        const data = '- [ ] 收拾行李';
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.block, 'callTool').mockResolvedValue(okResult());
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'block',
+            action: 'append',
+            rest: ['--parent-id', 'doc-1', '--data-type', 'markdown', '--data', data],
+            url: 'http://127.0.0.1:6806',
+            json: true,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(0);
+        expect(callToolSpy).toHaveBeenCalledTimes(1);
+        expect(callToolSpy.mock.calls[0]?.[1]).toEqual({
+            action: 'append',
+            parentID: 'doc-1',
+            dataType: 'markdown',
+            data,
+        });
+        expect(io.stderr).toBe('');
+        io.restore();
+    });
+
     it('maps fs path positionals and list alias before dispatch', async () => {
         const io = captureStdIO();
         const callToolSpy = vi.spyOn(TOOL_REGISTRY.fs, 'callTool').mockResolvedValue(okResult());

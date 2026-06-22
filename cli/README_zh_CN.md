@@ -12,7 +12,7 @@
 
 ```bash
 siyuan-sisyphus notebook list
-siyuan-sisyphus document create --notebook 20240318... --path "/Inbox/Test" --markdown "# Hello"
+siyuan-sisyphus document create --notebook 20240318... --path "/Inbox/Test" --markdown "正文从这里开始"
 siyuan-sisyphus block append --parent-id 20240318abc --data-type markdown --data "- item"
 siyuan-sisyphus search fulltext --query "keyword" --page-size 10 --json | jq '.data[].hPath'
 ```
@@ -106,11 +106,17 @@ siyuan-sisyphus document get-doc --id 20240318xyz --mode markdown
 siyuan-sisyphus block info --id 20240318xyz
 siyuan-sisyphus block append --parent-id 20240318abc --data-type markdown --data "- new item"
 siyuan-sisyphus block get-kramdown --id 20240318xyz
+siyuan-sisyphus block word-count --id 20240318xyz
 
 # 搜索
 siyuan-sisyphus search fulltext --query "TODO" --page-size 20
 siyuan-sisyphus search fulltext --query "TODO" --page 2 --page-size 20
 siyuan-sisyphus search query-sql --stmt "SELECT id, content FROM blocks WHERE type='h' LIMIT 5"
+
+# 常用友好别名
+siyuan-sisyphus fs replace --path "/Notebook/Doc" --old A --new B
+siyuan-sisyphus av render --av-id <attribute-view-id>
+siyuan-sisyphus file upload-asset --file /private/tmp/demo.txt
 
 # 配合 jq 管道处理
 siyuan-sisyphus notebook list --json | jq '.[] | select(.closed==false) | .name'

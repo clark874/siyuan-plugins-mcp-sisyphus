@@ -9,10 +9,10 @@ export const NOTEBOOK_ACTIONS = ['list', 'create', 'set_open_state', 'remove', '
 export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'remove', 'move', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'create_daily_note', 'duplicate', 'heading_to_doc', 'doc_to_heading'] as const;
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'replace', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info'] as const;
 export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values'] as const;
-export const FILE_ACTIONS = ['upload_asset', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
+export const FILE_ACTIONS = ['upload_asset', 'list_templates', 'read_template', 'create_template', 'update_template', 'delete_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
-export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'get_version', 'get_current_time'] as const;
+export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 export const FEEDBACK_ACTIONS = ['submit'] as const;
@@ -148,8 +148,11 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     },
     file: {
         export_md: 'basic', upload_asset: 'basic',
+        list_templates: 'basic', read_template: 'basic',
+        create_template: 'basic', update_template: 'basic', save_doc_as_template: 'basic',
         get_doc_assets: 'basic', extract_doc: 'basic',
         render: 'advanced',
+        delete_template: 'advanced',
         export_resources: 'advanced', list_unused_assets: 'advanced',
         get_image_ocr_text: 'advanced',
         remove_unused_assets: 'advanced', rename_asset: 'advanced',
@@ -166,8 +169,8 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         remove: 'advanced',
     },
     system: {
-        get_version: 'basic', get_current_time: 'basic', conf: 'basic',
-        workspace_info: 'advanced', network: 'advanced', notify: 'advanced',
+        get_version: 'basic', get_current_time: 'basic', conf: 'basic', changelog: 'basic',
+        workspace_info: 'advanced', network: 'advanced', notify: 'advanced', perform_sync: 'advanced',
     },
     flashcard: {
         list_cards: 'basic', get_decks: 'basic', get_cards: 'basic',
@@ -191,10 +194,10 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     document: new Set(['remove', 'move']),
     block: new Set(['delete', 'move']),
     av: new Set(),
-    file: new Set(['upload_asset', 'remove_unused_assets', 'delete_asset']),
+    file: new Set(['upload_asset', 'delete_template', 'remove_unused_assets', 'delete_asset']),
     search: new Set(['find_replace']),
     tag: new Set(['remove']),
-    system: new Set(['workspace_info']),
+    system: new Set(['workspace_info', 'perform_sync']),
     flashcard: new Set(['remove_card']),
     mascot: new Set(),
     feedback: new Set(),
@@ -235,7 +238,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         file: {
             enabled: true,
-            actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc']),
+            actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'list_templates', 'read_template', 'create_template', 'update_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc']),
             uploadLargeFileThresholdMB: 10,
         },
         search: {
@@ -248,7 +251,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         system: {
             enabled: true,
-            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'conf', 'notify', 'get_version', 'get_current_time']),
+            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time']),
         },
         flashcard: {
             enabled: true,

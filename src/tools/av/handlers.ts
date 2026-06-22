@@ -89,6 +89,12 @@ type StrongCellValueInput = {
     assets?: Array<{ type: 'image' | 'file'; content: string; name?: string }>;
 };
 
+interface AvTableView {
+    columns: Array<{ id: string; name?: string; type?: string }>;
+    rows: Array<{ id?: string; cells: Record<string, unknown> }>;
+    rowCount: number;
+}
+
 const ADD_ROWS_POLL_ATTEMPTS = 6;
 const ADD_ROWS_POLL_DELAY_MS = 500;
 const AV_MATERIALIZATION_POLL_ATTEMPTS = 6;
@@ -829,6 +835,77 @@ function buildDuplicateAvBlockDom(blockID: string, avID: string): string {
     return `<div class="av" data-node-id="${blockID}" data-av-id="${avID}" data-type="NodeAttributeView" data-av-type="table"></div>`;
 }
 
+function pickString(record: Record<string, unknown>, keys: string[]): string | undefined {
+    for (const key of keys) {
+        const value = record[key];
+        if (typeof value === 'string' && value.length > 0) return value;
+    }
+    return undefined;
+}
+
+function normalizeAvValue(value: unknown): unknown {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const record = value as Record<string, unknown>;
+    for (const key of ['content', 'text', 'number', 'isChecked', 'date', 'mSelect', 'select', 'block']) {
+        if (key in record) return record[key];
+    }
+    return value;
+}
+
+function extractAvTableColumns(responseObj: Record<string, unknown>): AvTableView['columns'] {
+    const candidates = [responseObj.columns, responseObj.keys, responseObj.keyValues, responseObj.attributeViewKeys];
+    for (const candidate of candidates) {
+        if (!Array.isArray(candidate)) continue;
+        const columns = candidate.flatMap((item) => {
+            if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+            const record = item as Record<string, unknown>;
+            const keyRecord = record.key && typeof record.key === 'object' && !Array.isArray(record.key)
+                ? record.key as Record<string, unknown>
+                : record;
+            const id = pickString(keyRecord, ['id', 'keyID', 'columnID']);
+            if (!id) return [];
+            const name = pickString(keyRecord, ['name', 'title']);
+            const type = pickString(keyRecord, ['type']);
+            return [{ id, ...(name ? { name } : {}), ...(type ? { type } : {}) }];
+        });
+        if (columns.length > 0) return columns;
+    }
+    return [];
+}
+
+function extractAvTableRows(rows: unknown[]): AvTableView['rows'] {
+    return rows.flatMap((row) => {
+        if (!row || typeof row !== 'object' || Array.isArray(row)) return [];
+        const record = row as Record<string, unknown>;
+        const values = Array.isArray(record.values)
+            ? record.values
+            : Array.isArray(record.cells)
+                ? record.cells
+                : [];
+        const cells: Record<string, unknown> = {};
+        for (const value of values) {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+            const cell = value as Record<string, unknown>;
+            const keyObj = cell.key && typeof cell.key === 'object' && !Array.isArray(cell.key)
+                ? cell.key as Record<string, unknown>
+                : {};
+            const columnID = pickString(cell, ['keyID', 'columnID', 'id']) ?? pickString(keyObj, ['id', 'keyID']);
+            if (!columnID) continue;
+            cells[columnID] = normalizeAvValue(cell);
+        }
+        if (Object.keys(cells).length === 0) return [];
+        const id = pickString(record, ['id', 'rowID', 'blockID']);
+        return [{ ...(id ? { id } : {}), cells }];
+    });
+}
+
+function buildAvTableView(responseObj: Record<string, unknown>, rows: unknown[], total: number): AvTableView | undefined {
+    const columns = extractAvTableColumns(responseObj);
+    const tableRows = extractAvTableRows(rows);
+    if (columns.length === 0 && tableRows.length === 0) return undefined;
+    return { columns, rows: tableRows, rowCount: total };
+}
+
 function formatSiYuanUpdatedStamp(date = new Date()): string {
     const pad = (value: number) => String(value).padStart(2, '0');
     return [
@@ -993,6 +1070,22 @@ async function handleSearch({ client, permMgr, rawArgs }: ToolHandlerContext): P
         dedupedResults.push(result);
     }
     const filtered = await filterAvSearchResultsByPermission(client, permMgr, dedupedResults);
+    const normalizedResults = filtered.results.map((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
+        const record = item as Record<string, unknown>;
+        const avID = typeof record.avID === 'string' && record.avID.length > 0
+            ? record.avID
+            : typeof record.id === 'string' && record.id.length > 0
+                ? record.id
+                : undefined;
+        if (!avID) return record;
+        return {
+            ...record,
+            id: avID,
+            avID,
+            renderArgs: { action: 'render', id: avID },
+        };
+    });
     return createJsonResult({
         keyword: parsed.keyword,
         searchScope: {
@@ -1000,8 +1093,9 @@ async function handleSearch({ client, permMgr, rawArgs }: ToolHandlerContext): P
             fallback: 'primary_key_values',
         },
         ...filtered,
+        results: normalizedResults,
         ...(filtered.filteredOutCount > 0 ? {
-            emptyReason: filtered.results.length === 0
+            emptyReason: normalizedResults.length === 0
                 ? (filtered.unresolvedCount > 0 && filtered.permissionFilteredOutCount === 0 ? 'no_verified_results_unresolved_candidates_available'
                     : filtered.permissionFilteredOutCount > 0 && filtered.unresolvedCount === 0 ? 'all_results_permission_filtered'
                         : 'all_results_filtered')
@@ -1088,6 +1182,7 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
     const total = typeof responseObj.rowCount === 'number'
         ? responseObj.rowCount as number
         : rows.length;
+    const table = buildAvTableView(responseObj, rows, total);
     const { rows: _ignoredRows, pageCount: _ignoredPageCount, rowCount: _ignoredRowCount, ...restResponse } = responseObj;
     void _ignoredRows;
     void _ignoredPageCount;
@@ -1102,6 +1197,7 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
         ...restResponse,
         avID: effectiveAvID,
         id: effectiveAvID,
+        ...(table ? { table } : {}),
         ...(parsed.createIfNotExist === true ? { generatedAvID: idWasGenerated } : {}),
         ...(permission.shouldMaterialize ? {
             materialized: true,

@@ -34,7 +34,7 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
     createZodActionVariant('prepend', BlockPrependSchema, 'Insert a block at the beginning of a parent.'),
     createZodActionVariant('append', BlockAppendSchema, 'Insert a block at the end of a parent.'),
     createZodActionVariant('update', BlockUpdateSchema, 'Update one or more blocks.'),
-    createZodActionVariant('replace', BlockReplaceSchema, 'Apply exact old/new text replacement edits inside one block kramdown only.'),
+    createZodActionVariant('replace', BlockReplaceSchema, 'Apply exact old/new text replacement edits inside one block body and patch the original DOM.'),
     createZodActionVariant('delete', BlockDeleteSchema, 'Delete a block by ID.'),
     createZodActionVariant('move', BlockMoveSchema, 'Move a block to a new position.'),
     createZodActionVariant('set_fold_state', BlockSetFoldStateSchema, 'Set the fold state of a foldable block.'),

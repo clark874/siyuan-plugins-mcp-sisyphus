@@ -22,7 +22,7 @@
 ## 参数与语义
 
 - `render` 在 `createIfNotExist=true` 且传入 `blockID` 时，也可创建并实体化 AV。此时 `blockID` 表示目标父级 / 插入上下文，MCP 会通过思源风格的 spun AV block DOM 与 transaction 完成插入。
-- 渲染已有 AV 时，参数名是 `id`，值为 AV ID；`render` 不接受 `add_rows`、`set_cells` 等写操作使用的 `avID` 参数名。
+- 渲染已有 AV 时，规范参数名是 `id`，值为 AV ID。为了减少 Agent 从 `search` 到 `render` 的参数转换，`render` 也接受 `avID` 作为兼容别名，且 `av.search` 结果会包含可复用的 `renderArgs`。
 - 保留 `render(createIfNotExist=true)` 返回的 `blockID`。后续 AV 读写通常只需要 `avID`；MCP 会从行绑定块、镜像数据库块，或 blocks 表中的 AV 块记录自动解析 owning database block。需要固定某个数据库块视图、存在多个镜像候选，或需要为刚创建的空 AV 提供显式兜底时，再传 `blockID`。
 - `set_cells` 由 `valueType` 决定值类型，既支持单格字段，也支持 `cells` / `items` 数组。
 - `rowID` 指行 item ID，不是源块 ID。
@@ -58,6 +58,7 @@ CLI：
 
 ```bash
 siyuan av get --id <attribute-view-id>
+siyuan av render --av-id <attribute-view-id>
 siyuan av add-column --av-id <attribute-view-id> --key-name Status --key-type select
 siyuan av add-rows --av-id <attribute-view-id> --block-ids <block-id>
 siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "Plain text row"

@@ -35,10 +35,10 @@ export function mergePropertySchemas<Action extends string>(
         for (const [propertyName, propertySchema] of Object.entries(getSchemaProperties(variant.schema))) {
             if (propertyName === 'action' || !propertySchema || typeof propertySchema !== 'object') continue;
 
-            mergedProperties[propertyName] = {
-                ...(mergedProperties[propertyName] as JsonSchema | undefined),
-                ...(propertySchema as JsonSchema),
-            };
+            mergedProperties[propertyName] = mergeLoosePropertySchema(
+                mergedProperties[propertyName] as JsonSchema | undefined,
+                propertySchema as JsonSchema,
+            );
 
             const description = getSchemaDescription(propertySchema as JsonSchema);
             if (description) {
@@ -84,6 +84,38 @@ export function mergePropertySchemas<Action extends string>(
     }
 
     return mergedProperties;
+}
+
+function mergeLoosePropertySchema(previous: JsonSchema | undefined, next: JsonSchema): JsonSchema {
+    if (!previous) return { ...next };
+    const merged = { ...previous, ...next };
+
+    mergeLowerBound(merged, previous, next, 'minimum');
+    mergeLowerBound(merged, previous, next, 'exclusiveMinimum');
+    mergeUpperBound(merged, previous, next, 'maximum');
+    mergeUpperBound(merged, previous, next, 'exclusiveMaximum');
+
+    return merged;
+}
+
+function mergeLowerBound(target: JsonSchema, previous: JsonSchema, next: JsonSchema, key: string) {
+    const previousValue = previous[key];
+    const nextValue = next[key];
+    if (typeof previousValue === 'number' && typeof nextValue === 'number') {
+        target[key] = Math.min(previousValue, nextValue);
+    } else {
+        delete target[key];
+    }
+}
+
+function mergeUpperBound(target: JsonSchema, previous: JsonSchema, next: JsonSchema, key: string) {
+    const previousValue = previous[key];
+    const nextValue = next[key];
+    if (typeof previousValue === 'number' && typeof nextValue === 'number') {
+        target[key] = Math.max(previousValue, nextValue);
+    } else {
+        delete target[key];
+    }
 }
 
 function normalizeSchemaNode(schema: unknown): unknown {

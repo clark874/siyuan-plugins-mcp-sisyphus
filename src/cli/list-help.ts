@@ -4,6 +4,7 @@ import {
     getActionTier,
     isDangerousAction,
 } from '../core/config';
+import { normalizeActionAlias } from '../core/action-aliases';
 import { TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
 import { PRIMARY_CLI_COMMAND } from '../shared/constants';
 
@@ -85,7 +86,7 @@ export async function runHelp(cli: ParsedArgs): Promise<number> {
 
         const module = TOOL_REGISTRY[category];
         const payload: Record<string, unknown> = { action: 'help' };
-        if (cli.action) payload.topic = cli.action;
+        if (cli.action) payload.topic = normalizeActionAlias(category, cli.action);
 
         const result = await module.callTool(client, payload, toolConfig[category], permMgr);
         return renderToolResult(result, { json: cli.json, debug: cli.debug });

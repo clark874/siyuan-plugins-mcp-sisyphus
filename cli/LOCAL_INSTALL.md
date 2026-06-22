@@ -187,7 +187,7 @@ siyuan-sisyphus help document create
 siyuan-sisyphus document create \
   --notebook <notebook-id> \
   --path "/CLI 测试/Hello" \
-  --markdown "# Hello from siyuan CLI"
+  --markdown "Hello from siyuan CLI"
 
 # 给文档末尾追加一个 markdown 块
 siyuan-sisyphus block append \

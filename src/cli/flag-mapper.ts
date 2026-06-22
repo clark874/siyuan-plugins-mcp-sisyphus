@@ -1,5 +1,7 @@
 import minimist from 'minimist';
 
+import { getFlagAliasRules, type ArgumentAliasContext } from '../core/argument-aliases';
+
 type JsonSchema = Record<string, any>;
 
 export interface FlagMapResult {
@@ -16,7 +18,7 @@ export interface FlagMapResult {
  * - Array flags: repeat the flag, or pass a comma-separated string.
  * - Object / nested flags: use --<key>-json '<json-fragment>'.
  */
-export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMapResult {
+export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema, context?: Partial<ArgumentAliasContext>): FlagMapResult {
     const props = collectInputProperties(inputSchema);
 
     const canonicalByLower = new Map<string, string>();
@@ -33,6 +35,21 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMap
             for (const alias of aliases) stringKeys.add(alias);
         }
     }
+    for (const rule of getFlagAliasRules(context)) {
+        const schema = rule.schema ?? props[rule.canonical] ?? {};
+        const aliases = new Set<string>([
+            ...getFlagAliases(rule.canonical),
+            ...rule.aliases.flatMap(getFlagAliases),
+        ]);
+        for (const alias of aliases) canonicalByLower.set(alias.toLowerCase(), rule.canonical);
+        const type = inferType(schema);
+        if (type === 'boolean') {
+            for (const alias of aliases) booleanKeys.add(alias);
+        } else {
+            for (const alias of aliases) stringKeys.add(alias);
+        }
+        props[rule.canonical] ??= schema;
+    }
 
     // Every potential --<key>-json sidecar is declared as string so values
     // starting with a brace or bracket aren't eaten as the next flag.
@@ -42,11 +59,15 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema): FlagMap
         for (const alias of getFlagAliases(name)) jsonSidecarKeys.push(`${alias}-json`);
     }
 
-    const parsed = minimist(rest, {
+    const valueFlagKeys = [...stringKeys, ...jsonSidecarKeys];
+    const knownFlagKeys = [...booleanKeys, ...valueFlagKeys];
+    const normalizedRest = bindStringFlagValues(rest, valueFlagKeys, knownFlagKeys);
+
+    const parsed = minimist(normalizedRest, {
         boolean: [...booleanKeys],
         string: [...stringKeys, ...jsonSidecarKeys],
     });
-    const providedFlagKeys = collectProvidedFlagKeys(rest);
+    const providedFlagKeys = collectProvidedFlagKeys(normalizedRest);
 
     const result: Record<string, unknown> = {};
     const warnings: string[] = [];
@@ -213,6 +234,49 @@ function toCamel(parts: string[]): string {
 function toKebab(name: string): string {
     const parts = splitFlagName(name);
     return parts.length > 0 ? parts.join('-') : name.toLowerCase();
+}
+
+function bindStringFlagValues(rest: string[], valueFlagKeys: string[], knownFlagKeys: string[]): string[] {
+    const valueFlags = new Set(valueFlagKeys.map((key) => key.toLowerCase()));
+    const knownFlags = new Set(knownFlagKeys.map((key) => key.toLowerCase()));
+    const out: string[] = [];
+
+    for (let i = 0; i < rest.length; i++) {
+        const token = rest[i];
+        const flag = parseFlagToken(token);
+        if (!flag || flag.hasEquals || flag.negated || !valueFlags.has(flag.key.toLowerCase())) {
+            out.push(token);
+            continue;
+        }
+
+        const next = rest[i + 1];
+        if (next === undefined || next === '--' || isKnownFlagToken(next, knownFlags)) {
+            out.push(token);
+            continue;
+        }
+
+        out.push(`${token}=${next}`);
+        i++;
+    }
+
+    return out;
+}
+
+function isKnownFlagToken(token: string, knownFlags: Set<string>): boolean {
+    const flag = parseFlagToken(token);
+    return Boolean(flag && knownFlags.has(flag.key.toLowerCase()));
+}
+
+function parseFlagToken(token: string): { key: string; hasEquals: boolean; negated: boolean } | null {
+    if (!token.startsWith('-') || token === '-' || token === '--') return null;
+    const prefixLength = token.startsWith('--') ? 2 : 1;
+    const eq = token.indexOf('=');
+    const rawKey = eq === -1 ? token.slice(prefixLength) : token.slice(prefixLength, eq);
+    if (!rawKey) return null;
+    const negated = token.startsWith('--') && rawKey.startsWith('no-');
+    const key = negated ? rawKey.slice(3) : rawKey;
+    if (!key) return null;
+    return { key, hasEquals: eq !== -1, negated };
 }
 
 function collectProvidedFlagKeys(rest: string[]): Set<string> {

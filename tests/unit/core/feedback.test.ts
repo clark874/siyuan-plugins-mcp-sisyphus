@@ -1,8 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import {
     buildFeedbackPayload,
     FEEDBACK_API_BASE,
+    FEEDBACK_PLUGIN_VERSION,
     FEEDBACK_SHARE_ID,
     resolveFeedbackSource,
     resolvePluginVersion,
@@ -46,6 +50,11 @@ function createMetadata(overrides: Record<string, unknown> = {}) {
     };
 }
 
+function readPackageVersion(): string {
+    const raw = readFileSync(join(process.cwd(), 'package.json'), 'utf8');
+    return (JSON.parse(raw) as { version: string }).version;
+}
+
 describe('feedback submission', () => {
     it('builds the WPS payload with discovered token, editVersion, and commit option', () => {
         const payload = buildFeedbackPayload({
@@ -78,7 +87,7 @@ describe('feedback submission', () => {
     });
 
     it('gets fresh metadata before posting feedback', async () => {
-        const fetcher = vi.fn<FeedbackFetch>()
+        const fetcher = vi.fn<Parameters<FeedbackFetch>, ReturnType<FeedbackFetch>>()
             .mockResolvedValueOnce(jsonResponse({ code: 0, data: createMetadata() }))
             .mockResolvedValueOnce(jsonResponse({
                 code: 0,
@@ -128,16 +137,19 @@ describe('feedback submission', () => {
     });
 
     it('resolves source and plugin version defaults', () => {
+        const packageVersion = readPackageVersion();
+
         expect(resolveFeedbackSource('settings')).toBe('settings');
         expect(resolveFeedbackSource('cli')).toBe('cli');
         expect(resolveFeedbackSource('stdio')).toBe('stdio');
         expect(resolveFeedbackSource('http')).toBe('http');
         expect(resolvePluginVersion(' 0.4.9 ')).toBe('0.4.9');
-        expect(resolvePluginVersion('   ')).toBe('0.4.9');
+        expect(FEEDBACK_PLUGIN_VERSION).toBe(packageVersion);
+        expect(resolvePluginVersion('   ')).toBe(packageVersion);
     });
 
     it('fails clearly when the form requires login or submit returns an error', async () => {
-        await expect(submitFeedback({ description: 'hello' }, vi.fn<FeedbackFetch>()
+        await expect(submitFeedback({ description: 'hello' }, vi.fn<Parameters<FeedbackFetch>, ReturnType<FeedbackFetch>>()
             .mockResolvedValueOnce(jsonResponse({
                 code: 0,
                 data: createMetadata({
@@ -145,7 +157,7 @@ describe('feedback submission', () => {
                 }),
             })))).rejects.toThrow('requires WPS login');
 
-        await expect(submitFeedback({ description: 'hello' }, vi.fn<FeedbackFetch>()
+        await expect(submitFeedback({ description: 'hello' }, vi.fn<Parameters<FeedbackFetch>, ReturnType<FeedbackFetch>>()
             .mockResolvedValueOnce(jsonResponse({ code: 0, data: createMetadata() }))
             .mockResolvedValueOnce(jsonResponse({ code: 4001, result: 'bad token' }))))
             .rejects.toThrow('bad token');

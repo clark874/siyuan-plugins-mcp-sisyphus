@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 export function createMockClient(overrides: Record<string, unknown> = {}) {
     return {
         request: vi.fn(async () => null),
+        writeFile: vi.fn(async () => undefined),
         ...overrides,
     } as any;
 }

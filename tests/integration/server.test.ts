@@ -3,7 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { USER_RULES_VIRTUAL_PATH, resetToolConfigWarningStateForTests } from '@/core/config';
 import { USER_RULES_RESOURCE_URI } from '@/core/help';
-import { buildServerInstructions, createSiYuanServer } from '@/core/server';
+import { buildServerInstructions, createSiYuanServer, getMcpServerHelpText } from '@/core/server';
 import { AGENT_MEMORY_TOOL_DESCRIPTION_REMINDER, USER_RULES_TOOL_DESCRIPTION_REMINDER } from '@/core/tool-registry';
 
 const jsonResponse = (payload: unknown): Response => ({
@@ -16,6 +16,15 @@ describe('MCP Server Integration', () => {
     let client: Client;
     let storedFiles: Record<string, string>;
     let failConfigRead = false;
+
+    it('documents mcp-server CLI usage without starting transports', () => {
+        const help = getMcpServerHelpText();
+        expect(help).toContain('node mcp-server.cjs');
+        expect(help).toContain('--http');
+        expect(help).toContain('SIYUAN_MCP_TRANSPORT=http');
+        expect(help).toContain('SIYUAN_API_URL');
+        expect(help).toContain('SIYUAN_MCP_TLS_CERT');
+    });
 
     beforeEach(async () => {
         resetToolConfigWarningStateForTests();
@@ -294,6 +303,22 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('fs(action="mv", from="/Notebook/Old", to="/Notebook/New")');
             expect(instructions).toContain('Prefer `fs` for basic browse/read/write/edit/search/move/delete workflows.');
             expect(instructions).toContain(`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")`);
+        });
+
+        it('documents native SiYuan feature best practices in initialize instructions', () => {
+            const instructions = buildServerInstructions('');
+
+            expect(instructions).toContain('`fs` is a Markdown-oriented convenience layer.');
+            expect(instructions).toContain('database rows and cells, flashcard deck bindings');
+            expect(instructions).toContain('To add tags, write #tag# through fs.write');
+            expect(instructions).toContain('tag(action=”rename”, oldLabel=..., newLabel=...)');
+            expect(instructions).toContain('((block-id \'anchor text\'))');
+            expect(instructions).toContain('search(action=”get_backlinks”|"search_refs")');
+            expect(instructions).toContain('If a tool result includes attributeViews, databaseBlock, or avToolHint');
+            expect(instructions).toContain('av(action=”get”, id=...)');
+            expect(instructions).toContain('write actions such as add_rows, set_cells, remove_rows, add_column, and remove_column use avID');
+            expect(instructions).toContain('flashcard(action=”create_card”, deckID=..., blockIDs=[...])');
+            expect(instructions).toContain('Removing a flashcard binding is separate from deleting the underlying note blocks.');
         });
 
         it('should list tools with expected names', async () => {

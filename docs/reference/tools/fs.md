@@ -1,6 +1,6 @@
 # fs Tool
 
-Use `fs` first for ordinary document file operations. It accepts human-readable workspace paths and hides notebook IDs, block IDs, and storage paths.
+Use `fs` first for ordinary pure-Markdown document file operations. It accepts human-readable workspace paths and hides notebook IDs, block IDs, and storage paths.
 
 Path shape:
 
@@ -18,6 +18,24 @@ Path shape:
 | `write` | Create a document, or replace its body with `overwrite=true` |
 | `search` | Search Markdown lines under a document or folder path |
 
+## AI-Editable Markdown View
+
+- `read` returns an AI-editable Markdown view, not Markdown from `/api/export/exportMdContent`. This avoids degrading SiYuan block refs into footnotes or plain links.
+- The view is built from block kramdown: block refs are preserved as `((id 'title'))`, tags are preserved as `#tag#`, and SiYuan's zero-width tag marker characters are stripped.
+- Normal block and list-item IAL metadata is hidden, so `{: id="..." updated="..."}` does not leak into list text; snippets copied from `fs.read`, such as `- item`, can be used directly as `fs.replace` `old` text.
+- Fenced code, math blocks, and literal user text are not globally rewritten just because they look like metadata.
+- Blockquotes, tables, super blocks, and similar containers are read as containers, so child blocks are not duplicated. `fs.read` filters SiYuan-generated container IAL, but complex blocks still return a non-fidelity warning and should be modified with advanced tools.
+
+## Markdown Safety Semantics
+
+- `write` accepts `((id 'title'))`, naked `((id))`, and `#tag#` directly. Naked refs are resolved to explicit anchors before writing; if lookup fails, MCP falls back to `((id 'id'))` with a warning.
+- `write` strips a leading `# Title` when it matches the document name, avoiding duplicate visible titles.
+- `write overwrite=true` refuses documents containing complex SiYuan-native blocks such as AV/database blocks, super blocks, embeds, widgets, HTML, or media. Use advanced tools for those structures.
+- `replace` works block-by-block against non-complex Markdown blocks. If the document contains complex SiYuan-native blocks, those blocks are skipped and reported as `skippedComplexBlocks`; matches that only exist inside skipped blocks, or cross block boundaries, are rejected without writing.
+- `replace` matches against the same AI-editable view returned by `read`, so it can directly edit ordinary Markdown blocks containing tags or block refs, and can replace a whole `#tag#` token with plain text. It is still a Markdown text operation, not a complex-block editor.
+- For inline styled text, `old` should be the plain text inside the style markers, without Markdown delimiters. For example, replace `hello` inside `**hello**` or `` `hello` ``, not `**hello**` or `` `hello` ``; DOM writeback preserves the existing bold, inline-code, and similar styles.
+- `replace` allows footnote-style refs and `siyuan://blocks` Markdown links, but the result includes a hint because they do not create SiYuan backlinks.
+
 ## High-risk Actions
 
 - `rm` deletes a document and requires explicit confirmation.
@@ -34,12 +52,11 @@ Path shape:
 ```
 
 ```json
-{ "action": "write", "path": "/Inbox/Meetings/New Doc", "markdown": "# Notes\n\nContent" }
+{ "action": "write", "path": "/Inbox/Meetings/New Doc", "markdown": "Content" }
 ```
 
 ```json
 { "action": "search", "path": "/Inbox/Meetings", "query": "budget", "caseSensitive": false }
 ```
 
-Use `document`, `block`, `search`, or `av` only when you need SiYuan-specific block layout, metadata, SQL, backlinks, assets, or database operations.
-
+When `fs.read` reports complex blocks or the task needs SiYuan-specific block layout, metadata, SQL, backlinks, assets, or database operations, switch to `document`, `block`, `search`, `file`, or `av`.

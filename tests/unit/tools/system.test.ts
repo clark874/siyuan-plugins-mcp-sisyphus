@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildDefaultToolConfig } from '@/core/config';
-import { listSystemTools, SYSTEM_VARIANTS } from '@/tools/system';
+import { buildDefaultToolConfig, isDangerousAction } from '@/core/config';
+import { callSystemTool, listSystemTools, SYSTEM_VARIANTS } from '@/tools/system';
+import { parseResult } from '../../helpers/parse-result';
 
 describe('system tool schemas', () => {
     it('derives constrained config and notification schemas from Zod', () => {
         const conf = SYSTEM_VARIANTS.find((variant) => variant.action === 'conf');
         const notify = SYSTEM_VARIANTS.find((variant) => variant.action === 'notify');
+        const changelog = SYSTEM_VARIANTS.find((variant) => variant.action === 'changelog');
+        const performSync = SYSTEM_VARIANTS.find((variant) => variant.action === 'perform_sync');
 
         expect(conf?.schema.properties?.mode?.enum).toEqual(['summary', 'get']);
         expect(conf?.schema.properties?.maxDepth?.type).toBe('integer');
@@ -16,6 +19,18 @@ describe('system tool schemas', () => {
         expect(conf?.schema.properties?.maxItems?.maximum).toBe(100);
         expect(notify?.schema.required).toEqual(['action', 'msg', 'level']);
         expect(notify?.schema.properties?.level?.enum).toEqual(['info', 'error']);
+        expect(changelog?.schema.properties?.fromVersion?.type).toBe('string');
+        expect(changelog?.schema.properties?.limit?.minimum).toBe(1);
+        expect(changelog?.schema.properties?.limit?.maximum).toBe(50);
+        expect(performSync?.schema.required).toEqual(['action']);
+        expect(performSync?.schema.additionalProperties).toBe(false);
+    });
+
+    it('keeps perform_sync enabled by default and marked high-risk', () => {
+        const config = buildDefaultToolConfig().system;
+
+        expect(config.actions.perform_sync).toBe(true);
+        expect(isDangerousAction('system', 'perform_sync')).toBe(true);
     });
 
     it('publishes typed system parameters plus strict internal branches', () => {
@@ -29,5 +44,21 @@ describe('system tool schemas', () => {
         expect(notifyBranch?.properties?.msg?.description).toBe('Message content');
         expect(notifyBranch?.properties?.level?.enum).toEqual(['info', 'error']);
         expect(notifyBranch?.additionalProperties).toBe(false);
+    });
+
+    it('returns structured changelog entries with personalization review hints', async () => {
+        const config = buildDefaultToolConfig().system;
+        const result = await callSystemTool({} as never, { action: 'changelog', fromVersion: '0.4.8' }, config, {} as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.source).toBe('bundled CHANGELOG.md');
+        expect(parsed.resource).toBe('siyuan://help/changelog');
+        expect(parsed.entries.length).toBeGreaterThan(0);
+        expect(parsed.entries[0].version).toMatch(/^\d+\.\d+\.\d+/);
+        expect(parsed.personalizationReview).toEqual(expect.objectContaining({
+            shouldReview: expect.any(Boolean),
+            affectedVersions: expect.any(Array),
+            affectedAreas: expect.any(Array),
+        }));
     });
 });

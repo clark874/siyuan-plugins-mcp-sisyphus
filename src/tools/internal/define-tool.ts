@@ -2,6 +2,7 @@ import type { z } from 'zod';
 
 import type { SiYuanClient } from '../../api/client';
 import { normalizeActionAlias } from '../../core/action-aliases';
+import { normalizeToolArguments } from '../../core/argument-aliases';
 import type { CategoryToolConfig, ToolCategory } from '../../core/config';
 import type { PermissionManager } from '../../core/permissions';
 import {
@@ -86,9 +87,14 @@ export function defineTool<Action extends string>(options: DefineToolOptions<Act
             const rawArgs = args ?? {};
             const rawAction = typeof rawArgs.action === 'string' ? rawArgs.action : undefined;
             const normalizedAction = rawAction ? normalizeActionAlias(name, rawAction) : undefined;
-            const normalizedArgs = normalizedAction && normalizedAction !== rawAction
-                ? { ...rawArgs, action: normalizedAction }
-                : rawArgs;
+            let normalizedArgs: Record<string, unknown>;
+            try {
+                normalizedArgs = normalizeToolArguments(name, normalizedAction && normalizedAction !== rawAction
+                    ? { ...rawArgs, action: normalizedAction }
+                    : rawArgs);
+            } catch (error) {
+                return createErrorResult(error, { tool: name, action: normalizedAction ?? rawAction, rawArgs });
+            }
 
             const helpResult = tryHandleHelpAction(name, normalizedArgs, config, variants);
             if (helpResult) return helpResult;

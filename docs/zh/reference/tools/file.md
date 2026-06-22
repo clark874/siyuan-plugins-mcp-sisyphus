@@ -1,8 +1,8 @@
 # file 工具
 
-这个工具覆盖资源上传、导出、模板渲染、OCR 与资源维护。
+这个工具覆盖资源上传、导出、模板发现与管理、模板渲染、OCR 与资源维护。
 
-适用场景：你需要上传资源、导出内容、渲染模板，或查询文档关联资源。
+适用场景：你需要上传资源、导出内容、查找/读取/创建/更新/删除/渲染模板，或查询文档关联资源。
 
 相关页面：
 
@@ -14,7 +14,7 @@
 | 分组 | 动作 |
 |------|---------|
 | 上传 / 导出 | `upload_asset`, `export_md`, `export_resources`, `extract_doc` |
-| 渲染 | `render` |
+| 模板 | `list_templates`, `read_template`, `create_template`, `update_template`, `delete_template`, `save_doc_as_template`, `render` |
 | 资源查看 | `get_doc_assets`, `get_image_ocr_text`, `list_unused_assets` |
 | 资源变更 | `remove_unused_assets`, `rename_asset`, `delete_asset` |
 
@@ -22,11 +22,12 @@
 
 ## 安全规则
 
-- `upload_asset` 需要确认，并会读取本地文件路径，属于二进制传输的显式例外。
+- `upload_asset` 需要确认，并会读取本地文件路径，属于二进制传输的显式例外。规范参数是 `assetsDirPath + localFilePath`；`file` 可作为 `localFilePath` 的简写，`assetsDirPath` 默认 `/assets/`。
 - 大文件上传需要额外确认。
-- `delete_asset` 与 `remove_unused_assets` 需要确认。
+- `delete_template`、`delete_asset` 与 `remove_unused_assets` 需要确认。`delete_template` 默认关闭。
+- 模板写入通过思源工作区文件 API 写 `/data/templates/...`，不会直接写本地文件系统。
 - `export_resources` 如果指定本地输出路径，也应谨慎处理。
-- `extract_doc` 将导出文件写入本地文件系统（默认 `~/siyuan-extracted/`），每次导出前会清空整个输出目录，避免旧提取结果无限积累。
+- `extract_doc` 将导出文件写入本地文件系统（默认 `~/siyuan-extracted/`），每次导出前会清空整个输出目录，避免旧提取结果无限积累。结果会返回 `outputRoot` 和 `defaultOutputDirUsed`；需要稳定路径时请显式传 `outputDir`，例如 `/private/tmp/...`。
 
 ## 示例
 
@@ -35,8 +36,7 @@ MCP：
 ```json
 {
   "action": "upload_asset",
-  "assetsDirPath": "/assets/",
-  "localFilePath": "/Users/me/image.png"
+  "file": "/Users/me/image.png"
 }
 ```
 
@@ -64,12 +64,74 @@ MCP：
 
 模板渲染：
 
+先查找模板：
+
+```json
+{
+  "action": "list_templates",
+  "query": "report"
+}
+```
+
+`list_templates` 使用思源自身的模板选择接口，并返回可复用的 `readArgs` 与 `renderArgsTemplate`。
+
+读取模板源码：
+
+```json
+{
+  "action": "read_template",
+  "path": "/path/to/siyuan/data/templates/report.md"
+}
+```
+
+`read_template` 只会通过思源认证后的 `/templates/` 静态路由读取 `data/templates` 下的 Markdown 模板，不是通用工作空间文件读取器。
+
+从 Markdown 创建或覆盖模板：
+
+```json
+{
+  "action": "create_template",
+  "path": "reports/monthly.md",
+  "markdown": "# .action{.title}\n\n## Summary\n"
+}
+```
+
+如果模板已存在，`create_template` 默认返回 `template_exists`；需要覆盖时传 `overwrite=true`。如果要求模板必须已存在，使用 `update_template`：
+
+```json
+{
+  "action": "update_template",
+  "path": "reports/monthly.md",
+  "markdown": "# .action{.title}\n\n## Updated Summary\n"
+}
+```
+
+把已有文档另存为根模板：
+
+```json
+{
+  "action": "save_doc_as_template",
+  "id": "<doc-id>",
+  "name": "meeting-note"
+}
+```
+
+删除已有模板前先用 `list_templates` 解析路径：
+
+```json
+{
+  "action": "delete_template",
+  "path": "/path/to/siyuan/data/templates/reports/monthly.md"
+}
+```
+
 ```json
 {
   "action": "render",
   "engine": "template",
   "id": "<doc-id>",
-  "path": "/path/to/siyuan/data/templates/report.md"
+  "path": "/path/to/siyuan/data/templates/report.md",
+  "preview": true
 }
 ```
 
@@ -95,6 +157,12 @@ siyuan file extract-doc --id <doc-id> --output-dir ./siyuan-extracted
 ## 动作列表
 
 - `upload_asset`
+- `list_templates`
+- `read_template`
+- `create_template`
+- `update_template`
+- `delete_template`
+- `save_doc_as_template`
 - `render`
 - `export_md`
 - `export_resources`

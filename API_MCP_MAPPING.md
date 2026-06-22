@@ -168,7 +168,13 @@
 | MCP action | 思源 HTTP API | Wrapper | 说明 |
 |---|---|---|---|
 | `upload_asset` | `POST /api/asset/upload` | `src/api/file.ts` | 读取本地文件路径后以 multipart 上传（高危，需先确认；若文件超过配置阈值，默认 `10 MB`，必须先中止并获得用户确认，再携带 `confirmLargeFile=true` 重试） |
-| `render` | `POST /api/template/render` / `POST /api/template/renderSprig` | `src/api/file.ts` | 通过 `engine` 选择模板文件或 Sprig 内联渲染 |
+| `list_templates` | `POST /api/search/searchTemplate` | `src/api/template.ts` | 搜索/列出 `data/templates` 下的 Markdown 模板，并返回可复用读取/渲染参数 |
+| `read_template` | `GET /templates/...` | `src/api/template.ts` | 通过思源认证静态路由只读模板 Markdown 源码，不走 `/api/file/getFile` |
+| `create_template` | `POST /api/file/putFile` | `src/api/template.ts` + `src/api/client.ts` | 通过工作区文件 API 创建 Markdown 模板；默认不覆盖已存在模板 |
+| `update_template` | `POST /api/search/searchTemplate` + `POST /api/file/putFile` | `src/api/template.ts` + `src/api/client.ts` | 先确认模板存在，再完整替换 Markdown 源码 |
+| `delete_template` | `POST /api/search/searchTemplate` + `POST /api/search/removeTemplate` | `src/api/template.ts` | 先解析为思源模板选择器返回的路径，再删除；危险 action，默认关闭 |
+| `save_doc_as_template` | `POST /api/template/docSaveAsTemplate` | `src/api/template.ts` | 将已有文档另存为根模板，调用前检查文档读权限 |
+| `render` | `POST /api/template/render` / `POST /api/template/renderSprig` | `src/api/template.ts` | 通过 `engine` 选择模板文件或 Sprig 内联渲染；模板模式支持 `preview` |
 | `export_md` | `POST /api/export/exportMdContent` | `src/api/file.ts` | 需要可读文档 ID |
 | `export_resources` | `POST /api/export/exportResources` | `src/api/file.ts` | 将 `assets/...` 规范化为 `data/assets/...` 后导出；若传 `outputPath`，再把 ZIP 复制到本地文件系统（高危，需先确认） |
 | `list_unused_assets` | `POST /api/asset/getUnusedAssets` | `src/api/file.ts` | 列出未使用资源 |
@@ -208,6 +214,7 @@
 | `network` | `POST /api/system/getNetwork` | `src/api/system.ts` | 返回脱敏代理信息 |
 | `conf` | `POST /api/system/getConf` | `src/api/system.ts` | 返回脱敏配置 |
 | `notify` | `POST /api/notification/pushMsg` / `POST /api/notification/pushErrMsg` | `src/api/notification.ts` / `src/tools/system/index.ts` | 根据 `level` 推送普通或错误通知 |
+| `changelog` | 内置 `CHANGELOG.md` | `src/core/changelog.ts` / `src/tools/system/index.ts` | 读取插件更新日志，并返回可能影响个性化设置的结构化提示 |
 | `get_version` | `POST /api/system/version` | `src/api/system.ts` / `src/tools/system/index.ts` | 只读 |
 | `get_current_time` | `POST /api/system/currentTime` | `src/api/system.ts` / `src/tools/system/index.ts` | 只读 |
 
@@ -448,9 +455,13 @@
 
 暂不覆盖原因：插件管理通常通过UI操作
 
-#### Sync/Repo 同步 (当前0%覆盖)
+#### Sync/Repo 同步 (部分覆盖)
 
-暂不覆盖原因：数据同步配置通常通过UI操作，且涉及敏感配置
+已覆盖：
+
+- `POST /api/sync/performSync` → `system.perform_sync`
+
+其余同步配置类 API 暂不覆盖：数据同步配置通常通过 UI 操作，且涉及敏感配置。
 
 ### 已完全覆盖的模块
 

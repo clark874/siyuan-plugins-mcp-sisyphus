@@ -313,6 +313,7 @@ describe('tool permission and filtering behavior', () => {
                 hPath: '/Projects/New Doc',
             },
             idPath: {
+                id: 'doc-1',
                 notebook: 'allowed',
                 path: '/doc-1.sy',
             },

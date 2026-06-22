@@ -23,7 +23,7 @@ type ToolCaller = (
 interface ContractCase {
     action: string;
     args: Record<string, unknown>;
-    expectedEndpoint: string;
+    expectedEndpoint?: string;
 }
 
 const docRow = {
@@ -49,10 +49,23 @@ function createPermMgr() {
 
 function createContractClient() {
     return createMockClient({
+        getBaseUrl: vi.fn(() => 'http://127.0.0.1:6806'),
+        getAuthHeaders: vi.fn(() => ({ Authorization: 'Token test' })),
         requestFormData: vi.fn(async () => ({ errFiles: [], succMap: { 'asset.txt': 'assets/asset.txt' } })),
+        writeFile: vi.fn(async () => undefined),
+        readFileBinary: vi.fn(async () => new Uint8Array([1, 2, 3])),
         request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
             if (endpoint.startsWith('/api/ui/')) return null;
-            if (endpoint === '/api/query/sql') return [docRow];
+            if (endpoint === '/api/query/sql') {
+                const stmt = String(body?.stmt ?? '');
+                if (stmt.includes("type = 'd'")) {
+                    return stmt.includes("hpath = '/New Doc'") ? [] : [docRow];
+                }
+                if (stmt.includes("type IN ('p', 'h')")) {
+                    return [{ id: 'block-1', root_id: 'doc-1', box: 'nb-1', path: '/doc-1.sy', hpath: '/Doc 1', type: 'p', sort: 1 }];
+                }
+                return [docRow];
+            }
             if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [{ id: 'nb-1', name: 'Notebook', closed: false }] };
             if (endpoint === '/api/notebook/createNotebook') return { notebook: { id: 'nb-1', name: body?.name ?? 'Notebook' } };
             if (endpoint === '/api/notebook/getNotebookConf') return { conf: { name: 'Notebook' } };
@@ -77,8 +90,11 @@ function createContractClient() {
             if (endpoint === '/api/block/updateBlock') return { updated: true };
             if (endpoint === '/api/block/deleteBlock') return {};
             if (endpoint === '/api/block/moveBlock') return { moved: true };
-            if (endpoint === '/api/block/getBlockKramdown') return { id: body?.id, kramdown: 'content' };
-            if (endpoint === '/api/block/getChildBlocks') return [{ id: 'child-block', box: 'nb-1', path: '/doc-1.sy' }];
+            if (endpoint === '/api/block/getBlockKramdown') return { id: body?.id, kramdown: `content\n{: id="${body?.id ?? 'block-1'}"}` };
+            if (endpoint === '/api/block/getChildBlocks') {
+                if (body?.id === 'doc-1') return [{ id: 'child-block', type: 'p', box: 'nb-1', path: '/doc-1.sy' }];
+                return [];
+            }
             if (endpoint === '/api/block/getBlockInfo') return { id: body?.id, rootID: 'doc-1' };
             if (endpoint === '/api/block/getBlockBreadcrumb') return [{ id: 'doc-1', name: 'Doc' }];
             if (endpoint === '/api/block/getBlockDOM') return { id: body?.id as string, dom: '<p>content</p>' };
@@ -96,6 +112,8 @@ function createContractClient() {
             if (endpoint === '/api/search/searchAsset') return [{ path: 'assets/asset.png' }];
             if (endpoint === '/api/search/fullTextSearchAssetContent') return { assetContents: [{ id: 'asset-1', box: 'nb-1', path: '/doc-1.sy' }] };
             if (endpoint === '/api/search/listInvalidBlockRefs') return { blocks: [{ id: 'bad-ref', box: 'nb-1', path: '/doc-1.sy' }] };
+            if (endpoint === '/api/search/searchTemplate') return { k: body?.k ?? '', templates: [{ path: '/workspace/data/templates/demo.md', content: 'demo' }] };
+            if (endpoint === '/api/search/removeTemplate') return null;
 
             if (endpoint === '/api/export/exportMdContent') return { hPath: '/Doc 1', content: 'markdown' };
             if (endpoint === '/api/export/exportMd') return { name: 'Doc 1', zip: '/export/doc-1.zip' };
@@ -106,10 +124,12 @@ function createContractClient() {
             if (endpoint === '/api/asset/removeUnusedAssets') return { removed: 1 };
             if (endpoint === '/api/asset/renameAsset') return { newPath: 'assets/new.png' };
             if (endpoint === '/api/asset/deleteAsset') return { removed: true };
+            if (endpoint === '/api/template/docSaveAsTemplate') return null;
 
             if (endpoint === '/api/system/getWorkspaceInfo') return { workspace: '/workspace' };
             if (endpoint === '/api/system/getNetwork') return { proxy: '' };
             if (endpoint === '/api/system/getConf') return { conf: { appearance: { mode: 0 } } };
+            if (endpoint === '/api/sync/performSync') return { synced: true };
             if (endpoint === '/api/system/version') return '3.3.0';
             if (endpoint === '/api/system/currentTime') return 1710000000000;
             if (endpoint === '/api/notification/pushMsg') return { id: 'msg-1' };
@@ -122,12 +142,16 @@ function createContractClient() {
     });
 }
 
-function expectEndpointCalled(client: ReturnType<typeof createContractClient>, endpoint: string) {
+function expectEndpointCalled(client: ReturnType<typeof createContractClient>, endpoint: string, fetchMock: ReturnType<typeof vi.fn>) {
     const requestCalls = client.request.mock.calls;
     const formCalls = client.requestFormData.mock.calls;
+    const writeFileCalls = client.writeFile.mock.calls;
+    const fetchCalls = fetchMock.mock.calls;
     expect(
         requestCalls.some(([actual]) => actual === endpoint)
-        || formCalls.some(([actual]) => actual === endpoint),
+        || formCalls.some(([actual]) => actual === endpoint)
+        || (endpoint === '/api/file/putFile' && writeFileCalls.length > 0)
+        || fetchCalls.some(([actual]) => typeof actual === 'string' && actual.endsWith(endpoint)),
     ).toBe(true);
 }
 
@@ -145,10 +169,14 @@ async function runContracts(
         const permMgr = createPermMgr();
         const config = (buildDefaultToolConfig() as any)[toolName];
         config.actions[contract.action] = true;
+        const fetchMock = vi.fn(async () => new Response('template markdown', { status: 200 }));
+        global.fetch = fetchMock as never;
         const result = await caller(client, contract.args, config, permMgr);
         const parsed = parseResult(result);
         expect(parsed && typeof parsed === 'object' && 'error' in parsed ? parsed.error : undefined, `${toolName}.${contract.action}`).toBeUndefined();
-        expectEndpointCalled(client, contract.expectedEndpoint);
+        if (contract.expectedEndpoint) {
+            expectEndpointCalled(client, contract.expectedEndpoint, fetchMock);
+        }
     }
 }
 
@@ -157,9 +185,9 @@ describe('tool action contract coverage', () => {
         await runContracts('fs', FS_VARIANTS, callFsTool as ToolCaller, [
             { action: 'ls', args: { action: 'ls', path: '/Notebook/Doc 1' }, expectedEndpoint: '/api/filetree/listDocsByPath' },
             { action: 'tree', args: { action: 'tree', path: '/Notebook' }, expectedEndpoint: '/api/filetree/listDocTree' },
-            { action: 'read', args: { action: 'read', path: '/Notebook/Doc 1' }, expectedEndpoint: '/api/export/exportMdContent' },
+            { action: 'read', args: { action: 'read', path: '/Notebook/Doc 1' }, expectedEndpoint: '/api/block/getBlockKramdown' },
             { action: 'write', args: { action: 'write', path: '/Notebook/New Doc', markdown: 'hello' }, expectedEndpoint: '/api/filetree/createDocWithMd' },
-            { action: 'replace', args: { action: 'replace', path: '/Notebook/Doc 1', edit: { old: 'markdown', new: 'updated' } }, expectedEndpoint: '/api/export/exportMdContent' },
+            { action: 'replace', args: { action: 'replace', path: '/Notebook/Doc 1', edit: { old: 'content', new: 'updated' } }, expectedEndpoint: '/api/block/getBlockKramdown' },
             { action: 'rm', args: { action: 'rm', path: '/Notebook/Doc 1' }, expectedEndpoint: '/api/filetree/removeDocByID' },
             { action: 'mv', args: { action: 'mv', from: '/Notebook/Doc 1', to: '/Notebook/Renamed' }, expectedEndpoint: '/api/filetree/moveDocsByID' },
             { action: 'search', args: { action: 'search', path: '/Notebook/Doc 1', query: 'markdown' }, expectedEndpoint: '/api/export/exportMdContent' },
@@ -243,6 +271,12 @@ describe('tool action contract coverage', () => {
     it('covers every file action with a minimal endpoint contract', async () => {
         await runContracts('file', FILE_VARIANTS, callFileTool as ToolCaller, [
             { action: 'upload_asset', args: { action: 'upload_asset', assetsDirPath: '/assets/', localFilePath: 'package.json' }, expectedEndpoint: '/api/asset/upload' },
+            { action: 'list_templates', args: { action: 'list_templates', query: 'demo' }, expectedEndpoint: '/api/search/searchTemplate' },
+            { action: 'read_template', args: { action: 'read_template', path: 'demo.md' }, expectedEndpoint: '/templates/demo.md' },
+            { action: 'create_template', args: { action: 'create_template', path: 'new-template.md', markdown: 'template', overwrite: true }, expectedEndpoint: '/api/file/putFile' },
+            { action: 'update_template', args: { action: 'update_template', path: 'demo.md', markdown: 'template' }, expectedEndpoint: '/api/file/putFile' },
+            { action: 'delete_template', args: { action: 'delete_template', path: 'demo.md' }, expectedEndpoint: '/api/search/removeTemplate' },
+            { action: 'save_doc_as_template', args: { action: 'save_doc_as_template', id: 'doc-1', name: 'demo', overwrite: true }, expectedEndpoint: '/api/template/docSaveAsTemplate' },
             { action: 'render', args: { action: 'render', engine: 'template', id: 'doc-1', path: '/templates/demo.action' }, expectedEndpoint: '/api/template/render' },
             { action: 'export_md', args: { action: 'export_md', id: 'doc-1' }, expectedEndpoint: '/api/export/exportMdContent' },
             { action: 'export_resources', args: { action: 'export_resources', paths: ['assets/demo.png'] }, expectedEndpoint: '/api/export/exportResources' },
@@ -252,7 +286,7 @@ describe('tool action contract coverage', () => {
             { action: 'remove_unused_assets', args: { action: 'remove_unused_assets' }, expectedEndpoint: '/api/asset/removeUnusedAssets' },
             { action: 'rename_asset', args: { action: 'rename_asset', oldPath: 'assets/old.png', newName: 'new.png' }, expectedEndpoint: '/api/asset/renameAsset' },
             { action: 'delete_asset', args: { action: 'delete_asset', path: 'assets/old.png' }, expectedEndpoint: '/api/asset/deleteAsset' },
-            { action: 'extract_doc', args: { action: 'extract_doc', id: 'doc-1' }, expectedEndpoint: '/api/export/exportMdContent' },
+            { action: 'extract_doc', args: { action: 'extract_doc', id: 'doc-1', outputDir: '/tmp/siyuan-contract-extract' }, expectedEndpoint: '/api/export/exportMdContent' },
         ]);
     });
 
@@ -262,6 +296,8 @@ describe('tool action contract coverage', () => {
             { action: 'network', args: { action: 'network' }, expectedEndpoint: '/api/system/getNetwork' },
             { action: 'conf', args: { action: 'conf' }, expectedEndpoint: '/api/system/getConf' },
             { action: 'notify', args: { action: 'notify', msg: 'hello', level: 'info' }, expectedEndpoint: '/api/notification/pushMsg' },
+            { action: 'changelog', args: { action: 'changelog', fromVersion: '0.4.8' } },
+            { action: 'perform_sync', args: { action: 'perform_sync' }, expectedEndpoint: '/api/sync/performSync' },
             { action: 'get_version', args: { action: 'get_version' }, expectedEndpoint: '/api/system/version' },
             { action: 'get_current_time', args: { action: 'get_current_time' }, expectedEndpoint: '/api/system/currentTime' },
         ]);

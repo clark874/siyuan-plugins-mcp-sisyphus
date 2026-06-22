@@ -20,6 +20,42 @@ type PathModule = typeof import("path");
 const MAX_LOG_LINES = 200;
 const STALE_PROCESS_TERM_TIMEOUT_MS = 1500;
 const STALE_PROCESS_KILL_TIMEOUT_MS = 1500;
+const GLOBAL_LOG_BUFFER: string[] = [];
+const GLOBAL_LOG_LISTENERS = new Set<(lines: string[]) => void>();
+
+function formatLauncherLogLine(message: string): string {
+    const timestamp = new Date().toISOString();
+    return `[${timestamp}] ${message}`;
+}
+
+function pushGlobalLogLines(lines: string[]): void {
+    if (lines.length === 0) return;
+    GLOBAL_LOG_BUFFER.push(...lines);
+    if (GLOBAL_LOG_BUFFER.length > MAX_LOG_LINES) {
+        GLOBAL_LOG_BUFFER.splice(0, GLOBAL_LOG_BUFFER.length - MAX_LOG_LINES);
+    }
+    const snapshot = [...GLOBAL_LOG_BUFFER];
+    for (const fn of GLOBAL_LOG_LISTENERS) {
+        try { fn(snapshot); } catch (err) { console.error("[MCP] launcher global log listener error:", err); }
+    }
+}
+
+function normalizeLogLines(text: string): string[] {
+    return text.split(/\r?\n/).filter((l) => l.length > 0);
+}
+
+export function appendHttpLifecycleLog(message: string): void {
+    pushGlobalLogLines([formatLauncherLogLine(message)]);
+}
+
+export function getHttpLifecycleLogs(): string[] {
+    return [...GLOBAL_LOG_BUFFER];
+}
+
+export function onHttpLifecycleLogsChange(fn: (lines: string[]) => void): () => void {
+    GLOBAL_LOG_LISTENERS.add(fn);
+    return () => GLOBAL_LOG_LISTENERS.delete(fn);
+}
 
 // In SiYuan's CJS plugin bundle, the Node.js `require` is available as a
 // global. Try it directly before falling back to window.require.
@@ -157,7 +193,7 @@ export class HttpServerLauncher {
     }
 
     getRecentLogs(): string[] {
-        return [...this.logBuffer];
+        return getHttpLifecycleLogs();
     }
 
     onStatusChange(fn: (s: HttpServerStatus) => void): () => void {
@@ -172,15 +208,18 @@ export class HttpServerLauncher {
 
     async start(opts: HttpServerLaunchOptions): Promise<void> {
         if (!this.childProcess) {
+            this.appendLifecycleLog("start rejected: child_process module unavailable");
             throw new Error("child_process module unavailable");
         }
         if (this.child?.pid && this.isProcessAlive(this.child.pid)) {
+            this.appendLifecycleLog(`start skipped: already running pid=${this.child.pid} ${this.status.host}:${this.status.port}`);
             return; // already running
         }
         this.child = null;
 
         this.logBuffer = [];
         this.emitLogs();
+        this.appendLifecycleLog(`start requested: ${opts.host}:${opts.port} script=${this.serverScriptPath}`);
 
         await this.cleanupStaleHttpProcesses(opts.port);
 
@@ -210,6 +249,7 @@ export class HttpServerLauncher {
             });
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
+            this.appendLifecycleLog(`spawn failed: ${msg}`);
             this.status = { running: false, host: opts.host, port: opts.port, lastError: msg };
             this.emit();
             throw err;
@@ -224,6 +264,7 @@ export class HttpServerLauncher {
             startedAt: Date.now(),
             lastError: undefined,
         };
+        this.appendLifecycleLog(`started: pid=${child.pid ?? "unknown"} ${opts.host}:${opts.port}`);
         this.emit();
 
         child.stdout?.on("data", (chunk: Buffer) => this.appendLog(chunk.toString("utf8")));
@@ -234,6 +275,7 @@ export class HttpServerLauncher {
             this.appendLog(`[launcher] spawn error: ${msg}\n`);
             this.status = { ...this.status, running: false, lastError: msg };
             this.child = null;
+            this.appendLifecycleLog(`spawn error: ${msg}`);
             this.emit();
         });
 
@@ -255,6 +297,7 @@ export class HttpServerLauncher {
 
             this.status = { ...this.status, running: false, lastError: detail };
             this.child = null;
+            this.appendLifecycleLog(`closed: code=${code ?? "null"} signal=${signal ?? "null"} lifetime=${Number.isFinite(lifetime) ? `${lifetime}ms` : "unknown"}${detail ? ` detail=${detail}` : ""}`);
             this.emit();
         });
 
@@ -265,16 +308,22 @@ export class HttpServerLauncher {
         const cp = this.child as unknown as { exitCode: number | null; signalCode: string | null } | null;
         if (!cp || cp.exitCode !== null || cp.signalCode !== null) {
             const reason = this.status.lastError || "HTTP server process exited immediately after spawn";
+            this.appendLifecycleLog(`start failed after spawn: ${reason}`);
             throw new Error(reason);
         }
     }
 
     async stop(): Promise<void> {
         const c = this.child;
-        if (!c) return;
+        if (!c) {
+            this.appendLifecycleLog("stop skipped: no child process");
+            return;
+        }
+        this.appendLifecycleLog(`stop requested: pid=${c.pid ?? "unknown"}`);
         await new Promise<void>((resolve) => {
             const done = () => {
                 clearTimeout(forceTimer);
+                this.appendLifecycleLog(`stop completed: pid=${c.pid ?? "unknown"}`);
                 resolve();
             };
             c.once("exit", done);
@@ -286,7 +335,10 @@ export class HttpServerLauncher {
             }
             const forceTimer = setTimeout(() => {
                 try {
-                    if (!c.killed) c.kill("SIGKILL");
+                    if (!c.killed) {
+                        this.appendLifecycleLog(`stop timeout: force killing pid=${c.pid ?? "unknown"}`);
+                        c.kill("SIGKILL");
+                    }
                 } catch { /* noop */ }
             }, 3000);
         });
@@ -426,13 +478,18 @@ export class HttpServerLauncher {
     }
 
     private appendLog(text: string): void {
-        const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
+        const lines = normalizeLogLines(text);
         if (lines.length === 0) return;
         this.logBuffer.push(...lines);
         if (this.logBuffer.length > MAX_LOG_LINES) {
             this.logBuffer = this.logBuffer.slice(-MAX_LOG_LINES);
         }
+        pushGlobalLogLines(lines);
         this.emitLogs();
+    }
+
+    private appendLifecycleLog(message: string): void {
+        this.appendLog(formatLauncherLogLine(`[launcher] ${message}`));
     }
 
     private emit(): void {
@@ -443,7 +500,7 @@ export class HttpServerLauncher {
     }
 
     private emitLogs(): void {
-        const snapshot = [...this.logBuffer];
+        const snapshot = getHttpLifecycleLogs();
         for (const fn of this.logListeners) {
             try { fn(snapshot); } catch (err) { console.error("[MCP] launcher log listener error:", err); }
         }

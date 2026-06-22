@@ -22,6 +22,57 @@ describe('document tool extended actions', () => {
     });
 });
 
+describe('document.get_doc markdown', () => {
+    it('returns editable kramdown with SiYuan double-link markdown', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/block/getDocInfo') {
+                    return { id: body?.id, rootID: 'doc-1', box: 'nb-1', path: '/doc-1.sy' };
+                }
+                if (endpoint === '/api/notebook/lsNotebooks') {
+                    return { notebooks: [{ id: 'nb-1', name: 'Notebook', closed: false }] };
+                }
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body?.stmt ?? '');
+                    if (stmt.includes("WHERE id = 'doc-1'")) {
+                        return [{ id: 'doc-1', root_id: 'doc-1', box: 'nb-1', path: '/doc-1.sy', hpath: '/Doc 1', content: 'Doc 1', type: 'd' }];
+                    }
+                    return [];
+                }
+                if (endpoint === '/api/block/getChildBlocks') {
+                    if (body?.id === 'doc-1') return [{ id: 'block-1', type: 'p' }];
+                    return [];
+                }
+                if (endpoint === '/api/block/getBlockKramdown') {
+                    return {
+                        id: 'block-1',
+                        kramdown: 'See <span data-type="block-ref" data-subtype="s" data-id="20240601010101-abcdefg">目标文档</span>\n{: id="block-1"}',
+                    };
+                }
+                if (endpoint === '/api/filetree/getHPathByID') return '/Doc 1';
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canRead: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+
+        const result = await callDocumentTool(
+            client,
+            { action: 'get_doc', id: 'doc-1' },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+        const parsed = parseResult(result);
+
+        expect(parsed.content).toBe("See ((20240601010101-abcdefg '目标文档'))");
+        expect(parsed.hPath).toBe('/Doc 1');
+        expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
+    });
+});
+
 describe('document.move schema', () => {
     it('declares the same move shapes accepted by runtime validation', () => {
         const move = DOCUMENT_VARIANTS.find((variant) => variant.action === 'move');
@@ -100,6 +151,224 @@ describe('document.move schema', () => {
 });
 
 describe('document.lookup path compatibility', () => {
+    it('strips duplicate leading title heading when creating a document', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string) => {
+                if (endpoint === '/api/filetree/createDocWithMd') return 'doc-1';
+                if (endpoint.startsWith('/api/ui/')) return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+
+        const result = await callDocumentTool(
+            client,
+            { action: 'create', notebook: 'nb-1', path: '/Inbox/New Child', markdown: '# New Child\n\nBody' },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+
+        expect(parseResult(result)).toMatchObject({ success: true, id: 'doc-1' });
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/createDocWithMd', {
+            notebook: 'nb-1',
+            path: '/Inbox/New Child',
+            markdown: 'Body',
+        });
+    });
+
+    it('keeps a leading h1 when it does not match the document title', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string) => {
+                if (endpoint === '/api/filetree/createDocWithMd') return 'doc-1';
+                if (endpoint.startsWith('/api/ui/')) return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+
+        await callDocumentTool(
+            client,
+            { action: 'create', notebook: 'nb-1', path: '/Inbox/New Child', markdown: '# Different Heading\n\nBody' },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/createDocWithMd', {
+            notebook: 'nb-1',
+            path: '/Inbox/New Child',
+            markdown: '# Different Heading\n\nBody',
+        });
+    });
+
+    it('expands naked block references when creating a document', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/block/getBlockKramdown' && body?.id === '20260508123456-abcdefg') {
+                    return { id: body.id, kramdown: '完整标题\n{: id="20260508123456-abcdefg"}' };
+                }
+                if (endpoint === '/api/filetree/createDocWithMd') return 'doc-1';
+                if (endpoint.startsWith('/api/ui/')) return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+
+        await callDocumentTool(
+            client,
+            { action: 'create', notebook: 'nb-1', path: '/Inbox/New Child', markdown: 'See ((20260508123456-abcdefg))' },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/createDocWithMd', {
+            notebook: 'nb-1',
+            path: '/Inbox/New Child',
+            markdown: "See ((20260508123456-abcdefg '完整标题'))",
+        });
+    });
+
+    it('falls back to the id as anchor when a naked block reference cannot be resolved during document creation', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string) => {
+                if (endpoint === '/api/block/getBlockKramdown') throw new Error('missing block');
+                if (endpoint === '/api/block/getBlockInfo') throw new Error('missing block');
+                if (endpoint === '/api/filetree/createDocWithMd') return 'doc-1';
+                if (endpoint.startsWith('/api/ui/')) return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+
+        const result = await callDocumentTool(
+            client,
+            { action: 'create', notebook: 'nb-1', path: '/Inbox/New Child', markdown: 'See ((20250321001215-j3k2u2v))' },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.warning).toBe('Some naked block references used the block ID as fallback anchor text.');
+        expect(parsed.hint).toContain('fallback anchor text');
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/createDocWithMd', {
+            notebook: 'nb-1',
+            path: '/Inbox/New Child',
+            markdown: "See ((20250321001215-j3k2u2v '20250321001215-j3k2u2v'))",
+        });
+    });
+
+    it('allows siyuan block links when creating a document with a hint', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string) => {
+                if (endpoint === '/api/filetree/createDocWithMd') return 'doc-1';
+                if (endpoint.startsWith('/api/ui/')) return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+
+        const result = await callDocumentTool(
+            client,
+            { action: 'create', notebook: 'nb-1', path: '/Inbox/New Child', markdown: '[目标](siyuan://blocks/20260508123456-abcdefg)' },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.warning).toBe('siyuan://blocks Markdown links create mentions, not backlinks.');
+        expect(parsed.hint).toContain('mentions, not backlinks');
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/createDocWithMd', {
+            notebook: 'nb-1',
+            path: '/Inbox/New Child',
+            markdown: '[目标](siyuan://blocks/20260508123456-abcdefg)',
+        });
+    });
+
+    it('allows footnote-style references when creating a document with a hint', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string) => {
+                if (endpoint === '/api/filetree/createDocWithMd') return 'doc-1';
+                if (endpoint.startsWith('/api/ui/')) return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+
+        const result = await callDocumentTool(
+            client,
+            { action: 'create', notebook: 'nb-1', path: '/Inbox/New Child', markdown: '正文[^1]\n\n[^1]: 角注内容' },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.warning).toBe('Footnote-style references create footnotes or note markers, not backlinks.');
+        expect(parsed.hint).toContain('not SiYuan backlinks');
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/createDocWithMd', {
+            notebook: 'nb-1',
+            path: '/Inbox/New Child',
+            markdown: '正文[^1]\n\n[^1]: 角注内容',
+        });
+    });
+
+    it('allows footnote-looking text inside code blocks when creating a document', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string) => {
+                if (endpoint === '/api/filetree/createDocWithMd') return 'doc-1';
+                if (endpoint.startsWith('/api/ui/')) return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+        const markdown = '```\\n[^1] 教程：这是脚注语法示例\\n```';
+
+        const result = await callDocumentTool(
+            client,
+            { action: 'create', notebook: 'nb-1', path: '/Inbox/New Child', markdown },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.warning).toBe('Footnote-style references create footnotes or note markers, not backlinks.');
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/createDocWithMd', {
+            notebook: 'nb-1',
+            path: '/Inbox/New Child',
+            markdown,
+        });
+    });
+
     it('adds notebookName when resolving a document by hpath', async () => {
         const client = createMockClient({
             request: vi.fn(async (endpoint: string) => {
@@ -132,8 +401,67 @@ describe('document.lookup path compatibility', () => {
                 hPath: '/Projects/Plan',
             },
             idPath: {
+                id: 'doc-1',
+                ids: ['doc-1'],
                 notebook: 'nb-1',
                 path: '/doc-1.sy',
+            },
+        });
+    });
+
+    it('falls back to SQL when getIDsByHPath misses duplicate hpath documents', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/notebook/lsNotebooks') {
+                    return { notebooks: [{ id: 'nb-1', name: 'Project Notes', icon: '', sort: 0, closed: false }] };
+                }
+                if (endpoint === '/api/filetree/getIDsByHPath') return [];
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body?.stmt ?? '');
+                    if (stmt.includes("hpath = '/Projects/Plan'")) {
+                        return [{ id: 'doc-2' }, { id: 'doc-1' }];
+                    }
+                    if (stmt.includes("id = 'doc-2'")) {
+                        return [{
+                            id: 'doc-2',
+                            root_id: 'doc-2',
+                            box: 'nb-1',
+                            path: '/doc-2.sy',
+                            hpath: '/Projects/Plan',
+                            content: 'Plan',
+                            type: 'd',
+                        }];
+                    }
+                    throw new Error(`Unexpected SQL: ${stmt}`);
+                }
+                if (endpoint === '/api/filetree/getPathByID') return { notebook: 'nb-1', path: '/doc-2.sy' };
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canRead: vi.fn(() => true),
+            get: vi.fn(() => 'rwd'),
+        };
+
+        const result = await callDocumentTool(
+            client,
+            { action: 'lookup', notebook: 'nb-1', hpath: '/Projects/Plan', include: ['ids', 'path', 'hpath'] },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+        const payload = parseResult(result) as Record<string, unknown>;
+
+        expect(result.isError).toBeUndefined();
+        expect(payload).toEqual({
+            humanPath: {
+                notebookName: 'Project Notes',
+                hPath: '/Projects/Plan',
+            },
+            idPath: {
+                ids: ['doc-2', 'doc-1'],
+                notebook: 'nb-1',
+                path: '/doc-2.sy',
             },
         });
     });
@@ -170,6 +498,8 @@ describe('document.lookup path compatibility', () => {
                 hPath: '/AI Interface Root 20260427_144409',
             },
             idPath: {
+                id: 'doc-1',
+                ids: ['doc-1'],
                 notebook: 'nb-1',
                 path: '/doc-1.sy',
             },

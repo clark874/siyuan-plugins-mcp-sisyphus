@@ -39,6 +39,7 @@
 - `file.delete_asset`
 - `search.find_replace`
 - `system.workspace_info`
+- `system.perform_sync`
 - `tag.remove`
 - `flashcard.remove_card`
 

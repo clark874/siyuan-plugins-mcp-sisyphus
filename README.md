@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **Latest:** `v0.4.11` — Adds sponsor acknowledgements to thank recent supporters. Document Timeline can still be disabled cleanly from settings.
+> **Latest:** `v0.4.12` — Strengthens AI-safe filesystem-style editing, system changelog/sync actions, and release smoke coverage. CLI is now `v0.1.15`.
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">
@@ -106,7 +106,7 @@ If you find this project helpful, please consider supporting it! Your support is
 
 ### Sponsor Thanks
 
-Thanks to **undefined**, **Fngd Z**, and all other kind supporters for sponsoring this project.
+Thanks to **undefined**, **Fngd Z**, **ou** and all other kind supporters for sponsoring this project.
 
 <p align="left">
   <img src="docs/archive/thank.jpeg" alt="Support QR code" width="280">

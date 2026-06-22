@@ -212,7 +212,7 @@ siyuan-sisyphus init
 siyuan notebook list
 
 # 创建文档
-siyuan document create --notebook <id> --path "/Inbox/Note" --markdown "# Hello"
+siyuan document create --notebook <id> --path "/Inbox/Note" --markdown "正文内容"
 
 # 全文搜索
 siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
@@ -249,7 +249,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `document` | 文档创建、移动、删除、查找、树结构、日记、元数据 |
 | `block` | 块级读写、属性、折叠、移动、引用、字数统计 |
 | `av` | 属性视图（数据库）的读写、行列操作、单元格更新、搜索 |
-| `file` | 资源上传、导出、模板渲染、未引用资源清理、OCR |
+| `file` | 资源上传、导出、模板发现/读取/渲染、未引用资源清理、OCR |
 | `search` | 全文搜索、SQL 查询、反链、引用搜索、资源搜索、查找替换 |
 | `tag` | 标签的列出、重命名、删除 |
 | `system` | 版本、时间、通知、配置摘要、网络与工作区状态 |
@@ -350,6 +350,12 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | Action | 说明 |
 |--------|------|
 | `upload_asset` | 上传本地资源文件（需确认；超过 10MB 需额外确认） |
+| `list_templates` | 搜索或列出 `data/templates` 下的模板 |
+| `read_template` | 读取模板 Markdown 源码 |
+| `create_template` | 从 Markdown 创建模板 |
+| `update_template` | 替换已有模板源码 |
+| `delete_template` | 删除已有模板（默认关闭，需确认） |
+| `save_doc_as_template` | 将已有文档另存为根模板 |
 | `render` | 渲染思源模板文件或内联 Sprig 模板 |
 | `export_md` | 导出文档为 Markdown |
 | `export_resources` | 导出资源为 ZIP（写本地需确认） |

@@ -3,6 +3,7 @@ import {
     ACTION_RESOURCE_TEMPLATE_URI,
     ACTIONS_BY_CATEGORY,
     AI_LAYOUT_GUIDE_RESOURCE_URI,
+    CHANGELOG_RESOURCE_URI,
     DOCUMENT_PATH_RESOURCE_URI,
     EXAMPLES_RESOURCE_URI,
     TOOL_ACTION_HINTS,
@@ -12,6 +13,7 @@ import {
     isKnownAction,
     isKnownToolCategory,
 } from './help';
+import { renderChangelogResource } from './changelog';
 import {
     AV_VARIANTS,
     BLOCK_VARIANTS,
@@ -106,9 +108,11 @@ function renderToolOverview(): string {
         '- Mascot earnings: every successful MCP tool call earns 1 coin. To earn balance quickly, keep using SiYuan MCP tools, then check `mascot(action="get_balance")` or spend with `mascot(action="buy")`.',
         '- Feedback: use `feedback(action="submit")` to send plain-text product feedback to the plugin developer. Avoid secrets and private note content.',
         '- AI layout guide: use the layout guide when you need to decide whether content should become headings, callouts, tables, super blocks, visual code blocks, embeds, media blocks, or database blocks.',
+        '- Upgrade review: read the changelog after plugin upgrades, then compare personalization-impact hints with active user rules and `/AGENTS.md` before changing persistent preferences.',
         '',
         `- AI layout guide: \`${AI_LAYOUT_GUIDE_RESOURCE_URI}\``,
         `- Active user custom rules: \`${USER_RULES_RESOURCE_URI}\``,
+        `- Plugin changelog: \`${CHANGELOG_RESOURCE_URI}\``,
         `- Path semantics: \`${DOCUMENT_PATH_RESOURCE_URI}\``,
         `- Common examples: \`${EXAMPLES_RESOURCE_URI}\``,
         `- Per-action help template: \`${ACTION_RESOURCE_TEMPLATE_URI}\``,
@@ -478,6 +482,14 @@ function buildStaticHelpResources(): HelpResourceDefinition[] {
             description: 'Explains how SiYuan layout features map to native blocks, Kramdown, attributes, renderer code blocks, media blocks, embeds, and databases.',
             mimeType: MIME_TYPE,
             text: renderAiLayoutGuide(),
+        },
+        {
+            uri: CHANGELOG_RESOURCE_URI,
+            name: 'changelog',
+            title: 'SiYuan MCP Sisyphus Changelog',
+            description: 'Bundled plugin changelog plus an AI upgrade-review workflow for personalization-impact checks.',
+            mimeType: MIME_TYPE,
+            text: renderChangelogResource(),
         },
     ];
 }

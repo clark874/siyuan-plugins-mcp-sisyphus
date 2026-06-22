@@ -399,7 +399,7 @@
   "action": "create",
   "notebook": "$TEST_NB_ID",
   "path": "/mcp-test-doc-main",
-  "markdown": "# MCP 测试主文档\n\n这是由 MCP 测试流程创建的文档。\n\n## 第一节\n\n测试内容段落。\n\n## 第二节\n\n另一个段落，包含 **加粗** 和 *斜体* 文本。\n\n#mcp-test-tag#"
+  "markdown": "这是由 MCP 测试流程创建的文档。\n\n## 第一节\n\n测试内容段落。\n\n## 第二节\n\n另一个段落，包含 **加粗** 和 *斜体* 文本。\n\n#mcp-test-tag#"
 }
 ```
 
@@ -417,7 +417,7 @@
   "action": "create",
   "notebook": "$TEST_NB_ID",
   "path": "/mcp-test-doc-main/mcp-test-sub-doc",
-  "markdown": "# 子文档\n\n这是主文档的子文档。"
+  "markdown": "这是主文档的子文档。"
 }
 ```
 

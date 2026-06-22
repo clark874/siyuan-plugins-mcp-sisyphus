@@ -1,4 +1,5 @@
 import { AGENT_MEMORY_STALE_AFTER_DAYS, USER_RULES_VIRTUAL_PATH, formatDangerousActionsList } from './config';
+import { CHANGELOG_RESOURCE_URI } from './changelog';
 
 function formatUserRules(userRulesText = ''): string {
     const normalizedUserRules = typeof userRulesText === 'string' ? userRulesText.trim() : '';
@@ -157,8 +158,9 @@ ${agentMemorySection}
 ## Help and progressive disclosure
 
 Each tool exposes common actions in its description. For detailed help on any action (including advanced ones):
-- Read MCP resources: siyuan://help/action/{tool}/{action}, siyuan://help/tool-overview, siyuan://help/document-path-semantics, siyuan://help/examples, siyuan://help/ai-layout-guide
+- Read MCP resources: siyuan://help/action/{tool}/{action}, siyuan://help/tool-overview, siyuan://help/document-path-semantics, siyuan://help/examples, siyuan://help/ai-layout-guide, ${CHANGELOG_RESOURCE_URI}
 - Read \`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")\` or siyuan://help/user-rules when user-specific preferences may affect tool choice, naming, formatting, icon behavior, or content style.
+- After plugin upgrades, call \`system(action="changelog", fromVersion="<previousVersion>")\` or read \`${CHANGELOG_RESOURCE_URI}\`. If \`personalizationReview.shouldReview\` is true, tell the user which settings, rules, memory, permissions, appearance, timeline, or connection snippets may need review before changing persistent preferences.
 - If your client cannot read siyuan:// resources, call any tool with action=”help” to get the same guidance (actions, required fields, hints, and examples).
 
 ## Path semantics (critical — the most common error source)
@@ -173,6 +175,8 @@ For basic path-style notebook and document operations, use \`fs\` whenever the t
 - Delete, move, or rename by path: \`fs(action="rm", path="/Notebook/Folder/Doc")\`, \`fs(action="mv", from="/Notebook/Old", to="/Notebook/New")\` after explicit confirmation.
 
 \`fs\` paths are human-readable workspace paths and \`fs\` hides notebook IDs, block IDs, and storage paths. Prefer \`fs\` for basic browse/read/write/edit/search/move/delete workflows. Use the lower-level \`document\`, \`block\`, \`search\`, and \`av\` tools only when you need SiYuan-specific block layout, metadata, SQL, backlinks, assets, database operations, or direct block IDs.
+
+\`fs\` is a Markdown-oriented convenience layer. It converts document content through Markdown and Kramdown for reading and writing, so it is not a full-fidelity editor for complex SiYuan-native structures. Use it for ordinary prose, headings, lists, simple tables, exact paragraph/heading text replacement, and path-based file workflows. Prefer lower-level tools when the task involves precise block tree structure, block attributes, embeds, media, query embeds, database rows and cells, flashcard deck bindings, or other native structures that are not naturally represented as Markdown.
 
 There are exactly two path types. Do not mix them.
 
@@ -215,6 +219,31 @@ Additional rules:
 - There is no direct create action for tags.
 - To create a real SiYuan tag in block markdown, use #tag# with both leading and trailing # characters. Hierarchical: #project/phase#.
 - Example: block(action=”update”, dataType=”markdown”, data=”#holiday# #home#”)
+- To add tags, write #tag# through fs.write, fs.replace, document.create, block.append/insert/prepend/update, or block.replace.
+- To rename tags globally, use tag(action=”rename”, oldLabel=..., newLabel=...).
+- To delete a tag globally, use tag(action=”remove”, label=...) only after explicit user confirmation.
+- To modify one occurrence, use fs.replace or block.replace on the exact markdown text, replacing #old# with #new# or with plain text. Verify with tag(action=”list”, query=...) because tag indexing can lag briefly.
+
+## Double-link / block reference semantics
+
+- To create a real SiYuan block reference in markdown, use ((block-id 'anchor text')) or ((block-id "anchor text")) with a real target block ID and readable anchor text.
+- Naked ((id)) references are allowed and normalized before writing. If anchor lookup fails, MCP falls back to ((id 'id')) with a warning; pass ((id 'anchor text')) when readable anchor text matters. Footnotes like [^1] and [text](siyuan://blocks/id) are allowed, but they do not create SiYuan backlinks; successful writes include hints for those cases.
+- To read references, use fs.read/document.get_doc for markdown content, block(action=”get_kramdown”) for exact block content, search(action=”get_backlinks”|"search_refs") for inbound references, and search(action=”list_invalid_refs”) to audit broken references.
+- To add references, write the ((id 'anchor text')) token through document.create, fs.write, fs.replace, block.append/insert/prepend/update, or block.replace.
+- To update a reference anchor or target inside existing text, prefer fs.replace or block.replace using an exact snippet copied from fs.read or block.get_kramdown.
+- To delete a reference occurrence, replace the full ((id 'anchor text')) token with plain text or an empty string through fs.replace/block.replace. Deleting the target block itself is a separate high-risk block/document delete operation.
+
+## Attribute view / database semantics
+
+- Real SiYuan databases are attribute views (AVs) stored as database blocks with type av / NodeAttributeView placeholders. A Markdown table is not a real database.
+- fs.read and block.get_kramdown can show an AV block as an HTML placeholder. That placeholder is only the database block container, not the database rows, columns, filters, or cells.
+- If a tool result includes attributeViews, databaseBlock, or avToolHint, switch to the av tool for internal database reads and writes.
+- To create/materialize a database, use av(action=”render”, blockID=..., createIfNotExist=true). MCP can generate the AV ID when omitted.
+- To read database internals, use av(action=”get”, id=...) for the full payload or av(action=”render”, id=..., blockID=...) when a specific rendered block view is needed. In the av tool, get/render use id for the attribute view ID, while write actions such as add_rows, set_cells, remove_rows, add_column, and remove_column use avID.
+- To add rows, use av(action=”add_rows”, avID=..., blockIDs=[...]) for bound rows or primaryKeyTexts=[...] for detached rows, then use av(action=”set_cells”) for non-primary-key values.
+- To update cells, use av(action=”set_cells”, avID=..., cells=[{rowID, columnID, valueType, ...}]). rowID is the AV row item ID stored in value.blockID or returned by add_rows, not the cell value id and not necessarily the bound source block id.
+- To delete rows or columns, use av(action=”remove_rows”, avID=..., srcIDs=[...]) or av(action=”remove_column”, avID=..., keyID=...). To delete the entire visible database block container, use block.delete only after explicit confirmation.
+- Do not use fs.write overwrite, block.update, or block.replace to edit AV rows/cells. Those operations can replace or delete the database block container but cannot safely edit the database internals.
 
 ## Flashcard semantics
 
@@ -223,6 +252,10 @@ Additional rules:
 - Common pattern: h2 heading as the question, following blocks as the answer.
 - Cloze: \`==answer==\` is treated as a cloze answer in flashcard review.
 - For scheduled review and deck operations, prefer the dedicated \`flashcard\` tool.
+- To read decks, use flashcard(action=”get_decks”). To list due cards, use flashcard(action=”list_cards”, scope=”all”|"deck"|"notebook"|"tree", filter=”due”|"new"|"old"). To audit all cards in a deck, use flashcard(action=”get_cards”, deckID=..., page=..., pageSize=...).
+- To add cards, create or locate the intended content block IDs first, then call flashcard(action=”create_card”, deckID=..., blockIDs=[...]). Document block IDs are rejected; pass content blocks such as headings or paragraphs.
+- To review cards, call flashcard(action=”review_card”, deckID=..., cardID=..., rating=1..4) or skip=true. Use a concrete deckID from get_cards/list_cards; an empty deckID is not valid for review.
+- To remove cards from a deck, use flashcard(action=”remove_card”, deckID=..., blockIDs=[...]) only after explicit user confirmation. Removing a flashcard binding is separate from deleting the underlying note blocks.
 
 ## SiYuan layout model (summary)
 

@@ -1,13 +1,16 @@
 import type { SiYuanClient } from '../../api/client';
 import * as notificationApi from '../../api/notification';
 import * as systemApi from '../../api/system';
+import { buildChangelogResponse } from '../../core/changelog';
 import type { SystemAction } from '../../core/config';
 import {
+    SystemChangelogSchema,
     SystemConfSchema,
     SystemGetCurrentTimeSchema,
     SystemGetVersionSchema,
     SystemNetworkSchema,
     SystemNotifySchema,
+    SystemPerformSyncSchema,
     SystemWorkspaceInfoSchema,
 } from '../../core/types';
 import type { ToolActionHandler } from '../internal/define-tool';
@@ -178,6 +181,19 @@ const handleNotify: ToolActionHandler = async ({ client, rawArgs }) => {
     return createJsonResult({ level: parsed.level, ...result });
 };
 
+const handleChangelog: ToolActionHandler = async ({ rawArgs }) => {
+    const parsed = SystemChangelogSchema.parse(rawArgs);
+    return createJsonResult(buildChangelogResponse(parsed));
+};
+
+const handlePerformSync: ToolActionHandler = async ({ client, rawArgs }) => {
+    SystemPerformSyncSchema.parse(rawArgs);
+    return createJsonResult({
+        ok: true,
+        result: await systemApi.performSync(client),
+    });
+};
+
 const handleGetVersion: ToolActionHandler = async ({ client, rawArgs }) => {
     SystemGetVersionSchema.parse(rawArgs);
     return createJsonResult({ version: await systemApi.getVersion(client) });
@@ -194,6 +210,8 @@ export const SYSTEM_ACTION_HANDLERS: Record<SystemAction, ToolActionHandler> = {
     network: handleNetwork,
     conf: handleConf,
     notify: handleNotify,
+    changelog: handleChangelog,
+    perform_sync: handlePerformSync,
     get_version: handleGetVersion,
     get_current_time: handleGetCurrentTime,
 };

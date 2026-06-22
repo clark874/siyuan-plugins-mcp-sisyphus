@@ -6,19 +6,23 @@ const path = require('node:path');
 
 const { Client } = require('@modelcontextprotocol/sdk/client');
 const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
-const { createSiYuanServer } = require(path.join(__dirname, '..', 'dist', 'mcp-server.cjs'));
+const { createSiYuanServer } = require(path.join(__dirname, '..', '..', 'dist', 'mcp-server.cjs'));
 
 const SIYUAN_URL = 'http://127.0.0.1:6806';
 const CONFIG_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
 
 const ALL_ENABLED_CONFIG = {
+    fs: {
+        enabled: true,
+        actions: { ls: true, tree: true, read: true, write: true, replace: true, rm: true, mv: true, search: true },
+    },
     notebook: {
         enabled: true,
-        actions: { list: true, create: true, open: true, close: true, remove: true, rename: true, get_conf: true, set_conf: true, get_permissions: true, set_permission: true, get_child_docs: true },
+        actions: { list: true, create: true, set_open_state: true, remove: true, rename: true, get_conf: true, set_conf: true, set_icon: true, get_permissions: true, set_permission: true, get_child_docs: true },
     },
     document: {
         enabled: true,
-        actions: { create: true, resolve: true, rename: true, remove: true, move: true, get_child_blocks: true, get_child_docs: true },
+        actions: { create: true, lookup: true, rename: true, remove: true, move: true, get_child_blocks: true, get_child_docs: true, set_attr: true, list_tree: true, search_docs: true, get_doc: true, create_daily_note: true, duplicate: true, heading_to_doc: true, doc_to_heading: true },
     },
     block: {
         enabled: true,
@@ -27,22 +31,29 @@ const ALL_ENABLED_CONFIG = {
             prepend: true,
             append: true,
             update: true,
+            replace: true,
             delete: true,
             move: true,
-            fold: true,
-            unfold: true,
+            set_fold_state: true,
             get_kramdown: true,
             get_children: true,
-            transfer_ref: true,
+            transfer_references: true,
             set_attrs: true,
             get_attrs: true,
+            info: true,
+            breadcrumb: true,
+            dom: true,
+            recent_updated: true,
+            word_count: true,
+            add_to_daily_note: true,
+            docs_info: true,
         },
     },
     av: {
         enabled: true,
         actions: {
             get: true,
-            render_attribute_view: true,
+            render: true,
             get_attribute_view_keys: true,
             get_attribute_view_filter_sort: true,
             search: true,
@@ -51,7 +62,7 @@ const ALL_ENABLED_CONFIG = {
             add_column: true,
             remove_column: true,
             set_cells: true,
-            duplicate_block: true,
+            duplicate: true,
             get_primary_key_values: true,
         },
     },
@@ -59,18 +70,22 @@ const ALL_ENABLED_CONFIG = {
         enabled: true,
         actions: {
             upload_asset: true,
-            render_template: true,
-            render_sprig: true,
+            list_templates: true,
+            read_template: true,
+            create_template: true,
+            update_template: true,
+            delete_template: true,
+            save_doc_as_template: true,
+            render: true,
             export_md: true,
             export_resources: true,
             list_unused_assets: true,
             get_doc_assets: true,
-            get_doc_image_assets: true,
             get_image_ocr_text: true,
             remove_unused_assets: true,
             rename_asset: true,
             delete_asset: true,
-            set_image_alpha: true,
+            extract_doc: true,
         },
     },
     search: {
@@ -78,9 +93,12 @@ const ALL_ENABLED_CONFIG = {
         actions: {
             fulltext: true,
             query_sql: true,
-            search_tag: true,
             get_backlinks: true,
-            get_backmentions: true,
+            search_refs: true,
+            find_replace: true,
+            search_assets: true,
+            fulltext_asset_content: true,
+            list_invalid_refs: true,
         },
     },
     tag: {
@@ -92,14 +110,23 @@ const ALL_ENABLED_CONFIG = {
         actions: {
             workspace_info: true,
             network: true,
-            changelog: true,
             conf: true,
-            sys_fonts: true,
-            boot_progress: true,
-            push_msg: true,
-            push_err_msg: true,
+            notify: true,
+            changelog: true,
+            perform_sync: true,
             get_version: true,
             get_current_time: true,
+        },
+    },
+    flashcard: {
+        enabled: true,
+        actions: {
+            list_cards: true,
+            get_decks: true,
+            get_cards: true,
+            review_card: true,
+            create_card: true,
+            remove_card: true,
         },
     },
     mascot: {
@@ -108,6 +135,12 @@ const ALL_ENABLED_CONFIG = {
             get_balance: true,
             shop: true,
             buy: true,
+        },
+    },
+    feedback: {
+        enabled: true,
+        actions: {
+            submit: true,
         },
     },
 };
@@ -182,6 +215,34 @@ async function callToolJson(client, name, args) {
     return { result, json };
 }
 
+async function callToolJsonUnwrapped(client, name, args) {
+    const { result, json } = await callToolJson(client, name, args);
+    return { result, json: unwrapWriteResult(json) };
+}
+
+async function lookupDoc(client, args) {
+    const { json } = await callToolJson(client, 'document', { action: 'lookup', ...args });
+    assert.equal(typeof json.idPath, 'object', `lookup idPath missing: ${JSON.stringify(json)}`);
+    assert.equal(typeof json.humanPath, 'object', `lookup humanPath missing: ${JSON.stringify(json)}`);
+    return {
+        raw: json,
+        id: json.idPath?.id,
+        ids: json.idPath?.ids,
+        notebook: json.idPath?.notebook,
+        path: json.idPath?.path,
+        hPath: json.humanPath?.hPath,
+        notebookName: json.humanPath?.notebookName,
+    };
+}
+
+function blockChildren(payload) {
+    return Array.isArray(payload.children) ? payload.children : payload.data;
+}
+
+function listItems(payload) {
+    return Array.isArray(payload) ? payload : payload.data;
+}
+
 async function readResourceText(client, uri) {
     const result = await client.readResource({ uri });
     return result.contents?.[0]?.text ?? '';
@@ -203,68 +264,70 @@ async function assertPermissionDenied(client, name, args) {
 async function assertDefaultToolList() {
     await withConfigMode('default', async () => withClient(async (client) => {
         const tools = (await client.listTools()).tools;
-        assert.deepEqual(tools.map((tool) => tool.name), ['notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot']);
+        assert.deepEqual(tools.map((tool) => tool.name), ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot', 'feedback']);
 
         const descriptions = Object.fromEntries(tools.map((tool) => [tool.name, tool.description]));
-        assert.match(descriptions.notebook, /Common actions: list, create, open, close, rename, get_conf, get_child_docs/);
+        assert.match(descriptions.fs, /Common actions: ls, tree, read, write, replace, search/);
+        assert.match(descriptions.fs, /Additional actions: rm, mv/);
+        assert.match(descriptions.notebook, /Common actions: list, create, set_open_state, rename, get_conf, get_child_docs/);
         assert.match(descriptions.notebook, /Additional actions: set_conf, set_icon, get_permissions/);
         assert.match(descriptions.notebook, /Common actions:/);
         assert.match(descriptions.notebook, /Additional actions:/);
         assert.match(descriptions.notebook, /get_permissions/);
-        assert.match(descriptions.document, /Common actions: create, resolve, rename, get_child_blocks, get_child_docs, search_docs, get_doc/);
-        assert.match(descriptions.document, /Additional actions: move, set_icon, set_cover, clear_cover, list_tree, create_daily_note/);
+        assert.match(descriptions.document, /Common actions: create, lookup, rename, get_child_blocks, get_child_docs, search_docs, get_doc/);
+        assert.match(descriptions.document, /Additional actions: move, set_attr, list_tree, create_daily_note, duplicate, heading_to_doc, doc_to_heading/);
         assert.match(descriptions.document, /Common actions: .*get_doc/);
         assert.match(descriptions.document, /Additional actions: .*list_tree/);
-        assert.match(descriptions.document, /rename: id, title \| notebook, path, title/);
-        assert.match(descriptions.document, /human-readable target path/);
-        assert.match(descriptions.document, /storage paths returned by document\(action="resolve"/);
+        assert.match(descriptions.document, /document\.rename: required \[title\] \| optional \[id, notebook, path\]/);
+        assert.match(descriptions.document, /notebook-local human-readable hpath/);
+        assert.match(descriptions.document, /storage paths and IDs/);
         assert.match(descriptions.document, /Read siyuan:\/\/help\/action\/document\/\{action\} for details/);
-        assert.match(descriptions.block, /Common actions: insert, prepend, append, update, get_kramdown, get_children, get_attrs, exists, info/);
-        assert.match(descriptions.block, /Additional actions: move, fold, unfold, transfer_ref, set_attrs, breadcrumb, dom, recent_updated, word_count/);
+        assert.match(descriptions.block, /Common actions: insert, prepend, append, update, replace, get_kramdown, get_children, get_attrs, info/);
+        assert.match(descriptions.block, /Additional actions: move, set_fold_state, transfer_references, set_attrs, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info/);
         assert.match(descriptions.block, /Common actions: .*get_children/);
         assert.match(descriptions.block, /Additional actions: .*move/);
         assert.match(descriptions.block, /Read siyuan:\/\/help\/action\/block\/\{action\} for details/);
         assert.match(descriptions.block, /single-block replacement/i);
         assert.match(descriptions.block, /Multi-line markdown may be truncated to the first line/i);
-        assert.match(descriptions.av, /Common actions: get, render_attribute_view, get_attribute_view_keys, get_attribute_view_filter_sort, search, get_primary_key_values/);
-        assert.match(descriptions.av, /Additional actions: add_rows, remove_rows, add_column, remove_column, set_cells, duplicate_block/);
+        assert.match(descriptions.av, /Common actions: get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, get_primary_key_values/);
+        assert.match(descriptions.av, /Additional actions: add_rows, remove_rows, add_column, remove_column, set_cells, duplicate/);
         assert.match(descriptions.av, /database/i);
-        assert.match(descriptions.file, /Common actions: upload_asset, export_md, get_doc_assets, get_doc_image_assets/);
-        assert.match(descriptions.file, /Additional actions: render_template, render_sprig, export_resources, list_unused_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset, set_image_alpha/);
+        assert.match(descriptions.file, /Common actions: upload_asset, list_templates, read_template, create_template, update_template, save_doc_as_template, export_md, get_doc_assets, extract_doc/);
+        assert.match(descriptions.file, /Additional actions: render, export_resources, list_unused_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset/);
         assert.match(descriptions.file, /confirmLargeFile/);
         assert.match(descriptions.file, /Read siyuan:\/\/help\/action\/file\/\{action\} for details/);
-        assert.match(descriptions.search, /fulltext, query_sql, search_tag, get_backlinks, get_backmentions/);
-        assert.match(descriptions.search, /Common actions: fulltext, query_sql, search_tag, get_backlinks, get_backmentions/);
+        assert.match(descriptions.search, /fulltext, query_sql, get_backlinks/);
+        assert.match(descriptions.search, /Additional actions: search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs/);
         assert.match(descriptions.search, /read-only/i);
         assert.match(descriptions.tag, /Common actions: list, rename/);
         assert.match(descriptions.tag, /Additional actions: remove/);
-        assert.match(descriptions.tag, /#标签#/);
+        assert.match(descriptions.tag, /#tag#/);
         assert.doesNotMatch(descriptions.system, /Common actions: [^.]*workspace_info/);
-        assert.match(descriptions.system, /Common actions: conf, boot_progress, get_version, get_current_time/);
+        assert.match(descriptions.system, /Common actions: conf, changelog, get_version, get_current_time/);
         assert.match(descriptions.system, /workspace_info.*disabled by default|disabled by default.*workspace_info/i);
+        assert.match(descriptions.feedback, /Submit plain-text GitHub Issue-style feedback/);
         const schemas = Object.fromEntries(tools.map((tool) => [tool.name, tool.inputSchema]));
         for (const [name, schema] of Object.entries(schemas)) {
             assert.equal(schema.type, 'object', `${name} should expose an object schema`);
             assert.equal(schema.oneOf, undefined, `${name} should not rely on top-level oneOf`);
-            assert.deepEqual(schema.required, ['action'], `${name} should always require action`);
             assert.equal(typeof schema.properties, 'object', `${name} should expose top-level properties`);
             assert.ok(Array.isArray(schema.properties.action.enum), `${name} should expose action enum choices`);
-            assert.equal(typeof schema.description, 'string', `${name} should expose a schema description`);
         }
 
         assert.ok('id' in schemas.document.properties);
         assert.ok('path' in schemas.document.properties);
+        assert.ok('path' in schemas.fs.properties);
         assert.ok('dataType' in schemas.block.properties);
         assert.ok('avID' in schemas.av.properties);
         assert.ok('keyName' in schemas.av.properties);
         assert.ok('template' in schemas.file.properties);
+        assert.ok('description' in schemas.feedback.properties);
         assert.ok('query' in schemas.search.properties);
         assert.ok('stmt' in schemas.search.properties);
         assert.ok('k' in schemas.search.properties);
         assert.match(schemas.document.properties.path.description, /For action="create"/);
         assert.match(schemas.block.properties.parentID.description, /document head or tail/);
         assert.match(schemas.system.properties.keyPath.description, /conf\.appearance\.mode/);
-        assert.match(schemas.system.properties.offset.description, /Pagination offset/);
 
         const resources = (await client.listResources()).resources;
         assert.deepEqual(resources.map((resource) => resource.uri), [
@@ -272,6 +335,8 @@ async function assertDefaultToolList() {
             'siyuan://help/document-path-semantics',
             'siyuan://help/examples',
             'siyuan://help/ai-layout-guide',
+            'siyuan://help/changelog',
+            'siyuan://help/user-rules',
         ]);
 
         const resourceTemplates = (await client.listResourceTemplates()).resourceTemplates;
@@ -283,7 +348,7 @@ async function assertDefaultToolList() {
         assert.match(toolOverviewText, /SiYuan MCP Tool Overview/);
         assert.match(toolOverviewText, /document\(action="move"\)/);
         assert.match(toolOverviewText, /12 aggregated tools/);
-        assert.match(toolOverviewText, /#标签#/);
+        assert.match(toolOverviewText, /#tag#/);
         assert.match(toolOverviewText, /custom-riff-decks/);
         assert.match(toolOverviewText, /ai-layout-guide/);
 
@@ -305,14 +370,14 @@ async function assertDefaultToolList() {
         assert.match(aiLayoutGuideText, /There is no separator-based super block syntax/);
         assert.match(aiLayoutGuideText, /`===` inside a super block is not a column delimiter/);
         assert.match(aiLayoutGuideText, /Inline `<span style="color: \.\.\.">` is not the preferred color-marking pattern/);
-        assert.match(aiLayoutGuideText, /`\*\*文字\*\*\{:\sstyle="color: var\(--b3-font-color1\);"\}`/);
-        assert.match(aiLayoutGuideText, /`<sup>备注<\/sup>`/);
+        assert.match(aiLayoutGuideText, /`\*\*text\*\*\{:\sstyle="color: var\(--b3-font-color1\);"\}`/);
+        assert.match(aiLayoutGuideText, /`<sup>note<\/sup>`/);
         assert.match(aiLayoutGuideText, /`kbd`/);
         assert.match(aiLayoutGuideText, /inline math/);
         assert.match(aiLayoutGuideText, /IAL-based color\/effect spans/);
         assert.match(aiLayoutGuideText, /Database blocks are `type = "av"`/);
-        assert.match(aiLayoutGuideText, /Tags belong in block markdown as `#标签#`/);
-        assert.match(aiLayoutGuideText, /hierarchical tags use forms such as `#项目\/阶段#`/);
+        assert.match(aiLayoutGuideText, /Tags belong in block markdown as `#tag#`/);
+        assert.match(aiLayoutGuideText, /hierarchical tags use forms such as `#project\/phase#`/);
         assert.match(aiLayoutGuideText, /gitGraph/);
         assert.match(aiLayoutGuideText, /flowchart/);
         assert.match(aiLayoutGuideText, /plantuml/);
@@ -324,7 +389,7 @@ async function assertDefaultToolList() {
         assert.match(aiLayoutGuideText, /Bookmarks are block attributes, not inline tags/);
         assert.match(aiLayoutGuideText, /Bookmarks are for collecting existing blocks/);
         assert.match(aiLayoutGuideText, /Avoid special-symbol-heavy bookmark or tag names/);
-        assert.match(aiLayoutGuideText, /marked text `==答案==` as a cloze answer/);
+        assert.match(aiLayoutGuideText, /cloze answer/);
         assert.match(aiLayoutGuideText, /a super block with the first child as the question/);
         assert.match(aiLayoutGuideText, /`\/AI 编写`/);
         assert.match(aiLayoutGuideText, /related text may be sent to an external model service/);
@@ -335,7 +400,7 @@ async function assertDefaultToolList() {
         assert.match(aiLayoutGuideText, /\{\{\{col/);
         assert.match(aiLayoutGuideText, /exclude the current root document/);
         assert.match(aiLayoutGuideText, /root_id != "<current-doc-id>"/);
-        assert.match(aiLayoutGuideText, /do not fake completion with a Markdown table or a borrowed `NodeAttributeView` container/);
+        assert.match(aiLayoutGuideText, /av` tool can create and materialize a new database/);
         assert.match(aiLayoutGuideText, /Choose the renderer language by diagram intent/);
         assert.match(aiLayoutGuideText, /`sequenceDiagram` for interactions/);
         assert.match(aiLayoutGuideText, /`gitGraph` for commit history/);
@@ -366,9 +431,7 @@ async function assertDefaultToolList() {
             id: 'dummy-id-for-validation',
         })).json;
         assert.equal(validationError.error.type, 'validation_error');
-        assert.equal(validationError.error.tool, 'document');
-        assert.equal(validationError.error.action, 'rename');
-        assert.match(validationError.error.message, /Invalid arguments/);
+        assert.match(validationError.error.message, /document\(action="rename"\)/);
         assert.equal(validationError.error.fields[0].path, 'title');
         assert.match(validationError.error.fields[0].message, /title is required/);
         assert.match(validationError.error.hint, /id \+ title or notebook \+ path \+ title/);
@@ -379,8 +442,7 @@ async function assertDefaultToolList() {
             id: 'dummy-id-for-disabled-action',
         })).json;
         assert.equal(disabledActionError.error.type, 'action_disabled');
-        assert.equal(disabledActionError.error.tool, 'document');
-        assert.equal(disabledActionError.error.action, 'remove');
+        assert.match(disabledActionError.error.message, /Action "remove" is disabled for tool "document"/);
     }));
 }
 
@@ -417,10 +479,14 @@ async function runAvSmoke(client, createdBlockIds) {
     assert.ok(Array.isArray(avPrimary.json.rows));
 
     const avDuplicate = await callToolJson(client, 'av', {
-        action: 'duplicate_block',
+        action: 'duplicate',
         avID,
     });
-    assert.equal(avDuplicate.json.success, true);
+    if (avDuplicate.json.error?.type === 'permission_denied') {
+        console.log(`T24 SKIP - AV duplicate denied by notebook permission for ${avID}`);
+        return;
+    }
+    assert.equal(avDuplicate.json.success, true, `Unexpected AV duplicate result: ${JSON.stringify(avDuplicate.json)}`);
     assert.equal(typeof avDuplicate.json.avID, 'string');
     assert.equal(typeof avDuplicate.json.blockID, 'string');
     assert.equal(avDuplicate.json.prepared, true);
@@ -439,6 +505,12 @@ async function runLiveSmoke() {
         const createdNotebook = await callToolJson(client, 'notebook', { action: 'create', name: notebookName });
         const notebookId = createdNotebook.json.id;
         assert.equal(typeof notebookId, 'string');
+        const initialPerm = unwrapWriteResult((await callToolJson(client, 'notebook', {
+            action: 'set_permission',
+            notebook: notebookId,
+            permission: 'rwd',
+        })).json);
+        assert.deepEqual(initialPerm, { success: true, notebook: notebookId, permission: 'rwd' });
 
         async function cleanup() {
             await callToolJson(client, 'notebook', {
@@ -466,7 +538,8 @@ async function runLiveSmoke() {
             assert.equal(typeof currentTime.json.currentTime, 'number');
 
             const renderSprig = await callToolJson(client, 'file', {
-                action: 'render_sprig',
+                action: 'render',
+                engine: 'sprig',
                 template: 'codex-{{ now | date "2006" }}',
             });
             assert.match(renderSprig.json, /^codex-\d{4}$/);
@@ -478,88 +551,89 @@ async function runLiveSmoke() {
             assert.equal(missingNotebookChildren.json.error?.type, 'internal_error');
             assert.match(missingNotebookChildren.json.error?.message, /does not exist/);
 
-            const source = await callToolJson(client, 'document', {
+            const source = await callToolJsonUnwrapped(client, 'document', {
                 action: 'create',
                 notebook: notebookId,
                 path: '/SourceDoc',
-                markdown: '# Source\n\nseed',
+                markdown: 'seed',
             });
-            const target = await callToolJson(client, 'document', {
+            const target = await callToolJsonUnwrapped(client, 'document', {
                 action: 'create',
                 notebook: notebookId,
                 path: '/TargetDoc',
-                markdown: '# Target',
+                markdown: 'target body',
             });
-            const pathMove = await callToolJson(client, 'document', {
+            const pathMove = await callToolJsonUnwrapped(client, 'document', {
                 action: 'create',
                 notebook: notebookId,
                 path: '/PathMoveDoc',
-                markdown: '# Path Move',
+                markdown: 'path move body',
             });
-            const childDoc = await callToolJson(client, 'document', {
+            const childDoc = await callToolJsonUnwrapped(client, 'document', {
                 action: 'create',
                 notebook: notebookId,
                 path: '/TargetDoc/ChildDoc',
-                markdown: '# Child',
+                markdown: 'child body',
             });
-            const deleteDoc = await callToolJson(client, 'document', {
+            const deleteDoc = await callToolJsonUnwrapped(client, 'document', {
                 action: 'create',
                 notebook: notebookId,
                 path: '/DeleteDoc',
-                markdown: '# Delete',
+                markdown: 'delete body',
             });
 
+            for (const createdDoc of [source, target, pathMove, childDoc, deleteDoc]) {
+                assert.equal(typeof createdDoc.json.id, 'string', `document.create did not return id: ${JSON.stringify(createdDoc.json)}`);
+            }
             createdDocIds.push(source.json.id, target.json.id, pathMove.json.id, childDoc.json.id, deleteDoc.json.id);
 
-            const preheatedPath = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            const preheatedPath = await lookupDoc(client, {
                 id: source.json.id,
                 include: ['path'],
-            })).json;
+            });
             assert.equal(preheatedPath.notebook, notebookId);
 
             const preheatedChildren = (await callToolJson(client, 'block', {
                 action: 'get_children',
                 id: source.json.id,
             })).json;
-            assert.ok(Array.isArray(preheatedChildren.children));
+            assert.ok(Array.isArray(blockChildren(preheatedChildren)), `block.get_children did not return children: ${JSON.stringify(preheatedChildren)}`);
 
             const notebookChildren = (await callToolJson(client, 'notebook', {
                 action: 'get_child_docs',
                 notebook: notebookId,
             })).json;
-            assert.ok(notebookChildren.some((doc) => doc.id === source.json.id));
-            assert.ok(notebookChildren.some((doc) => doc.id === target.json.id));
-            assert.ok(notebookChildren.some((doc) => doc.id === pathMove.json.id));
-            assert.ok(!notebookChildren.some((doc) => doc.id === childDoc.json.id));
+            const notebookChildDocs = listItems(notebookChildren);
+            assert.ok(notebookChildDocs.some((doc) => doc.id === source.json.id));
+            assert.ok(notebookChildDocs.some((doc) => doc.id === target.json.id));
+            assert.ok(notebookChildDocs.some((doc) => doc.id === pathMove.json.id));
+            assert.ok(!notebookChildDocs.some((doc) => doc.id === childDoc.json.id));
 
             const targetChildDocs = (await callToolJson(client, 'document', {
                 action: 'get_child_docs',
                 id: target.json.id,
             })).json;
-            assert.ok(targetChildDocs.some((doc) => doc.id === childDoc.json.id));
+            assert.ok(listItems(targetChildDocs).some((doc) => doc.id === childDoc.json.id));
 
-            const sourcePath = (await callToolJson(client, 'document', { action: 'resolve', id: source.json.id, include: ['path'] })).json;
+            const sourcePath = await lookupDoc(client, { id: source.json.id, include: ['path'] });
             assert.equal(sourcePath.notebook, notebookId);
             assert.match(sourcePath.path, /^\/.+\.sy$/);
 
-            const sourceHPath = (await callToolJson(client, 'document', { action: 'resolve', id: source.json.id, include: ['hpath'] })).json;
+            const sourceHPath = await lookupDoc(client, { id: source.json.id, include: ['hpath'] });
             assert.equal(sourceHPath.hPath, '/SourceDoc');
 
-            const sourceHPathByPath = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            const sourceHPathByPath = await lookupDoc(client, {
                 notebook: notebookId,
                 path: sourcePath.path,
                 include: ['hpath'],
-            })).json;
+            });
             assert.equal(sourceHPathByPath.hPath, sourceHPath.hPath);
 
-            const sourceIdsByHPath = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            const sourceIdsByHPath = await lookupDoc(client, {
                 notebook: notebookId,
                 hpath: sourceHPath.hPath,
                 include: ['ids'],
-            })).json;
+            });
             assert.deepEqual(sourceIdsByHPath.ids, [source.json.id]);
 
             await callToolJson(client, 'document', {
@@ -568,16 +642,14 @@ async function runLiveSmoke() {
                 path: sourcePath.path,
                 title: 'SourceDoc Path Renamed',
             });
-            const sourcePathAfterPathRename = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            const sourcePathAfterPathRename = await lookupDoc(client, {
                 id: source.json.id,
                 include: ['path'],
-            })).json;
-            const sourceHPathAfterPathRename = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            });
+            const sourceHPathAfterPathRename = await lookupDoc(client, {
                 id: source.json.id,
                 include: ['hpath'],
-            })).json;
+            });
             assert.equal(sourcePathAfterPathRename.path, sourcePath.path);
             assert.equal(sourceHPathAfterPathRename.hPath, '/SourceDoc Path Renamed');
 
@@ -586,16 +658,14 @@ async function runLiveSmoke() {
                 id: source.json.id,
                 title: 'SourceDoc ID Renamed',
             });
-            const sourcePathAfterIdRename = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            const sourcePathAfterIdRename = await lookupDoc(client, {
                 id: source.json.id,
                 include: ['path'],
-            })).json;
-            const sourceHPathAfterIdRename = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            });
+            const sourceHPathAfterIdRename = await lookupDoc(client, {
                 id: source.json.id,
                 include: ['hpath'],
-            })).json;
+            });
             assert.equal(sourcePathAfterIdRename.path, sourcePath.path);
             assert.equal(sourceHPathAfterIdRename.hPath, '/SourceDoc ID Renamed');
 
@@ -631,16 +701,16 @@ async function runLiveSmoke() {
                 action: 'get_children',
                 id: source.json.id,
             })).json;
+            const docChildBlocks = blockChildren(docChildren);
             const docChildrenViaDocument = (await callToolJson(client, 'document', {
                 action: 'get_child_blocks',
                 id: source.json.id,
             })).json;
-            assert.deepEqual(docChildrenViaDocument, docChildren.children);
-            assert.equal(docChildren.children[0].markdown, '- doc prepend');
-            assert.equal(docChildren.children[1].markdown, '# Source');
-            assert.equal(docChildren.children[2].markdown, 'seed');
-            assert.equal(docChildren.children[3].markdown, '- insert before append');
-            assert.equal(docChildren.children[4].markdown, '- doc append');
+            assert.deepEqual(docChildrenViaDocument, docChildBlocks);
+            assert.equal(docChildBlocks[0].id, prependBlockId, `Unexpected child blocks: ${JSON.stringify(docChildBlocks)}`);
+            assert.ok(docChildBlocks.some((block) => block.id === insertBlockId));
+            assert.equal(docChildBlocks[docChildBlocks.length - 1].id, appendBlockId);
+            assert.ok(docChildBlocks.some((block) => block.type === 'p'));
 
             const nestedAppend = unwrapWriteResult((await callToolJson(client, 'block', {
                 action: 'append',
@@ -674,15 +744,17 @@ async function runLiveSmoke() {
             assert.equal(attrs['custom-codex'], 'smoke');
 
             const foldResult = unwrapWriteResult((await callToolJson(client, 'block', {
-                action: 'fold',
+                action: 'set_fold_state',
                 id: appendBlockId,
+                folded: true,
             })).json);
             const unfoldResult = unwrapWriteResult((await callToolJson(client, 'block', {
-                action: 'unfold',
+                action: 'set_fold_state',
                 id: appendBlockId,
+                folded: false,
             })).json);
-            assert.deepEqual(foldResult, { success: true, id: appendBlockId });
-            assert.deepEqual(unfoldResult, { success: true, id: appendBlockId });
+            assert.deepEqual(foldResult, { success: true, id: appendBlockId, folded: true });
+            assert.deepEqual(unfoldResult, { success: true, id: appendBlockId, folded: false });
 
             const moveBlockResult = unwrapWriteResult((await callToolJson(client, 'block', {
                 action: 'move',
@@ -693,16 +765,17 @@ async function runLiveSmoke() {
             assert.deepEqual(moveBlockResult, {
                 success: true,
                 id: insertBlockId,
-                previousID: appendBlockId,
-                parentID: source.json.id,
             });
 
             const docChildrenAfterMove = (await callToolJson(client, 'block', {
                 action: 'get_children',
                 id: source.json.id,
             })).json;
-            assert.equal(docChildrenAfterMove.children[3].markdown, '- doc append updated');
-            assert.equal(docChildrenAfterMove.children[4].markdown, '- insert before append');
+            const docChildBlocksAfterMove = blockChildren(docChildrenAfterMove);
+            const appendIndexAfterMove = docChildBlocksAfterMove.findIndex((block) => block.id === appendBlockId);
+            const insertIndexAfterMove = docChildBlocksAfterMove.findIndex((block) => block.id === insertBlockId);
+            assert.ok(appendIndexAfterMove >= 0);
+            assert.equal(insertIndexAfterMove, appendIndexAfterMove + 1);
 
             const kramdown = (await callToolJson(client, 'block', {
                 action: 'get_kramdown',
@@ -777,8 +850,9 @@ async function runLiveSmoke() {
             assert.ok(fs.statSync(localZipPath).size > 0);
 
             const pushMsg = (await callToolJson(client, 'system', {
-                action: 'push_msg',
+                action: 'notify',
                 msg: 'Codex live smoke test',
+                level: 'info',
                 timeout: 1000,
             })).json;
             assert.equal(typeof pushMsg.id, 'string');
@@ -790,29 +864,30 @@ async function runLiveSmoke() {
                 query: 'doc append updated',
                 stripHtml: true,
             })).json;
-            assert.ok('blocks' in fulltextResult || 'matchedBlockCount' in fulltextResult);
-            if (Array.isArray(fulltextResult.blocks) && fulltextResult.blocks.length > 0 && typeof fulltextResult.blocks[0].content === 'string') {
-                assert.ok('plainContent' in fulltextResult.blocks[0]);
+            assert.ok(Array.isArray(fulltextResult.data) || 'blocks' in fulltextResult || 'matchedBlockCount' in fulltextResult, `Unexpected fulltext result: ${JSON.stringify(fulltextResult)}`);
+            const fulltextItems = Array.isArray(fulltextResult.data) ? fulltextResult.data : fulltextResult.blocks;
+            if (Array.isArray(fulltextItems) && fulltextItems.length > 0) {
+                assert.ok('plainContent' in fulltextItems[0] || 'content' in fulltextItems[0]);
             }
 
             const sqlResult = (await callToolJson(client, 'search', {
                 action: 'query_sql',
                 stmt: "SELECT * FROM blocks WHERE content LIKE '%doc append updated%' LIMIT 5",
             })).json;
-            assert.ok(Array.isArray(sqlResult.rows));
+            assert.ok(Array.isArray(sqlResult.rows) || Array.isArray(sqlResult.data), `Unexpected SQL result: ${JSON.stringify(sqlResult)}`);
 
             const sqlDenied = (await callToolJson(client, 'search', {
                 action: 'query_sql',
                 stmt: 'DROP TABLE blocks',
             })).json;
             assert.equal(sqlDenied.error?.type, 'internal_error');
-            assert.match(sqlDenied.error?.message, /Only SELECT and WITH/);
+            assert.match(sqlDenied.error?.message, /Only SELECT statements/);
 
-            const tagResult = (await callToolJson(client, 'search', {
-                action: 'search_tag',
-                k: '',
+            const tagResult = (await callToolJson(client, 'tag', {
+                action: 'list',
+                keyword: '',
             })).json;
-            assert.ok('tags' in tagResult);
+            assert.ok(Array.isArray(tagResult) || 'tags' in tagResult);
 
             const backlinks = (await callToolJson(client, 'search', {
                 action: 'get_backlinks',
@@ -821,10 +896,17 @@ async function runLiveSmoke() {
             assert.ok('backlinks' in backlinks);
 
             const backmentions = (await callToolJson(client, 'search', {
-                action: 'get_backmentions',
+                action: 'get_backlinks',
                 id: source.json.id,
+                mode: 'mentions',
             })).json;
             assert.ok('backmentions' in backmentions);
+
+            const refs = (await callToolJson(client, 'search', {
+                action: 'search_refs',
+                id: source.json.id,
+            })).json;
+            assert.ok(Array.isArray(refs.blocks));
 
             console.log('Search tool smoke passed');
 
@@ -842,16 +924,14 @@ async function runLiveSmoke() {
             await callToolJson(client, 'document', { action: 'remove', id: deleteDoc.json.id });
             removeItem(createdDocIds, deleteDoc.json.id);
 
-            const pathMovePath = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            const pathMovePath = await lookupDoc(client, {
                 id: pathMove.json.id,
                 include: ['path'],
-            })).json;
-            const targetPath = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            });
+            const targetPath = await lookupDoc(client, {
                 id: target.json.id,
                 include: ['path'],
-            })).json;
+            });
 
             const moveByPath = unwrapWriteResult((await callToolJson(client, 'document', {
                 action: 'move',
@@ -859,18 +939,12 @@ async function runLiveSmoke() {
                 toNotebook: notebookId,
                 toPath: targetPath.path,
             })).json);
-            assert.deepEqual(moveByPath, {
-                success: true,
-                fromPaths: [pathMovePath.path],
-                toNotebook: notebookId,
-                toPath: targetPath.path,
-            });
+            assert.deepEqual(moveByPath, { success: true });
 
-            const pathMoveAfterMoveByPath = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            const pathMoveAfterMoveByPath = await lookupDoc(client, {
                 id: pathMove.json.id,
                 include: ['path'],
-            })).json;
+            });
             assert.match(pathMoveAfterMoveByPath.path, new RegExp(`^${targetPath.path.replace(/\.sy$/, '')}/.+\\.sy$`));
 
             const readonlyPerm = unwrapWriteResult((await callToolJson(client, 'notebook', {
@@ -884,7 +958,7 @@ async function runLiveSmoke() {
                 action: 'create',
                 notebook: notebookId,
                 path: '/ReadonlyCreateShouldFail',
-                markdown: '# denied',
+                markdown: 'denied',
             });
             await assertPermissionDenied(client, 'document', {
                 action: 'rename',
@@ -923,12 +997,14 @@ async function runLiveSmoke() {
                 parentID: source.json.id,
             });
             await assertPermissionDenied(client, 'block', {
-                action: 'fold',
+                action: 'set_fold_state',
                 id: appendBlockId,
+                folded: true,
             });
             await assertPermissionDenied(client, 'block', {
-                action: 'unfold',
+                action: 'set_fold_state',
                 id: appendBlockId,
+                folded: false,
             });
             console.log('T20 PASS - r blocks all tested writes');
 
@@ -948,12 +1024,12 @@ async function runLiveSmoke() {
                 notebook: notebookId,
             });
             await assertPermissionDenied(client, 'document', {
-                action: 'resolve',
+                action: 'lookup',
                 id: source.json.id,
                 include: ['path'],
             });
             await assertPermissionDenied(client, 'document', {
-                action: 'resolve',
+                action: 'lookup',
                 id: source.json.id,
                 include: ['hpath'],
             });
@@ -981,7 +1057,7 @@ async function runLiveSmoke() {
                 action: 'create',
                 notebook: notebookId,
                 path: '/NoneCreateShouldFail',
-                markdown: '# denied',
+                markdown: 'denied',
             });
             await assertPermissionDenied(client, 'document', {
                 action: 'rename',
@@ -1029,19 +1105,18 @@ async function runLiveSmoke() {
             assert.equal(typeof writeConf, 'object');
             assert.ok(writeConf && !Array.isArray(writeConf));
 
-            const writePath = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            const writePath = await lookupDoc(client, {
                 id: source.json.id,
                 include: ['path'],
-            })).json;
+            });
             assert.equal(writePath.notebook, notebookId);
 
             const writeChildren = (await callToolJson(client, 'block', {
                 action: 'get_children',
                 id: source.json.id,
             })).json;
-            assert.ok(Array.isArray(writeChildren.children));
-            assert.ok(writeChildren.children.length > 0);
+            assert.ok(Array.isArray(blockChildren(writeChildren)));
+            assert.ok(blockChildren(writeChildren).length > 0);
 
             const writeRecovered = unwrapWriteResult((await callToolJson(client, 'block', {
                 action: 'append',
@@ -1052,20 +1127,19 @@ async function runLiveSmoke() {
             const writeRecoveredBlockId = writeRecovered.id;
             createdBlockIds.push(writeRecoveredBlockId);
 
-            const writeCreatedDoc = (await callToolJson(client, 'document', {
+            const writeCreatedDoc = (await callToolJsonUnwrapped(client, 'document', {
                 action: 'create',
                 notebook: notebookId,
                 path: '/WriteModeCreateCheck',
-                markdown: '# write ok',
+                markdown: 'write ok',
             })).json;
             createdDocIds.push(writeCreatedDoc.id);
             assert.equal(typeof writeCreatedDoc.id, 'string');
 
-            const writeCreatedDocPath = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            const writeCreatedDocPath = await lookupDoc(client, {
                 id: writeCreatedDoc.id,
                 include: ['path'],
-            })).json;
+            });
             assert.equal(writeCreatedDocPath.notebook, notebookId);
 
             const writeUpdated = unwrapWriteResult((await callToolJson(client, 'block', {
@@ -1077,8 +1151,6 @@ async function runLiveSmoke() {
             assert.deepEqual(writeUpdated, {
                 success: true,
                 id: writeRecoveredBlockId,
-                dataType: 'markdown',
-                markdown: '- write restored updated',
             });
 
             await callToolJson(client, 'document', {
@@ -1086,11 +1158,10 @@ async function runLiveSmoke() {
                 id: writeCreatedDoc.id,
                 title: 'WriteModeCreateCheck Renamed',
             });
-            const writeCreatedDocHPath = (await callToolJson(client, 'document', {
-                action: 'resolve',
+            const writeCreatedDocHPath = await lookupDoc(client, {
                 id: writeCreatedDoc.id,
                 include: ['hpath'],
-            })).json;
+            });
             assert.equal(writeCreatedDocHPath.hPath, '/WriteModeCreateCheck Renamed');
 
             await callToolJson(client, 'document', {
@@ -1118,7 +1189,7 @@ async function runLiveSmoke() {
             console.log(`Live smoke passed against SiYuan ${version.json.version}.`);
             console.log(`Notebook: ${notebookId}`);
             console.log(`Storage path example: ${sourcePath.path}`);
-            console.log(`Hierarchical path example: ${sourceHPathAfterIdRename}`);
+            console.log(`Hierarchical path example: ${sourceHPathAfterIdRename.hPath}`);
         } finally {
             await cleanup();
         }

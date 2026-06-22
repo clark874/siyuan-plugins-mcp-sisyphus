@@ -267,6 +267,49 @@ describe('mcp/tool-lifecycle', () => {
         expect(JSON.parse(result.content[0].text)).toEqual(fullPayload);
     });
 
+    it('keeps fs.replace diagnostics in slim success responses', async () => {
+        const result = await runToolCall(
+            {
+                client: {} as never,
+                category: 'fs',
+                name: 'fs',
+                action: 'replace',
+                args: { action: 'replace' },
+                slimResponses: true,
+            },
+            async () => ({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        success: true,
+                        path: '/Notebook/Doc',
+                        changed: true,
+                        editsApplied: 1,
+                        replacements: [{ index: 1, replaced: 1, replace_all: false }],
+                        warning: 'This document contains SiYuan-native complex blocks.',
+                        skippedComplexBlocks: [{ id: '20260612000000-complex', type: 's' }],
+                        recommendedTools: ['block.dom', 'block.update'],
+                        uiRefresh: {
+                            applied: true,
+                            operations: [{ type: 'reloadProtyle', id: 'doc' }],
+                        },
+                    }, null, 2),
+                }],
+            }),
+        );
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            success: true,
+            path: '/Notebook/Doc',
+            changed: true,
+            editsApplied: 1,
+            replacements: [{ index: 1, replaced: 1, replace_all: false }],
+            warning: 'This document contains SiYuan-native complex blocks.',
+            skippedComplexBlocks: [{ id: '20260612000000-complex', type: 's' }],
+            recommendedTools: ['block.dom', 'block.update'],
+        });
+    });
+
     it('slims search results and removes kernel pagination diagnostics', async () => {
         const result = await runToolCall(
             {

@@ -9,6 +9,12 @@ describe('setting tool config', () => {
         expect(config.document.actions.set_attr).toBe(true);
         expect(config.document.actions.duplicate).toBe(true);
         expect(config.file.actions.upload_asset).toBe(true);
+        expect(config.file.actions.list_templates).toBe(true);
+        expect(config.file.actions.read_template).toBe(true);
+        expect(config.file.actions.create_template).toBe(true);
+        expect(config.file.actions.update_template).toBe(true);
+        expect(config.file.actions.save_doc_as_template).toBe(true);
+        expect(config.file.actions.delete_template).toBe(false);
         expect(config.file.uploadLargeFileThresholdMB).toBe(10);
         expect(config.av.actions.get).toBe(true);
         expect(config.av.actions.set_cells).toBe(true);

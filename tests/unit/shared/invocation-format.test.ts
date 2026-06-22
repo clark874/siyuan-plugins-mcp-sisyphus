@@ -48,12 +48,17 @@ describe('presentation/invocation-format', () => {
         expect(translatePresentationText(
             'Use notebook + path + markdown and then page/pageSize if needed.',
             'cli',
-        )).toBe('Use --notebook + --path + --markdown and then --page / --page-size if needed.');
+        )).toBe('Use --notebook + --path + --markdown and then page/pageSize if needed.');
 
         expect(translatePresentationText(
             'fs paths are human-readable workspace paths such as /Notebook/Folder/Doc.',
             'cli',
         )).toBe('fs paths are human-readable workspace paths such as /Notebook/Folder/Doc.');
+
+        expect(translatePresentationText(
+            'Use old/new shorthand, default /assets/, and block/av/document tools.',
+            'cli',
+        )).toBe('Use old/new shorthand, default /assets/, and block/av/document tools.');
     });
 
     it('translates structured help payloads without changing MCP payloads', () => {

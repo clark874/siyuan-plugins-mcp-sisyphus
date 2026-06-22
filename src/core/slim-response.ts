@@ -32,6 +32,9 @@ const SUCCESS_KEEP_KEYS = new Set([
     'rowID',
     'srcIDs',
     'count',
+    'changed',
+    'editsApplied',
+    'replacements',
     'created',
     'updated',
     'removed',
@@ -40,6 +43,8 @@ const SUCCESS_KEEP_KEYS = new Set([
     'partial',
     'reason',
     'warning',
+    'skippedComplexBlocks',
+    'recommendedTools',
 ]);
 
 const TOP_LEVEL_DROP_KEYS = new Set([

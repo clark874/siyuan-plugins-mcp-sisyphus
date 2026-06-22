@@ -22,11 +22,19 @@
 
 - `create` 支持人类可读 `path`，也支持 `parentPath` + `title`；省略 `markdown` 即创建空文档。创建子文档时优先使用 `path`。`parentPath` + `title` 可传人类可读父路径，也可传 `lookup` 返回的 `.sy` 结尾 storage path。
 - `lookup` 可按 `id`、存储 `path`、人类可读 `hpath` / `hPath` 查找；用 `include` 请求 `id`、`ids`、`path`、`hpath` 或 `docInfo`。
+- `lookup` 返回的 `idPath` 会包含可用的 `id` / `ids`。当同一 hpath 有多个同名文档时，`include: ["ids"]` 会返回全部匹配 ID；内部已包含 SQL 兜底。
 - `rename`、`remove`、`move` 在非 ID 模式下通常需要存储路径。
 - `get_child_docs` 必须传文档 `id`，不接受 `notebook + path`。
 - `list_tree` 使用 `notebook + path`，其中 `path` 是 `/` 或 `/20240318112233-abc123.sy` 这类存储路径，不是人类可读路径。
 - 如果批量 `remove` 遇到思源短暂的 `indexing` 窗口，请改用 `notebook + storage path` 逐个删除并重试。
 - `set_attr` 按文档 ID 写入文档元数据属性。
+
+## Markdown 与标题规则
+
+- `create` 的 `markdown` 不需要写同名 `# 标题`；如果写了，工具会自动剥离，避免双标题。
+- `create` 支持直接写 `((id '标题'))`、裸 `((id))` 和 `#标签#`。裸双链会自动补齐锚文本；如果解析失败，会降级为 `((id 'id'))` 并返回 warning。
+- `create` 允许 `[^1]` 脚注式引用和 `[text](siyuan://blocks/id)` 写入，但结果会提示它们不会创建思源真实反链。
+- `get_doc` 返回与 `fs.read` 一致的可编辑 Markdown，保留 `((id '标题'))` 和 `#标签#`。
 
 ## 安全规则
 
@@ -42,7 +50,7 @@ MCP：
   "action": "create",
   "notebook": "<notebook-id>",
   "path": "/Inbox/Weekly Note",
-  "markdown": "# Weekly Report"
+  "markdown": "周报正文"
 }
 ```
 
@@ -57,7 +65,7 @@ MCP：
 CLI：
 
 ```bash
-siyuan document create --notebook <notebook-id> --path "/Inbox/Weekly Note" --markdown "# Weekly Report"
+siyuan document create --notebook <notebook-id> --path "/Inbox/Weekly Note" --markdown "周报正文"
 siyuan document lookup --id <doc-id> --include path
 ```
 

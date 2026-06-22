@@ -161,6 +161,41 @@ describe('search tool filtering', () => {
         expect(parseResult(result)).toEqual([{ path: 'assets/diagram.png' }]);
     });
 
+    it('maps search_refs keyword alias to k while still requiring id', async () => {
+        const client = createMockClient({
+            request: async (endpoint: string, body: unknown) => {
+                if (endpoint === '/api/query/sql') {
+                    return [{
+                        id: 'target-block',
+                        root_id: 'doc-1',
+                        box: 'nb-1',
+                        path: '/doc-1.sy',
+                        hpath: '/Doc',
+                        type: 'p',
+                    }];
+                }
+                expect(endpoint).toBe('/api/search/searchRefBlock');
+                expect(body).toMatchObject({ id: 'target-block', k: 'needle' });
+                return { blocks: [] };
+            },
+        });
+        const permMgr = {
+            reload: async () => undefined,
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'search_refs',
+            id: 'target-block',
+            keyword: 'needle',
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        expect(result.isError).toBeUndefined();
+    });
+
     it('adds notebookName to fulltext search blocks when the notebook can be resolved', async () => {
         const client = createMockClient({
             request: async (endpoint: string) => {
