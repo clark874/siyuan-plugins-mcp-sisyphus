@@ -151,9 +151,9 @@
         },
         {
             category: "file",
-            icon: "📁",
+            icon: "📎",
             groupKey: "Files",
-            iconSvg: ICON_SVGS.folder,
+            iconSvg: ICON_SVGS.paperclip,
             actions: [
                 { key: "upload_asset", title: "Upload Asset", description: "Read a local file path and upload that file to the assets directory. Files larger than the configured threshold must stop and ask the user before retrying with confirmLargeFile=true." },
                 { key: "list_templates", title: "List Templates", description: "Search or list workspace templates under data/templates." },

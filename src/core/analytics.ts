@@ -320,8 +320,34 @@ export function estimateResultSizeHint(content: { type: 'text'; text: string }[]
     return '20K+';
 }
 
+function extractStructuredErrorCode(resultText: string): string | undefined {
+    try {
+        const parsed = JSON.parse(resultText) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+
+        const error = (parsed as Record<string, unknown>).error;
+        if (!error || typeof error !== 'object' || Array.isArray(error)) return undefined;
+
+        const type = (error as Record<string, unknown>).type;
+        const code = (error as Record<string, unknown>).code;
+        const errorType = typeof type === 'string' && type ? type : undefined;
+        const semanticCode = typeof code === 'string' && code ? code : undefined;
+
+        if (semanticCode && (errorType === 'api_error' || errorType === 'internal_error')) {
+            return semanticCode;
+        }
+
+        return errorType ?? semanticCode;
+    } catch {
+        return undefined;
+    }
+}
+
 export function extractErrorCode(resultText: string | undefined): string | undefined {
     if (!resultText) return undefined;
+    const structuredCode = extractStructuredErrorCode(resultText);
+    if (structuredCode) return structuredCode;
+
     // Try to extract a concise error indicator without exposing sensitive IDs/paths
     if (resultText.includes('McpError')) {
         const match = resultText.match(/McpError\s*\(?([^:)]{1,40})\)?/);
@@ -332,5 +358,6 @@ export function extractErrorCode(resultText: string | undefined): string | undef
     if (resultText.includes('HTTP error')) return 'HttpError';
     if (resultText.includes('timeout')) return 'Timeout';
     if (resultText.includes('Unauthorized') || resultText.includes('unauthorized')) return 'Unauthorized';
+    if (/permission denied/i.test(resultText)) return 'permission_denied';
     return 'UnknownError';
 }
