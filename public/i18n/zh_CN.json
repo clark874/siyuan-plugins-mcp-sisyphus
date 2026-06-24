@@ -565,6 +565,7 @@
     "mcpPermNone": "无权限",
     "mcpPermLoading": "正在加载笔记本…",
     "mcpPermEmpty": "未找到笔记本。",
+    "mcpPermClosedGroup": "已关闭笔记本",
     "mcpConfigSaved": "✅ MCP Tools 配置已保存到文件",
     "mcpConfigSavedBackup": "⚠️ MCP Tools 配置已保存（仅备份）",
     "mcpConfigReset": "🔄 MCP Tools 配置已重置为默认值",

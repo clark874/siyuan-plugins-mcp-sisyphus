@@ -56,7 +56,7 @@
         write: 'rw',
     } as const;
 
-    interface NotebookInfo { id: string; name: string; }
+    interface NotebookInfo { id: string; name: string; closed?: boolean; }
     interface ChangeEvent { key: string; value: any; }
 
     const USER_RULES_GROUP_LABEL = "User Rules";
@@ -133,6 +133,7 @@
                         notebooks = (resp?.data?.notebooks ?? []).map((nb: any) => ({
                             id: nb.id,
                             name: nb.name,
+                            closed: Boolean(nb.closed),
                         }));
                         resolve();
                     } else {

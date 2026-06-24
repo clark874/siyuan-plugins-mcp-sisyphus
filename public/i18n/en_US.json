@@ -582,6 +582,7 @@
     "mcpPermNone": "No Access",
     "mcpPermLoading": "Loading notebooks...",
     "mcpPermEmpty": "No notebooks found.",
+    "mcpPermClosedGroup": "Closed Notebooks",
 
     "mcpConfigSaved": "✅ MCP Tools configuration saved to file",
     "mcpConfigSavedBackup": "⚠️ MCP Tools configuration saved (backup only)",
