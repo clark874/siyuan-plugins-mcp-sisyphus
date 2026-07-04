@@ -8,7 +8,7 @@ Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think o
 
 > **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, and system workflows.
 
-The published npm package is `siyuan-sisyphus`. It installs the primary command `siyuan-sisyphus`, and also provides the shorter alias `siyuan`.
+The published npm package is `siyuan-sisyphus`. It installs the primary command `siyuan-sisyphus`, and also provides the shorter alias `sisyphus` to avoid colliding with SiYuan's official CLI.
 
 ```bash
 siyuan-sisyphus notebook list
@@ -26,7 +26,7 @@ siyuan-sisyphus search fulltext --query "keyword" --page-size 10 --json | jq '.d
 ## Install
 
 ```bash
-# Global install; this installs both `siyuan-sisyphus` and `siyuan`
+# Global install; this installs both `siyuan-sisyphus` and `sisyphus`
 npm i -g siyuan-sisyphus
 
 # Or run once without installing

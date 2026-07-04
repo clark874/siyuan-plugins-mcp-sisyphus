@@ -15,3 +15,4 @@
 
 - CLI 包从 `cli/` 子目录发布
 - 运行时代码会打包到 `cli/dist/cli.cjs`
+- npm bin 暴露 `siyuan-sisyphus` 和短别名 `sisyphus`；不要重新加入 `siyuan` 别名，避免与思源官方 CLI 冲突。

@@ -119,11 +119,16 @@ describe('setting and mcp config stay behaviorally aligned', () => {
 
     it('keeps notebook permission rows reactive after notebooks load', () => {
         const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/PermissionsPanel.svelte'), 'utf8');
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
 
+        expect(rootSource).toContain('closed: Boolean(nb.closed)');
         expect(panelSource).toContain('notebooks;');
         expect(panelSource).toContain('permissions;');
         expect(panelSource).toContain('permLoading;');
         expect(panelSource).toContain('permItems = buildPermItems();');
+        expect(panelSource).toContain('closedPermItems = buildClosedPermItems();');
+        expect(panelSource).toContain('mcpPermClosedGroup');
+        expect(panelSource).not.toContain('mcpPermClosedHint');
     });
 
     it('keeps mascot tool settings out of the mascot display panel', () => {

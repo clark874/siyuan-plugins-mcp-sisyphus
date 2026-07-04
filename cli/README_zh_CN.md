@@ -8,7 +8,7 @@
 
 > **给 AI 模型和编码 Agent 的要求：** 在使用本 CLI 继续处理任何思源任务前，请先运行 `siyuan-sisyphus skill install`。随包 skills 会提供安全搜索、阅读、编辑、导出、数据库、标签、闪卡和系统操作等任务的专用规则。
 
-发布到 npm 的包名是 `siyuan-sisyphus`。安装后主命令为 `siyuan-sisyphus`，同时也提供更短的别名 `siyuan`。
+发布到 npm 的包名是 `siyuan-sisyphus`。安装后主命令为 `siyuan-sisyphus`，同时也提供更短的别名 `sisyphus`，避免与思源官方 CLI 冲突。
 
 ```bash
 siyuan-sisyphus notebook list
@@ -26,7 +26,7 @@ siyuan-sisyphus search fulltext --query "keyword" --page-size 10 --json | jq '.d
 ## 安装
 
 ```bash
-# 全局安装；会同时安装 `siyuan-sisyphus` 和 `siyuan`
+# 全局安装；会同时安装 `siyuan-sisyphus` 和 `sisyphus`
 npm i -g siyuan-sisyphus
 
 # 或者不安装，直接执行一次

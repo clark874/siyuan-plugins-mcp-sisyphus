@@ -301,6 +301,33 @@ describe('analytics', () => {
             expect(extractErrorCode('Request timeout after 30000ms')).toBe('Timeout');
             expect(extractErrorCode('Unauthorized')).toBe('Unauthorized');
             expect(extractErrorCode('unauthorized access')).toBe('Unauthorized');
+            expect(extractErrorCode('permission denied by SiYuan')).toBe('permission_denied');
+        });
+
+        it('extracts structured tool error types from JSON results', () => {
+            const resultText = JSON.stringify({
+                error: {
+                    type: 'permission_denied',
+                    message: 'Notebook "nb" has permission "r", write access is required.',
+                    notebook: 'nb',
+                    current_permission: 'r',
+                    required_permission: 'write',
+                },
+            }, null, 2);
+
+            expect(extractErrorCode(resultText)).toBe('permission_denied');
+        });
+
+        it('prefers semantic codes for generic API errors', () => {
+            const resultText = JSON.stringify({
+                error: {
+                    type: 'api_error',
+                    code: 'block_not_found',
+                    message: 'block not found',
+                },
+            });
+
+            expect(extractErrorCode(resultText)).toBe('block_not_found');
         });
 
         it('returns UnknownError for unrecognized text', () => {

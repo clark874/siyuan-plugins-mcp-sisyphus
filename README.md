@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **Latest:** `v0.4.12` — Strengthens AI-safe filesystem-style editing, system changelog/sync actions, and release smoke coverage. CLI is now `v0.1.15`.
+> **Latest:** `v0.4.13` — Adds explicit MCP HTTP bind address selection, tightens settings UI behavior, and moves the CLI short alias from `siyuan` to `sisyphus`. CLI is now `v0.1.16`.
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">
@@ -69,7 +69,7 @@ Use **CLI** when a terminal command is enough. It avoids long tool schemas in th
 ```bash
 npm i -g siyuan-sisyphus
 siyuan-sisyphus init
-siyuan notebook list
+sisyphus notebook list
 ```
 
 ## Safety Model

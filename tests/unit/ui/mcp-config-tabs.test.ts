@@ -14,7 +14,7 @@ import {
 import { TOOL_CATEGORIES } from '@/ui/setting/tool-config';
 
 describe('mcp-config-tabs icon system', () => {
-    it('has all 15 required icon keys', () => {
+    it('has all required icon keys', () => {
         const requiredKeys = [
             'globe',
             'lock',
@@ -23,6 +23,7 @@ describe('mcp-config-tabs icon system', () => {
             'layout',
             'database',
             'folder',
+            'paperclip',
             'search',
             'tagIcon',
             'monitor',
@@ -72,6 +73,11 @@ describe('mcp-config-tabs icon system', () => {
     it('keeps mascot tool and mascot display tabs distinct', () => {
         expect(CATEGORY_TAB_DEFS.find((d) => d.category === 'mascot')?.groupKey).toBe('Mascot Tool');
         expect(PUPPY_GROUP_KEY).toBe('Mascot Display');
+    });
+
+    it('keeps filesystem and files tool icons distinct', () => {
+        expect(CATEGORY_TAB_DEFS.find((d) => d.category === 'fs')?.iconKey).toBe('folder');
+        expect(CATEGORY_TAB_DEFS.find((d) => d.category === 'file')?.iconKey).toBe('paperclip');
     });
 
     it('does not use category tabs as top-level settings tabs anymore', () => {

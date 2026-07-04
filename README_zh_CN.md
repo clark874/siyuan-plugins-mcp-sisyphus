@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.12` — 强化 AI 安全文档读写、系统更新日志/同步操作与发布 smoke 验证；CLI 同步提升至 `v0.1.15`。
+> **最新版本：**`v0.4.13` — 新增 MCP HTTP 绑定地址选择，优化设置面板权限折叠，并将 CLI 短别名由 `siyuan` 改为 `sisyphus`；CLI 提升至 `v0.1.16`。
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">
@@ -69,7 +69,7 @@ SiYuan Sisyphus 让 AI Agent 安全地阅读、搜索、编辑和整理你的思
 ```bash
 npm i -g siyuan-sisyphus
 siyuan-sisyphus init
-siyuan notebook list
+sisyphus notebook list
 ```
 
 ## 安全边界
