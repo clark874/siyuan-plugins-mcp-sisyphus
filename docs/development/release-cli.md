@@ -15,3 +15,4 @@ When to read this page: you are publishing the `siyuan-sisyphus` npm package.
 
 - The CLI package is published from the `cli/` subdirectory
 - Runtime code is bundled into `cli/dist/cli.cjs`
+- The npm bin exposes `siyuan-sisyphus` and the short alias `sisyphus`; do not reintroduce the `siyuan` alias because it conflicts with SiYuan's official CLI.

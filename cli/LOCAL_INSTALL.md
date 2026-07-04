@@ -1,6 +1,6 @@
 # 本地试用 siyuan-sisyphus（不发布到 npm）
 
-本指南教你在本机把这个仓库里的 CLI 安装成像 `obsidian-cli` / `kubectl` 一样的全局命令 `siyuan-sisyphus`，并保留别名 `siyuan`，在终端直接跑命令验证效果，而不用 `npm publish`。
+本指南教你在本机把这个仓库里的 CLI 安装成像 `obsidian-cli` / `kubectl` 一样的全局命令 `siyuan-sisyphus`，并保留别名 `sisyphus`，在终端直接跑命令验证效果，而不用 `npm publish`。
 
 你的环境：Node 18+、pnpm 或 npm 均可、macOS/Linux/WSL。
 
@@ -44,11 +44,11 @@ cd cli
 npm link
 ```
 
-这会在 `/opt/homebrew/bin/siyuan-sisyphus` 和 `/opt/homebrew/bin/siyuan`（或你的 npm 全局 bin 目录）建软链指向 `cli/dist/cli.cjs`。之后在任意目录都能执行：
+这会在 `/opt/homebrew/bin/siyuan-sisyphus` 和 `/opt/homebrew/bin/sisyphus`（或你的 npm 全局 bin 目录）建软链指向 `cli/dist/cli.cjs`。之后在任意目录都能执行：
 
 ```bash
 siyuan-sisyphus --help
-siyuan --help
+sisyphus --help
 siyuan-sisyphus list
 ```
 
@@ -68,7 +68,7 @@ npm pack                              # 生成 siyuan-sisyphus-0.3.1.tgz
 npm i -g ./siyuan-sisyphus-0.3.1.tgz
 ```
 
-这种方式最接近用户 `npm i -g siyuan-sisyphus` 后获得 `siyuan-sisyphus` 和 `siyuan` 两个命令的真实场景，能同时验证 `files`、`bin`、shebang 这些发布相关的细节。更新后需要重新 `pack + install`。
+这种方式最接近用户 `npm i -g siyuan-sisyphus` 后获得 `siyuan-sisyphus` 和 `sisyphus` 两个命令的真实场景，能同时验证 `files`、`bin`、shebang 这些发布相关的细节。更新后需要重新 `pack + install`。
 
 卸载：`npm uninstall -g siyuan-sisyphus`。
 
@@ -77,7 +77,7 @@ npm i -g ./siyuan-sisyphus-0.3.1.tgz
 ```bash
 # 在 ~/.zshrc 或 ~/.bashrc 里加一行（绝对路径）
 alias siyuan-sisyphus="node /Users/skycat/Documents/GitHub/siyuan-plugin-dev/siyuan-plugins-mcp-sisyphus/cli/dist/cli.cjs"
-alias siyuan="node /Users/skycat/Documents/GitHub/siyuan-plugin-dev/siyuan-plugins-mcp-sisyphus/cli/dist/cli.cjs"
+alias sisyphus="node /Users/skycat/Documents/GitHub/siyuan-plugin-dev/siyuan-plugins-mcp-sisyphus/cli/dist/cli.cjs"
 ```
 
 重开终端或 `source ~/.zshrc` 后生效。卸载就是删掉那一行。
@@ -187,7 +187,7 @@ siyuan-sisyphus help document create
 siyuan-sisyphus document create \
   --notebook <notebook-id> \
   --path "/CLI 测试/Hello" \
-  --markdown "Hello from siyuan CLI"
+  --markdown "Hello from Sisyphus CLI"
 
 # 给文档末尾追加一个 markdown 块
 siyuan-sisyphus block append \
@@ -202,7 +202,7 @@ siyuan-sisyphus block info --id <doc-id>
 siyuan-sisyphus block get-kramdown --id <doc-id>
 ```
 
-flag 命名规则：kebab-case、camelCase、snake_case 都接受 —— `--parent-id`、`--parentID`、`--parentId` 指向同一个字段。action 名也是两种都行：`get-kramdown` == `get_kramdown`。以上示例默认用 `siyuan-sisyphus`，但换成别名 `siyuan` 也一样。
+flag 命名规则：kebab-case、camelCase、snake_case 都接受 —— `--parent-id`、`--parentID`、`--parentId` 指向同一个字段。action 名也是两种都行：`get-kramdown` == `get_kramdown`。以上示例默认用 `siyuan-sisyphus`，但换成别名 `sisyphus` 也一样。
 
 ---
 
@@ -247,7 +247,7 @@ flag 名拼错了。加 `--debug` 看具体哪条被忽略，或 `siyuan-sisyphu
 加 `--debug`，会把忽略的 flag 警告输出到 stderr。想看实际请求体的话，设 `SIYUAN_MCP_DEBUG_ERRORS=1` 会在错误里带上 stack trace。
 
 **CLI 在一个终端里能跑，但切到别的 shell 就找不到命令**
-PATH 没刷新。`which siyuan-sisyphus` 或 `which siyuan` 能定位到哪里；方式 A/B 装完后需要 `hash -r`（zsh）或重开终端。
+PATH 没刷新。`which siyuan-sisyphus` 或 `which sisyphus` 能定位到哪里；方式 A/B 装完后需要 `hash -r`（zsh）或重开终端。
 
 ---
 

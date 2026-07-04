@@ -66,6 +66,9 @@ describe('cli/args', () => {
     it('documents common action aliases and fs positionals', () => {
         const help = getHelpText();
 
+        expect(help).toContain('Alias:');
+        expect(help).toContain('sisyphus');
+        expect(help).not.toContain('\n  siyuan                                         Same CLI, shorter command name');
         expect(help).toContain('list/ls');
         expect(help).toContain('move/mv');
         expect(help).toContain('remove/rm/delete/del');
