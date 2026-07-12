@@ -432,4 +432,20 @@ describe('normalizeJsonSchema', () => {
 
         expect(schema.properties?.items?.items?.properties?.values?.items).toEqual({ type: 'string' });
     });
+
+    it('drops redundant string propertyNames from record schemas', () => {
+        const schema = normalizeJsonSchema({
+            type: 'object',
+            properties: {
+                types: {
+                    type: 'object',
+                    propertyNames: { type: 'string' },
+                    additionalProperties: { type: 'boolean' },
+                },
+            },
+        });
+
+        expect(schema.properties?.types?.propertyNames).toBeUndefined();
+        expect(schema.properties?.types?.additionalProperties).toEqual({ type: 'boolean' });
+    });
 });

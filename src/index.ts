@@ -241,9 +241,7 @@ export default class SiyuanMCP extends Plugin {
 
     onLayoutReady() {
         this.mountPuppy();
-        if (!this.versionControlSettings.enabled) {
-            this.removeVersionControlDock();
-        }
+        if (this.versionControlSettingsLoaded) this.syncVersionControlFeature();
     }
 
 
@@ -523,10 +521,21 @@ export default class SiyuanMCP extends Plugin {
     private registerVersionControlDock() {
         if (!this.versionControlSettingsLoaded) return;
         if (!this.versionControlSettings.enabled) return;
-        if (this.versionControlDockRegistered) return;
-        this.versionControlDockRegistered = true;
+        if (this.versionControlDockRegistered) {
+            if (this.isVersionControlDockRegistrationAlive()) return;
+            appendHttpLifecycleLog("[timeline] dock registration stale; re-register");
+            const dockTypes = this.getVersionControlDockTypes();
+            this.unmountVersionControlDock();
+            this.removeVersionControlDockButtons(dockTypes);
+            this.versionControlDockRegistered = false;
+            this.versionControlDockRegistration = null;
+            this.versionControlDockRegisteredType = "";
+        }
+
+        const addDock = (this as any).addDock;
+        if (typeof addDock !== "function") return;
         appendHttpLifecycleLog("[timeline] register dock");
-        const registration = this.addDock({
+        const registration = addDock.call(this, {
             config: {
                 position: VERSION_CONTROL_DOCK_POSITION,
                 size: { width: 420, height: 0 },
@@ -548,6 +557,7 @@ export default class SiyuanMCP extends Plugin {
             },
             destroy: () => this.unmountVersionControlDock(),
         });
+        this.versionControlDockRegistered = true;
         this.versionControlDockRegistration = registration ?? null;
         const registeredConfig = registration?.config as any;
         const registeredModel = registration?.model as any;
@@ -557,6 +567,40 @@ export default class SiyuanMCP extends Plugin {
             this.name ? `${this.name}${VERSION_CONTROL_DOCK_TYPE}` : "",
             VERSION_CONTROL_DOCK_TYPE,
         ]);
+    }
+
+    private isVersionControlDockRegistrationAlive(): boolean {
+        if (this.versionControlDockElement?.isConnected) return true;
+
+        const dockTypes = this.getVersionControlDockTypes();
+        if (dockTypes.length === 0) return false;
+
+        const layout = (window as any)?.siyuan?.layout;
+        const targetDock = getDockByPosition(layout, VERSION_CONTROL_DOCK_POSITION);
+        const dockData = targetDock?.data;
+        if (dockData && typeof dockData === "object") {
+            for (const dockType of dockTypes) {
+                if (Object.prototype.hasOwnProperty.call(dockData, dockType)) return true;
+            }
+        }
+
+        const uiLayout = (window as any)?.siyuan?.config?.uiLayout;
+        const dockLayout = uiLayout?.right;
+        if (Array.isArray(dockLayout?.data)) {
+            for (const group of dockLayout.data) {
+                if (!Array.isArray(group)) continue;
+                if (group.some((item) => dockTypes.includes(item?.type))) return true;
+            }
+        }
+
+        const pluginDocks = (this as any).docks;
+        if (!layout && pluginDocks && typeof pluginDocks === "object") {
+            for (const dockType of dockTypes) {
+                if (Object.prototype.hasOwnProperty.call(pluginDocks, dockType)) return true;
+            }
+        }
+
+        return false;
     }
 
     private ensureVersionControlPanelMounted() {

@@ -1399,7 +1399,10 @@
         {#if !effectiveTimelineCollapsed}
             {#if !diffOpen}
                 <section class="vc-section vc-document-heading">
-                    <div class="vc-section__title">{displayDocumentTitle}</div>
+                    <div class="vc-sidebar-heading">
+                        <div class="vc-section__title">{displayDocumentTitle}</div>
+                        <button type="button" class="vc-icon-button vc-sidebar-collapse" on:click={toggleTimelineCollapsed} title={t("timeline_action_collapse", "折叠时间线")} aria-label={t("timeline_action_collapse", "折叠时间线")}>›</button>
+                    </div>
                     {#if showDebugMeta && currentDocumentId}
                         <code>{currentDocumentId}</code>
                     {/if}
@@ -1408,7 +1411,12 @@
             {/if}
 
             <section class="vc-section">
-                <div class="vc-section__title">{t("timeline_snapshot_section_title", "Snapshot")}</div>
+                <div class="vc-sidebar-heading vc-snapshot-heading">
+                    <div class="vc-section__title">{t("timeline_snapshot_section_title", "Snapshot")}</div>
+                    {#if diffOpen}
+                        <button type="button" class="vc-icon-button vc-sidebar-collapse" on:click={toggleTimelineCollapsed} title={t("timeline_action_collapse", "折叠时间线")} aria-label={t("timeline_action_collapse", "折叠时间线")}>›</button>
+                    {/if}
+                </div>
                 <textarea bind:value={memo} rows="3" placeholder={t("timeline_node_placeholder", "例如 feat：重构文档工具")}></textarea>
                 <button type="button" class="vc-primary" on:click={createTimelineNode} disabled={loadingSnapshots}>{t("timeline_action_create_node", "创建节点")}</button>
             </section>
@@ -1499,6 +1507,25 @@
     .vc-section__title {
         font-weight: 600;
         font-size: 13px;
+    }
+
+    .vc-sidebar-heading {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+        min-width: 0;
+    }
+
+    .vc-sidebar-heading .vc-section__title {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vc-sidebar-collapse {
+        flex: 0 0 auto;
     }
 
     .vc-document-heading code {
@@ -1726,7 +1753,10 @@
         position: relative;
         min-width: 0;
         height: 100%;
+        box-sizing: border-box;
         overflow: auto;
+        padding-right: 16px;
+        scrollbar-gutter: stable;
     }
 
     .vc-diff-head,
@@ -1827,7 +1857,6 @@
 
     .vc-unified-list {
         display: grid;
-        padding-right: 16px;
     }
 
     .vc-hidden-blocks {
@@ -1887,7 +1916,7 @@
     .vc-unified-block.modified,
     .vc-unified-block.added,
     .vc-unified-block.removed {
-        padding-right: 34px;
+        padding-right: 48px;
     }
 
     .vc-unified-row {
@@ -1945,6 +1974,7 @@
         gap: 4px;
         align-items: center;
         justify-content: center;
+        width: 40px;
         height: 100%;
         opacity: 0;
         transform: translateY(-50%);

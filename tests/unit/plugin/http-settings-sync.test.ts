@@ -587,6 +587,22 @@ describe('HTTP settings sync', () => {
         expect((versionControlInstances[0].args as any).props.showDebugMeta).toBe(true);
     });
 
+    it('re-registers the timeline dock when layout refresh drops its dock data', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+
+        await plugin.onload();
+        expect(addDock).toHaveBeenCalledTimes(1);
+
+        const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        rightDock.data = {};
+        (plugin as any).docks = {};
+        (globalThis as any).window.siyuan.config.uiLayout.right.data = [];
+
+        plugin.onLayoutReady();
+
+        expect(addDock).toHaveBeenCalledTimes(2);
+    });
+
     it('disables the timeline dock, command, events, and panel when persisted setting is off', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
         const addCommand = vi.fn((command) => {
