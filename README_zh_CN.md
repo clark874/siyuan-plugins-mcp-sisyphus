@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.13` — 新增 MCP HTTP 绑定地址选择，优化设置面板权限折叠，并将 CLI 短别名由 `siyuan` 改为 `sisyphus`；CLI 提升至 `v0.1.16`。
+> **最新版本：**`v0.4.14` — 新增可发现的 MCP 场景 Skill 与 Prompt，支持选择 CLI/MCP Skill 套件，并修复时间线、搜索 Schema 与猫猫冷启动问题；CLI 提升至 `v0.1.17`。
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">
@@ -72,6 +72,19 @@ siyuan-sisyphus init
 sisyphus notebook list
 ```
 
+## 面向 Agent 的场景 Skill
+
+MCP Server 内置了浏览、编辑、搜索、数据库、导出、标签、闪卡、系统安全和思源排版等场景指南。普通 MCP 客户端无需安装任何 Skill：先读取 `siyuan://skills/index`，再加载匹配的 `siyuan://skills/{name}` 资源即可。对应的 MCP Prompts 是由用户显式调用的工作流入口，不会自动生效。
+
+支持安装 `SKILL.md` 包的 Agent 可以把同一套指南安装到本地：
+
+```bash
+siyuan-sisyphus skill install --bundle mcp # MCP 调用约定
+siyuan-sisyphus skill install --bundle all # 同时安装 MCP 与 CLI 两套
+```
+
+为保持兼容，不带 `--bundle` 的 `siyuan-sisyphus skill install` 仍默认安装 CLI Skill。Skill 负责工作流与安全决策；当前参数的真相源仍是 `siyuan://help/action/{tool}/{action}`（或对应的 `action="help"` 响应）。
+
 ## 安全边界
 
 SiYuan Sisyphus 的默认设计是让用户明确控制 AI 的操作范围：
@@ -107,7 +120,7 @@ SiYuan Sisyphus 的默认设计是让用户明确控制 AI 的操作范围：
 
 ### 赞助致谢
 
-感谢 **undefined**、**Fngd Z** 、**ou** 和其他好心人对本项目的赞助支持。
+感谢 **undefined**、**Fngd Z** 、**ou**、**米建**, **锋🌀☁️**, 和其他好心人对本项目的赞助支持。
 
 <p align="left">
   <img src="docs/archive/thank.jpeg" alt="赞赏码" width="200">

@@ -14,6 +14,8 @@ describe('core/resources', () => {
             'siyuan://help/ai-layout-guide',
             'siyuan://help/changelog',
             'siyuan://help/user-rules',
+            'siyuan://skills/index',
+            'siyuan://skills/siyuan-mcp-browse-read',
         ]));
         expect(resources.every((resource) => resource.mimeType === 'text/markdown')).toBe(true);
         expect(templates).toEqual(expect.arrayContaining([
@@ -21,7 +23,22 @@ describe('core/resources', () => {
                 uriTemplate: 'siyuan://help/action/{tool}/{action}',
                 mimeType: 'text/markdown',
             }),
+            expect.objectContaining({
+                uriTemplate: 'siyuan://skills/{name}',
+                mimeType: 'text/markdown',
+            }),
         ]));
+    });
+
+    it('lists and reads embedded scenario skills', () => {
+        const index = readHelpResource('siyuan://skills/index');
+        const skill = readHelpResource('siyuan://skills/siyuan-mcp-create-edit');
+
+        expect(index?.text).toContain('# SiYuan MCP Skill Index');
+        expect(index?.text).toContain('siyuan-mcp-create-edit');
+        expect(skill?.text).toContain('name: siyuan-mcp-create-edit');
+        expect(skill?.text).not.toContain('siyuan-sisyphus block');
+        expect(readHelpResource('siyuan://skills/unknown')).toBeNull();
     });
 
     it('renders static and action help resources with parameter summaries', () => {

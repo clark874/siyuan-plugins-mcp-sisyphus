@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Create & Edit CLI"
+  short_description: "Create and edit SiYuan note content"
+  default_prompt: "Use $siyuan-sisyphus-create-edit to make this SiYuan content change safely and verify it."

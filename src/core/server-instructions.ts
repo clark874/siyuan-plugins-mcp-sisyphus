@@ -158,6 +158,7 @@ ${agentMemorySection}
 ## Help and progressive disclosure
 
 Each tool exposes common actions in its description. For detailed help on any action (including advanced ones):
+- For non-trivial workflows, read \`siyuan://skills/index\` first, then load the narrowest matching \`siyuan://skills/{name}\` scenario skill. Skills explain workflow and safety decisions; action help remains the source of truth for current parameters.
 - Read MCP resources: siyuan://help/action/{tool}/{action}, siyuan://help/tool-overview, siyuan://help/document-path-semantics, siyuan://help/examples, siyuan://help/ai-layout-guide, ${CHANGELOG_RESOURCE_URI}
 - Read \`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")\` or siyuan://help/user-rules when user-specific preferences may affect tool choice, naming, formatting, icon behavior, or content style.
 - After plugin upgrades, call \`system(action="changelog", fromVersion="<previousVersion>")\` or read \`${CHANGELOG_RESOURCE_URI}\`. If \`personalizationReview.shouldReview\` is true, tell the user which settings, rules, memory, permissions, appearance, timeline, or connection snippets may need review before changing persistent preferences.

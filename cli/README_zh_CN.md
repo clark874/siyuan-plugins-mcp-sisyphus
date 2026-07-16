@@ -47,6 +47,22 @@ siyuan-sisyphus list block     # 查看某个工具下的所有 action
 siyuan-sisyphus help block append
 ```
 
+## Agent Skill 套件
+
+npm 包携带两套相关的 Skill：
+
+- `cli` 使用终端命令示例，并且仍是 `skill list`、`skill read` 和 `skill install` 的默认套件。
+- `mcp` 使用 MCP 工具调用示例，适合通过插件 Server 连接的 Agent。
+
+```bash
+siyuan-sisyphus skill list --bundle mcp
+siyuan-sisyphus skill read siyuan-mcp-browse-read --bundle mcp
+siyuan-sisyphus skill install --bundle mcp
+siyuan-sisyphus skill install --bundle all
+```
+
+使用 `--bundle all` 可同时安装两套。普通 MCP 客户端无需在本地安装：它们可以直接从 Server 读取 `siyuan://skills/index` 和 `siyuan://skills/{name}`，也可以显式调用对应的 MCP Prompt；Prompt 不会自动激活。精确且最新的 action 参数请以 `siyuan://help/action/{tool}/{action}` 为准，Skill 主要负责工作流与安全规则。
+
 ## 命令格式
 
 ```
@@ -55,6 +71,8 @@ siyuan-sisyphus list [tool]                          列出所有工具，或某
 siyuan-sisyphus help <tool> [action]                 查看某个工具或 action 的详细帮助
 siyuan-sisyphus init                                 交互式初始化配置
 siyuan-sisyphus config list|get|set|use ...          管理已保存的 SiYuan profile
+siyuan-sisyphus skill list|read|install [--bundle cli|mcp|all]
+                                                     查看或安装 Agent Skill
 siyuan-sisyphus --help | -h                          显示顶层帮助
 siyuan-sisyphus --version | -v                       显示版本号
 ```

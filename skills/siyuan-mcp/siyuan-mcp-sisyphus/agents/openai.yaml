@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Sisyphus MCP"
+  short_description: "Route safe SiYuan note workflows"
+  default_prompt: "Use $siyuan-mcp-sisyphus to choose and follow the safest SiYuan workflow for this task."

@@ -136,6 +136,16 @@ describe('snapshot document timeline', () => {
         expect(source).toContain('panelVisible = isShellVisible();');
     });
 
+    it('keeps a collapse control in the snapshot sidebar while a diff is open', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+        const snapshotSection = source.match(/<div class="vc-sidebar-heading vc-snapshot-heading">[\s\S]*?<textarea/);
+
+        expect(snapshotSection?.[0]).toContain('{#if diffOpen}');
+        expect(snapshotSection?.[0]).toContain('class="vc-icon-button vc-sidebar-collapse"');
+        expect(snapshotSection?.[0]).toContain('on:click={toggleTimelineCollapsed}');
+        expect(snapshotSection?.[0]).toContain('timeline_action_collapse');
+    });
+
     it('continues root timeline tagging when SiYuan rejects duplicate root snapshot creation', () => {
         const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Files & Export MCP"
+  short_description: "Move assets and export SiYuan content"
+  default_prompt: "Use $siyuan-mcp-file-export to handle these SiYuan assets or exports safely."

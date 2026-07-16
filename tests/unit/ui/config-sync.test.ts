@@ -6,6 +6,7 @@ import * as mcpConfig from '@/core/config';
 import * as settingConfig from '@/ui/setting/tool-config';
 import {
     DEFAULT_PUPPY_APPEARANCE,
+    buildDefaultPuppySettings,
     buildDefaultVersionControlSettings,
     normalizePuppySettings,
     normalizeVersionControlSettings,
@@ -257,6 +258,7 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         const toolPuppySource = readFileSync(resolve(process.cwd(), 'src/ui/components/ToolPuppy.svelte'), 'utf8');
         const awakeSvgSource = readFileSync(resolve(process.cwd(), 'src/ui/components/PuppyAwakeSVG.svelte'), 'utf8');
 
+        expect(toolPuppySource).toContain('export let visible = false;');
         expect(toolPuppySource).toContain('buildDefaultPuppyAppearance');
         expect(toolPuppySource).toContain('appearance: PuppyAppearanceSettings = buildDefaultPuppyAppearance()');
         expect(awakeSvgSource).toContain(`var(--sy-puppy-body-color, ${DEFAULT_PUPPY_APPEARANCE.bodyColor})`);
@@ -265,10 +267,14 @@ describe('setting and mcp config stay behaviorally aligned', () => {
     });
 
     it('normalizes mascot appearance colors and preserves legacy settings', () => {
+        expect(buildDefaultPuppySettings().visible).toBe(false);
+        expect(normalizePuppySettings(undefined).visible).toBe(false);
+        expect(normalizePuppySettings({ visible: 'invalid' }).visible).toBe(false);
         expect(normalizePuppySettings({ visible: false })).toMatchObject({
             visible: false,
             appearance: DEFAULT_PUPPY_APPEARANCE,
         });
+        expect(normalizePuppySettings({ visible: true }).visible).toBe(true);
 
         expect(normalizePuppySettings({
             appearance: {

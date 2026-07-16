@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Search & Query CLI"
+  short_description: "Search and query SiYuan knowledge"
+  default_prompt: "Use $siyuan-sisyphus-search-query to find and query the requested SiYuan knowledge."

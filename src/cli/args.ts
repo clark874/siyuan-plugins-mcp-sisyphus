@@ -5,6 +5,7 @@ import { CLI_COMMAND_ALIAS, PRIMARY_CLI_COMMAND } from '../shared/constants';
 export type Command = 'dispatch' | 'list' | 'help' | 'init' | 'config' | 'skill' | 'show-help' | 'version';
 export type ConfigCommandAction = 'list' | 'get' | 'set' | 'use';
 export type SkillCommandAction = 'list' | 'read' | 'install' | 'uninstall';
+export type SkillBundle = 'cli' | 'mcp' | 'all';
 
 export { PRIMARY_CLI_COMMAND, CLI_COMMAND_ALIAS } from '../shared/constants';
 
@@ -16,6 +17,7 @@ export interface ParsedArgs {
     configName?: string;
     skillAction?: SkillCommandAction;
     skillName?: string;
+    bundle?: SkillBundle;
     rest: string[];
     configPath?: string;
     profile?: string;
@@ -42,8 +44,8 @@ Commands:
   ${PRIMARY_CLI_COMMAND} help <tool> [action]                 Show terminal-friendly help
   ${PRIMARY_CLI_COMMAND} init                                 Create ~/.siyuan-sisyphus/config.json
   ${PRIMARY_CLI_COMMAND} config <action> ...                  Manage saved SiYuan profiles
-  ${PRIMARY_CLI_COMMAND} skill install [--target agents]      Install bundled agent skills
-  ${PRIMARY_CLI_COMMAND} skill list                           List bundled agent skills
+  ${PRIMARY_CLI_COMMAND} skill install [--bundle cli|mcp|all] Install bundled agent skills
+  ${PRIMARY_CLI_COMMAND} skill list [--bundle cli|mcp|all]    List bundled agent skills
   ${PRIMARY_CLI_COMMAND} --help | -h                          Show this help
   ${PRIMARY_CLI_COMMAND} --version | -v                       Show version
 
@@ -72,6 +74,7 @@ Examples:
   ${PRIMARY_CLI_COMMAND} config set work --url http://127.0.0.1:6807 --token xxx
   ${PRIMARY_CLI_COMMAND} config use work
   ${PRIMARY_CLI_COMMAND} skill install
+  ${PRIMARY_CLI_COMMAND} skill install --bundle mcp
   ${PRIMARY_CLI_COMMAND} skill install --target claude
   ${PRIMARY_CLI_COMMAND} skill install --target .codex --local
   ${PRIMARY_CLI_COMMAND} help document create
@@ -99,7 +102,7 @@ Flag naming:
 `;
 
 const GLOBAL_BOOLEAN = ['json', 'debug', 'help', 'version'];
-const GLOBAL_STRING = ['config', 'profile', 'url', 'token'];
+const GLOBAL_STRING = ['config', 'profile', 'url', 'token', 'bundle'];
 
 export function parseArgs(argv: string[]): ParsedArgs {
     const parsed = minimist(argv, {
@@ -189,10 +192,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
                 `"${PRIMARY_CLI_COMMAND} skill uninstall".`,
             );
         }
+        const bundle = parsed.bundle || 'cli';
+        if (!['cli', 'mcp', 'all'].includes(bundle)) {
+            throw new Error('Invalid skill bundle. Use "cli", "mcp", or "all".');
+        }
         return {
             command: 'skill',
             skillAction,
             skillName: typeof positional[2] === 'string' ? positional[2] : undefined,
+            bundle: bundle as SkillBundle,
             rest: [],
             configPath: parsed.config || undefined,
             profile: parsed.profile || undefined,

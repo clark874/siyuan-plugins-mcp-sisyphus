@@ -7,6 +7,7 @@ import type { ParsedArgs } from '@/cli/args';
 import {
     installSkills,
     listBundledSkills,
+    normalizeSkillBundle,
     normalizeSkillTargetName,
     readBundledSkill,
     resolveBundledSkillsRoot,
@@ -60,6 +61,11 @@ describe('cli/skill-command', () => {
         expect(skills.map((skill) => skill.name)).toContain('siyuan-sisyphus');
         expect(skills.every((skill) => existsSync(join(skill.path, 'SKILL.md')))).toBe(true);
         expect(readBundledSkill('siyuan-sisyphus')).toContain('#');
+
+        const mcpRoot = resolveBundledSkillsRoot(undefined, undefined, 'mcp');
+        const mcpSkills = listBundledSkills(mcpRoot, 'mcp');
+        expect(mcpSkills.map((skill) => skill.name)).toContain('siyuan-mcp-sisyphus');
+        expect(readBundledSkill('siyuan-mcp-create-edit', 'mcp')).toContain('name: siyuan-mcp-create-edit');
     });
 
     it('normalizes target names and rejects unsafe paths', () => {
@@ -68,6 +74,23 @@ describe('cli/skill-command', () => {
         expect(normalizeSkillTargetName('codex')).toBe('.codex');
         expect(normalizeSkillTargetName('.codex')).toBe('.codex');
         expect(() => normalizeSkillTargetName('../bad')).toThrow('Invalid skill target');
+        expect(normalizeSkillBundle()).toBe('cli');
+        expect(normalizeSkillBundle('mcp')).toBe('mcp');
+        expect(() => normalizeSkillBundle('unknown')).toThrow('Invalid skill bundle');
+    });
+
+    it('installs MCP or all bundles without changing the legacy default', () => {
+        const dir = createTempDir();
+
+        const mcp = installSkills({ target: '.codex', local: true, cwd: dir, bundle: 'mcp' });
+        expect(mcp.bundle).toBe('mcp');
+        expect(mcp.skills).toContain('siyuan-mcp-create-edit');
+        expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-mcp-create-edit', 'SKILL.md'))).toBe(true);
+        expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-sisyphus', 'SKILL.md'))).toBe(false);
+
+        const all = installSkills({ target: '.codex', local: true, cwd: dir, bundle: 'all' });
+        expect(all.skills).toContain('siyuan-sisyphus');
+        expect(all.skills).toContain('siyuan-mcp-sisyphus');
     });
 
     it('resolves local targets under the current directory', () => {

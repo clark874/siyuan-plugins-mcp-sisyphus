@@ -54,13 +54,19 @@ describe('cli/args', () => {
     });
 
     it('parses skill install options', () => {
-        expect(parseArgs(['skill', 'install', '--target', '.codex', '--local', '--dry-run'])).toMatchObject({
+        expect(parseArgs(['skill', 'install', '--bundle', 'mcp', '--target', '.codex', '--local', '--dry-run'])).toMatchObject({
             command: 'skill',
             skillAction: 'install',
+            bundle: 'mcp',
             target: '.codex',
             local: true,
             dryRun: true,
         });
+    });
+
+    it('keeps CLI as the default skill bundle and rejects unknown bundles', () => {
+        expect(parseArgs(['skill', 'list'])).toMatchObject({ bundle: 'cli' });
+        expect(() => parseArgs(['skill', 'list', '--bundle', 'unknown'])).toThrow('Invalid skill bundle');
     });
 
     it('documents common action aliases and fs positionals', () => {

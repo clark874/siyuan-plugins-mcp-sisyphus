@@ -137,6 +137,19 @@ function normalizeSchemaNode(schema: unknown): unknown {
         );
     }
 
+    if (
+        normalized.propertyNames &&
+        typeof normalized.propertyNames === 'object' &&
+        !Array.isArray(normalized.propertyNames)
+    ) {
+        const propertyNames = normalized.propertyNames as JsonSchema;
+        if (propertyNames.type === 'string' && Object.keys(propertyNames).length === 1) {
+            delete normalized.propertyNames;
+        } else {
+            normalized.propertyNames = normalizeSchemaNode(propertyNames);
+        }
+    }
+
     if (normalized.additionalProperties && typeof normalized.additionalProperties === 'object' && !Array.isArray(normalized.additionalProperties)) {
         normalized.additionalProperties = normalizeSchemaNode(normalized.additionalProperties);
     }

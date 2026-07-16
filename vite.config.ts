@@ -90,7 +90,8 @@ function createRendererConfig() {
             }),
             viteStaticCopy({
                 targets: [
-                    { src: "./README*.md", dest: "./" },
+                    { src: "./README.md", dest: "./" },
+                    { src: "./README_zh_CN.md", dest: "./" },
                     { src: "./plugin.json", dest: "./" },
                     { src: "./preview.png", dest: "./" },
                     { src: "./icon.png", dest: "./" },
@@ -122,7 +123,8 @@ function createRendererConfig() {
                                 async buildStart() {
                                     const files = await fg([
                                         "public/i18n/**",
-                                        "./README*.md",
+                                        "./README.md",
+                                        "./README_zh_CN.md",
                                         "./plugin.json",
                                     ]);
                                     for (const file of files) {
@@ -341,18 +343,20 @@ function copyCliSkills() {
             async handler() {
                 const fs = await import("fs");
                 const path = await import("path");
-                const source = resolve(__dirname, "skills/siyuan-sisyphus");
-                const target = resolve(__dirname, cliOutputDir, "skills/siyuan-sisyphus");
+                for (const rootName of ["siyuan-sisyphus", "siyuan-mcp"]) {
+                    const source = resolve(__dirname, "skills", rootName);
+                    const target = resolve(__dirname, cliOutputDir, "skills", rootName);
 
-                if (!fs.default.existsSync(source)) {
-                    console.warn(`[cli-copy-skills] source not found: ${source}`);
-                    return;
+                    if (!fs.default.existsSync(source)) {
+                        console.warn(`[cli-copy-skills] source not found: ${source}`);
+                        continue;
+                    }
+
+                    fs.default.rmSync(target, { recursive: true, force: true });
+                    fs.default.mkdirSync(path.default.dirname(target), { recursive: true });
+                    fs.default.cpSync(source, target, { recursive: true, force: true });
+                    console.log(`[cli-copy-skills] copied ${source} -> ${target}`);
                 }
-
-                fs.default.rmSync(target, { recursive: true, force: true });
-                fs.default.mkdirSync(path.default.dirname(target), { recursive: true });
-                fs.default.cpSync(source, target, { recursive: true, force: true });
-                console.log(`[cli-copy-skills] copied ${source} -> ${target}`);
             },
         },
     };

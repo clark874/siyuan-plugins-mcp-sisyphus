@@ -522,12 +522,85 @@ describe('HTTP settings sync', () => {
         expect(showMessage).toHaveBeenCalledWith(expect.stringContaining('Detected legacy tool config format'));
     });
 
-    it('mounts the puppy only once when layout becomes ready repeatedly', () => {
+    it('mounts the puppy only once after settings load when layout becomes ready repeatedly', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+
+        await plugin.onload();
+
+        expect(puppyInstances).toHaveLength(0);
+
         plugin.onLayoutReady();
         plugin.onLayoutReady();
 
         expect(document.querySelectorAll('#sy-puppy-root')).toHaveLength(1);
         expect(puppyInstances).toHaveLength(1);
+        expect((puppyInstances[0].args as any).props.visible).toBe(false);
+    });
+
+    it('does not mount the puppy before delayed settings finish loading', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        let resolveToolConfig: (value: unknown) => void = () => {};
+        loadData.mockImplementation((storageName: string) => {
+            if (storageName === 'mcpToolsConfig') {
+                return new Promise((resolve) => {
+                    resolveToolConfig = resolve;
+                });
+            }
+            if (storageName === 'puppySettings') {
+                return Promise.resolve({ visible: false });
+            }
+            return Promise.resolve(undefined);
+        });
+
+        const loading = plugin.onload();
+        plugin.onLayoutReady();
+
+        expect(puppyInstances).toHaveLength(0);
+        expect(document.querySelector('#sy-puppy-root')).toBeNull();
+
+        resolveToolConfig(undefined);
+        await loading;
+
+        expect(puppyInstances).toHaveLength(1);
+        expect((puppyInstances[0].args as any).props.visible).toBe(false);
+    });
+
+    it('preserves an explicitly enabled persisted puppy setting', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        loadData.mockImplementation((storageName: string) => {
+            if (storageName === 'puppySettings') {
+                return Promise.resolve({ visible: true });
+            }
+            return Promise.resolve(undefined);
+        });
+
+        await plugin.onload();
+        plugin.onLayoutReady();
+
+        expect(puppyInstances).toHaveLength(1);
+        expect((puppyInstances[0].args as any).props.visible).toBe(true);
+    });
+
+    it('does not mount the puppy when unloaded during delayed settings loading', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        let resolveToolConfig: (value: unknown) => void = () => {};
+        loadData.mockImplementation((storageName: string) => {
+            if (storageName === 'mcpToolsConfig') {
+                return new Promise((resolve) => {
+                    resolveToolConfig = resolve;
+                });
+            }
+            return Promise.resolve(undefined);
+        });
+
+        const loading = plugin.onload();
+        plugin.onLayoutReady();
+        await plugin.onunload();
+        resolveToolConfig(undefined);
+        await loading;
+
+        expect(puppyInstances).toHaveLength(0);
+        expect(document.querySelector('#sy-puppy-root')).toBeNull();
     });
 
     it('defers timeline dock registration until persisted timeline settings are loaded', async () => {
@@ -585,6 +658,22 @@ describe('HTTP settings sync', () => {
 
         expect(versionControlInstances).toHaveLength(1);
         expect((versionControlInstances[0].args as any).props.showDebugMeta).toBe(true);
+    });
+
+    it('re-registers the timeline dock when layout refresh drops its dock data', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+
+        await plugin.onload();
+        expect(addDock).toHaveBeenCalledTimes(1);
+
+        const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        rightDock.data = {};
+        (plugin as any).docks = {};
+        (globalThis as any).window.siyuan.config.uiLayout.right.data = [];
+
+        plugin.onLayoutReady();
+
+        expect(addDock).toHaveBeenCalledTimes(2);
     });
 
     it('disables the timeline dock, command, events, and panel when persisted setting is off', async () => {
@@ -722,7 +811,9 @@ describe('HTTP settings sync', () => {
         expect(rightDock.showDock).toHaveBeenCalledTimes(1);
     });
 
-    it('self-heals orphan puppy roots before remounting', () => {
+    it('self-heals orphan puppy roots before remounting', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        await plugin.onload();
         const orphanRoot = document.createElement('div');
         orphanRoot.id = 'sy-puppy-root';
         document.body.appendChild(orphanRoot);
@@ -736,6 +827,8 @@ describe('HTTP settings sync', () => {
     });
 
     it('destroys the puppy component and removes its root on unload', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        await plugin.onload();
         plugin.onLayoutReady();
         const mountedPuppy = puppyInstances[0];
 
@@ -745,7 +838,9 @@ describe('HTTP settings sync', () => {
         expect(document.querySelector('#sy-puppy-root')).toBeNull();
     });
 
-    it('pushes updated settings into the mounted puppy component', () => {
+    it('pushes updated settings into the mounted puppy component', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        await plugin.onload();
         plugin.onLayoutReady();
         const mountedPuppy = puppyInstances[0];
 

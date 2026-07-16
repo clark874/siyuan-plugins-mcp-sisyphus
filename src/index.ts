@@ -46,9 +46,10 @@ export default class SiyuanMCP extends Plugin {
     private versionControlPanel: VersionControlPanel | null = null;
     private versionControlContainer: HTMLElement | null = null;
     private currentDocument: CurrentDocumentContext = { id: "", title: "" };
-    private puppyVisible = true;
     private puppyContainer: HTMLElement | null = null;
     private puppySettings: PuppySettings = buildDefaultPuppySettings();
+    private puppySettingsLoaded = false;
+    private layoutReady = false;
     private versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
     private versionControlDockRegistered = false;
     private versionControlCommandRegistered = false;
@@ -74,7 +75,10 @@ export default class SiyuanMCP extends Plugin {
         }
         await savePersistedToolConfig(normalized, this);
         this.puppySettings = await loadPersistedPuppySettings(this);
-        this.puppyVisible = this.puppySettings.visible;
+        this.puppySettingsLoaded = true;
+        if (this.layoutReady) {
+            this.mountPuppy();
+        }
         this.httpSettings = await loadPersistedHttpServerSettings(this);
         this.versionControlSettings = await loadPersistedVersionControlSettings(this);
         this.versionControlSettingsLoaded = true;
@@ -214,7 +218,7 @@ export default class SiyuanMCP extends Plugin {
         this.puppyComponent = new ToolPuppy({
             target: this.puppyContainer,
             props: {
-                visible: this.puppyVisible,
+                visible: this.puppySettings.visible,
                 testModeEnabled: this.puppySettings.testModeEnabled,
                 testModeIntervalMs: this.puppySettings.testModeIntervalMs,
                 showBubble: this.puppySettings.showBubble,
@@ -240,16 +244,16 @@ export default class SiyuanMCP extends Plugin {
     }
 
     onLayoutReady() {
-        this.mountPuppy();
-        if (!this.versionControlSettings.enabled) {
-            this.removeVersionControlDock();
+        this.layoutReady = true;
+        if (this.puppySettingsLoaded) {
+            this.mountPuppy();
         }
+        if (this.versionControlSettingsLoaded) this.syncVersionControlFeature();
     }
 
 
     updatePuppyTestSettings(settings: PuppySettings) {
         this.puppySettings = settings;
-        this.puppyVisible = settings.visible;
         if (this.puppyComponent) {
             this.puppyComponent.$set({
                 visible: settings.visible,
@@ -346,6 +350,8 @@ export default class SiyuanMCP extends Plugin {
 
     async onunload() {
         appendHttpLifecycleLog("[plugin] onunload begin");
+        this.layoutReady = false;
+        this.puppySettingsLoaded = false;
         this.unregisterVersionControlEvents();
         this.unmountVersionControlDock();
         this.unmountPuppy();
@@ -523,10 +529,21 @@ export default class SiyuanMCP extends Plugin {
     private registerVersionControlDock() {
         if (!this.versionControlSettingsLoaded) return;
         if (!this.versionControlSettings.enabled) return;
-        if (this.versionControlDockRegistered) return;
-        this.versionControlDockRegistered = true;
+        if (this.versionControlDockRegistered) {
+            if (this.isVersionControlDockRegistrationAlive()) return;
+            appendHttpLifecycleLog("[timeline] dock registration stale; re-register");
+            const dockTypes = this.getVersionControlDockTypes();
+            this.unmountVersionControlDock();
+            this.removeVersionControlDockButtons(dockTypes);
+            this.versionControlDockRegistered = false;
+            this.versionControlDockRegistration = null;
+            this.versionControlDockRegisteredType = "";
+        }
+
+        const addDock = (this as any).addDock;
+        if (typeof addDock !== "function") return;
         appendHttpLifecycleLog("[timeline] register dock");
-        const registration = this.addDock({
+        const registration = addDock.call(this, {
             config: {
                 position: VERSION_CONTROL_DOCK_POSITION,
                 size: { width: 420, height: 0 },
@@ -548,6 +565,7 @@ export default class SiyuanMCP extends Plugin {
             },
             destroy: () => this.unmountVersionControlDock(),
         });
+        this.versionControlDockRegistered = true;
         this.versionControlDockRegistration = registration ?? null;
         const registeredConfig = registration?.config as any;
         const registeredModel = registration?.model as any;
@@ -557,6 +575,40 @@ export default class SiyuanMCP extends Plugin {
             this.name ? `${this.name}${VERSION_CONTROL_DOCK_TYPE}` : "",
             VERSION_CONTROL_DOCK_TYPE,
         ]);
+    }
+
+    private isVersionControlDockRegistrationAlive(): boolean {
+        if (this.versionControlDockElement?.isConnected) return true;
+
+        const dockTypes = this.getVersionControlDockTypes();
+        if (dockTypes.length === 0) return false;
+
+        const layout = (window as any)?.siyuan?.layout;
+        const targetDock = getDockByPosition(layout, VERSION_CONTROL_DOCK_POSITION);
+        const dockData = targetDock?.data;
+        if (dockData && typeof dockData === "object") {
+            for (const dockType of dockTypes) {
+                if (Object.prototype.hasOwnProperty.call(dockData, dockType)) return true;
+            }
+        }
+
+        const uiLayout = (window as any)?.siyuan?.config?.uiLayout;
+        const dockLayout = uiLayout?.right;
+        if (Array.isArray(dockLayout?.data)) {
+            for (const group of dockLayout.data) {
+                if (!Array.isArray(group)) continue;
+                if (group.some((item) => dockTypes.includes(item?.type))) return true;
+            }
+        }
+
+        const pluginDocks = (this as any).docks;
+        if (!layout && pluginDocks && typeof pluginDocks === "object") {
+            for (const dockType of dockTypes) {
+                if (Object.prototype.hasOwnProperty.call(pluginDocks, dockType)) return true;
+            }
+        }
+
+        return false;
     }
 
     private ensureVersionControlPanelMounted() {

@@ -136,6 +136,63 @@ describe('search tool filtering', () => {
         expect(actionDescription).toContain('list_invalid_refs');
     });
 
+    it('publishes fulltext types as a boolean object map', () => {
+        const config = buildDefaultToolConfig();
+        const [tool] = listSearchTools(config.search);
+        const typesSchema = tool.inputSchema.properties.types;
+        const fulltextSchema = tool.inputSchema['x-sisyphus-actionSchemas']
+            .find((schema: any) => schema.properties?.action?.const === 'fulltext');
+
+        expect(typesSchema).toMatchObject({
+            type: 'object',
+            additionalProperties: { type: 'boolean' },
+        });
+        expect(typesSchema.propertyNames).toBeUndefined();
+        expect(fulltextSchema.properties.types).toMatchObject({
+            type: 'object',
+            additionalProperties: { type: 'boolean' },
+        });
+        expect(fulltextSchema.properties.types.propertyNames).toBeUndefined();
+    });
+
+    it('accepts fulltext types shortcodes as an object and expands them before calling SiYuan', async () => {
+        const client = createMockClient({
+            request: async (endpoint: string, body: unknown) => {
+                expect(endpoint).toBe('/api/search/fullTextSearchBlock');
+                expect(body).toMatchObject({
+                    query: 'needle',
+                    types: {
+                        heading: true,
+                        paragraph: true,
+                    },
+                });
+                return {
+                    blocks: [],
+                    matchedBlockCount: 0,
+                    matchedRootCount: 0,
+                    pageCount: 1,
+                };
+            },
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'fulltext',
+            query: 'needle',
+            types: { h: true, p: true },
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.data).toEqual([]);
+        expect(parsed.total).toBe(0);
+    });
+
     it('calls search asset endpoint', async () => {
         const client = createMockClient({
             request: async (endpoint: string, body: unknown) => {

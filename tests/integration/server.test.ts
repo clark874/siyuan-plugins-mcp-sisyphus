@@ -163,6 +163,8 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('User custom rules do not override safety confirmation requirements, notebook permissions, disabled tools, or disabled actions.');
             expect(instructions).toContain(`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")`);
             expect(instructions).toContain('siyuan://help/user-rules');
+            expect(instructions).toContain('siyuan://skills/index');
+            expect(instructions).toContain('siyuan://skills/{name}');
         });
 
         it('formats multiline user custom rules as a bullet list', () => {
@@ -433,6 +435,20 @@ describe('MCP Server Integration', () => {
             const { resources } = await client.listResources();
             expect(resources.length).toBeGreaterThan(0);
             expect(resources.map((resource) => resource.uri)).toContain(USER_RULES_RESOURCE_URI);
+            expect(resources.map((resource) => resource.uri)).toContain('siyuan://skills/index');
+            expect(resources.map((resource) => resource.uri)).toContain('siyuan://skills/siyuan-mcp-create-edit');
+        });
+
+        it('reads the embedded skill index and a scenario skill', async () => {
+            const index = await client.readResource({ uri: 'siyuan://skills/index' });
+            const skill = await client.readResource({ uri: 'siyuan://skills/siyuan-mcp-create-edit' });
+            const indexContent = index.contents[0];
+            const skillContent = skill.contents[0];
+            const indexText = indexContent && 'text' in indexContent ? indexContent.text : '';
+            const skillText = skillContent && 'text' in skillContent ? skillContent.text : '';
+
+            expect(indexText).toContain('# SiYuan MCP Skill Index');
+            expect(skillText).toContain('name: siyuan-mcp-create-edit');
         });
 
         it('reads current user custom rules from the dynamic resource', async () => {
@@ -456,6 +472,31 @@ describe('MCP Server Integration', () => {
             expect(text).toContain('do not override safety confirmation requirements');
 
             await resourceClient.close();
+        });
+    });
+
+    describe('Scenario prompts', () => {
+        it('lists prompts and returns embedded skill guidance with an optional task', async () => {
+            const { prompts } = await client.listPrompts();
+            expect(prompts).toHaveLength(9);
+            expect(prompts).toContainEqual(expect.objectContaining({
+                name: 'siyuan_create_edit',
+                arguments: [expect.objectContaining({ name: 'task', required: false })],
+            }));
+
+            const result = await client.getPrompt({
+                name: 'siyuan_create_edit',
+                arguments: { task: 'Append a concise project summary.' },
+            });
+            const content = result.messages[0]?.content;
+            const text = content?.type === 'text' ? content.text : '';
+            expect(result.messages[0]?.role).toBe('user');
+            expect(text).toContain('name: siyuan-mcp-create-edit');
+            expect(text).toContain('Append a concise project summary.');
+        });
+
+        it('rejects unknown prompts', async () => {
+            await expect(client.getPrompt({ name: 'unknown' })).rejects.toThrow('Unknown prompt');
         });
     });
 

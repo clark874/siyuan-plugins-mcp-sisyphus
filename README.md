@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **Latest:** `v0.4.13` — Adds explicit MCP HTTP bind address selection, tightens settings UI behavior, and moves the CLI short alias from `siyuan` to `sisyphus`. CLI is now `v0.1.16`.
+> **Latest:** `v0.4.14` — Adds discoverable MCP scenario skills and prompts, introduces selectable CLI/MCP skill bundles, and fixes timeline, search schema, and mascot startup behavior. CLI is now `v0.1.17`.
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">
@@ -72,6 +72,19 @@ siyuan-sisyphus init
 sisyphus notebook list
 ```
 
+## Scenario Skills For Agents
+
+The MCP server includes scenario-oriented guidance for browsing, editing, search, databases, exports, tags, flashcards, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
+
+Agents that support installable `SKILL.md` packages can install the same guidance locally:
+
+```bash
+siyuan-sisyphus skill install --bundle mcp # MCP calling conventions
+siyuan-sisyphus skill install --bundle all # MCP and CLI bundles
+```
+
+Plain `siyuan-sisyphus skill install` remains the CLI bundle for backward compatibility. Skills describe workflows and safety decisions; the current parameter source of truth remains `siyuan://help/action/{tool}/{action}` (or the corresponding `action="help"` response).
+
 ## Safety Model
 
 SiYuan Sisyphus is designed around explicit user control:
@@ -106,7 +119,7 @@ If you find this project helpful, please consider supporting it! Your support is
 
 ### Sponsor Thanks
 
-Thanks to **undefined**, **Fngd Z**, **ou** and all other kind supporters for sponsoring this project.
+Thanks to **undefined**, **Fngd Z**, **ou**, **米建**, **锋🌀☁️**, and all other kind supporters for sponsoring this project.
 
 <p align="left">
   <img src="docs/archive/thank.jpeg" alt="Support QR code" width="280">

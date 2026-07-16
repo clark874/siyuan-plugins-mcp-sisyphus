@@ -47,6 +47,22 @@ siyuan-sisyphus list block     # see all actions for a tool
 siyuan-sisyphus help block append
 ```
 
+## Agent skill bundles
+
+The npm package carries two related skill bundles:
+
+- `cli` uses terminal command examples and is still the default for `skill list`, `skill read`, and `skill install`.
+- `mcp` uses MCP tool-call examples for agents that connect through the plugin server.
+
+```bash
+siyuan-sisyphus skill list --bundle mcp
+siyuan-sisyphus skill read siyuan-mcp-browse-read --bundle mcp
+siyuan-sisyphus skill install --bundle mcp
+siyuan-sisyphus skill install --bundle all
+```
+
+Use `--bundle all` to install both sets. Regular MCP clients do not need this local installation: they can read `siyuan://skills/index` and `siyuan://skills/{name}` directly from the server, or explicitly invoke a matching MCP prompt. Prompts are not automatically activated. For exact, current action parameters, use `siyuan://help/action/{tool}/{action}`; skills focus on workflow and safety.
+
 ## Command shape
 
 ```
@@ -55,6 +71,8 @@ siyuan-sisyphus list [tool]                          List tools or a tool's acti
 siyuan-sisyphus help <tool> [action]                 Detailed help for a tool or action
 siyuan-sisyphus init                                 Interactive config setup
 siyuan-sisyphus config list|get|set|use ...          Manage saved SiYuan profiles
+siyuan-sisyphus skill list|read|install [--bundle cli|mcp|all]
+                                                     Inspect or install agent skills
 siyuan-sisyphus --help | -h                          Top-level help
 siyuan-sisyphus --version | -v                       Print version
 ```

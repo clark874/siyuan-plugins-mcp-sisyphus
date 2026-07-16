@@ -11,7 +11,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { ParsedArgs } from './args';
+import type { ParsedArgs, SkillBundle } from './args';
 import { writeHeading, writeHint, writeKeyValueRows, writeStatus } from './render';
 
 export interface SkillTargetOptions {
@@ -19,6 +19,7 @@ export interface SkillTargetOptions {
     local?: boolean;
     dryRun?: boolean;
     cwd?: string;
+    bundle?: SkillBundle;
 }
 
 export interface BundledSkill {
@@ -26,7 +27,10 @@ export interface BundledSkill {
     path: string;
 }
 
-const BUILTIN_SKILLS_ROOT_NAME = 'siyuan-sisyphus';
+const SKILL_BUNDLE_ROOTS = {
+    cli: 'siyuan-sisyphus',
+    mcp: 'siyuan-mcp',
+} as const;
 
 export function runSkillCommand(cli: ParsedArgs): number {
     switch (cli.skillAction) {
@@ -44,9 +48,10 @@ export function runSkillCommand(cli: ParsedArgs): number {
 }
 
 function runSkillList(cli: ParsedArgs): number {
-    const skills = listBundledSkills();
+    const bundle = normalizeSkillBundle(cli.bundle);
+    const skills = listBundledSkills(undefined, bundle);
     if (cli.json) {
-        process.stdout.write(JSON.stringify({ skills }) + '\n');
+        process.stdout.write(JSON.stringify({ bundle, skills }) + '\n');
         return 0;
     }
 
@@ -59,7 +64,7 @@ function runSkillList(cli: ParsedArgs): number {
 }
 
 function runSkillRead(cli: ParsedArgs): number {
-    const content = readBundledSkill(cli.skillName);
+    const content = readBundledSkill(cli.skillName, normalizeSkillBundle(cli.bundle));
     process.stdout.write(content);
     if (!content.endsWith('\n')) process.stdout.write('\n');
     return 0;
@@ -70,6 +75,7 @@ function runSkillInstall(cli: ParsedArgs): number {
         target: cli.target,
         local: cli.local,
         dryRun: cli.dryRun,
+        bundle: cli.bundle,
     });
 
     if (cli.json || cli.dryRun) {
@@ -89,6 +95,7 @@ function runSkillUninstall(cli: ParsedArgs): number {
     const result = uninstallSkills({
         target: cli.target,
         local: cli.local,
+        bundle: cli.bundle,
     });
 
     if (cli.json) {
@@ -107,16 +114,18 @@ function runSkillUninstall(cli: ParsedArgs): number {
 export function resolveBundledSkillsRoot(
     fromDir = dirname(fileURLToPath(import.meta.url)),
     exists: (path: string) => boolean = existsSync,
+    bundle: Exclude<SkillBundle, 'all'> = 'cli',
 ): string {
+    const rootName = SKILL_BUNDLE_ROOTS[bundle];
     const candidates = [
-        resolve(fromDir, 'skills', BUILTIN_SKILLS_ROOT_NAME),
-        resolve(fromDir, '../skills', BUILTIN_SKILLS_ROOT_NAME),
-        resolve(fromDir, '../../skills', BUILTIN_SKILLS_ROOT_NAME),
-        resolve(fromDir, '../../../skills', BUILTIN_SKILLS_ROOT_NAME),
+        resolve(fromDir, 'skills', rootName),
+        resolve(fromDir, '../skills', rootName),
+        resolve(fromDir, '../../skills', rootName),
+        resolve(fromDir, '../../../skills', rootName),
     ];
 
     for (const candidate of candidates) {
-        if (exists(join(candidate, 'siyuan-sisyphus', 'SKILL.md'))) {
+        if (exists(join(candidate, defaultSkillName(bundle), 'SKILL.md'))) {
             return candidate;
         }
     }
@@ -128,9 +137,17 @@ export function resolveBundledSkillsRoot(
     return candidates[0];
 }
 
-export function listBundledSkills(root = resolveBundledSkillsRoot()): BundledSkill[] {
-    return readdirSync(root)
-        .map((name) => ({ name, path: join(root, name) }))
+export function listBundledSkills(root?: string, bundle: SkillBundle = 'cli'): BundledSkill[] {
+    if (bundle === 'all' && !root) {
+        return [
+            ...listBundledSkills(undefined, 'cli'),
+            ...listBundledSkills(undefined, 'mcp'),
+        ].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    const resolvedRoot = root ?? resolveBundledSkillsRoot(undefined, existsSync, bundle === 'all' ? 'cli' : bundle);
+    return readdirSync(resolvedRoot)
+        .map((name) => ({ name, path: join(resolvedRoot, name) }))
         .filter((skill) => {
             try {
                 return statSync(skill.path).isDirectory() && existsSync(join(skill.path, 'SKILL.md'));
@@ -141,10 +158,10 @@ export function listBundledSkills(root = resolveBundledSkillsRoot()): BundledSki
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export function readBundledSkill(name?: string): string {
-    const normalizedName = name?.trim() || BUILTIN_SKILLS_ROOT_NAME;
+export function readBundledSkill(name?: string, bundle: SkillBundle = 'cli'): string {
+    const normalizedName = name?.trim() || defaultSkillName(bundle === 'all' ? 'cli' : bundle);
     validateSkillName(normalizedName);
-    const skill = listBundledSkills().find((item) => item.name === normalizedName);
+    const skill = listBundledSkills(undefined, bundle).find((item) => item.name === normalizedName);
     if (!skill) {
         throw new Error(`Unknown bundled skill "${normalizedName}". Run \`siyuan-sisyphus skill list\` to see available skills.`);
     }
@@ -179,7 +196,8 @@ export function resolveSkillTargetRoot(opts: SkillTargetOptions = {}): string {
 }
 
 export function installSkills(opts: SkillTargetOptions = {}) {
-    const skills = listBundledSkills();
+    const bundle = normalizeSkillBundle(opts.bundle);
+    const skills = listBundledSkills(undefined, bundle);
     const target = resolveSkillTargetRoot(opts);
     const operations = skills.map((skill) => ({
         op: existsSync(join(target, skill.name)) ? 'update' : 'install',
@@ -188,7 +206,7 @@ export function installSkills(opts: SkillTargetOptions = {}) {
     }));
 
     if (opts.dryRun) {
-        return { target, dryRun: true, skills: skills.map((skill) => skill.name), operations };
+        return { target, bundle, dryRun: true, skills: skills.map((skill) => skill.name), operations };
     }
 
     mkdirSync(target, { recursive: true });
@@ -197,11 +215,12 @@ export function installSkills(opts: SkillTargetOptions = {}) {
         cpSync(operation.from, operation.to, { recursive: true, force: true });
     }
 
-    return { target, dryRun: false, skills: skills.map((skill) => skill.name) };
+    return { target, bundle, dryRun: false, skills: skills.map((skill) => skill.name) };
 }
 
 export function uninstallSkills(opts: Omit<SkillTargetOptions, 'dryRun'> = {}) {
-    const skills = listBundledSkills();
+    const bundle = normalizeSkillBundle(opts.bundle);
+    const skills = listBundledSkills(undefined, bundle);
     const target = resolveSkillTargetRoot(opts);
     const removed: string[] = [];
 
@@ -213,7 +232,17 @@ export function uninstallSkills(opts: Omit<SkillTargetOptions, 'dryRun'> = {}) {
         }
     }
 
-    return { target, removed };
+    return { target, bundle, removed };
+}
+
+export function normalizeSkillBundle(bundle?: string): SkillBundle {
+    const normalized = (bundle ?? 'cli').trim().toLowerCase();
+    if (normalized === 'cli' || normalized === 'mcp' || normalized === 'all') return normalized;
+    throw new Error(`Invalid skill bundle "${bundle}". Use cli, mcp, or all.`);
+}
+
+function defaultSkillName(bundle: Exclude<SkillBundle, 'all'>): string {
+    return bundle === 'mcp' ? 'siyuan-mcp-sisyphus' : 'siyuan-sisyphus';
 }
 
 function validateSkillName(name: string): void {
