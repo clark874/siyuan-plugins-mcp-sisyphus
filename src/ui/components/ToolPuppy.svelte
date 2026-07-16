@@ -13,7 +13,7 @@
     import { resolveActionState, resolveToolVariant, RANDOM_TEST_ACTIONS, type PuppyState, type TestActionEntry, type ToolVariant } from './puppy-tool-visuals';
     import { buildDefaultPuppyAppearance, type PuppyAppearanceSettings } from '../setting/tool-config-storage';
 
-    export let visible = true;
+    export let visible = false;
     export let testModeEnabled = false;
     export let testModeIntervalMs = 2200;
     export let showBubble = false;

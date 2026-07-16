@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Database CLI"
+  short_description: "Operate SiYuan attribute view databases"
+  default_prompt: "Use $siyuan-sisyphus-database to inspect or update this SiYuan attribute view safely."

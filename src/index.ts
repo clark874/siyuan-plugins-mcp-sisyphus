@@ -46,9 +46,10 @@ export default class SiyuanMCP extends Plugin {
     private versionControlPanel: VersionControlPanel | null = null;
     private versionControlContainer: HTMLElement | null = null;
     private currentDocument: CurrentDocumentContext = { id: "", title: "" };
-    private puppyVisible = true;
     private puppyContainer: HTMLElement | null = null;
     private puppySettings: PuppySettings = buildDefaultPuppySettings();
+    private puppySettingsLoaded = false;
+    private layoutReady = false;
     private versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
     private versionControlDockRegistered = false;
     private versionControlCommandRegistered = false;
@@ -74,7 +75,10 @@ export default class SiyuanMCP extends Plugin {
         }
         await savePersistedToolConfig(normalized, this);
         this.puppySettings = await loadPersistedPuppySettings(this);
-        this.puppyVisible = this.puppySettings.visible;
+        this.puppySettingsLoaded = true;
+        if (this.layoutReady) {
+            this.mountPuppy();
+        }
         this.httpSettings = await loadPersistedHttpServerSettings(this);
         this.versionControlSettings = await loadPersistedVersionControlSettings(this);
         this.versionControlSettingsLoaded = true;
@@ -214,7 +218,7 @@ export default class SiyuanMCP extends Plugin {
         this.puppyComponent = new ToolPuppy({
             target: this.puppyContainer,
             props: {
-                visible: this.puppyVisible,
+                visible: this.puppySettings.visible,
                 testModeEnabled: this.puppySettings.testModeEnabled,
                 testModeIntervalMs: this.puppySettings.testModeIntervalMs,
                 showBubble: this.puppySettings.showBubble,
@@ -240,14 +244,16 @@ export default class SiyuanMCP extends Plugin {
     }
 
     onLayoutReady() {
-        this.mountPuppy();
+        this.layoutReady = true;
+        if (this.puppySettingsLoaded) {
+            this.mountPuppy();
+        }
         if (this.versionControlSettingsLoaded) this.syncVersionControlFeature();
     }
 
 
     updatePuppyTestSettings(settings: PuppySettings) {
         this.puppySettings = settings;
-        this.puppyVisible = settings.visible;
         if (this.puppyComponent) {
             this.puppyComponent.$set({
                 visible: settings.visible,
@@ -344,6 +350,8 @@ export default class SiyuanMCP extends Plugin {
 
     async onunload() {
         appendHttpLifecycleLog("[plugin] onunload begin");
+        this.layoutReady = false;
+        this.puppySettingsLoaded = false;
         this.unregisterVersionControlEvents();
         this.unmountVersionControlDock();
         this.unmountPuppy();

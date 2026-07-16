@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Browse & Read MCP"
+  short_description: "Browse and read SiYuan notes safely"
+  default_prompt: "Use $siyuan-mcp-browse-read to locate and read the requested SiYuan content."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Sisyphus CLI"
+  short_description: "Route safe SiYuan note workflows"
+  default_prompt: "Use $siyuan-sisyphus to choose and follow the safest SiYuan workflow for this task."

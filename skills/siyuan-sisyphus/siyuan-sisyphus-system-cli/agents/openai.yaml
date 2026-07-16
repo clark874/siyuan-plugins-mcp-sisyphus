@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan System & Safety CLI"
+  short_description: "Use SiYuan system tools with safeguards"
+  default_prompt: "Use $siyuan-sisyphus-system-cli to perform this SiYuan system task safely."

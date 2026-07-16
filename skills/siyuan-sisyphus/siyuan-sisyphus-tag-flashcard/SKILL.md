@@ -1,112 +1,42 @@
 ---
 name: siyuan-sisyphus-tag-flashcard
-description: CLI-only playbook for tags and flashcards with `siyuan-sisyphus`. Use for inline tag creation, listing and renaming tags, deck discovery, card creation, due/new card review, and safe card or tag removal.
+description: CLI-only playbook for SiYuan tags and flashcards with siyuan-sisyphus. Use for inline tags, tag discovery and rename, deck discovery, card creation, due/new review, and safe removal.
 ---
 
-# SiYuan Sisyphus CLI - Tags and Flashcards
+# Manage SiYuan Tags and Flashcards with the CLI
 
-Tags are created by writing `#tag#` into Markdown content. Flashcards should be created with the `flashcard` tool so SiYuan registers review cards correctly.
-
-## Tags
-
-Create tags inline:
+Create tags by writing `#tag#` into Markdown. Create flashcards with the flashcard action so both riff registration and block metadata remain consistent.
 
 ```bash
-siyuan-sisyphus block append --parent-id "<doc-id>" --data-type markdown --data "#project# #urgent#"
-siyuan-sisyphus block append --parent-id "<doc-id>" --data-type markdown --data "#project/phase1#"
+siyuan-sisyphus block append --parent-id '<doc-id>' --data-type 'markdown' --data '#project# #project/phase1#' --json
+```
+```bash
+siyuan-sisyphus tag list --keyword 'project' --json
+```
+```bash
+siyuan-sisyphus tag rename --old-label 'old-tag' --new-label 'new-tag' --json
 ```
 
-List or filter tags:
+## Flashcard workflow
+
+Create or identify a heading block, discover the target deck, then register the block as a card:
 
 ```bash
-siyuan-sisyphus tag list
-siyuan-sisyphus tag list --keyword "project" --json
+siyuan-sisyphus block append --parent-id '<doc-id>' --data-type 'markdown' --data '## What is spaced repetition?
+
+Review just before forgetting.' --json
 ```
-
-Rename a tag label everywhere:
-
-```bash
-siyuan-sisyphus tag rename --old-label "old-tag" --new-label "new-tag"
-```
-
-Remove is destructive. Confirm first:
-
-```bash
-siyuan-sisyphus tag remove --label "tag-to-remove"
-```
-
-Recently written tags may take a short time to appear in tag search.
-
-## Flashcard Structure
-
-SiYuan flashcards commonly use a heading as the prompt and following blocks as the answer:
-
-```markdown
-## Question heading
-Answer paragraph.
-Another answer paragraph.
-```
-
-Cloze text can be written as `==answer==` in content.
-
-## Deck Discovery
-
 ```bash
 siyuan-sisyphus flashcard get-decks --json
-siyuan-sisyphus flashcard get-cards --deck-id "<deck-id>" --page 1 --page-size 32 --json
 ```
-
-Use an empty deck ID only when the command help says cross-deck queries are supported for that action.
-
-## Create Cards
-
-First create or identify a heading block:
-
 ```bash
-siyuan-sisyphus block append --parent-id "<doc-id>" --data-type markdown --data "## What is spaced repetition?
-
-Review just before forgetting."
-siyuan-sisyphus document get-child-blocks --id "<doc-id>" --json
+siyuan-sisyphus flashcard create-card --deck-id '<deck-id>' --block-ids-json '["<heading-block-id>"]' --json
 ```
-
-Then register the heading block as a card:
-
 ```bash
-siyuan-sisyphus flashcard create-card --deck-id "<deck-id>" --block-ids "<heading-block-id>" --json
+siyuan-sisyphus flashcard list-cards --scope 'deck' --deck-id '<deck-id>' --filter 'due' --json
 ```
-
-Avoid using `block set-attrs` alone for flashcard creation. It can write metadata, but it does not complete the full card registration workflow.
-
-## Review Cards
-
 ```bash
-siyuan-sisyphus flashcard list-cards --scope deck --deck-id "<deck-id>" --filter due --json
-siyuan-sisyphus flashcard list-cards --scope all --filter new --json
-siyuan-sisyphus flashcard review-card --deck-id "<deck-id>" --card-id "<card-id>" --rating 3
-siyuan-sisyphus flashcard review-card --deck-id "<deck-id>" --card-id "<card-id>" --skip
+siyuan-sisyphus flashcard review-card --deck-id '<deck-id>' --card-id '<card-id>' --rating '3' --json
 ```
 
-Ratings are usually 1 to 4, with higher meaning easier or better recall.
-
-## Scopes for Listing Cards
-
-| Scope | Required flag |
-| --- | --- |
-| `all` | omit `--deck-id` |
-| `deck` | `--deck-id` |
-| `notebook` | `--notebook` |
-| `tree` | `--root-id` |
-
-## Remove Cards
-
-Removing cards changes deck membership. Confirm first:
-
-```bash
-siyuan-sisyphus flashcard remove-card --deck-id "<deck-id>" --block-ids-json '["<block-id>"]'
-```
-
-## Pitfalls
-
-- `create-card` validates deck IDs; run `get-decks` first.
-- `list-cards` can post-filter by due/new/old state.
-- Newly created headings or tags may need a short indexing delay before discovery commands show them.
+Ratings are 1 through 4, with larger values representing easier recall. Do not imitate flashcard creation with block attributes alone. Before removing a tag or card, show the exact label, deck, and block IDs and obtain approval. Newly written tags and headings may need a short indexing delay before discovery actions show them.

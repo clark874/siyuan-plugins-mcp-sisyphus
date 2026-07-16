@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Files & Export CLI"
+  short_description: "Move assets and export SiYuan content"
+  default_prompt: "Use $siyuan-sisyphus-file-export to handle these SiYuan assets or exports safely."

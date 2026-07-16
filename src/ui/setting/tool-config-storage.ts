@@ -105,7 +105,7 @@ export function normalizeVersionControlSettings(raw: unknown): VersionControlSet
 
 export function buildDefaultPuppySettings(): PuppySettings {
     return {
-        visible: true,
+        visible: false,
         testModeEnabled: false,
         testModeIntervalMs: DEFAULT_PUPPY_TEST_INTERVAL_MS,
         showBubble: false,

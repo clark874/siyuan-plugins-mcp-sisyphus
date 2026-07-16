@@ -25,6 +25,30 @@
 - Docker、WSL、局域网场景
 - 工具不可见或调用失败时的快速检查
 
+## 场景 Skill 与 MCP Prompt
+
+连接成功后，MCP 客户端可以通过标准 Resource 发现按场景组织的操作指南：
+
+- `siyuan://skills/index` 用于把任务路由到最匹配、范围最窄的 Skill。
+- `siyuan://skills/{name}` 返回选定场景的工作流与安全指南。
+
+这些 Resource 由 MCP Server 直接提供，无需在客户端安装。Server 还会暴露带可选 `task` 参数的对应 Prompt。Prompt 是由用户显式调用的工作流入口，客户端不应假定它会自动运行。
+
+如果 Agent 支持安装 `SKILL.md` 包，可以通过 npm CLI 安装等价的本地套件：
+
+```bash
+# 既有默认行为：CLI 命令约定
+siyuan-sisyphus skill install
+
+# MCP 工具调用约定
+siyuan-sisyphus skill install --bundle mcp
+
+# 同时安装两套
+siyuan-sisyphus skill install --bundle all
+```
+
+`skill list` 和 `skill read` 同样接受 `--bundle cli|mcp|all`。Skill 描述任务流程、路径语义和安全规则，但不替代 action schema。精确且最新的参数应读取 `siyuan://help/action/{tool}/{action}`，或调用对应工具的 `help` action。
+
 ## 下一步
 
 配置完成后，前往 [常见任务](../reference/common-tasks.md) 页面尝试 MCP/CLI 快速示例。

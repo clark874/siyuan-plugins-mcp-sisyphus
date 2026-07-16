@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Browse & Read CLI"
+  short_description: "Browse and read SiYuan notes safely"
+  default_prompt: "Use $siyuan-sisyphus-browse-read to locate and read the requested SiYuan content."

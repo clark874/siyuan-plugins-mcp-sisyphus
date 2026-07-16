@@ -30,6 +30,13 @@ import {
 } from '@/tools/index';
 import type { ActionVariant } from '@/tools/internal/shared';
 import { buildActionExamplesMarkdown, buildShapeSummaryMarkdown } from '@/tools/internal/help-render';
+import {
+    MCP_SKILLS,
+    SKILL_INDEX_URI,
+    SKILL_RESOURCE_TEMPLATE_URI,
+    getMcpSkill,
+    renderMcpSkillIndex,
+} from './skills';
 
 
 interface HelpResourceDefinition {
@@ -511,17 +518,40 @@ export function listHelpResources() {
     return [
         ...getStaticHelpResources().map(({ text: _text, ...resource }) => resource),
         USER_RULES_RESOURCE_DESCRIPTOR,
+        {
+            uri: SKILL_INDEX_URI,
+            name: 'siyuan-mcp-skill-index',
+            title: 'SiYuan MCP Skill Index',
+            description: 'Routes tasks to scenario-oriented SiYuan MCP skills.',
+            mimeType: MIME_TYPE,
+        },
+        ...MCP_SKILLS.map((skill) => ({
+            uri: `siyuan://skills/${skill.name}`,
+            name: skill.name,
+            title: skill.title,
+            description: skill.description,
+            mimeType: MIME_TYPE,
+        })),
     ];
 }
 
 export function listHelpResourceTemplates() {
-    return [{
-        uriTemplate: ACTION_RESOURCE_TEMPLATE_URI,
-        name: 'action-help',
-        title: 'Per-action MCP Help',
-        description: 'Returns valid shapes, guidance, and minimal examples for a specific tool action.',
-        mimeType: MIME_TYPE,
-    }];
+    return [
+        {
+            uriTemplate: ACTION_RESOURCE_TEMPLATE_URI,
+            name: 'action-help',
+            title: 'Per-action MCP Help',
+            description: 'Returns valid shapes, guidance, and minimal examples for a specific tool action.',
+            mimeType: MIME_TYPE,
+        },
+        {
+            uriTemplate: SKILL_RESOURCE_TEMPLATE_URI,
+            name: 'siyuan-mcp-skill',
+            title: 'SiYuan MCP Scenario Skill',
+            description: 'Returns a scenario-oriented workflow and safety guide by skill name.',
+            mimeType: MIME_TYPE,
+        },
+    ];
 }
 
 export function readHelpResource(uri: string, userRulesText = '') {
@@ -530,6 +560,14 @@ export function readHelpResource(uri: string, userRulesText = '') {
             uri,
             mimeType: MIME_TYPE,
             text: renderUserRulesResource(userRulesText),
+        };
+    }
+
+    if (uri === SKILL_INDEX_URI) {
+        return {
+            uri,
+            mimeType: MIME_TYPE,
+            text: renderMcpSkillIndex(),
         };
     }
 
@@ -549,7 +587,21 @@ export function readHelpResource(uri: string, userRulesText = '') {
         return null;
     }
 
-    if (parsed.protocol !== 'siyuan:' || parsed.hostname !== 'help') return null;
+    if (parsed.protocol !== 'siyuan:') return null;
+
+    if (parsed.hostname === 'skills') {
+        const skillSegments = parsed.pathname.split('/').filter(Boolean);
+        if (skillSegments.length !== 1) return null;
+        const skill = getMcpSkill(decodeURIComponent(skillSegments[0]));
+        if (!skill) return null;
+        return {
+            uri,
+            mimeType: MIME_TYPE,
+            text: skill.text,
+        };
+    }
+
+    if (parsed.hostname !== 'help') return null;
 
     const segments = parsed.pathname.split('/').filter(Boolean);
     if (segments[0] !== 'action' || segments.length !== 3) return null;

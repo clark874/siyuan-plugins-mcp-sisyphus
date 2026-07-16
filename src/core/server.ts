@@ -1,6 +1,6 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ErrorCode, ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, ListToolsRequestSchema, McpError, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { CallToolRequestSchema, ErrorCode, GetPromptRequestSchema, ListPromptsRequestSchema, ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, ListToolsRequestSchema, McpError, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { startHttpMcpServer, type TlsOptions } from './http-transport';
 import { buildServerInstructions } from './server-instructions';
 
@@ -12,6 +12,7 @@ import { PermissionManager } from './permissions';
 import { listHelpResources, listHelpResourceTemplates, readHelpResource } from './resources';
 import { listAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
 import { runToolCall } from './tool-lifecycle';
+import { getMcpPrompt, listMcpPrompts } from './skills';
 
 export { buildServerInstructions } from './server-instructions';
 
@@ -102,7 +103,7 @@ export async function createSiYuanServer(): Promise<Server> {
     const server = new Server(
         { name: 'siyuan-mcp', version: '2.0.0' },
         {
-            capabilities: { tools: {}, resources: {} },
+            capabilities: { tools: {}, resources: {}, prompts: {} },
             instructions: buildServerInstructions({
                 userRulesText: initialConfig.userRulesText,
                 agentSiyuanMemoryText: initialConfig.agentSiyuanMemoryText,
@@ -141,6 +142,18 @@ export async function createSiYuanServer(): Promise<Server> {
             throw new McpError(ErrorCode.InvalidRequest, `Unknown resource: ${request.params.uri}`);
         }
         return { contents: [resource] };
+    });
+
+    server.setRequestHandler(ListPromptsRequestSchema, async () => {
+        return { prompts: listMcpPrompts() };
+    });
+
+    server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+        const prompt = getMcpPrompt(request.params.name, request.params.arguments?.task);
+        if (!prompt) {
+            throw new McpError(ErrorCode.InvalidParams, `Unknown prompt: ${request.params.name}`);
+        }
+        return prompt;
     });
 
     server.setRequestHandler(CallToolRequestSchema, async (request) => {

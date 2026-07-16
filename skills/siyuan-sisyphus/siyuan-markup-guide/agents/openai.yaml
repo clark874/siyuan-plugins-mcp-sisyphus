@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Markup Guide CLI"
+  short_description: "Write rich native SiYuan markup"
+  default_prompt: "Use $siyuan-markup-guide to format this content with native SiYuan markup."

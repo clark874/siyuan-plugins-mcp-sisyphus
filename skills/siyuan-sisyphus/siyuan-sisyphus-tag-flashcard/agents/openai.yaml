@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Tags & Flashcards CLI"
+  short_description: "Manage SiYuan tags and flashcards"
+  default_prompt: "Use $siyuan-sisyphus-tag-flashcard to manage these SiYuan tags or flashcards."
