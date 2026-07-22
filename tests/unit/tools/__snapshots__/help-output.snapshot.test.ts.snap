@@ -1521,7 +1521,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "For recently created documents, document(action="lookup", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
           "document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
-        "hint": "Use a document ID. mode="markdown" returns clean Markdown content and supports page/pageSize for long documents; mode="html" uses the current focus view. For structured reading, prefer get_child_blocks.",
+        "hint": "Use a document ID. mode="markdown" returns clean Markdown in complete display-block windows with outline, token budget, and nextWindow metadata; use blockStart/blockLimit/tokenBudget and optionally includeBlockIds. page/pageSize character pagination was removed. mode="html" uses the current focus view.",
         "requiredFields": [
           "id",
         ],
@@ -1813,7 +1813,7 @@ document.get_child_docs: required [id] | optional []
 document.set_attr: required [id, attrs] | optional []
 document.list_tree: required [notebook, path] | optional [maxDepth]
 document.search_docs: required [notebook, query] | optional [path]
-document.get_doc: required [id] | optional [mode, size, page, pageSize]
+document.get_doc: required [id] | optional [mode, size, blockStart, blockLimit, tokenBudget, includeBlockIds]
 document.create_daily_note: required [notebook] | optional [app]
 document.duplicate: required [id] | optional []
 document.heading_to_doc: required [headingID, targetNotebook] | optional [targetPath, previousPath]
@@ -1828,7 +1828,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "duplicate": "requires: id",
         "get_child_blocks": "Use a document ID. Returns direct child blocks only.",
         "get_child_docs": "Use a document ID. Returns direct child documents only.",
-        "get_doc": "Use a document ID. mode="markdown" returns clean Markdown content and supports page/pageSize for long documents; mode="html" uses the current focus view. For structured reading, prefer get_child_blocks.",
+        "get_doc": "Use a document ID. mode="markdown" returns clean Markdown in complete display-block windows with outline, token budget, and nextWindow metadata; use blockStart/blockLimit/tokenBudget and optionally includeBlockIds. page/pageSize character pagination was removed. mode="html" uses the current focus view.",
         "heading_to_doc": "requires: headingID, targetNotebook",
         "list_tree": "Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.",
         "lookup": "Look up one reference at a time. Use id, notebook + storage path, or notebook + hpath/hPath. The path field means storage path like /20240318112233-abc123.sy; use hpath for human-readable paths.",
@@ -1862,7 +1862,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
           "requiresConfirmation": false,
         },
         "get_doc": {
-          "hint": "Use a document ID. mode="markdown" returns clean Markdown content and supports page/pageSize for long documents; mode="html" uses the current focus view. For structured reading, prefer get_child_blocks.",
+          "hint": "Use a document ID. mode="markdown" returns clean Markdown in complete display-block windows with outline, token budget, and nextWindow metadata; use blockStart/blockLimit/tokenBudget and optionally includeBlockIds. page/pageSize character pagination was removed. mode="html" uses the current focus view.",
           "requiresConfirmation": false,
         },
         "heading_to_doc": {
@@ -3091,6 +3091,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
           "fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.",
           "fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id 'title')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.",
+          "fs.read always returns complete display-block windows. Use blockStart/blockLimit/tokenBudget to continue long documents; code, math, tables, lists, quotes, and other container blocks are never split. The response includes a full heading outline and nextWindow when more blocks remain.",
           "Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or \`hello\`, not "**hello**" or "\`hello\`"; DOM writeback preserves the existing inline style.",
           "Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
           "fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.",
@@ -3123,6 +3124,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
           "fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.",
           "fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id 'title')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.",
+          "fs.read always returns complete display-block windows. Use blockStart/blockLimit/tokenBudget to continue long documents; code, math, tables, lists, quotes, and other container blocks are never split. The response includes a full heading outline and nextWindow when more blocks remain.",
           "Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or \`hello\`, not "**hello**" or "\`hello\`"; DOM writeback preserves the existing inline style.",
           "Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
           "fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.",
@@ -3155,6 +3157,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
           "fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.",
           "fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id 'title')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.",
+          "fs.read always returns complete display-block windows. Use blockStart/blockLimit/tokenBudget to continue long documents; code, math, tables, lists, quotes, and other container blocks are never split. The response includes a full heading outline and nextWindow when more blocks remain.",
           "Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or \`hello\`, not "**hello**" or "\`hello\`"; DOM writeback preserves the existing inline style.",
           "Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
           "fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.",
@@ -3164,7 +3167,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "If fs.read reports attributeViews or avToolHint, the document contains real database blocks. Use av(action="get"|"render"|"set_cells"|"add_rows"|"remove_rows"|"add_column"|"remove_column") for AV rows, columns, and cells instead of editing the database placeholder as Markdown.",
           "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
         ],
-        "hint": "Use a human-readable document path. Returns an AI-editable Markdown view with pagination for long documents: SiYuan double-links stay as ((id 'title')), tags stay as #tag#, zero-width tag markers and normal block/list-item IAL metadata are hidden. When complex SiYuan blocks are detected, use block.dom, file.export_md, av, or other advanced tools for inspection and editing.",
+        "hint": "Use a human-readable document path. Returns an AI-editable Markdown window made only of complete display blocks. Continue with nextWindow or blockStart/blockLimit/tokenBudget; page/pageSize character pagination was removed. The response includes a full heading outline, and includeBlockIds=true adds a sidecar blockRefs mapping without polluting content. When complex SiYuan blocks are detected, use block.dom, file.export_md, av, or other advanced tools for inspection and editing.",
         "requiredFields": [
           "path",
         ],
@@ -3211,6 +3214,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
           "fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.",
           "fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id 'title')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.",
+          "fs.read always returns complete display-block windows. Use blockStart/blockLimit/tokenBudget to continue long documents; code, math, tables, lists, quotes, and other container blocks are never split. The response includes a full heading outline and nextWindow when more blocks remain.",
           "Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or \`hello\`, not "**hello**" or "\`hello\`"; DOM writeback preserves the existing inline style.",
           "Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
           "fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.",
@@ -3243,6 +3247,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
           "fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.",
           "fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id 'title')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.",
+          "fs.read always returns complete display-block windows. Use blockStart/blockLimit/tokenBudget to continue long documents; code, math, tables, lists, quotes, and other container blocks are never split. The response includes a full heading outline and nextWindow when more blocks remain.",
           "Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or \`hello\`, not "**hello**" or "\`hello\`"; DOM writeback preserves the existing inline style.",
           "Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
           "fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.",
@@ -3275,6 +3280,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
           "fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.",
           "fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id 'title')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.",
+          "fs.read always returns complete display-block windows. Use blockStart/blockLimit/tokenBudget to continue long documents; code, math, tables, lists, quotes, and other container blocks are never split. The response includes a full heading outline and nextWindow when more blocks remain.",
           "Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or \`hello\`, not "**hello**" or "\`hello\`"; DOM writeback preserves the existing inline style.",
           "Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
           "fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.",
@@ -3307,6 +3313,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
           "fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.",
           "fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id 'title')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.",
+          "fs.read always returns complete display-block windows. Use blockStart/blockLimit/tokenBudget to continue long documents; code, math, tables, lists, quotes, and other container blocks are never split. The response includes a full heading outline and nextWindow when more blocks remain.",
           "Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or \`hello\`, not "**hello**" or "\`hello\`"; DOM writeback preserves the existing inline style.",
           "Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
           "fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.",
@@ -3339,6 +3346,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
           "fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.",
           "fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id 'title')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.",
+          "fs.read always returns complete display-block windows. Use blockStart/blockLimit/tokenBudget to continue long documents; code, math, tables, lists, quotes, and other container blocks are never split. The response includes a full heading outline and nextWindow when more blocks remain.",
           "Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or \`hello\`, not "**hello**" or "\`hello\`"; DOM writeback preserves the existing inline style.",
           "Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
           "fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.",
@@ -3369,7 +3377,7 @@ Additional actions: rm, mv. Read siyuan://help/action/fs/{action} for details, o
 Parameter contract per action (fields outside the action's optional list should not be sent):
 fs.ls: required [path] | optional []
 fs.tree: required [path] | optional [maxDepth]
-fs.read: required [path] | optional [page, pageSize]
+fs.read: required [path] | optional [blockStart, blockLimit, tokenBudget, includeBlockIds]
 fs.write: required [path, markdown] | optional [overwrite]
 fs.replace: required [path, edit] | optional []
 fs.rm: required [path] | optional []
@@ -3381,7 +3389,7 @@ Use fs first for ordinary document file operations: list, tree, read, write, mov
       "actionSummaries": {
         "ls": "Use a human-readable path. "/" lists readable notebook roots; /Notebook or /Notebook/Folder lists direct child documents.",
         "mv": "Moves or renames a document using human-readable paths. This action requires explicit user confirmation.",
-        "read": "Use a human-readable document path. Returns an AI-editable Markdown view with pagination for long documents: SiYuan double-links stay as ((id 'title')), tags stay as #tag#, zero-width tag markers and normal block/list-item IAL metadata are hidden. When complex SiYuan blocks are detected, use block.dom, file.export_md, av, or other advanced tools for inspection and editing.",
+        "read": "Use a human-readable document path. Returns an AI-editable Markdown window made only of complete display blocks. Continue with nextWindow or blockStart/blockLimit/tokenBudget; page/pageSize character pagination was removed. The response includes a full heading outline, and includeBlockIds=true adds a sidecar blockRefs mapping without polluting content. When complex SiYuan blocks are detected, use block.dom, file.export_md, av, or other advanced tools for inspection and editing.",
         "replace": "Edits matched non-complex Markdown blocks by exact old/new matching against the same AI-editable view returned by fs.read. Canonical input is edit={old,new}; shorthand old + new is also accepted. If the document contains complex SiYuan-native blocks, fs.replace skips those blocks and returns skippedComplexBlocks; matches only inside skipped blocks or across block boundaries are rejected without writing. For inline formatting, old should be plain text without Markdown style delimiters such as **, *, \`, or ~~; existing DOM inline styles are preserved. Naked ((id)) refs are normalized, and footnotes/siyuan://blocks links are allowed but do not create backlinks. replace_all=true replaces every exact match across editable blocks. Use ((id 'title')) for new double-links and #tag# for tags.",
         "rm": "Deletes a document by human-readable path. This action requires explicit user confirmation.",
         "search": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.",
@@ -3398,7 +3406,7 @@ Use fs first for ordinary document file operations: list, tree, read, write, mov
           "requiresConfirmation": true,
         },
         "read": {
-          "hint": "Use a human-readable document path. Returns an AI-editable Markdown view with pagination for long documents: SiYuan double-links stay as ((id 'title')), tags stay as #tag#, zero-width tag markers and normal block/list-item IAL metadata are hidden. When complex SiYuan blocks are detected, use block.dom, file.export_md, av, or other advanced tools for inspection and editing.",
+          "hint": "Use a human-readable document path. Returns an AI-editable Markdown window made only of complete display blocks. Continue with nextWindow or blockStart/blockLimit/tokenBudget; page/pageSize character pagination was removed. The response includes a full heading outline, and includeBlockIds=true adds a sidecar blockRefs mapping without polluting content. When complex SiYuan blocks are detected, use block.dom, file.export_md, av, or other advanced tools for inspection and editing.",
           "requiresConfirmation": false,
         },
         "replace": {
@@ -3440,6 +3448,7 @@ Use fs first for ordinary document file operations: list, tree, read, write, mov
         "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
         "fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.",
         "fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id 'title')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.",
+        "fs.read always returns complete display-block windows. Use blockStart/blockLimit/tokenBudget to continue long documents; code, math, tables, lists, quotes, and other container blocks are never split. The response includes a full heading outline and nextWindow when more blocks remain.",
         "Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or \`hello\`, not "**hello**" or "\`hello\`"; DOM writeback preserves the existing inline style.",
         "Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
         "fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.",

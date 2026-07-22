@@ -19,7 +19,7 @@ siyuan-sisyphus fs ls --path '/' --json
 siyuan-sisyphus fs tree --path '/Notebook/Folder' --max-depth '4' --json
 ```
 ```bash
-siyuan-sisyphus fs read --path '/Notebook/Folder/Doc' --page '1' --page-size '8000' --json
+siyuan-sisyphus fs read --path '/Notebook/Folder/Doc' --block-start '0' --block-limit '50' --token-budget '2000' --json
 ```
 
 Use search-assisted discovery when the path is unknown:
@@ -51,4 +51,4 @@ siyuan-sisyphus block get-kramdown --id '<block-id>' --json
 | Notebook-local hpath | `/Folder/Doc` | document create or lookup with notebook |
 | Storage path | `/20260712123000-abc123.sy` | low-level rename, remove, or move |
 
-Never derive a storage path from a title. Resolve the document first and reuse the returned path. Treat pages and truncation notices as incomplete data, and continue with explicit `page` and `pageSize` values.
+Never derive a storage path from a title. Resolve the document first and reuse the returned path. For `fs.read` and Markdown `document.get_doc`, treat `hasNextWindow=true` as incomplete data and continue with the returned `nextWindow`. For list and search results, continue with explicit `page` and `pageSize` values.

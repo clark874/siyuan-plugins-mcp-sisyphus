@@ -35,6 +35,8 @@
 - `create` 支持直接写 `((id '标题'))`、裸 `((id))` 和 `#标签#`。裸双链会自动补齐锚文本；如果解析失败，会降级为 `((id 'id'))` 并返回 warning。
 - `create` 允许 `[^1]` 脚注式引用和 `[text](siyuan://blocks/id)` 写入，但结果会提示它们不会创建思源真实反链。
 - `get_doc` 返回与 `fs.read` 一致的可编辑 Markdown，保留 `((id '标题'))` 和 `#标签#`。
+- `get_doc mode="markdown"` 始终返回完整展示块窗口。可使用 `nextWindow` 继续读取，或传入 `blockStart`、`blockLimit` 和 `tokenBudget`；响应同时包含全文标题 `outline`。`includeBlockIds=true` 会增加独立块引用，不改变 `content`。
+- 字符级 `page/pageSize` 分页已经移除。`mode="html"` 仍返回不分页的当前视图 HTML，并继续使用 `size`。
 
 ## 安全规则
 

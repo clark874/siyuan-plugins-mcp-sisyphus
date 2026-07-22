@@ -37,7 +37,7 @@ import { createJsonResult, createPermissionDeniedResult, createSetIconReminder }
 import { applyUiRefresh, type UiRefreshOperation } from '../internal/ui-refresh';
 import { sleep } from '../../shared/async';
 import { stripRedundantTitleHeading } from '../internal/kramdown-safe';
-import { readDocumentEditableMarkdown } from '../internal/document-kramdown';
+import { readDocumentBlockWindow } from '../internal/document-kramdown';
 import { createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks } from '../internal/kramdown-safe';
 import { normalizeMarkdownInputRefs } from '../internal/markdown-input';
 
@@ -673,30 +673,34 @@ const handleGetDoc: DocumentActionHandler = async ({ client, permMgr, rawArgs })
             ...((result && typeof result === 'object') ? result as Record<string, unknown> : { content: result }),
         });
     }
-    const content = await readDocumentEditableMarkdown(client, parsed.id);
-    const page = parsed.page ?? 1;
-    const pageSize = parsed.pageSize ?? 8000;
-    const pageCount = Math.max(1, Math.ceil(content.length / pageSize));
-    const normalizedPage = Math.min(page, pageCount);
-    const start = (normalizedPage - 1) * pageSize;
-    const pagedContent = content.slice(start, start + pageSize);
-    const isPaginated = content.length > pageSize;
+    const window = await readDocumentBlockWindow(client, parsed.id, {
+        blockStart: parsed.blockStart,
+        blockLimit: parsed.blockLimit,
+        tokenBudget: parsed.tokenBudget,
+        includeBlockIds: parsed.includeBlockIds,
+    });
+    const { nextBlockStart, ...windowPayload } = window;
+    const nextWindow = nextBlockStart === undefined
+        ? undefined
+        : {
+            action: 'get_doc',
+            id: parsed.id,
+            mode: 'markdown',
+            blockStart: nextBlockStart,
+            blockLimit: window.blockLimit,
+            tokenBudget: window.tokenBudget,
+            ...(parsed.includeBlockIds ? { includeBlockIds: true } : {}),
+        };
     return createJsonResult({
         id: parsed.id,
         mode: 'markdown',
         notebook: context.notebook,
         ...(notebookName ? { notebookName } : {}),
         hPath: await getHPathByIdWithRetry(client, parsed.id),
-        content: pagedContent,
-        ...(isPaginated ? {
-            truncated: true,
-            contentLength: content.length,
-            showing: pagedContent.length,
-            page: normalizedPage,
-            pageSize,
-            pageCount,
-            hasNextPage: normalizedPage < pageCount,
-            hint: 'Use page/pageSize to read the next markdown chunk. For structured reads, use document(action="get_child_blocks") or block(action="get_kramdown").',
+        ...windowPayload,
+        ...(nextWindow ? {
+            nextWindow,
+            nextWindowHint: `Continue with document(${JSON.stringify(nextWindow)}).`,
         } : {}),
     });
 };

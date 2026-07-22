@@ -25,6 +25,9 @@
 - 普通块和列表项的 IAL 元数据会隐藏，例如 `{: id="..." updated="..."}` 不会出现在列表文本里；因此可以直接把 `fs.read` 里复制出的 `- 列表项` 用作 `fs.replace` 的 `old`。
 - 代码块、数学块和普通文本中的 literal 内容不会为了清理元数据而全局删改。
 - 引用块、表格、超级块等容器块按容器读取，避免把内部子块重复输出。`fs.read` 会过滤思源生成的容器内部 IAL，但包含复杂块时仍会返回 non-fidelity warning，写回应改用高级工具。
+- `read` 始终按完整展示块分页。可直接使用返回的 `nextWindow`，或传入零基 `blockStart`、`blockLimit`（默认 `50`）和 `tokenBudget`（默认 `2000`）。列表、表格、引用、代码块、数学块及其他容器不会跨窗口截断。
+- 每次读取都会返回包含块位置的全文标题 `outline`。传入 `includeBlockIds=true` 可获得独立的 `blockRefs` 映射，块 ID 不会注入可编辑 Markdown `content`。
+- 旧的 `page/pageSize` 字符分页已经移除。单个块超过 `tokenBudget` 时仍会完整返回，并设置 `budgetExceeded=true`。
 
 ## Markdown 安全语义
 
@@ -49,6 +52,10 @@
 
 ```json
 { "action": "read", "path": "/Inbox/会议记录/2024 总结" }
+```
+
+```json
+{ "action": "read", "path": "/Inbox/会议记录/2024 总结", "blockStart": 50, "blockLimit": 50, "tokenBudget": 2000, "includeBlockIds": true }
 ```
 
 ```json

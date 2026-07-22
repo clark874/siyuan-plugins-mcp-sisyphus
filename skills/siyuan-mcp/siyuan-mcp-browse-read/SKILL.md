@@ -19,7 +19,7 @@ fs(action="ls", path="/")
 fs(action="tree", path="/Notebook/Folder", maxDepth=4)
 ```
 ```text
-fs(action="read", path="/Notebook/Folder/Doc", page=1, pageSize=8000)
+fs(action="read", path="/Notebook/Folder/Doc", blockStart=0, blockLimit=50, tokenBudget=2000)
 ```
 
 Use search-assisted discovery when the path is unknown:
@@ -51,4 +51,4 @@ block(action="get_kramdown", id="<block-id>")
 | Notebook-local hpath | `/Folder/Doc` | document create or lookup with notebook |
 | Storage path | `/20260712123000-abc123.sy` | low-level rename, remove, or move |
 
-Never derive a storage path from a title. Resolve the document first and reuse the returned path. Treat pages and truncation notices as incomplete data, and continue with explicit `page` and `pageSize` values.
+Never derive a storage path from a title. Resolve the document first and reuse the returned path. For `fs.read` and Markdown `document.get_doc`, treat `hasNextWindow=true` as incomplete data and continue with the returned `nextWindow`. For list and search results, continue with explicit `page` and `pageSize` values.

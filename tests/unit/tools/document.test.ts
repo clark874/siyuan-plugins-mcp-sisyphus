@@ -23,6 +23,16 @@ describe('document tool extended actions', () => {
 });
 
 describe('document.get_doc markdown', () => {
+    it('publishes block-window parameters without legacy page/pageSize fields', () => {
+        const variant = DOCUMENT_VARIANTS.find((item) => item.action === 'get_doc');
+
+        expect(variant?.schema.properties?.page).toBeUndefined();
+        expect(variant?.schema.properties?.pageSize).toBeUndefined();
+        expect(variant?.schema.properties?.blockStart?.minimum).toBe(0);
+        expect(variant?.schema.properties?.blockLimit?.maximum).toBe(200);
+        expect(variant?.schema.properties?.tokenBudget?.maximum).toBe(32000);
+    });
+
     it('returns editable kramdown with SiYuan double-link markdown', async () => {
         const client = createMockClient({
             request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
@@ -69,7 +79,29 @@ describe('document.get_doc markdown', () => {
 
         expect(parsed.content).toBe("See ((20240601010101-abcdefg '目标文档'))");
         expect(parsed.hPath).toBe('/Doc 1');
+        expect(parsed).toMatchObject({
+            blockStart: 0,
+            blockLimit: 50,
+            returnedBlocks: 1,
+            totalBlocks: 1,
+            tokenBudget: 2000,
+            truncated: false,
+            hasNextWindow: false,
+        });
         expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
+    });
+
+    it('rejects removed page/pageSize character pagination', async () => {
+        const result = await callDocumentTool(
+            createMockClient(),
+            { action: 'get_doc', id: 'doc-1', page: 1, pageSize: 100 },
+            buildDefaultToolConfig().document,
+            {} as never,
+        );
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('validation_error');
+        expect(result.content[0].text).toContain('character pagination was removed');
     });
 });
 

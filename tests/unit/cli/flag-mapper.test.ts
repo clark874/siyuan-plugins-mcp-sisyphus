@@ -36,6 +36,48 @@ const blockSchema = {
 };
 
 describe('cli/flag-mapper', () => {
+    it.each(['--block-start', '--block_start', '--blockStart'])(
+        'maps %s to the canonical blockStart window parameter',
+        (flag) => {
+            const readSchema = {
+                type: 'object',
+                properties: {
+                    action: { type: 'string' },
+                    blockStart: { type: 'integer' },
+                    blockLimit: { type: 'integer' },
+                    tokenBudget: { type: 'integer' },
+                    includeBlockIds: { type: 'boolean' },
+                },
+            };
+            const { args, warnings } = mapFlagsToArgs([
+                flag, '12',
+                '--block-limit', '8',
+                '--token_budget', '1500',
+                '--include-block-ids',
+            ], readSchema, { category: 'fs', action: 'read' });
+
+            expect(args).toEqual({
+                blockStart: 12,
+                blockLimit: 8,
+                tokenBudget: 1500,
+                includeBlockIds: true,
+            });
+            expect(warnings).toEqual([]);
+        },
+    );
+
+    it('keeps removed page-size CLI flags visible to the runtime rejection path', () => {
+        const readSchema = { type: 'object', properties: { action: { type: 'string' } } };
+        const { args, warnings } = mapFlagsToArgs(
+            ['--page', '2', '--page-size', '100'],
+            readSchema,
+            { category: 'document', action: 'get_doc' },
+        );
+
+        expect(args).toEqual({ page: 2, pageSize: 100 });
+        expect(warnings).toEqual([]);
+    });
+
     it('maps kebab-case flags onto snake_case properties', () => {
         const { args, warnings } = mapFlagsToArgs(['--item-id', 'milk'], schema);
 

@@ -27,7 +27,13 @@ import { applyExactReplaceEdits } from '../internal/replace';
 import { createJsonResult, createPaginatedResult, type ToolResult } from '../internal/shared';
 import { applyUiRefresh } from '../internal/ui-refresh';
 import { applyDocumentKramdownDomReplacements, createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks, stripRedundantTitleHeading } from '../internal/kramdown-safe';
-import { listDocumentBlocksInTreeOrder, readDocumentEditableMarkdown } from '../internal/document-kramdown';
+import {
+    createSyntheticDocumentBlockWindow,
+    listDocumentBlocksInTreeOrder,
+    readDocumentBlockWindow,
+    type DocumentBlockWindow,
+    type OrderedDocumentBlock,
+} from '../internal/document-kramdown';
 import { normalizeMarkdownInputRefs, normalizeReplaceEditsRefs } from '../internal/markdown-input';
 
 type FsActionHandler = ToolActionHandler;
@@ -289,23 +295,6 @@ function collectTreeIds(nodes: unknown): string[] {
     return ids;
 }
 
-function paginateContent(content: string, page = 1, pageSize = 8000) {
-    const pageCount = Math.max(1, Math.ceil(content.length / pageSize));
-    const normalizedPage = Math.min(page, pageCount);
-    const start = (normalizedPage - 1) * pageSize;
-    const slice = content.slice(start, start + pageSize);
-    return {
-        content: slice,
-        truncated: content.length > pageSize,
-        contentLength: content.length,
-        showing: slice.length,
-        page: normalizedPage,
-        pageSize,
-        pageCount,
-        hasNextPage: normalizedPage < pageCount,
-    };
-}
-
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -358,8 +347,9 @@ function extractAttributeViewIdFromKramdown(kramdown: string): string | undefine
 async function listDocumentAttributeViews(
     client: Parameters<FsActionHandler>[0]['client'],
     documentId: string,
+    knownBlocks?: OrderedDocumentBlock[],
 ): Promise<Array<{ blockID: string; avID?: string }>> {
-    const blocks = await listDocumentBlocksInTreeOrder(client, documentId);
+    const blocks = knownBlocks ?? await listDocumentBlocksInTreeOrder(client, documentId);
     const avBlocks = blocks.filter((block) => block.type === 'av');
     return Promise.all(avBlocks.map(async (block) => {
         const result = await blockApi.getBlockKramdown(client, block.id);
@@ -369,6 +359,29 @@ async function listDocumentAttributeViews(
             ...(extractAttributeViewIdFromKramdown(kramdown) ? { avID: extractAttributeViewIdFromKramdown(kramdown) } : {}),
         };
     }));
+}
+
+function createFsReadWindowPayload(
+    path: string,
+    window: DocumentBlockWindow,
+    includeBlockIds: boolean,
+): Record<string, unknown> {
+    const { nextBlockStart, ...payload } = window;
+    if (nextBlockStart === undefined) return { path, ...payload };
+    const nextWindow = {
+        action: 'read',
+        path,
+        blockStart: nextBlockStart,
+        blockLimit: window.blockLimit,
+        tokenBudget: window.tokenBudget,
+        ...(includeBlockIds ? { includeBlockIds: true } : {}),
+    };
+    return {
+        path,
+        ...payload,
+        nextWindow,
+        nextWindowHint: `Continue with fs(${JSON.stringify(nextWindow)}).`,
+    };
 }
 
 function createAttributeViewFsHint(attributeViews: Array<{ blockID: string; avID?: string }>): Record<string, unknown> {
@@ -555,43 +568,29 @@ const handleTree: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 
 const handleRead: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsReadSchema.parse(rawArgs);
+    const windowOptions = {
+        blockStart: parsed.blockStart,
+        blockLimit: parsed.blockLimit,
+        tokenBudget: parsed.tokenBudget,
+        includeBlockIds: parsed.includeBlockIds,
+    };
     assertNotVirtualRootFileDescendant(parsed.path);
     const virtualPath = getVirtualRootFilePath(parsed.path);
     if (virtualPath === AGENT_MEMORY_VIRTUAL_PATH) {
         const memory = await readAgentMemoryState(client);
-        const paged = paginateContent(memory.content, parsed.page, parsed.pageSize);
+        const window = createSyntheticDocumentBlockWindow(memory.content, windowOptions);
         return createJsonResult({
-            path: AGENT_MEMORY_VIRTUAL_PATH,
+            ...createFsReadWindowPayload(AGENT_MEMORY_VIRTUAL_PATH, window, false),
             virtual: true,
             updatedAt: memory.updatedAt || null,
-            content: paged.content,
-            ...(paged.truncated ? {
-                truncated: true,
-                contentLength: paged.contentLength,
-                showing: paged.showing,
-                page: paged.page,
-                pageSize: paged.pageSize,
-                pageCount: paged.pageCount,
-                hasNextPage: paged.hasNextPage,
-            } : {}),
         });
     }
     if (virtualPath === USER_RULES_VIRTUAL_PATH) {
         const rules = await readUserRulesState(client);
-        const paged = paginateContent(rules.content, parsed.page, parsed.pageSize);
+        const window = createSyntheticDocumentBlockWindow(rules.content, windowOptions);
         return createJsonResult({
-            path: USER_RULES_VIRTUAL_PATH,
+            ...createFsReadWindowPayload(USER_RULES_VIRTUAL_PATH, window, false),
             virtual: true,
-            content: paged.content,
-            ...(paged.truncated ? {
-                truncated: true,
-                contentLength: paged.contentLength,
-                showing: paged.showing,
-                page: paged.page,
-                pageSize: paged.pageSize,
-                pageCount: paged.pageCount,
-                hasNextPage: paged.hasNextPage,
-            } : {}),
         });
     }
     const scope = await resolveFsScopePath(client, permMgr, parsed.path, 'read');
@@ -599,23 +598,14 @@ const handleRead: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'read');
     if (denied) return denied;
     const blocks = await listDocumentBlocksInTreeOrder(client, scope.id);
-    const content = await readDocumentEditableMarkdown(client, scope.id, blocks);
-    const attributeViews = await listDocumentAttributeViews(client, scope.id);
-    const paged = paginateContent(content, parsed.page, parsed.pageSize);
+    const [window, attributeViews] = await Promise.all([
+        readDocumentBlockWindow(client, scope.id, windowOptions, blocks),
+        listDocumentAttributeViews(client, scope.id, blocks),
+    ]);
     return createJsonResult({
-        path: scope.canonicalPath,
-        content: paged.content,
+        ...createFsReadWindowPayload(scope.canonicalPath, window, parsed.includeBlockIds ?? false),
         ...(attributeViews.length > 0 ? createAttributeViewFsHint(attributeViews) : {}),
         ...createFsNonFidelityHint(blocks),
-        ...(paged.truncated ? {
-            truncated: true,
-            contentLength: paged.contentLength,
-            showing: paged.showing,
-            page: paged.page,
-            pageSize: paged.pageSize,
-            pageCount: paged.pageCount,
-            hasNextPage: paged.hasNextPage,
-        } : {}),
     });
 };
 
