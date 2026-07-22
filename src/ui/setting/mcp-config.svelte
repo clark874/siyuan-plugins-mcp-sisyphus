@@ -5,26 +5,36 @@
     import { buildDefaultToolConfig, normalizeToolConfig, type ToolCategory, type ToolConfig } from "./tool-config";
     import {
         buildDefaultHttpServerSettings,
+        buildDefaultPermissionDisplaySettings,
         buildDefaultPuppyAppearance,
         buildDefaultPuppySettings,
         buildDefaultTelemetryConfig,
         buildDefaultVersionControlSettings,
         buildRandomPuppyAppearance,
         loadPersistedHttpServerSettings,
+        loadPersistedPermissionDisplaySettings,
         loadPersistedPuppySettings,
         loadPersistedTelemetryConfig,
         loadPersistedToolConfig,
         loadPersistedVersionControlSettings,
         normalizePuppySettings,
         savePersistedPuppySettings,
+        savePersistedPermissionDisplaySettings,
         savePersistedTelemetryConfig,
         savePersistedToolConfig,
         savePersistedVersionControlSettings,
         type HttpServerSettings,
+        type PermissionDisplaySettings,
         type PuppySettings,
         type TelemetryConfig,
         type VersionControlSettings,
     } from "./tool-config-storage";
+    import {
+        normalizeNotebookPermission,
+        normalizeNotebookPermissions,
+        PERMISSION_TREE_CHANGED_EVENT,
+        type NotebookPermission,
+    } from "../permission-tree-indicator";
     import HttpServerPanel from "./mcp-config/HttpServerPanel.svelte";
     import DebugPanel from "./mcp-config/DebugPanel.svelte";
     import FeedbackPanel from "./mcp-config/FeedbackPanel.svelte";
@@ -48,14 +58,6 @@
 
     export let plugin: any;
 
-    type NotebookPermission = 'none' | 'r' | 'rw' | 'rwd';
-    const VALID_PERMISSIONS: NotebookPermission[] = ['none', 'r', 'rw', 'rwd'];
-    const LEGACY_PERMISSION_MAP = {
-        none: 'none',
-        readonly: 'r',
-        write: 'rw',
-    } as const;
-
     interface NotebookInfo { id: string; name: string; closed?: boolean; }
     interface ChangeEvent { key: string; value: any; }
 
@@ -71,6 +73,7 @@
     let puppySettings: PuppySettings = buildDefaultPuppySettings();
     let telemetryConfig: TelemetryConfig = buildDefaultTelemetryConfig();
     let versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
+    let permissionDisplaySettings: PermissionDisplaySettings = buildDefaultPermissionDisplaySettings();
     let focusGroup = "";
     let lastFocusGroup = "";
     let tabWrapElement: HTMLDivElement | null = null;
@@ -79,16 +82,6 @@
     let permLoading = true;
 
     const getLabel = (key: string, fallback: string) => plugin?.i18n?.[key] ?? fallback;
-
-    const normalizePermission = (value: unknown): NotebookPermission => {
-        if (VALID_PERMISSIONS.includes(value as NotebookPermission)) {
-            return value as NotebookPermission;
-        }
-        if (typeof value === "string" && value in LEGACY_PERMISSION_MAP) {
-            return LEGACY_PERMISSION_MAP[value as keyof typeof LEGACY_PERMISSION_MAP];
-        }
-        return 'none';
-    };
 
     $: httpGroupLabel = getLabel("httpServerTitle", HTTP_GROUP_KEY);
     $: permGroupLabel = getLabel(PERM_GROUP_KEY, PERM_GROUP_LABEL);
@@ -153,11 +146,12 @@
         httpSettings = await loadPersistedHttpServerSettings(plugin);
         telemetryConfig = await loadPersistedTelemetryConfig(plugin);
         versionControlSettings = await loadPersistedVersionControlSettings(plugin);
+        permissionDisplaySettings = await loadPersistedPermissionDisplaySettings(plugin);
 
         const savedPerms = await plugin?.loadData("notebookPermissions");
         if (savedPerms && typeof savedPerms === "object") {
             const normalizedPermissions = Object.fromEntries(
-                Object.entries(savedPerms).map(([notebookId, permission]) => [notebookId, normalizePermission(permission)]),
+                Object.entries(savedPerms).map(([notebookId, permission]) => [notebookId, normalizeNotebookPermission(permission)]),
             );
             permissions = normalizedPermissions;
             if (JSON.stringify(savedPerms) !== JSON.stringify(normalizedPermissions)) {
@@ -166,6 +160,15 @@
         }
 
         await loadNotebooks();
+    });
+
+    onMount(() => {
+        const handlePermissionTreeChange = (event: Event) => {
+            const detail = (event as CustomEvent<{ permissions?: unknown }>).detail;
+            permissions = normalizeNotebookPermissions(detail?.permissions);
+        };
+        window.addEventListener(PERMISSION_TREE_CHANGED_EVENT, handlePermissionTreeChange);
+        return () => window.removeEventListener(PERMISSION_TREE_CHANGED_EVENT, handlePermissionTreeChange);
     });
 
     function setCategoryEnabled(category: ToolCategory, enabled: boolean) {
@@ -210,6 +213,14 @@
     async function persistPermissions() {
         if (plugin) {
             await plugin.saveData("notebookPermissions", permissions);
+            plugin.refreshPermissionTreeIndicators?.(permissions);
+        }
+    }
+
+    async function persistPermissionDisplaySettings() {
+        if (plugin) {
+            permissionDisplaySettings = await savePersistedPermissionDisplaySettings(permissionDisplaySettings, plugin);
+            plugin.updatePermissionDisplaySettings?.(permissionDisplaySettings);
         }
     }
 
@@ -300,6 +311,15 @@
             const notebookId = key.slice("perm__".length);
             permissions = { ...permissions, [notebookId]: value as NotebookPermission };
             await persistPermissions();
+            return;
+        }
+
+        if (key === "permissionDisplay__showInFileTree") {
+            permissionDisplaySettings = {
+                ...permissionDisplaySettings,
+                showInFileTree: Boolean(value),
+            };
+            await persistPermissionDisplaySettings();
             return;
         }
 
@@ -429,6 +449,7 @@
         await persistPuppySettings();
         await persistTelemetryConfig();
         await persistVersionControlSettings();
+        await persistPermissionDisplaySettings();
         await persistConfig();
         showMessage(plugin?.i18n?.mcpConfigSaved || "✅ MCP Tools configuration saved");
     }
@@ -438,10 +459,12 @@
         puppySettings = normalizePuppySettings(buildDefaultPuppySettings());
         telemetryConfig = buildDefaultTelemetryConfig();
         versionControlSettings = buildDefaultVersionControlSettings();
+        permissionDisplaySettings = buildDefaultPermissionDisplaySettings();
         await persistConfig();
         await persistPuppySettings();
         await persistTelemetryConfig();
         await persistVersionControlSettings();
+        await persistPermissionDisplaySettings();
         showMessage(plugin?.i18n?.mcpConfigReset || "🔄 MCP Tools configuration reset to defaults");
     }
 
@@ -470,7 +493,7 @@
         <div class="config__tab-scroll" bind:this={tabWrapElement}>
             <div class="config__tab-content">
                 <HttpServerPanel {plugin} group={httpGroupLabel} display={focusGroup === HTTP_GROUP_KEY} bind:httpSettings {getLabel} />
-                <PermissionsPanel group={permGroupLabel} display={focusGroup === PERM_GROUP_KEY} {notebooks} {permissions} {permLoading} {getLabel} {onChanged} />
+                <PermissionsPanel group={permGroupLabel} display={focusGroup === PERM_GROUP_KEY} {notebooks} {permissions} {permissionDisplaySettings} {permLoading} {getLabel} {onChanged} />
                 <ToolCategoriesPanel group={toolGroupLabel} display={focusGroup === TOOL_GROUP_KEY} {config} {getLabel} {onChanged} />
                 <PuppyPanel group={puppyGroupLabel} display={focusGroup === PUPPY_GROUP_KEY} {puppySettings} {getLabel} {onChanged} />
                 <TelemetryPanel

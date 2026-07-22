@@ -34,3 +34,61 @@
         width: 100%;
     }
 }
+
+.sisyphus-permission-tree-badge {
+    appearance: none;
+    align-items: center;
+    background: color-mix(in srgb, var(--b3-theme-primary) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--b3-theme-primary) 34%, transparent);
+    border-radius: 999px;
+    box-sizing: border-box;
+    color: var(--b3-theme-primary);
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 auto;
+    font-family: var(--b3-font-family-code, monospace);
+    font-size: 9px;
+    font-weight: 700;
+    height: 16px;
+    justify-content: center;
+    line-height: 14px;
+    margin-left: 5px;
+    min-width: 18px;
+    padding: 0 4px;
+    user-select: none;
+}
+
+.sisyphus-permission-tree-badge:hover,
+.sisyphus-permission-tree-badge:focus-visible {
+    filter: brightness(1.08);
+    outline: 2px solid color-mix(in srgb, currentColor 32%, transparent);
+    outline-offset: 1px;
+}
+
+.sisyphus-permission-tree-badge[data-saving="true"] {
+    cursor: wait;
+    opacity: 0.55;
+}
+
+.sisyphus-permission-tree-badge[data-permission="rw"] {
+    background: color-mix(in srgb, var(--b3-theme-secondary, #f57c00) 16%, transparent);
+    border-color: color-mix(in srgb, var(--b3-theme-secondary, #f57c00) 42%, transparent);
+    color: var(--b3-theme-secondary, #f57c00);
+}
+
+.sisyphus-permission-tree-badge[data-permission="rwd"] {
+    background: color-mix(in srgb, var(--b3-theme-success, #2e7d32) 14%, transparent);
+    border-color: color-mix(in srgb, var(--b3-theme-success, #2e7d32) 38%, transparent);
+    color: var(--b3-theme-success, #2e7d32);
+}
+
+.sisyphus-permission-tree-badge[data-permission="none"] {
+    background: color-mix(in srgb, var(--b3-theme-error, #d32f2f) 12%, transparent);
+    border-color: color-mix(in srgb, var(--b3-theme-error, #d32f2f) 36%, transparent);
+    color: var(--b3-theme-error, #d32f2f);
+}
+
+.sisyphus-permission-tree-badge--implicit {
+    border-style: dashed;
+    opacity: 0.72;
+}

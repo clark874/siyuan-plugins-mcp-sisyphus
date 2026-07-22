@@ -6,9 +6,11 @@ import * as mcpConfig from '@/core/config';
 import * as settingConfig from '@/ui/setting/tool-config';
 import {
     DEFAULT_PUPPY_APPEARANCE,
+    buildDefaultPermissionDisplaySettings,
     buildDefaultPuppySettings,
     buildDefaultVersionControlSettings,
     normalizePuppySettings,
+    normalizePermissionDisplaySettings,
     normalizeVersionControlSettings,
 } from '@/ui/setting/tool-config-storage';
 
@@ -125,11 +127,37 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(rootSource).toContain('closed: Boolean(nb.closed)');
         expect(panelSource).toContain('notebooks;');
         expect(panelSource).toContain('permissions;');
+        expect(panelSource).toContain('permissionDisplaySettings;');
+        expect(panelSource).toContain('permissionDisplay__showInFileTree');
+        expect(panelSource).toContain('type: "checkbox"');
+        expect(panelSource).not.toContain('type: "switch"');
+        expect(rootSource).toContain('PERMISSION_TREE_CHANGED_EVENT');
+        expect(rootSource).toContain('handlePermissionTreeChange');
         expect(panelSource).toContain('permLoading;');
         expect(panelSource).toContain('permItems = buildPermItems();');
         expect(panelSource).toContain('closedPermItems = buildClosedPermItems();');
         expect(panelSource).toContain('mcpPermClosedGroup');
         expect(panelSource).not.toContain('mcpPermClosedHint');
+    });
+
+    it('defaults the file-tree permission indicator to enabled and preserves an explicit opt-out', () => {
+        expect(buildDefaultPermissionDisplaySettings()).toEqual({ showInFileTree: true });
+        expect(normalizePermissionDisplaySettings(undefined)).toEqual({ showInFileTree: true });
+        expect(normalizePermissionDisplaySettings({ showInFileTree: false })).toEqual({ showInFileTree: false });
+        expect(normalizePermissionDisplaySettings({ showInFileTree: 'no' })).toEqual({ showInFileTree: true });
+    });
+
+    it('wires the permission indicator into plugin lifecycle and websocket file-tree refreshes', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/index.ts'), 'utf8');
+
+        expect(source).toContain('this.syncPermissionTreeFeature();');
+        expect(source).toContain('eventBus.on("ws-main", this.handlePermissionTreeWebSocket as any)');
+        expect(source).toContain('event?.detail?.cmd === "reloadFiletree"');
+        expect(source).toContain('clearPermissionTreeIndicators(document)');
+        expect(source).toContain('this.disablePermissionTreeFeature();');
+        expect(source).toContain('handlePermissionTreeBadgeClick');
+        expect(source).toContain('getNextNotebookPermission(currentPermission)');
+        expect(source).toContain('event.stopImmediatePropagation()');
     });
 
     it('keeps mascot tool settings out of the mascot display panel', () => {

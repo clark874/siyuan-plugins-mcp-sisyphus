@@ -16,6 +16,7 @@ const CONFIG_STORAGE_KEY = "mcpToolsConfig";
 const PUPPY_SETTINGS_STORAGE_KEY = "puppySettings";
 const HTTP_SETTINGS_STORAGE_KEY = "mcpHttpSettings";
 const VERSION_CONTROL_SETTINGS_STORAGE_KEY = "versionControlSettings";
+const PERMISSION_DISPLAY_SETTINGS_STORAGE_KEY = "permissionDisplaySettings";
 
 const DEFAULT_PUPPY_TEST_INTERVAL_MS = 2200;
 const DEFAULT_HTTP_PORT = 36806;
@@ -82,6 +83,29 @@ export interface PuppyAppearanceSettings {
 export interface VersionControlSettings {
     enabled: boolean;
     showDebugMeta: boolean;
+}
+
+export interface PermissionDisplaySettings {
+    showInFileTree: boolean;
+}
+
+export function buildDefaultPermissionDisplaySettings(): PermissionDisplaySettings {
+    return {
+        showInFileTree: true,
+    };
+}
+
+export function normalizePermissionDisplaySettings(raw: unknown): PermissionDisplaySettings {
+    const defaults = buildDefaultPermissionDisplaySettings();
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return defaults;
+    }
+    const record = raw as Record<string, unknown>;
+    return {
+        showInFileTree: typeof record.showInFileTree === "boolean"
+            ? record.showInFileTree
+            : defaults.showInFileTree,
+    };
 }
 
 export function buildDefaultVersionControlSettings(): VersionControlSettings {
@@ -216,6 +240,19 @@ export async function savePersistedVersionControlSettings(settings: VersionContr
     const normalized = normalizeVersionControlSettings(settings);
     if (plugin?.saveData) {
         await plugin.saveData(VERSION_CONTROL_SETTINGS_STORAGE_KEY, normalized);
+    }
+    return normalized;
+}
+
+export async function loadPersistedPermissionDisplaySettings(plugin?: PluginStorage): Promise<PermissionDisplaySettings> {
+    const raw = await plugin?.loadData?.(PERMISSION_DISPLAY_SETTINGS_STORAGE_KEY);
+    return normalizePermissionDisplaySettings(raw);
+}
+
+export async function savePersistedPermissionDisplaySettings(settings: PermissionDisplaySettings, plugin?: PluginStorage): Promise<PermissionDisplaySettings> {
+    const normalized = normalizePermissionDisplaySettings(settings);
+    if (plugin?.saveData) {
+        await plugin.saveData(PERMISSION_DISPLAY_SETTINGS_STORAGE_KEY, normalized);
     }
     return normalized;
 }

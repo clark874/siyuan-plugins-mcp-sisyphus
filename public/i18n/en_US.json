@@ -585,6 +585,12 @@
     "mcpPermLoading": "Loading notebooks...",
     "mcpPermEmpty": "No notebooks found.",
     "mcpPermClosedGroup": "Closed Notebooks",
+    "permission_tree_show_title": "Show MCP permissions in the file tree",
+    "permission_tree_show_desc": "Show R, RW, RWD, or NONE beside each notebook root; child documents inherit the notebook permission.",
+    "permission_tree_default_suffix": " (default)",
+    "permission_tree_scope": "Applies to the entire notebook and its child documents",
+    "permission_tree_click_hint": "Click to cycle: NONE → R → RW → RWD",
+    "permission_tree_save_failed": "Failed to save permission; the previous state was restored",
 
     "mcpConfigSaved": "✅ MCP Tools configuration saved to file",
     "mcpConfigSavedBackup": "⚠️ MCP Tools configuration saved (backup only)",

@@ -1,10 +1,12 @@
 <script lang="ts">
     import SettingPanel from "../../shared/setting-panel.svelte";
+    import type { PermissionDisplaySettings } from "../tool-config-storage";
 
     export let group: string;
     export let display = false;
     export let notebooks: NotebookInfo[] = [];
     export let permissions: Record<string, NotebookPermission> = {};
+    export let permissionDisplaySettings: PermissionDisplaySettings;
     export let permLoading = true;
     export let getLabel: (key: string, fallback: string) => string;
     export let onChanged: (event: CustomEvent<ChangeEvent>) => void | Promise<void>;
@@ -30,17 +32,26 @@
     }
 
     function buildPermItems(): ISettingItem[] {
+        const items: ISettingItem[] = [{
+            type: "checkbox",
+            key: "permissionDisplay__showInFileTree",
+            value: permissionDisplaySettings.showInFileTree,
+            title: getLabel("permission_tree_show_title", "在文件树显示 MCP 权限"),
+            description: getLabel("permission_tree_show_desc", "在每个笔记本根节点旁显示 R、RW、RWD 或 NONE；子文档继承笔记本权限。"),
+        }];
+
         if (notebooks.length === 0) {
-            return [{
+            items.push({
                 type: "hint",
                 key: "perm__hint",
                 value: permLoading ? getLabel("mcpPermLoading", "Loading notebooks...") : getLabel("mcpPermEmpty", "No notebooks found."),
                 title: "",
                 description: "",
-            }];
+            });
+            return items;
         }
 
-        return notebooks.filter((nb) => !nb.closed).map(buildNotebookItem);
+        return [...items, ...notebooks.filter((nb) => !nb.closed).map(buildNotebookItem)];
     }
 
     function buildClosedPermItems(): ISettingItem[] {
@@ -53,6 +64,7 @@
     $: {
         notebooks;
         permissions;
+        permissionDisplaySettings;
         permLoading;
         getLabel;
         permItems = buildPermItems();

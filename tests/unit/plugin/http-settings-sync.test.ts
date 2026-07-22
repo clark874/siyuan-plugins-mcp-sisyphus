@@ -640,7 +640,8 @@ describe('HTTP settings sync', () => {
             size: { width: 420, height: 0 },
         }));
         expect(addCommand).toHaveBeenCalledTimes(1);
-        expect(eventBusOn).toHaveBeenCalledTimes(3);
+        expect(eventBusOn).toHaveBeenCalledTimes(4);
+        expect(eventBusOn).toHaveBeenCalledWith("ws-main", expect.any(Function));
     });
 
     it('passes loaded timeline settings into the dock panel when it initializes', async () => {
