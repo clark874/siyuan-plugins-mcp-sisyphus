@@ -537,9 +537,10 @@
 
     .analytics-hint {
         padding: var(--mcp-config-card-padding, 16px);
-        background: transparent;
-        border: 1px solid var(--b3-border-color);
+        background: var(--mcp-config-surface, var(--b3-theme-surface));
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
         border-radius: var(--mcp-config-card-radius, 8px);
+        box-shadow: var(--mcp-config-shadow, none);
         color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
     }
 
@@ -554,16 +555,17 @@
     }
 
     .analytics-card {
-        background: transparent;
-        border: 1px solid var(--b3-border-color);
+        background: var(--mcp-config-surface-accent, var(--mcp-config-surface-raised, var(--b3-theme-surface)));
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
         border-radius: var(--mcp-config-card-radius, 8px);
-        padding: 10px 12px;
+        box-shadow: var(--mcp-config-shadow, none);
+        padding: 13px 12px;
         text-align: center;
     }
 
     .analytics-card__value {
         color: var(--mcp-config-title-color, var(--b3-theme-on-background));
-        font-size: 16px;
+        font-size: 18px;
         font-weight: var(--mcp-config-title-font-weight, 500);
         line-height: 1.4;
     }
@@ -575,9 +577,10 @@
     }
 
     .analytics-block {
-        background: transparent;
-        border: 1px solid var(--b3-border-color);
+        background: var(--mcp-config-surface, var(--b3-theme-surface));
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
         border-radius: var(--mcp-config-card-radius, 8px);
+        box-shadow: var(--mcp-config-shadow, none);
         padding: var(--mcp-config-card-padding, 16px);
     }
 
@@ -593,7 +596,7 @@
         align-items: center;
         justify-content: space-between;
         padding: 6px 0;
-        border-bottom: 1px solid var(--b3-border-color);
+        border-bottom: 1px solid var(--mcp-config-border, var(--b3-border-color));
     }
 
     .analytics-list__item:last-child {
@@ -650,9 +653,9 @@
     }
 
     .analytics-call {
-        border: 1px solid var(--b3-border-color);
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
         border-radius: var(--mcp-config-card-radius, 8px);
-        background: transparent;
+        background: color-mix(in srgb, var(--b3-theme-background) 36%, transparent);
     }
 
     .analytics-call.eventError {
@@ -721,7 +724,7 @@
     }
 
     .analytics-call__body {
-        border-top: 1px solid var(--b3-border-color);
+        border-top: 1px solid var(--mcp-config-border, var(--b3-border-color));
         padding: 12px;
         display: flex;
         flex-direction: column;

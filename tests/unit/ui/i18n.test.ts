@@ -16,6 +16,35 @@ function readPackageVersion(): string {
 }
 
 describe('settings i18n', () => {
+    it('covers polished settings navigation and page summaries in bundled locales', () => {
+        const shellKeys = [
+            'mcpToolsSettingTitle',
+            'settingsBrandSubtitle',
+            'settingsNavigationLabel',
+            'settingsConnectionDesc',
+            'settingsPermissionsDesc',
+            'settingsToolsDesc',
+            'settingsMascotDesc',
+            'settingsAnalyticsDesc',
+            'settingsDebugDesc',
+            'settingsRulesDesc',
+            'settingsFeedbackDesc',
+            'mcpPermOverview',
+            'mcpPermOverviewDesc',
+            'puppy_preview_title',
+            'puppy_preview_desc',
+            'puppy_preview_visible',
+            'puppy_preview_hidden',
+        ];
+
+        for (const locale of ['en_US', 'zh_CN']) {
+            const i18n = readI18n(locale);
+            for (const key of shellKeys) {
+                expect(i18n[key], `${locale} ${key}`).toEqual(expect.any(String));
+            }
+        }
+    });
+
     it('keeps the settings changelog aligned with the current plugin version', () => {
         const version = readPackageVersion();
 

@@ -5,26 +5,36 @@
     import { buildDefaultToolConfig, normalizeToolConfig, type ToolCategory, type ToolConfig } from "./tool-config";
     import {
         buildDefaultHttpServerSettings,
+        buildDefaultPermissionDisplaySettings,
         buildDefaultPuppyAppearance,
         buildDefaultPuppySettings,
         buildDefaultTelemetryConfig,
         buildDefaultVersionControlSettings,
         buildRandomPuppyAppearance,
         loadPersistedHttpServerSettings,
+        loadPersistedPermissionDisplaySettings,
         loadPersistedPuppySettings,
         loadPersistedTelemetryConfig,
         loadPersistedToolConfig,
         loadPersistedVersionControlSettings,
         normalizePuppySettings,
         savePersistedPuppySettings,
+        savePersistedPermissionDisplaySettings,
         savePersistedTelemetryConfig,
         savePersistedToolConfig,
         savePersistedVersionControlSettings,
         type HttpServerSettings,
+        type PermissionDisplaySettings,
         type PuppySettings,
         type TelemetryConfig,
         type VersionControlSettings,
     } from "./tool-config-storage";
+    import {
+        normalizeNotebookPermission,
+        normalizeNotebookPermissions,
+        PERMISSION_TREE_CHANGED_EVENT,
+        type NotebookPermission,
+    } from "../permission-tree-indicator";
     import HttpServerPanel from "./mcp-config/HttpServerPanel.svelte";
     import DebugPanel from "./mcp-config/DebugPanel.svelte";
     import FeedbackPanel from "./mcp-config/FeedbackPanel.svelte";
@@ -48,14 +58,6 @@
 
     export let plugin: any;
 
-    type NotebookPermission = 'none' | 'r' | 'rw' | 'rwd';
-    const VALID_PERMISSIONS: NotebookPermission[] = ['none', 'r', 'rw', 'rwd'];
-    const LEGACY_PERMISSION_MAP = {
-        none: 'none',
-        readonly: 'r',
-        write: 'rw',
-    } as const;
-
     interface NotebookInfo { id: string; name: string; closed?: boolean; }
     interface ChangeEvent { key: string; value: any; }
 
@@ -71,6 +73,7 @@
     let puppySettings: PuppySettings = buildDefaultPuppySettings();
     let telemetryConfig: TelemetryConfig = buildDefaultTelemetryConfig();
     let versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
+    let permissionDisplaySettings: PermissionDisplaySettings = buildDefaultPermissionDisplaySettings();
     let focusGroup = "";
     let lastFocusGroup = "";
     let tabWrapElement: HTMLDivElement | null = null;
@@ -79,16 +82,7 @@
     let permLoading = true;
 
     const getLabel = (key: string, fallback: string) => plugin?.i18n?.[key] ?? fallback;
-
-    const normalizePermission = (value: unknown): NotebookPermission => {
-        if (VALID_PERMISSIONS.includes(value as NotebookPermission)) {
-            return value as NotebookPermission;
-        }
-        if (typeof value === "string" && value in LEGACY_PERMISSION_MAP) {
-            return LEGACY_PERMISSION_MAP[value as keyof typeof LEGACY_PERMISSION_MAP];
-        }
-        return 'none';
-    };
+    $: pluginIconUrl = `/plugins/${plugin?.name ?? "siyuan-plugins-mcp-sisyphus"}/icon.png`;
 
     $: httpGroupLabel = getLabel("httpServerTitle", HTTP_GROUP_KEY);
     $: permGroupLabel = getLabel(PERM_GROUP_KEY, PERM_GROUP_LABEL);
@@ -100,20 +94,21 @@
 
     $: toolGroupLabel = getLabel(TOOL_GROUP_KEY, TOOL_GROUP_KEY);
     $: tabItems = [
-        { id: HTTP_GROUP_KEY, label: httpGroupLabel, iconSvg: ICON_SVGS.globe },
-        { id: PERM_GROUP_KEY, label: permGroupLabel, iconSvg: ICON_SVGS.lock },
-        { id: TOOL_GROUP_KEY, label: toolGroupLabel, iconSvg: ICON_SVGS.folder },
-        { id: PUPPY_GROUP_KEY, label: puppyGroupLabel, iconSvg: ICON_SVGS.paw },
-        { id: ANALYTICS_GROUP_KEY, label: analyticsGroupLabel, iconSvg: ICON_SVGS.barChart },
-        { id: DEBUG_GROUP_KEY, label: debugGroupLabel, iconSvg: ICON_SVGS.bug },
-        { id: USER_RULES_GROUP_KEY, label: userRulesGroupLabel, iconSvg: ICON_SVGS.compass },
-        { id: FEEDBACK_GROUP_KEY, label: feedbackGroupLabel, iconSvg: ICON_SVGS.message },
+        { id: HTTP_GROUP_KEY, label: httpGroupLabel, description: getLabel("settingsConnectionDesc", "Connect MCP clients or use the standalone CLI, then inspect the current service status."), iconSvg: ICON_SVGS.globe },
+        { id: PERM_GROUP_KEY, label: permGroupLabel, description: getLabel("settingsPermissionsDesc", "Control which notebooks MCP clients can read, edit, or delete."), iconSvg: ICON_SVGS.lock },
+        { id: TOOL_GROUP_KEY, label: toolGroupLabel, description: getLabel("settingsToolsDesc", "Choose the grouped tools and actions exposed to connected agents."), iconSvg: ICON_SVGS.folder },
+        { id: PUPPY_GROUP_KEY, label: puppyGroupLabel, description: getLabel("settingsMascotDesc", "Adjust the on-screen mascot behavior and preview its appearance."), iconSvg: ICON_SVGS.paw },
+        { id: ANALYTICS_GROUP_KEY, label: analyticsGroupLabel, description: getLabel("settingsAnalyticsDesc", "Review local usage patterns, activity trends, and tool statistics."), iconSvg: ICON_SVGS.barChart },
+        { id: DEBUG_GROUP_KEY, label: debugGroupLabel, description: getLabel("settingsDebugDesc", "Manage advanced diagnostics and developer-oriented display options."), iconSvg: ICON_SVGS.bug },
+        { id: USER_RULES_GROUP_KEY, label: userRulesGroupLabel, description: getLabel("settingsRulesDesc", "Add durable instructions and workspace memory for connected agents."), iconSvg: ICON_SVGS.compass },
+        { id: FEEDBACK_GROUP_KEY, label: feedbackGroupLabel, description: getLabel("settingsFeedbackDesc", "Send problems, suggestions, or product experience directly to the developer."), iconSvg: ICON_SVGS.message },
     ] satisfies TabItem[];
 
     $: tabIds = tabItems.map((t) => t.id);
     $: if (!tabIds.includes(focusGroup)) {
         focusGroup = tabItems[0]?.id ?? "";
     }
+    $: activeTab = tabItems.find((tab) => tab.id === focusGroup) ?? tabItems[0];
 
     $: if (focusGroup && focusGroup !== lastFocusGroup) {
         const nextFocusGroup = focusGroup;
@@ -153,11 +148,12 @@
         httpSettings = await loadPersistedHttpServerSettings(plugin);
         telemetryConfig = await loadPersistedTelemetryConfig(plugin);
         versionControlSettings = await loadPersistedVersionControlSettings(plugin);
+        permissionDisplaySettings = await loadPersistedPermissionDisplaySettings(plugin);
 
         const savedPerms = await plugin?.loadData("notebookPermissions");
         if (savedPerms && typeof savedPerms === "object") {
             const normalizedPermissions = Object.fromEntries(
-                Object.entries(savedPerms).map(([notebookId, permission]) => [notebookId, normalizePermission(permission)]),
+                Object.entries(savedPerms).map(([notebookId, permission]) => [notebookId, normalizeNotebookPermission(permission)]),
             );
             permissions = normalizedPermissions;
             if (JSON.stringify(savedPerms) !== JSON.stringify(normalizedPermissions)) {
@@ -166,6 +162,15 @@
         }
 
         await loadNotebooks();
+    });
+
+    onMount(() => {
+        const handlePermissionTreeChange = (event: Event) => {
+            const detail = (event as CustomEvent<{ permissions?: unknown }>).detail;
+            permissions = normalizeNotebookPermissions(detail?.permissions);
+        };
+        window.addEventListener(PERMISSION_TREE_CHANGED_EVENT, handlePermissionTreeChange);
+        return () => window.removeEventListener(PERMISSION_TREE_CHANGED_EVENT, handlePermissionTreeChange);
     });
 
     function setCategoryEnabled(category: ToolCategory, enabled: boolean) {
@@ -210,6 +215,14 @@
     async function persistPermissions() {
         if (plugin) {
             await plugin.saveData("notebookPermissions", permissions);
+            plugin.refreshPermissionTreeIndicators?.(permissions);
+        }
+    }
+
+    async function persistPermissionDisplaySettings() {
+        if (plugin) {
+            permissionDisplaySettings = await savePersistedPermissionDisplaySettings(permissionDisplaySettings, plugin);
+            plugin.updatePermissionDisplaySettings?.(permissionDisplaySettings);
         }
     }
 
@@ -300,6 +313,15 @@
             const notebookId = key.slice("perm__".length);
             permissions = { ...permissions, [notebookId]: value as NotebookPermission };
             await persistPermissions();
+            return;
+        }
+
+        if (key === "permissionDisplay__showInFileTree") {
+            permissionDisplaySettings = {
+                ...permissionDisplaySettings,
+                showInFileTree: Boolean(value),
+            };
+            await persistPermissionDisplaySettings();
             return;
         }
 
@@ -429,6 +451,7 @@
         await persistPuppySettings();
         await persistTelemetryConfig();
         await persistVersionControlSettings();
+        await persistPermissionDisplaySettings();
         await persistConfig();
         showMessage(plugin?.i18n?.mcpConfigSaved || "✅ MCP Tools configuration saved");
     }
@@ -438,10 +461,12 @@
         puppySettings = normalizePuppySettings(buildDefaultPuppySettings());
         telemetryConfig = buildDefaultTelemetryConfig();
         versionControlSettings = buildDefaultVersionControlSettings();
+        permissionDisplaySettings = buildDefaultPermissionDisplaySettings();
         await persistConfig();
         await persistPuppySettings();
         await persistTelemetryConfig();
         await persistVersionControlSettings();
+        await persistPermissionDisplaySettings();
         showMessage(plugin?.i18n?.mcpConfigReset || "🔄 MCP Tools configuration reset to defaults");
     }
 
@@ -449,28 +474,48 @@
 </script>
 
 <div class="fn__flex-1 fn__flex config__panel">
-    <ul class="b3-tab-bar b3-list b3-list--background">
-        {#each tabItems as tab}
-            <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
-            <li
-                data-name="mcp-config"
-                class:b3-list-item--focus={tab.id === focusGroup}
-                class="b3-list-item"
-                on:click={() => {
-                    focusGroup = tab.id;
-                }}
-                on:keydown={() => {}}
-            >
-                <span class="b3-list-item__icon mcp-tab-icon">{@html tab.iconSvg}</span>
-                <span class="b3-list-item__text">{tab.label}</span>
-            </li>
-        {/each}
-    </ul>
+    <aside class="config__sidebar">
+        <div class="config__brand">
+            <span class="config__brand-mark" aria-hidden="true">
+                <img src={pluginIconUrl} alt="" />
+            </span>
+            <span class="config__brand-copy">
+                <strong>Sisyphus</strong>
+                <span>{getLabel("settingsBrandSubtitle", "MCP workspace control")}</span>
+            </span>
+        </div>
+        <nav class="config__navigation" aria-label={getLabel("settingsNavigationLabel", "Settings navigation")}>
+            {#each tabItems as tab}
+                <button
+                    type="button"
+                    data-name="mcp-config"
+                    class:config__nav-item--active={tab.id === focusGroup}
+                    class="config__nav-item"
+                    aria-current={tab.id === focusGroup ? "page" : undefined}
+                    on:click={() => {
+                        focusGroup = tab.id;
+                    }}
+                >
+                    <span class="config__nav-icon" aria-hidden="true">{@html tab.iconSvg}</span>
+                    <span class="config__nav-label">{tab.label}</span>
+                </button>
+            {/each}
+        </nav>
+    </aside>
     <div class="config__tab-wrap">
         <div class="config__tab-scroll" bind:this={tabWrapElement}>
             <div class="config__tab-content">
+                {#if activeTab}
+                    <header class="config__page-header">
+                        <span class="config__page-icon" aria-hidden="true">{@html activeTab.iconSvg}</span>
+                        <div>
+                            <h2>{activeTab.label}</h2>
+                            <p>{activeTab.description}</p>
+                        </div>
+                    </header>
+                {/if}
                 <HttpServerPanel {plugin} group={httpGroupLabel} display={focusGroup === HTTP_GROUP_KEY} bind:httpSettings {getLabel} />
-                <PermissionsPanel group={permGroupLabel} display={focusGroup === PERM_GROUP_KEY} {notebooks} {permissions} {permLoading} {getLabel} {onChanged} />
+                <PermissionsPanel group={permGroupLabel} display={focusGroup === PERM_GROUP_KEY} {notebooks} {permissions} {permissionDisplaySettings} {permLoading} {getLabel} {onChanged} />
                 <ToolCategoriesPanel group={toolGroupLabel} display={focusGroup === TOOL_GROUP_KEY} {config} {getLabel} {onChanged} />
                 <PuppyPanel group={puppyGroupLabel} display={focusGroup === PUPPY_GROUP_KEY} {puppySettings} {getLabel} {onChanged} />
                 <TelemetryPanel
@@ -493,59 +538,168 @@
 
 <style lang="scss">
     .config__panel {
-        --mcp-config-sidebar-width: 196px;
-        --mcp-config-content-padding: 24px;
-        --mcp-config-content-max-width: 980px;
-        --mcp-config-card-radius: var(--b3-border-radius, 4px);
-        --mcp-config-card-padding: 14px 16px;
-        --mcp-config-section-gap: 12px;
-        --mcp-config-shell-padding-top: 24px;
-        --mcp-config-shell-padding-x: 24px;
-        --mcp-config-shell-padding-bottom: 24px;
+        --mcp-config-sidebar-width: 208px;
+        --mcp-config-content-padding: 28px 32px 36px;
+        --mcp-config-content-max-width: 920px;
+        --mcp-config-card-radius: max(10px, var(--b3-border-radius, 6px));
+        --mcp-config-control-radius: max(8px, var(--b3-border-radius, 6px));
+        --mcp-config-icon-radius: max(9px, var(--b3-border-radius, 6px));
+        --mcp-config-card-padding: 16px 18px;
+        --mcp-config-section-gap: 14px;
         --mcp-config-title-color: var(--b3-theme-on-background);
         --mcp-config-title-font-size: 14px;
-        --mcp-config-title-font-weight: 500;
+        --mcp-config-title-font-weight: 600;
         --mcp-config-caption-color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
         --mcp-config-code-font: var(--b3-font-family-code, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+        --mcp-config-surface: color-mix(in srgb, var(--b3-theme-surface) 88%, var(--b3-theme-background));
+        --mcp-config-surface-raised: color-mix(in srgb, var(--b3-theme-surface) 94%, var(--b3-theme-background));
+        --mcp-config-border: color-mix(in srgb, var(--b3-border-color) 82%, transparent);
+        --mcp-config-primary-soft: color-mix(in srgb, var(--b3-theme-primary) 13%, transparent);
+        --mcp-config-primary-border: color-mix(in srgb, var(--b3-theme-primary) 28%, transparent);
+        --mcp-config-surface-accent: linear-gradient(135deg, var(--mcp-config-primary-soft), transparent 70%), var(--mcp-config-surface-raised);
+        --mcp-config-shadow: 0 1px 2px color-mix(in srgb, var(--b3-theme-on-background) 7%, transparent);
 
         box-sizing: border-box;
+        background: var(--b3-theme-background);
         color: var(--b3-theme-on-background);
         font-size: 13px;
-        gap: 24px;
+        gap: 0;
         height: 100%;
         line-height: 1.5;
         min-height: 0;
         min-width: 0;
-        padding:
-            var(--mcp-config-shell-padding-top)
-            var(--mcp-config-shell-padding-x)
-            var(--mcp-config-shell-padding-bottom);
+        padding: 0;
         width: 100%;
     }
 
-    .config__panel > ul {
+    .config__sidebar {
         box-sizing: border-box;
         flex: 0 0 var(--mcp-config-sidebar-width);
-        width: var(--mcp-config-sidebar-width);
-        min-width: var(--mcp-config-sidebar-width);
         max-width: var(--mcp-config-sidebar-width);
-        margin: 0;
-        padding: 4px 8px 4px 0;
+        min-width: var(--mcp-config-sidebar-width);
+        width: var(--mcp-config-sidebar-width);
+        padding: 20px 14px 16px;
         border-right: 1px solid var(--b3-border-color);
-        overflow-x: hidden;
+        background: color-mix(in srgb, var(--b3-theme-surface) 72%, var(--b3-theme-background));
         overflow-y: auto;
     }
 
-    .config__panel > ul > li {
-        box-sizing: border-box;
-        width: auto;
+    .config__brand {
+        align-items: center;
+        display: flex;
+        gap: 11px;
         min-width: 0;
-        margin: 2px 0;
-        padding: 0 12px;
-        border-radius: var(--b3-border-radius);
+        padding: 2px 8px 20px;
     }
 
-    .config__panel > ul .b3-list-item__text {
+    .config__page-icon {
+        align-items: center;
+        background: var(--mcp-config-primary-soft);
+        border: 1px solid var(--mcp-config-primary-border);
+        color: var(--b3-theme-primary);
+        display: inline-flex;
+        justify-content: center;
+    }
+
+    .config__brand-mark {
+        background: var(--mcp-config-surface-raised);
+        border: 1px solid var(--mcp-config-border);
+        border-radius: var(--mcp-config-icon-radius);
+        box-shadow: var(--mcp-config-shadow);
+        display: inline-flex;
+        flex: 0 0 36px;
+        height: 36px;
+        overflow: hidden;
+        width: 36px;
+    }
+
+    .config__brand-mark img {
+        display: block;
+        height: 100%;
+        object-fit: cover;
+        width: 100%;
+    }
+
+    .config__brand-copy {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .config__brand-copy strong {
+        color: var(--mcp-config-title-color);
+        font-size: 15px;
+        font-weight: 650;
+        letter-spacing: 0.01em;
+    }
+
+    .config__brand-copy span {
+        color: var(--mcp-config-caption-color);
+        font-size: 11px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .config__navigation {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .config__nav-item {
+        align-items: center;
+        appearance: none;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: var(--mcp-config-control-radius);
+        box-sizing: border-box;
+        color: var(--mcp-config-caption-color);
+        cursor: pointer;
+        display: flex;
+        font: inherit;
+        gap: 10px;
+        min-height: 38px;
+        min-width: 0;
+        padding: 7px 10px;
+        text-align: left;
+        transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+        width: 100%;
+    }
+
+    .config__nav-item:hover {
+        background: var(--b3-list-hover);
+        color: var(--mcp-config-title-color);
+    }
+
+    .config__nav-item:focus-visible {
+        outline: 2px solid color-mix(in srgb, var(--b3-theme-primary) 48%, transparent);
+        outline-offset: 1px;
+    }
+
+    .config__nav-item--active {
+        background: var(--mcp-config-primary-soft);
+        border-color: var(--mcp-config-primary-border);
+        color: var(--b3-theme-primary);
+        font-weight: 600;
+    }
+
+    .config__nav-icon {
+        align-items: center;
+        color: currentColor;
+        display: inline-flex;
+        flex: 0 0 18px;
+        height: 18px;
+        justify-content: center;
+        width: 18px;
+    }
+
+    .config__nav-icon :global(svg) {
+        height: 17px;
+        width: 17px;
+    }
+
+    .config__nav-label {
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -577,6 +731,42 @@
         padding: var(--mcp-config-content-padding);
     }
 
+    .config__page-header {
+        align-items: flex-start;
+        display: flex;
+        gap: 14px;
+        margin: 0 0 24px;
+        max-width: var(--mcp-config-content-max-width);
+    }
+
+    .config__page-icon {
+        border-radius: var(--mcp-config-icon-radius);
+        flex: 0 0 40px;
+        height: 40px;
+        width: 40px;
+    }
+
+    .config__page-icon :global(svg) {
+        height: 21px;
+        width: 21px;
+    }
+
+    .config__page-header h2 {
+        color: var(--mcp-config-title-color);
+        font-size: 20px;
+        font-weight: 650;
+        line-height: 1.35;
+        margin: 0;
+    }
+
+    .config__page-header p {
+        color: var(--mcp-config-caption-color);
+        font-size: 12px;
+        line-height: 1.6;
+        margin: 4px 0 0;
+        max-width: 680px;
+    }
+
     .config__tab-content :global(.config__tab-container) {
         box-sizing: border-box;
         width: 100%;
@@ -586,68 +776,62 @@
 
     @media (max-width: 768px) {
         .config__panel {
-            --mcp-config-content-padding: 16px 12px;
+            --mcp-config-content-padding: 18px 16px 28px;
             --mcp-config-card-padding: 12px 14px;
             --mcp-config-section-gap: 10px;
-            --mcp-config-shell-padding-top: 16px;
-            --mcp-config-shell-padding-x: 16px;
-            --mcp-config-shell-padding-bottom: 16px;
 
             flex-direction: column;
-            gap: 12px;
         }
 
-        .config__panel > ul {
-            flex-shrink: 0;
-            width: 100%;
-            min-width: 0;
+        .config__sidebar {
+            border-bottom: 1px solid var(--b3-border-color);
+            border-right: 0;
+            flex: 0 0 auto;
             max-width: none;
-            max-height: none;
-            overflow-x: hidden;
-            overflow-y: hidden;
+            min-width: 0;
+            overflow: hidden;
+            padding: 10px 12px;
+            width: 100%;
+        }
+
+        .config__brand {
+            display: none;
+        }
+
+        .config__navigation {
             display: flex;
             flex-direction: row;
-            flex-wrap: wrap;
-            border-right: 0;
-            border-bottom: 1px solid var(--b3-border-color);
-            padding: 4px 0;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+            scrollbar-width: thin;
         }
 
-        .config__panel > ul > li {
-            padding: 0.25rem 0.4rem;
-            margin: 0 2px;
-            flex-shrink: 0;
-        }
-
-        .config__panel > ul .b3-list-item__text {
-            display: none !important;
-        }
-
-        .config__panel > ul .mcp-tab-icon {
-            margin-right: 0;
-        }
-
-        .config__panel > ul .mcp-tab-icon :global(svg) {
-            width: 20px;
-            height: 20px;
+        .config__nav-item {
+            flex: 0 0 auto;
+            min-height: 36px;
+            padding: 6px 10px;
+            width: auto;
         }
 
         .config__tab-wrap {
             flex: 1;
             height: auto;
         }
-    }
 
-    .mcp-tab-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 8px;
-        color: var(--mcp-config-caption-color);
-    }
+        .config__page-header {
+            gap: 12px;
+            margin-bottom: 18px;
+        }
 
-    .mcp-tab-icon :global(svg) {
-        width: 18px;
-        height: 18px;
+        .config__page-icon {
+            flex-basis: 38px;
+            height: 38px;
+            width: 38px;
+        }
+
+        .config__page-header h2 {
+            font-size: 18px;
+        }
     }
 </style>

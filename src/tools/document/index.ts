@@ -37,7 +37,7 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
     createZodActionVariant('set_attr', DocumentSetAttrSchema, 'Set document metadata such as icon and cover image.'),
     createZodActionVariant('list_tree', DocumentListTreeSchema, 'Get document tree'),
     createZodActionVariant('search_docs', DocumentSearchDocsSchema, 'Search documents by title'),
-    createZodActionVariant('get_doc', DocumentGetDocSchema, 'Get full document content'),
+    createZodActionVariant('get_doc', DocumentGetDocSchema, 'Read document Markdown in complete block windows, or return the current HTML view.'),
     createZodActionVariant('create_daily_note', DocumentCreateDailyNoteSchema, 'Create or open today\'s daily note'),
     createZodActionVariant('duplicate', DocumentDuplicateSchema, 'Duplicate a document'),
     createZodActionVariant('heading_to_doc', DocumentHeadingToDocSchema, 'Convert a heading to a separate document'),

@@ -107,6 +107,13 @@ siyuan-sisyphus --version | -v                       显示版本号
 
 在管道和脚本场景中，请继续显式使用 `--page`、`--page-size` 和 `--json`。
 
+`fs read`、`document get-doc` 等长 Markdown 读取使用完整显示块窗口，不再按字符切片。可根据返回的 `nextWindow` 通过 `--block-start` 继续读取，并按需使用 `--block-limit` 或 `--token-budget` 控制窗口：
+
+```bash
+siyuan-sisyphus fs read --path "/笔记本/长文档" --block-start 0 --block-limit 24
+siyuan-sisyphus document get-doc --id 20240318xyz --block-start 24 --token-budget 6000
+```
+
 ## 示例
 
 ```bash

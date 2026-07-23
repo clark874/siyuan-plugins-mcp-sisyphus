@@ -211,6 +211,10 @@ function slimObject(payload: Record<string, unknown>, ctx: SlimContext): Record<
             if (uiRefresh !== undefined) next.uiRefresh = uiRefresh;
             continue;
         }
+        if (key === 'nextWindow' && isRecord(value)) {
+            next.nextWindow = value;
+            continue;
+        }
         if (TOP_LEVEL_DROP_KEYS.has(key)) continue;
         next[key] = slimValue(value);
     }

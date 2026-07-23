@@ -95,8 +95,20 @@ export const FsTreeSchema = z.object({
 export const FsReadSchema = z.object({
     action: z.literal("read"),
     path: z.string().describe("Human-readable document path"),
-    page: z.number().int().min(1).optional().describe("Page number for markdown pagination (1-based)"),
-    pageSize: z.number().int().min(1).max(20000).optional().describe("Characters per page for markdown pagination (default 8000)"),
+    blockStart: z.number().int().min(0).optional().describe("Zero-based display-block index to start reading from (default 0)"),
+    blockLimit: z.number().int().min(1).max(200).optional().describe("Maximum complete display blocks to return (default 50)"),
+    tokenBudget: z.number().int().min(1).max(32000).optional().describe("Approximate token budget for the window (default 2000). A single oversized block is still returned whole."),
+    includeBlockIds: z.boolean().optional().describe("Include a sidecar blockRefs mapping without adding block IDs to Markdown content (default false)"),
+}).passthrough().superRefine((value, ctx) => {
+    for (const key of ["page", "pageSize"] as const) {
+        if (value[key] !== undefined) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: [key],
+                message: `${key} character pagination was removed; use blockStart, blockLimit, and tokenBudget.`,
+            });
+        }
+    }
 });
 
 export const FsWriteSchema = z.object({
@@ -335,8 +347,30 @@ export const DocumentGetDocSchema = z.object({
     id: z.string().describe("Document ID"),
     mode: z.enum(["markdown", "html"]).optional().describe('Return mode: "markdown" (default) or "html"'),
     size: z.number().optional().describe("Optional maximum content size hint"),
-    page: z.number().int().min(1).optional().describe('Page number for markdown pagination (1-based)'),
-    pageSize: z.number().int().min(1).max(20000).optional().describe('Characters per page for markdown pagination (default 8000)'),
+    blockStart: z.number().int().min(0).optional().describe("Zero-based display-block index to start reading from in markdown mode (default 0)"),
+    blockLimit: z.number().int().min(1).max(200).optional().describe("Maximum complete display blocks to return in markdown mode (default 50)"),
+    tokenBudget: z.number().int().min(1).max(32000).optional().describe("Approximate token budget for the markdown window (default 2000). A single oversized block is still returned whole."),
+    includeBlockIds: z.boolean().optional().describe("Include a sidecar blockRefs mapping in markdown mode without adding block IDs to content (default false)"),
+}).passthrough().superRefine((value, ctx) => {
+    for (const key of ["page", "pageSize"] as const) {
+        if (value[key] !== undefined) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: [key],
+                message: `${key} character pagination was removed; use blockStart, blockLimit, and tokenBudget.`,
+            });
+        }
+    }
+    if (value.mode !== "html") return;
+    for (const key of ["blockStart", "blockLimit", "tokenBudget", "includeBlockIds"] as const) {
+        if (value[key] !== undefined) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: [key],
+                message: `${key} is only supported when mode="markdown".`,
+            });
+        }
+    }
 });
 
 export const DocumentCreateDailyNoteSchema = z.object({

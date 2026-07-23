@@ -409,7 +409,12 @@
 <SettingPanel {group} settingItems={[]} {display}>
     <div class="tool-settings-accordion">
         {#each groupDefinitions as definition (definition.category)}
-            <section class="tool-settings-group" data-category={definition.category}>
+            <section
+                class="tool-settings-group"
+                class:tool-settings-group--open={definition.open}
+                class:tool-settings-group--disabled={!config[definition.category].enabled}
+                data-category={definition.category}
+            >
                 <div class="tool-settings-group__header">
                     <button
                         type="button"
@@ -421,15 +426,17 @@
                         <span class="tool-settings-group__meta">
                             <span class="tool-settings-group__title-row">
                                 <span class="tool-settings-group__title">{definition.title}</span>
-                                <span class:tool-settings-group__badge-danger={definition.dangerousActions > 0} class="tool-settings-group__badge">
+                                <span class="tool-settings-group__badge">
                                     {definition.enabledActions}/{definition.totalActions}
                                 </span>
+                                {#if definition.dangerousActions > 0}
+                                    <span class="tool-settings-group__danger-badge">
+                                        {definition.dangerousActions} {getLabel("mcpHighRiskBadge", "[High risk]").replace(/[\[\]【】]/g, "")}
+                                    </span>
+                                {/if}
                             </span>
                             <span class="tool-settings-group__subtitle">
                                 {getLabel(`${definition.category}_tool_desc`, `Expose the grouped ${definition.category} tool to MCP clients.`)}
-                                {#if definition.dangerousActions > 0}
-                                    · {definition.dangerousActions} {getLabel("mcpHighRiskBadge", "[High risk]")}
-                                {/if}
                             </span>
                         </span>
                     </button>
@@ -478,10 +485,22 @@
 
     .tool-settings-group {
         box-sizing: border-box;
-        border: 1px solid var(--b3-border-color);
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
         border-radius: var(--mcp-config-card-radius, 8px);
-        background: transparent;
+        background: var(--mcp-config-surface, var(--b3-theme-surface));
+        box-shadow: var(--mcp-config-shadow, none);
         overflow: hidden;
+        transition: border-color 0.14s ease, background 0.14s ease, opacity 0.14s ease;
+    }
+
+    .tool-settings-group:hover,
+    .tool-settings-group--open {
+        border-color: color-mix(in srgb, var(--b3-theme-primary) 25%, var(--b3-border-color));
+    }
+
+    .tool-settings-group--disabled {
+        background: color-mix(in srgb, var(--mcp-config-surface, var(--b3-theme-surface)) 76%, transparent);
+        opacity: 0.72;
     }
 
     .tool-settings-group__header {
@@ -513,11 +532,14 @@
 
     .tool-settings-group__icon {
         flex: 0 0 auto;
-        width: 20px;
-        height: 20px;
+        width: 34px;
+        height: 34px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        background: var(--mcp-config-primary-soft, transparent);
+        border: 1px solid var(--mcp-config-primary-border, transparent);
+        border-radius: var(--mcp-config-icon-radius, 8px);
         color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
     }
 
@@ -560,16 +582,24 @@
         min-width: 40px;
         padding: 1px 8px;
         border: 1px solid var(--b3-border-color);
-        border-radius: var(--b3-border-radius);
-        background: var(--b3-theme-surface);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--b3-theme-background) 72%, transparent);
         color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
         font-size: 12px;
         font-weight: 500;
     }
 
-    .tool-settings-group__badge-danger {
-        background: color-mix(in srgb, var(--b3-card-warning-color) 16%, var(--b3-theme-surface));
-        color: var(--b3-card-warning-color);
+    .tool-settings-group__danger-badge {
+        align-items: center;
+        background: color-mix(in srgb, var(--b3-theme-warning, #d99a24) 12%, transparent);
+        border: 1px solid color-mix(in srgb, var(--b3-theme-warning, #d99a24) 28%, transparent);
+        border-radius: 999px;
+        color: var(--b3-theme-warning, var(--b3-card-warning-color));
+        display: inline-flex;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1.4;
+        padding: 2px 7px;
     }
 
     .tool-settings-group__controls {
@@ -616,14 +646,19 @@
     .tool-settings-group__content {
         box-sizing: border-box;
         padding: var(--mcp-config-card-padding, 16px);
-        border-top: 1px solid var(--b3-border-color);
-        background: transparent;
+        border-top: 1px solid var(--mcp-config-border, var(--b3-border-color));
+        background: color-mix(in srgb, var(--b3-theme-background) 28%, transparent);
     }
 
     .tool-settings-group__content :global(.config__tab-container) {
         box-sizing: border-box;
         max-width: none;
         padding: 0;
+    }
+
+    .tool-settings-group__content :global(.config__settings-card) {
+        border-color: var(--mcp-config-border, var(--b3-border-color));
+        box-shadow: none;
     }
 
     @media (max-width: 768px) {

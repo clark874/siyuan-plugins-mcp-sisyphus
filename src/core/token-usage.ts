@@ -1,34 +1,23 @@
 import type { ToolConfig } from './config';
 import { listAllTools } from './tool-registry';
 import { buildServerInstructions } from './server-instructions';
+import {
+    approximateTokensFromChars,
+    measureApproxContent,
+    measureApproxText,
+} from '../shared/token-estimate';
 
-export const APPROX_TOKEN_MODE = 'approx_context_v1' as const;
-
-export interface ApproxTokenMetrics {
-    chars: number;
-    approxTokens: number;
-}
+export {
+    APPROX_TOKEN_MODE,
+    approximateTokensFromChars,
+    measureApproxContent,
+    measureApproxText,
+    type ApproxTokenMetrics,
+} from '../shared/token-estimate';
 
 export interface McpInitialTokenCost {
     mcpInitialChars: number;
     mcpInitialApproxTokens: number;
-}
-
-export function approximateTokensFromChars(chars: number): number {
-    return Math.ceil(Math.max(0, chars) / 4);
-}
-
-export function measureApproxText(text: string | undefined | null): ApproxTokenMetrics {
-    const normalized = typeof text === 'string' ? text : '';
-    return {
-        chars: normalized.length,
-        approxTokens: approximateTokensFromChars(normalized.length),
-    };
-}
-
-export function measureApproxContent(content: { type: 'text'; text: string }[] | undefined): ApproxTokenMetrics {
-    const text = (content ?? []).map((item) => item.text ?? '').join('');
-    return measureApproxText(text);
 }
 
 export function calculateMcpInitialTokenCost(config: ToolConfig): McpInitialTokenCost {

@@ -114,6 +114,16 @@ describe('tool result normalization', () => {
             notebookName: 'Notebook One',
             hPath: '/Doc',
             content: 'hello #tag#',
+            outline: [],
+            blockStart: 0,
+            blockLimit: 50,
+            returnedBlocks: 1,
+            totalBlocks: 1,
+            tokenBudget: 2000,
+            estimatedTokens: 3,
+            tokenMode: 'approx_context_v1',
+            truncated: false,
+            hasNextWindow: false,
         });
     });
 
@@ -392,19 +402,26 @@ describe('tool result normalization', () => {
         });
     });
 
-    it('paginates markdown content for document.get_doc', async () => {
+    it('returns complete block windows for document.get_doc', async () => {
         const blockApi = await import('@/api/block');
         const documentApi = await import('@/api/document');
-        vi.mocked(blockApi.getChildBlocks).mockResolvedValue([{ id: 'block-1', type: 'p' } as any]);
-        vi.mocked(blockApi.getBlockKramdown).mockResolvedValue({ id: 'block-1', kramdown: 'abcdefghij\n{: id="block-1"}' });
+        vi.mocked(blockApi.getChildBlocks).mockResolvedValue([
+            { id: 'block-1', type: 'p' } as any,
+            { id: 'block-2', type: 'c' } as any,
+        ]);
+        vi.mocked(blockApi.getBlockKramdown).mockImplementation(async (_client, id) => ({
+            id,
+            kramdown: id === 'block-1'
+                ? 'abcdefghij\n{: id="block-1"}'
+                : '```ts\nconst value = 1;\n```\n{: id="block-2"}',
+        }));
         vi.mocked(documentApi.getHPathByID).mockResolvedValue('/Doc');
 
         const result = await callDocumentTool(client, {
             action: 'get_doc',
             id: 'doc-1',
             mode: 'markdown',
-            page: 2,
-            pageSize: 4,
+            blockLimit: 1,
         }, enabledActions('get_doc'), permMgr);
 
         expect(JSON.parse(result.content[0].text)).toEqual({
@@ -413,15 +430,26 @@ describe('tool result normalization', () => {
             notebook: 'nb-1',
             notebookName: 'Notebook One',
             hPath: '/Doc',
-            content: 'efgh',
+            content: 'abcdefghij',
+            outline: [],
+            blockStart: 0,
+            blockLimit: 1,
+            returnedBlocks: 1,
+            totalBlocks: 2,
+            tokenBudget: 2000,
+            estimatedTokens: 3,
+            tokenMode: 'approx_context_v1',
             truncated: true,
-            contentLength: 10,
-            showing: 4,
-            page: 2,
-            pageSize: 4,
-            pageCount: 3,
-            hasNextPage: true,
-            hint: 'Use page/pageSize to read the next markdown chunk. For structured reads, use document(action="get_child_blocks") or block(action="get_kramdown").',
+            hasNextWindow: true,
+            nextWindow: {
+                action: 'get_doc',
+                id: 'doc-1',
+                mode: 'markdown',
+                blockStart: 1,
+                blockLimit: 1,
+                tokenBudget: 2000,
+            },
+            nextWindowHint: 'Continue with document({"action":"get_doc","id":"doc-1","mode":"markdown","blockStart":1,"blockLimit":1,"tokenBudget":2000}).',
         });
     });
 

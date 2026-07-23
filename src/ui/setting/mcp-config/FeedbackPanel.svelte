@@ -44,12 +44,7 @@
 </script>
 
 <SettingPanel {group} settingItems={[]} {display}>
-    <section class="feedback-panel" aria-labelledby="feedback-panel-title">
-        <div class="feedback-panel__header">
-            <h3 id="feedback-panel-title" class="feedback-panel__title">{getLabel("feedback_panel_title", "Feedback")}</h3>
-            <p class="feedback-panel__desc">{getLabel("feedback_panel_desc", "Send plain-text feedback, suggestions, or usage experience to the plugin developer.")}</p>
-        </div>
-
+    <section class="feedback-panel" aria-label={getLabel("feedback_panel_title", "Feedback")}>
         <label class="feedback-panel__field">
             <span>{getLabel("feedback_description_label", "Problem or Experience")}</span>
             <textarea
@@ -95,32 +90,16 @@
 
 <style>
     .feedback-panel {
+        background: var(--mcp-config-surface, var(--b3-theme-surface));
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
+        border-radius: var(--mcp-config-card-radius, 10px);
+        box-shadow: var(--mcp-config-shadow, none);
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
         gap: var(--mcp-config-section-gap, 12px);
         max-width: 760px;
-    }
-
-    .feedback-panel__header {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .feedback-panel__title {
-        margin: 0;
-        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
-        font-size: var(--mcp-config-title-font-size, 14px);
-        font-weight: var(--mcp-config-title-font-weight, 500);
-        line-height: 1.5;
-    }
-
-    .feedback-panel__desc {
-        margin: 0;
-        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
-        font-size: 12px;
-        line-height: 1.55;
+        padding: var(--mcp-config-card-padding, 16px 18px);
     }
 
     .feedback-panel__field {

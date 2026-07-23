@@ -134,12 +134,16 @@
 
 <style>
     .user-rules-editor {
+        background: var(--mcp-config-surface, var(--b3-theme-surface));
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
+        border-radius: var(--mcp-config-card-radius, 10px);
+        box-shadow: var(--mcp-config-shadow, none);
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
         gap: var(--mcp-config-section-gap, 12px);
         min-height: 100%;
-        padding: 0;
+        padding: var(--mcp-config-card-padding, 16px 18px);
     }
 
     .user-rules-editor__header {
@@ -178,7 +182,7 @@
     .user-rules-editor__divider {
         height: 1px;
         margin: 4px 0;
-        background: var(--b3-border-color);
+        background: var(--mcp-config-border, var(--b3-border-color));
     }
 
     @media (max-width: 768px) {

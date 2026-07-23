@@ -29,39 +29,89 @@
 
 <div class="config__tab-container {fn__none}" data-name={group}>
     <slot />
-    {#each settingItems as item (`${item.key}:${JSON.stringify(item.value)}`)}
-        <Form.Wrap
-            title={item.title}
-            description={item.description}
-            direction={item?.direction}
-        > 
-            {#if item?.children?.length}
-                <div class:config__input-group={item.layout !== "inline"} class:config__inline-group={item.layout === "inline"}>
-                    {#if item.layout === "inline"}
-                        {#each item.children as child (`${child.key}:${JSON.stringify(child.value)}`)}
-                            <div class="config__inline-child">
-                                <div class="config__child-input">
-                                    <Form.Input
-                                        type={child.type}
-                                        key={child.key}
-                                        value={child.value}
-                                        fnSize={child?.inputCompact === true ? false : true}
-                                        style={child?.inputStyle ?? ""}
-                                        placeholder={child?.placeholder}
-                                        options={child?.options}
-                                        slider={child?.slider}
-                                        button={child?.button}
-                                        on:click={onClick}
-                                        on:changed={onChanged}
-                                    />
-                                    {#if child.unit}
-                                        <span class="config__child-unit">{child.unit}</span>
-                                    {/if}
-                                </div>
+    {#if settingItems.length > 0}
+        <div class="config__settings-card">
+            {#each settingItems as item (`${item.key}:${JSON.stringify(item.value)}`)}
+                <Form.Wrap
+                    title={item.title}
+                    description={item.description}
+                    direction={item?.direction}
+                >
+                    {#if item?.children?.length}
+                        <div class:config__input-group={item.layout !== "inline"} class:config__inline-group={item.layout === "inline"}>
+                            {#if item.layout === "inline"}
+                                {#each item.children as child (`${child.key}:${JSON.stringify(child.value)}`)}
+                                    <div class="config__inline-child">
+                                        <div class="config__child-input">
+                                            <Form.Input
+                                                type={child.type}
+                                                key={child.key}
+                                                value={child.value}
+                                                fnSize={child?.inputCompact === true ? false : true}
+                                                style={child?.inputStyle ?? ""}
+                                                placeholder={child?.placeholder}
+                                                options={child?.options}
+                                                slider={child?.slider}
+                                                button={child?.button}
+                                                on:click={onClick}
+                                                on:changed={onChanged}
+                                            />
+                                            {#if child.unit}
+                                                <span class="config__child-unit">{child.unit}</span>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                {/each}
+                            {/if}
+                            <div class="config__main-input">
+                                <Form.Input
+                                    type={item.type}
+                                    key={item.key}
+                                    value={item.value}
+                                    fnSize={item?.inputCompact === true ? false : true}
+                                    style={item?.inputStyle ?? ""}
+                                    placeholder={item?.placeholder}
+                                    options={item?.options}
+                                    slider={item?.slider}
+                                    button={item?.button}
+                                    on:click={onClick}
+                                    on:changed={onChanged}
+                                />
                             </div>
-                        {/each}
-                    {/if}
-                    <div class="config__main-input">
+                            {#if item.layout !== "inline"}
+                                {#each item.children as child (`${child.key}:${JSON.stringify(child.value)}`)}
+                                    <div class="config__child-item">
+                                        <div class="config__child-meta">
+                                            {#if child.title}
+                                                <div class="config__child-title">{child.title}</div>
+                                            {/if}
+                                            {#if child.description}
+                                                <div class="b3-label__text">{@html child.description}</div>
+                                            {/if}
+                                        </div>
+                                        <div class="config__child-input">
+                                            <Form.Input
+                                                type={child.type}
+                                                key={child.key}
+                                                value={child.value}
+                                                fnSize={child?.inputCompact === true ? false : true}
+                                                style={child?.inputStyle ?? ""}
+                                                placeholder={child?.placeholder}
+                                                options={child?.options}
+                                                slider={child?.slider}
+                                                button={child?.button}
+                                                on:click={onClick}
+                                                on:changed={onChanged}
+                                            />
+                                            {#if child.unit}
+                                                <span class="config__child-unit">{child.unit}</span>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                {/each}
+                            {/if}
+                        </div>
+                    {:else}
                         <Form.Input
                             type={item.type}
                             key={item.key}
@@ -75,66 +125,28 @@
                             on:click={onClick}
                             on:changed={onChanged}
                         />
-                    </div>
-                    {#if item.layout !== "inline"}
-                        {#each item.children as child (`${child.key}:${JSON.stringify(child.value)}`)}
-                            <div class="config__child-item">
-                                <div class="config__child-meta">
-                                    {#if child.title}
-                                        <div class="config__child-title">{child.title}</div>
-                                    {/if}
-                                    {#if child.description}
-                                        <div class="b3-label__text">{@html child.description}</div>
-                                    {/if}
-                                </div>
-                                <div class="config__child-input">
-                                    <Form.Input
-                                        type={child.type}
-                                        key={child.key}
-                                        value={child.value}
-                                        fnSize={child?.inputCompact === true ? false : true}
-                                        style={child?.inputStyle ?? ""}
-                                        placeholder={child?.placeholder}
-                                        options={child?.options}
-                                        slider={child?.slider}
-                                        button={child?.button}
-                                        on:click={onClick}
-                                        on:changed={onChanged}
-                                    />
-                                    {#if child.unit}
-                                        <span class="config__child-unit">{child.unit}</span>
-                                    {/if}
-                                </div>
-                            </div>
-                        {/each}
                     {/if}
-                </div>
-            {:else}
-                <Form.Input
-                    type={item.type}
-                    key={item.key}
-                    value={item.value}
-                    fnSize={item?.inputCompact === true ? false : true}
-                    style={item?.inputStyle ?? ""}
-                    placeholder={item?.placeholder}
-                    options={item?.options}
-                    slider={item?.slider}
-                    button={item?.button}
-                    on:click={onClick}
-                    on:changed={onChanged}
-                />
-            {/if}
-        </Form.Wrap>
-    {/each}
+                </Form.Wrap>
+            {/each}
+        </div>
+    {/if}
 </div>
 
 <style>
     .config__tab-container {
         display: flex;
         flex-direction: column;
-        gap: 0;
+        gap: var(--mcp-config-section-gap, 14px);
         font-size: 13px;
         line-height: 1.5;
+    }
+
+    .config__settings-card {
+        background: var(--mcp-config-surface, var(--b3-theme-surface));
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
+        border-radius: var(--mcp-config-card-radius, 10px);
+        box-shadow: var(--mcp-config-shadow, none);
+        overflow: hidden;
     }
 
     .config__input-group {

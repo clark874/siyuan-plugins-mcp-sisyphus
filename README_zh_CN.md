@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.14` — 新增可发现的 MCP 场景 Skill 与 Prompt，支持选择 CLI/MCP Skill 套件，并修复时间线、搜索 Schema 与猫猫冷启动问题；CLI 提升至 `v0.1.17`。
+> **最新版本：**`v0.4.15` — 新增长文档完整显示块分页与文件树权限徽标，并全面优化响应式设置页；CLI 提升至 `v0.1.18`。
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">

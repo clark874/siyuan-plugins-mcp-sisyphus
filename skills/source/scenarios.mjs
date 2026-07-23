@@ -40,7 +40,7 @@ Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \
 - Read \`/AGENTS.md\` through \`fs\` before workspace-aware tasks when it exists.
 - A workspace path such as \`/Notebook/Folder/Doc\`, an hpath such as \`/Folder/Doc\`, and a storage path such as \`/20260712123000-abc123.sy\` are different values.
 - Read before writing; after a mutation, read the affected object again.
-- Use explicit pagination for repeatable automation.
+- For document reads, continue with \`nextWindow\` or explicit \`blockStart\`/\`blockLimit\`/\`tokenBudget\`; for list and search results, use their page parameters.
 - Missing results may be caused by notebook permissions or indexing delay.
 - Obtain explicit approval before deletes, moves, bulk replacement, permission changes, local upload/export, or sensitive workspace disclosure.
 `,
@@ -48,7 +48,7 @@ Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \
             version: call('system', 'get_version'),
             notebooks: call('notebook', 'list'),
             tree: call('fs', 'tree', { path: '/Notebook', maxDepth: 3 }),
-            read: call('fs', 'read', { path: '/Notebook/Folder/Doc', page: 1, pageSize: 8000 }),
+            read: call('fs', 'read', { path: '/Notebook/Folder/Doc', blockStart: 0, blockLimit: 50, tokenBudget: 2000 }),
         },
     },
     {
@@ -89,13 +89,13 @@ Use search-assisted discovery when the path is unknown:
 | Notebook-local hpath | \`/Folder/Doc\` | document create or lookup with notebook |
 | Storage path | \`/20260712123000-abc123.sy\` | low-level rename, remove, or move |
 
-Never derive a storage path from a title. Resolve the document first and reuse the returned path. Treat pages and truncation notices as incomplete data, and continue with explicit \`page\` and \`pageSize\` values.
+Never derive a storage path from a title. Resolve the document first and reuse the returned path. For \`fs.read\` and Markdown \`document.get_doc\`, treat \`hasNextWindow=true\` as incomplete data and continue with the returned \`nextWindow\`. For list and search results, continue with explicit \`page\` and \`pageSize\` values.
 `,
         calls: {
             notebooks: call('notebook', 'list'),
             root: call('fs', 'ls', { path: '/' }),
             tree: call('fs', 'tree', { path: '/Notebook/Folder', maxDepth: 4 }),
-            read: call('fs', 'read', { path: '/Notebook/Folder/Doc', page: 1, pageSize: 8000 }),
+            read: call('fs', 'read', { path: '/Notebook/Folder/Doc', blockStart: 0, blockLimit: 50, tokenBudget: 2000 }),
             search: call('fs', 'search', { path: '/Notebook', query: 'keyword', page: 1, pageSize: 20 }),
             fulltext: call('search', 'fulltext', { query: 'keyword', page: 1, pageSize: 20 }),
             lookup: call('document', 'lookup', { id: '<doc-id>', include: ['path', 'hpath', 'notebook'] }),

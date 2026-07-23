@@ -648,16 +648,18 @@
         font-size: 13px;
 
         .http-changelog {
-            background: transparent;
-            border: 1px solid var(--b3-border-color);
+            background: var(--mcp-config-surface, var(--b3-theme-surface));
+            border: 1px solid var(--mcp-config-border, var(--b3-border-color));
             border-radius: var(--mcp-config-card-radius, 8px);
+            box-shadow: var(--mcp-config-shadow, none);
             padding: var(--mcp-config-card-padding, 16px);
         }
 
         .http-overview {
-            background: transparent;
-            border: 1px solid var(--b3-border-color);
+            background: var(--mcp-config-surface-accent, var(--mcp-config-surface-raised, var(--b3-theme-surface)));
+            border: 1px solid var(--mcp-config-primary-border, var(--b3-border-color));
             border-radius: var(--mcp-config-card-radius, 8px);
+            box-shadow: var(--mcp-config-shadow, none);
             padding: var(--mcp-config-card-padding, 16px);
             display: flex;
             flex-direction: column;
@@ -789,9 +791,10 @@
         }
 
         .http-guide {
-            background: transparent;
-            border: 1px solid var(--b3-border-color);
+            background: var(--mcp-config-surface, var(--b3-theme-surface));
+            border: 1px solid var(--mcp-config-border, var(--b3-border-color));
             border-radius: var(--mcp-config-card-radius, 8px);
+            box-shadow: var(--mcp-config-shadow, none);
             padding: var(--mcp-config-card-padding, 16px);
 
             > summary {

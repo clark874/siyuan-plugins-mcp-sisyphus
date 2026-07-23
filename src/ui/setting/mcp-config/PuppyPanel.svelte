@@ -1,5 +1,6 @@
 <script lang="ts">
     import SettingPanel from "../../shared/setting-panel.svelte";
+    import PuppyAwakeSVG from "../../components/PuppyAwakeSVG.svelte";
     import type { PuppySettings } from "../tool-config-storage";
 
     export let group: string;
@@ -51,6 +52,24 @@
     $: puppyItems = buildPuppyItems(puppySettings, getLabel);
 </script>
 
+{#if display}
+    <section class="puppy-preview">
+        <div class="puppy-preview__stage" aria-hidden="true">
+            <PuppyAwakeSVG
+                bodyColor={puppySettings.appearance.bodyColor}
+                pawColor={puppySettings.appearance.pawColor}
+                eyeColor={puppySettings.appearance.eyeColor}
+            />
+        </div>
+        <div class="puppy-preview__copy">
+            <strong>{getLabel("puppy_preview_title", "Live preview")}</strong>
+            <span>{getLabel("puppy_preview_desc", "Appearance changes are reflected here immediately and saved for the on-screen mascot.")}</span>
+        </div>
+        <span class:puppy-preview__status--enabled={puppySettings.visible} class="puppy-preview__status">
+            {puppySettings.visible ? getLabel("puppy_preview_visible", "Visible") : getLabel("puppy_preview_hidden", "Hidden")}
+        </span>
+    </section>
+{/if}
 <SettingPanel {group} settingItems={puppyItems} {display} on:changed={onChanged} />
 
 <div class="config__tab-container puppy-appearance-panel" class:fn__none={!display} data-name={`${group}-appearance`}>
@@ -94,9 +113,75 @@
 
 <style>
     .puppy-appearance-panel {
-        border-top: 1px solid var(--b3-border-color);
-        margin-top: 12px;
-        padding-top: 12px;
+        background: var(--mcp-config-surface, var(--b3-theme-surface));
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
+        border-radius: var(--mcp-config-card-radius, 10px);
+        box-shadow: var(--mcp-config-shadow, none);
+        margin-top: var(--mcp-config-section-gap, 14px);
+        overflow: hidden;
+    }
+
+    .puppy-preview {
+        align-items: center;
+        background: var(--mcp-config-surface-accent, var(--mcp-config-surface-raised, var(--b3-theme-surface)));
+        border: 1px solid var(--mcp-config-primary-border, var(--b3-border-color));
+        border-radius: var(--mcp-config-card-radius, 10px);
+        box-shadow: var(--mcp-config-shadow, none);
+        display: flex;
+        gap: 16px;
+        margin-bottom: var(--mcp-config-section-gap, 14px);
+        min-height: 84px;
+        padding: 14px 18px;
+    }
+
+    .puppy-preview__stage {
+        align-items: center;
+        background: color-mix(in srgb, var(--b3-theme-background) 76%, transparent);
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
+        border-radius: var(--mcp-config-control-radius, 8px);
+        display: flex;
+        flex: 0 0 66px;
+        height: 66px;
+        justify-content: center;
+        overflow: hidden;
+        width: 66px;
+    }
+
+    .puppy-preview__copy {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+    }
+
+    .puppy-preview__copy strong {
+        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+        font-size: 14px;
+        font-weight: var(--mcp-config-title-font-weight, 600);
+    }
+
+    .puppy-preview__copy span {
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .puppy-preview__status {
+        background: color-mix(in srgb, var(--b3-theme-on-surface) 8%, transparent);
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
+        border-radius: 999px;
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        flex: 0 0 auto;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+    }
+
+    .puppy-preview__status--enabled {
+        background: color-mix(in srgb, var(--b3-theme-success, var(--b3-theme-primary)) 12%, transparent);
+        border-color: color-mix(in srgb, var(--b3-theme-success, var(--b3-theme-primary)) 28%, transparent);
+        color: var(--b3-theme-success, var(--b3-theme-primary));
     }
 
     .puppy-appearance-actions,
@@ -106,7 +191,12 @@
         justify-content: space-between;
         gap: 16px;
         min-height: 46px;
-        padding: 8px 0;
+        padding: 13px 16px;
+    }
+
+    .puppy-appearance-actions:not(:last-child),
+    .puppy-appearance-row:not(:last-child) {
+        border-bottom: 1px solid var(--mcp-config-border, var(--b3-border-color));
     }
 
     .puppy-appearance-title {
@@ -133,6 +223,11 @@
     }
 
     @media (max-width: 768px) {
+        .puppy-preview {
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
         .puppy-appearance-actions,
         .puppy-appearance-row {
             align-items: stretch;

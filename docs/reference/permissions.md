@@ -24,6 +24,12 @@ Notes:
 - Permissions are managed through `notebook(action="set_permission")`
 - Changes apply to subsequent calls immediately
 
+## File-Tree Status Display
+
+The plugin can show an `R`, `RW`, `RWD`, or `NONE` badge beside each notebook root in SiYuan's file tree. The badge only reflects the current MCP permission; it does not change note content or SiYuan's own access control. Child documents inherit their notebook permission, so they are not decorated individually.
+
+Click a badge to cycle through `NONE → R → RW → RWD → NONE` and save immediately. Successful changes do not show a notification; a failed save restores the previous permission. Use **Show MCP permissions in the file tree** on the plugin's Permissions settings page to turn this display off. A dashed `R` means that the notebook has no explicit entry and is using the default read-only permission.
+
 ## High-Risk Actions
 
 These actions require explicit user confirmation:

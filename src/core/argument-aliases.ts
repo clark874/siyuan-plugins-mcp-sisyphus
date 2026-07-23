@@ -16,6 +16,7 @@ interface FlagAliasRule {
 
 const STRING_SCHEMA: JsonSchemaLike = { type: 'string' };
 const BOOLEAN_SCHEMA: JsonSchemaLike = { type: 'boolean' };
+const INTEGER_SCHEMA: JsonSchemaLike = { type: 'integer' };
 
 function normalizedActionFromArgs(category: ToolCategory, args: Record<string, unknown>): string | undefined {
     return typeof args.action === 'string' ? normalizeActionAlias(category, args.action) : undefined;
@@ -129,6 +130,14 @@ export function normalizeToolArguments(category: ToolCategory, rawArgs: Record<s
 export function getFlagAliasRules(context?: Partial<ArgumentAliasContext>): FlagAliasRule[] {
     if (!context?.category || !context.action) return [];
     const action = normalizeActionAlias(context.category, context.action);
+
+    if ((context.category === 'fs' && action === 'read')
+        || (context.category === 'document' && action === 'get_doc')) {
+        return [
+            { canonical: 'page', aliases: ['page'], schema: INTEGER_SCHEMA },
+            { canonical: 'pageSize', aliases: ['page-size', 'page_size', 'pageSize'], schema: INTEGER_SCHEMA },
+        ];
+    }
 
     if (context.category === 'fs' && action === 'replace') {
         return [

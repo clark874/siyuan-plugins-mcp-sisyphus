@@ -21,7 +21,7 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **Latest:** `v0.4.14` — Adds discoverable MCP scenario skills and prompts, introduces selectable CLI/MCP skill bundles, and fixes timeline, search schema, and mascot startup behavior. CLI is now `v0.1.17`.
+> **Latest:** `v0.4.15` — Adds complete display-block pagination for long document reads, file-tree permission badges, and redesigned responsive settings. CLI is now `v0.1.18`.
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">

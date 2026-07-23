@@ -34,7 +34,7 @@ notebook(action="list")
 fs(action="tree", path="/Notebook", maxDepth=3)
 ```
 ```text
-fs(action="read", path="/Notebook/Folder/Doc", page=1, pageSize=8000)
+fs(action="read", path="/Notebook/Folder/Doc", blockStart=0, blockLimit=50, tokenBudget=2000)
 ```
 
 ## Shared invariants
@@ -42,6 +42,6 @@ fs(action="read", path="/Notebook/Folder/Doc", page=1, pageSize=8000)
 - Read `/AGENTS.md` through `fs` before workspace-aware tasks when it exists.
 - A workspace path such as `/Notebook/Folder/Doc`, an hpath such as `/Folder/Doc`, and a storage path such as `/20260712123000-abc123.sy` are different values.
 - Read before writing; after a mutation, read the affected object again.
-- Use explicit pagination for repeatable automation.
+- For document reads, continue with `nextWindow` or explicit `blockStart`/`blockLimit`/`tokenBudget`; for list and search results, use their page parameters.
 - Missing results may be caused by notebook permissions or indexing delay.
 - Obtain explicit approval before deletes, moves, bulk replacement, permission changes, local upload/export, or sensitive workspace disclosure.

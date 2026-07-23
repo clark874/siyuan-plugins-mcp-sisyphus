@@ -7,10 +7,13 @@ import "./index.scss";
 
 import {
     buildDefaultHttpServerSettings,
+    buildDefaultPermissionDisplaySettings,
     buildDefaultPuppySettings,
     buildDefaultVersionControlSettings,
     hasValidHttpTlsFiles,
     loadPersistedHttpServerSettings,
+    loadPersistedPermissionDisplaySettings,
+    normalizePermissionDisplaySettings,
     loadPersistedPuppySettings,
     loadPersistedToolConfigState,
     loadPersistedVersionControlSettings,
@@ -18,9 +21,21 @@ import {
     savePersistedToolConfig,
     savePersistedVersionControlSettings,
     type HttpServerSettings,
+    type PermissionDisplaySettings,
     type PuppySettings,
     type VersionControlSettings,
 } from "@/ui/setting/tool-config-storage";
+import {
+    clearPermissionTreeIndicators,
+    decoratePermissionTree,
+    getNextNotebookPermission,
+    normalizeNotebookPermissions,
+    PERMISSION_TREE_BADGE_CLASS,
+    PERMISSION_TREE_CHANGED_EVENT,
+    PERMISSION_TREE_ROOT_SELECTOR,
+    type NotebookPermission,
+    type PermissionTreeLabels,
+} from "@/ui/permission-tree-indicator";
 import { emitToolConfigWarningOnce } from "@/core/config";
 import { submitFeedback, type FeedbackInput, type FeedbackSubmitResult } from "@/core/feedback";
 import McpConfig from "@/ui/setting/mcp-config.svelte";
@@ -59,6 +74,14 @@ export default class SiyuanMCP extends Plugin {
     private versionControlDockElement: HTMLElement | null = null;
     private versionControlDockRegistration: { config?: any; model?: any } | null = null;
     private versionControlDockRegisteredType = "";
+    private permissionDisplaySettings: PermissionDisplaySettings = buildDefaultPermissionDisplaySettings();
+    private permissionDisplaySettingsLoaded = false;
+    private permissionTreePermissions: Record<string, NotebookPermission> = {};
+    private permissionTreeObserver: MutationObserver | null = null;
+    private permissionTreeEventsRegistered = false;
+    private permissionTreeClickRegistered = false;
+    private permissionTreeFrame: number | null = null;
+    private permissionTreeLoadVersion = 0;
     public httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
     public httpLauncher: HttpServerLauncher | null = null;
 
@@ -82,8 +105,11 @@ export default class SiyuanMCP extends Plugin {
         this.httpSettings = await loadPersistedHttpServerSettings(this);
         this.versionControlSettings = await loadPersistedVersionControlSettings(this);
         this.versionControlSettingsLoaded = true;
+        this.permissionDisplaySettings = await loadPersistedPermissionDisplaySettings(this);
+        this.permissionDisplaySettingsLoaded = true;
         appendHttpLifecycleLog(`[plugin] settings loaded: httpEnabled=${this.httpSettings.enabled} timelineEnabled=${this.versionControlSettings.enabled}`);
         this.syncVersionControlFeature();
+        this.syncPermissionTreeFeature();
 
         const support = HttpServerLauncher.getSupportInfo();
         if (!support.supported) {
@@ -249,6 +275,7 @@ export default class SiyuanMCP extends Plugin {
             this.mountPuppy();
         }
         if (this.versionControlSettingsLoaded) this.syncVersionControlFeature();
+        if (this.permissionDisplaySettingsLoaded) this.syncPermissionTreeFeature();
     }
 
 
@@ -270,6 +297,20 @@ export default class SiyuanMCP extends Plugin {
         this.versionControlSettings = await savePersistedVersionControlSettings(settings, this);
         appendHttpLifecycleLog(`[timeline] settings updated: enabled=${this.versionControlSettings.enabled} showDebugMeta=${this.versionControlSettings.showDebugMeta}`);
         this.syncVersionControlFeature();
+    }
+
+    updatePermissionDisplaySettings(settings: PermissionDisplaySettings): void {
+        this.permissionDisplaySettings = normalizePermissionDisplaySettings(settings);
+        this.syncPermissionTreeFeature();
+    }
+
+    refreshPermissionTreeIndicators(permissions?: unknown): void {
+        if (permissions !== undefined) {
+            this.permissionTreePermissions = normalizeNotebookPermissions(permissions);
+            this.emitPermissionTreeChange();
+        }
+        if (!this.permissionDisplaySettings.showInFileTree || !this.layoutReady) return;
+        this.schedulePermissionTreeDecoration();
     }
 
     async submitFeedback(input: FeedbackInput): Promise<FeedbackSubmitResult> {
@@ -352,6 +393,8 @@ export default class SiyuanMCP extends Plugin {
         appendHttpLifecycleLog("[plugin] onunload begin");
         this.layoutReady = false;
         this.puppySettingsLoaded = false;
+        this.permissionDisplaySettingsLoaded = false;
+        this.disablePermissionTreeFeature();
         this.unregisterVersionControlEvents();
         this.unmountVersionControlDock();
         this.unmountPuppy();
@@ -471,6 +514,183 @@ export default class SiyuanMCP extends Plugin {
         }
         this.enableVersionControlFeature();
     }
+
+    private syncPermissionTreeFeature() {
+        if (!this.permissionDisplaySettingsLoaded || !this.layoutReady) return;
+        if (!this.permissionDisplaySettings.showInFileTree) {
+            this.disablePermissionTreeFeature();
+            return;
+        }
+        this.enablePermissionTreeFeature();
+    }
+
+    private enablePermissionTreeFeature() {
+        this.registerPermissionTreeEvents();
+        this.registerPermissionTreeClick();
+        this.registerPermissionTreeObserver();
+        void this.loadPermissionTreePermissions();
+    }
+
+    private disablePermissionTreeFeature() {
+        this.permissionTreeLoadVersion += 1;
+        this.unregisterPermissionTreeEvents();
+        this.unregisterPermissionTreeClick();
+        this.permissionTreeObserver?.disconnect();
+        this.permissionTreeObserver = null;
+        if (
+            this.permissionTreeFrame !== null &&
+            typeof window !== "undefined" &&
+            typeof window.cancelAnimationFrame === "function"
+        ) {
+            window.cancelAnimationFrame(this.permissionTreeFrame);
+        }
+        this.permissionTreeFrame = null;
+        if (typeof document !== "undefined") {
+            clearPermissionTreeIndicators(document);
+        }
+    }
+
+    private registerPermissionTreeEvents() {
+        if (this.permissionTreeEventsRegistered) return;
+        const eventBus = (this as any).eventBus;
+        if (typeof eventBus?.on !== "function") return;
+        eventBus.on("ws-main", this.handlePermissionTreeWebSocket as any);
+        this.permissionTreeEventsRegistered = true;
+    }
+
+    private unregisterPermissionTreeEvents() {
+        if (!this.permissionTreeEventsRegistered) return;
+        const eventBus = (this as any).eventBus;
+        eventBus?.off?.("ws-main", this.handlePermissionTreeWebSocket as any);
+        this.permissionTreeEventsRegistered = false;
+    }
+
+    private registerPermissionTreeClick() {
+        if (this.permissionTreeClickRegistered || typeof document.addEventListener !== "function") return;
+        document.addEventListener("click", this.handlePermissionTreeBadgeClick, true);
+        this.permissionTreeClickRegistered = true;
+    }
+
+    private unregisterPermissionTreeClick() {
+        if (!this.permissionTreeClickRegistered || typeof document.removeEventListener !== "function") return;
+        document.removeEventListener("click", this.handlePermissionTreeBadgeClick, true);
+        this.permissionTreeClickRegistered = false;
+    }
+
+    private registerPermissionTreeObserver() {
+        if (this.permissionTreeObserver || typeof MutationObserver === "undefined" || !document.body) return;
+        this.permissionTreeObserver = new MutationObserver((mutations) => {
+            const touchesPermissionTree = mutations.some((mutation) => (
+                Array.from(mutation.addedNodes).some((node) => {
+                    if (!(node instanceof Element)) return false;
+                    return Boolean(
+                        node.matches(".file-tree, .sy__file, ul[data-url], li[data-type=\"navigation-root\"]") ||
+                        node.closest("li[data-type=\"navigation-root\"]") ||
+                        node.querySelector(PERMISSION_TREE_ROOT_SELECTOR)
+                    );
+                })
+            ));
+            if (touchesPermissionTree) {
+                this.schedulePermissionTreeDecoration();
+            }
+        });
+        this.permissionTreeObserver.observe(document.body, { childList: true, subtree: true });
+    }
+
+    private async loadPermissionTreePermissions() {
+        const loadVersion = ++this.permissionTreeLoadVersion;
+        const raw = await this.loadData("notebookPermissions");
+        if (
+            loadVersion !== this.permissionTreeLoadVersion ||
+            !this.layoutReady ||
+            !this.permissionDisplaySettings.showInFileTree
+        ) return;
+        this.permissionTreePermissions = normalizeNotebookPermissions(raw);
+        this.emitPermissionTreeChange();
+        this.schedulePermissionTreeDecoration();
+    }
+
+    private schedulePermissionTreeDecoration() {
+        if (this.permissionTreeFrame !== null || typeof window === "undefined") return;
+        if (typeof window.requestAnimationFrame !== "function") {
+            decoratePermissionTree(document, this.permissionTreePermissions, this.getPermissionTreeLabels());
+            return;
+        }
+        this.permissionTreeFrame = window.requestAnimationFrame(() => {
+            this.permissionTreeFrame = null;
+            if (!this.layoutReady || !this.permissionDisplaySettings.showInFileTree) return;
+            decoratePermissionTree(document, this.permissionTreePermissions, this.getPermissionTreeLabels());
+        });
+    }
+
+    private getPermissionTreeLabels(): PermissionTreeLabels {
+        return {
+            names: {
+                none: this.i18n?.mcpPermNone || "无权限",
+                r: this.i18n?.mcpPermRead || "只读",
+                rw: this.i18n?.mcpPermReadWrite || "读写不可删除",
+                rwd: this.i18n?.mcpPermReadWriteDelete || "读写可删除",
+            },
+            defaultSuffix: this.i18n?.permission_tree_default_suffix || "（默认）",
+            notebookScope: this.i18n?.permission_tree_scope || "应用于整个笔记本及其子文档",
+            clickToChange: this.i18n?.permission_tree_click_hint || "点击切换权限",
+        };
+    }
+
+    private emitPermissionTreeChange() {
+        if (
+            typeof window === "undefined" ||
+            typeof window.dispatchEvent !== "function" ||
+            typeof CustomEvent === "undefined"
+        ) return;
+        window.dispatchEvent(new CustomEvent(PERMISSION_TREE_CHANGED_EVENT, {
+            detail: { permissions: { ...this.permissionTreePermissions } },
+        }));
+    }
+
+    private readonly handlePermissionTreeBadgeClick = async (event: MouseEvent) => {
+        const target = event.target instanceof Element
+            ? event.target.closest<HTMLElement>(`.${PERMISSION_TREE_BADGE_CLASS}`)
+            : null;
+        if (!target) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        if (target.dataset.saving === "true") return;
+
+        const notebookId = target.dataset.notebookId?.trim() ?? "";
+        if (!notebookId) return;
+
+        const previousPermissions = { ...this.permissionTreePermissions };
+        const currentPermission = this.permissionTreePermissions[notebookId] ?? "r";
+        this.permissionTreePermissions = {
+            ...this.permissionTreePermissions,
+            [notebookId]: getNextNotebookPermission(currentPermission),
+        };
+        target.dataset.saving = "true";
+        target.setAttribute("aria-busy", "true");
+        decoratePermissionTree(document, this.permissionTreePermissions, this.getPermissionTreeLabels());
+
+        try {
+            await this.saveData("notebookPermissions", this.permissionTreePermissions);
+            this.emitPermissionTreeChange();
+        } catch (error) {
+            this.permissionTreePermissions = previousPermissions;
+            decoratePermissionTree(document, this.permissionTreePermissions, this.getPermissionTreeLabels());
+            console.error("[MCP] failed to update notebook permission from file tree:", error);
+            showMessage(this.i18n?.permission_tree_save_failed || "权限保存失败，已恢复原状态");
+        } finally {
+            delete target.dataset.saving;
+            target.removeAttribute("aria-busy");
+        }
+    };
+
+    private readonly handlePermissionTreeWebSocket = (event: CustomEvent<{ cmd?: string }>) => {
+        if (event?.detail?.cmd === "reloadFiletree") {
+            void this.loadPermissionTreePermissions();
+        }
+    };
 
     private enableVersionControlFeature() {
         appendHttpLifecycleLog("[timeline] enable feature");

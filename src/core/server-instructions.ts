@@ -169,7 +169,7 @@ Each tool exposes common actions in its description. For detailed help on any ac
 For basic path-style notebook and document operations, use \`fs\` whenever the task can be expressed with a human-readable workspace path. Treat \`fs\` as the default virtual filesystem interface:
 - List direct children: \`fs(action="ls", path="/Notebook/Folder")\`
 - List a recursive tree: \`fs(action="tree", path="/Notebook/Folder")\`
-- Read Markdown: \`fs(action="read", path="/Notebook/Folder/Doc")\`
+- Read Markdown in complete display-block windows: \`fs(action="read", path="/Notebook/Folder/Doc")\`; continue with the returned \`nextWindow\` or pass \`blockStart\`/\`blockLimit\`/\`tokenBudget\`. Character \`page/pageSize\` pagination is not supported.
 - Create or overwrite a document body: \`fs(action="write", path="/Notebook/Folder/Doc", markdown="...", overwrite=true)\`
 - Replace exact text in one document: \`fs(action="replace", path="/Notebook/Folder/Doc", edit={ old: "...", new: "..." })\`
 - Search Markdown under a path: \`fs(action="search", path="/Notebook/Folder", query="...")\`

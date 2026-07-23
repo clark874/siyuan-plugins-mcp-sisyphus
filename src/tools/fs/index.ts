@@ -22,7 +22,7 @@ export const FS_TOOL_NAME = 'fs';
 export const FS_VARIANTS: ActionVariant<FsAction>[] = [
     createZodActionVariant('ls', FsLsSchema, 'List direct child documents using human-readable paths.'),
     createZodActionVariant('tree', FsTreeSchema, 'List a recursive document tree using human-readable paths.'),
-    createZodActionVariant('read', FsReadSchema, 'Read a document as plain Markdown by human-readable path.'),
+    createZodActionVariant('read', FsReadSchema, 'Read complete display-block Markdown windows by human-readable path, with outline and continuation metadata.'),
     createZodActionVariant('write', FsWriteSchema, 'Create a document, stripping a duplicate leading title heading when present; overwrite=true performs a full body replacement.'),
     createZodActionVariant('replace', FsReplaceSchema, 'Apply exact old/new text replacement edits inside matched non-complex Markdown block DOM without rebuilding the document.'),
     createZodActionVariant('rm', FsRmSchema, 'Delete a document by human-readable path.'),

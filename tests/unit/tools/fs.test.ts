@@ -125,15 +125,19 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[];
 }
 
 describe('fs tool', () => {
-    it('publishes fs.read pageSize without being narrowed by fs.search pageSize', () => {
+    it('publishes block-window parameters for fs.read without legacy character pagination', () => {
         const [tool] = listFsTools(fsConfig());
         const schema = tool.inputSchema;
         const branches = schema['x-sisyphus-actionSchemas'] as Array<{ properties?: Record<string, any> }>;
         const readSchema = branches.find((branch) => branch.properties?.action?.const === 'read');
         const searchSchema = branches.find((branch) => branch.properties?.action?.const === 'search');
 
-        expect(schema.properties?.pageSize?.maximum).toBe(20000);
-        expect(readSchema?.properties?.pageSize?.maximum).toBe(20000);
+        expect(readSchema?.properties?.page).toBeUndefined();
+        expect(readSchema?.properties?.pageSize).toBeUndefined();
+        expect(readSchema?.properties?.blockStart?.minimum).toBe(0);
+        expect(readSchema?.properties?.blockLimit?.maximum).toBe(200);
+        expect(readSchema?.properties?.tokenBudget?.maximum).toBe(32000);
+        expect(readSchema?.properties?.includeBlockIds?.type).toBe('boolean');
         expect(searchSchema?.properties?.pageSize?.maximum).toBe(200);
     });
 
@@ -207,15 +211,41 @@ describe('fs tool', () => {
         expect(JSON.stringify(parsed)).not.toContain('/Archive');
     });
 
-    it('reads markdown with pagination metadata', async () => {
+    it('reads markdown in complete block windows with continuation metadata', async () => {
         const client = createFsClient();
-        const result = await callFsTool(client, { action: 'read', path: '/Notebook/Doc 1', pageSize: 5 }, fsConfig(), createPermMgr());
+        const result = await callFsTool(client, {
+            action: 'read',
+            path: '/Notebook/Doc 1',
+            blockLimit: 1,
+        }, fsConfig(), createPermMgr());
         const parsed = parseResult(result);
 
         expect(parsed.path).toBe('/Notebook/Doc 1');
         expect(parsed.content).toBe('alpha');
         expect(parsed.truncated).toBe(true);
-        expect(parsed.hasNextPage).toBe(true);
+        expect(parsed.hasNextWindow).toBe(true);
+        expect(parsed.returnedBlocks).toBe(1);
+        expect(parsed.totalBlocks).toBe(2);
+        expect(parsed.nextWindow).toMatchObject({
+            action: 'read',
+            path: '/Notebook/Doc 1',
+            blockStart: 1,
+            blockLimit: 1,
+            tokenBudget: 2000,
+        });
+    });
+
+    it('rejects removed page/pageSize character pagination', async () => {
+        const result = await callFsTool(
+            createFsClient(),
+            { action: 'read', path: '/Notebook/Doc 1', page: 1, pageSize: 5 },
+            fsConfig(),
+            createPermMgr(),
+        );
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('validation_error');
+        expect(result.content[0].text).toContain('character pagination was removed');
     });
 
     it('reads block refs as SiYuan double-link markdown instead of footnotes', async () => {
@@ -733,17 +763,24 @@ describe('fs tool', () => {
         expect(parsed.content).toBe('- [ ] 任务 A\n  - 子项\n1. 有序项');
     });
 
-    it('reads agent memory from the virtual root file without document APIs', async () => {
+    it('reads agent memory as one complete synthetic block without document APIs', async () => {
         const client = createFsClient({ agentMemory: 'alpha\nworkspace memory' });
-        const result = await callFsTool(client, { action: 'read', path: AGENT_MEMORY_VIRTUAL_PATH, pageSize: 5 }, fsConfig(), createPermMgr('none'));
+        const result = await callFsTool(client, {
+            action: 'read',
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            tokenBudget: 1,
+        }, fsConfig(), createPermMgr('none'));
         const parsed = parseResult(result);
 
         expect(parsed).toMatchObject({
             path: AGENT_MEMORY_VIRTUAL_PATH,
             virtual: true,
             updatedAt: null,
-            content: 'alpha',
-            truncated: true,
+            content: 'alpha\nworkspace memory',
+            returnedBlocks: 1,
+            totalBlocks: 1,
+            truncated: false,
+            budgetExceeded: true,
         });
         expect(client.readFile).toHaveBeenCalledWith(MCP_TOOLS_CONFIG_API_PATH);
         expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());

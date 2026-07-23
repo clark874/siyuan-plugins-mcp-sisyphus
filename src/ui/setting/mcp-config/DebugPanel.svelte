@@ -68,4 +68,12 @@
     $: debugItems = buildDebugItems(config, puppySettings, versionControlSettings, getLabel);
 </script>
 
-<SettingPanel {group} settingItems={debugItems} {display} on:changed={onChanged} />
+<div class="debug-settings" class:fn__none={!display}>
+    <SettingPanel {group} settingItems={debugItems} display={true} on:changed={onChanged} />
+</div>
+
+<style>
+    .debug-settings :global(.config__settings-card) {
+        border-left: 3px solid color-mix(in srgb, var(--b3-theme-warning, #d99a24) 66%, var(--b3-border-color));
+    }
+</style>
