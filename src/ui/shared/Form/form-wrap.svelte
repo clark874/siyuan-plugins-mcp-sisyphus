@@ -57,12 +57,17 @@
         border-radius: 0;
         background: transparent;
         box-shadow: none !important;
-        padding: 12px 0;
+        padding: var(--mcp-config-card-padding, 16px 18px);
         margin: 0;
+        transition: background 0.14s ease;
     }
 
     .item-wrap.b3-label:not(:last-child) {
-        border-bottom: 1px solid var(--b3-border-color);
+        border-bottom: 1px solid var(--mcp-config-border, var(--b3-border-color));
+    }
+
+    .item-wrap.b3-label:hover {
+        background: color-mix(in srgb, var(--b3-list-hover) 55%, transparent);
     }
 
     .item-wrap.fn__flex {
@@ -81,7 +86,7 @@
     }
 
     .b3-label__text {
-        margin-top: 6px;
+        margin-top: 4px;
         color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
         font-size: 12px;
         line-height: 1.55;
@@ -92,6 +97,9 @@
             flex-direction: column;
             align-items: stretch;
             gap: 8px;
+        }
+        .item-wrap.b3-label {
+            padding: 13px 14px;
         }
         .item-wrap.fn__flex > .fn__space {
             display: none;

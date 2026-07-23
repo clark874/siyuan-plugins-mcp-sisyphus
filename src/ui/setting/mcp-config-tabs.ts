@@ -3,6 +3,7 @@ import type { ToolCategory } from "./tool-config";
 export interface TabItem {
     id: string;
     label: string;
+    description: string;
     iconSvg: string;
 }
 
@@ -25,7 +26,7 @@ export const ICON_SVGS: Record<string, string> = {
     tagIcon: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>`,
     monitor: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20 3H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h3l-1 1v2h12v-2l-1-1h3c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 13H4V5h16v11z"/></svg>`,
     layers: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/></svg>`,
-    paw: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><ellipse cx="10" cy="12" rx="8" ry="3.5"/><polygon points="17,12 21,8 21,16"/></svg>`,
+    paw: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="6.5" cy="7.2" r="2.2"/><circle cx="11.3" cy="5.2" r="2.25"/><circle cx="16.3" cy="6.8" r="2.2"/><circle cx="19" cy="11.2" r="2"/><path d="M12.2 10.2c-3.7 0-7 3.1-7 6.4 0 2.2 1.7 3.7 3.8 3.7 1.2 0 2.1-.6 3.2-.6 1 0 2 .6 3.2.6 2.1 0 3.7-1.5 3.7-3.7 0-3.3-3.2-6.4-6.9-6.4z"/></svg>`,
     barChart: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg>`,
     compass: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.5 14L12 13l-4.5 3 1.5-5.5L5 9l5.5-.5L12 3l1.5 5.5L19 9l-4 1.5 1.5 5.5z"/></svg>`,
     bug: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M20 8h-2.81c-.45-.78-1.08-1.45-1.83-1.95L17 4.41 15.59 3 13.5 5.09C13.02 5.03 12.52 5 12 5s-1.02.03-1.5.09L8.41 3 7 4.41l1.64 1.64C7.89 6.55 7.26 7.22 6.81 8H4v2h2.09c-.05.33-.09.66-.09 1v1H4v2h2v1c0 .34.04.67.09 1H4v2h2.81C7.85 19.79 9.79 21 12 21s4.15-1.21 5.19-3H20v-2h-2.09c.05-.33.09-.66.09-1v-1h2v-2h-2v-1c0-.34-.04-.67-.09-1H20V8zm-6 9h-4v-2h4v2zm0-4h-4v-2h4v2z"/></svg>`,

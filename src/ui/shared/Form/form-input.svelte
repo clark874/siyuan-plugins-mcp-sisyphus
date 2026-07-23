@@ -137,6 +137,19 @@
 {/if}
 
 <style>
+    :global(.config__panel .b3-text-field),
+    :global(.config__panel .b3-select),
+    :global(.config__panel .b3-button) {
+        border-radius: var(--mcp-config-control-radius, max(7px, var(--b3-border-radius, 6px)));
+    }
+
+    :global(.config__panel .b3-text-field:focus),
+    :global(.config__panel .b3-select:focus),
+    :global(.config__panel .b3-button:focus-visible) {
+        outline: 2px solid color-mix(in srgb, var(--b3-theme-primary) 34%, transparent);
+        outline-offset: 1px;
+    }
+
     .sy-color-field {
         box-sizing: border-box;
         height: 32px;

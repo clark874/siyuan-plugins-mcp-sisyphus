@@ -94,12 +94,27 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
         const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
 
-        expect(rootSource).toContain('{ id: TOOL_GROUP_KEY, label: toolGroupLabel, iconSvg: ICON_SVGS.folder }');
+        expect(rootSource).toContain('{ id: TOOL_GROUP_KEY, label: toolGroupLabel, description: getLabel("settingsToolsDesc"');
         expect(rootSource).not.toContain('...CATEGORY_TAB_DEFS.map');
         expect(panelSource).toContain('tool-settings-accordion');
         expect(panelSource).toContain('tool-settings-group__header');
         expect(panelSource).toContain('dispatchToolToggle');
         expect(panelSource).toContain('SettingPanel');
+    });
+
+    it('renders a semantic responsive settings shell with centralized page metadata', () => {
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+        const tabsSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config-tabs.ts'), 'utf8');
+
+        expect(tabsSource).toContain('description: string;');
+        expect(rootSource.match(/description: getLabel\("settings[A-Za-z]+Desc"/g)).toHaveLength(8);
+        expect(rootSource).toContain('<aside class="config__sidebar">');
+        expect(rootSource).toContain('<nav class="config__navigation"');
+        expect(rootSource).toContain('class="config__nav-item"');
+        expect(rootSource).toContain('aria-current={tab.id === focusGroup ? "page" : undefined}');
+        expect(rootSource).toContain('<header class="config__page-header">');
+        expect(rootSource).toContain('overflow-x: auto;');
+        expect(rootSource).not.toContain('.b3-list-item__text {\n            display: none');
     });
 
     it('uses stable tab keys to display the analytics panel', () => {
@@ -137,6 +152,10 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(panelSource).toContain('permItems = buildPermItems();');
         expect(panelSource).toContain('closedPermItems = buildClosedPermItems();');
         expect(panelSource).toContain('mcpPermClosedGroup');
+        expect(panelSource).toContain('permissionCounts');
+        expect(panelSource).toContain('permission-overview');
+        expect(panelSource).toContain('sisyphus-permission-badge');
+        expect(panelSource).toContain('buildPermissionTreeDescription()');
         expect(panelSource).not.toContain('mcpPermClosedHint');
     });
 
@@ -221,10 +240,20 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(puppySource).toContain('puppy__appearance__eyeColor');
         expect(puppySource).toContain('value={puppySettings.appearance.bodyColor}');
         expect(puppySource).toContain('on:input={(event) => emitColor("bodyColor", event)}');
+        expect(puppySource).toContain('PuppyAwakeSVG');
+        expect(puppySource).toContain('puppy-preview');
         expect(rootSource).toContain('buildRandomPuppyAppearance');
         expect(rootSource).toContain('buildDefaultPuppyAppearance');
         expect(rootSource).toContain('key.startsWith("puppy__appearance__")');
         expect(formSource).toContain('type === "color"');
+    });
+
+    it('uses the bundled plugin icon for the settings brand while keeping the paw for mascot navigation', () => {
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+
+        expect(rootSource).toContain('/plugins/${plugin?.name ?? "siyuan-plugins-mcp-sisyphus"}/icon.png');
+        expect(rootSource).toContain('<img src={pluginIconUrl} alt="" />');
+        expect(rootSource).toContain('iconSvg: ICON_SVGS.paw');
     });
 
     it('keeps document timeline enable switch in debug settings', () => {

@@ -107,6 +107,13 @@ Paginated results use the same `page` / `pageSize` contract as the MCP tools. In
 
 For pipes and scripts, keep pagination explicit with `--page`, `--page-size`, and `--json`.
 
+Long Markdown reads such as `fs read` and `document get-doc` use complete display-block windows instead of character slices. Continue from the returned `nextWindow` with `--block-start`, and tune the window with `--block-limit` or `--token-budget` when needed:
+
+```bash
+siyuan-sisyphus fs read --path "/Notebook/Long Note" --block-start 0 --block-limit 24
+siyuan-sisyphus document get-doc --id 20240318xyz --block-start 24 --token-budget 6000
+```
+
 ## Examples
 
 ```bash
