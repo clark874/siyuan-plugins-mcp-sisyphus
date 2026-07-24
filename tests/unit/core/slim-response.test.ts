@@ -45,4 +45,22 @@ describe('slim document-window responses', () => {
             blockRefs: [{ blockIndex: 0, id: 'heading', type: 'h', subtype: 'h2' }],
         });
     });
+
+    it('does not rewrite official plugin tool results', () => {
+        const original = {
+            content: [{
+                type: 'text' as const,
+                text: JSON.stringify({
+                    action: 'downstream_action',
+                    content: 'plugin-owned content',
+                    nested: { action: 'nested_action' },
+                }),
+            }],
+        };
+
+        expect(slimToolResult(original, {
+            category: 'extension',
+            action: 'plugin__example__tool',
+        })).toEqual(original);
+    });
 });

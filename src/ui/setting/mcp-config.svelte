@@ -44,6 +44,10 @@
     import ToolCategoriesPanel from "./mcp-config/ToolCategoriesPanel.svelte";
     import UserRulesPanel from "./mcp-config/UserRulesPanel.svelte";
     import {
+        discoverOfficialPluginTools,
+        type UiOfficialPluginToolDiscovery,
+    } from "./official-plugin-tools";
+    import {
         HTTP_GROUP_KEY,
         ICON_SVGS,
         PERM_GROUP_KEY,
@@ -80,6 +84,11 @@
     let notebooks: NotebookInfo[] = [];
     let permissions: Record<string, NotebookPermission> = {};
     let permLoading = true;
+    let extensionDiscovery: UiOfficialPluginToolDiscovery = {
+        loading: false,
+        connected: false,
+        tools: [],
+    };
 
     const getLabel = (key: string, fallback: string) => plugin?.i18n?.[key] ?? fallback;
     $: pluginIconUrl = `/plugins/${plugin?.name ?? "siyuan-plugins-mcp-sisyphus"}/icon.png`;
@@ -142,6 +151,11 @@
         permLoading = false;
     }
 
+    async function refreshExtensionTools() {
+        extensionDiscovery = { ...extensionDiscovery, loading: true, error: undefined };
+        extensionDiscovery = await discoverOfficialPluginTools();
+    }
+
     onMount(async () => {
         config = await loadPersistedToolConfig(plugin);
         puppySettings = await loadPersistedPuppySettings(plugin);
@@ -149,6 +163,9 @@
         telemetryConfig = await loadPersistedTelemetryConfig(plugin);
         versionControlSettings = await loadPersistedVersionControlSettings(plugin);
         permissionDisplaySettings = await loadPersistedPermissionDisplaySettings(plugin);
+        if (config.extension.enabled) {
+            await refreshExtensionTools();
+        }
 
         const savedPerms = await plugin?.loadData("notebookPermissions");
         if (savedPerms && typeof savedPerms === "object") {
@@ -344,6 +361,28 @@
             const category = key.replace("__enabled", "") as ToolCategory;
             setCategoryEnabled(category, Boolean(value));
             await persistConfig();
+            if (category === "extension" && value) {
+                await refreshExtensionTools();
+            }
+            return;
+        }
+
+        if (key.startsWith("extension__tool__")) {
+            const toolName = decodeURIComponent(key.slice("extension__tool__".length));
+            const blocked = new Set(config.extension.blockedTools);
+            if (Boolean(value)) {
+                blocked.delete(toolName);
+            } else {
+                blocked.add(toolName);
+            }
+            config = {
+                ...config,
+                extension: {
+                    ...config.extension,
+                    blockedTools: [...blocked].sort(),
+                },
+            };
+            await persistConfig();
             return;
         }
 
@@ -516,7 +555,15 @@
                 {/if}
                 <HttpServerPanel {plugin} group={httpGroupLabel} display={focusGroup === HTTP_GROUP_KEY} bind:httpSettings {getLabel} />
                 <PermissionsPanel group={permGroupLabel} display={focusGroup === PERM_GROUP_KEY} {notebooks} {permissions} {permissionDisplaySettings} {permLoading} {getLabel} {onChanged} />
-                <ToolCategoriesPanel group={toolGroupLabel} display={focusGroup === TOOL_GROUP_KEY} {config} {getLabel} {onChanged} />
+                <ToolCategoriesPanel
+                    group={toolGroupLabel}
+                    display={focusGroup === TOOL_GROUP_KEY}
+                    {config}
+                    {getLabel}
+                    {onChanged}
+                    {extensionDiscovery}
+                    onRefreshExtensionTools={refreshExtensionTools}
+                />
                 <PuppyPanel group={puppyGroupLabel} display={focusGroup === PUPPY_GROUP_KEY} {puppySettings} {getLabel} {onChanged} />
                 <TelemetryPanel
                     analyticsGroup={analyticsGroupLabel}

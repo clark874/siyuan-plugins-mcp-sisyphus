@@ -7,6 +7,7 @@
         type AvAction,
         type BlockAction,
         type DocumentAction,
+        type ExtensionAction,
         type FeedbackAction,
         type FileAction,
         type FlashcardAction,
@@ -20,15 +21,22 @@
         type ToolConfig,
     } from "../tool-config";
     import { CATEGORY_TAB_DEFS, ICON_SVGS } from "../mcp-config-tabs";
+    import type { UiOfficialPluginToolDiscovery } from "../official-plugin-tools";
 
     export let group: string;
     export let display = false;
     export let config: ToolConfig;
     export let getLabel: (key: string, fallback: string) => string;
     export let onChanged: (event: CustomEvent<ChangeEvent>) => void | Promise<void>;
+    export let extensionDiscovery: UiOfficialPluginToolDiscovery = {
+        loading: false,
+        connected: false,
+        tools: [],
+    };
+    export let onRefreshExtensionTools: () => void | Promise<void> = () => {};
 
     interface ChangeEvent { key: string; value: any; }
-    type GroupAction = FsAction | NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | SystemAction | FlashcardAction | MascotAction | FeedbackAction;
+    type GroupAction = FsAction | NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | SystemAction | FlashcardAction | ExtensionAction | MascotAction | FeedbackAction;
 
     interface GroupDefinition {
         category: ToolCategory;
@@ -243,6 +251,15 @@
             ],
         },
         {
+            category: "extension",
+            icon: "🧩",
+            groupKey: "Extension Tools",
+            iconSvg: ICON_SVGS.layers,
+            actions: [
+                { key: "list", title: "List Plugin Tools", description: "Inspect or refresh tools registered by other SiYuan kernel plugins through the official MCP endpoint." },
+            ],
+        },
+        {
             category: "feedback",
             icon: "💬",
             groupKey: "Feedback Tool",
@@ -337,7 +354,58 @@
         if (!definition) {
             throw new Error(`Unknown tool category: ${category}`);
         }
-        return buildActionItems(definition);
+        if (category !== "extension") return buildActionItems(definition);
+
+        const statusText = extensionDiscovery.loading
+            ? getLabel("extension_discovery_loading", "Discovering official plugin tools…")
+            : extensionDiscovery.connected
+                ? getLabel("extension_discovery_connected", "Connected")
+                    + ` · ${extensionDiscovery.tools.length} `
+                    + getLabel("extension_discovery_count", "tool(s)")
+                : getLabel("extension_discovery_unavailable", "Official MCP unavailable")
+                    + (extensionDiscovery.error ? `: ${extensionDiscovery.error}` : "");
+        const discoveredByName = new Map(extensionDiscovery.tools.map((tool) => [tool.name, tool]));
+        const names = [...new Set([
+            ...extensionDiscovery.tools.map((tool) => tool.name),
+            ...config.extension.blockedTools,
+        ])].sort();
+        const dynamicItems: ISettingItem[] = names.map((name) => {
+            const tool = discoveredByName.get(name);
+            const safety = tool?.readOnlyHint
+                ? getLabel("extension_read_only", "Declared read-only")
+                : getLabel("extension_confirmation_required", "Confirmation required");
+            return {
+                type: "checkbox",
+                key: `extension__tool__${encodeURIComponent(name)}`,
+                value: !config.extension.blockedTools.includes(name),
+                title: tool?.title ? `${tool.title} · ${name}` : name,
+                description: `${tool?.description ?? getLabel("extension_tool_unavailable", "Not present in the latest discovery result.")} ${safety}.`,
+            };
+        });
+        return [
+            ...buildActionItems(definition),
+            {
+                type: "hint",
+                key: "extension__discovery__status",
+                value: statusText,
+                title: getLabel("extension_discovery_status", "Discovery status"),
+                description: getLabel("extension_discovery_status_desc", "Requires SiYuan 3.7.0+, an administrator session, and a valid API token."),
+            },
+            {
+                type: "button",
+                key: "extension__discovery__refresh",
+                value: "",
+                title: getLabel("extension_refresh_title", "Refresh plugin tools"),
+                description: getLabel("extension_refresh_desc", "Reload tools registered through siyuan.mcp.registerTool()."),
+                button: {
+                    label: extensionDiscovery.loading
+                        ? getLabel("extension_refreshing", "Refreshing…")
+                        : getLabel("extension_refresh", "Refresh"),
+                    callback: () => void onRefreshExtensionTools(),
+                },
+            },
+            ...dynamicItems,
+        ];
     }
 
     function toggleCategory(category: ToolCategory) {
@@ -355,10 +423,17 @@
     }
 
     function countEnabledActions(category: ToolCategory) {
+        if (category === "extension") {
+            return (config.extension.actions.list ? 1 : 0)
+                + extensionDiscovery.tools.filter((tool) => !config.extension.blockedTools.includes(tool.name)).length;
+        }
         return ACTIONS_BY_CATEGORY[category].filter((action) => config[category].actions[action]).length;
     }
 
     function countDangerousActions(category: ToolCategory) {
+        if (category === "extension") {
+            return extensionDiscovery.tools.filter((tool) => !tool.readOnlyHint).length;
+        }
         return ACTIONS_BY_CATEGORY[category].filter((action) => isDangerousAction(category, action)).length;
     }
 
@@ -388,7 +463,9 @@
             ...definition,
             title: getLabel(definition.groupKey, definition.groupKey),
             enabledActions: countEnabledActions(definition.category),
-            totalActions: ACTIONS_BY_CATEGORY[definition.category].length,
+            totalActions: definition.category === "extension"
+                ? 1 + extensionDiscovery.tools.length
+                : ACTIONS_BY_CATEGORY[definition.category].length,
             dangerousActions: countDangerousActions(definition.category),
             items: buildCategoryItems(definition.category),
             open: isCategoryOpen(definition.category),

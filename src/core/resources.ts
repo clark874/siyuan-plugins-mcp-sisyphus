@@ -18,6 +18,7 @@ import {
     AV_VARIANTS,
     BLOCK_VARIANTS,
     DOCUMENT_VARIANTS,
+    EXTENSION_VARIANTS,
     FEEDBACK_VARIANTS,
     FILE_VARIANTS,
     FLASHCARD_VARIANTS,
@@ -69,6 +70,7 @@ const VARIANTS_BY_CATEGORY: Record<ToolCategory, ActionVariant<string>[]> = {
     tag: TAG_VARIANTS,
     system: SYSTEM_VARIANTS,
     flashcard: FLASHCARD_VARIANTS,
+    extension: EXTENSION_VARIANTS,
     mascot: MASCOT_VARIANTS,
     feedback: FEEDBACK_VARIANTS,
 };
@@ -95,7 +97,7 @@ function renderToolOverview(): string {
     return [
         '# SiYuan MCP Tool Overview',
         '',
-        'This server exposes 12 aggregated tools. Use `fs` first for basic path-style notebook and document operations; advanced tools remain available for SiYuan-specific workflows.',
+        'This server exposes 13 aggregated tools. Use `fs` first for basic path-style notebook and document operations; advanced tools remain available for SiYuan-specific workflows.',
         '',
         '## High-risk actions',
         '',

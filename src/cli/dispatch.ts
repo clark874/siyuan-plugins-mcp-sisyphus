@@ -5,7 +5,7 @@ import {
     type ToolConfig,
 } from '../core/config';
 import { normalizeActionAlias } from '../core/action-aliases';
-import { TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
+import { prepareTool, TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
 import { runToolCall } from '../core/tool-lifecycle';
 import { PRIMARY_CLI_COMMAND } from '../shared/constants';
 
@@ -30,7 +30,9 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
 
     const normalizedAction = normalizeActionAlias(category, action);
     const knownActions = ACTIONS_BY_CATEGORY[category];
-    if (!knownActions.includes(normalizedAction as never) && normalizedAction !== 'help') {
+    if (category !== 'extension'
+        && !knownActions.includes(normalizedAction as never)
+        && normalizedAction !== 'help') {
         throw formatUnknownActionError(category, normalizedAction);
     }
 
@@ -38,7 +40,7 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
     process.env.SIYUAN_MCP_TRANSPORT = 'cli';
 
     try {
-        const { client, toolConfig, permMgr } = await loadCliRuntimeState(cli);
+        const { client, toolConfig, permMgr, officialMcpRuntime } = await loadCliRuntimeState(cli);
         if (!toolConfig[category].enabled) {
             return renderToolResult({
                 content: [{ type: 'text', text: `Tool "${tool}" is disabled.` }],
@@ -47,7 +49,18 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         }
 
         const module = TOOL_REGISTRY[category];
-        const inputSchema = resolveInputSchema(category, toolConfig);
+        if (category === 'extension') {
+            await prepareTool(category, toolConfig, officialMcpRuntime);
+            const discoveredActions = officialMcpRuntime.bridge.getTools()
+                .filter((tool) => !toolConfig.extension.blockedTools.includes(tool.name))
+                .map((tool) => tool.name);
+            if (!knownActions.includes(normalizedAction as never)
+                && normalizedAction !== 'help'
+                && !discoveredActions.includes(normalizedAction)) {
+                throw formatUnknownActionError(category, normalizedAction, discoveredActions);
+            }
+        }
+        const inputSchema = resolveInputSchema(category, toolConfig, officialMcpRuntime);
 
         const restWithPositional = applyPositionalActionArgs(category, normalizedAction, rest);
         const { args: mappedArgs, warnings } = mapFlagsToArgs(restWithPositional, inputSchema, {
@@ -69,10 +82,12 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
                     name: tool,
                     action: normalizedAction,
                     args: payload,
-                    requestText,
+                    requestText: category === 'extension'
+                        ? [PRIMARY_CLI_COMMAND, tool, normalizedAction].join(' ')
+                        : requestText,
                     slimResponses: toolConfig.debug.slimResponses && !cli.debug,
                 },
-                () => module.callTool(client, payload, toolConfig[category], permMgr),
+                () => module.callTool(client, payload, toolConfig[category], permMgr, officialMcpRuntime),
             );
         };
 
@@ -205,8 +220,12 @@ function readKey(): Promise<string> {
     });
 }
 
-function resolveInputSchema(category: ToolCategory, config: ToolConfig): Record<string, unknown> {
-    const descriptors = TOOL_REGISTRY[category].listTools(config[category]);
+function resolveInputSchema(
+    category: ToolCategory,
+    config: ToolConfig,
+    officialMcpRuntime?: import('../core/official-mcp-bridge').OfficialMcpRuntime,
+): Record<string, unknown> {
+    const descriptors = TOOL_REGISTRY[category].listTools(config[category], officialMcpRuntime);
     const descriptor = descriptors[0];
     if (!descriptor) {
         throw new Error(`Tool "${category}" has no aggregated descriptor — this is a bug.`);
@@ -219,8 +238,8 @@ function formatUnknownToolError(tool: string): Error {
     return new Error(`Unknown tool "${tool}". Available tools: ${categories}. Try "${PRIMARY_CLI_COMMAND} list".`);
 }
 
-function formatUnknownActionError(category: ToolCategory, action: string): Error {
-    const actions = ACTIONS_BY_CATEGORY[category].join(', ');
+function formatUnknownActionError(category: ToolCategory, action: string, dynamicActions: string[] = []): Error {
+    const actions = [...ACTIONS_BY_CATEGORY[category], ...dynamicActions].join(', ');
     return new Error(
         `Unknown action "${action}" for tool "${category}". ` +
         `Available actions: ${actions}. Try "${PRIMARY_CLI_COMMAND} help ${category}".`,

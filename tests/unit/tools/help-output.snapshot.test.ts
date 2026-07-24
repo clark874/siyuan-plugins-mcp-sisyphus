@@ -49,6 +49,11 @@ function createAllEnabledConfig(): ToolConfig {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.flashcard.map((action) => [action, true])) as ToolConfig['flashcard']['actions'],
         },
+        extension: {
+            enabled: true,
+            actions: Object.fromEntries(ACTIONS_BY_CATEGORY.extension.map((action) => [action, true])) as ToolConfig['extension']['actions'],
+            blockedTools: [],
+        },
         mascot: {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.mascot.map((action) => [action, true])) as ToolConfig['mascot']['actions'],

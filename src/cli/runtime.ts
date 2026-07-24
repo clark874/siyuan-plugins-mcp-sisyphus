@@ -7,6 +7,7 @@ import {
     type ToolConfig,
 } from '../core/config';
 import { PermissionManager } from '../core/permissions';
+import { OfficialMcpBridge, type OfficialMcpRuntime } from '../core/official-mcp-bridge';
 import { applyConfigToEnv, loadFileConfig, resolveConfig } from './config';
 import { ensureRequiredPluginInstalled } from './plugin-check';
 
@@ -16,6 +17,7 @@ export interface CliRuntimeState {
     client: SiYuanClient;
     toolConfig: ToolConfig;
     permMgr: PermissionManager;
+    officialMcpRuntime: OfficialMcpRuntime;
 }
 
 export async function loadCliRuntimeState(
@@ -41,7 +43,11 @@ export async function loadCliRuntimeState(
         await permMgr.load();
     }
 
-    return { client, toolConfig, permMgr };
+    const officialMcpRuntime: OfficialMcpRuntime = {
+        bridge: new OfficialMcpBridge(client),
+    };
+
+    return { client, toolConfig, permMgr, officialMcpRuntime };
 }
 
 async function loadToolConfigFromAPI(client: SiYuanClient): Promise<ToolConfig> {

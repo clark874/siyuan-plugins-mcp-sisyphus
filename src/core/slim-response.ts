@@ -110,7 +110,9 @@ function createTextResult(result: ToolResult, value: unknown): ToolResult {
 }
 
 function shouldBypassSlimming(ctx: SlimContext): boolean {
-    return ctx.action === 'help' || (ctx.category === 'system' && ctx.action === 'conf');
+    return ctx.category === 'extension'
+        || ctx.action === 'help'
+        || (ctx.category === 'system' && ctx.action === 'conf');
 }
 
 function slimError(error: Record<string, unknown>): Record<string, unknown> {

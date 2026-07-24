@@ -1946,6 +1946,51 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
       "tool": "document",
     },
   },
+  "extension": {
+    "actions": {
+      "list": {
+        "actions": {
+          "<plugin tool full name>": {
+            "description": "Forward one call to the selected official plugin tool. Calls are never retried.",
+            "parameters": {
+              "arguments": "object, required",
+            },
+          },
+          "list": {
+            "description": "Inspect or refresh official plugin tool discovery.",
+            "parameters": {
+              "refresh": "boolean, optional",
+            },
+          },
+        },
+        "description": "Bridge tools registered by other SiYuan kernel plugins through the official /mcp endpoint. Use action="list" to inspect discovery status. Every plugin tool keeps its official full name as the action. Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.",
+        "discoveredTools": [],
+        "tool": "extension",
+      },
+    },
+    "description": "Bridge tools registered by other SiYuan kernel plugins through the official /mcp endpoint. Use action="list" to inspect discovery status. Every plugin tool keeps its official full name as the action. Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.
+
+Currently exposed actions: help, list.",
+    "overview": {
+      "actions": {
+        "<plugin tool full name>": {
+          "description": "Forward one call to the selected official plugin tool. Calls are never retried.",
+          "parameters": {
+            "arguments": "object, required",
+          },
+        },
+        "list": {
+          "description": "Inspect or refresh official plugin tool discovery.",
+          "parameters": {
+            "refresh": "boolean, optional",
+          },
+        },
+      },
+      "description": "Bridge tools registered by other SiYuan kernel plugins through the official /mcp endpoint. Use action="list" to inspect discovery status. Every plugin tool keeps its official full name as the action. Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.",
+      "discoveredTools": [],
+      "tool": "extension",
+    },
+  },
   "feedback": {
     "actions": {
       "submit": {

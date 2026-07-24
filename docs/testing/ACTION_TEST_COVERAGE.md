@@ -1,12 +1,12 @@
 # Action Test Coverage
 
-本文档记录当前源码中 12 个聚合工具 action 的自动化测试覆盖口径。它补充 `AI_INTERFACE_TEST.md` 的人工/真实思源回归流程，重点回答一个问题：
+本文档记录当前源码中 13 个聚合工具 action 的自动化测试覆盖口径。它补充 `AI_INTERFACE_TEST.md` 的人工/真实思源回归流程，重点回答一个问题：
 
 > 每个已声明 action 是否至少有一条自动化测试能跑到运行时调用路径？
 
 ## 覆盖结论
 
-截至当前代码，源码中声明的 action 总数为 112 个。
+截至当前代码，源码中声明的静态 action 总数为 113 个；`extension` 还会按官方注册表生成动态 action。
 
 | 工具 | action 数 | 覆盖方式 |
 | --- | ---: | --- |
@@ -19,6 +19,7 @@
 | `file` | 17 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
 | `system` | 8 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
 | `flashcard` | 6 | `tests/unit/tools/flashcard.test.ts` 对每个 action 有直接调用覆盖 |
+| `extension` | 1 + 动态 | `tests/unit/core/official-mcp-bridge.test.ts` 与 `tests/unit/tools/extension.test.ts` 覆盖发现、schema、屏蔽和转发 |
 | `tag` | 3 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
 | `mascot` | 3 | `tests/unit/tools/mascot.test.ts` 对每个 action 有直接调用覆盖 |
 | `feedback` | 1 | `tests/unit/core/feedback.test.ts` 和 `tests/unit/tools/feedback.test.ts` 覆盖 WPS payload 与工具路由 |

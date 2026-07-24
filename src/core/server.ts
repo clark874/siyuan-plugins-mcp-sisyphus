@@ -7,10 +7,11 @@ import { buildServerInstructions } from './server-instructions';
 import { SiYuanClient } from '../api/client';
 import { buildDefaultToolConfig, loadToolConfigFromApiFileWithStatus, type ToolConfig, type ToolConfigLoadResult } from './config';
 import { noopSchemaValidator } from './noops/noop-schema-validator';
+import { OfficialMcpBridge, type OfficialMcpRuntime } from './official-mcp-bridge';
 
 import { PermissionManager } from './permissions';
 import { listHelpResources, listHelpResourceTemplates, readHelpResource } from './resources';
-import { listAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
+import { listAllTools, prepareAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
 import { runToolCall } from './tool-lifecycle';
 import { getMcpPrompt, listMcpPrompts } from './skills';
 
@@ -83,7 +84,11 @@ function createInstructionClient(): SiYuanClient {
     return client;
 }
 
-export async function createSiYuanServer(): Promise<Server> {
+export interface CreateSiYuanServerOptions {
+    officialMcpFetch?: typeof fetch;
+}
+
+export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}): Promise<Server> {
     const client = await initSiYuanClient();
     const fastClient = createFastClient();
     const instructionClient = createInstructionClient();
@@ -100,10 +105,11 @@ export async function createSiYuanServer(): Promise<Server> {
 
     const initialConfigLoad: ToolConfigLoadResult = await loadToolConfigFromApiFileWithStatus(instructionClient);
     const initialConfig = initialConfigLoad.config;
+    const officialMcpBridge = new OfficialMcpBridge(client, { fetch: options.officialMcpFetch });
     const server = new Server(
         { name: 'siyuan-mcp', version: '2.0.0' },
         {
-            capabilities: { tools: {}, resources: {}, prompts: {} },
+            capabilities: { tools: { listChanged: true }, resources: {}, prompts: {} },
             instructions: buildServerInstructions({
                 userRulesText: initialConfig.userRulesText,
                 agentSiyuanMemoryText: initialConfig.agentSiyuanMemoryText,
@@ -115,6 +121,13 @@ export async function createSiYuanServer(): Promise<Server> {
             jsonSchemaValidator: noopSchemaValidator,
         },
     );
+    const officialMcpRuntime: OfficialMcpRuntime = {
+        bridge: officialMcpBridge,
+        notifyToolListChanged: () => server.sendToolListChanged(),
+    };
+    server.onclose = () => {
+        void officialMcpBridge.close();
+    };
     const permMgr = new PermissionManager(fastClient);
     try {
         await permMgr.load();
@@ -124,7 +137,8 @@ export async function createSiYuanServer(): Promise<Server> {
 
     server.setRequestHandler(ListToolsRequestSchema, async () => {
         const config = await getToolConfig();
-        return { tools: listAllTools(config) };
+        await prepareAllTools(config, officialMcpRuntime);
+        return { tools: listAllTools(config, officialMcpRuntime) };
     });
 
     server.setRequestHandler(ListResourcesRequestSchema, async () => {
@@ -183,10 +197,12 @@ export async function createSiYuanServer(): Promise<Server> {
                 name,
                 action,
                 args,
-                requestText: JSON.stringify({ name, arguments: args ?? {} }),
+                requestText: category === 'extension'
+                    ? JSON.stringify({ name, action })
+                    : JSON.stringify({ name, arguments: args ?? {} }),
                 slimResponses: config.debug.slimResponses,
             },
-            () => module.callTool(client, args, config[category], permMgr),
+            () => module.callTool(client, args, config[category], permMgr, officialMcpRuntime),
         );
         // The MCP SDK CallToolResult uses a wider ContentBlock union; our
         // ToolResult always emits text-only content, which is a valid subset.

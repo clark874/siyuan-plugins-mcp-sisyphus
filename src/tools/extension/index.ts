@@ -1,0 +1,308 @@
+import type { SiYuanClient } from '../../api/client';
+import type { ExtensionCategoryToolConfig } from '../../core/config';
+import type {
+    OfficialMcpDiscoverySnapshot,
+    OfficialMcpRuntime,
+    OfficialPluginTool,
+} from '../../core/official-mcp-bridge';
+import type { PermissionManager } from '../../core/permissions';
+import type { ToolDescriptor } from '../../core/tool-registry';
+import type { ActionVariant, ToolResult } from '../internal/shared';
+
+const EXTENSION_DESCRIPTION = [
+    'Bridge tools registered by other SiYuan kernel plugins through the official /mcp endpoint.',
+    'Use action="list" to inspect discovery status. Every plugin tool keeps its official full name as the action.',
+    'Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.',
+].join(' ');
+
+export const EXTENSION_VARIANTS: ActionVariant<'list'>[] = [{
+    action: 'list',
+    schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+            action: { type: 'string', const: 'list' },
+            refresh: {
+                type: 'boolean',
+                description: 'Refresh the official SiYuan MCP registry before returning the list.',
+            },
+        },
+        required: ['action'],
+    },
+}];
+
+function textResult(value: unknown, isError = false): ToolResult {
+    return {
+        content: [{
+            type: 'text',
+            text: typeof value === 'string' ? value : JSON.stringify(value, null, 2),
+        }],
+        ...(isError ? { isError: true } : {}),
+    };
+}
+
+function enabledTools(
+    config: ExtensionCategoryToolConfig,
+    runtime?: OfficialMcpRuntime,
+): OfficialPluginTool[] {
+    if (!config.enabled || !runtime) return [];
+    const blocked = new Set(config.blockedTools);
+    return runtime.bridge.getTools().filter((tool) => !blocked.has(tool.name));
+}
+
+export function rebaseOfficialSchemaRefs(
+    value: unknown,
+    basePointer: string,
+): unknown {
+    if (Array.isArray(value)) {
+        return value.map((item) => rebaseOfficialSchemaRefs(item, basePointer));
+    }
+    if (value === null || typeof value !== 'object') return value;
+
+    return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([key, child]) => {
+            if (key === '$ref' && typeof child === 'string' && child.startsWith('#')) {
+                return [key, `${basePointer}${child.slice(1)}`];
+            }
+            return [key, rebaseOfficialSchemaRefs(child, basePointer)];
+        }),
+    );
+}
+
+function actionVariant(tool: OfficialPluginTool, branchIndex: number): Record<string, unknown> {
+    const safety = tool.readOnlyHint
+        ? 'Declared read-only by the registering plugin.'
+        : 'May modify data or trigger side effects. Explicit user confirmation is required before calling.';
+    const degradation = tool.schemaDegraded
+        ? ' The original input schema was invalid and has been degraded to a generic object.'
+        : '';
+    return {
+        type: 'object',
+        title: tool.title || tool.name,
+        description: `${tool.description || tool.name} ${safety}${degradation}`,
+        readOnlyHint: tool.readOnlyHint,
+        ...(tool.effectScope ? { effectScope: tool.effectScope } : {}),
+        properties: {
+            action: {
+                type: 'string',
+                const: tool.name,
+                description: `Official SiYuan plugin tool name: ${tool.name}`,
+            },
+            arguments: rebaseOfficialSchemaRefs(
+                tool.inputSchema,
+                `#/oneOf/${branchIndex}/properties/arguments`,
+            ),
+        },
+        required: ['action', 'arguments'],
+        additionalProperties: false,
+    };
+}
+
+export function listExtensionTools(
+    config: ExtensionCategoryToolConfig,
+    runtime?: OfficialMcpRuntime,
+): ToolDescriptor[] {
+    if (!config.enabled) return [];
+    const tools = enabledTools(config, runtime);
+    const actionNames = ['help', 'list', ...tools.map((tool) => tool.name)];
+    const variants: Record<string, unknown>[] = [{
+        type: 'object',
+        title: 'Extension help',
+        properties: {
+            action: { type: 'string', const: 'help' },
+            topic: {
+                type: 'string',
+                description: 'Optional official plugin tool full name.',
+            },
+        },
+        required: ['action'],
+        additionalProperties: false,
+    }, {
+        type: 'object',
+        title: 'List official plugin tools',
+        properties: {
+            action: { type: 'string', const: 'list' },
+            refresh: {
+                type: 'boolean',
+                description: 'Refresh the official SiYuan MCP registry before returning the list.',
+            },
+        },
+        required: ['action'],
+        additionalProperties: false,
+    }, ...tools.map((tool, index) => actionVariant(tool, index + 2))];
+
+    return [{
+        name: 'extension',
+        description: [
+            EXTENSION_DESCRIPTION,
+            `Currently exposed actions: ${actionNames.join(', ')}.`,
+        ].join('\n\n'),
+        inputSchema: {
+            type: 'object',
+            properties: {
+                action: {
+                    type: 'string',
+                    enum: actionNames,
+                    description: 'Use list or an official plugin tool full name.',
+                },
+                arguments: {
+                    type: 'object',
+                    description: 'Arguments forwarded unchanged to the selected plugin tool.',
+                    additionalProperties: true,
+                },
+                refresh: { type: 'boolean' },
+                topic: { type: 'string' },
+            },
+            required: ['action'],
+            oneOf: variants,
+        },
+    }];
+}
+
+export async function prepareExtensionTools(
+    config: ExtensionCategoryToolConfig,
+    runtime?: OfficialMcpRuntime,
+): Promise<OfficialMcpDiscoverySnapshot | undefined> {
+    if (!config.enabled || !runtime) return undefined;
+    const snapshot = await runtime.bridge.refresh();
+    if (snapshot.changed) {
+        await notifyListChanged(runtime);
+    }
+    return snapshot;
+}
+
+async function notifyListChanged(runtime: OfficialMcpRuntime): Promise<void> {
+    try {
+        await runtime.notifyToolListChanged?.();
+    } catch {
+        // Discovery and calls remain usable even when the outer client has
+        // already disconnected or does not accept list-changed notifications.
+    }
+}
+
+function formatDiscovery(
+    snapshot: OfficialMcpDiscoverySnapshot,
+    config: ExtensionCategoryToolConfig,
+) {
+    const blocked = new Set(config.blockedTools);
+    return {
+        connected: snapshot.connected,
+        lastSuccessfulRefreshAt: snapshot.lastSuccessfulRefreshAt,
+        lastAttemptAt: snapshot.lastAttemptAt,
+        error: snapshot.error,
+        changed: snapshot.changed,
+        discoveredCount: snapshot.tools.length,
+        exposedCount: snapshot.tools.filter((tool) => !blocked.has(tool.name)).length,
+        schemaBytes: JSON.stringify(snapshot.tools.map((tool) => tool.inputSchema)).length,
+        tools: snapshot.tools.map((tool) => ({
+            name: tool.name,
+            title: tool.title,
+            description: tool.description,
+            readOnlyHint: tool.readOnlyHint,
+            effectScope: tool.effectScope,
+            schemaDegraded: tool.schemaDegraded,
+            blocked: blocked.has(tool.name),
+        })),
+        hint: snapshot.error
+            ? 'Official plugin MCP tools require SiYuan 3.7.0+, an administrator session, and a valid API token.'
+            : 'Call extension(action="<full tool name>", arguments={...}).',
+    };
+}
+
+function helpResult(
+    topic: string | undefined,
+    config: ExtensionCategoryToolConfig,
+    runtime?: OfficialMcpRuntime,
+): ToolResult {
+    const tool = runtime?.bridge.getTools().find((candidate) => candidate.name === topic);
+    if (topic && tool) {
+        return textResult({
+            tool: tool.name,
+            title: tool.title,
+            description: tool.description,
+            readOnlyHint: tool.readOnlyHint,
+            requiresConfirmation: !tool.readOnlyHint,
+            effectScope: tool.effectScope,
+            blocked: config.blockedTools.includes(tool.name),
+            schemaDegraded: tool.schemaDegraded,
+            inputSchema: tool.inputSchema,
+            call: {
+                action: tool.name,
+                arguments: {},
+            },
+        });
+    }
+
+    return textResult({
+        tool: 'extension',
+        description: EXTENSION_DESCRIPTION,
+        actions: {
+            list: {
+                parameters: { refresh: 'boolean, optional' },
+                description: 'Inspect or refresh official plugin tool discovery.',
+            },
+            '<plugin tool full name>': {
+                parameters: { arguments: 'object, required' },
+                description: 'Forward one call to the selected official plugin tool. Calls are never retried.',
+            },
+        },
+        discoveredTools: runtime?.bridge.getTools().map((candidate) => candidate.name) ?? [],
+    });
+}
+
+export async function callExtensionTool(
+    _client: SiYuanClient,
+    rawArgs: Record<string, unknown> | undefined,
+    config: ExtensionCategoryToolConfig,
+    _permMgr: PermissionManager,
+    runtime?: OfficialMcpRuntime,
+): Promise<ToolResult> {
+    const action = typeof rawArgs?.action === 'string' ? rawArgs.action : '';
+    if (action === 'help') {
+        return helpResult(
+            typeof rawArgs?.topic === 'string' ? rawArgs.topic : undefined,
+            config,
+            runtime,
+        );
+    }
+    if (!runtime) {
+        return textResult('Official MCP bridge runtime is unavailable.', true);
+    }
+    if (action === 'list') {
+        const cachedSnapshot = runtime.bridge.getSnapshot();
+        const snapshot = rawArgs?.refresh === true || !cachedSnapshot.lastAttemptAt
+            ? await runtime.bridge.refresh()
+            : cachedSnapshot;
+        if (snapshot.changed) {
+            await notifyListChanged(runtime);
+        }
+        return textResult(formatDiscovery(snapshot, config));
+    }
+    if (!action) {
+        return textResult('extension.action is required. Use action="list" to inspect available plugin tools.', true);
+    }
+    if (config.blockedTools.includes(action)) {
+        return textResult(`Official plugin tool "${action}" is blocked in Sisyphus settings.`, true);
+    }
+
+    let tool = runtime.bridge.getTools().find((candidate) => candidate.name === action);
+    if (!tool) {
+        const snapshot = await runtime.bridge.refresh();
+        if (snapshot.changed) {
+            await notifyListChanged(runtime);
+        }
+        tool = snapshot.tools.find((candidate) => candidate.name === action);
+    }
+    if (!tool) {
+        return textResult(
+            `Unknown official plugin tool "${action}". Use extension(action="list", refresh=true) to inspect current tools.`,
+            true,
+        );
+    }
+
+    const downstreamArgs = rawArgs?.arguments;
+    if (downstreamArgs === null || typeof downstreamArgs !== 'object' || Array.isArray(downstreamArgs)) {
+        return textResult('extension.arguments must be an object.', true);
+    }
+    return runtime.bridge.callTool(action, downstreamArgs as Record<string, unknown>);
+}

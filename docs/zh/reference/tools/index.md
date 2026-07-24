@@ -1,6 +1,6 @@
 # 工具索引
 
-这个页面汇总项目暴露的 12 个聚合工具。
+这个页面汇总项目暴露的 13 个聚合工具。
 
 适用场景：你已经知道大致领域，但还需要定位到具体工具页面。
 
@@ -21,6 +21,7 @@
 | `tag` | 3 | [tag 工具](./tag.md) |
 | `system` | 8 | [system 工具](./system.md) |
 | `flashcard` | 6 | [flashcard 工具](./flashcard.md) |
+| `extension` | 动态 | [extension 工具](./extension.md) |
 | `mascot` | 3 | [mascot 工具](./mascot.md) |
 | `feedback` | 1 | [feedback 工具](./feedback.md) |
 
@@ -36,5 +37,6 @@
 - `tag`: list, rename, remove
 - `system`: workspace_info, network, conf, notify, changelog, perform_sync, get_version, get_current_time
 - `flashcard`: list_cards, get_decks, get_cards, review_card, create_card, remove_card
+- `extension`: list，以及每个已启用官方插件工具对应的动态 action
 - `mascot`: get_balance, shop, buy
 - `feedback`: submit

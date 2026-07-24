@@ -4,7 +4,7 @@
 
 > ⚠️ **Prerequisite: This CLI requires the `siyuan-plugins-mcp-sisyphus` plugin from this repo.** Install and enable the plugin in SiYuan first, then open the plugin settings panel and configure permissions before running CLI tool commands. The CLI now checks this requirement and will fail fast if the plugin is missing or not initialized.
 
-Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (fs, block, document, notebook, av, search, tag, file, system, flashcard, mascot, feedback) is exposed as a subcommand you can call directly from a shell.
+Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (fs, block, document, notebook, av, search, tag, file, system, flashcard, extension, mascot, feedback) is exposed as a subcommand you can call directly from a shell.
 
 > **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, and system workflows.
 

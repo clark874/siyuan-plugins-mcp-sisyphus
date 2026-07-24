@@ -9,6 +9,7 @@ import { runDispatch } from '@/cli/dispatch';
 import * as pluginCheck from '@/cli/plugin-check';
 import { buildDefaultToolConfig } from '@/core/config';
 import { PermissionManager } from '@/core/permissions';
+import { OfficialMcpBridge, type OfficialPluginTool } from '@/core/official-mcp-bridge';
 import { runToolCall } from '@/core/tool-lifecycle';
 import { TOOL_REGISTRY } from '@/core/tool-registry';
 
@@ -61,6 +62,50 @@ describe('cli/dispatch', () => {
         delete process.env.SIYUAN_MCP_TRANSPORT;
         delete process.env.SIYUAN_API_URL;
         delete process.env.SIYUAN_TOKEN;
+    });
+
+    it('maps --arguments-json into the nested extension arguments object', async () => {
+        const io = captureStdIO();
+        const tool: OfficialPluginTool = {
+            name: 'plugin__example__aggregate',
+            description: 'Example aggregate',
+            inputSchema: {
+                type: 'object',
+                properties: { action: { type: 'string' } },
+            },
+            source: 'plugin',
+            readOnlyHint: true,
+            schemaDegraded: false,
+        };
+        vi.spyOn(OfficialMcpBridge.prototype, 'refresh').mockResolvedValue({
+            tools: [tool],
+            connected: true,
+            changed: false,
+        });
+        vi.spyOn(OfficialMcpBridge.prototype, 'getTools').mockReturnValue([tool]);
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.extension, 'callTool').mockResolvedValue(okResult());
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'extension',
+            action: tool.name,
+            rest: ['--arguments-json', '{"action":"inner_action","value":7}'],
+            json: true,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(0);
+        expect(callToolSpy).toHaveBeenCalledWith(
+            expect.anything(),
+            {
+                action: tool.name,
+                arguments: { action: 'inner_action', value: 7 },
+            },
+            expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        );
+        io.restore();
     });
 
     afterEach(() => {

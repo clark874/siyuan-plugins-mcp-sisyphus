@@ -44,6 +44,7 @@ export const CATEGORY_TAB_DEFS: CategoryTabDefinition[] = [
     { category: "tag", groupKey: "Tags", iconKey: "tagIcon" },
     { category: "system", groupKey: "System", iconKey: "monitor" },
     { category: "flashcard", groupKey: "Flashcards", iconKey: "layers" },
+    { category: "extension", groupKey: "Extension Tools", iconKey: "layers" },
     { category: "mascot", groupKey: "Mascot Tool", iconKey: "paw" },
     { category: "feedback", groupKey: "Feedback Tool", iconKey: "message" },
 ];

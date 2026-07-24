@@ -5,7 +5,7 @@ import {
     isDangerousAction,
 } from '../core/config';
 import { normalizeActionAlias } from '../core/action-aliases';
-import { TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
+import { TOOL_REGISTRY, prepareTool, resolveCategory } from '../core/tool-registry';
 import { PRIMARY_CLI_COMMAND } from '../shared/constants';
 
 
@@ -23,16 +23,24 @@ import { loadCliRuntimeState } from './runtime';
 export async function runList(cli: ParsedArgs): Promise<number> {
     const out = process.stdout;
     const toolFilter = cli.tool ? resolveCategory(cli.tool) : null;
-    const { toolConfig } = await loadCliRuntimeState(cli, { loadPermissions: false });
+    const { toolConfig, officialMcpRuntime } = await loadCliRuntimeState(cli, { loadPermissions: false });
+    await prepareTool('extension', toolConfig, officialMcpRuntime);
 
     if (!toolFilter) {
         if (cli.tool) {
             renderCliError(`Unknown tool "${cli.tool}". Showing all tools instead.`);
         }
-        const enabledTools = TOOL_CATEGORIES.filter((cat) => TOOL_REGISTRY[cat].listTools(toolConfig[cat]).length > 0);
+        const enabledTools = TOOL_CATEGORIES.filter((cat) => TOOL_REGISTRY[cat].listTools(toolConfig[cat], officialMcpRuntime).length > 0);
         writeHeading('SiYuan tools', out);
         writeBulletList(enabledTools.map((cat) => {
-            const actions = getEnabledActions(toolConfig[cat]);
+            const actions = cat === 'extension'
+                ? [
+                    'list',
+                    ...officialMcpRuntime.bridge.getTools()
+                        .filter((tool) => !toolConfig.extension.blockedTools.includes(tool.name))
+                        .map((tool) => tool.name),
+                ]
+                : getEnabledActions(toolConfig[cat]);
             const basicCount = actions.filter((action) => getActionTier(cat, action) === 'basic').length;
             const advancedCount = actions.length - basicCount;
             return `${cat} — ${actions.length} actions (${basicCount} common, ${advancedCount} advanced)`;
@@ -42,15 +50,28 @@ export async function runList(cli: ParsedArgs): Promise<number> {
         return 0;
     }
 
-    if (TOOL_REGISTRY[toolFilter].listTools(toolConfig[toolFilter]).length === 0) {
+    if (TOOL_REGISTRY[toolFilter].listTools(toolConfig[toolFilter], officialMcpRuntime).length === 0) {
         renderCliError(`Tool "${toolFilter}" is disabled.`);
         return 1;
     }
 
     writeHeading(`${toolFilter} actions`, out);
-    writeBulletList(getEnabledActions(toolConfig[toolFilter]).map((action) => {
+    const actions = toolFilter === 'extension'
+        ? [
+            'list',
+            ...officialMcpRuntime.bridge.getTools()
+                .filter((tool) => !toolConfig.extension.blockedTools.includes(tool.name))
+                .map((tool) => tool.name),
+        ]
+        : getEnabledActions(toolConfig[toolFilter]);
+    writeBulletList(actions.map((action) => {
+        const extensionTool = toolFilter === 'extension'
+            ? officialMcpRuntime.bridge.getTools().find((tool) => tool.name === action)
+            : undefined;
         const tier = getActionTier(toolFilter, action) === 'basic' ? 'common' : 'advanced';
-        const safety = isDangerousAction(toolFilter, action) ? ' · confirmation required' : '';
+        const safety = extensionTool
+            ? extensionTool.readOnlyHint ? ' · declared read-only' : ' · confirmation required'
+            : isDangerousAction(toolFilter, action) ? ' · confirmation required' : '';
         return `${action} — ${tier}${safety}`;
     }), out);
     writeSection('Next Step', out);
@@ -76,7 +97,7 @@ export async function runHelp(cli: ParsedArgs): Promise<number> {
     }
 
     try {
-        const { client, toolConfig, permMgr } = await loadCliRuntimeState(cli, { loadPermissions: false });
+        const { client, toolConfig, permMgr, officialMcpRuntime } = await loadCliRuntimeState(cli, { loadPermissions: false });
         if (!toolConfig[category].enabled) {
             return renderToolResult({
                 content: [{ type: 'text', text: `Tool "${tool}" is disabled.` }],
@@ -85,10 +106,11 @@ export async function runHelp(cli: ParsedArgs): Promise<number> {
         }
 
         const module = TOOL_REGISTRY[category];
+        await prepareTool(category, toolConfig, officialMcpRuntime);
         const payload: Record<string, unknown> = { action: 'help' };
         if (cli.action) payload.topic = normalizeActionAlias(category, cli.action);
 
-        const result = await module.callTool(client, payload, toolConfig[category], permMgr);
+        const result = await module.callTool(client, payload, toolConfig[category], permMgr, officialMcpRuntime);
         return renderToolResult(result, { json: cli.json, debug: cli.debug });
     } catch (error) {
         renderCliError(error, { debug: cli.debug });
