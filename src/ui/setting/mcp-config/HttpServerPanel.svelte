@@ -430,8 +430,18 @@
 <SettingPanel {group} settingItems={[]} {display}>
     <div class="http-server-section">
         <section class="http-changelog" aria-labelledby="tool-settings-changelog-title">
-            <div id="tool-settings-changelog-title" class="http-changelog-title">{changelogTitle}</div>
-            <textarea class="b3-text-field http-changelog-text" readonly aria-label={changelogTitle}>{changelogText}</textarea>
+            <span class="http-changelog-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                    <path d="m12 2 1.55 4.45L18 8l-4.45 1.55L12 14l-1.55-4.45L6 8l4.45-1.55L12 2Zm6.25 10.5.95 2.3 2.3.95-2.3.95-.95 2.3-.95-2.3-2.3-.95 2.3-.95.95-2.3ZM6 14l1.2 3.3L10.5 18l-3.3 1.2L6 22.5l-1.2-3.3L1.5 18l3.3-.7L6 14Z"/>
+                </svg>
+            </span>
+            <div class="http-changelog-copy">
+                <div class="http-changelog-heading">
+                    <div id="tool-settings-changelog-title" class="http-changelog-title">{changelogTitle}</div>
+                    <span>{getLabel("toolSettingsChangelogBadge", "Latest")}</span>
+                </div>
+                <p class="http-changelog-text">{changelogText}</p>
+            </div>
         </section>
 
         <section class="http-overview" aria-labelledby="connection-overview-title">
@@ -648,11 +658,56 @@
         font-size: 13px;
 
         .http-changelog {
+            align-items: flex-start;
             background: var(--mcp-config-surface, var(--b3-theme-surface));
             border: 1px solid var(--mcp-config-border, var(--b3-border-color));
             border-radius: var(--mcp-config-card-radius, 8px);
             box-shadow: var(--mcp-config-shadow, none);
+            display: flex;
+            gap: 12px;
             padding: var(--mcp-config-card-padding, 16px);
+        }
+
+        .http-changelog-icon {
+            align-items: center;
+            background: var(--mcp-config-primary-soft, color-mix(in srgb, var(--b3-theme-primary) 12%, transparent));
+            border: 1px solid var(--mcp-config-primary-border, color-mix(in srgb, var(--b3-theme-primary) 26%, transparent));
+            border-radius: var(--mcp-config-icon-radius, 10px);
+            color: var(--b3-theme-primary);
+            display: inline-flex;
+            flex: 0 0 34px;
+            height: 34px;
+            justify-content: center;
+            width: 34px;
+        }
+
+        .http-changelog-icon svg {
+            fill: currentColor;
+            height: 17px;
+            width: 17px;
+        }
+
+        .http-changelog-copy {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .http-changelog-heading {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .http-changelog-heading > span {
+            background: var(--mcp-config-primary-soft, color-mix(in srgb, var(--b3-theme-primary) 12%, transparent));
+            border: 1px solid var(--mcp-config-primary-border, color-mix(in srgb, var(--b3-theme-primary) 26%, transparent));
+            border-radius: 999px;
+            color: var(--b3-theme-primary);
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.4;
+            padding: 2px 7px;
         }
 
         .http-overview {
@@ -676,14 +731,14 @@
             color: var(--mcp-config-title-color, var(--b3-theme-on-background));
             font-size: var(--mcp-config-title-font-size, 14px);
             font-weight: var(--mcp-config-title-font-weight, 500);
-            margin-bottom: 8px;
         }
 
         .http-changelog-text {
-            box-sizing: border-box;
-            min-height: 4.5em;
-            resize: vertical;
-            width: 100%;
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+            font-size: 12px;
+            line-height: 1.6;
+            margin: 5px 0 0;
+            white-space: pre-wrap;
         }
 
         .http-status-row {
@@ -795,19 +850,59 @@
             border: 1px solid var(--mcp-config-border, var(--b3-border-color));
             border-radius: var(--mcp-config-card-radius, 8px);
             box-shadow: var(--mcp-config-shadow, none);
-            padding: var(--mcp-config-card-padding, 16px);
+            overflow: hidden;
+            transition: border-color 0.14s ease, box-shadow 0.14s ease;
 
             > summary {
+                align-items: center;
                 cursor: pointer;
                 color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+                display: flex;
+                gap: 8px;
                 font-size: var(--mcp-config-title-font-size, 14px);
-                user-select: none;
                 font-weight: var(--mcp-config-title-font-weight, 500);
+                list-style: none;
+                min-height: 24px;
+                padding: var(--mcp-config-card-padding, 16px);
+                user-select: none;
+            }
+
+            > summary::-webkit-details-marker {
+                display: none;
+            }
+
+            > summary::after {
+                border-bottom: 2px solid currentColor;
+                border-right: 2px solid currentColor;
+                color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+                content: "";
+                height: 6px;
+                margin-left: auto;
+                transform: rotate(45deg);
+                transition: transform 0.16s ease;
+                width: 6px;
+            }
+
+            &[open] {
+                border-color: color-mix(in srgb, var(--b3-theme-primary) 28%, var(--b3-border-color));
+            }
+
+            &[open] > summary {
+                background: color-mix(in srgb, var(--mcp-config-primary-soft) 46%, transparent);
+                border-bottom: 1px solid var(--mcp-config-border, var(--b3-border-color));
+            }
+
+            &[open] > summary::after {
+                transform: rotate(225deg);
             }
         }
 
+        .http-guide > .http-guide-content {
+            margin-top: 0;
+            padding: 16px 18px 18px;
+        }
+
         .http-guide-content {
-            margin-top: 10px;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -815,8 +910,8 @@
 
         .http-choice-card,
         .http-subproject {
-            background: var(--b3-theme-background);
-            border: 1px solid var(--b3-border-color);
+            background: color-mix(in srgb, var(--b3-theme-background) 72%, transparent);
+            border: 1px solid var(--mcp-config-border, var(--b3-border-color));
             border-radius: var(--mcp-config-card-radius, 8px);
             padding: 10px 12px;
         }

@@ -67,7 +67,7 @@
     }
 
     .item-wrap.b3-label:hover {
-        background: color-mix(in srgb, var(--b3-list-hover) 55%, transparent);
+        background: color-mix(in srgb, var(--b3-list-hover) 46%, transparent);
     }
 
     .item-wrap.fn__flex {

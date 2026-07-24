@@ -298,16 +298,6 @@
     const getDangerTitle = (title: string) => `${title} ${getLabel("mcpHighRiskBadge", "[High risk]")}`;
     const getDangerDescription = (description: string) => `${description} ${getLabel("mcpRequiresConfirmation", "Requires explicit user confirmation before execution.")} ${getLabel("mcpDefaultVisible", "This action stays visible in the default configuration.")}`;
 
-    function buildToolToggleItem(definition: GroupDefinition): ISettingItem {
-        return {
-            type: "checkbox",
-            key: `${definition.category}__enabled`,
-            value: config[definition.category].enabled,
-            title: getLabel(`${definition.category}_tool_title`, `${definition.groupKey} Tool`),
-            description: getLabel(`${definition.category}_tool_desc`, `Expose the grouped ${definition.category} tool to MCP clients.`),
-        };
-    }
-
     function buildUploadAssetThresholdItem(): ISettingItemCore {
         return {
             type: "number",
@@ -347,7 +337,7 @@
         if (!definition) {
             throw new Error(`Unknown tool category: ${category}`);
         }
-        return [buildToolToggleItem(definition), ...buildActionItems(definition)];
+        return buildActionItems(definition);
     }
 
     function toggleCategory(category: ToolCategory) {
