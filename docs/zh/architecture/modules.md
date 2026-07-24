@@ -467,7 +467,7 @@ CLI flag (--url / --token)
 
 ### `tool-config.ts` — Schema 定义
 
-定义 13 个 `ToolCategory`，每个含 `enabled` + `actions` + 额外字段（如 `file` 的 `uploadLargeFileThresholdMB`、`extension` 的 `blockedTools`）。
+定义 13 个 `ToolCategory`，每个含 `enabled` + `actions` + 额外字段（如 `file` 的 `uploadLargeFileThresholdMB`、`extension` 的 `includeNativeTools` 与 `blockedTools`）。
 
 ### `tool-config-storage.ts` — 持久化层
 

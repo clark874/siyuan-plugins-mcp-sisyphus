@@ -17,7 +17,7 @@ getToolConfig()  [30s TTL cache / in-flight deduplication]
     ↓ Read from SiYuan storage /data/storage/petal/.../mcpToolsConfig
     ↓ normalizeToolConfig(raw)  [Three-format compatibility migration]
 prepareAllTools(config, runtime)
-    ↓ Static categories are no-ops; extension refreshes the official plugin-tool cache
+    ↓ Static categories are no-ops; extension refreshes the official plugin/native tool cache
 listAllTools(config, runtime)
     ↓ Iterate over 13 categories in TOOL_REGISTRY
     ↓ For each module: module.listTools(config[category], runtime)

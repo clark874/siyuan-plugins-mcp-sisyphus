@@ -23,6 +23,7 @@ describe('setting tool config', () => {
         expect(config.flashcard.actions.remove_card).toBe(true);
         expect(config.extension.enabled).toBe(true);
         expect(config.extension.actions.list).toBe(true);
+        expect(config.extension.includeNativeTools).toBe(false);
         expect(config.extension.blockedTools).toEqual([]);
         expect(config.mascot.actions.get_balance).toBe(true);
         expect(config.mascot.actions.shop).toBe(true);
@@ -89,15 +90,29 @@ describe('setting tool config', () => {
             extension: {
                 enabled: true,
                 actions: { list: true },
+                includeNativeTools: true,
                 blockedTools: [' plugin__beta__write ', 'plugin__alpha__read', 'plugin__beta__write', 42],
             },
         });
 
         expect(config.extension.enabled).toBe(true);
+        expect(config.extension.includeNativeTools).toBe(true);
         expect(config.extension.blockedTools).toEqual([
             'plugin__alpha__read',
             'plugin__beta__write',
         ]);
+    });
+
+    it('keeps native official tools disabled when old extension config omits the switch', () => {
+        const config = normalizeToolConfig({
+            extension: {
+                enabled: true,
+                actions: { list: true },
+                blockedTools: [],
+            },
+        });
+
+        expect(config.extension.includeNativeTools).toBe(false);
     });
 
     it('keeps flashcard nested action toggles', () => {

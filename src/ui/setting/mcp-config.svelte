@@ -44,8 +44,8 @@
     import ToolCategoriesPanel from "./mcp-config/ToolCategoriesPanel.svelte";
     import UserRulesPanel from "./mcp-config/UserRulesPanel.svelte";
     import {
-        discoverOfficialPluginTools,
-        type UiOfficialPluginToolDiscovery,
+        discoverOfficialTools,
+        type UiOfficialMcpDiscovery,
     } from "./official-plugin-tools";
     import {
         HTTP_GROUP_KEY,
@@ -84,7 +84,7 @@
     let notebooks: NotebookInfo[] = [];
     let permissions: Record<string, NotebookPermission> = {};
     let permLoading = true;
-    let extensionDiscovery: UiOfficialPluginToolDiscovery = {
+    let extensionDiscovery: UiOfficialMcpDiscovery = {
         loading: false,
         connected: false,
         tools: [],
@@ -153,7 +153,7 @@
 
     async function refreshExtensionTools() {
         extensionDiscovery = { ...extensionDiscovery, loading: true, error: undefined };
-        extensionDiscovery = await discoverOfficialPluginTools();
+        extensionDiscovery = await discoverOfficialTools();
     }
 
     onMount(async () => {
@@ -210,6 +210,7 @@
         config = {
             ...config,
             [category]: {
+                ...config[category],
                 enabled: enabled ? true : hasEnabledActions ? config[category].enabled : false,
                 actions: nextActions,
             },
@@ -362,6 +363,21 @@
             setCategoryEnabled(category, Boolean(value));
             await persistConfig();
             if (category === "extension" && value) {
+                await refreshExtensionTools();
+            }
+            return;
+        }
+
+        if (key === "extension__include_native_tools") {
+            config = {
+                ...config,
+                extension: {
+                    ...config.extension,
+                    includeNativeTools: Boolean(value),
+                },
+            };
+            await persistConfig();
+            if (value && !extensionDiscovery.connected) {
                 await refreshExtensionTools();
             }
             return;

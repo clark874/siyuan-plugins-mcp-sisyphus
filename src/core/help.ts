@@ -127,12 +127,13 @@ export const FLASHCARD_GUIDANCE: string[] = [
 ];
 
 export const EXTENSION_GUIDANCE: string[] = [
-    'extension bridges tools registered by other SiYuan kernel plugins through the official /mcp endpoint and requires SiYuan 3.7.0 or newer.',
-    'Use extension(action="list", refresh=true) to refresh discovery and inspect official full tool names, schemas, read-only declarations, and blocked state.',
-    'Call a discovered tool with extension(action="plugin__plugin_name__tool_name", arguments={...}). Downstream parameters must stay inside arguments, including a downstream action field.',
-    'Only source="plugin" tools are exposed. SiYuan native tools, external MCP tools, and this plugin’s own registered tools are excluded.',
+    'extension bridges tools from the official SiYuan /mcp endpoint and requires SiYuan 3.7.0 or newer.',
+    'Plugin tools are exposed by default. Native SiYuan tools are exposed only when extension.includeNativeTools is enabled; external source="mcp" tools remain excluded.',
+    'Use extension(action="list", refresh=true) to refresh discovery and inspect official tool names, sources, schemas, read-only declarations, and blocked state.',
+    'Call a discovered tool with extension(action="<official tool name>", arguments={...}). Downstream parameters must stay inside arguments, including a downstream action field.',
     'Tools without readOnlyHint=true may mutate data or trigger side effects and require explicit user confirmation before calling.',
-    'Forwarded plugin tool calls are never retried. A transport error after dispatch means execution status is unknown and must be checked before retrying.',
+    'Forwarded official MCP tool calls are never retried. A transport error after dispatch means execution status is unknown and must be checked before retrying.',
+    'Native tools can overlap with Sisyphus actions and substantially increase schema size, so includeNativeTools is disabled by default.',
 ];
 
 export const MASCOT_GUIDANCE: string[] = [
@@ -292,7 +293,7 @@ export const FEEDBACK_ACTION_HINTS: Partial<Record<FeedbackAction, string>> = {
 };
 
 export const EXTENSION_ACTION_HINTS: Partial<Record<string, string>> = {
-    list: 'Set refresh=true to re-read the official SiYuan plugin tool registry. Discovery failures preserve the last successful cache and do not disable other Sisyphus tools.',
+    list: 'Set refresh=true to re-read the official SiYuan MCP tool registry. The result separates plugin/native sources and reports the currently exposed schema size. Discovery failures preserve the last successful cache.',
 };
 
 export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
@@ -542,7 +543,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
     },
     extension: {
         list: [{
-            title: 'Refresh official plugin tool discovery',
+            title: 'Refresh official MCP tool discovery',
             mcp: { action: 'list', refresh: true },
         }],
     },

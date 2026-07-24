@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildDefaultToolConfig } from '@/core/config';
-import type { OfficialMcpRuntime, OfficialPluginTool } from '@/core/official-mcp-bridge';
+import type { OfficialMcpRuntime, OfficialMcpTool } from '@/core/official-mcp-bridge';
 import {
     callExtensionTool,
     listExtensionTools,
@@ -10,7 +10,7 @@ import {
 import { createMockClient } from '../../helpers/mock-client';
 import { createMockPermissionManager } from '../../helpers/mock-permissions';
 
-function pluginTool(overrides: Partial<OfficialPluginTool> = {}): OfficialPluginTool {
+function pluginTool(overrides: Partial<OfficialMcpTool> = {}): OfficialMcpTool {
     return {
         name: 'plugin__alpha__aggregate',
         title: 'Alpha aggregate',
@@ -29,6 +29,17 @@ function pluginTool(overrides: Partial<OfficialPluginTool> = {}): OfficialPlugin
         schemaDegraded: false,
         ...overrides,
     };
+}
+
+function nativeTool(overrides: Partial<OfficialMcpTool> = {}): OfficialMcpTool {
+    return pluginTool({
+        name: 'document',
+        title: 'Native document',
+        description: 'The native SiYuan document tool.',
+        source: 'native',
+        readOnlyHint: false,
+        ...overrides,
+    });
 }
 
 function fakeRuntime(tools = [pluginTool()]) {
@@ -100,14 +111,57 @@ describe('extension tool', () => {
         });
     });
 
-    it('removes blocked tools from the exposed action schema', () => {
+    it('removes blocked plugin and native tools from the exposed action schema', () => {
         const config = buildDefaultToolConfig().extension;
-        config.blockedTools = ['plugin__alpha__aggregate'];
-        const { runtime } = fakeRuntime();
+        config.includeNativeTools = true;
+        config.blockedTools = ['plugin__alpha__aggregate', 'document'];
+        const { runtime } = fakeRuntime([pluginTool(), nativeTool()]);
 
         const descriptor = listExtensionTools(config, runtime)[0];
 
         expect((descriptor.inputSchema as any).properties.action.enum).not.toContain('plugin__alpha__aggregate');
+        expect((descriptor.inputSchema as any).properties.action.enum).not.toContain('document');
+    });
+
+    it('keeps native tools hidden by default and exposes their official names when enabled', () => {
+        const config = buildDefaultToolConfig().extension;
+        const native = nativeTool();
+        const { runtime } = fakeRuntime([pluginTool(), native]);
+
+        let descriptor = listExtensionTools(config, runtime)[0];
+        expect((descriptor.inputSchema as any).properties.action.enum).not.toContain(native.name);
+
+        config.includeNativeTools = true;
+        descriptor = listExtensionTools(config, runtime)[0];
+        const branch = (descriptor.inputSchema as any).oneOf
+            .find((item: any) => item.properties?.action?.const === native.name);
+        expect((descriptor.inputSchema as any).properties.action.enum).toContain('document');
+        expect(branch.source).toBe('native');
+    });
+
+    it('does not expose official tools that conflict with reserved extension actions', async () => {
+        const config = buildDefaultToolConfig().extension;
+        config.includeNativeTools = true;
+        const reserved = nativeTool({ name: 'help' });
+        const { runtime } = fakeRuntime([reserved]);
+
+        const descriptor = listExtensionTools(config, runtime)[0];
+        expect((descriptor.inputSchema as any).properties.action.enum).toEqual(['help', 'list']);
+
+        const result = await callExtensionTool(
+            createMockClient(),
+            { action: 'list' },
+            config,
+            createMockPermissionManager(),
+            runtime,
+        );
+        const payload = JSON.parse(result.content[0].text);
+        expect(payload.tools[0]).toEqual(expect.objectContaining({
+            name: 'help',
+            source: 'native',
+            reservedActionConflict: true,
+            exposed: false,
+        }));
     });
 
     it('forwards nested arguments unchanged exactly once', async () => {
@@ -129,6 +183,34 @@ describe('extension tool', () => {
         expect(callTool).toHaveBeenCalledTimes(1);
         expect(callTool).toHaveBeenCalledWith('plugin__alpha__aggregate', downstreamArgs);
         expect(result.isError).not.toBe(true);
+    });
+
+    it('rejects cached native tools while disabled and forwards them after the switch is enabled', async () => {
+        const config = buildDefaultToolConfig().extension;
+        const native = nativeTool();
+        const { runtime, callTool } = fakeRuntime([native]);
+
+        const disabledResult = await callExtensionTool(
+            createMockClient(),
+            { action: native.name, arguments: { action: 'read' } },
+            config,
+            createMockPermissionManager(),
+            runtime,
+        );
+        expect(disabledResult.isError).toBe(true);
+        expect(disabledResult.content[0].text).toContain('includeNativeTools');
+        expect(callTool).not.toHaveBeenCalled();
+
+        config.includeNativeTools = true;
+        const enabledResult = await callExtensionTool(
+            createMockClient(),
+            { action: native.name, arguments: { action: 'read' } },
+            config,
+            createMockPermissionManager(),
+            runtime,
+        );
+        expect(enabledResult.isError).not.toBe(true);
+        expect(callTool).toHaveBeenCalledWith(native.name, { action: 'read' });
     });
 
     it('refreshes once when a requested action is not cached', async () => {
@@ -173,7 +255,7 @@ describe('extension tool', () => {
         });
         const notifyToolListChanged = vi.fn().mockRejectedValue(new Error('outer client closed'));
         const runtime = {
-            bridge: { refresh },
+            bridge: { refresh, getTools: () => [pluginTool()] },
             notifyToolListChanged,
         } as unknown as OfficialMcpRuntime;
 
@@ -181,5 +263,28 @@ describe('extension tool', () => {
             changed: true,
         }));
         expect(notifyToolListChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it('notifies when includeNativeTools changes the exposed action set', async () => {
+        const { prepareExtensionTools } = await import('@/tools/extension');
+        const config = buildDefaultToolConfig().extension;
+        const tools = [pluginTool(), nativeTool()];
+        const runtime = {
+            bridge: {
+                refresh: vi.fn().mockResolvedValue({
+                    tools,
+                    connected: true,
+                    changed: false,
+                }),
+                getTools: () => tools,
+            },
+            notifyToolListChanged: vi.fn(),
+        } as unknown as OfficialMcpRuntime;
+
+        await prepareExtensionTools(config, runtime);
+        config.includeNativeTools = true;
+        await prepareExtensionTools(config, runtime);
+
+        expect(runtime.notifyToolListChanged).toHaveBeenCalledTimes(2);
     });
 });

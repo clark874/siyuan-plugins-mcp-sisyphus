@@ -25,7 +25,7 @@ import { SiYuanClient } from '@/api/client';
 import {
     OfficialMcpBridge,
     normalizeOfficialInputSchema,
-    selectOfficialPluginTools,
+    selectOfficialTools,
 } from '@/core/official-mcp-bridge';
 
 describe('official MCP bridge', () => {
@@ -35,8 +35,8 @@ describe('official MCP bridge', () => {
         sdkMocks.close.mockResolvedValue(undefined);
     });
 
-    it('preserves SiYuan plugin metadata and excludes other sources and itself', () => {
-        const tools = selectOfficialPluginTools([
+    it('preserves plugin/native metadata, treats missing source as native, and excludes external MCP and itself', () => {
+        const tools = selectOfficialTools([
             {
                 name: 'plugin__alpha__read',
                 title: 'Read',
@@ -47,9 +47,14 @@ describe('official MCP bridge', () => {
                 effectScope: 'local',
             },
             {
-                name: 'native__search',
+                name: 'search',
                 inputSchema: { type: 'object' },
                 source: 'native',
+                effectScope: 'local',
+            },
+            {
+                name: 'document',
+                inputSchema: { type: 'object' },
             },
             {
                 name: 'server__external',
@@ -63,13 +68,25 @@ describe('official MCP bridge', () => {
             },
         ]);
 
-        expect(tools).toEqual([expect.objectContaining({
-            name: 'plugin__alpha__read',
-            title: 'Read',
-            readOnlyHint: true,
-            effectScope: 'local',
-            schemaDegraded: false,
-        })]);
+        expect(tools).toEqual([
+            expect.objectContaining({
+                name: 'document',
+                source: 'native',
+            }),
+            expect.objectContaining({
+                name: 'plugin__alpha__read',
+                title: 'Read',
+                source: 'plugin',
+                readOnlyHint: true,
+                effectScope: 'local',
+                schemaDegraded: false,
+            }),
+            expect.objectContaining({
+                name: 'search',
+                source: 'native',
+                effectScope: 'local',
+            }),
+        ]);
     });
 
     it('degrades invalid non-object input schemas', () => {
@@ -84,7 +101,7 @@ describe('official MCP bridge', () => {
             },
             degraded: false,
         });
-        expect(selectOfficialPluginTools([{
+        expect(selectOfficialTools([{
             name: 'plugin__alpha__malformed',
             description: 'Malformed but still discoverable.',
             inputSchema: 'not-an-object',

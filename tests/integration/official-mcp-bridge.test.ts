@@ -47,14 +47,23 @@ describe('official MCP bridge transport', () => {
                     id: body.id,
                     result: secondPage
                         ? {
-                            tools: [{
-                                name: 'plugin__beta__write',
-                                description: 'Beta write',
-                                inputSchema: { type: 'object', properties: {} },
-                                source: 'plugin',
-                                readOnlyHint: false,
-                                effectScope: 'external',
-                            }],
+                            tools: [
+                                {
+                                    name: 'plugin__beta__write',
+                                    description: 'Beta write',
+                                    inputSchema: { type: 'object', properties: {} },
+                                    source: 'plugin',
+                                    readOnlyHint: false,
+                                    effectScope: 'external',
+                                },
+                                {
+                                    name: 'document',
+                                    description: 'Native document',
+                                    inputSchema: { type: 'object', properties: {} },
+                                    source: 'native',
+                                    effectScope: 'local',
+                                },
+                            ],
                         }
                         : {
                             tools: [{
@@ -97,14 +106,19 @@ describe('official MCP bridge transport', () => {
             const result = await bridge.callTool('plugin__beta__write', { action: 'inner', value: 7 });
 
             expect(snapshot.tools.map((tool) => tool.name)).toEqual([
+                'document',
                 'plugin__alpha__read',
                 'plugin__beta__write',
             ]);
             expect(snapshot.tools[0]).toEqual(expect.objectContaining({
-                readOnlyHint: true,
+                source: 'native',
                 effectScope: 'local',
             }));
             expect(snapshot.tools[1]).toEqual(expect.objectContaining({
+                readOnlyHint: true,
+                effectScope: 'local',
+            }));
+            expect(snapshot.tools[2]).toEqual(expect.objectContaining({
                 readOnlyHint: false,
                 effectScope: 'external',
             }));

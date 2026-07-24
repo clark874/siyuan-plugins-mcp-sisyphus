@@ -31,7 +31,7 @@ Aggregate related APIs by domain into **13 MCP tools**:
 | `tag` | Tag management | ~3 |
 | `system` | System & UI | ~10 |
 | `flashcard` | Flashcard review | ~8 |
-| `extension` | Plugin tools registered with SiYuan's official MCP | Dynamic |
+| `extension` | Official plugin tools and optional native SiYuan MCP tools | Dynamic |
 | `mascot` | Mascot interaction | ~3 |
 | `feedback` | Product feedback submission | 1 |
 

@@ -23,20 +23,22 @@ const OfficialListToolsResultSchema = z.object({
     nextCursor: z.string().optional(),
 }).passthrough();
 
-export interface OfficialPluginTool {
+export type OfficialMcpToolSource = 'plugin' | 'native';
+
+export interface OfficialMcpTool {
     name: string;
     title?: string;
     description?: string;
     inputSchema: Record<string, unknown>;
     outputSchema?: Record<string, unknown>;
-    source: 'plugin';
+    source: OfficialMcpToolSource;
     readOnlyHint: boolean;
     effectScope?: string;
     schemaDegraded: boolean;
 }
 
 export interface OfficialMcpDiscoverySnapshot {
-    tools: OfficialPluginTool[];
+    tools: OfficialMcpTool[];
     connected: boolean;
     lastSuccessfulRefreshAt?: string;
     lastAttemptAt?: string;
@@ -47,6 +49,7 @@ export interface OfficialMcpDiscoverySnapshot {
 export interface OfficialMcpRuntime {
     bridge: OfficialMcpBridge;
     notifyToolListChanged?: () => Promise<void> | void;
+    exposedToolsFingerprint?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -80,13 +83,14 @@ export function normalizeOfficialInputSchema(
     };
 }
 
-export function selectOfficialPluginTools(rawTools: unknown[]): OfficialPluginTool[] {
-    const selected = new Map<string, OfficialPluginTool>();
+export function selectOfficialTools(rawTools: unknown[]): OfficialMcpTool[] {
+    const selected = new Map<string, OfficialMcpTool>();
     for (const rawTool of rawTools) {
         const parsed = OfficialToolSchema.safeParse(rawTool);
         if (!parsed.success) continue;
         const tool = parsed.data;
-        if (tool.source !== 'plugin') continue;
+        const source = !tool.source ? 'native' : tool.source;
+        if (source !== 'plugin' && source !== 'native') continue;
         if (tool.name.startsWith(SELF_PLUGIN_TOOL_PREFIX)) continue;
 
         const normalizedInput = normalizeOfficialInputSchema(tool.inputSchema);
@@ -96,7 +100,7 @@ export function selectOfficialPluginTools(rawTools: unknown[]): OfficialPluginTo
             description: tool.description,
             inputSchema: normalizedInput.schema,
             outputSchema: isRecord(tool.outputSchema) ? tool.outputSchema : undefined,
-            source: 'plugin',
+            source,
             readOnlyHint: tool.readOnlyHint === true,
             effectScope: tool.effectScope,
             schemaDegraded: normalizedInput.degraded,
@@ -109,13 +113,14 @@ function formatError(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
-function toolFingerprint(tools: OfficialPluginTool[]): string {
+function toolFingerprint(tools: OfficialMcpTool[]): string {
     return JSON.stringify(tools.map((tool) => ({
         name: tool.name,
         title: tool.title,
         description: tool.description,
         inputSchema: tool.inputSchema,
         outputSchema: tool.outputSchema,
+        source: tool.source,
         readOnlyHint: tool.readOnlyHint,
         effectScope: tool.effectScope,
         schemaDegraded: tool.schemaDegraded,
@@ -128,7 +133,7 @@ export class OfficialMcpBridge {
     private client?: Client;
     private transport?: StreamableHTTPClientTransport;
     private connecting?: Promise<void>;
-    private cachedTools: OfficialPluginTool[] = [];
+    private cachedTools: OfficialMcpTool[] = [];
     private connected = false;
     private lastSuccessfulRefreshAt?: string;
     private lastAttemptAt?: string;
@@ -139,7 +144,7 @@ export class OfficialMcpBridge {
         this.fetchImpl = options.fetch;
     }
 
-    getTools(): OfficialPluginTool[] {
+    getTools(): OfficialMcpTool[] {
         return this.cachedTools.map((tool) => ({
             ...tool,
             inputSchema: { ...tool.inputSchema },
@@ -211,7 +216,7 @@ export class OfficialMcpBridge {
                 content: [{
                     type: 'text',
                     text: [
-                        `Official plugin tool call failed after dispatch: ${this.lastError}`,
+                        `Official MCP tool call failed after dispatch: ${this.lastError}`,
                         'Execution status is unknown. Inspect the target plugin state before deciding whether to retry.',
                     ].join('\n'),
                 }],
@@ -224,7 +229,7 @@ export class OfficialMcpBridge {
         await this.resetConnection();
     }
 
-    private async listToolsOnce(): Promise<OfficialPluginTool[]> {
+    private async listToolsOnce(): Promise<OfficialMcpTool[]> {
         await this.ensureConnected();
         const rawTools: unknown[] = [];
         let cursor: string | undefined;
@@ -243,11 +248,11 @@ export class OfficialMcpBridge {
             cursor = result.nextCursor;
         } while (cursor);
 
-        return selectOfficialPluginTools(rawTools);
+        return selectOfficialTools(rawTools);
     }
 
     private commitRefresh(
-        tools: OfficialPluginTool[],
+        tools: OfficialMcpTool[],
         previousFingerprint: string,
     ): OfficialMcpDiscoverySnapshot {
         this.cachedTools = tools;

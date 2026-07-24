@@ -31,7 +31,7 @@ SiYuan 提供了约 459 个 HTTP API 端点。如果为每个端点暴露一个�
 | `tag` | 标签管理 | ~3 |
 | `system` | 系统与 UI | ~10 |
 | `flashcard` | 闪卡复习 | ~8 |
-| `extension` | 其他插件向官方 MCP 注册的工具 | 动态 |
+| `extension` | 官方插件工具和可选思源原生 MCP 工具 | 动态 |
 | `mascot` | 吉祥物交互 | ~3 |
 | `feedback` | 反馈提交 | 1 |
 

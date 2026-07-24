@@ -37,6 +37,6 @@ Related pages:
 - `tag`: list, rename, remove
 - `system`: workspace_info, network, conf, notify, changelog, perform_sync, get_version, get_current_time
 - `flashcard`: list_cards, get_decks, get_cards, review_card, create_card, remove_card
-- `extension`: list, plus one dynamic action for every enabled official plugin tool
+- `extension`: list, plus dynamic actions for enabled official plugin tools and optionally native SiYuan MCP tools
 - `mascot`: get_balance, shop, buy
 - `feedback`: submit

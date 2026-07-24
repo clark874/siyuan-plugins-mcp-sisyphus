@@ -46,7 +46,7 @@ Both entry points use the same permission model and the same underlying SiYuan o
 - **MCP and CLI together**: use MCP for multi-step agent workflows, or CLI for lightweight terminal and script automation.
 - **Notebook-level safety**: give each notebook its own access level: `none`, `r`, `rw`, or `rwd`.
 - **Low-context tool design**: 100+ SiYuan capabilities are grouped into 13 action-routed tools, with detailed help available only when the agent asks for it.
-- **Official plugin tool bridge**: on SiYuan 3.7.0+, `extension` discovers tools registered by other plugins through `siyuan.mcp.registerTool()` and exposes each full tool name as a dynamic action.
+- **Official MCP tool bridge**: on SiYuan 3.7.0+, `extension` exposes plugin-registered tools and can optionally include native SiYuan MCP tools behind a default-off switch.
 - **Practical connection setup**: the plugin settings page provides copy-ready connection snippets for common AI clients and deployment styles.
 
 ## Git-Like Document Timeline

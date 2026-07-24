@@ -1,15 +1,17 @@
-export interface UiOfficialPluginTool {
+export interface UiOfficialMcpTool {
     name: string;
     title?: string;
     description?: string;
+    source: "plugin" | "native";
     readOnlyHint: boolean;
     effectScope?: string;
+    schemaBytes: number;
 }
 
-export interface UiOfficialPluginToolDiscovery {
+export interface UiOfficialMcpDiscovery {
     loading: boolean;
     connected: boolean;
-    tools: UiOfficialPluginTool[];
+    tools: UiOfficialMcpTool[];
     refreshedAt?: string;
     error?: string;
 }
@@ -52,7 +54,7 @@ async function postMcp(
     };
 }
 
-export async function discoverOfficialPluginTools(): Promise<UiOfficialPluginToolDiscovery> {
+export async function discoverOfficialTools(): Promise<UiOfficialMcpDiscovery> {
     let sessionId: string | undefined;
     try {
         const initialized = await postMcp({
@@ -76,16 +78,22 @@ export async function discoverOfficialPluginTools(): Promise<UiOfficialPluginToo
         }, sessionId);
         const tools = Array.isArray(listed.result?.tools)
             ? listed.result.tools
-                .filter((tool: any) => tool?.source === "plugin")
-                .filter((tool: any) => typeof tool?.name === "string" && !tool.name.startsWith(SELF_PLUGIN_TOOL_PREFIX))
+                .map((tool: any) => ({
+                    ...tool,
+                    source: !tool?.source ? "native" : tool.source,
+                }))
+                .filter((tool: any) => tool.source === "plugin" || tool.source === "native")
+                .filter((tool: any) => typeof tool.name === "string" && !tool.name.startsWith(SELF_PLUGIN_TOOL_PREFIX))
                 .map((tool: any) => ({
                     name: tool.name,
                     title: typeof tool.title === "string" ? tool.title : undefined,
                     description: typeof tool.description === "string" ? tool.description : undefined,
+                    source: tool.source as "plugin" | "native",
                     readOnlyHint: tool.readOnlyHint === true,
                     effectScope: typeof tool.effectScope === "string" ? tool.effectScope : undefined,
+                    schemaBytes: JSON.stringify(tool.inputSchema ?? {}).length,
                 }))
-                .sort((left: UiOfficialPluginTool, right: UiOfficialPluginTool) => left.name.localeCompare(right.name))
+                .sort((left: UiOfficialMcpTool, right: UiOfficialMcpTool) => left.name.localeCompare(right.name))
             : [];
         return {
             loading: false,

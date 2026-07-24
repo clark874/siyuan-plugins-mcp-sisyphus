@@ -46,7 +46,7 @@ describe('slim document-window responses', () => {
         });
     });
 
-    it('does not rewrite official plugin tool results', () => {
+    it('does not rewrite forwarded official MCP tool results', () => {
         const original = {
             content: [{
                 type: 'text' as const,

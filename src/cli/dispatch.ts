@@ -8,6 +8,7 @@ import { normalizeActionAlias } from '../core/action-aliases';
 import { prepareTool, TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
 import { runToolCall } from '../core/tool-lifecycle';
 import { PRIMARY_CLI_COMMAND } from '../shared/constants';
+import { getExposedExtensionTools } from '../tools/extension';
 
 
 import type { ParsedArgs } from './args';
@@ -51,8 +52,7 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         const module = TOOL_REGISTRY[category];
         if (category === 'extension') {
             await prepareTool(category, toolConfig, officialMcpRuntime);
-            const discoveredActions = officialMcpRuntime.bridge.getTools()
-                .filter((tool) => !toolConfig.extension.blockedTools.includes(tool.name))
+            const discoveredActions = getExposedExtensionTools(toolConfig.extension, officialMcpRuntime)
                 .map((tool) => tool.name);
             if (!knownActions.includes(normalizedAction as never)
                 && normalizedAction !== 'help'

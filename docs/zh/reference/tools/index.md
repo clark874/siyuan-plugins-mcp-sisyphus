@@ -37,6 +37,6 @@
 - `tag`: list, rename, remove
 - `system`: workspace_info, network, conf, notify, changelog, perform_sync, get_version, get_current_time
 - `flashcard`: list_cards, get_decks, get_cards, review_card, create_card, remove_card
-- `extension`: list，以及每个已启用官方插件工具对应的动态 action
+- `extension`: list，以及已启用官方插件工具和可选思源原生 MCP 工具对应的动态 action
 - `mascot`: get_balance, shop, buy
 - `feedback`: submit

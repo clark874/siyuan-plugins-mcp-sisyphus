@@ -58,6 +58,7 @@ export interface FileCategoryToolConfig<Action extends string = string> extends 
 }
 
 export interface ExtensionCategoryToolConfig extends CategoryToolConfig<ExtensionAction> {
+    includeNativeTools: boolean;
     blockedTools: string[];
 }
 
@@ -273,6 +274,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         extension: {
             enabled: true,
             actions: createActionsRecord(EXTENSION_ACTIONS, ['list']),
+            includeNativeTools: false,
             blockedTools: [],
         },
         mascot: {
@@ -399,13 +401,18 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
         if (category === 'file' && 'uploadLargeFileThresholdMB' in categoryValue) {
             config.file.uploadLargeFileThresholdMB = normalizeUploadLargeFileThresholdMB(categoryValue.uploadLargeFileThresholdMB);
         }
-        if (category === 'extension' && Array.isArray(categoryValue.blockedTools)) {
-            config.extension.blockedTools = Array.from(new Set(
-                categoryValue.blockedTools
-                    .filter((name): name is string => typeof name === 'string')
-                    .map((name) => name.trim())
-                    .filter(Boolean),
-            )).sort();
+        if (category === 'extension') {
+            if (typeof categoryValue.includeNativeTools === 'boolean') {
+                config.extension.includeNativeTools = categoryValue.includeNativeTools;
+            }
+            if (Array.isArray(categoryValue.blockedTools)) {
+                config.extension.blockedTools = Array.from(new Set(
+                    categoryValue.blockedTools
+                        .filter((name): name is string => typeof name === 'string')
+                        .map((name) => name.trim())
+                        .filter(Boolean),
+                )).sort();
+            }
         }
         if (!isRecord(categoryValue.actions)) continue;
         for (const action of ACTIONS_BY_CATEGORY[category]) {

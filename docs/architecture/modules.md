@@ -467,7 +467,7 @@ All business modules export **pure functions** taking `client: SiYuanClient` as 
 
 ### `tool-config.ts` — Schema Definition
 
-Defines 10 `ToolCategory` entries, each with `enabled` + `actions` + extra fields (e.g. `file`'s `uploadLargeFileThresholdMB`).
+Defines 13 `ToolCategory` entries, each with `enabled` + `actions` + extra fields (e.g. `file`'s `uploadLargeFileThresholdMB`, or `extension`'s `includeNativeTools` and `blockedTools`).
 
 ### `tool-config-storage.ts` — Persistence Layer
 

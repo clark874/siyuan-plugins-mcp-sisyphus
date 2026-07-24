@@ -1,13 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { discoverOfficialPluginTools } from '@/ui/setting/official-plugin-tools';
+import { discoverOfficialTools } from '@/ui/setting/official-plugin-tools';
 
-describe('settings official plugin discovery', () => {
+describe('settings official MCP discovery', () => {
     afterEach(() => {
         vi.restoreAllMocks();
     });
 
-    it('uses the official session and only returns other plugin tools', async () => {
+    it('uses the official session, returns plugin/native tools, and excludes external MCP and itself', async () => {
         const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
             if (init?.method === 'DELETE') return new Response(null, { status: 200 });
             const body = JSON.parse(String(init?.body ?? '{}'));
@@ -41,6 +41,7 @@ describe('settings official plugin discovery', () => {
                             effectScope: 'local',
                         },
                         { name: 'native__search', source: 'native' },
+                        { name: 'document' },
                         { name: 'external__tool', source: 'mcp' },
                         {
                             name: 'plugin__siyuan_plugins_mcp_sisyphus__loop',
@@ -52,16 +53,38 @@ describe('settings official plugin discovery', () => {
         });
         global.fetch = fetchMock as typeof fetch;
 
-        const result = await discoverOfficialPluginTools();
+        const result = await discoverOfficialTools();
 
         expect(result.connected).toBe(true);
-        expect(result.tools).toEqual([{
-            name: 'plugin__alpha__read',
-            title: 'Alpha read',
-            description: 'Read from alpha.',
-            readOnlyHint: true,
-            effectScope: 'local',
-        }]);
+        expect(result.tools).toEqual([
+            {
+                name: 'document',
+                title: undefined,
+                description: undefined,
+                source: 'native',
+                readOnlyHint: false,
+                effectScope: undefined,
+                schemaBytes: 2,
+            },
+            {
+                name: 'native__search',
+                title: undefined,
+                description: undefined,
+                source: 'native',
+                readOnlyHint: false,
+                effectScope: undefined,
+                schemaBytes: 2,
+            },
+            {
+                name: 'plugin__alpha__read',
+                title: 'Alpha read',
+                description: 'Read from alpha.',
+                source: 'plugin',
+                readOnlyHint: true,
+                effectScope: 'local',
+                schemaBytes: 2,
+            },
+        ]);
         const listCall = fetchMock.mock.calls.find(([, init]) => String(init?.body).includes('tools/list'));
         expect(new Headers(listCall?.[1]?.headers).get('Mcp-Session-Id')).toBe('settings-session');
         expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(true);

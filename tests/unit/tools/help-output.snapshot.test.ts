@@ -52,6 +52,7 @@ function createAllEnabledConfig(): ToolConfig {
         extension: {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.extension.map((action) => [action, true])) as ToolConfig['extension']['actions'],
+            includeNativeTools: false,
             blockedTools: [],
         },
         mascot: {

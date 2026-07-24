@@ -108,6 +108,7 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(panelSource).toContain('class="tool-settings-group__switch"');
         expect(panelSource).toContain('dispatchToolToggle(definition.category, event.currentTarget.checked)');
         expect(panelSource).toContain('return buildActionItems(definition);');
+        expect(panelSource).not.toMatch(/return \[\s*\.\.\.buildActionItems\(definition\),/);
         expect(panelSource).not.toContain('function buildToolToggleItem');
     });
 

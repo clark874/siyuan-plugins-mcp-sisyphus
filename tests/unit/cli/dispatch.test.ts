@@ -9,7 +9,7 @@ import { runDispatch } from '@/cli/dispatch';
 import * as pluginCheck from '@/cli/plugin-check';
 import { buildDefaultToolConfig } from '@/core/config';
 import { PermissionManager } from '@/core/permissions';
-import { OfficialMcpBridge, type OfficialPluginTool } from '@/core/official-mcp-bridge';
+import { OfficialMcpBridge, type OfficialMcpTool } from '@/core/official-mcp-bridge';
 import { runToolCall } from '@/core/tool-lifecycle';
 import { TOOL_REGISTRY } from '@/core/tool-registry';
 
@@ -66,7 +66,7 @@ describe('cli/dispatch', () => {
 
     it('maps --arguments-json into the nested extension arguments object', async () => {
         const io = captureStdIO();
-        const tool: OfficialPluginTool = {
+        const tool: OfficialMcpTool = {
             name: 'plugin__example__aggregate',
             description: 'Example aggregate',
             inputSchema: {
@@ -102,6 +102,54 @@ describe('cli/dispatch', () => {
                 arguments: { action: 'inner_action', value: 7 },
             },
             expect.anything(),
+            expect.anything(),
+            expect.anything(),
+        );
+        io.restore();
+    });
+
+    it('dispatches a native official tool when includeNativeTools is enabled', async () => {
+        const io = captureStdIO();
+        const config = buildDefaultToolConfig();
+        config.extension.includeNativeTools = true;
+        vi.mocked(SiYuanClient.prototype.readFile).mockResolvedValue(JSON.stringify(config));
+        const tool: OfficialMcpTool = {
+            name: 'document',
+            description: 'Native document tool',
+            inputSchema: {
+                type: 'object',
+                properties: { action: { type: 'string' } },
+            },
+            source: 'native',
+            readOnlyHint: false,
+            effectScope: 'local',
+            schemaDegraded: false,
+        };
+        vi.spyOn(OfficialMcpBridge.prototype, 'refresh').mockResolvedValue({
+            tools: [tool],
+            connected: true,
+            changed: false,
+        });
+        vi.spyOn(OfficialMcpBridge.prototype, 'getTools').mockReturnValue([tool]);
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.extension, 'callTool').mockResolvedValue(okResult());
+
+        const code = await runDispatch({
+            command: 'dispatch',
+            tool: 'extension',
+            action: tool.name,
+            rest: ['--arguments-json', '{"action":"read","id":"doc-id"}'],
+            json: true,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code).toBe(0);
+        expect(callToolSpy).toHaveBeenCalledWith(
+            expect.anything(),
+            {
+                action: 'document',
+                arguments: { action: 'read', id: 'doc-id' },
+            },
+            expect.objectContaining({ includeNativeTools: true }),
             expect.anything(),
             expect.anything(),
         );

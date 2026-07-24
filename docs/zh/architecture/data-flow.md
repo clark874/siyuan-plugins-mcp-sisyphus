@@ -17,7 +17,7 @@ getToolConfig()  [30s TTL 缓存 / in-flight 去重]
     ↓ 从 SiYuan 存储读取 /data/storage/petal/.../mcpToolsConfig
     ↓ normalizeToolConfig(raw)  [三种格式兼容迁移]
 prepareAllTools(config, runtime)
-    ↓ 静态 category 无操作；extension 刷新官方插件工具缓存
+    ↓ 静态 category 无操作；extension 刷新官方 plugin/native 工具缓存
 listAllTools(config, runtime)
     ↓ 遍历 TOOL_REGISTRY 的 13 个 category
     ↓ 对每个 module: module.listTools(config[category], runtime)

@@ -7,6 +7,7 @@ import {
 import { normalizeActionAlias } from '../core/action-aliases';
 import { TOOL_REGISTRY, prepareTool, resolveCategory } from '../core/tool-registry';
 import { PRIMARY_CLI_COMMAND } from '../shared/constants';
+import { getExposedExtensionTools } from '../tools/extension';
 
 
 import type { ParsedArgs } from './args';
@@ -36,8 +37,7 @@ export async function runList(cli: ParsedArgs): Promise<number> {
             const actions = cat === 'extension'
                 ? [
                     'list',
-                    ...officialMcpRuntime.bridge.getTools()
-                        .filter((tool) => !toolConfig.extension.blockedTools.includes(tool.name))
+                    ...getExposedExtensionTools(toolConfig.extension, officialMcpRuntime)
                         .map((tool) => tool.name),
                 ]
                 : getEnabledActions(toolConfig[cat]);
@@ -59,8 +59,7 @@ export async function runList(cli: ParsedArgs): Promise<number> {
     const actions = toolFilter === 'extension'
         ? [
             'list',
-            ...officialMcpRuntime.bridge.getTools()
-                .filter((tool) => !toolConfig.extension.blockedTools.includes(tool.name))
+            ...getExposedExtensionTools(toolConfig.extension, officialMcpRuntime)
                 .map((tool) => tool.name),
         ]
         : getEnabledActions(toolConfig[toolFilter]);
@@ -72,7 +71,8 @@ export async function runList(cli: ParsedArgs): Promise<number> {
         const safety = extensionTool
             ? extensionTool.readOnlyHint ? ' · declared read-only' : ' · confirmation required'
             : isDangerousAction(toolFilter, action) ? ' · confirmation required' : '';
-        return `${action} — ${tier}${safety}`;
+        const source = extensionTool ? ` · ${extensionTool.source}` : '';
+        return `${action} — ${tier}${source}${safety}`;
     }), out);
     writeSection('Next Step', out);
     writeHint('Tip', `Run \`${PRIMARY_CLI_COMMAND} help ${toolFilter} <action>\` for fields and examples.`, out);
