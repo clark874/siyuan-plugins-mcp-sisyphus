@@ -44,6 +44,10 @@
     import ToolCategoriesPanel from "./mcp-config/ToolCategoriesPanel.svelte";
     import UserRulesPanel from "./mcp-config/UserRulesPanel.svelte";
     import {
+        discoverOfficialTools,
+        type UiOfficialMcpDiscovery,
+    } from "./official-plugin-tools";
+    import {
         HTTP_GROUP_KEY,
         ICON_SVGS,
         PERM_GROUP_KEY,
@@ -80,6 +84,11 @@
     let notebooks: NotebookInfo[] = [];
     let permissions: Record<string, NotebookPermission> = {};
     let permLoading = true;
+    let extensionDiscovery: UiOfficialMcpDiscovery = {
+        loading: false,
+        connected: false,
+        tools: [],
+    };
 
     const getLabel = (key: string, fallback: string) => plugin?.i18n?.[key] ?? fallback;
     $: pluginIconUrl = `/plugins/${plugin?.name ?? "siyuan-plugins-mcp-sisyphus"}/icon.png`;
@@ -142,6 +151,11 @@
         permLoading = false;
     }
 
+    async function refreshExtensionTools() {
+        extensionDiscovery = { ...extensionDiscovery, loading: true, error: undefined };
+        extensionDiscovery = await discoverOfficialTools();
+    }
+
     onMount(async () => {
         config = await loadPersistedToolConfig(plugin);
         puppySettings = await loadPersistedPuppySettings(plugin);
@@ -149,6 +163,9 @@
         telemetryConfig = await loadPersistedTelemetryConfig(plugin);
         versionControlSettings = await loadPersistedVersionControlSettings(plugin);
         permissionDisplaySettings = await loadPersistedPermissionDisplaySettings(plugin);
+        if (config.extension.enabled) {
+            await refreshExtensionTools();
+        }
 
         const savedPerms = await plugin?.loadData("notebookPermissions");
         if (savedPerms && typeof savedPerms === "object") {
@@ -193,6 +210,7 @@
         config = {
             ...config,
             [category]: {
+                ...config[category],
                 enabled: enabled ? true : hasEnabledActions ? config[category].enabled : false,
                 actions: nextActions,
             },
@@ -343,6 +361,43 @@
         if (key.endsWith("__enabled")) {
             const category = key.replace("__enabled", "") as ToolCategory;
             setCategoryEnabled(category, Boolean(value));
+            await persistConfig();
+            if (category === "extension" && value) {
+                await refreshExtensionTools();
+            }
+            return;
+        }
+
+        if (key === "extension__include_native_tools") {
+            config = {
+                ...config,
+                extension: {
+                    ...config.extension,
+                    includeNativeTools: Boolean(value),
+                },
+            };
+            await persistConfig();
+            if (value && !extensionDiscovery.connected) {
+                await refreshExtensionTools();
+            }
+            return;
+        }
+
+        if (key.startsWith("extension__tool__")) {
+            const toolName = decodeURIComponent(key.slice("extension__tool__".length));
+            const blocked = new Set(config.extension.blockedTools);
+            if (Boolean(value)) {
+                blocked.delete(toolName);
+            } else {
+                blocked.add(toolName);
+            }
+            config = {
+                ...config,
+                extension: {
+                    ...config.extension,
+                    blockedTools: [...blocked].sort(),
+                },
+            };
             await persistConfig();
             return;
         }
@@ -516,7 +571,15 @@
                 {/if}
                 <HttpServerPanel {plugin} group={httpGroupLabel} display={focusGroup === HTTP_GROUP_KEY} bind:httpSettings {getLabel} />
                 <PermissionsPanel group={permGroupLabel} display={focusGroup === PERM_GROUP_KEY} {notebooks} {permissions} {permissionDisplaySettings} {permLoading} {getLabel} {onChanged} />
-                <ToolCategoriesPanel group={toolGroupLabel} display={focusGroup === TOOL_GROUP_KEY} {config} {getLabel} {onChanged} />
+                <ToolCategoriesPanel
+                    group={toolGroupLabel}
+                    display={focusGroup === TOOL_GROUP_KEY}
+                    {config}
+                    {getLabel}
+                    {onChanged}
+                    {extensionDiscovery}
+                    onRefreshExtensionTools={refreshExtensionTools}
+                />
                 <PuppyPanel group={puppyGroupLabel} display={focusGroup === PUPPY_GROUP_KEY} {puppySettings} {getLabel} {onChanged} />
                 <TelemetryPanel
                     analyticsGroup={analyticsGroupLabel}
@@ -541,23 +604,25 @@
         --mcp-config-sidebar-width: 208px;
         --mcp-config-content-padding: 28px 32px 36px;
         --mcp-config-content-max-width: 920px;
-        --mcp-config-card-radius: max(10px, var(--b3-border-radius, 6px));
-        --mcp-config-control-radius: max(8px, var(--b3-border-radius, 6px));
-        --mcp-config-icon-radius: max(9px, var(--b3-border-radius, 6px));
-        --mcp-config-card-padding: 16px 18px;
-        --mcp-config-section-gap: 14px;
+        --mcp-config-card-radius: max(12px, var(--b3-border-radius, 6px));
+        --mcp-config-control-radius: max(9px, var(--b3-border-radius, 6px));
+        --mcp-config-icon-radius: max(10px, var(--b3-border-radius, 6px));
+        --mcp-config-card-padding: 17px 19px;
+        --mcp-config-section-gap: 16px;
         --mcp-config-title-color: var(--b3-theme-on-background);
         --mcp-config-title-font-size: 14px;
         --mcp-config-title-font-weight: 600;
         --mcp-config-caption-color: var(--b3-theme-on-surface-light, var(--b3-theme-on-surface));
         --mcp-config-code-font: var(--b3-font-family-code, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
-        --mcp-config-surface: color-mix(in srgb, var(--b3-theme-surface) 88%, var(--b3-theme-background));
-        --mcp-config-surface-raised: color-mix(in srgb, var(--b3-theme-surface) 94%, var(--b3-theme-background));
-        --mcp-config-border: color-mix(in srgb, var(--b3-border-color) 82%, transparent);
+        --mcp-config-surface: color-mix(in srgb, var(--b3-theme-surface) 91%, var(--b3-theme-background));
+        --mcp-config-surface-raised: color-mix(in srgb, var(--b3-theme-surface) 97%, var(--b3-theme-background));
+        --mcp-config-border: color-mix(in srgb, var(--b3-border-color) 88%, transparent);
         --mcp-config-primary-soft: color-mix(in srgb, var(--b3-theme-primary) 13%, transparent);
         --mcp-config-primary-border: color-mix(in srgb, var(--b3-theme-primary) 28%, transparent);
         --mcp-config-surface-accent: linear-gradient(135deg, var(--mcp-config-primary-soft), transparent 70%), var(--mcp-config-surface-raised);
-        --mcp-config-shadow: 0 1px 2px color-mix(in srgb, var(--b3-theme-on-background) 7%, transparent);
+        --mcp-config-shadow:
+            0 1px 2px color-mix(in srgb, var(--b3-theme-on-background) 7%, transparent),
+            0 8px 24px color-mix(in srgb, var(--b3-theme-on-background) 3%, transparent);
 
         box-sizing: border-box;
         background: var(--b3-theme-background);
@@ -772,6 +837,35 @@
         width: 100%;
         max-width: var(--mcp-config-content-max-width);
         margin-right: auto;
+    }
+
+    .config__tab-content :global(.b3-button) {
+        border-radius: var(--mcp-config-control-radius);
+        font-weight: 550;
+        min-height: 32px;
+        transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease, color 0.14s ease, transform 0.14s ease;
+    }
+
+    .config__tab-content :global(.b3-button:not(:disabled):hover) {
+        box-shadow: 0 2px 8px color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent);
+    }
+
+    .config__tab-content :global(.b3-text-field),
+    .config__tab-content :global(.b3-select) {
+        border-radius: var(--mcp-config-control-radius);
+        transition: background 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+    }
+
+    .config__tab-content :global(.b3-text-field:hover),
+    .config__tab-content :global(.b3-select:hover) {
+        border-color: color-mix(in srgb, var(--b3-theme-primary) 24%, var(--b3-border-color));
+    }
+
+    .config__tab-content :global(.b3-text-field:focus),
+    .config__tab-content :global(.b3-select:focus) {
+        border-color: color-mix(in srgb, var(--b3-theme-primary) 66%, var(--b3-border-color));
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--b3-theme-primary) 11%, transparent);
+        outline: none;
     }
 
     @media (max-width: 768px) {

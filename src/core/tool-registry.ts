@@ -2,11 +2,13 @@ import type { SiYuanClient } from '../api/client';
 import { AGENT_MEMORY_VIRTUAL_PATH, TOOL_CATEGORIES, USER_RULES_VIRTUAL_PATH, type ToolCategory, type ToolConfig } from './config';
 import type { PermissionManager } from './permissions';
 import type { ToolResult } from '@/tools/internal/shared';
+import type { OfficialMcpRuntime, OfficialMcpDiscoverySnapshot } from './official-mcp-bridge';
 
 import {
     callAvTool,
     callBlockTool,
     callDocumentTool,
+    callExtensionTool,
     callFileTool,
     callFeedbackTool,
     callFlashcardTool,
@@ -19,6 +21,7 @@ import {
     listAvTools,
     listBlockTools,
     listDocumentTools,
+    listExtensionTools,
     listFileTools,
     listFeedbackTools,
     listFlashcardTools,
@@ -28,6 +31,7 @@ import {
     listSearchTools,
     listSystemTools,
     listTagTools,
+    prepareExtensionTools,
 } from '@/tools/index';
 
 
@@ -49,12 +53,17 @@ export interface ToolDescriptor {
  */
 export interface ToolModule {
     category: ToolCategory;
-    listTools(config: ToolConfig[ToolCategory]): ToolDescriptor[];
+    prepare?(
+        config: ToolConfig[ToolCategory],
+        runtime?: OfficialMcpRuntime,
+    ): Promise<OfficialMcpDiscoverySnapshot | undefined>;
+    listTools(config: ToolConfig[ToolCategory], runtime?: OfficialMcpRuntime): ToolDescriptor[];
     callTool(
         client: SiYuanClient,
         args: Record<string, unknown> | undefined,
         config: ToolConfig[ToolCategory],
         permMgr: PermissionManager,
+        runtime?: OfficialMcpRuntime,
     ): Promise<ToolResult>;
 }
 
@@ -73,6 +82,12 @@ export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
     tag: { category: 'tag', listTools: listTagTools as ToolModule['listTools'], callTool: callTagTool as ToolModule['callTool'] },
     system: { category: 'system', listTools: listSystemTools as ToolModule['listTools'], callTool: callSystemTool as ToolModule['callTool'] },
     flashcard: { category: 'flashcard', listTools: listFlashcardTools as ToolModule['listTools'], callTool: callFlashcardTool as ToolModule['callTool'] },
+    extension: {
+        category: 'extension',
+        prepare: prepareExtensionTools as ToolModule['prepare'],
+        listTools: listExtensionTools as ToolModule['listTools'],
+        callTool: callExtensionTool as ToolModule['callTool'],
+    },
     mascot: { category: 'mascot', listTools: listMascotTools as ToolModule['listTools'], callTool: callMascotTool as ToolModule['callTool'] },
 };
 
@@ -83,8 +98,25 @@ export function resolveCategory(name: string): ToolCategory | null {
     return TOOL_CATEGORIES.includes(name as ToolCategory) ? (name as ToolCategory) : null;
 }
 
-export function listAllTools(config: ToolConfig): ToolDescriptor[] {
-    const tools = TOOL_CATEGORIES.flatMap((cat) => TOOL_REGISTRY[cat].listTools(config[cat]));
+export async function prepareTool(
+    category: ToolCategory,
+    config: ToolConfig,
+    runtime?: OfficialMcpRuntime,
+): Promise<OfficialMcpDiscoverySnapshot | undefined> {
+    return TOOL_REGISTRY[category].prepare?.(config[category], runtime);
+}
+
+export async function prepareAllTools(
+    config: ToolConfig,
+    runtime?: OfficialMcpRuntime,
+): Promise<void> {
+    await Promise.all(
+        TOOL_CATEGORIES.map((category) => prepareTool(category, config, runtime)),
+    );
+}
+
+export function listAllTools(config: ToolConfig, runtime?: OfficialMcpRuntime): ToolDescriptor[] {
+    const tools = TOOL_CATEGORIES.flatMap((cat) => TOOL_REGISTRY[cat].listTools(config[cat], runtime));
 
     return tools.map((tool) => ({
         ...tool,

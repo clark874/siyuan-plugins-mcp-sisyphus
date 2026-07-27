@@ -16,9 +16,11 @@ server.ts: ListToolsRequestSchema handler
 getToolConfig()  [30s TTL 缓存 / in-flight 去重]
     ↓ 从 SiYuan 存储读取 /data/storage/petal/.../mcpToolsConfig
     ↓ normalizeToolConfig(raw)  [三种格式兼容迁移]
-listAllTools(config)
-    ↓ 遍历 TOOL_REGISTRY 的 12 个 category
-    ↓ 对每个 module: module.listTools(config[category])
+prepareAllTools(config, runtime)
+    ↓ 静态 category 无操作；extension 刷新官方 plugin/native 工具缓存
+listAllTools(config, runtime)
+    ↓ 遍历 TOOL_REGISTRY 的 13 个 category
+    ↓ 对每个 module: module.listTools(config[category], runtime)
         ↓ tools/internal/define-tool.ts: listTools()
             ↓ 过滤出 enabled 的 action
             ↓ tools/internal/shared.ts: buildAggregatedTool(category, description, config, variants)

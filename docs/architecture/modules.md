@@ -14,7 +14,7 @@ src/
 ├── core/                     # MCP Server core
 │   ├── server.ts             # MCP Server creation & handler registration
 │   ├── http-transport.ts     # HTTP/S MCP transport layer
-│   ├── tool-registry.ts      # Static registry of 12 aggregated tools
+│   ├── tool-registry.ts      # Registry of 13 aggregated tools, including dynamic extension actions
 │   ├── tool-lifecycle.ts     # Tool call AOP wrapper (analytics/telemetry/puppy)
 │   ├── permissions.ts        # Notebook-level 4-tier permission management
 │   ├── config.ts             # ToolConfig schema / defaults / migration
@@ -33,7 +33,7 @@ src/
 │   └── noops/                # No-op shims for heavy MCP SDK modules
 │       ├── noop-schema-validator.ts
 │       └── noop-experimental-tasks.ts
-├── tools/                    # 12 aggregated tool implementations
+├── tools/                    # 13 aggregated tool implementations
 │   ├── index.ts              # Barrel export: re-exports all tool modules
 │   ├── internal/             # Shared infrastructure for the tool layer
 │   │   ├── types.ts          # Shared types for the tool layer
@@ -183,15 +183,16 @@ src/
 
 ## 3. Tool Registry: `src/core/tool-registry.ts`
 
-**Responsibility**: Maintain static `TOOL_REGISTRY` mapping table, converging 12 categories into the `ToolModule` interface.
+**Responsibility**: Maintain the `TOOL_REGISTRY` mapping table, converging 13 categories into the `ToolModule` interface. Category modules are registered at compile time; `extension` discovers its action set during the optional prepare phase.
 
 **Key interface**:
 
 ```typescript
 interface ToolModule {
     category: ToolCategory;
-    listTools(config: CategoryToolConfig<...>): ToolDescriptor[];
-    callTool(client: SiYuanClient, args: unknown, config: CategoryToolConfig<...>, permMgr: PermissionManager): Promise<ToolResult>;
+    prepare?(config: CategoryToolConfig<...>, runtime?: OfficialMcpRuntime): Promise<unknown>;
+    listTools(config: CategoryToolConfig<...>, runtime?: OfficialMcpRuntime): ToolDescriptor[];
+    callTool(client: SiYuanClient, args: unknown, config: CategoryToolConfig<...>, permMgr: PermissionManager, runtime?: OfficialMcpRuntime): Promise<ToolResult>;
 }
 ```
 
@@ -199,13 +200,14 @@ interface ToolModule {
 
 | Export | Description |
 |--------|-------------|
-| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | Static mapping of 12 categories, determined at compile time |
-| `listAllTools(config)` | Flatten and aggregate all enabled tool descriptors |
+| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | Compile-time mapping of 13 aggregated categories |
+| `prepareAllTools(config, runtime)` | Run optional discovery/prepare hooks before dynamic validation or listing |
+| `listAllTools(config, runtime)` | Flatten and aggregate all enabled tool descriptors |
 | `resolveCategory(name)` | Reverse lookup category from tool name (e.g. `"notebook"`) |
 | `TOOL_CATEGORIES` | Constant array determining enumeration order |
 
 **Design points**:
-- **No reflection / no scanning**: No filesystem scanning or dynamic imports; all registrations are compile-time determined
+- **No reflection / no scanning**: Category registration uses no filesystem scanning or dynamic imports. Only `extension` discovers downstream actions through the official MCP protocol.
 - **Type erasure**: Each tool module's precise type signature is widened via `as` at registration time, allowing uniform registry iteration
 - **Factory convergence**: Each category internally uses `defineTool()` factory to generate `{ listTools, callTool }`
 
@@ -289,7 +291,7 @@ runToolCall(ctx, handler)
 type ToolConfig = {
     notebook:  { enabled: boolean, actions: { list: boolean, create: boolean, ... } };
     document:  { enabled: boolean, actions: { ... } };
-    // ... 12 categories total
+    // ... 13 categories total
     file:      { enabled: boolean, actions: { ... }, uploadLargeFileThresholdMB: number };
     // ...
     userRulesText: string;  // User custom rules text
@@ -465,7 +467,7 @@ All business modules export **pure functions** taking `client: SiYuanClient` as 
 
 ### `tool-config.ts` — Schema Definition
 
-Defines 10 `ToolCategory` entries, each with `enabled` + `actions` + extra fields (e.g. `file`'s `uploadLargeFileThresholdMB`).
+Defines 13 `ToolCategory` entries, each with `enabled` + `actions` + extra fields (e.g. `file`'s `uploadLargeFileThresholdMB`, or `extension`'s `includeNativeTools` and `blockedTools`).
 
 ### `tool-config-storage.ts` — Persistence Layer
 

@@ -62,7 +62,7 @@ AI 在正式执行前必须先确认本轮模式：
 
 ## 3. 覆盖范围
 
-本手册覆盖以下 12 个聚合工具：
+本手册覆盖以下 13 个聚合工具：
 
 - `fs`
 - `notebook`
@@ -74,6 +74,7 @@ AI 在正式执行前必须先确认本轮模式：
 - `tag`
 - `system`
 - `flashcard`
+- `extension`
 - `mascot`
 - `feedback`
 

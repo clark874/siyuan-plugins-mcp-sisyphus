@@ -102,6 +102,16 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(panelSource).toContain('SettingPanel');
     });
 
+    it('renders the category enable switch only in the accordion header', () => {
+        const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
+
+        expect(panelSource).toContain('class="tool-settings-group__switch"');
+        expect(panelSource).toContain('dispatchToolToggle(definition.category, event.currentTarget.checked)');
+        expect(panelSource).toContain('return buildActionItems(definition);');
+        expect(panelSource).not.toMatch(/return \[\s*\.\.\.buildActionItems\(definition\),/);
+        expect(panelSource).not.toContain('function buildToolToggleItem');
+    });
+
     it('renders a semantic responsive settings shell with centralized page metadata', () => {
         const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
         const tabsSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config-tabs.ts'), 'utf8');
@@ -115,6 +125,36 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(rootSource).toContain('<header class="config__page-header">');
         expect(rootSource).toContain('overflow-x: auto;');
         expect(rootSource).not.toContain('.b3-list-item__text {\n            display: none');
+    });
+
+    it('keeps the settings pages on one shared visual system', () => {
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+
+        expect(rootSource).toContain('--mcp-config-card-radius: max(12px');
+        expect(rootSource).toContain('--mcp-config-control-radius: max(9px');
+        expect(rootSource).toContain('--mcp-config-card-padding: 17px 19px');
+        expect(rootSource).toContain('.config__tab-content :global(.b3-button)');
+        expect(rootSource).toContain('.config__tab-content :global(.b3-text-field)');
+        expect(rootSource).toContain('.config__tab-content :global(.b3-select)');
+    });
+
+    it('adds hierarchy to dense settings pages without changing their behavior', () => {
+        const rulesSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/UserRulesPanel.svelte'), 'utf8');
+        const debugSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/DebugPanel.svelte'), 'utf8');
+        const connectionSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/HttpServerPanel.svelte'), 'utf8');
+        const analyticsSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/TelemetryPanel.svelte'), 'utf8');
+
+        expect(rulesSource).toContain('user-rules-editor__index');
+        expect(rulesSource).toContain('user_rules_auto_save');
+        expect(rulesSource).toContain('user_rules_reconnect_hint');
+        expect(debugSource.match(/<section class="debug-section">/g)).toHaveLength(2);
+        expect(debugSource).toContain('debug_runtime_section');
+        expect(debugSource).toContain('debug_test_section');
+        expect(connectionSource).toContain('class="http-changelog"');
+        expect(connectionSource).toContain('toolSettingsChangelogBadge');
+        expect(connectionSource.match(/<details class="http-guide">/g)).toHaveLength(2);
+        expect(analyticsSource).toContain('analytics-actions__primary');
+        expect(analyticsSource).toContain('analytics-actions__danger');
     });
 
     it('uses stable tab keys to display the analytics panel', () => {
@@ -201,6 +241,17 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(feedbackSource).not.toContain('bind:value={agent}');
         expect(panelSource).toContain('groupKey: "Feedback Tool"');
         expect(panelSource).toContain('key: "submit"');
+    });
+
+    it('gives the feedback form a clear primary flow and responsive secondary fields', () => {
+        const feedbackSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/FeedbackPanel.svelte'), 'utf8');
+
+        expect(feedbackSource).toContain('<form class="feedback-panel__form" on:submit|preventDefault={submit}>');
+        expect(feedbackSource).toContain('class="feedback-panel__secondary-grid"');
+        expect(feedbackSource).toContain('class="b3-button feedback-panel__submit" type="submit"');
+        expect(feedbackSource).toContain('aria-live="polite"');
+        expect(feedbackSource).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));');
+        expect(feedbackSource).toContain('grid-template-columns: 1fr;');
     });
 
     it('keeps user custom rules editable while preserving deferred save behavior', () => {

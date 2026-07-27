@@ -1,6 +1,6 @@
 # Tools Index
 
-This page summarizes the 12 aggregated tools exposed by the project.
+This page summarizes the 13 aggregated tools exposed by the project.
 
 When to read this page: you know the general domain but need the right tool page.
 
@@ -21,6 +21,7 @@ Related pages:
 | `tag` | 3 | [tag](./tag.md) |
 | `system` | 8 | [system](./system.md) |
 | `flashcard` | 6 | [flashcard](./flashcard.md) |
+| `extension` | dynamic | [extension](./extension.md) |
 | `mascot` | 3 | [mascot](./mascot.md) |
 | `feedback` | 1 | [feedback](./feedback.md) |
 
@@ -36,5 +37,6 @@ Related pages:
 - `tag`: list, rename, remove
 - `system`: workspace_info, network, conf, notify, changelog, perform_sync, get_version, get_current_time
 - `flashcard`: list_cards, get_decks, get_cards, review_card, create_card, remove_card
+- `extension`: list, plus dynamic actions for enabled official plugin tools and optionally native SiYuan MCP tools
 - `mascot`: get_balance, shop, buy
 - `feedback`: submit

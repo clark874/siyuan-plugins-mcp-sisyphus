@@ -17,7 +17,7 @@ SiYuan provides approximately 459 HTTP API endpoints. Exposing one MCP tool per 
 
 ### Choice Made
 
-Aggregate related APIs by domain into **12 MCP tools**:
+Aggregate related APIs by domain into **13 MCP tools**:
 
 | MCP Tool | SiYuan Domain Covered | Action Count |
 |----------|----------------------|-------------|
@@ -31,6 +31,7 @@ Aggregate related APIs by domain into **12 MCP tools**:
 | `tag` | Tag management | ~3 |
 | `system` | System & UI | ~10 |
 | `flashcard` | Flashcard review | ~8 |
+| `extension` | Official plugin tools and optional native SiYuan MCP tools | Dynamic |
 | `mascot` | Mascot interaction | ~3 |
 | `feedback` | Product feedback submission | 1 |
 

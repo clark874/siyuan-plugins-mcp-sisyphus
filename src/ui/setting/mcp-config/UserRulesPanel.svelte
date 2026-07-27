@@ -46,6 +46,8 @@
     $: agentMemoryTitle = getLabel("agent_memory_title", "Agent siyuan Memory");
     $: agentMemoryDescription = getLabel("agent_memory_desc", "AI-maintained summary of the SiYuan workspace state. This memory is injected into MCP startup instructions and exposed as /AGENTS.md through the fs tool. Avoid secrets and sensitive personal data.");
     $: agentMemoryPlaceholder = getLabel("agent_memory_placeholder", "Summarize durable workspace facts, important notebooks, naming conventions, and current project context.");
+    $: autoSaveLabel = getLabel("user_rules_auto_save", "Auto-saved on blur");
+    $: reconnectLabel = getLabel("user_rules_reconnect_hint", "Reconnect MCP clients to apply changes");
 
     function markDraftChanged(event: Event) {
         const target = event.currentTarget as HTMLTextAreaElement;
@@ -96,39 +98,59 @@
 
 <SettingPanel {group} settingItems={[]} {display}>
     <section class="user-rules-editor" aria-labelledby="user-rules-title">
-        <div class="user-rules-editor__header">
-            <div>
-                <h3 id="user-rules-title" class="user-rules-editor__title">{title}</h3>
-                <p class="user-rules-editor__desc">{description}</p>
+        <div class="user-rules-editor__section">
+            <div class="user-rules-editor__header">
+                <span class="user-rules-editor__index" aria-hidden="true">01</span>
+                <div class="user-rules-editor__copy">
+                    <div class="user-rules-editor__title-row">
+                        <h3 id="user-rules-title" class="user-rules-editor__title">{title}</h3>
+                        <span class="user-rules-editor__badge">{autoSaveLabel}</span>
+                    </div>
+                    <p class="user-rules-editor__desc">{description}</p>
+                </div>
+            </div>
+
+            <textarea
+                class="b3-text-field user-rules-editor__textarea"
+                bind:value={userRulesText}
+                {placeholder}
+                on:input={markDraftChanged}
+                on:change={dispatchChanged}
+                on:blur={dispatchChanged}
+            />
+            <div class="user-rules-editor__footer">
+                <span>{reconnectLabel}</span>
+                <span>{userRulesText.length}</span>
             </div>
         </div>
-
-        <textarea
-            class="b3-text-field user-rules-editor__textarea"
-            bind:value={userRulesText}
-            {placeholder}
-            on:input={markDraftChanged}
-            on:change={dispatchChanged}
-            on:blur={dispatchChanged}
-        />
 
         <div class="user-rules-editor__divider" aria-hidden="true"></div>
 
-        <div class="user-rules-editor__header">
-            <div>
-                <h3 class="user-rules-editor__title">{agentMemoryTitle}</h3>
-                <p class="user-rules-editor__desc">{agentMemoryDescription}</p>
+        <div class="user-rules-editor__section">
+            <div class="user-rules-editor__header">
+                <span class="user-rules-editor__index user-rules-editor__index--memory" aria-hidden="true">02</span>
+                <div class="user-rules-editor__copy">
+                    <div class="user-rules-editor__title-row">
+                        <h3 class="user-rules-editor__title">{agentMemoryTitle}</h3>
+                        <span class="user-rules-editor__badge">{autoSaveLabel}</span>
+                    </div>
+                    <p class="user-rules-editor__desc">{agentMemoryDescription}</p>
+                </div>
+            </div>
+
+            <textarea
+                class="b3-text-field user-rules-editor__textarea"
+                bind:value={agentSiyuanMemoryText}
+                placeholder={agentMemoryPlaceholder}
+                on:input={markAgentMemoryDraftChanged}
+                on:change={dispatchAgentMemoryChanged}
+                on:blur={dispatchAgentMemoryChanged}
+            />
+            <div class="user-rules-editor__footer">
+                <span>{reconnectLabel}</span>
+                <span>{agentSiyuanMemoryText.length}</span>
             </div>
         </div>
-
-        <textarea
-            class="b3-text-field user-rules-editor__textarea"
-            bind:value={agentSiyuanMemoryText}
-            placeholder={agentMemoryPlaceholder}
-            on:input={markAgentMemoryDraftChanged}
-            on:change={dispatchAgentMemoryChanged}
-            on:blur={dispatchAgentMemoryChanged}
-        />
     </section>
 </SettingPanel>
 
@@ -141,16 +163,54 @@
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
-        gap: var(--mcp-config-section-gap, 12px);
         min-height: 100%;
-        padding: var(--mcp-config-card-padding, 16px 18px);
+        overflow: hidden;
+    }
+
+    .user-rules-editor__section {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 19px 20px 17px;
     }
 
     .user-rules-editor__header {
         display: flex;
         align-items: flex-start;
-        justify-content: space-between;
-        gap: var(--mcp-config-section-gap, 12px);
+        gap: 12px;
+    }
+
+    .user-rules-editor__index {
+        align-items: center;
+        background: var(--mcp-config-primary-soft, color-mix(in srgb, var(--b3-theme-primary) 12%, transparent));
+        border: 1px solid var(--mcp-config-primary-border, color-mix(in srgb, var(--b3-theme-primary) 26%, transparent));
+        border-radius: var(--mcp-config-icon-radius, 10px);
+        color: var(--b3-theme-primary);
+        display: inline-flex;
+        flex: 0 0 36px;
+        font-family: var(--mcp-config-code-font, monospace);
+        font-size: 11px;
+        font-weight: 700;
+        height: 36px;
+        justify-content: center;
+    }
+
+    .user-rules-editor__index--memory {
+        background: color-mix(in srgb, var(--b3-theme-success, var(--b3-theme-primary)) 10%, transparent);
+        border-color: color-mix(in srgb, var(--b3-theme-success, var(--b3-theme-primary)) 24%, transparent);
+        color: var(--b3-theme-success, var(--b3-theme-primary));
+    }
+
+    .user-rules-editor__copy {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .user-rules-editor__title-row {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
     }
 
     .user-rules-editor__title {
@@ -162,37 +222,62 @@
     }
 
     .user-rules-editor__desc {
-        margin: 6px 0 0;
+        margin: 4px 0 0;
         max-width: 760px;
         color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
         font-size: 12px;
         line-height: 1.55;
     }
 
+    .user-rules-editor__badge {
+        background: color-mix(in srgb, var(--b3-theme-on-surface) 5%, transparent);
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
+        border-radius: 999px;
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        font-size: 10px;
+        font-weight: 550;
+        line-height: 1.4;
+        padding: 2px 7px;
+    }
+
     .user-rules-editor__textarea {
+        background: var(--b3-theme-background);
+        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
         box-sizing: border-box;
         width: 100%;
-        min-height: 240px;
+        min-height: 190px;
         padding: 12px 14px;
         resize: vertical;
         white-space: pre-wrap;
         line-height: 1.55;
     }
 
+    .user-rules-editor__footer {
+        align-items: center;
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        display: flex;
+        font-size: 10px;
+        gap: 12px;
+        justify-content: space-between;
+        line-height: 1.4;
+    }
+
+    .user-rules-editor__footer > :last-child {
+        font-family: var(--mcp-config-code-font, monospace);
+    }
+
     .user-rules-editor__divider {
         height: 1px;
-        margin: 4px 0;
         background: var(--mcp-config-border, var(--b3-border-color));
     }
 
     @media (max-width: 768px) {
-        .user-rules-editor {
-            gap: 12px;
-            max-width: none;
+        .user-rules-editor__section {
+            padding: 16px;
         }
 
         .user-rules-editor__textarea {
-            min-height: 180px;
+            min-height: 170px;
         }
     }
 </style>

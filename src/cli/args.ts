@@ -50,7 +50,7 @@ Commands:
   ${PRIMARY_CLI_COMMAND} --version | -v                       Show version
 
 Tools:
-  fs, notebook, document, block, av, file, search, tag, system, flashcard, mascot
+  fs, notebook, document, block, av, file, search, tag, system, flashcard, extension, mascot
 
 Alias:
   ${CLI_COMMAND_ALIAS}                                         Same CLI, shorter command name
@@ -82,6 +82,8 @@ Examples:
   ${PRIMARY_CLI_COMMAND} document create --notebook <id> --path "/Inbox/Test" --markdown "正文从这里开始"
   ${PRIMARY_CLI_COMMAND} block append --parent-id <id> --data-type markdown --data "- item"
   ${PRIMARY_CLI_COMMAND} search fulltext --query "keyword" --page-size 10
+  ${PRIMARY_CLI_COMMAND} extension list --refresh
+  ${PRIMARY_CLI_COMMAND} extension plugin__example__tool --arguments-json '{"key":"value"}'
   ${PRIMARY_CLI_COMMAND} document list-tree --notebook <id> --json | jq '.data[].title'
 
 Config precedence:

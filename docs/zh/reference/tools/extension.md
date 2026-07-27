@@ -1,0 +1,82 @@
+# `extension`
+
+`extension` 用于桥接思源 3.7.0 起通过官方 MCP 端点暴露的工具。
+
+## 发现工具
+
+```json
+{
+  "action": "list",
+  "refresh": true
+}
+```
+
+响应会给出官方 MCP 连接状态、plugin/native 来源数量、暴露数量和 schema 体积、只读声明、影响范围、降级 schema，以及在 Sisyphus 设置中被屏蔽的工具。
+
+默认接收 `source="plugin"` 的工具。在插件设置中启用 `extension.includeNativeTools=true` 后，也会包含 `source="native"` 的思源原生工具；缺失 source 时按官方兼容规则视为 native。从外部 MCP Server 导入的 `source="mcp"` 工具和本插件自身命名空间仍会被排除。
+
+原生工具默认关闭，因为其中多项能力与 Sisyphus 聚合 action 重叠，并会明显增加 `extension` Schema 体积。
+若官方工具名为 `help` 或 `list`，发现结果会标记保留 action 冲突，但不会暴露该工具。
+
+## 调用官方工具
+
+官方完整工具名直接成为 action，下游参数统一放在 `arguments` 中：
+
+```json
+{
+  "action": "plugin__example_plugin__search",
+  "arguments": {
+    "action": "query",
+    "keyword": "MCP"
+  }
+}
+```
+
+嵌套结构可以避免下游插件工具自身也有 `action` 参数时发生冲突。对应 CLI 调用为：
+
+```bash
+siyuan extension plugin__example_plugin__search \
+  --arguments-json '{"action":"query","keyword":"MCP"}'
+```
+
+启用原生工具后，直接使用其不带前缀的官方名称：
+
+```json
+{
+  "action": "document",
+  "arguments": {
+    "action": "read",
+    "id": "20240318112233-abc123"
+  }
+}
+```
+
+```bash
+siyuan extension document \
+  --arguments-json '{"action":"read","id":"20240318112233-abc123"}'
+```
+
+## 安全与生命周期
+
+- 未声明 `readOnlyHint=true` 的工具，调用前必须取得用户明确确认。
+- 官方 MCP 工具调用只发送一次，绝不自动重试；发送后发生传输错误时会报告“执行状态未知”。
+- 工具发现属于只读操作，会话失效时允许重连并重试一次。
+- 刷新失败时保留最后一次成功缓存。
+- 外层 `tools/list` 会刷新发现结果；`extension(action="list", refresh=true)` 可显式刷新，并在 action 集合变化时发送工具列表变更通知。
+- 设置页提供总开关、原生工具来源开关和按工具屏蔽。
+
+官方发现需要思源 3.7.0 或更高版本、管理员会话和有效 API Token。
+
+> [!WARNING]
+> 原生工具桥接不经过 Sisyphus 的笔记本权限、action 禁用和危险操作确认，而是直接按当前思源管理员会话或 API Token 的权限执行。官方原生聚合工具目前也没有通过 `tools/list` 暴露内层 action 级风险信息，因此工具级 `readOnlyHint` 无法区分只读与写入 action。请将所有原生转发调用视为可能产生副作用，仅对本机或完全可信的客户端启用，不要向不可信远程客户端开放。
+
+## 官方 MCP 与 Sisyphus 的关系
+
+| 关注点 | 思源官方 MCP | Sisyphus |
+|---|---|---|
+| 注册方式 | 原生工具和插件分别注册独立工具 | 按工具类别和 action 聚合 |
+| 命名空间 | 原生名称或 `plugin__<plugin>__<tool>` | 官方名称成为 `extension` action |
+| 元数据 | `source`、`readOnlyHint`、`effectScope` | 保留到发现结果、帮助和安全提示 |
+| 变更通知 | 官方注册表声明 `listChanged=false` | 在刷新点比较缓存，并通知外层客户端 |
+| CLI | 官方注册表不提供 | 通过 `siyuan extension ...` 使用同一桥接层 |
+| 调用 | 直接执行官方 `tools/call` | 单次转发且不重放 |

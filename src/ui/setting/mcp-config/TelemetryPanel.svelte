@@ -495,13 +495,13 @@
         {/if}
 
         <div class="analytics-actions">
-            <button class="b3-button b3-button--outline" on:click={loadAnalyticsSummary}>
+            <button class="b3-button analytics-actions__primary" on:click={loadAnalyticsSummary}>
                 {getLabel("analyticsRefresh", "Refresh")}
             </button>
             <button class="b3-button b3-button--outline" on:click={exportAnalyticsReport} disabled={!analyticsSummary || analyticsSummary.totalCalls === 0}>
                 {getLabel("analyticsExport", "Export Report")}
             </button>
-            <button class="b3-button b3-button--outline" on:click={clearAnalyticsData}>
+            <button class="b3-button b3-button--outline analytics-actions__danger" on:click={clearAnalyticsData}>
                 {getLabel("analyticsClear", "Clear Data")}
             </button>
         </div>
@@ -537,21 +537,24 @@
 
     .analytics-hint {
         padding: var(--mcp-config-card-padding, 16px);
-        background: var(--mcp-config-surface, var(--b3-theme-surface));
-        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
+        background: var(--mcp-config-surface-accent, var(--mcp-config-surface, var(--b3-theme-surface)));
+        border: 1px solid var(--mcp-config-primary-border, var(--b3-border-color));
         border-radius: var(--mcp-config-card-radius, 8px);
         box-shadow: var(--mcp-config-shadow, none);
         color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        line-height: 1.6;
     }
 
     .analytics-hint--error {
+        background: color-mix(in srgb, var(--b3-theme-error) 7%, var(--mcp-config-surface-raised, var(--b3-theme-surface)));
+        border-color: color-mix(in srgb, var(--b3-theme-error) 24%, var(--b3-border-color));
         color: var(--b3-theme-error);
     }
 
     .analytics-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
     }
 
     .analytics-card {
@@ -559,15 +562,33 @@
         border: 1px solid var(--mcp-config-border, var(--b3-border-color));
         border-radius: var(--mcp-config-card-radius, 8px);
         box-shadow: var(--mcp-config-shadow, none);
-        padding: 13px 12px;
-        text-align: center;
+        min-height: 70px;
+        padding: 14px;
+        text-align: left;
+        transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+    }
+
+    .analytics-card:hover {
+        border-color: color-mix(in srgb, var(--b3-theme-primary) 26%, var(--b3-border-color));
+        box-shadow: 0 5px 16px color-mix(in srgb, var(--b3-theme-on-background) 6%, transparent);
+        transform: translateY(-1px);
+    }
+
+    .analytics-card:first-child {
+        border-color: var(--mcp-config-primary-border, var(--b3-border-color));
+    }
+
+    .analytics-card:nth-child(5),
+    .analytics-card:nth-child(6) {
+        background: linear-gradient(135deg, color-mix(in srgb, var(--b3-theme-error) 7%, transparent), transparent 74%), var(--mcp-config-surface-raised, var(--b3-theme-surface));
     }
 
     .analytics-card__value {
         color: var(--mcp-config-title-color, var(--b3-theme-on-background));
-        font-size: 18px;
-        font-weight: var(--mcp-config-title-font-weight, 500);
-        line-height: 1.4;
+        font-size: 20px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
     }
 
     .analytics-card__label {
@@ -587,8 +608,8 @@
     .analytics-block__title {
         color: var(--mcp-config-title-color, var(--b3-theme-on-background));
         font-size: var(--mcp-config-title-font-size, 14px);
-        font-weight: var(--mcp-config-title-font-weight, 500);
-        margin-bottom: 8px;
+        font-weight: var(--mcp-config-title-font-weight, 600);
+        margin-bottom: 10px;
     }
 
     .analytics-list__item {
@@ -621,9 +642,20 @@
     }
 
     .analytics-actions {
+        align-items: center;
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        padding-top: 2px;
+    }
+
+    .analytics-actions__primary {
+        min-width: 88px;
+    }
+
+    .analytics-actions__danger {
+        border-color: color-mix(in srgb, var(--b3-theme-error) 28%, var(--b3-border-color));
+        color: var(--b3-theme-error);
     }
 
     .analytics-note {

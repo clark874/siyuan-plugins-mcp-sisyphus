@@ -126,6 +126,16 @@ export const FLASHCARD_GUIDANCE: string[] = [
     'flashcard(action="remove_card") requires explicit user confirmation before execution.',
 ];
 
+export const EXTENSION_GUIDANCE: string[] = [
+    'extension bridges tools from the official SiYuan /mcp endpoint and requires SiYuan 3.7.0 or newer.',
+    'Plugin tools are exposed by default. Native SiYuan tools are exposed only when extension.includeNativeTools is enabled; external source="mcp" tools remain excluded.',
+    'Use extension(action="list", refresh=true) to refresh discovery and inspect official tool names, sources, schemas, read-only declarations, and blocked state.',
+    'Call a discovered tool with extension(action="<official tool name>", arguments={...}). Downstream parameters must stay inside arguments, including a downstream action field.',
+    'Tools without readOnlyHint=true may mutate data or trigger side effects and require explicit user confirmation before calling.',
+    'Forwarded official MCP tool calls are never retried. A transport error after dispatch means execution status is unknown and must be checked before retrying.',
+    'Native tools can overlap with Sisyphus actions and substantially increase schema size, so includeNativeTools is disabled by default.',
+];
+
 export const MASCOT_GUIDANCE: string[] = [
     'mascot actions operate on the cat’s spendable balance.',
     'Every successful MCP tool call earns 1 coin for the cat, so the fastest way to earn balance is simply to keep using SiYuan MCP tools.',
@@ -282,6 +292,10 @@ export const FEEDBACK_ACTION_HINTS: Partial<Record<FeedbackAction, string>> = {
     submit: 'Sends plain-text feedback. Put a GitHub Issue-style report in description when reporting bugs, confusing behavior, or rough workflows. Recommended headings: ## Summary, ## What happened, ## Expected behavior, ## Steps or context, ## Impact, ## Suggested fix. impact should be a short impact summary; suggestion should be the direct fix idea. Avoid private note content and secrets.',
 };
 
+export const EXTENSION_ACTION_HINTS: Partial<Record<string, string>> = {
+    list: 'Set refresh=true to re-read the official SiYuan MCP tool registry. The result separates plugin/native sources and reports the currently exposed schema size. Discovery failures preserve the last successful cache.',
+};
+
 export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
     fs: FS_GUIDANCE,
     notebook: NOTEBOOK_GUIDANCE,
@@ -293,6 +307,7 @@ export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
     tag: TAG_GUIDANCE,
     system: SYSTEM_GUIDANCE,
     flashcard: FLASHCARD_GUIDANCE,
+    extension: EXTENSION_GUIDANCE,
     mascot: MASCOT_GUIDANCE,
     feedback: FEEDBACK_GUIDANCE,
 };
@@ -308,6 +323,7 @@ export const TOOL_ACTION_HINTS: Record<ToolCategory, Partial<Record<string, stri
     tag: TAG_ACTION_HINTS,
     system: SYSTEM_ACTION_HINTS,
     flashcard: FLASHCARD_ACTION_HINTS,
+    extension: EXTENSION_ACTION_HINTS,
     mascot: MASCOT_ACTION_HINTS,
     feedback: FEEDBACK_ACTION_HINTS,
 };
@@ -524,6 +540,12 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
                 },
             },
         ],
+    },
+    extension: {
+        list: [{
+            title: 'Refresh official MCP tool discovery',
+            mcp: { action: 'list', refresh: true },
+        }],
     },
     mascot: {},
     feedback: {},

@@ -347,7 +347,7 @@ async function assertDefaultToolList() {
         const toolOverviewText = await readResourceText(client, 'siyuan://help/tool-overview');
         assert.match(toolOverviewText, /SiYuan MCP Tool Overview/);
         assert.match(toolOverviewText, /document\(action="move"\)/);
-        assert.match(toolOverviewText, /12 aggregated tools/);
+        assert.match(toolOverviewText, /13 aggregated tools/);
         assert.match(toolOverviewText, /#tag#/);
         assert.match(toolOverviewText, /custom-riff-decks/);
         assert.match(toolOverviewText, /ai-layout-guide/);

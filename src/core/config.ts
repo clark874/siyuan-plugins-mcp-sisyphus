@@ -1,6 +1,6 @@
 import type { SiYuanClient } from '../api/client';
 
-export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot', 'feedback'] as const;
+export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'extension', 'mascot', 'feedback'] as const;
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
@@ -14,6 +14,7 @@ export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'get_backlinks', 'search
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
+export const EXTENSION_ACTIONS = ['list'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 export const FEEDBACK_ACTIONS = ['submit'] as const;
 
@@ -27,6 +28,7 @@ export type SearchAction = typeof SEARCH_ACTIONS[number];
 export type TagAction = typeof TAG_ACTIONS[number];
 export type SystemAction = typeof SYSTEM_ACTIONS[number];
 export type FlashcardAction = typeof FLASHCARD_ACTIONS[number];
+export type ExtensionAction = typeof EXTENSION_ACTIONS[number];
 export type MascotAction = typeof MASCOT_ACTIONS[number];
 export type FeedbackAction = typeof FEEDBACK_ACTIONS[number];
 
@@ -41,6 +43,7 @@ export type ToolActionMap = {
     tag: TagAction;
     system: SystemAction;
     flashcard: FlashcardAction;
+    extension: ExtensionAction;
     mascot: MascotAction;
     feedback: FeedbackAction;
 };
@@ -52,6 +55,11 @@ export interface CategoryToolConfig<Action extends string = string> {
 
 export interface FileCategoryToolConfig<Action extends string = string> extends CategoryToolConfig<Action> {
     uploadLargeFileThresholdMB: number;
+}
+
+export interface ExtensionCategoryToolConfig extends CategoryToolConfig<ExtensionAction> {
+    includeNativeTools: boolean;
+    blockedTools: string[];
 }
 
 export interface DebugToolConfig {
@@ -70,6 +78,7 @@ export type ToolConfig = {
     tag: CategoryToolConfig<TagAction>;
     system: CategoryToolConfig<SystemAction>;
     flashcard: CategoryToolConfig<FlashcardAction>;
+    extension: ExtensionCategoryToolConfig;
     mascot: CategoryToolConfig<MascotAction>;
     feedback: CategoryToolConfig<FeedbackAction>;
     userRulesText: string;
@@ -103,6 +112,7 @@ export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolAct
     tag: TAG_ACTIONS,
     system: SYSTEM_ACTIONS,
     flashcard: FLASHCARD_ACTIONS,
+    extension: EXTENSION_ACTIONS,
     mascot: MASCOT_ACTIONS,
     feedback: FEEDBACK_ACTIONS,
 };
@@ -176,6 +186,9 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         list_cards: 'basic', get_decks: 'basic', get_cards: 'basic',
         review_card: 'advanced', create_card: 'advanced', remove_card: 'advanced',
     },
+    extension: {
+        list: 'basic',
+    },
     mascot: {
         get_balance: 'basic', shop: 'basic', buy: 'basic',
     },
@@ -199,6 +212,7 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     tag: new Set(['remove']),
     system: new Set(['workspace_info', 'perform_sync']),
     flashcard: new Set(['remove_card']),
+    extension: new Set(),
     mascot: new Set(),
     feedback: new Set(),
 };
@@ -256,6 +270,12 @@ export function buildDefaultToolConfig(): ToolConfig {
         flashcard: {
             enabled: true,
             actions: createActionsRecord(FLASHCARD_ACTIONS, ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card']),
+        },
+        extension: {
+            enabled: true,
+            actions: createActionsRecord(EXTENSION_ACTIONS, ['list']),
+            includeNativeTools: false,
+            blockedTools: [],
         },
         mascot: {
             enabled: true,
@@ -380,6 +400,19 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
         }
         if (category === 'file' && 'uploadLargeFileThresholdMB' in categoryValue) {
             config.file.uploadLargeFileThresholdMB = normalizeUploadLargeFileThresholdMB(categoryValue.uploadLargeFileThresholdMB);
+        }
+        if (category === 'extension') {
+            if (typeof categoryValue.includeNativeTools === 'boolean') {
+                config.extension.includeNativeTools = categoryValue.includeNativeTools;
+            }
+            if (Array.isArray(categoryValue.blockedTools)) {
+                config.extension.blockedTools = Array.from(new Set(
+                    categoryValue.blockedTools
+                        .filter((name): name is string => typeof name === 'string')
+                        .map((name) => name.trim())
+                        .filter(Boolean),
+                )).sort();
+            }
         }
         if (!isRecord(categoryValue.actions)) continue;
         for (const action of ACTIONS_BY_CATEGORY[category]) {
