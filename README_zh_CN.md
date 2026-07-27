@@ -21,35 +21,125 @@
   <a href="https://yangtaihong59.github.io/siyuan-plugins-mcp-sisyphus/">Documentation</a>
 </p>
 
-> **最新版本：**`v0.4.15` — 新增长文档完整显示块分页与文件树权限徽标，并全面优化响应式设置页；CLI 提升至 `v0.1.18`。
+> 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
+
+> **最新版本：**`v0.5.0` — 正式接入思源官方 MCP 插件生态，支持发现、筛选和调用其他插件注册的 Tool，并可按需桥接原生 MCP Tool；CLI 提升至 `v0.2.0`。
+
+## 项目方向调整
+
+SiYuan Sisyphus 最初诞生于一个朴素的愿望：让思源笔记能够连接外部 AI Agent，补强当时思源在 AI 工具接入方面的能力。
+
+如今，思源已经推出官方 MCP，Sisyphus 在连接思源与外部 AI Agent 方面的阶段性使命也已告一段落。在官方 MCP 生态仍处于起步阶段的当下，Sisyphus 的重心将逐步转向：持续打磨 AI 与思源之间的连接体验，探索更加自然、高效、可靠的 AI 辅助工作流。
+
+目前，Sisyphus 在延续原有能力与工作流的同时，已经接入思源官方 MCP 生态，能够调用和管理其他插件注册的 Tool，让不同插件提供的能力可以被 AI 统一发现、灵活组合并协同使用。
+
+这不是对原有能力的替换：
+
+- Sisyphus 自带的 13 个聚合工具、参数约定、笔记本权限和现有 Agent 工作流继续保持兼容；
+- Sisyphus 已接入思源官方 MCP 端点，会发现并加载其他插件注册的 Tool；
+- 思源官方原生 MCP Tool 也可以选择接入，但由于权限边界不同，默认关闭；
+- 权限管理、文档时间线、多种连接方式等增强能力继续维护。
+
+```mermaid
+flowchart LR
+    Agent["外部 AI Agent<br/>Claude / Codex / Cursor / Cline / ..."]
+    Sisyphus["SiYuan Sisyphus<br/>MCP + CLI"]
+    Builtin["Sisyphus 聚合工具<br/>兼容现有工作流"]
+    Bridge["extension<br/>官方 MCP 桥接"]
+    PluginTools["其他插件注册的 Tool"]
+    NativeTools["思源原生 MCP Tool<br/>可选，默认关闭"]
+    Workspace["思源工作空间"]
+
+    Agent --> Sisyphus
+    Sisyphus --> Builtin
+    Sisyphus --> Bridge
+    Bridge --> PluginTools
+    Bridge -. 高风险选项 .-> NativeTools
+    Builtin --> Workspace
+    PluginTools --> Workspace
+    NativeTools --> Workspace
+```
+
+## 一次连接，两套兼容工具生态
+
+| 工具来源 | 默认状态 | 适合场景 | 兼容与安全边界 |
+|---|---|---|---|
+| **Sisyphus 聚合工具** | 开启 | 稳定的阅读、搜索、编辑、数据库、权限和自动化工作流 | 保持原有 action 与参数约定，经过 Sisyphus 权限和危险操作控制 |
+| **官方插件 MCP Tool** | 开启 | 使用其他思源插件通过官方 MCP 注册的新能力 | 由 `extension` 动态发现，官方工具名直接成为 action |
+| **思源原生 MCP Tool** | 关闭 | 本机可信环境中的官方能力测试与对比 | 直接使用管理员会话或 API Token，不经过 Sisyphus 笔记本权限和危险操作确认 |
+
+对已有用户来说，不需要把原来的 Sisyphus 调用改写成官方 Tool。原有工具继续可用；官方插件工具是在同一连接上增加的新生态入口。
+
+对插件开发者来说，只要 Tool 已注册到思源官方 MCP，Sisyphus 就可以通过官方注册表发现它，无需再为 Sisyphus 单独实现一份适配。
+
+## 这是什么
+
+SiYuan Sisyphus 让外部 AI Agent 连接思源，并安全地阅读、搜索、编辑和整理工作空间。
+
+它同时提供两种入口：
+
+- **MCP 插件**：把思源连接到 Claude Desktop、Claude Code、Codex、Cursor、Cherry Studio、Cline 等支持 MCP 的客户端，并桥接官方 MCP 插件生态。
+- **CLI `siyuan-sisyphus`**：让 Agent、终端和脚本用短命令直接操作思源，适合单次任务和自动化。
+
+两种入口共享同一套底层思源操作能力。Sisyphus 自有工具共享同一套权限模型；通过 `extension` 转发的官方工具遵循其自身权限语义。
+
+## 快速开始
+
+1. 从思源集市安装插件，或按照开发文档从源码构建。
+2. 打开 `插件 -> SiYuan Sisyphus MCP & CLI -> 设置`。
+3. 在连接配置页选择 MCP 或 CLI。
+4. 复制自动生成的客户端配置，或用 `siyuan-sisyphus init` 初始化 CLI。
+5. 先执行列出笔记本、读取思源版本等只读任务验证连接。
+6. 如需使用其他插件注册的官方 MCP Tool，在工具设置中展开“扩展工具”查看发现状态。
+
+```bash
+npm i -g siyuan-sisyphus
+siyuan-sisyphus init
+sisyphus notebook list
+```
+
+完整安装和连接步骤请查看[快速开始文档](./docs/zh/getting-started/index.md)。
+
+## 核心能力
+
+- **官方 MCP 插件生态接入**：发现其他插件通过思源官方 MCP 注册的 Tool，并在外部 Agent 连接中同步暴露。
+- **兼容历史 Agent 工作流**：Sisyphus 原有聚合工具、action、CLI 和权限配置继续保留。
+- **AI 友好的笔记访问方式**：`fs` 支持 `/笔记本/项目/文档` 这类人类可读路径，让 AI 不必理解块 ID 和文档树细节。
+- **MCP 与 CLI 双入口**：MCP 适合多步 Agent 工作流，CLI 适合脚本、自动化和小型单次任务。
+- **笔记本级安全边界**：每个笔记本可独立设置 `none`、`r`、`rw`、`rwd` 权限。
+- **低上下文工具设计**：把 100+ 个思源能力收敛为 13 个按 action 路由的聚合工具，详细说明按需读取。
+- **面向 Agent 的场景 Skill**：内置浏览、编辑、搜索、数据库、导出、标签、闪卡、系统安全和思源排版指南。
+- **类 Git 文档时间线**：为单篇文档创建命名时间线节点，比较历史快照并按需回退。
+- **实用连接配置**：设置页提供常见 AI 客户端、本地、远程和 Docker 场景的连接片段。
+
+## 官方 MCP 生态接入
+
+在思源 3.7.0+ 中，`extension` 会读取官方 `/mcp` 注册表，并把允许暴露的官方 Tool 转换为动态 action：
+
+```json
+{
+  "action": "plugin__example__search",
+  "arguments": {
+    "action": "query",
+    "keyword": "MCP"
+  }
+}
+```
+
+下游 Tool 的参数全部放在 `arguments` 中，因此即使它也使用 `action` 字段，也不会与 Sisyphus 的外层路由冲突。
+
+工具设置页可以查看插件/原生 Tool 数量、当前暴露数量、Schema 体积、来源和风险提示，也可以单独关闭不希望暴露的 Tool。
+
+> **安全提示：**官方插件 Tool 以及可选的思源原生 Tool 不经过 Sisyphus 自有工具的笔记本权限和 action 级危险操作控制。尤其是原生 Tool，应只在本机或完全可信的客户端中启用。
+
+详细调用方式请看 [`extension` 工具文档](./docs/zh/reference/tools/extension.md)。
+
+## 类 Git 文档时间线
 
 <p align="center">
   <img src="docs/archive/timeline.png" alt="文档时间线" width="720">
 </p>
 <p align="center"><em>文档时间线：给思源笔记提供命名快照、可视化 diff 和回退能力。</em></p>
-
-## 这是什么
-
-SiYuan Sisyphus 让 AI Agent 安全地阅读、搜索、编辑和整理你的思源工作空间。
-
-它同时提供两种入口：
-
-- **MCP 插件**：把思源连接到 Claude Desktop、Claude Code、Codex、Cursor、Cherry Studio、Cline 等支持 MCP 的客户端。
-- **CLI `siyuan-sisyphus`**：让 Agent、终端和脚本用短命令直接操作思源。
-
-两种入口共享同一套权限模型和同一套底层思源操作能力。
-
-## 特有功能
-
-- **类 Git 文档时间线**：为单篇文档创建命名时间线节点，对比历史快照与当前状态，并在需要时进行文档/块级回退。
-- **AI 友好的笔记访问方式**：`fs` 工具支持 `/笔记本/项目/文档` 这类人类可读路径，让 AI 不必理解块 ID 和文档树细节。
-- **MCP 与 CLI 双入口**：提供 MCP 和 CLI 两种连接方式，共享一套权限管理。
-- **笔记本级安全边界**：每个笔记本可独立设置 `none`、`r`、`rw`、`rwd` 权限。
-- **低上下文工具设计**：把 100+ 个思源能力收敛为 13 个按 action 路由的聚合工具，详细说明按需查看。
-- **官方 MCP 工具桥接**：在思源 3.7.0+ 中，`extension` 默认暴露插件注册工具，并可通过默认关闭的开关选择性包含思源原生 MCP 工具。
-- **实用连接配置**：插件设置页提供常见 AI 客户端和部署方式的可复制连接配置。
-
-## 类 Git 文档时间线
 
 文档时间线给普通思源文档补上一层类似源码版本管理的安全网：
 
@@ -63,15 +153,11 @@ SiYuan Sisyphus 让 AI Agent 安全地阅读、搜索、编辑和整理你的思
 
 ## MCP 与 CLI 双入口
 
-当你希望 AI 客户端自动发现工具、组合多步操作时，使用 **MCP**。它适合搜索、阅读、修改、检查数据库和验证结果等 Agent 工作流。
+当 AI 客户端需要自动发现工具、组合多步操作并验证结果时，使用 **MCP**。它适合搜索、阅读、修改、检查数据库以及调用官方插件 Tool 等 Agent 工作流。
 
-当一个终端命令就够时，使用 **CLI**。它不会把长工具 schema 塞进模型上下文，更适合脚本、自动化和小型单次任务。
+当一个终端命令就够时，使用 **CLI**。它不会把长工具 Schema 塞进模型上下文，更适合脚本、自动化和小型单次任务。
 
-```bash
-npm i -g siyuan-sisyphus
-siyuan-sisyphus init
-sisyphus notebook list
-```
+MCP 和 CLI 共用 Sisyphus 核心调用路径，避免同一能力在两套入口中产生不同语义。
 
 ## 面向 Agent 的场景 Skill
 
@@ -88,22 +174,32 @@ siyuan-sisyphus skill install --bundle all # 同时安装 MCP 与 CLI 两套
 
 ## 安全边界
 
-SiYuan Sisyphus 的默认设计是让用户明确控制 AI 的操作范围：
+Sisyphus 自有工具的默认设计是让用户明确控制 AI 的操作范围：
 
 - 每个笔记本都可以设为只读、可写、可删除，或完全隐藏；
 - 删除、移动、替换、上传资源等危险动作会被单独处理；
 - MCP 与 CLI 共用核心行为，切换入口不会产生第二套权限模型；
 - 远程和 Docker 场景通过思源 HTTP API 操作，不假设可以直接读写本地工作空间文件。
 
-## 快速开始
+官方 MCP 桥接属于另一条工具来源。转发调用使用当前思源管理员会话或 API Token 的权限，不会自动继承上述笔记本权限和危险 action 控制。启用或调用前，请确认外部 Agent、网络环境和下游 Tool 都值得信任。
 
-1. 从思源集市安装插件，或按源码安装文档构建。
-2. 打开 `插件 -> SiYuan Sisyphus MCP & CLI -> 设置`。
-3. 在连接配置页选择 MCP 或 CLI。
-4. 复制自动生成的客户端配置，或用 `siyuan-sisyphus init` 初始化 CLI。
-5. 先执行列出笔记本、读取思源版本等只读任务验证连接。
+## 未来方向与欢迎反馈
 
-完整安装和连接步骤请看下面的文档入口。
+接下来项目将重点改善外部 Agent 连接思源时的完整体验，包括：
+
+- 常见 Agent 的连接配置与兼容性；
+- HTTP、stdio、本地、远程和 Docker 场景；
+- 官方 MCP Tool 的发现、同步、筛选与 Schema 体积；
+- 更清晰的调用状态、错误信息和断线恢复；
+- 更适合真实任务的 Skill、帮助和渐进式披露；
+- 不同 Agent 产品中的实际调用验证与体验对比。
+
+欢迎提交 bug、使用体验和修改建议：
+
+- [GitHub Issues](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/issues)：适合公开讨论问题、需求和设计建议；
+- 内置 `feedback` 工具：Agent 可以直接调用 `feedback(action="submit", description="...")` 提交体验反馈。
+
+反馈时请不要包含 API Token、密钥、私密笔记内容或敏感本地路径。
 
 ## 继续阅读
 
@@ -121,7 +217,7 @@ SiYuan Sisyphus 的默认设计是让用户明确控制 AI 的操作范围：
 
 ### 赞助致谢
 
-感谢 **undefined**、**Fngd Z** 、**ou**、**米建**, **锋🌀☁️**, 和其他好心人对本项目的赞助支持。
+感谢 **undefined**、**Fngd Z**、**ou**、**米建**、**锋🌀☁️** 、**wooh**和其他好心人对本项目的赞助支持。
 
 <p align="left">
   <img src="docs/archive/thank.jpeg" alt="赞赏码" width="200">
