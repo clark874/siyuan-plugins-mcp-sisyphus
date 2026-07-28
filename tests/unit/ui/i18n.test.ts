@@ -53,6 +53,8 @@ describe('settings i18n', () => {
 
             expect(i18n.toolSettingsChangelogTitle, `${locale} toolSettingsChangelogTitle`).toEqual(expect.any(String));
             expect(i18n.toolSettingsChangelogText, `${locale} toolSettingsChangelogText`).toEqual(expect.any(String));
+            expect(i18n.toolSettingsChangelogExpand, `${locale} toolSettingsChangelogExpand`).toEqual(expect.any(String));
+            expect(i18n.toolSettingsChangelogCollapse, `${locale} toolSettingsChangelogCollapse`).toEqual(expect.any(String));
             expect(i18n.toolSettingsChangelogText, `${locale} toolSettingsChangelogText`).toContain(`v${version}`);
             for (const line of String(i18n.toolSettingsChangelogText).split('\n')) {
                 expect(line, `${locale} changelog date`).toMatch(/· \d{4}-\d{2}-\d{2} —/);

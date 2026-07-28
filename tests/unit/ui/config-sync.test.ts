@@ -153,7 +153,11 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(connectionSource).toContain('class="http-changelog"');
         expect(connectionSource).toContain('toolSettingsChangelogBadge');
         expect(connectionSource).toContain('parseChangelogEntries');
+        expect(connectionSource).toContain('let changelogExpanded = false;');
+        expect(connectionSource).toContain('changelogEntries.slice(0, 1)');
+        expect(connectionSource).toContain('aria-expanded={changelogExpanded}');
         expect(connectionSource).toContain('class="http-changelog-timeline"');
+        expect(connectionSource).toContain('class:http-changelog-timeline--collapsed={!changelogExpanded}');
         expect(connectionSource).toContain('class:http-changelog-timeline__item--latest={index === 0}');
         expect(connectionSource).toContain('max-height: calc(var(--changelog-item-height) * 3)');
         expect(connectionSource).toContain('overflow-y: auto;');
