@@ -54,6 +54,12 @@ describe('settings i18n', () => {
             expect(i18n.toolSettingsChangelogTitle, `${locale} toolSettingsChangelogTitle`).toEqual(expect.any(String));
             expect(i18n.toolSettingsChangelogText, `${locale} toolSettingsChangelogText`).toEqual(expect.any(String));
             expect(i18n.toolSettingsChangelogText, `${locale} toolSettingsChangelogText`).toContain(`v${version}`);
+            for (const line of String(i18n.toolSettingsChangelogText).split('\n')) {
+                expect(line, `${locale} changelog date`).toMatch(/· \d{4}-\d{2}-\d{2} —/);
+            }
+            for (const milestone of ['v0.5.0', 'v0.4.0', 'v0.3.7', 'v0.3.0', 'v0.2.0', 'v0.1.5', 'v0.1.0']) {
+                expect(i18n.toolSettingsChangelogText, `${locale} ${milestone}`).toContain(milestone);
+            }
         }
     });
 
@@ -130,6 +136,28 @@ describe('settings i18n', () => {
             expect(i18n.agent_memory_http_restarted, `${locale} agent_memory_http_restarted`).toEqual(expect.any(String));
             expect(i18n.agent_memory_saved_reconnect, `${locale} agent_memory_saved_reconnect`).toEqual(expect.any(String));
             expect(i18n.agent_memory_refresh_failed, `${locale} agent_memory_refresh_failed`).toEqual(expect.any(String));
+        }
+    });
+
+    it('covers AI-assisted MCP and CLI connection prompts in bundled locales', () => {
+        const promptKeys = [
+            'mcpAiSetupTitle',
+            'mcpAiSetupDesc',
+            'mcpAiSetupPrompt',
+            'cliAiSetupTitle',
+            'cliAiSetupDesc',
+            'cliAiSetupPrompt',
+            'copyPromptForAi',
+            'aiSetupSecretWarning',
+        ];
+
+        for (const locale of ['en_US', 'zh_CN']) {
+            const i18n = readI18n(locale);
+            for (const key of promptKeys) {
+                expect(i18n[key], `${locale} ${key}`).toEqual(expect.any(String));
+            }
+            expect(i18n.mcpAiSetupPrompt).toContain('{{config}}');
+            expect(i18n.cliAiSetupPrompt).toContain('{{apiToken}}');
         }
     });
 });

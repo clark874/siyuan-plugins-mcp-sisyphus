@@ -121,7 +121,21 @@
     let selectedMcpTransport: McpTransportId = "stdio";
     $: changelogTitle = getLabel("toolSettingsChangelogTitle", "更新日志");
     $: changelogText = getLabel("toolSettingsChangelogText", "连接设置现按 MCP / CLI 分组，MCP 下再区分 HTTP/HTTPS 与 stdio。");
+    $: changelogEntries = parseChangelogEntries(changelogText);
     $: httpSupportReason = plugin?.httpLauncher ? "" : getHttpUnsupportedReason();
+
+    function parseChangelogEntries(text: string): Array<{ version: string; date: string; description: string }> {
+        return text
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+                const match = line.match(/^`?([^`\s]+)`?(?:\s*·\s*(\d{4}-\d{2}-\d{2}))?\s*[—–]\s*(.+)$/);
+                return match
+                    ? { version: match[1], date: match[2] ?? "", description: match[3] }
+                    : { version: "", date: "", description: line };
+            });
+    }
 
     onMount(() => {
         httpRecentLogs = getHttpLifecycleLogs();
@@ -334,6 +348,92 @@
         return generateCursorJsonConfig(s, transport);
     }
 
+    function replacePromptTokens(template: string, values: Record<string, string>): string {
+        return Object.entries(values).reduce(
+            (result, [key, value]) => result.split(`{{${key}}}`).join(value),
+            template,
+        );
+    }
+
+    function getSelectedMcpClientTitle(): string {
+        const preset = MCP_CLIENT_PRESETS.find((item) => item.id === selectedMcpClientPreset);
+        return preset
+            ? getLabel(preset.titleKey, preset.titleFallback)
+            : selectedMcpClientPreset;
+    }
+
+    function getSelectedMcpTransportTitle(): string {
+        const transport = MCP_TRANSPORT_PRESETS.find((item) => item.id === selectedMcpTransport);
+        return transport
+            ? getLabel(transport.titleKey, transport.titleFallback)
+            : selectedMcpTransport;
+    }
+
+    function getSiYuanApiUrl(): string {
+        const origin = window?.location?.origin;
+        return typeof origin === "string" && /^https?:\/\//.test(origin)
+            ? origin
+            : "http://127.0.0.1:6806";
+    }
+
+    function generateMcpAiSetupPrompt(): string {
+        const fallback = `Configure SiYuan Sisyphus MCP in my current AI client.
+
+Target client preset: {{client}}
+Transport: {{transport}}
+
+Use this configuration:
+\`\`\`{{format}}
+{{config}}
+\`\`\`
+
+You are authorized to inspect and update the current client's MCP configuration. Please:
+1. Detect the current OS and the actual configuration file or settings entry used by this client.
+2. Read the existing configuration first, merge only the "{{serverName}}" server entry, and preserve all other servers and settings.
+3. Treat every token in this prompt as a secret. Do not echo it in logs, summaries, or your final response.
+4. For stdio, verify that Node.js and the server script exist. For HTTP/HTTPS, verify that the endpoint is reachable; if the service is stopped, tell me what must be enabled in SiYuan.
+5. Reload or reconnect the MCP client as required, then verify the connection by listing tools or calling a harmless read-only action.
+6. Report the files or settings changed and the verification result without exposing credentials.
+
+If you cannot edit the client configuration directly, provide the exact target path and commands or UI steps instead.`;
+        return replacePromptTokens(
+            getLabel("mcpAiSetupPrompt", fallback),
+            {
+                client: getSelectedMcpClientTitle(),
+                transport: getSelectedMcpTransportTitle(),
+                format: selectedMcpClientPreset === "codex" ? "toml" : "json",
+                config: generatePresetSnippet(httpSettings, selectedMcpClientPreset, selectedMcpTransport),
+                serverName: MCP_SERVER_NAME,
+            },
+        );
+    }
+
+    function generateCliAiSetupPrompt(): string {
+        const fallback = `Configure the SiYuan Sisyphus CLI in my current environment.
+
+Connection:
+- API URL: {{apiUrl}}
+- API token: {{apiToken}}
+- Profile: default
+
+You are authorized to install or update the published siyuan-sisyphus npm package and update its own CLI configuration. Please:
+1. Detect the current OS and confirm that Node.js and npm are available.
+2. Install or update siyuan-sisyphus globally.
+3. Inspect existing Sisyphus profiles first. Create or update the "default" profile with the API URL and token above, make it active, and preserve unrelated profiles.
+4. Treat the token as a secret. Do not echo it in logs, summaries, shell history where avoidable, or your final response.
+5. Run read-only verification with "siyuan-sisyphus --version", "siyuan-sisyphus config list", and "siyuan-sisyphus notebook list".
+6. Report the installed version, configuration path, active profile, and verification result without exposing the token.
+
+If the API URL is not reachable from the current host, container, WSL, or remote environment, determine the correct route to this SiYuan instance and explain the required adjustment before changing it.`;
+        return replacePromptTokens(
+            getLabel("cliAiSetupPrompt", fallback),
+            {
+                apiUrl: getSiYuanApiUrl(),
+                apiToken: getSiYuanApiToken(),
+            },
+        );
+    }
+
     async function copyText(text: string) {
         try {
             await navigator.clipboard.writeText(text);
@@ -438,9 +538,25 @@
             <div class="http-changelog-copy">
                 <div class="http-changelog-heading">
                     <div id="tool-settings-changelog-title" class="http-changelog-title">{changelogTitle}</div>
-                    <span>{getLabel("toolSettingsChangelogBadge", "Latest")}</span>
                 </div>
-                <p class="http-changelog-text">{changelogText}</p>
+                <ol class="http-changelog-timeline">
+                    {#each changelogEntries as entry, index}
+                        <li class:http-changelog-timeline__item--latest={index === 0} class="http-changelog-timeline__item">
+                            <div class="http-changelog-timeline__meta">
+                                {#if entry.version}
+                                    <code>{entry.version}</code>
+                                {/if}
+                                {#if entry.date}
+                                    <time datetime={entry.date}>{entry.date}</time>
+                                {/if}
+                                {#if index === 0}
+                                    <span>{getLabel("toolSettingsChangelogBadge", "Latest")}</span>
+                                {/if}
+                            </div>
+                            <p title={entry.description}>{entry.description}</p>
+                        </li>
+                    {/each}
+                </ol>
             </div>
         </section>
 
@@ -475,6 +591,16 @@
         <details class="http-guide">
             <summary>{getLabel("mcpGuideTitle", "MCP 连接")}</summary>
             <div class="http-guide-content">
+                <div class="ai-setup-card">
+                    <div class="ai-setup-card__copy">
+                        <div class="ai-setup-card__title">{getLabel("mcpAiSetupTitle", "Let AI configure MCP")}</div>
+                        <div class="ai-setup-card__desc">{getLabel("mcpAiSetupDesc", "Copy a prompt containing the selected client, transport, and exact connection config so a trusted AI can merge and verify it for you.")}</div>
+                        <div class="ai-setup-card__warning">{getLabel("aiSetupSecretWarning", "The copied prompt contains connection credentials. Share it only with an AI you trust.")}</div>
+                    </div>
+                    <button class="b3-button b3-button--outline ai-setup-card__button" on:click={() => copyText(generateMcpAiSetupPrompt())}>
+                        {getLabel("copyPromptForAi", "Copy prompt for AI")}
+                    </button>
+                </div>
 
                 <div class="mcp-client-presets">
                     <div class="mcp-client-presets-title">{getLabel("mcpClientPresetsTitle", "常用客户端配置")}</div>
@@ -634,6 +760,16 @@
             <div class="http-guide-content">
                 <div class="http-guide-intro">{getLabel("cliGuideDesc", "CLI 直接通过 SiYuan HTTP API 连接，不依赖 MCP server。适合终端、脚本、自动化任务。")}</div>
                 <div class="http-note">{getLabel("cliChooseDesc", "如果你不是在给 MCP 客户端配工具，而是想自己在终端里执行 `siyuan-sisyphus ...` 命令，就选 CLI。")}</div>
+                <div class="ai-setup-card">
+                    <div class="ai-setup-card__copy">
+                        <div class="ai-setup-card__title">{getLabel("cliAiSetupTitle", "Let AI configure the CLI")}</div>
+                        <div class="ai-setup-card__desc">{getLabel("cliAiSetupDesc", "Copy a prompt that authorizes a trusted AI to install the CLI, configure the current SiYuan connection, and verify it.")}</div>
+                        <div class="ai-setup-card__warning">{getLabel("aiSetupSecretWarning", "The copied prompt contains connection credentials. Share it only with an AI you trust.")}</div>
+                    </div>
+                    <button class="b3-button b3-button--outline ai-setup-card__button" on:click={() => copyText(generateCliAiSetupPrompt())}>
+                        {getLabel("copyPromptForAi", "Copy prompt for AI")}
+                    </button>
+                </div>
 
                 {#each CLI_SNIPPETS as snippet}
                     <div class="http-snippet cli-snippet">
@@ -699,17 +835,6 @@
             gap: 8px;
         }
 
-        .http-changelog-heading > span {
-            background: var(--mcp-config-primary-soft, color-mix(in srgb, var(--b3-theme-primary) 12%, transparent));
-            border: 1px solid var(--mcp-config-primary-border, color-mix(in srgb, var(--b3-theme-primary) 26%, transparent));
-            border-radius: 999px;
-            color: var(--b3-theme-primary);
-            font-size: 10px;
-            font-weight: 600;
-            line-height: 1.4;
-            padding: 2px 7px;
-        }
-
         .http-overview {
             background: var(--mcp-config-surface-accent, var(--mcp-config-surface-raised, var(--b3-theme-surface)));
             border: 1px solid var(--mcp-config-primary-border, var(--b3-border-color));
@@ -733,12 +858,109 @@
             font-weight: var(--mcp-config-title-font-weight, 500);
         }
 
-        .http-changelog-text {
-            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        .http-changelog-timeline {
+            --changelog-item-height: 78px;
+            list-style: none;
+            margin: 8px 0 0;
+            max-height: calc(var(--changelog-item-height) * 3);
+            overflow-y: auto;
+            padding: 0 10px 0 0;
+            scrollbar-gutter: stable;
+        }
+
+        .http-changelog-timeline__item {
+            box-sizing: border-box;
+            height: var(--changelog-item-height);
+            margin: 0;
+            padding: 0 0 8px 20px;
+            position: relative;
+        }
+
+        .http-changelog-timeline__item:last-child {
+            padding-bottom: 0;
+        }
+
+        .http-changelog-timeline__item::before {
+            background: var(--mcp-config-surface, var(--b3-theme-surface));
+            border: 2px solid var(--mcp-config-border, var(--b3-border-color));
+            border-radius: 50%;
+            box-sizing: border-box;
+            content: "";
+            height: 10px;
+            left: 0;
+            position: absolute;
+            top: 4px;
+            width: 10px;
+            z-index: 1;
+        }
+
+        .http-changelog-timeline__item::after {
+            background: var(--mcp-config-border, var(--b3-border-color));
+            content: "";
+            left: 4px;
+            position: absolute;
+            top: 14px;
+            bottom: -4px;
+            width: 2px;
+        }
+
+        .http-changelog-timeline__item:last-child::after {
+            display: none;
+        }
+
+        .http-changelog-timeline__item--latest::before {
+            background: var(--b3-theme-primary);
+            border-color: color-mix(in srgb, var(--b3-theme-primary) 30%, transparent);
+            box-shadow: 0 0 0 4px var(--mcp-config-primary-soft, color-mix(in srgb, var(--b3-theme-primary) 12%, transparent));
+        }
+
+        .http-changelog-timeline__meta {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            min-height: 18px;
+        }
+
+        .http-changelog-timeline__meta code {
+            background: transparent;
+            color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+            font-family: var(--mcp-config-code-font);
             font-size: 12px;
-            line-height: 1.6;
-            margin: 5px 0 0;
-            white-space: pre-wrap;
+            font-weight: 600;
+            padding: 0;
+        }
+
+        .http-changelog-timeline__meta time {
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .http-changelog-timeline__item--latest .http-changelog-timeline__meta code {
+            color: var(--b3-theme-primary);
+        }
+
+        .http-changelog-timeline__meta > span {
+            background: var(--mcp-config-primary-soft, color-mix(in srgb, var(--b3-theme-primary) 12%, transparent));
+            border: 1px solid var(--mcp-config-primary-border, color-mix(in srgb, var(--b3-theme-primary) 26%, transparent));
+            border-radius: 999px;
+            color: var(--b3-theme-primary);
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.4;
+            padding: 1px 7px;
+        }
+
+        .http-changelog-timeline__item p {
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+            display: -webkit-box;
+            font-size: 12px;
+            line-height: 1.5;
+            margin: 2px 0 0;
+            overflow: hidden;
         }
 
         .http-status-row {
@@ -995,6 +1217,45 @@
             line-height: 1.6;
         }
 
+        .ai-setup-card {
+            align-items: center;
+            background: color-mix(in srgb, var(--mcp-config-primary-soft) 58%, var(--b3-theme-background));
+            border: 1px solid var(--mcp-config-primary-border, var(--b3-border-color));
+            border-radius: var(--mcp-config-card-radius, 8px);
+            display: flex;
+            gap: 14px;
+            justify-content: space-between;
+            padding: 12px 14px;
+        }
+
+        .ai-setup-card__copy {
+            display: flex;
+            flex: 1 1 auto;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+        }
+
+        .ai-setup-card__title {
+            color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+            font-weight: var(--mcp-config-title-font-weight, 500);
+        }
+
+        .ai-setup-card__desc,
+        .ai-setup-card__warning {
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+            line-height: 1.5;
+        }
+
+        .ai-setup-card__warning {
+            color: var(--b3-theme-warning, #c07800);
+            font-size: 12px;
+        }
+
+        .ai-setup-card__button {
+            flex: 0 0 auto;
+        }
+
         .mcp-client-presets {
             background: var(--b3-theme-background);
             border: 1px solid var(--b3-border-color);
@@ -1076,6 +1337,10 @@
             gap: 10px;
         }
 
+        .http-changelog-timeline {
+            --changelog-item-height: 96px;
+        }
+
         .http-token-input,
         .http-path-input {
             min-width: auto;
@@ -1105,6 +1370,15 @@
         .mcp-client-preset-select {
             width: 100%;
             align-items: flex-start;
+        }
+
+        .ai-setup-card {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .ai-setup-card__button {
+            width: 100%;
         }
 
         .mcp-client-preset-select {
