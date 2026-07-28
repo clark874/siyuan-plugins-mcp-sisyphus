@@ -38,7 +38,15 @@ The system consists of four layers from outside to inside:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Key boundary**: Layer 1 and Layer 2 communicate via the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) standard. Layer 2 and Layer 3 use MCP in plugin mode (`ListToolsRequestSchema` / `CallToolRequestSchema`), but in CLI mode they use **direct function calls**. Layer 3 and Layer 4 always go through SiYuan's HTTP APIs — **never directly accessing the local filesystem** — ensuring remote safety.
+**Key boundary**: Layer 1 and Layer 2 communicate via the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) standard. Layer 2 and Layer 3 use MCP in plugin mode (`ListToolsRequestSchema` / `CallToolRequestSchema`), but in CLI mode they use **direct function calls**. Sisyphus-owned capabilities always cross from Layer 3 to Layer 4 through SiYuan's `/api/*` endpoints—**never replacing those APIs with official MCP and never directly accessing the local filesystem**. The only side path is `extension`, which contacts official `/mcp` on demand solely to discover and forward other plugin tools and user-enabled native tools.
+
+### Official MCP isolation boundary
+
+- `fs`, the document timeline, permission management, CLI, document tools, and all other Sisyphus-owned capabilities depend only on `/api/*`.
+- When `extension` is enabled or the user opens extension settings, Sisyphus first checks `/api/system/version`; versions below 3.7.0 never receive a `/mcp` request.
+- Initial discovery is asynchronous and successful results are cached; normal `tools/list` requests do not force a refresh.
+- `/mcp` failure removes only dynamic extension actions. It does not block the outer Server or affect the other aggregate tools.
+- SiYuan 3.7.0 is an `extension` capability threshold, not the plugin installation floor; `minAppVersion` remains 2.9.0.
 
 ---
 

@@ -99,7 +99,10 @@ describe('official MCP bridge transport', () => {
 
         const siyuanClient = new SiYuanClient({ baseUrl: 'http://127.0.0.1:6806' });
         siyuanClient.setToken('secret');
-        const bridge = new OfficialMcpBridge(siyuanClient, { fetch: fakeFetch });
+        const bridge = new OfficialMcpBridge(siyuanClient, {
+            fetch: fakeFetch,
+            getSiYuanVersion: async () => '3.7.3',
+        });
 
         try {
             const snapshot = await bridge.refresh();

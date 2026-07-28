@@ -58,19 +58,24 @@ siyuan extension document \
 
 ## 安全与生命周期
 
+- 连接 `/mcp` 前会先通过 `/api/system/version` 检查思源版本；低于 3.7.0 时直接标记不支持，不访问官方端点。
+- 只有启用 `extension`、查看扩展工具设置或主动刷新时才建立连接。
 - 未声明 `readOnlyHint=true` 的工具，调用前必须取得用户明确确认。
 - 官方 MCP 工具调用只发送一次，绝不自动重试；发送后发生传输错误时会报告“执行状态未知”。
 - 工具发现属于只读操作，会话失效时允许重连并重试一次。
-- 刷新失败时保留最后一次成功缓存。
-- 外层 `tools/list` 会刷新发现结果；`extension(action="list", refresh=true)` 可显式刷新，并在 action 集合变化时发送工具列表变更通知。
+- 首次发现由外层 MCP Server 在后台执行，不阻塞其余工具列表；发现成功后缓存结果并发送工具列表变更通知。
+- 后续外层 `tools/list` 直接复用缓存，不会强制访问 `/mcp`；`extension(action="list", refresh=true)` 可显式刷新。
+- `/mcp` 不可用或显式刷新失败时只隐藏动态扩展 action，不影响其他 Sisyphus 工具或外层 MCP Server。
 - 设置页提供总开关、原生工具来源开关和按工具屏蔽。
 
-官方发现需要思源 3.7.0 或更高版本、管理员会话和有效 API Token。
+官方发现需要思源 3.7.0 或更高版本、管理员会话和有效 API Token。该要求只属于 `extension`；Sisyphus 插件的 `minAppVersion` 仍为 2.9.0。
 
 > [!WARNING]
 > 原生工具桥接不经过 Sisyphus 的笔记本权限、action 禁用和危险操作确认，而是直接按当前思源管理员会话或 API Token 的权限执行。官方原生聚合工具目前也没有通过 `tools/list` 暴露内层 action 级风险信息，因此工具级 `readOnlyHint` 无法区分只读与写入 action。请将所有原生转发调用视为可能产生副作用，仅对本机或完全可信的客户端启用，不要向不可信远程客户端开放。
 
 ## 官方 MCP 与 Sisyphus 的关系
+
+Sisyphus 自带的 `fs`、时间线、权限管理、CLI、文档工具和其他聚合能力始终只走 `/api/*`。官方 `/mcp` 是 `extension` 的独立旁路，不作为任何自带能力的底层实现。
 
 | 关注点 | 思源官方 MCP | Sisyphus |
 |---|---|---|

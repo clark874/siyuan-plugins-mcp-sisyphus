@@ -447,6 +447,13 @@
             next.delete(category);
         } else {
             next.add(category);
+            if (
+                category === "extension"
+                && !extensionDiscovery.loading
+                && !extensionDiscovery.refreshedAt
+            ) {
+                void onRefreshExtensionTools();
+            }
         }
         openCategories = next;
     }

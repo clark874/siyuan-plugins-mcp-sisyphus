@@ -42,6 +42,8 @@ flowchart LR
     Sisyphus["SiYuan Sisyphus<br/>MCP + CLI"]
     Builtin["Sisyphus aggregate tools<br/>existing workflows remain compatible"]
     Bridge["extension<br/>official MCP bridge"]
+    Api["SiYuan /api/*"]
+    OfficialMcp["SiYuan /mcp"]
     PluginTools["Tools registered by other plugins"]
     NativeTools["Native SiYuan MCP tools<br/>optional, disabled by default"]
     Workspace["SiYuan workspace"]
@@ -49,12 +51,12 @@ flowchart LR
     Agent --> Sisyphus
     Sisyphus --> Builtin
     Sisyphus --> Bridge
-    Bridge --> PluginTools
-    Bridge -. high-risk option .-> NativeTools
-    Builtin --> Workspace
-    PluginTools --> Workspace
-    NativeTools --> Workspace
+    Builtin --> Api --> Workspace
+    Bridge --> OfficialMcp --> PluginTools
+    OfficialMcp -. high-risk option .-> NativeTools
 ```
+
+The boundary is deliberate: Sisyphus-owned capabilities—including `fs`, the document timeline, permission management, CLI, document tools, and the other aggregate workflows—always use SiYuan's `/api/*` endpoints and never depend on official MCP. `/mcp` belongs exclusively to `extension`, where it discovers and forwards tools registered by other plugins and native SiYuan tools explicitly enabled by the user.
 
 ## One Connection, Two Compatible Tool Ecosystems
 
@@ -125,6 +127,10 @@ On SiYuan 3.7.0+, `extension` reads the official `/mcp` registry and turns allow
 All downstream parameters stay inside `arguments`, so a downstream tool can use its own `action` field without colliding with Sisyphus routing.
 
 The tool settings page reports plugin/native tool counts, exposed count, schema size, source, and risk information. Individual tools can also be disabled.
+
+Connections are version-gated and lazy. Sisyphus first reads the SiYuan version through `/api/system/version`; versions below 3.7.0 never receive a `/mcp` request. The official endpoint is contacted only when `extension` is enabled or when the user inspects or refreshes extension tools in settings. The outer MCP Server does not wait for initial discovery when listing tools: successful results are cached, a tool-list-changed notification is sent, and later `tools/list` calls reuse the cache instead of forcing a refresh.
+
+If `/mcp` is unavailable, only dynamic extension actions are hidden. The remaining aggregate tools continue to work and outer MCP Server startup is unaffected. Official MCP integration does not raise the installation floor for the plugin; `minAppVersion` remains 2.9.0.
 
 > **Security note:** official plugin tools and optional native SiYuan tools do not pass through the notebook permissions or action-level dangerous-operation controls applied to Sisyphus-owned tools. Native tools in particular should only be enabled for local or fully trusted clients.
 

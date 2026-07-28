@@ -1,3 +1,8 @@
+import {
+    MIN_OFFICIAL_MCP_VERSION,
+    supportsOfficialMcp,
+} from "../../shared/official-mcp-support";
+
 export interface UiOfficialMcpTool {
     name: string;
     title?: string;
@@ -11,12 +16,33 @@ export interface UiOfficialMcpTool {
 export interface UiOfficialMcpDiscovery {
     loading: boolean;
     connected: boolean;
+    supported?: boolean;
+    siyuanVersion?: string;
+    minSupportedVersion?: string;
     tools: UiOfficialMcpTool[];
     refreshedAt?: string;
     error?: string;
 }
 
 const SELF_PLUGIN_TOOL_PREFIX = "plugin__siyuan_plugins_mcp_sisyphus__";
+
+async function getSiYuanVersion(): Promise<string> {
+    const response = await fetch("/api/system/version", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+    });
+    const text = await response.text();
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+    }
+    const payload = JSON.parse(text);
+    if (payload?.code !== 0 || typeof payload?.data !== "string") {
+        throw new Error(payload?.msg || "Invalid /api/system/version response.");
+    }
+    return payload.data;
+}
 
 function requestId(): string {
     return `sisyphus-settings-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -57,6 +83,19 @@ async function postMcp(
 export async function discoverOfficialTools(): Promise<UiOfficialMcpDiscovery> {
     let sessionId: string | undefined;
     try {
+        const siyuanVersion = await getSiYuanVersion();
+        if (!supportsOfficialMcp(siyuanVersion)) {
+            return {
+                loading: false,
+                connected: false,
+                supported: false,
+                siyuanVersion,
+                minSupportedVersion: MIN_OFFICIAL_MCP_VERSION,
+                tools: [],
+                refreshedAt: new Date().toISOString(),
+                error: `SiYuan ${siyuanVersion} does not support the official MCP endpoint. Version ${MIN_OFFICIAL_MCP_VERSION} or newer is required for extension tools.`,
+            };
+        }
         const initialized = await postMcp({
             jsonrpc: "2.0",
             id: requestId(),
@@ -98,6 +137,9 @@ export async function discoverOfficialTools(): Promise<UiOfficialMcpDiscovery> {
         return {
             loading: false,
             connected: true,
+            supported: true,
+            siyuanVersion,
+            minSupportedVersion: MIN_OFFICIAL_MCP_VERSION,
             tools,
             refreshedAt: new Date().toISOString(),
         };
@@ -105,6 +147,7 @@ export async function discoverOfficialTools(): Promise<UiOfficialMcpDiscovery> {
         return {
             loading: false,
             connected: false,
+            minSupportedVersion: MIN_OFFICIAL_MCP_VERSION,
             tools: [],
             refreshedAt: new Date().toISOString(),
             error: error instanceof Error ? error.message : String(error),

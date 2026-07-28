@@ -27,6 +27,17 @@ import {
     normalizeOfficialInputSchema,
     selectOfficialTools,
 } from '@/core/official-mcp-bridge';
+import {
+    MIN_OFFICIAL_MCP_VERSION,
+    supportsOfficialMcp,
+} from '@/shared/official-mcp-support';
+
+function createBridge(version = '3.7.3') {
+    return new OfficialMcpBridge(
+        new SiYuanClient({ baseUrl: 'http://127.0.0.1:6806' }),
+        { getSiYuanVersion: vi.fn().mockResolvedValue(version) },
+    );
+}
 
 describe('official MCP bridge', () => {
     beforeEach(() => {
@@ -113,6 +124,37 @@ describe('official MCP bridge', () => {
         })]);
     });
 
+    it('compares SiYuan versions without requiring the whole plugin to raise its minimum version', () => {
+        expect(MIN_OFFICIAL_MCP_VERSION).toBe('3.7.0');
+        expect(supportsOfficialMcp('3.6.9')).toBe(false);
+        expect(supportsOfficialMcp('3.7.0')).toBe(true);
+        expect(supportsOfficialMcp('v3.7.0-dev1')).toBe(true);
+        expect(supportsOfficialMcp('3.10.1')).toBe(true);
+    });
+
+    it('marks old SiYuan versions unsupported without connecting to /mcp', async () => {
+        const getSiYuanVersion = vi.fn().mockResolvedValue('3.6.9');
+        const bridge = new OfficialMcpBridge(
+            new SiYuanClient({ baseUrl: 'http://127.0.0.1:6806' }),
+            { getSiYuanVersion },
+        );
+
+        const first = await bridge.refresh();
+        const second = await bridge.refresh();
+
+        expect(first).toEqual(expect.objectContaining({
+            connected: false,
+            supported: false,
+            siyuanVersion: '3.6.9',
+            minSupportedVersion: '3.7.0',
+            tools: [],
+        }));
+        expect(second.supported).toBe(false);
+        expect(getSiYuanVersion).toHaveBeenCalledTimes(1);
+        expect(sdkMocks.connect).not.toHaveBeenCalled();
+        expect(sdkMocks.request).not.toHaveBeenCalled();
+    });
+
     it('reconnects and retries discovery once while keeping custom metadata', async () => {
         sdkMocks.request
             .mockRejectedValueOnce(new Error('session expired'))
@@ -126,7 +168,7 @@ describe('official MCP bridge', () => {
                     effectScope: 'local',
                 }],
             });
-        const bridge = new OfficialMcpBridge(new SiYuanClient({ baseUrl: 'http://127.0.0.1:6806' }));
+        const bridge = createBridge();
 
         const snapshot = await bridge.refresh();
 
@@ -140,9 +182,35 @@ describe('official MCP bridge', () => {
         }));
     });
 
+    it('hides cached dynamic tools when an explicit discovery refresh can no longer reach /mcp', async () => {
+        sdkMocks.request
+            .mockResolvedValueOnce({
+                tools: [{
+                    name: 'plugin__alpha__read',
+                    inputSchema: { type: 'object' },
+                    source: 'plugin',
+                    readOnlyHint: true,
+                }],
+            })
+            .mockRejectedValueOnce(new Error('official MCP offline'))
+            .mockRejectedValueOnce(new Error('official MCP offline'));
+        const bridge = createBridge();
+
+        const available = await bridge.refresh();
+        const unavailable = await bridge.refresh();
+
+        expect(available.tools).toHaveLength(1);
+        expect(unavailable).toEqual(expect.objectContaining({
+            connected: false,
+            tools: [],
+            changed: true,
+            error: 'official MCP offline',
+        }));
+    });
+
     it('never retries a dispatched plugin tool call', async () => {
         sdkMocks.callTool.mockRejectedValueOnce(new Error('socket closed'));
-        const bridge = new OfficialMcpBridge(new SiYuanClient({ baseUrl: 'http://127.0.0.1:6806' }));
+        const bridge = createBridge();
 
         const result = await bridge.callTool('plugin__alpha__write', { value: 1 });
 

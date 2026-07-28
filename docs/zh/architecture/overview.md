@@ -36,7 +36,15 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**关键边界**：Layer 1 与 Layer 2 之间走 [Model Context Protocol](https://modelcontextprotocol.io/)（MCP）标准协议；Layer 2 与 Layer 3 之间在插件模式下也是 MCP 协议（`ListToolsRequestSchema` / `CallToolRequestSchema`），但在 CLI 模式下则是**直接函数调用**；Layer 3 与 Layer 4 之间始终走 SiYuan 开放的 HTTP API，**绝不直接访问本地文件系统**，确保远程场景安全。
+**关键边界**：Layer 1 与 Layer 2 之间走 [Model Context Protocol](https://modelcontextprotocol.io/)（MCP）标准协议；Layer 2 与 Layer 3 之间在插件模式下也是 MCP 协议（`ListToolsRequestSchema` / `CallToolRequestSchema`），但在 CLI 模式下则是**直接函数调用**。Sisyphus 自带能力从 Layer 3 到 Layer 4 始终走 SiYuan `/api/*`，**绝不以官方 MCP 替代 API，也不直接访问本地文件系统**。唯一旁路是 `extension`：它按需访问官方 `/mcp`，只负责发现和转发其他插件 Tool 与用户主动开启的原生 Tool。
+
+### 官方 MCP 隔离边界
+
+- `fs`、文档时间线、权限管理、CLI、文档工具及其他 Sisyphus 自带能力只依赖 `/api/*`。
+- `extension` 启用或用户打开扩展工具设置后，先用 `/api/system/version` 检查版本；低于 3.7.0 时不请求 `/mcp`。
+- 首次发现异步执行，成功结果被缓存；普通 `tools/list` 不强制刷新。
+- `/mcp` 失败只移除动态扩展 action，不阻塞外层 Server，也不影响其他聚合工具。
+- 3.7.0 是 `extension` 的能力门槛，不是插件安装门槛；插件 `minAppVersion` 保持 2.9.0。
 
 ---
 

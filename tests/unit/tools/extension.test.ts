@@ -5,6 +5,7 @@ import type { OfficialMcpRuntime, OfficialMcpTool } from '@/core/official-mcp-br
 import {
     callExtensionTool,
     listExtensionTools,
+    prepareExtensionTools,
     rebaseOfficialSchemaRefs,
 } from '@/tools/extension';
 import { createMockClient } from '../../helpers/mock-client';
@@ -65,6 +66,15 @@ function fakeRuntime(tools = [pluginTool()]) {
 }
 
 describe('extension tool', () => {
+    it('does not discover official tools while extension is disabled', async () => {
+        const config = buildDefaultToolConfig().extension;
+        config.enabled = false;
+        const { runtime, refresh } = fakeRuntime();
+
+        await expect(prepareExtensionTools(config, runtime)).resolves.toBeUndefined();
+        expect(refresh).not.toHaveBeenCalled();
+    });
+
     it('builds one dynamic action branch and nests the downstream schema under arguments', () => {
         const config = buildDefaultToolConfig().extension;
         const { runtime } = fakeRuntime();
@@ -246,7 +256,6 @@ describe('extension tool', () => {
     });
 
     it('notifies after prepare discovers a changed action set without failing on notification errors', async () => {
-        const { prepareExtensionTools } = await import('@/tools/extension');
         const config = buildDefaultToolConfig().extension;
         const refresh = vi.fn().mockResolvedValue({
             tools: [pluginTool()],
@@ -255,7 +264,16 @@ describe('extension tool', () => {
         });
         const notifyToolListChanged = vi.fn().mockRejectedValue(new Error('outer client closed'));
         const runtime = {
-            bridge: { refresh, getTools: () => [pluginTool()] },
+            bridge: {
+                refresh,
+                getTools: () => [pluginTool()],
+                getSnapshot: () => ({
+                    tools: [],
+                    connected: false,
+                    minSupportedVersion: '3.7.0',
+                    changed: false,
+                }),
+            },
             notifyToolListChanged,
         } as unknown as OfficialMcpRuntime;
 
@@ -266,7 +284,6 @@ describe('extension tool', () => {
     });
 
     it('notifies when includeNativeTools changes the exposed action set', async () => {
-        const { prepareExtensionTools } = await import('@/tools/extension');
         const config = buildDefaultToolConfig().extension;
         const tools = [pluginTool(), nativeTool()];
         const runtime = {
@@ -277,6 +294,14 @@ describe('extension tool', () => {
                     changed: false,
                 }),
                 getTools: () => tools,
+                getSnapshot: () => ({
+                    tools,
+                    connected: true,
+                    supported: true,
+                    minSupportedVersion: '3.7.0',
+                    lastAttemptAt: '2026-07-28T00:00:00.000Z',
+                    changed: false,
+                }),
             },
             notifyToolListChanged: vi.fn(),
         } as unknown as OfficialMcpRuntime;
@@ -286,5 +311,73 @@ describe('extension tool', () => {
         await prepareExtensionTools(config, runtime);
 
         expect(runtime.notifyToolListChanged).toHaveBeenCalledTimes(2);
+    });
+
+    it('uses a completed discovery snapshot without refreshing on every tools/list', async () => {
+        const config = buildDefaultToolConfig().extension;
+        const tools = [pluginTool()];
+        const refresh = vi.fn();
+        const runtime = {
+            bridge: {
+                getSnapshot: () => ({
+                    tools,
+                    connected: true,
+                    supported: true,
+                    minSupportedVersion: '3.7.0',
+                    lastAttemptAt: '2026-07-28T00:00:00.000Z',
+                    lastSuccessfulRefreshAt: '2026-07-28T00:00:00.000Z',
+                    changed: false,
+                }),
+                getTools: () => tools,
+                refresh,
+            },
+        } as unknown as OfficialMcpRuntime;
+
+        await prepareExtensionTools(config, runtime);
+        await prepareExtensionTools(config, runtime);
+
+        expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('starts discovery in the background without delaying the outer tools/list', async () => {
+        const config = buildDefaultToolConfig().extension;
+        const tools = [pluginTool()];
+        let resolveRefresh!: (snapshot: any) => void;
+        const refresh = vi.fn(() => new Promise((resolve) => {
+            resolveRefresh = resolve;
+        }));
+        const notifyToolListChanged = vi.fn();
+        const runtime = {
+            bridge: {
+                getSnapshot: () => ({
+                    tools: [],
+                    connected: false,
+                    minSupportedVersion: '3.7.0',
+                    changed: false,
+                }),
+                getTools: () => [],
+                refresh,
+            },
+            discoveryMode: 'background',
+            notifyToolListChanged,
+        } as unknown as OfficialMcpRuntime;
+
+        const snapshot = await prepareExtensionTools(config, runtime);
+
+        expect(snapshot?.tools).toEqual([]);
+        expect(refresh).toHaveBeenCalledTimes(1);
+        expect(notifyToolListChanged).not.toHaveBeenCalled();
+
+        resolveRefresh({
+            tools,
+            connected: true,
+            supported: true,
+            minSupportedVersion: '3.7.0',
+            lastAttemptAt: '2026-07-28T00:00:00.000Z',
+            changed: true,
+        });
+        await runtime.discoveryPromise;
+
+        expect(notifyToolListChanged).toHaveBeenCalledTimes(1);
     });
 });

@@ -46,6 +46,8 @@ flowchart LR
     Sisyphus["SiYuan Sisyphus<br/>MCP + CLI"]
     Builtin["Sisyphus 聚合工具<br/>兼容现有工作流"]
     Bridge["extension<br/>官方 MCP 桥接"]
+    Api["SiYuan /api/*"]
+    OfficialMcp["SiYuan /mcp"]
     PluginTools["其他插件注册的 Tool"]
     NativeTools["思源原生 MCP Tool<br/>可选，默认关闭"]
     Workspace["思源工作空间"]
@@ -53,12 +55,12 @@ flowchart LR
     Agent --> Sisyphus
     Sisyphus --> Builtin
     Sisyphus --> Bridge
-    Bridge --> PluginTools
-    Bridge -. 高风险选项 .-> NativeTools
-    Builtin --> Workspace
-    PluginTools --> Workspace
-    NativeTools --> Workspace
+    Builtin --> Api --> Workspace
+    Bridge --> OfficialMcp --> PluginTools
+    OfficialMcp -. 高风险选项 .-> NativeTools
 ```
+
+架构边界保持明确：Sisyphus 自带的 `fs`、时间线、权限管理、CLI、文档工具及其他聚合能力始终只调用思源 `/api/*`，不依赖官方 MCP。`/mcp` 只属于 `extension`，用于发现和转发其他插件注册的 Tool，以及用户主动开启的思源原生 Tool。
 
 ## 一次连接，两套兼容工具生态
 
@@ -129,6 +131,10 @@ sisyphus notebook list
 下游 Tool 的参数全部放在 `arguments` 中，因此即使它也使用 `action` 字段，也不会与 Sisyphus 的外层路由冲突。
 
 工具设置页可以查看插件/原生 Tool 数量、当前暴露数量、Schema 体积、来源和风险提示，也可以单独关闭不希望暴露的 Tool。
+
+连接采用版本检测和惰性发现：Sisyphus 先通过 `/api/system/version` 获取思源版本；低于 3.7.0 时不会请求 `/mcp`。只有启用 `extension` 或在设置页查看、刷新扩展工具时才会连接官方端点。外层 MCP Server 的首次工具列表不会等待发现完成；成功后会缓存结果并通知客户端更新工具列表，后续 `tools/list` 不会强制刷新。
+
+如果 `/mcp` 不可用，Sisyphus 只隐藏动态扩展 action，不影响其余聚合工具，也不会阻塞外层 MCP Server 启动。官方 MCP 集成不会提高整个插件的安装门槛，`minAppVersion` 继续保持 2.9.0。
 
 > **安全提示：**官方插件 Tool 以及可选的思源原生 Tool 不经过 Sisyphus 自有工具的笔记本权限和 action 级危险操作控制。尤其是原生 Tool，应只在本机或完全可信的客户端中启用。
 

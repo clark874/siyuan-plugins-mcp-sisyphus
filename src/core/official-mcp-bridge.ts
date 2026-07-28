@@ -3,6 +3,11 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { z } from 'zod';
 
 import type { SiYuanClient } from '../api/client';
+import { getVersion } from '../api/system';
+import {
+    MIN_OFFICIAL_MCP_VERSION,
+    supportsOfficialMcp,
+} from '../shared/official-mcp-support';
 import type { ToolResult } from '../tools/internal/shared';
 import { noopSchemaValidator } from './noops/noop-schema-validator';
 
@@ -40,6 +45,9 @@ export interface OfficialMcpTool {
 export interface OfficialMcpDiscoverySnapshot {
     tools: OfficialMcpTool[];
     connected: boolean;
+    supported?: boolean;
+    siyuanVersion?: string;
+    minSupportedVersion?: string;
     lastSuccessfulRefreshAt?: string;
     lastAttemptAt?: string;
     error?: string;
@@ -50,6 +58,13 @@ export interface OfficialMcpRuntime {
     bridge: OfficialMcpBridge;
     notifyToolListChanged?: () => Promise<void> | void;
     exposedToolsFingerprint?: string;
+    discoveryMode?: 'blocking' | 'background';
+    discoveryPromise?: Promise<OfficialMcpDiscoverySnapshot>;
+}
+
+export interface OfficialMcpBridgeOptions {
+    fetch?: typeof fetch;
+    getSiYuanVersion?: () => Promise<string>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -130,6 +145,7 @@ function toolFingerprint(tools: OfficialMcpTool[]): string {
 export class OfficialMcpBridge {
     private readonly siyuanClient: SiYuanClient;
     private readonly fetchImpl?: typeof fetch;
+    private readonly getSiYuanVersion: () => Promise<string>;
     private client?: Client;
     private transport?: StreamableHTTPClientTransport;
     private connecting?: Promise<void>;
@@ -138,10 +154,15 @@ export class OfficialMcpBridge {
     private lastSuccessfulRefreshAt?: string;
     private lastAttemptAt?: string;
     private lastError?: string;
+    private versionChecked = false;
+    private supported?: boolean;
+    private siyuanVersion?: string;
 
-    constructor(siyuanClient: SiYuanClient, options: { fetch?: typeof fetch } = {}) {
+    constructor(siyuanClient: SiYuanClient, options: OfficialMcpBridgeOptions = {}) {
         this.siyuanClient = siyuanClient;
         this.fetchImpl = options.fetch;
+        this.getSiYuanVersion = options.getSiYuanVersion
+            ?? (() => getVersion(this.siyuanClient));
     }
 
     getTools(): OfficialMcpTool[] {
@@ -156,6 +177,9 @@ export class OfficialMcpBridge {
         return {
             tools: this.getTools(),
             connected: this.connected,
+            supported: this.supported,
+            siyuanVersion: this.siyuanVersion,
+            minSupportedVersion: MIN_OFFICIAL_MCP_VERSION,
             lastSuccessfulRefreshAt: this.lastSuccessfulRefreshAt,
             lastAttemptAt: this.lastAttemptAt,
             error: this.lastError,
@@ -163,9 +187,15 @@ export class OfficialMcpBridge {
         };
     }
 
-    async refresh(): Promise<OfficialMcpDiscoverySnapshot> {
+    async refresh(options: { forceVersionCheck?: boolean } = {}): Promise<OfficialMcpDiscoverySnapshot> {
         this.lastAttemptAt = new Date().toISOString();
         const previousFingerprint = toolFingerprint(this.cachedTools);
+        const supported = await this.checkSupport(options.forceVersionCheck === true);
+        if (!supported) {
+            await this.resetConnection();
+            this.cachedTools = [];
+            return this.getSnapshot(previousFingerprint !== toolFingerprint(this.cachedTools));
+        }
 
         try {
             const tools = await this.listToolsOnce();
@@ -180,11 +210,21 @@ export class OfficialMcpBridge {
         } catch (error) {
             this.connected = false;
             this.lastError = formatError(error);
-            return this.getSnapshot(false);
+            this.cachedTools = [];
+            return this.getSnapshot(previousFingerprint !== toolFingerprint(this.cachedTools));
         }
     }
 
     async callTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+        if (!await this.checkSupport()) {
+            return {
+                content: [{
+                    type: 'text',
+                    text: this.lastError || `Official SiYuan MCP requires SiYuan ${MIN_OFFICIAL_MCP_VERSION} or newer.`,
+                }],
+                isError: true,
+            };
+        }
         try {
             await this.ensureConnected();
         } catch (error) {
@@ -260,6 +300,27 @@ export class OfficialMcpBridge {
         this.lastError = undefined;
         this.lastSuccessfulRefreshAt = new Date().toISOString();
         return this.getSnapshot(previousFingerprint !== toolFingerprint(tools));
+    }
+
+    private async checkSupport(force = false): Promise<boolean> {
+        if (this.versionChecked && !force) return this.supported === true;
+
+        this.versionChecked = true;
+        try {
+            const version = await this.getSiYuanVersion();
+            this.siyuanVersion = version;
+            this.supported = supportsOfficialMcp(version);
+            if (!this.supported) {
+                this.lastError = `SiYuan ${version} does not support the official MCP endpoint. Version ${MIN_OFFICIAL_MCP_VERSION} or newer is required for extension tools.`;
+                return false;
+            }
+            this.lastError = undefined;
+            return true;
+        } catch (error) {
+            this.supported = undefined;
+            this.lastError = `Unable to determine SiYuan version through /api/system/version: ${formatError(error)}`;
+            return false;
+        }
     }
 
     private async ensureConnected(): Promise<void> {
