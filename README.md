@@ -36,25 +36,9 @@ This does not replace the existing project:
 - native SiYuan MCP tools can also be included explicitly, but remain disabled by default because they have a different security boundary;
 - permission management, the document timeline, and multiple connection options continue to be maintained.
 
-```mermaid
-flowchart LR
-    Agent["External AI agents<br/>Claude / Codex / Cursor / Cline / ..."]
-    Sisyphus["SiYuan Sisyphus<br/>MCP + CLI"]
-    Builtin["Sisyphus aggregate tools<br/>existing workflows remain compatible"]
-    Bridge["extension<br/>official MCP bridge"]
-    Api["SiYuan /api/*"]
-    OfficialMcp["SiYuan /mcp"]
-    PluginTools["Tools registered by other plugins"]
-    NativeTools["Native SiYuan MCP tools<br/>optional, disabled by default"]
-    Workspace["SiYuan workspace"]
+![SiYuan Sisyphus architecture](./assets/architecture.svg)
 
-    Agent --> Sisyphus
-    Sisyphus --> Builtin
-    Sisyphus --> Bridge
-    Builtin --> Api --> Workspace
-    Bridge --> OfficialMcp --> PluginTools
-    OfficialMcp -. high-risk option .-> NativeTools
-```
+> Architecture summary: external AI agents connect to Sisyphus. Its aggregate tools access the SiYuan workspace through `/api/*`, while `extension` uses the official `/mcp` endpoint to bridge tools registered by other plugins. Native SiYuan MCP tools are optional and disabled by default.
 
 The boundary is deliberate: Sisyphus-owned capabilities—including `fs`, the document timeline, permission management, CLI, document tools, and the other aggregate workflows—always use SiYuan's `/api/*` endpoints and never depend on official MCP. `/mcp` belongs exclusively to `extension`, where it discovers and forwards tools registered by other plugins and native SiYuan tools explicitly enabled by the user.
 

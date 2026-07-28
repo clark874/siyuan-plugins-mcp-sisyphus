@@ -40,25 +40,9 @@ SiYuan Sisyphus 最初诞生于一个朴素的愿望：让思源笔记能够连�
 - 思源官方原生 MCP Tool 也可以选择接入，但由于权限边界不同，默认关闭；
 - 权限管理、文档时间线、多种连接方式等增强能力继续维护。
 
-```mermaid
-flowchart LR
-    Agent["外部 AI Agent<br/>Claude / Codex / Cursor / Cline / ..."]
-    Sisyphus["SiYuan Sisyphus<br/>MCP + CLI"]
-    Builtin["Sisyphus 聚合工具<br/>兼容现有工作流"]
-    Bridge["extension<br/>官方 MCP 桥接"]
-    Api["SiYuan /api/*"]
-    OfficialMcp["SiYuan /mcp"]
-    PluginTools["其他插件注册的 Tool"]
-    NativeTools["思源原生 MCP Tool<br/>可选，默认关闭"]
-    Workspace["思源工作空间"]
+![SiYuan Sisyphus 架构图](./assets/architecture_zh_CN.svg)
 
-    Agent --> Sisyphus
-    Sisyphus --> Builtin
-    Sisyphus --> Bridge
-    Builtin --> Api --> Workspace
-    Bridge --> OfficialMcp --> PluginTools
-    OfficialMcp -. 高风险选项 .-> NativeTools
-```
+> 架构概览：外部 AI Agent 连接 Sisyphus；聚合工具通过 `/api/*` 访问思源工作空间，`extension` 则通过官方 `/mcp` 端点桥接其他插件注册的 Tool。思源原生 MCP Tool 为可选能力，默认关闭。
 
 架构边界保持明确：Sisyphus 自带的 `fs`、时间线、权限管理、CLI、文档工具及其他聚合能力始终只调用思源 `/api/*`，不依赖官方 MCP。`/mcp` 只属于 `extension`，用于发现和转发其他插件注册的 Tool，以及用户主动开启的思源原生 Tool。
 
