@@ -152,7 +152,16 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(debugSource).toContain('debug_test_section');
         expect(connectionSource).toContain('class="http-changelog"');
         expect(connectionSource).toContain('toolSettingsChangelogBadge');
+        expect(connectionSource).toContain('parseChangelogEntries');
+        expect(connectionSource).toContain('class="http-changelog-timeline"');
+        expect(connectionSource).toContain('class:http-changelog-timeline__item--latest={index === 0}');
+        expect(connectionSource).toContain('max-height: calc(var(--changelog-item-height) * 3)');
+        expect(connectionSource).toContain('overflow-y: auto;');
+        expect(connectionSource).toContain('<time datetime={entry.date}>{entry.date}</time>');
         expect(connectionSource.match(/<details class="http-guide">/g)).toHaveLength(2);
+        expect(connectionSource.match(/class="ai-setup-card"/g)).toHaveLength(2);
+        expect(connectionSource).toContain('generateMcpAiSetupPrompt');
+        expect(connectionSource).toContain('generateCliAiSetupPrompt');
         expect(analyticsSource).toContain('analytics-actions__primary');
         expect(analyticsSource).toContain('analytics-actions__danger');
     });

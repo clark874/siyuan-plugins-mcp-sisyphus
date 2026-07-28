@@ -94,6 +94,11 @@ describe('extension server integration', () => {
             if (url.includes('/api/file/getFile')) {
                 return { ok: true, text: async () => '' } as Response;
             }
+            if (url.includes('/api/system/version')) {
+                return new Response(JSON.stringify({ code: 0, msg: 'success', data: '3.7.3' }), {
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            }
             return new Response(JSON.stringify({ code: 0, msg: 'success', data: {} }), {
                 headers: { 'Content-Type': 'application/json' },
             });
@@ -106,8 +111,13 @@ describe('extension server integration', () => {
         await client.connect(clientTransport);
 
         try {
-            const listed = await client.listTools();
-            const extension = listed.tools.find((tool) => tool.name === 'extension');
+            let extension: Awaited<ReturnType<typeof client.listTools>>['tools'][number] | undefined;
+            await vi.waitFor(async () => {
+                const listed = await client.listTools();
+                extension = listed.tools.find((tool) => tool.name === 'extension');
+                expect((extension!.inputSchema.properties?.action as any).enum)
+                    .toContain('plugin__example__aggregate');
+            });
             expect(extension).toBeDefined();
             expect((extension!.inputSchema.properties?.action as any).enum).toContain('plugin__example__aggregate');
             expect((extension!.inputSchema.properties?.action as any).enum).not.toContain('document');
@@ -137,6 +147,11 @@ describe('extension server integration', () => {
                     text: async () => JSON.stringify(config),
                 } as Response;
             }
+            if (url.includes('/api/system/version')) {
+                return new Response(JSON.stringify({ code: 0, msg: 'success', data: '3.7.3' }), {
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            }
             return new Response(JSON.stringify({ code: 0, msg: 'success', data: {} }), {
                 headers: { 'Content-Type': 'application/json' },
             });
@@ -149,8 +164,12 @@ describe('extension server integration', () => {
         await client.connect(clientTransport);
 
         try {
-            const listed = await client.listTools();
-            const extension = listed.tools.find((tool) => tool.name === 'extension');
+            let extension: Awaited<ReturnType<typeof client.listTools>>['tools'][number] | undefined;
+            await vi.waitFor(async () => {
+                const listed = await client.listTools();
+                extension = listed.tools.find((tool) => tool.name === 'extension');
+                expect((extension!.inputSchema.properties?.action as any).enum).toContain('document');
+            });
             expect((extension!.inputSchema.properties?.action as any).enum).toContain('document');
 
             const result = await client.callTool({

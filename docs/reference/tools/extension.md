@@ -58,19 +58,24 @@ siyuan extension document \
 
 ## Safety and lifecycle
 
+- Before connecting to `/mcp`, Sisyphus checks the SiYuan version through `/api/system/version`. Versions below 3.7.0 are marked unsupported without contacting the official endpoint.
+- A connection is created only when `extension` is enabled, extension settings are inspected, or discovery is explicitly refreshed.
 - Tools without `readOnlyHint=true` require explicit user confirmation.
 - Official MCP tool calls are sent once and are never retried. A transport failure after dispatch is reported as an unknown execution state.
 - Discovery may reconnect and retry once because it is read-only.
-- The last successful discovery cache remains available when a refresh fails.
-- `tools/list` refreshes discovery; `extension(action="list", refresh=true)` refreshes explicitly and emits a tool-list-changed notification when the action set changes.
+- Initial discovery runs in the background for the outer MCP Server, so the remaining tool list is not blocked. Successful results are cached and emit a tool-list-changed notification.
+- Later outer `tools/list` calls reuse the cache instead of contacting `/mcp`; `extension(action="list", refresh=true)` refreshes explicitly.
+- If `/mcp` is unavailable or an explicit refresh fails, only dynamic extension actions are hidden. Other Sisyphus tools and the outer MCP Server remain available.
 - The settings page provides a master switch, a native-tool source switch, and per-tool blocking.
 
-Official discovery requires SiYuan 3.7.0 or newer, an administrator session, and a valid API token.
+Official discovery requires SiYuan 3.7.0 or newer, an administrator session, and a valid API token. This requirement applies only to `extension`; the Sisyphus plugin itself keeps `minAppVersion` at 2.9.0.
 
 > [!WARNING]
 > Native-tool forwarding does not pass through Sisyphus notebook permissions, disabled actions, or dangerous-action confirmation. Calls execute directly with the current SiYuan administrator session or API Token. Native aggregate tools also do not currently expose inner action-level risk metadata through `tools/list`, so tool-level `readOnlyHint` cannot distinguish read-only actions from mutating actions. Treat every native forwarded call as potentially side-effecting, enable it only for local or fully trusted clients, and never expose it to untrusted remote clients.
 
 ## Official MCP and Sisyphus
+
+Sisyphus-owned `fs`, timeline, permission management, CLI, document tools, and other aggregate capabilities always use `/api/*`. Official `/mcp` is an isolated side path owned by `extension`, not an implementation dependency of built-in capabilities.
 
 | Concern | Official SiYuan MCP | Sisyphus |
 |---|---|---|

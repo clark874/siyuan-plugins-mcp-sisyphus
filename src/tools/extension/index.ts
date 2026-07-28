@@ -182,6 +182,31 @@ export async function prepareExtensionTools(
     runtime?: OfficialMcpRuntime,
 ): Promise<OfficialMcpDiscoverySnapshot | undefined> {
     if (!config.enabled || !runtime) return undefined;
+    const cachedSnapshot = runtime.bridge.getSnapshot();
+    if (cachedSnapshot.lastAttemptAt) {
+        if (updateExposedToolsFingerprint(config, runtime, cachedSnapshot.tools)) {
+            await notifyListChanged(runtime);
+        }
+        return cachedSnapshot;
+    }
+
+    if (runtime.discoveryMode === 'background') {
+        updateExposedToolsFingerprint(config, runtime, cachedSnapshot.tools);
+        if (!runtime.discoveryPromise) {
+            runtime.discoveryPromise = runtime.bridge.refresh()
+                .then(async (snapshot) => {
+                    if (updateExposedToolsFingerprint(config, runtime, snapshot.tools)) {
+                        await notifyListChanged(runtime);
+                    }
+                    return snapshot;
+                })
+                .finally(() => {
+                    runtime.discoveryPromise = undefined;
+                });
+        }
+        return cachedSnapshot;
+    }
+
     const snapshot = await runtime.bridge.refresh();
     if (updateExposedToolsFingerprint(config, runtime, snapshot.tools)) {
         await notifyListChanged(runtime);
@@ -221,6 +246,9 @@ function formatDiscovery(
     }, { plugin: 0, native: 0 });
     return {
         connected: snapshot.connected,
+        supported: snapshot.supported,
+        siyuanVersion: snapshot.siyuanVersion,
+        minSupportedVersion: snapshot.minSupportedVersion,
         lastSuccessfulRefreshAt: snapshot.lastSuccessfulRefreshAt,
         lastAttemptAt: snapshot.lastAttemptAt,
         error: snapshot.error,
@@ -327,7 +355,9 @@ export async function callExtensionTool(
     if (action === 'list') {
         const cachedSnapshot = runtime.bridge.getSnapshot();
         const snapshot = rawArgs?.refresh === true || !cachedSnapshot.lastAttemptAt
-            ? await runtime.bridge.refresh()
+            ? await runtime.bridge.refresh({
+                forceVersionCheck: rawArgs?.refresh === true,
+            })
             : cachedSnapshot;
         if (updateExposedToolsFingerprint(config, runtime, snapshot.tools)) {
             await notifyListChanged(runtime);

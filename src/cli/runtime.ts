@@ -45,6 +45,7 @@ export async function loadCliRuntimeState(
 
     const officialMcpRuntime: OfficialMcpRuntime = {
         bridge: new OfficialMcpBridge(client),
+        discoveryMode: 'blocking',
     };
 
     return { client, toolConfig, permMgr, officialMcpRuntime };

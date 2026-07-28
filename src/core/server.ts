@@ -124,6 +124,7 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
     const officialMcpRuntime: OfficialMcpRuntime = {
         bridge: officialMcpBridge,
         notifyToolListChanged: () => server.sendToolListChanged(),
+        discoveryMode: 'background',
     };
     server.onclose = () => {
         void officialMcpBridge.close();
