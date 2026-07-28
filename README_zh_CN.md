@@ -23,7 +23,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **最新版本：**`v0.5.0` — 正式接入思源官方 MCP 插件生态，支持发现、筛选和调用其他插件注册的 Tool，并可按需桥接原生 MCP Tool；CLI 提升至 `v0.2.0`。
+> **最新版本：**`v0.5.1` — 隔离官方 MCP 扩展连接失败，确保 Sisyphus 自带工具、CLI 与外层 MCP Server 正常运行；新增可直接复制给 AI 的 MCP/CLI 配置 Prompt。CLI 提升至 `v0.2.1`。
 
 ## 项目方向调整
 
