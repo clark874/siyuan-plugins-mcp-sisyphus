@@ -119,9 +119,11 @@
     let httpUnsubLifecycleLogs: (() => void) | null = null;
     let selectedMcpClientPreset: McpClientPresetId = "claude-code";
     let selectedMcpTransport: McpTransportId = "stdio";
+    let changelogExpanded = false;
     $: changelogTitle = getLabel("toolSettingsChangelogTitle", "更新日志");
     $: changelogText = getLabel("toolSettingsChangelogText", "连接设置现按 MCP / CLI 分组，MCP 下再区分 HTTP/HTTPS 与 stdio。");
     $: changelogEntries = parseChangelogEntries(changelogText);
+    $: visibleChangelogEntries = changelogExpanded ? changelogEntries : changelogEntries.slice(0, 1);
     $: httpSupportReason = plugin?.httpLauncher ? "" : getHttpUnsupportedReason();
 
     function parseChangelogEntries(text: string): Array<{ version: string; date: string; description: string }> {
@@ -529,18 +531,40 @@ If the API URL is not reachable from the current host, container, WSL, or remote
 
 <SettingPanel {group} settingItems={[]} {display}>
     <div class="http-server-section">
-        <section class="http-changelog" aria-labelledby="tool-settings-changelog-title">
+        <section
+            class="http-changelog"
+            class:http-changelog--expanded={changelogExpanded}
+            aria-labelledby="tool-settings-changelog-title"
+        >
             <span class="http-changelog-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
                     <path d="m12 2 1.55 4.45L18 8l-4.45 1.55L12 14l-1.55-4.45L6 8l4.45-1.55L12 2Zm6.25 10.5.95 2.3 2.3.95-2.3.95-.95 2.3-.95-2.3-2.3-.95 2.3-.95.95-2.3ZM6 14l1.2 3.3L10.5 18l-3.3 1.2L6 22.5l-1.2-3.3L1.5 18l3.3-.7L6 14Z"/>
                 </svg>
             </span>
             <div class="http-changelog-copy">
-                <div class="http-changelog-heading">
-                    <div id="tool-settings-changelog-title" class="http-changelog-title">{changelogTitle}</div>
-                </div>
-                <ol class="http-changelog-timeline">
-                    {#each changelogEntries as entry, index}
+                <button
+                    type="button"
+                    class="http-changelog-toggle"
+                    aria-expanded={changelogExpanded}
+                    aria-controls="tool-settings-changelog-list"
+                    on:click={() => changelogExpanded = !changelogExpanded}
+                >
+                    <span id="tool-settings-changelog-title" class="http-changelog-title">{changelogTitle}</span>
+                    <span class="http-changelog-toggle__action">
+                        {changelogExpanded
+                            ? getLabel("toolSettingsChangelogCollapse", "收起")
+                            : getLabel("toolSettingsChangelogExpand", "展开")}
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="m7 10 5 5 5-5z"/>
+                        </svg>
+                    </span>
+                </button>
+                <ol
+                    id="tool-settings-changelog-list"
+                    class="http-changelog-timeline"
+                    class:http-changelog-timeline--collapsed={!changelogExpanded}
+                >
+                    {#each visibleChangelogEntries as entry, index}
                         <li class:http-changelog-timeline__item--latest={index === 0} class="http-changelog-timeline__item">
                             <div class="http-changelog-timeline__meta">
                                 {#if entry.version}
@@ -828,11 +852,40 @@ If the API URL is not reachable from the current host, container, WSL, or remote
             min-width: 0;
         }
 
-        .http-changelog-heading {
+        .http-changelog-toggle {
             align-items: center;
+            appearance: none;
+            background: transparent;
+            border: 0;
+            color: inherit;
+            cursor: pointer;
             display: flex;
-            flex-wrap: wrap;
             gap: 8px;
+            justify-content: space-between;
+            margin: 0;
+            padding: 0;
+            text-align: left;
+            width: 100%;
+        }
+
+        .http-changelog-toggle__action {
+            align-items: center;
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 11px;
+            gap: 2px;
+        }
+
+        .http-changelog-toggle__action svg {
+            fill: currentColor;
+            height: 16px;
+            transition: transform 160ms ease;
+            width: 16px;
+        }
+
+        .http-changelog--expanded .http-changelog-toggle__action svg {
+            transform: rotate(180deg);
         }
 
         .http-overview {
@@ -866,6 +919,13 @@ If the API URL is not reachable from the current host, container, WSL, or remote
             overflow-y: auto;
             padding: 0 10px 0 0;
             scrollbar-gutter: stable;
+        }
+
+        .http-changelog-timeline--collapsed {
+            max-height: var(--changelog-item-height);
+            overflow: hidden;
+            padding-right: 0;
+            scrollbar-gutter: auto;
         }
 
         .http-changelog-timeline__item {
