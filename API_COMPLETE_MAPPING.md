@@ -3,16 +3,16 @@
 ## 统计信息
 - **SiYuan API 总数**: 459 个端点
 - **MCP Tools**: 10 个
-- **已覆盖 API**: 117 个端点
-- **已覆盖 MCP Actions**: 115 个
-- **未覆盖 API**: 342 个端点
-- **整体覆盖率**: 25.5%
+- **已覆盖 API**: 119 个端点
+- **已覆盖 MCP Actions**: 117 个
+- **未覆盖 API**: 340 个端点
+- **整体覆盖率**: 25.9%
 
 ---
 
 ## block 模块
 
-**统计**: 共 54 个 API，已覆盖 23 个，覆盖率 42.6%
+**统计**: 共 54 个 API，已覆盖 24 个，覆盖率 44.4%
 
 | 序号 | 方法 | API 路径 | 处理函数 | 功能描述 | MCP 映射 | 状态 |
 |------|------|----------|----------|----------|----------|------|
@@ -22,7 +22,7 @@
 | 4 | POST | `/api/block/getBlockDOMWithEmbed` | getBlockDOMWithEmbed | 块获取DOMWithEmbed | - | ❌ 未覆盖 |
 | 5 | POST | `/api/block/getBlockDOMsWithEmbed` | getBlockDOMsWithEmbed | 块获取DOMsWithEmbed | - | ❌ 未覆盖 |
 | 6 | POST | `/api/block/getBlockKramdown` | getBlockKramdown | 块获取Kramdown | block.get_kramdown | ✅ 已覆盖 |
-| 7 | POST | `/api/block/getBlockKramdowns` | getBlockKramdowns | 块获取Kramdowns | - | ❌ 未覆盖 |
+| 7 | POST | `/api/block/getBlockKramdowns` | getBlockKramdowns | 块获取Kramdowns | block.batch_kramdown | ✅ 已覆盖 |
 | 8 | POST | `/api/block/getChildBlocks` | getChildBlocks | 块获取子块Blocks | document.get_child_blocks<br>block.get_children | ✅ 已覆盖 |
 | 9 | POST | `/api/block/getTailChildBlocks` | getTailChildBlocks | 块获取Tail子块Blocks | - | ❌ 未覆盖 |
 | 10 | POST | `/api/block/getBlockBreadcrumb` | getBlockBreadcrumb | 块获取面包屑 | block.breadcrumb | ✅ 已覆盖 |
@@ -779,7 +779,7 @@
 
 ## icon 模块
 
-**统计**: 共 1 个 API，已覆盖 0 个，覆盖率 0.0%
+**统计**: 共 1 个 API，已覆盖 1 个，覆盖率 100.0%
 
 | 序号 | 方法 | API 路径 | 处理函数 | 功能描述 | MCP 映射 | 状态 |
 |------|------|----------|----------|----------|----------|------|
@@ -793,7 +793,7 @@
 
 | 序号 | 方法 | API 路径 | 处理函数 | 功能描述 | MCP 映射 | 状态 |
 |------|------|----------|----------|----------|----------|------|
-| 1 | POST | `/api/outline/getDocOutline` | getDocOutline | 大纲获取DocOutline | - | ❌ 未覆盖 |
+| 1 | POST | `/api/outline/getDocOutline` | getDocOutline | 大纲获取DocOutline | document.get_outline | ✅ 已覆盖 |
 
 ---
 

@@ -13,7 +13,7 @@ Related pages:
 
 | Group | Actions |
 |------|---------|
-| Create and read | `create`, `lookup`, `get_doc` |
+| Create and read | `create`, `lookup`, `get_doc`, `get_outline` |
 | Tree navigation | `get_child_blocks`, `get_child_docs`, `list_tree`, `search_docs` |
 | Metadata and mutations | `rename`, `move`, `remove`, `set_attr`, `duplicate` |
 | Daily note / conversion | `create_daily_note`, `heading_to_doc`, `doc_to_heading` |
@@ -28,6 +28,7 @@ Related pages:
 - `list_tree` uses `notebook + path`, and `path` is a storage path such as `/` or `/20240318112233-abc123.sy`, not a human-readable path.
 - If bulk `remove` hits SiYuan's short `indexing` window, retry by deleting one document at a time with `notebook + storage path`.
 - `set_attr` writes document metadata attributes by document ID.
+- `get_outline` calls SiYuan's native outline endpoint and returns the heading tree, block IDs, nesting, and `headingCount` without reading the document body. Use `get_doc` instead when you also need editable Markdown.
 
 ## Markdown and Title Rules
 
@@ -84,6 +85,7 @@ siyuan document lookup --id <doc-id> --include path
 - `list_tree`
 - `search_docs`
 - `get_doc`
+- `get_outline`
 - `create_daily_note`
 - `duplicate`
 - `heading_to_doc`

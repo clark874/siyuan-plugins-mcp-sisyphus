@@ -22,7 +22,7 @@ const ALL_ENABLED_CONFIG = {
     },
     document: {
         enabled: true,
-        actions: { create: true, lookup: true, rename: true, remove: true, move: true, get_child_blocks: true, get_child_docs: true, set_attr: true, list_tree: true, search_docs: true, get_doc: true, create_daily_note: true, duplicate: true, heading_to_doc: true, doc_to_heading: true },
+        actions: { create: true, lookup: true, rename: true, remove: true, move: true, get_child_blocks: true, get_child_docs: true, set_attr: true, list_tree: true, search_docs: true, get_doc: true, get_outline: true, create_daily_note: true, duplicate: true, heading_to_doc: true, doc_to_heading: true },
     },
     block: {
         enabled: true,
@@ -36,6 +36,7 @@ const ALL_ENABLED_CONFIG = {
             move: true,
             set_fold_state: true,
             get_kramdown: true,
+            batch_kramdown: true,
             get_children: true,
             transfer_references: true,
             set_attrs: true,
@@ -274,7 +275,7 @@ async function assertDefaultToolList() {
         assert.match(descriptions.notebook, /Common actions:/);
         assert.match(descriptions.notebook, /Additional actions:/);
         assert.match(descriptions.notebook, /get_permissions/);
-        assert.match(descriptions.document, /Common actions: create, lookup, rename, get_child_blocks, get_child_docs, search_docs, get_doc/);
+        assert.match(descriptions.document, /Common actions: create, lookup, rename, get_child_blocks, get_child_docs, search_docs, get_doc, get_outline/);
         assert.match(descriptions.document, /Additional actions: move, set_attr, list_tree, create_daily_note, duplicate, heading_to_doc, doc_to_heading/);
         assert.match(descriptions.document, /Common actions: .*get_doc/);
         assert.match(descriptions.document, /Additional actions: .*list_tree/);
@@ -282,7 +283,7 @@ async function assertDefaultToolList() {
         assert.match(descriptions.document, /notebook-local human-readable hpath/);
         assert.match(descriptions.document, /storage paths and IDs/);
         assert.match(descriptions.document, /Read siyuan:\/\/help\/action\/document\/\{action\} for details/);
-        assert.match(descriptions.block, /Common actions: insert, prepend, append, update, replace, get_kramdown, get_children, get_attrs, info/);
+        assert.match(descriptions.block, /Common actions: insert, prepend, append, update, replace, get_kramdown, batch_kramdown, get_children, get_attrs, info/);
         assert.match(descriptions.block, /Additional actions: move, set_fold_state, transfer_references, set_attrs, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info/);
         assert.match(descriptions.block, /Common actions: .*get_children/);
         assert.match(descriptions.block, /Additional actions: .*move/);

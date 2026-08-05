@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildDefaultToolConfig } from '@/core/config';
-import { callBlockTool, listBlockTools } from '@/tools/block';
+import { BLOCK_VARIANTS, callBlockTool, listBlockTools } from '@/tools/block';
 import { isMissingBlockError } from '@/tools/internal/errorTranslation';
 import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
@@ -63,8 +63,94 @@ describe('block tool', () => {
         expect(actionDescription).toContain('insert');
         expect(actionDescription).toContain('update');
         expect(actionDescription).toContain('replace');
+        expect(actionDescription).toContain('batch_kramdown');
         expect(actionDescription).toContain('add_to_daily_note');
         expect(actionDescription).toContain('docs_info');
+    });
+
+    it('limits batch_kramdown to 20 IDs', () => {
+        const variant = BLOCK_VARIANTS.find((item) => item.action === 'batch_kramdown');
+
+        expect(variant?.schema.properties?.ids?.type).toBe('array');
+        expect(variant?.schema.properties?.ids?.maxItems).toBe(20);
+    });
+
+    it('batch reads kramdown in input order with per-item permission and lookup errors', async () => {
+        const ids = ['allowed-a', 'denied', 'missing', 'allowed-b', 'allowed-a'];
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body?.stmt ?? '');
+                    const id = ids.find((candidate) => stmt.includes(`id = '${candidate}'`));
+                    if (!id || id === 'missing') return [];
+                    return [{
+                        id,
+                        root_id: `doc-${id}`,
+                        box: id === 'denied' ? 'nb-denied' : 'nb-readable',
+                        path: `/doc-${id}.sy`,
+                        hpath: `/Doc ${id}`,
+                        content: `Doc ${id}`,
+                        type: 'p',
+                    }];
+                }
+                if (endpoint === '/api/block/getDocInfo' && body?.id === 'missing') {
+                    throw new Error('SiYuan API error: -1 - 未找到 ID 为 [missing] 的内容块');
+                }
+                if (endpoint === '/api/block/getBlockKramdowns') {
+                    expect(body).toEqual({
+                        ids: ['allowed-a', 'allowed-b'],
+                        mode: 'md',
+                    });
+                    return {
+                        'allowed-a': '\u200BAlpha',
+                        'allowed-b': 'Beta',
+                    };
+                }
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const batchPermMgr = {
+            reload: vi.fn(async () => undefined),
+            canRead: vi.fn((notebook: string) => notebook !== 'nb-denied'),
+            get: vi.fn((notebook: string) => notebook === 'nb-denied' ? 'none' : 'r'),
+        };
+
+        const result = await callBlockTool(client, {
+            action: 'batch_kramdown',
+            ids,
+        }, buildDefaultToolConfig().block, batchPermMgr as never);
+
+        expect(parseResult(result)).toEqual({
+            items: [
+                { id: 'allowed-a', ok: true, kramdown: 'Alpha' },
+                {
+                    id: 'denied',
+                    ok: false,
+                    error: {
+                        type: 'permission_denied',
+                        message: 'Notebook "nb-denied" has permission "none", read access is required.',
+                        notebook: 'nb-denied',
+                        currentPermission: 'none',
+                        requiredPermission: 'read',
+                    },
+                },
+                {
+                    id: 'missing',
+                    ok: false,
+                    error: {
+                        type: 'not_found',
+                        message: 'Block not found: missing',
+                    },
+                },
+                { id: 'allowed-b', ok: true, kramdown: 'Beta' },
+                { id: 'allowed-a', ok: true, kramdown: 'Alpha' },
+            ],
+            requested: 5,
+            succeeded: 3,
+            failed: 2,
+            partial: true,
+        });
+        expect(batchPermMgr.reload).toHaveBeenCalledTimes(1);
     });
 
     it('publishes JSON types for object and array parameters', () => {

@@ -143,6 +143,17 @@ export async function getBlockKramdown(client: SiYuanClient, id: string): Promis
 }
 
 /**
+ * Get kramdown content for multiple blocks in one kernel request.
+ */
+export async function getBlockKramdowns(
+    client: SiYuanClient,
+    ids: string[],
+    mode: 'md' | 'textmark' = 'md',
+): Promise<Record<string, string>> {
+    return client.request<Record<string, string>>('/api/block/getBlockKramdowns', { ids, mode });
+}
+
+/**
  * Get all child blocks of a parent block
  */
 export async function getChildBlocks(client: SiYuanClient, id: string): Promise<IResGetChildBlock[]> {

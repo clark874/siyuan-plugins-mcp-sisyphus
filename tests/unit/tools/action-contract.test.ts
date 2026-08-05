@@ -80,6 +80,7 @@ function createContractClient() {
             if (endpoint === '/api/filetree/listDocTree') return { tree: [{ id: 'doc-1', path: '/doc-1.sy' }] };
             if (endpoint === '/api/filetree/searchDocs') return { docs: [{ id: 'doc-1', box: 'nb-1', path: '/doc-1.sy' }] };
             if (endpoint === '/api/filetree/getDoc') return { content: '<p>Doc</p>' };
+            if (endpoint === '/api/outline/getDocOutline') return [{ id: 'heading-1', name: 'Heading', blocks: [], children: [] }];
             if (endpoint === '/api/filetree/createDailyNote') return { id: 'doc-1' };
             if (endpoint === '/api/filetree/duplicateDoc') return { id: 'doc-copy', notebook: 'nb-1', path: '/copy.sy' };
             if (endpoint === '/api/filetree/doc2Heading') return { srcTreeBox: 'nb-1', srcTreePath: '/doc-1.sy' };
@@ -91,6 +92,9 @@ function createContractClient() {
             if (endpoint === '/api/block/deleteBlock') return {};
             if (endpoint === '/api/block/moveBlock') return { moved: true };
             if (endpoint === '/api/block/getBlockKramdown') return { id: body?.id, kramdown: `content\n{: id="${body?.id ?? 'block-1'}"}` };
+            if (endpoint === '/api/block/getBlockKramdowns') {
+                return Object.fromEntries(((body?.ids as string[] | undefined) ?? []).map((id) => [id, `content ${id}`]));
+            }
             if (endpoint === '/api/block/getChildBlocks') {
                 if (body?.id === 'doc-1') return [{ id: 'child-block', type: 'p', box: 'nb-1', path: '/doc-1.sy' }];
                 return [];
@@ -223,6 +227,7 @@ describe('tool action contract coverage', () => {
             { action: 'list_tree', args: { action: 'list_tree', notebook: 'nb-1', path: '/' }, expectedEndpoint: '/api/filetree/listDocTree' },
             { action: 'search_docs', args: { action: 'search_docs', notebook: 'nb-1', query: 'Doc' }, expectedEndpoint: '/api/filetree/searchDocs' },
             { action: 'get_doc', args: { action: 'get_doc', id: 'doc-1', mode: 'html' }, expectedEndpoint: '/api/filetree/getDoc' },
+            { action: 'get_outline', args: { action: 'get_outline', id: 'doc-1' }, expectedEndpoint: '/api/outline/getDocOutline' },
             { action: 'create_daily_note', args: { action: 'create_daily_note', notebook: 'nb-1' }, expectedEndpoint: '/api/filetree/createDailyNote' },
             { action: 'duplicate', args: { action: 'duplicate', id: 'doc-1' }, expectedEndpoint: '/api/filetree/duplicateDoc' },
             { action: 'heading_to_doc', args: { action: 'heading_to_doc', headingID: 'doc-1', targetNotebook: 'nb-1' }, expectedEndpoint: '/api/filetree/heading2Doc' },
@@ -241,6 +246,7 @@ describe('tool action contract coverage', () => {
             { action: 'move', args: { action: 'move', id: 'doc-1', parentID: 'doc-parent' }, expectedEndpoint: '/api/block/moveBlock' },
             { action: 'set_fold_state', args: { action: 'set_fold_state', id: 'doc-1', folded: true }, expectedEndpoint: '/api/block/foldBlock' },
             { action: 'get_kramdown', args: { action: 'get_kramdown', id: 'doc-1' }, expectedEndpoint: '/api/block/getBlockKramdown' },
+            { action: 'batch_kramdown', args: { action: 'batch_kramdown', ids: ['doc-1'] }, expectedEndpoint: '/api/block/getBlockKramdowns' },
             { action: 'get_children', args: { action: 'get_children', id: 'doc-1' }, expectedEndpoint: '/api/block/getChildBlocks' },
             { action: 'transfer_references', args: { action: 'transfer_references', fromID: 'doc-1', toID: 'doc-2' }, expectedEndpoint: '/api/block/transferBlockRef' },
             { action: 'set_attrs', args: { action: 'set_attrs', id: 'doc-1', attrs: { memo: 'note' } }, expectedEndpoint: '/api/transactions' },

@@ -13,7 +13,7 @@
 
 | 分组 | 动作 |
 |------|---------|
-| 创建与读取 | `create`, `lookup`, `get_doc` |
+| 创建与读取 | `create`, `lookup`, `get_doc`, `get_outline` |
 | 树结构查询 | `get_child_blocks`, `get_child_docs`, `list_tree`, `search_docs` |
 | 元数据与修改 | `rename`, `move`, `remove`, `set_attr`, `duplicate` |
 | 日记 / 转换 | `create_daily_note`, `heading_to_doc`, `doc_to_heading` |
@@ -28,6 +28,7 @@
 - `list_tree` 使用 `notebook + path`，其中 `path` 是 `/` 或 `/20240318112233-abc123.sy` 这类存储路径，不是人类可读路径。
 - 如果批量 `remove` 遇到思源短暂的 `indexing` 窗口，请改用 `notebook + storage path` 逐个删除并重试。
 - `set_attr` 按文档 ID 写入文档元数据属性。
+- `get_outline` 调用思源原生大纲接口，不读取正文即可返回标题树、标题块 ID、嵌套关系和 `headingCount`。如果还需要可编辑 Markdown，请使用 `get_doc`。
 
 ## Markdown 与标题规则
 
@@ -84,6 +85,7 @@ siyuan document lookup --id <doc-id> --include path
 - `list_tree`
 - `search_docs`
 - `get_doc`
+- `get_outline`
 - `create_daily_note`
 - `duplicate`
 - `heading_to_doc`

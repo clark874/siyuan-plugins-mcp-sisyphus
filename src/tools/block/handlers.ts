@@ -7,6 +7,7 @@ import { normalizeKramdownResult, stripZeroWidthChars } from '../../core/normali
 import {
     BlockAddToDailyNoteSchema,
     BlockAppendSchema,
+    BlockBatchKramdownSchema,
     BlockBreadcrumbSchema,
     BlockDeleteSchema,
     BlockDomSchema,
@@ -26,6 +27,7 @@ import {
     BlockUpdateSchema,
     BlockWordCountSchema,
 } from '../../core/types';
+import { isMissingBlockError } from '../internal/errorTranslation';
 import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
 import { filterItemsByPermission } from '../search';
@@ -602,6 +604,104 @@ const handleGetKramdown: BlockActionHandler = async ({ client, permMgr, rawArgs 
     return createJsonResult(result);
 };
 
+const handleBatchKramdown: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockBatchKramdownSchema.parse(rawArgs);
+    const mode = parsed.mode ?? 'md';
+    await permMgr.reload();
+
+    const resolutions: Array<{
+        id: string;
+        readable: boolean;
+        error?: Record<string, unknown>;
+    }> = [];
+
+    for (const id of parsed.ids) {
+        try {
+            const context = await resolveDocumentContextById(client, id);
+            if (!permMgr.canRead(context.notebook)) {
+                const currentPermission = permMgr.get(context.notebook);
+                resolutions.push({
+                    id,
+                    readable: false,
+                    error: {
+                        type: 'permission_denied',
+                        message: `Notebook "${context.notebook}" has permission "${currentPermission}", read access is required.`,
+                        notebook: context.notebook,
+                        currentPermission,
+                        requiredPermission: 'read',
+                    },
+                });
+                continue;
+            }
+            resolutions.push({ id, readable: true });
+        } catch (error) {
+            resolutions.push({
+                id,
+                readable: false,
+                error: isMissingBlockError(error)
+                    ? {
+                        type: 'not_found',
+                        message: `Block not found: ${id}`,
+                    }
+                    : {
+                        type: 'resolution_error',
+                        message: error instanceof Error ? error.message : String(error),
+                    },
+            });
+        }
+    }
+
+    const readableIds = Array.from(new Set(
+        resolutions.filter((item) => item.readable).map((item) => item.id),
+    ));
+    let kramdowns: Record<string, string> = {};
+    let requestError: Record<string, unknown> | undefined;
+    if (readableIds.length > 0) {
+        try {
+            kramdowns = await blockApi.getBlockKramdowns(client, readableIds, mode);
+        } catch (error) {
+            requestError = {
+                type: 'api_error',
+                message: error instanceof Error ? error.message : String(error),
+            };
+        }
+    }
+
+    const items = resolutions.map((resolution) => {
+        if (!resolution.readable) {
+            return { id: resolution.id, ok: false, error: resolution.error };
+        }
+        if (requestError) {
+            return { id: resolution.id, ok: false, error: requestError };
+        }
+        if (!Object.prototype.hasOwnProperty.call(kramdowns, resolution.id)) {
+            return {
+                id: resolution.id,
+                ok: false,
+                error: {
+                    type: 'not_found',
+                    message: `Block not found: ${resolution.id}`,
+                },
+            };
+        }
+        return {
+            id: resolution.id,
+            ok: true,
+            kramdown: stripZeroWidthChars(kramdowns[resolution.id]),
+        };
+    });
+    const succeeded = items.filter((item) => item.ok).length;
+    const failed = items.length - succeeded;
+
+    return createJsonResult({
+        items,
+        requested: items.length,
+        succeeded,
+        failed,
+        partial: failed > 0 && succeeded > 0,
+    });
+};
+
 const handleGetChildren: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockGetChildrenSchema.parse(rawArgs);
     const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
@@ -750,6 +850,7 @@ export const BLOCK_ACTION_HANDLERS: Record<BlockAction, BlockActionHandler> = {
     move: handleMove,
     set_fold_state: handleSetFoldState,
     get_kramdown: handleGetKramdown,
+    batch_kramdown: handleBatchKramdown,
     get_children: handleGetChildren,
     transfer_references: handleTransferReferences,
     set_attrs: handleSetAttrs,

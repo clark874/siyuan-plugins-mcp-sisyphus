@@ -114,6 +114,7 @@
 | `list_tree` | `POST /api/filetree/listDocTree` | `src/api/document.ts` | 获取嵌套文档树 |
 | `search_docs` | `POST /api/filetree/searchDocs` | `src/api/document.ts` | 思源原生是全局标题搜索 |
 | `get_doc` | `POST /api/filetree/getDoc` | `src/api/document.ts` | 获取文档内容和元数据 |
+| `get_outline` | `POST /api/outline/getDocOutline` | `src/api/document.ts` | 获取原生标题树，不读取正文 |
 | `create_daily_note` | `POST /api/filetree/createDailyNote` | `src/api/document.ts` | 创建或返回今日日记 |
 | `duplicate` | `POST /api/filetree/duplicateDoc` | `src/api/document.ts` | 复制已有文档 |
 | `heading_to_doc` | `POST /api/filetree/heading2Doc` | `src/api/document.ts` | 将标题块转换为文档 |
@@ -151,6 +152,7 @@
 | `move` | `POST /api/block/moveBlock` | `src/api/block.ts` | 需要确认 |
 | `set_fold_state` | `POST /api/block/foldBlock` / `POST /api/block/unfoldBlock` | `src/api/block.ts` | `folded: true` 折叠，`folded: false` 展开；仅适用于可折叠块 |
 | `get_kramdown` | `POST /api/block/getBlockKramdown` | `src/api/block.ts` | 只读 |
+| `batch_kramdown` | `POST /api/block/getBlockKramdowns` | `src/api/block.ts` | 最多 20 个 ID；逐项解析权限并按输入顺序返回内容或错误 |
 | `get_children` | `POST /api/block/getChildBlocks` | `src/api/block.ts` | 只读 |
 | `transfer_references` | `POST /api/block/transferBlockRef` | `src/api/block.ts` | 写操作 |
 | `set_attrs` | `POST /api/attr/setBlockAttrs` | `src/api/block.ts` | 设置块属性 |
@@ -316,9 +318,9 @@
 
 ## 未覆盖 API 清单
 
-> **更新时间**: 2026-04-18  
-> **扫描范围**: SiYuan Kernel API (459个端点) 与 MCP Tools (115个actions) 对比
-> **整体覆盖率**: 25.5% (117/459)
+> **更新时间**: 2026-07-28
+> **扫描范围**: SiYuan Kernel API (459个端点) 与 MCP Tools (117个actions) 对比
+> **整体覆盖率**: 25.9% (119/459)
 
 ### 覆盖率统计概览
 
@@ -326,7 +328,7 @@
 |------|------|--------|--------|--------|
 | notebook | 11 | 9 | 2 | ████████░░ 81.8% |
 | filetree | 34 | 21 | 13 | ██████░░░░ 61.8% |
-| block | 54 | 23 | 31 | ████░░░░░░ 42.6% |
+| block | 54 | 24 | 30 | ████░░░░░░ 44.4% |
 | av | 35 | 13 | 22 | █████░░░░░ 37.1% |
 | system | 46 | 10 | 36 | ██░░░░░░░░ 21.7% |
 | search | 14 | 8 | 6 | ██████░░░░ 57.1% |
@@ -342,9 +344,10 @@
 | file | 8 | 0 | 8 | ░░░░░░░░░░ 0.0% |
 | attr | 6 | 2 | 4 | ███░░░░░░░ 33.3% |
 | ref | 5 | 2 | 3 | ████░░░░░░ 40.0% |
+| outline | 1 | 1 | 0 | ██████████ 100.0% |
 | tag | 3 | 3 | 0 | ██████████ 100.0% |
 | notification | 2 | 2 | 0 | ██████████ 100.0% |
-| **总计** | **459** | **117** | **342** | █████░░░░░ 25.5% |
+| **总计** | **459** | **119** | **340** | █████░░░░░ 25.9% |
 
 ### 已补齐的高优先级 API (核心功能)
 

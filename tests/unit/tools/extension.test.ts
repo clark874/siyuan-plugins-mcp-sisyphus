@@ -149,6 +149,52 @@ describe('extension tool', () => {
         expect(branch.source).toBe('native');
     });
 
+    it('returns discovery counts without tool details while native tools are disabled', async () => {
+        const config = buildDefaultToolConfig().extension;
+        const tools = [pluginTool(), nativeTool()];
+        const { runtime } = fakeRuntime(tools);
+
+        const result = await callExtensionTool(
+            createMockClient(),
+            { action: 'list' },
+            config,
+            createMockPermissionManager(),
+            runtime,
+        );
+        const payload = JSON.parse(result.content[0].text);
+
+        expect(payload).toEqual(expect.objectContaining({
+            discoveredCount: 2,
+            discoveredBySource: { plugin: 1, native: 1 },
+            nativeToolsEnabled: false,
+            exposedCount: 1,
+            detailsIncluded: false,
+        }));
+        expect(payload).not.toHaveProperty('tools');
+        expect(result.content[0].text).not.toContain('The native SiYuan document tool.');
+    });
+
+    it('omits the discovered tool-name list from general help while native tools are disabled', async () => {
+        const config = buildDefaultToolConfig().extension;
+        const { runtime } = fakeRuntime([pluginTool(), nativeTool()]);
+
+        const result = await callExtensionTool(
+            createMockClient(),
+            { action: 'help' },
+            config,
+            createMockPermissionManager(),
+            runtime,
+        );
+        const payload = JSON.parse(result.content[0].text);
+
+        expect(payload).toEqual(expect.objectContaining({
+            discoveredCount: 2,
+            discoveredBySource: { plugin: 1, native: 1 },
+            detailsIncluded: false,
+        }));
+        expect(payload).not.toHaveProperty('discoveredTools');
+    });
+
     it('does not expose official tools that conflict with reserved extension actions', async () => {
         const config = buildDefaultToolConfig().extension;
         config.includeNativeTools = true;

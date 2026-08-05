@@ -545,6 +545,37 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         ],
         "tool": "block",
       },
+      "batch_kramdown": {
+        "action": "batch_kramdown",
+        "example": {
+          "action": "batch_kramdown",
+          "ids": [
+            "<idsItem>",
+          ],
+        },
+        "fullDocResource": "siyuan://help/action/block/batch_kramdown",
+        "guidance": [
+          "block(action="prepend") or block(action="append") with a document ID targets the document start or end.",
+          "block(action="update") is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use append/prepend/insert when you need multiple blocks, tables, or longer multi-line content.",
+          "block(action="replace") only searches the kramdown of the single block identified by id. It does not traverse child blocks, sibling blocks, headings with their following content, or the whole document.",
+          "Before block(action="replace"), call block(action="get_kramdown", id=...) and copy an exact old snippet from that result. It writes back through the original DOM text nodes; naked ((id)) references, footnotes, and siyuan://blocks links are allowed with backlink-semantics hints.",
+          "block(action="prepend") or block(action="append") with a block ID targets that block's child list.",
+          "To create real SiYuan tags inside markdown content, use the syntax #tag# with both leading and trailing # characters, then verify with tag(action="list", query="tag").",
+          "To turn a block into a flashcard, prefer flashcard(action="create_card"). It writes "custom-riff-decks" and registers the riff card together.",
+          "block(action="set_fold_state") requires a foldable block ID, not a document ID.",
+          "block(action="recent_updated") is read-only; MCP filters unreadable notebooks first and then applies count.",
+          "block(action="recent_updated") now presents the document-grouped summary as the primary user-facing view while keeping the raw block stream for advanced consumers.",
+        ],
+        "hint": "Provide 1–20 block or document IDs. MCP resolves read permission per input item, fetches readable kramdown in one kernel request, preserves input order and duplicates, and returns per-item errors instead of failing the whole batch.",
+        "requiredFields": [
+          "ids",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "ids",
+        ],
+        "tool": "block",
+      },
       "breadcrumb": {
         "action": "breadcrumb",
         "example": {
@@ -1087,7 +1118,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
     },
     "description": "🧱 Grouped block operations. Use the "action" field to select the operation.
 
-Common actions: insert, prepend, append, update, replace, get_kramdown, get_children, get_attrs, info. Required fields: insert: no additional fields; prepend: dataType, data, parentID; append: dataType, data, parentID; update: no additional fields; replace: id, edit; get_kramdown: id; get_children: id; get_attrs: id; info: id.
+Common actions: insert, prepend, append, update, replace, get_kramdown, batch_kramdown, get_children, get_attrs, info. Required fields: insert: no additional fields; prepend: dataType, data, parentID; append: dataType, data, parentID; update: no additional fields; replace: id, edit; get_kramdown: id; batch_kramdown: ids; get_children: id; get_attrs: id; info: id.
 
 Additional actions: delete, move, set_fold_state, transfer_references, set_attrs, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info. Read siyuan://help/action/block/{action} for details, or call action="help" if resources are unavailable.
 
@@ -1101,6 +1132,7 @@ block.delete: required [id] | optional []
 block.move: required [] | optional [id, ids, previousID, parentID]
 block.set_fold_state: required [id, folded] | optional []
 block.get_kramdown: required [id] | optional []
+block.batch_kramdown: required [ids] | optional [mode]
 block.get_children: required [id] | optional [page, pageSize]
 block.transfer_references: required [fromID, toID] | optional [refIDs]
 block.set_attrs: required [id, attrs] | optional []
@@ -1118,6 +1150,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
       "actionSummaries": {
         "add_to_daily_note": "Use notebook + dataType + data + position ("append" or "prepend") to add content to today’s daily note.",
         "append": "parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Prefer append when you need to add multi-line markdown, tables, or multiple new blocks. Use #tag# syntax in markdown when you want SiYuan to register a real tag.",
+        "batch_kramdown": "Provide 1–20 block or document IDs. MCP resolves read permission per input item, fetches readable kramdown in one kernel request, preserves input order and duplicates, and returns per-item errors instead of failing the whole batch.",
         "breadcrumb": "Optional excludeTypes removes matching block types from the breadcrumb.",
         "delete": "This action requires explicit user confirmation.",
         "docs_info": "no extra fields",
@@ -1144,6 +1177,10 @@ block(action="prepend") or block(action="append") with a document ID targets the
         },
         "append": {
           "hint": "parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Prefer append when you need to add multi-line markdown, tables, or multiple new blocks. Use #tag# syntax in markdown when you want SiYuan to register a real tag.",
+          "requiresConfirmation": false,
+        },
+        "batch_kramdown": {
+          "hint": "Provide 1–20 block or document IDs. MCP resolves read permission per input item, fetches readable kramdown in one kernel request, preserves input order and duplicates, and returns per-item errors instead of failing the whole batch.",
           "requiresConfirmation": false,
         },
         "breadcrumb": {
@@ -1235,6 +1272,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "update",
         "replace",
         "get_kramdown",
+        "batch_kramdown",
         "get_children",
         "get_attrs",
         "info",
@@ -1531,6 +1569,39 @@ block(action="prepend") or block(action="append") with a document ID targets the
         ],
         "tool": "document",
       },
+      "get_outline": {
+        "action": "get_outline",
+        "example": {
+          "action": "get_outline",
+          "id": "20240318112233-abc123",
+        },
+        "fullDocResource": "siyuan://help/action/document/get_outline",
+        "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; path is a notebook-local human-readable hpath such as /Folder/Parent/New Child, not /Notebook/Folder/... and not a .sy storage path.",
+          "Do not put # Title at the start of document(action="create") markdown. SiYuan renders the document title as H1 automatically, and MCP strips a matching leading H1 to avoid duplicate titles.",
+          "document(action="create", parentPath=..., title=...) is also supported. parentPath accepts either a notebook-local human-readable parent hpath such as /Folder/Parent, or a storage path ending in .sy returned by document(action="lookup").",
+          "fs(action="write", path="/Notebook/Folder/Doc") uses a workspace path that includes the notebook name; document(action="create", notebook=..., path="/Folder/Doc") uses a notebook-local hpath. Do not mix these two path formats.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
+          "If document(action="create") reports a duplicate-name error, verify the intended child with document(action="lookup", notebook=..., hpath="/Folder/Parent/New Child", include=["id","path","hpath"]) or document(action="get_child_docs", id=<parent-doc-id>). New create results may take a short indexing delay before lookup/search sees them.",
+          "A safe path-based workflow is lookup -> rename/remove/move.",
+          "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
+          "document(action="set_attr") updates document metadata such as icon and cover; use attrs.cover=null or an empty string to clear the cover.",
+          "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
+          "For recently created documents, document(action="lookup", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+        ],
+        "hint": "Use a document ID to return SiYuan’s native heading tree without reading the document body. preview defaults to false. The response includes heading block IDs, nesting, and headingCount.",
+        "requiredFields": [
+          "id",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "id",
+        ],
+        "tool": "document",
+      },
       "heading_to_doc": {
         "action": "heading_to_doc",
         "example": {
@@ -1798,7 +1869,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
     },
     "description": "📝 Grouped document operations. Use the "action" field to select the operation.
 
-Common actions: create, lookup, rename, get_child_blocks, get_child_docs, search_docs, get_doc. Required fields: create: notebook; lookup: no additional fields; rename: title; get_child_blocks: id; get_child_docs: id; search_docs: notebook, query; get_doc: id.
+Common actions: create, lookup, rename, get_child_blocks, get_child_docs, search_docs, get_doc, get_outline. Required fields: create: notebook; lookup: no additional fields; rename: title; get_child_blocks: id; get_child_docs: id; search_docs: notebook, query; get_doc: id; get_outline: id.
 
 Additional actions: remove, move, set_attr, list_tree, create_daily_note, duplicate, heading_to_doc, doc_to_heading. Read siyuan://help/action/document/{action} for details, or call action="help" if resources are unavailable.
 
@@ -1814,6 +1885,7 @@ document.set_attr: required [id, attrs] | optional []
 document.list_tree: required [notebook, path] | optional [maxDepth]
 document.search_docs: required [notebook, query] | optional [path]
 document.get_doc: required [id] | optional [mode, size, blockStart, blockLimit, tokenBudget, includeBlockIds]
+document.get_outline: required [id] | optional [preview]
 document.create_daily_note: required [notebook] | optional [app]
 document.duplicate: required [id] | optional []
 document.heading_to_doc: required [headingID, targetNotebook] | optional [targetPath, previousPath]
@@ -1829,6 +1901,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "get_child_blocks": "Use a document ID. Returns direct child blocks only.",
         "get_child_docs": "Use a document ID. Returns direct child documents only.",
         "get_doc": "Use a document ID. mode="markdown" returns clean Markdown in complete display-block windows with outline, token budget, and nextWindow metadata; use blockStart/blockLimit/tokenBudget and optionally includeBlockIds. page/pageSize character pagination was removed. mode="html" uses the current focus view.",
+        "get_outline": "Use a document ID to return SiYuan’s native heading tree without reading the document body. preview defaults to false. The response includes heading block IDs, nesting, and headingCount.",
         "heading_to_doc": "requires: headingID, targetNotebook",
         "list_tree": "Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.",
         "lookup": "Look up one reference at a time. Use id, notebook + storage path, or notebook + hpath/hPath. The path field means storage path like /20240318112233-abc123.sy; use hpath for human-readable paths.",
@@ -1863,6 +1936,10 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         },
         "get_doc": {
           "hint": "Use a document ID. mode="markdown" returns clean Markdown in complete display-block windows with outline, token budget, and nextWindow metadata; use blockStart/blockLimit/tokenBudget and optionally includeBlockIds. page/pageSize character pagination was removed. mode="html" uses the current focus view.",
+          "requiresConfirmation": false,
+        },
+        "get_outline": {
+          "hint": "Use a document ID to return SiYuan’s native heading tree without reading the document body. preview defaults to false. The response includes heading block IDs, nesting, and headingCount.",
           "requiresConfirmation": false,
         },
         "heading_to_doc": {
@@ -1915,6 +1992,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "get_child_docs",
         "search_docs",
         "get_doc",
+        "get_outline",
       ],
       "detailsHint": "Call document(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
@@ -1963,13 +2041,18 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
             },
           },
         },
-        "description": "Bridge tools exposed through the official SiYuan /mcp endpoint. Plugin tools are included by default; native SiYuan tools are included only when includeNativeTools is enabled. Use action="list" to inspect discovery status. Every exposed tool keeps its official name as the action. Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.",
-        "discoveredTools": [],
+        "description": "Bridge tools exposed through the official SiYuan /mcp endpoint. Plugin tools are included by default; native SiYuan tools are included only when includeNativeTools is enabled. Use action="list" to inspect discovery status; while native tools are disabled, it returns counts only and omits tool details. Every exposed tool keeps its official name as the action. Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.",
+        "detailsIncluded": false,
+        "discoveredBySource": {
+          "native": 0,
+          "plugin": 0,
+        },
+        "discoveredCount": 0,
         "includeNativeTools": false,
         "tool": "extension",
       },
     },
-    "description": "Bridge tools exposed through the official SiYuan /mcp endpoint. Plugin tools are included by default; native SiYuan tools are included only when includeNativeTools is enabled. Use action="list" to inspect discovery status. Every exposed tool keeps its official name as the action. Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.
+    "description": "Bridge tools exposed through the official SiYuan /mcp endpoint. Plugin tools are included by default; native SiYuan tools are included only when includeNativeTools is enabled. Use action="list" to inspect discovery status; while native tools are disabled, it returns counts only and omits tool details. Every exposed tool keeps its official name as the action. Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.
 
 Currently exposed actions: help, list.",
     "overview": {
@@ -1987,8 +2070,13 @@ Currently exposed actions: help, list.",
           },
         },
       },
-      "description": "Bridge tools exposed through the official SiYuan /mcp endpoint. Plugin tools are included by default; native SiYuan tools are included only when includeNativeTools is enabled. Use action="list" to inspect discovery status. Every exposed tool keeps its official name as the action. Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.",
-      "discoveredTools": [],
+      "description": "Bridge tools exposed through the official SiYuan /mcp endpoint. Plugin tools are included by default; native SiYuan tools are included only when includeNativeTools is enabled. Use action="list" to inspect discovery status; while native tools are disabled, it returns counts only and omits tool details. Every exposed tool keeps its official name as the action. Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.",
+      "detailsIncluded": false,
+      "discoveredBySource": {
+        "native": 0,
+        "plugin": 0,
+      },
+      "discoveredCount": 0,
       "includeNativeTools": false,
       "tool": "extension",
     },

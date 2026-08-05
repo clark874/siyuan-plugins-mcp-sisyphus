@@ -129,7 +129,7 @@ export const FLASHCARD_GUIDANCE: string[] = [
 export const EXTENSION_GUIDANCE: string[] = [
     'extension bridges tools from the official SiYuan /mcp endpoint and requires SiYuan 3.7.0 or newer.',
     'Plugin tools are exposed by default. Native SiYuan tools are exposed only when extension.includeNativeTools is enabled; external source="mcp" tools remain excluded.',
-    'Use extension(action="list", refresh=true) to refresh discovery and inspect official tool names, sources, schemas, read-only declarations, and blocked state.',
+    'Use extension(action="list", refresh=true) to refresh discovery. While includeNativeTools is disabled, the response contains counts only; enable it to inspect tool names, sources, schemas, read-only declarations, and blocked state.',
     'Call a discovered tool with extension(action="<official tool name>", arguments={...}). Downstream parameters must stay inside arguments, including a downstream action field.',
     'Tools without readOnlyHint=true may mutate data or trigger side effects and require explicit user confirmation before calling.',
     'Forwarded official MCP tool calls are never retried. A transport error after dispatch means execution status is unknown and must be checked before retrying.',
@@ -182,6 +182,7 @@ export const DOCUMENT_ACTION_HINTS: Partial<Record<DocumentAction, string>> = {
     list_tree: 'Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.',
     search_docs: 'Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.',
     get_doc: 'Use a document ID. mode="markdown" returns clean Markdown in complete display-block windows with outline, token budget, and nextWindow metadata; use blockStart/blockLimit/tokenBudget and optionally includeBlockIds. page/pageSize character pagination was removed. mode="html" uses the current focus view.',
+    get_outline: 'Use a document ID to return SiYuan’s native heading tree without reading the document body. preview defaults to false. The response includes heading block IDs, nesting, and headingCount.',
     create_daily_note: 'Use a notebook ID and optionally pass app for downstream SiYuan event routing. When the user asks for a diary, journal entry, daily log, or today’s note in a notebook, prefer this action over manually creating a path and then appending content.',
 };
 
@@ -195,6 +196,7 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
     delete: 'This action requires explicit user confirmation.',
     move: 'Provide id or ids plus previousID, parentID, or both to describe the destination. When ids is provided, pass IDs in the desired final order; MCP calls SiYuan from last to first internally and returns apiCallOrder for debugging. This action requires explicit user confirmation.',
     set_fold_state: 'Use a foldable block ID + folded (true to fold, false to unfold).',
+    batch_kramdown: 'Provide 1–20 block or document IDs. MCP resolves read permission per input item, fetches readable kramdown in one kernel request, preserves input order and duplicates, and returns per-item errors instead of failing the whole batch.',
     get_children: 'Accepts both document IDs and block IDs. Returns direct child blocks. Use page/pageSize to paginate when there are many children.',
     info: 'Returns root document positioning metadata for a block.',
     breadcrumb: 'Optional excludeTypes removes matching block types from the breadcrumb.',

@@ -373,6 +373,12 @@ export const DocumentGetDocSchema = z.object({
     }
 });
 
+export const DocumentGetOutlineSchema = z.object({
+    action: z.literal("get_outline"),
+    id: z.string().describe("Document ID"),
+    preview: z.boolean().optional().describe("Use SiYuan preview-mode outline semantics (default false)"),
+});
+
 export const DocumentCreateDailyNoteSchema = z.object({
     action: z.literal("create_daily_note"),
     notebook: z.string().describe("Notebook ID"),
@@ -604,6 +610,12 @@ export const BlockSetFoldStateSchema = z.object({
 export const BlockGetKramdownSchema = z.object({
     action: z.literal("get_kramdown"),
     id: z.string().describe("Block ID or document ID"),
+});
+
+export const BlockBatchKramdownSchema = z.object({
+    action: z.literal("batch_kramdown"),
+    ids: z.array(z.string().min(1)).min(1).max(20).describe("Block or document IDs. Results preserve this input order, including duplicate IDs."),
+    mode: z.enum(["md", "textmark"]).optional().describe('Kramdown export mode: "md" (default) or "textmark"'),
 });
 
 export const BlockGetChildrenSchema = z.object({
