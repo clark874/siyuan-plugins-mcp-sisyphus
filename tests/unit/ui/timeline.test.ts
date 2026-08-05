@@ -14,6 +14,7 @@ import {
     extractTimelineTagLabel,
     filterChangedUniqueTimelineEntries,
     formatSnapshotTime,
+    getTimelineNodeSelectionKey,
     isGlobalTimelineTag,
     isTimelineSnapshot,
     isTimelineNodeRecordPayloadValid,
@@ -25,6 +26,7 @@ import {
     shouldUpdateDiffViewportState,
     snapshotLabel,
     sortSnapshotsNewestFirst,
+    sortTimelineNodesNewestFirst,
     GLOBAL_TIMELINE_TAG_PREFIX,
     GLOBAL_TIMELINE_TAG_VERIFICATION_ERROR,
     TIMELINE_TAG_PREFIX,
@@ -32,6 +34,21 @@ import {
 } from '@/ui/version-control/timeline';
 
 describe('snapshot document timeline', () => {
+    it('builds stable document-scoped selection keys and sorts mixed-scope nodes', () => {
+        const selection = {
+            documentId: 'doc-a',
+            documentTitle: 'Doc A',
+            node: { name: 'global', created: 3, snapshotId: 'snapshot-g', tag: 'sisyphustimeline_global_global', scope: 'global' as const },
+        };
+
+        expect(getTimelineNodeSelectionKey(selection)).toContain('doc-a');
+        expect(getTimelineNodeSelectionKey(null)).toBe('');
+        expect(sortTimelineNodesNewestFirst([
+            { name: 'document', created: 1, snapshotId: 'snapshot-d', scope: 'document' },
+            selection.node,
+        ]).map((node) => node.name)).toEqual(['global', 'document']);
+    });
+
     it('sorts tagged snapshots and creates adjacent old-to-new pairs', () => {
         const snapshots = sortSnapshotsNewestFirst([
             { id: 'old', tag: 'old', created: '2026-05-01T00:00:00Z' },
@@ -327,43 +344,65 @@ describe('snapshot document timeline', () => {
         expect(formatSnapshotTime({ id: 'empty' })).toBe('');
     });
 
-    it('defers automatic snapshot creation while the timeline dock is hidden', () => {
-        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+    it('loads only snapshot metadata in the left panel', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/SnapshotPanel.svelte'), 'utf8');
+        const loadSnapshots = source.slice(
+            source.indexOf('async function loadSnapshots()'),
+            source.indexOf('async function readTimelineTagSnapshots'),
+        );
 
-        expect(source).toContain('if (shouldAutoLoadTimeline()) await loadTimeline();');
-        expect(source).toContain('shouldAutoLoadTimeline() && currentDocumentId !== loadedDocumentId && !loadingSnapshots');
-        expect(source).toContain('return mounted && panelVisible && currentDocumentId !== "";');
-        expect(source).toContain('if (!shouldAutoLoadTimeline()) return;');
-        expect(source).toContain('panelVisible = isShellVisible();');
+        expect(loadSnapshots).toContain('readTimelineNodes(documentId)');
+        expect(loadSnapshots).toContain('readTimelineTagSnapshots()');
+        expect(loadSnapshots).not.toContain('createSnapshot');
+        expect(loadSnapshots).not.toContain('diffRepoSnapshots');
+        expect(loadSnapshots).not.toContain('openRepoSnapshotFile');
     });
 
-    it('keeps a collapse control in the snapshot sidebar while a diff is open', () => {
-        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
-        const snapshotSection = source.match(/<div class="vc-sidebar-heading vc-snapshot-heading">[\s\S]*?<textarea/);
+    it('uses compact collapsible sections in the snapshot panel without combined sidebar logic', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/SnapshotPanel.svelte'), 'utf8');
 
-        expect(snapshotSection?.[0]).toContain('{#if diffOpen}');
-        expect(snapshotSection?.[0]).toContain('class="vc-icon-button vc-sidebar-collapse"');
-        expect(snapshotSection?.[0]).toContain('on:click={toggleTimelineCollapsed}');
-        expect(snapshotSection?.[0]).toContain('timeline_action_collapse');
+        expect(source).toContain('snapshot_action_collapse_all');
+        expect(source).toContain('snapshot_create_section_title');
+        expect(source).toContain('timeline_section_title');
+        expect(source).toContain('timeline_legacy_section_title');
+        expect(source).not.toContain('autoTimelineCollapsed');
+        expect(source).not.toContain('vc-sidebar');
+    });
+
+    it('calculates only the selected node in the diff panel and refreshes only that selection after restore', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionDiffPanel.svelte'), 'utf8');
+        const loadSelection = source.slice(
+            source.indexOf('async function loadSelection('),
+            source.indexOf('function snapshotFromSelection'),
+        );
+
+        expect(loadSelection).toContain('currentSnapshot = await createCurrentSnapshot()');
+        expect(loadSelection.match(/diffRepoSnapshots/g)).toHaveLength(1);
+        expect(source).toContain('await refreshSelectedDiff();');
+        expect(source).toContain('diff_empty_select_snapshot');
+        expect(source).toContain('on:click={onOpenSnapshot}');
+        expect(source).not.toContain('<aside');
+        expect(source).not.toContain('autoTimelineCollapsed');
     });
 
     it('drives the document timeline from per-document attrs and shows no-change nodes as markers', () => {
-        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/SnapshotPanel.svelte'), 'utf8');
+        const diffSource = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionDiffPanel.svelte'), 'utf8');
 
         expect(source).toContain('const TIMELINE_NODE_ATTR_KEY = "custom-sisyphus-timeline";');
         expect(source).toContain('"/api/attr/getBlockAttrs"');
         expect(source).toContain('attrs: { [TIMELINE_NODE_ATTR_KEY]: serializeTimelineNodeRecords(documentNodes) }');
-        expect(source).toContain('async function readTimelineNodes(documentId = currentDocumentId)');
+        expect(source).toContain('async function readTimelineNodes(documentId: string)');
         expect(source).toContain('async function writeTimelineNodes(nodes');
-        expect(source).toContain('nodes.length === 0');
-        expect(source).toContain('createNoChangeTimelineEntry(node, currentSnapshot)');
-        expect(source).toContain('if (node.snapshotId === currentSnapshot.id)');
-        expect(source).toContain('if (oldSnapshotContent === newSnapshotContent)');
-        expect(source).toContain('noChanges: true');
+        expect(source).toContain('sortTimelineNodesNewestFirst');
+        expect(diffSource).toContain('createNoChangeTimelineEntry(nextSelection, currentSnapshot)');
+        expect(diffSource).toContain('if (node.snapshotId === currentSnapshot.id)');
+        expect(diffSource).toContain('if (oldContent === newContent)');
+        expect(diffSource).toContain('noChanges: true');
     });
 
     it('reconciles scoped tags and exposes legacy tags for explicit document association', () => {
-        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/SnapshotPanel.svelte'), 'utf8');
 
         expect(source).toContain('reconcileDocumentTimelineNodes(');
         expect(source).toContain('reconciliation.attrChanged');
@@ -379,7 +418,7 @@ describe('snapshot document timeline', () => {
     });
 
     it('creates document or global nodes according to the non-persistent scope selector', () => {
-        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/SnapshotPanel.svelte'), 'utf8');
         const createNode = source.match(/async function createTimelineNode\(\) \{[\s\S]*?\n    \}/)?.[0] ?? '';
 
         // 文档节点写 attrs；全局节点只写 global tag。
@@ -389,15 +428,35 @@ describe('snapshot document timeline', () => {
         expect(createNode).toContain('const taggedSnapshots = await readTimelineTagSnapshots()');
         expect(createNode).toContain('if (createScope === "document")');
         expect(createNode).toContain('scope: "document"');
-        expect(createNode).toContain('await writeTimelineNodes(nodes)');
+        expect(createNode).toContain('await writeTimelineNodes(nodes, currentDocumentId)');
         expect(source).toContain('let createScope: TimelineNodeScope = "document";');
         expect(source).toContain('class:active={createScope === "global"}');
-        expect(source).toContain('class="vc-scope-badge"');
+        expect(source).toContain('class="snapshot-badge"');
         expect(createNode).toContain('if (!currentDocumentId) {');
+        expect(createNode).not.toContain('onSelectNode(');
+    });
+
+    it('deletes a timeline node tag without deleting the underlying snapshot', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/SnapshotPanel.svelte'), 'utf8');
+        const deleteNode = source.slice(
+            source.indexOf('async function deleteTimelineNode('),
+            source.indexOf('async function findNewestSnapshotForMemo'),
+        );
+
+        expect(deleteNode).toContain('"/api/repo/removeRepoTagSnapshot"');
+        expect(deleteNode).toContain('previousDocumentNodes.filter');
+        expect(deleteNode).toContain('await writeTimelineNodes(previousDocumentNodes, documentId)');
+        expect(deleteNode).toContain('if (selectedNodeKey === selectionKey) onSelectNode(null);');
+        expect(deleteNode).not.toContain('await loadSnapshots()');
+        expect(deleteNode).not.toContain('removeRepoSnapshot');
+        expect(deleteNode).not.toContain('removeSnapshot');
+        expect(source).toContain('timeline_action_delete_node');
+        expect(source).toContain('class="snapshot-node-delete"');
+        expect(source).toContain('deleteTimelineNode(createTimelineNodeRecord(snapshot, "document", "legacy"))');
     });
 
     it('anchors diff scrolling to live document blocks by block id', () => {
-        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionDiffPanel.svelte'), 'utf8');
 
         expect(source).toContain('queueDocumentScrollSync();');
         expect(source).toContain('on:click={handleDiffClick}');
@@ -440,7 +499,7 @@ describe('snapshot document timeline', () => {
     });
 
     it('guards diff viewport raf scheduling and live block lookup caches in the panel source', () => {
-        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionControlPanel.svelte'), 'utf8');
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionDiffPanel.svelte'), 'utf8');
 
         expect(source).toContain('let diffViewportFrame = 0;');
         expect(source).toContain('if (diffViewportFrame) return;');

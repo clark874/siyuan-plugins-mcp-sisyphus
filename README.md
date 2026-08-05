@@ -123,21 +123,24 @@ See the [`extension` tool documentation](./docs/reference/tools/extension.md) fo
 ## Git-Like Document Timeline
 
 <p align="center">
-  <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">
+  <img src="docs/archive/timeline-split.svg" alt="Separate Document Snapshots and Diff docks" width="900">
 </p>
-<p align="center"><em>Document Timeline: named snapshots, visual diff, and rollback for SiYuan notes.</em></p>
+<p align="center"><em>The left snapshots dock manages nodes; the right diff dock compares and restores on demand.</em></p>
 
 The timeline gives ordinary SiYuan documents a source-control-style safety layer:
 
 - create document-only nodes or global nodes visible in every document;
+- manage nodes in a compact, collapsible left dock inspired by VSCode Source Control;
+- open the right Document Diff dock automatically when selecting a node, while node creation only refreshes and highlights the new entry;
 - distinguish scopes with colored dots and Document / Global badges in one chronological list;
+- delete document or global nodes by removing only their protective tags while retaining the underlying snapshots;
 - compare a historical snapshot with the current document;
 - switch between unified and split diff;
 - use a minimap-style change navigator and collapse unchanged blocks;
 - preserve older timeline nodes in a legacy archive, link one legacy node to multiple documents, or safely convert it into a new global node;
 - roll back the whole document, or restore supported parsed blocks individually.
 
-This is a document-aware timeline built on SiYuan workspace-wide snapshots: document ownership is recorded in document attributes, while global nodes are recovered from tags. It is intentionally not a complete Git replacement or source-control workflow.
+The snapshots dock reads only attribute and tag metadata. A current-state snapshot and diff are created only after a node is selected, and only for that node. The foundation is still SiYuan's workspace-wide snapshots: document ownership is recorded in document attributes, while global nodes are recovered from tags. It is intentionally not a complete Git replacement or source-control workflow.
 
 ## MCP And CLI Entry Points
 

@@ -77,6 +77,12 @@ export interface TimelineNodeRecord {
     source?: 'legacy';
 }
 
+export interface TimelineNodeSelection {
+    documentId: string;
+    documentTitle: string;
+    node: TimelineNodeRecord;
+}
+
 export interface TimelineNodeReconciliation {
     documentNodes: TimelineNodeRecord[];
     globalNodes: TimelineNodeRecord[];
@@ -281,6 +287,15 @@ export function reconcileDocumentTimelineNodes(
 
 export function getTimelineNodeIdentity(node: Pick<TimelineNodeRecord, 'snapshotId' | 'tag'>): string {
     return `${node.snapshotId}\u0000${node.tag ?? ''}`;
+}
+
+export function getTimelineNodeSelectionKey(selection: TimelineNodeSelection | null | undefined): string {
+    if (!selection) return '';
+    return `${selection.documentId}\u0000${getTimelineNodeIdentity(selection.node)}`;
+}
+
+export function sortTimelineNodesNewestFirst(nodes: TimelineNodeRecord[]): TimelineNodeRecord[] {
+    return [...nodes].sort((left, right) => right.created - left.created);
 }
 
 export function getTimelineNodeMigrationIdentity(node: Pick<TimelineNodeRecord, 'snapshotId' | 'name'>): string {
