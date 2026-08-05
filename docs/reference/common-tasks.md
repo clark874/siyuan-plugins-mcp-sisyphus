@@ -111,6 +111,63 @@ siyuan search fulltext --query "TODO"
 siyuan av get --id <attribute-view-id>
 ```
 
+## Compare and restore a document timeline
+
+Use the `timeline` tool to list existing nodes and create a named document baseline:
+
+```json
+{
+  "action": "list_nodes",
+  "scope": "document",
+  "documentId": "<doc-id>",
+  "page": 1,
+  "pageSize": 50
+}
+```
+
+```json
+{
+  "action": "create_node",
+  "name": "Before revision",
+  "scope": "document",
+  "documentId": "<doc-id>"
+}
+```
+
+Keep the returned `tag`. After editing the document, compare it with that node:
+
+```json
+{
+  "action": "compare_node",
+  "documentId": "<doc-id>",
+  "tag": "<timeline-tag>",
+  "page": 1,
+  "pageSize": 20,
+  "includeUnchanged": false
+}
+```
+
+Before `rollback_document`, `rollback_block`, or `delete_node`, identify the exact document and node, explain the consequence, and obtain explicit user approval. For a reversible test, first create a protection node for the current state. After approval, a whole-document rollback uses:
+
+```json
+{
+  "action": "rollback_document",
+  "documentId": "<doc-id>",
+  "tag": "<timeline-tag>"
+}
+```
+
+Then read the document again to verify the result. `rollback_block` instead requires a fresh opaque `changeKey` from the latest `compare_node` response. `delete_node` removes the protective tag but retains the underlying snapshot.
+
+CLI equivalents:
+
+```bash
+siyuan-sisyphus timeline create-node --name "Before revision" --scope document --document-id <doc-id> --json
+siyuan-sisyphus timeline compare-node --document-id <doc-id> --tag <timeline-tag> --page-size 20 --json
+# Run only after explicit approval:
+siyuan-sisyphus timeline rollback-document --document-id <doc-id> --tag <timeline-tag> --json
+```
+
 ## Duplicate document names
 
 When multiple documents under the same parent share a human-readable path, use:

@@ -28,6 +28,7 @@ import {
     SEARCH_VARIANTS,
     SYSTEM_VARIANTS,
     TAG_VARIANTS,
+    TIMELINE_VARIANTS,
 } from '@/tools/index';
 import type { ActionVariant } from '@/tools/internal/shared';
 import { buildActionExamplesMarkdown, buildShapeSummaryMarkdown } from '@/tools/internal/help-render';
@@ -68,6 +69,7 @@ const VARIANTS_BY_CATEGORY: Record<ToolCategory, ActionVariant<string>[]> = {
     file: FILE_VARIANTS,
     search: SEARCH_VARIANTS,
     tag: TAG_VARIANTS,
+    timeline: TIMELINE_VARIANTS,
     system: SYSTEM_VARIANTS,
     flashcard: FLASHCARD_VARIANTS,
     extension: EXTENSION_VARIANTS,
@@ -97,7 +99,7 @@ function renderToolOverview(): string {
     return [
         '# SiYuan MCP Tool Overview',
         '',
-        'This server exposes 13 aggregated tools. Use `fs` first for basic path-style notebook and document operations; advanced tools remain available for SiYuan-specific workflows.',
+        'This server exposes 14 aggregated tools. Use `fs` first for basic path-style notebook and document operations; advanced tools remain available for SiYuan-specific workflows.',
         '',
         '## High-risk actions',
         '',

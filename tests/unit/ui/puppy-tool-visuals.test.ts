@@ -42,6 +42,7 @@ describe('puppy tool visuals helpers', () => {
         expect(resolveToolVariant('fs')).toBe('fs');
         expect(resolveToolVariant('av')).toBe('av');
         expect(resolveToolVariant('flashcard')).toBe('flashcard');
+        expect(resolveToolVariant('timeline')).toBe('timeline');
         expect(resolveToolVariant('mascot')).toBe('mascot');
         expect(resolveToolVariant('unknown')).toBe('none');
     });

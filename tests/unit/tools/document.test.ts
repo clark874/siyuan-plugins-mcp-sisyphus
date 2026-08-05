@@ -19,6 +19,68 @@ describe('document tool extended actions', () => {
         expect(actionDescription).not.toContain('get_ids');
         expect(actionDescription).toContain('heading_to_doc');
         expect(actionDescription).toContain('doc_to_heading');
+        expect(actionDescription).toContain('get_outline');
+    });
+});
+
+describe('document.get_outline', () => {
+    it('returns the native heading tree after resolving document permission context', async () => {
+        const outline = [{
+            id: 'heading-1',
+            name: 'Heading 1',
+            depth: 0,
+            blocks: [{
+                id: 'heading-2',
+                content: 'Heading 2',
+                depth: 1,
+                children: [],
+            }],
+            children: [],
+        }];
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    return [{
+                        id: 'doc-1',
+                        root_id: 'doc-1',
+                        box: 'nb-1',
+                        path: '/doc-1.sy',
+                        hpath: '/Doc 1',
+                        content: 'Doc 1',
+                        type: 'd',
+                    }];
+                }
+                if (endpoint === '/api/outline/getDocOutline') {
+                    expect(body).toEqual({
+                        id: 'doc-1',
+                        preview: true,
+                        notebook: 'nb-1',
+                    });
+                    return outline;
+                }
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canRead: vi.fn(() => true),
+            get: vi.fn(() => 'r'),
+        };
+
+        const result = await callDocumentTool(
+            client,
+            { action: 'get_outline', id: 'doc-1', preview: true },
+            buildDefaultToolConfig().document,
+            permMgr as never,
+        );
+
+        expect(parseResult(result)).toEqual({
+            id: 'doc-1',
+            notebook: 'nb-1',
+            preview: true,
+            headingCount: 2,
+            outline,
+        });
     });
 });
 

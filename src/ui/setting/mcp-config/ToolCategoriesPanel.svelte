@@ -3,6 +3,7 @@
     import {
         ACTIONS_BY_CATEGORY,
         TOOL_CATEGORIES,
+        buildDefaultToolConfig,
         isDangerousAction,
         type AvAction,
         type BlockAction,
@@ -17,6 +18,7 @@
         type SearchAction,
         type SystemAction,
         type TagAction,
+        type TimelineAction,
         type ToolCategory,
         type ToolConfig,
     } from "../tool-config";
@@ -36,7 +38,7 @@
     export let onRefreshExtensionTools: () => void | Promise<void> = () => {};
 
     interface ChangeEvent { key: string; value: any; }
-    type GroupAction = FsAction | NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | SystemAction | FlashcardAction | ExtensionAction | MascotAction | FeedbackAction;
+    type GroupAction = FsAction | NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | TimelineAction | SystemAction | FlashcardAction | ExtensionAction | MascotAction | FeedbackAction;
     const RESERVED_EXTENSION_ACTIONS = new Set(["help", "list"]);
 
     interface GroupDefinition {
@@ -104,6 +106,7 @@
                 { key: "list_tree", title: "List Document Tree", description: "List the nested document tree under a notebook path." },
                 { key: "search_docs", title: "Search Documents", description: "Search documents by title keyword." },
                 { key: "get_doc", title: "Get Document Content", description: "Get document content and metadata by document ID." },
+                { key: "get_outline", title: "Get Document Outline", description: "Get the native heading tree without reading the document body." },
                 { key: "create_daily_note", title: "Create Daily Note", description: "Create or return today's daily note for a notebook." },
                 { key: "duplicate", title: "Duplicate Document", description: "Duplicate a document by ID." },
                 { key: "heading_to_doc", title: "Heading To Document", description: "Convert a heading into a document." },
@@ -125,6 +128,7 @@
                 { key: "move", title: "Move Block", description: "Move a block to a new position." },
                 { key: "set_fold_state", title: "Fold/Unfold Block", description: "Set the fold state of a foldable block." },
                 { key: "get_kramdown", title: "Get Block Kramdown", description: "Get block content in kramdown format." },
+                { key: "batch_kramdown", title: "Batch Get Kramdown", description: "Get kramdown for up to 20 blocks with ordered per-item results." },
                 { key: "get_children", title: "Get Child Blocks", description: "Get all child blocks of a parent." },
                 { key: "transfer_references", title: "Transfer Block References", description: "Transfer block references." },
                 { key: "set_attrs", title: "Set Block Attributes", description: "Set block attributes." },
@@ -208,6 +212,20 @@
                 { key: "list", title: "List Tags", description: "List tags in the workspace." },
                 { key: "rename", title: "Rename Tag", description: "Rename a tag label." },
                 { key: "remove", title: "Remove Tag", description: "Remove a tag label." },
+            ],
+        },
+        {
+            category: "timeline",
+            icon: "🕓",
+            groupKey: "Timeline",
+            iconSvg: ICON_SVGS.compass,
+            actions: [
+                { key: "list_nodes", title: "List Nodes", description: "List global or document timeline nodes." },
+                { key: "create_node", title: "Create Node", description: "Create a named global or document timeline node." },
+                { key: "compare_node", title: "Compare Node", description: "Compare a document with a selected historical node." },
+                { key: "delete_node", title: "Delete Node", description: "Remove a timeline tag while retaining the underlying snapshot. Disabled by default." },
+                { key: "rollback_document", title: "Rollback Document", description: "Restore one document file from a timeline node. Disabled by default." },
+                { key: "rollback_block", title: "Rollback Block", description: "Restore one changed block from a timeline node. Disabled by default." },
             ],
         },
         {
@@ -314,7 +332,14 @@
     let openCategories = new Set<ToolCategory>(DEFAULT_OPEN_CATEGORIES);
 
     const getDangerTitle = (title: string) => `${title} ${getLabel("mcpHighRiskBadge", "[High risk]")}`;
-    const getDangerDescription = (description: string) => `${description} ${getLabel("mcpRequiresConfirmation", "Requires explicit user confirmation before execution.")} ${getLabel("mcpDefaultVisible", "This action stays visible in the default configuration.")}`;
+    const DEFAULT_TOOL_CONFIG = buildDefaultToolConfig();
+    const getDangerDescription = (category: ToolCategory, action: string, description: string) => {
+        const defaultEnabled = Boolean(DEFAULT_TOOL_CONFIG[category].actions[action as never]);
+        const defaultState = defaultEnabled
+            ? getLabel("mcpDefaultEnabled", "Enabled by default.")
+            : getLabel("mcpDefaultDisabled", "Disabled by default.");
+        return `${description} ${getLabel("mcpRequiresConfirmation", "Requires explicit user confirmation before execution.")} ${defaultState}`;
+    };
 
     function buildUploadAssetThresholdItem(): ISettingItemCore {
         return {
@@ -339,7 +364,7 @@
                 key: `${definition.category}__action__${action.key}`,
                 value: config[definition.category].actions[action.key as keyof typeof config[typeof definition.category]["actions"]],
                 title: dangerous ? getDangerTitle(baseTitle) : baseTitle,
-                description: dangerous ? getDangerDescription(baseDescription) : baseDescription,
+                description: dangerous ? getDangerDescription(definition.category, action.key, baseDescription) : baseDescription,
                 ...(definition.category === "file" && action.key === "upload_asset"
                     ? { layout: "inline" as const }
                     : {}),

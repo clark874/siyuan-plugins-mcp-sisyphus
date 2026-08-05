@@ -23,6 +23,30 @@ interface IResGetBlockKramdown {
     kramdown: string;
 }
 
+interface IResDocOutlineBlock {
+    id: string;
+    content?: string;
+    depth?: number;
+    type?: string;
+    subType?: string;
+    folded?: boolean;
+    children?: IResDocOutlineBlock[];
+}
+
+interface IResDocOutlinePath {
+    id: string;
+    box?: string;
+    name?: string;
+    hPath?: string;
+    depth?: number;
+    type?: string;
+    nodeType?: string;
+    subType?: string;
+    folded?: boolean;
+    blocks?: IResDocOutlineBlock[];
+    children?: IResDocOutlinePath[];
+}
+
 interface IResGetChildBlock {
     id: BlockId;
     type: BlockType;
@@ -551,6 +575,8 @@ export type {
     IResBootProgress,
     IResCreateNotebook,
     IResCurrentTime,
+    IResDocOutlineBlock,
+    IResDocOutlinePath,
     IResExportMdContent,
     IResExportResources,
     IResForwardProxy,

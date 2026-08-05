@@ -279,9 +279,10 @@ For the full layout guide with formatting inventory, distinctions, and daily heu
 
 ## Usage semantics
 
-- Bookmarks = collecting existing blocks (block attributes). Tags = inline markdown \`#tag#\`. Do not confuse them.
-- Flashcards are review semantics, not layout. Layout choice and flashcard marking are separate concerns.
-- Through MCP, prefer creating content directly instead of describing UI-only steps like \`/AI 编写\`.
+- Bookmarks🔖: Collect existing blocks through block attributes; do not use bookmarks as inline tags.
+- Tags🏷️: Use inline markdown tokens such as \`#tag#\`; do not use tags as block-level bookmarks.
+- Flashcards🧠: Treat flashcards as review semantics, not layout; choose layout and flashcard marking independently.
+- MCP✍️: Prefer creating final content directly instead of describing UI-only steps such as \`/AI 编写\`.
 ${userRulesReminder}
 `;
 }

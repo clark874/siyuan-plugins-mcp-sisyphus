@@ -11,7 +11,9 @@
 }
 ```
 
-The response reports the official MCP connection state, plugin/native source counts, exposed count and schema size, read-only declarations, effect scopes, degraded schemas, and tools blocked in Sisyphus settings.
+While `extension.includeNativeTools=false`, the response is intentionally compact: it reports only connection state, plugin/native source counts, exposed count, schema size, and `detailsIncluded=false`. It omits the complete `tools` array so disabled native-tool discovery does not consume agent context.
+
+After native tools are enabled, `detailsIncluded=true` and the response also reports individual tool names, descriptions, read-only declarations, effect scopes, degraded schemas, and tools blocked in Sisyphus settings. General `extension` help follows the same rule; targeted `help(topic="<tool>")` can still inspect one explicitly requested tool.
 
 Tools with `source="plugin"` are included by default. Set `extension.includeNativeTools=true` in the plugin settings to include `source="native"` tools. Missing source metadata is treated as native for compatibility. Tools imported from external MCP servers (`source="mcp"`) and this plugin's own namespace remain excluded.
 

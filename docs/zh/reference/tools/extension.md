@@ -11,7 +11,9 @@
 }
 ```
 
-响应会给出官方 MCP 连接状态、plugin/native 来源数量、暴露数量和 schema 体积、只读声明、影响范围、降级 schema，以及在 Sisyphus 设置中被屏蔽的工具。
+当 `extension.includeNativeTools=false` 时，响应会刻意保持紧凑：只返回连接状态、plugin/native 来源数量、暴露数量、schema 体积以及 `detailsIncluded=false`，不会返回完整 `tools` 数组，避免已关闭的原生工具发现结果占用 Agent 上下文。
+
+启用原生工具后，响应中的 `detailsIncluded=true`，并额外返回各工具的名称、描述、只读声明、影响范围、降级 schema，以及在 Sisyphus 设置中被屏蔽的状态。`extension` 总览帮助遵循相同规则；仍可通过 `help(topic="<tool>")` 按需查看一个明确指定的工具。
 
 默认接收 `source="plugin"` 的工具。在插件设置中启用 `extension.includeNativeTools=true` 后，也会包含 `source="native"` 的思源原生工具；缺失 source 时按官方兼容规则视为 native。从外部 MCP Server 导入的 `source="mcp"` 工具和本插件自身命名空间仍会被排除。
 

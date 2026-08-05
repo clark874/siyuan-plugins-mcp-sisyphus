@@ -15,7 +15,7 @@ Related pages:
 |------|---------|
 | Insert and update | `insert`, `prepend`, `append`, `update` |
 | Movement and structure | `move`, `set_fold_state`, `get_children`, `breadcrumb` |
-| Metadata | `set_attrs`, `get_attrs`, `info`, `dom`, `get_kramdown` |
+| Metadata | `set_attrs`, `get_attrs`, `info`, `dom`, `get_kramdown`, `batch_kramdown` |
 | Reference / utility | `transfer_references`, `word_count`, `recent_updated` |
 | Daily note helper | `add_to_daily_note` |
 | Document context | `docs_info` |
@@ -28,6 +28,7 @@ Related pages:
 - `move` requires at least one destination hint such as `parentID` or `previousID`.
 - For batch `move`, pass `ids` in the desired final order. The tool reverses only the internal SiYuan API call order and returns `apiCallOrder` for debugging.
 - `add_to_daily_note` appends or prepends content to today's daily note via `position`.
+- `batch_kramdown` accepts 1–20 block or document IDs, performs a read-permission resolution for each item, fetches readable content in one kernel request, and returns an ordered item for every input ID. Duplicate IDs remain duplicated in the output; denied or missing IDs are returned as per-item errors.
 
 ## Safety Rules
 
@@ -63,6 +64,7 @@ siyuan block append --parent-id <doc-id> --data-type markdown --data "- [ ] Todo
 - `move`
 - `set_fold_state`
 - `get_kramdown`
+- `batch_kramdown`
 - `get_children`
 - `transfer_references`
 - `set_attrs`

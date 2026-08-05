@@ -88,6 +88,8 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(source).toContain('Replace Block Text');
         expect(source).toContain('category: "mascot"');
         expect(source).toContain('category: "feedback"');
+        expect(source).toContain('category: "timeline"');
+        expect(source).toContain('key: "rollback_document"');
     });
 
     it('keeps tool categories grouped under one settings page', () => {

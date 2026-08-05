@@ -5,6 +5,7 @@ import searchQuerySkill from '../../skills/siyuan-mcp/siyuan-mcp-search-query/SK
 import databaseSkill from '../../skills/siyuan-mcp/siyuan-mcp-database/SKILL.md?raw';
 import fileExportSkill from '../../skills/siyuan-mcp/siyuan-mcp-file-export/SKILL.md?raw';
 import tagFlashcardSkill from '../../skills/siyuan-mcp/siyuan-mcp-tag-flashcard/SKILL.md?raw';
+import timelineSkill from '../../skills/siyuan-mcp/siyuan-mcp-timeline/SKILL.md?raw';
 import systemSafetySkill from '../../skills/siyuan-mcp/siyuan-mcp-system-safety/SKILL.md?raw';
 import markupGuideSkill from '../../skills/siyuan-mcp/siyuan-mcp-markup-guide/SKILL.md?raw';
 
@@ -48,6 +49,7 @@ export const MCP_SKILLS: readonly McpSkillDefinition[] = [
     databaseSkill,
     fileExportSkill,
     tagFlashcardSkill,
+    timelineSkill,
     systemSafetySkill,
     markupGuideSkill,
 ].map(createMcpSkill);

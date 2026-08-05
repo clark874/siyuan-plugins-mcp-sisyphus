@@ -50,6 +50,11 @@ import {
     TAG_VARIANTS,
     listTagTools,
 } from '@/tools/tag';
+import {
+    TIMELINE_TOOL_NAME,
+    TIMELINE_VARIANTS,
+    listTimelineTools,
+} from '@/tools/timeline';
 import { tryHandleHelpAction, type ActionVariant } from '@/tools/internal/shared';
 import type { CategoryToolConfig } from '@/core/config';
 
@@ -71,6 +76,7 @@ const TOOLS: ToolEntry[] = [
     { category: SEARCH_TOOL_NAME, list: listSearchTools as any, configKey: 'search', variants: SEARCH_VARIANTS as any },
     { category: SYSTEM_TOOL_NAME, list: listSystemTools as any, configKey: 'system', variants: SYSTEM_VARIANTS as any },
     { category: TAG_TOOL_NAME, list: listTagTools as any, configKey: 'tag', variants: TAG_VARIANTS as any },
+    { category: TIMELINE_TOOL_NAME, list: listTimelineTools as any, configKey: 'timeline', variants: TIMELINE_VARIANTS as any },
 ];
 
 function printSection(title: string, content?: string | Record<string, unknown>) {

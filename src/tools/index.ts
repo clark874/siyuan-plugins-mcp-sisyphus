@@ -18,3 +18,4 @@ export { callNotebookTool, listNotebookTools, NOTEBOOK_VARIANTS } from './notebo
 export { callSearchTool, listSearchTools, SEARCH_VARIANTS } from './search';
 export { callSystemTool, listSystemTools, SYSTEM_VARIANTS } from './system';
 export { callTagTool, listTagTools, TAG_VARIANTS } from './tag';
+export { callTimelineTool, listTimelineTools, TIMELINE_VARIANTS } from './timeline';

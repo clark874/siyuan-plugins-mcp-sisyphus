@@ -13,6 +13,7 @@ import {
     DocumentGetChildBlocksSchema,
     DocumentGetChildDocsSchema,
     DocumentGetDocSchema,
+    DocumentGetOutlineSchema,
     DocumentHeadingToDocSchema,
     DocumentListTreeSchema,
     DocumentMoveSchema,
@@ -705,6 +706,40 @@ const handleGetDoc: DocumentActionHandler = async ({ client, permMgr, rawArgs })
     });
 };
 
+function countOutlineNodes(nodes: unknown): number {
+    if (!Array.isArray(nodes)) return 0;
+    let count = 0;
+    for (const node of nodes) {
+        if (!node || typeof node !== 'object') continue;
+        count += 1;
+        const typed = node as Record<string, unknown>;
+        count += countOutlineNodes(typed.blocks);
+        count += countOutlineNodes(typed.children);
+    }
+    return count;
+}
+
+const handleGetOutline: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentGetOutlineSchema.parse(rawArgs);
+    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+    if (denied) return denied;
+    const preview = parsed.preview ?? false;
+    const result = await documentApi.getDocOutline(
+        client,
+        context.documentId,
+        preview,
+        context.notebook,
+    );
+    const outline = Array.isArray(result) ? result : [];
+    return createJsonResult({
+        id: context.documentId,
+        notebook: context.notebook,
+        preview,
+        headingCount: countOutlineNodes(outline),
+        outline,
+    });
+};
+
 const handleCreateDailyNote: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentCreateDailyNoteSchema.parse(rawArgs);
     const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
@@ -794,6 +829,7 @@ export const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHand
     list_tree: handleListTree,
     search_docs: handleSearchDocs,
     get_doc: handleGetDoc,
+    get_outline: handleGetOutline,
     create_daily_note: handleCreateDailyNote,
     duplicate: handleDuplicate,
     heading_to_doc: handleHeadingToDoc,

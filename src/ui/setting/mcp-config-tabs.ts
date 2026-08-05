@@ -42,6 +42,7 @@ export const CATEGORY_TAB_DEFS: CategoryTabDefinition[] = [
     { category: "file", groupKey: "Files", iconKey: "paperclip" },
     { category: "search", groupKey: "Search", iconKey: "search" },
     { category: "tag", groupKey: "Tags", iconKey: "tagIcon" },
+    { category: "timeline", groupKey: "Timeline", iconKey: "compass" },
     { category: "system", groupKey: "System", iconKey: "monitor" },
     { category: "flashcard", groupKey: "Flashcards", iconKey: "layers" },
     { category: "extension", groupKey: "Extension Tools", iconKey: "layers" },

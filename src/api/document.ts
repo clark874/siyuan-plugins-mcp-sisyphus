@@ -14,6 +14,7 @@ import type {
     IReqRenameDocByID,
     IResListDocsByPath,
     IResGetPathByID,
+    IResDocOutlinePath,
 } from '../types/api';
 
 /**
@@ -216,6 +217,19 @@ export async function getDoc(
         id,
         mode,
         size,
+    });
+}
+
+export async function getDocOutline(
+    client: SiYuanClient,
+    id: string,
+    preview = false,
+    notebook?: string,
+): Promise<IResDocOutlinePath[]> {
+    return client.request<IResDocOutlinePath[]>('/api/outline/getDocOutline', {
+        id,
+        preview,
+        ...(notebook ? { notebook } : {}),
     });
 }
 

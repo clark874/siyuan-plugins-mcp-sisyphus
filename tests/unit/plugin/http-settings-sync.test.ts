@@ -6,21 +6,32 @@ const puppyInstances: Array<{
     $destroy: ReturnType<typeof vi.fn>;
 }> = [];
 
-const versionControlInstances: Array<{
+const snapshotPanelInstances: Array<{
+    args: unknown;
+    $set: ReturnType<typeof vi.fn>;
+    $destroy: ReturnType<typeof vi.fn>;
+}> = [];
+
+const diffPanelInstances: Array<{
     args: unknown;
     $set: ReturnType<typeof vi.fn>;
     $destroy: ReturnType<typeof vi.fn>;
 }> = [];
 
 const PLUGIN_NAME = 'siyuan-plugins-mcp-sisyphus';
+const SNAPSHOT_DOCK_TYPE = 'sisyphusSnapshotDock';
+const SNAPSHOT_REGISTERED_DOCK_TYPE = `${PLUGIN_NAME}${SNAPSHOT_DOCK_TYPE}`;
+const SNAPSHOT_ICON_ID = 'iconSisyphusSnapshotDock';
 const TIMELINE_DOCK_TYPE = 'sisyphusTimelineDock';
 const TIMELINE_REGISTERED_DOCK_TYPE = `${PLUGIN_NAME}${TIMELINE_DOCK_TYPE}`;
 const TIMELINE_ICON_ID = 'iconSisyphusTimelineDock';
+const { getAllEditorMock } = vi.hoisted(() => ({ getAllEditorMock: vi.fn(() => []) }));
 
 vi.mock('siyuan', () => ({
     Plugin: class {},
     showMessage: vi.fn(),
     Dialog: class {},
+    getAllEditor: getAllEditorMock,
 }));
 
 vi.mock('@/ui/setting/mcp-config.svelte', () => ({
@@ -52,9 +63,9 @@ vi.mock('@/ui/components/ToolPuppy.svelte', () => ({
     },
 }));
 
-vi.mock('@/ui/version-control/VersionControlPanel.svelte', () => ({
+vi.mock('@/ui/version-control/SnapshotPanel.svelte', () => ({
     default: class {
-        private readonly instance: typeof versionControlInstances[number];
+        private readonly instance: typeof snapshotPanelInstances[number];
 
         constructor(args: unknown) {
             this.instance = {
@@ -62,7 +73,30 @@ vi.mock('@/ui/version-control/VersionControlPanel.svelte', () => ({
                 $set: vi.fn(),
                 $destroy: vi.fn(),
             };
-            versionControlInstances.push(this.instance);
+            snapshotPanelInstances.push(this.instance);
+        }
+
+        $set(args: unknown) {
+            this.instance.$set(args);
+        }
+
+        $destroy() {
+            this.instance.$destroy();
+        }
+    },
+}));
+
+vi.mock('@/ui/version-control/VersionDiffPanel.svelte', () => ({
+    default: class {
+        private readonly instance: typeof diffPanelInstances[number];
+
+        constructor(args: unknown) {
+            this.instance = {
+                args,
+                $set: vi.fn(),
+                $destroy: vi.fn(),
+            };
+            diffPanelInstances.push(this.instance);
         }
 
         $set(args: unknown) {
@@ -219,8 +253,10 @@ describe('HTTP settings sync', () => {
     beforeEach(() => {
         resetToolConfigWarningStateForTests();
         vi.mocked(showMessage).mockClear();
+        getAllEditorMock.mockReset().mockReturnValue([]);
         puppyInstances.length = 0;
-        versionControlInstances.length = 0;
+        snapshotPanelInstances.length = 0;
+        diffPanelInstances.length = 0;
         installFakeDom();
         document.body.innerHTML = '';
         plugin = new SiyuanMCP();
@@ -244,6 +280,7 @@ describe('HTTP settings sync', () => {
             addIcons,
             commands: [],
             docks: {
+                [SNAPSHOT_REGISTERED_DOCK_TYPE]: {},
                 [TIMELINE_REGISTERED_DOCK_TYPE]: {},
             },
             eventBus: {
@@ -272,7 +309,9 @@ describe('HTTP settings sync', () => {
                         toggleModel: vi.fn(),
                         showDock: vi.fn(),
                         remove: vi.fn(),
-                        data: {},
+                        data: {
+                            [SNAPSHOT_REGISTERED_DOCK_TYPE]: {},
+                        },
                     },
                     bottomDock: {
                         toggleModel: vi.fn(),
@@ -624,6 +663,7 @@ describe('HTTP settings sync', () => {
         const loading = plugin.onload();
 
         expect(addIcons).toHaveBeenCalledTimes(1);
+        expect(addIcons).toHaveBeenCalledWith(expect.stringContaining('<symbol id="iconSisyphusSnapshotDock"'));
         expect(addIcons).toHaveBeenCalledWith(expect.stringContaining('<symbol id="iconSisyphusTimelineDock"'));
         expect(addDock).not.toHaveBeenCalled();
         expect(addCommand).not.toHaveBeenCalled();
@@ -634,10 +674,18 @@ describe('HTTP settings sync', () => {
         plugin.onLayoutReady();
         plugin.onLayoutReady();
 
-        expect(addDock).toHaveBeenCalledTimes(1);
+        expect(addDock).toHaveBeenCalledTimes(2);
         expect(addDock.mock.calls[0][0].config).toEqual(expect.objectContaining({
-            icon: 'iconSisyphusTimelineDock',
-            size: { width: 420, height: 0 },
+            position: 'LeftTop',
+            icon: SNAPSHOT_ICON_ID,
+            size: { width: 320, height: 0 },
+            show: true,
+        }));
+        expect(addDock.mock.calls[1][0].config).toEqual(expect.objectContaining({
+            position: 'RightBottom',
+            icon: TIMELINE_ICON_ID,
+            size: { width: 720, height: 0 },
+            show: false,
         }));
         expect(addCommand).toHaveBeenCalledTimes(1);
         expect(eventBusOn).toHaveBeenCalledTimes(4);
@@ -654,27 +702,69 @@ describe('HTTP settings sync', () => {
         });
 
         await plugin.onload();
-        const dockElement = new FakeElement();
-        addDock.mock.calls[0][0].init({ element: dockElement });
+        addDock.mock.calls[0][0].init({ element: new FakeElement() });
+        addDock.mock.calls[1][0].init({ element: new FakeElement() });
 
-        expect(versionControlInstances).toHaveLength(1);
-        expect((versionControlInstances[0].args as any).props.showDebugMeta).toBe(true);
+        expect(snapshotPanelInstances).toHaveLength(1);
+        expect(diffPanelInstances).toHaveLength(1);
+        expect((snapshotPanelInstances[0].args as any).props.showDebugMeta).toBe(true);
+        expect((diffPanelInstances[0].args as any).props.showDebugMeta).toBe(true);
+    });
+
+    it('uses dock visibility defaults only when no saved manual state exists', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        (globalThis as any).window.siyuan.config.uiLayout.left.data = [[{
+            type: SNAPSHOT_REGISTERED_DOCK_TYPE,
+            show: false,
+        }]];
+        (globalThis as any).window.siyuan.config.uiLayout.right.data = [[{
+            type: TIMELINE_REGISTERED_DOCK_TYPE,
+            show: true,
+        }]];
+
+        await plugin.onload();
+
+        expect(addDock.mock.calls[0][0].config.show).toBe(false);
+        expect(addDock.mock.calls[1][0].config.show).toBe(true);
+    });
+
+    it('hydrates the initially open snapshot dock from the active editor', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        const editorElement = document.createElement('div');
+        document.body.appendChild(editorElement);
+        getAllEditorMock.mockReturnValue([{
+            protyle: {
+                element: editorElement,
+                block: { rootID: 'doc-active' },
+                title: 'Active Doc',
+            },
+        }]);
+
+        await plugin.onload();
+        addDock.mock.calls[0][0].init({ element: new FakeElement() });
+
+        expect((snapshotPanelInstances[0].args as any).props).toEqual(expect.objectContaining({
+            currentDocumentId: 'doc-active',
+            currentDocumentTitle: 'Active Doc',
+        }));
     });
 
     it('re-registers the timeline dock when layout refresh drops its dock data', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
 
         await plugin.onload();
-        expect(addDock).toHaveBeenCalledTimes(1);
+        expect(addDock).toHaveBeenCalledTimes(2);
 
         const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
         rightDock.data = {};
+        leftDock.data = {};
         (plugin as any).docks = {};
         (globalThis as any).window.siyuan.config.uiLayout.right.data = [];
 
         plugin.onLayoutReady();
 
-        expect(addDock).toHaveBeenCalledTimes(2);
+        expect(addDock).toHaveBeenCalledTimes(4);
     });
 
     it('disables the timeline dock, command, events, and panel when persisted setting is off', async () => {
@@ -694,10 +784,14 @@ describe('HTTP settings sync', () => {
         plugin.openVersionControl();
 
         const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
         expect(addDock).not.toHaveBeenCalled();
         expect(addCommand).not.toHaveBeenCalled();
         expect(eventBusOn).not.toHaveBeenCalled();
-        expect(versionControlInstances).toHaveLength(0);
+        expect(snapshotPanelInstances).toHaveLength(0);
+        expect(diffPanelInstances).toHaveLength(0);
+        expect(leftDock.remove).toHaveBeenCalledWith(SNAPSHOT_REGISTERED_DOCK_TYPE);
+        expect(leftDock.remove).toHaveBeenCalledWith(SNAPSHOT_DOCK_TYPE);
         expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE);
         expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_DOCK_TYPE);
         expect(rightDock.toggleModel).not.toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE, true, false, false, true);
@@ -712,20 +806,24 @@ describe('HTTP settings sync', () => {
         Object.assign(plugin, { addCommand });
 
         await plugin.onload();
-        const dockElement = new FakeElement();
-        addDock.mock.calls[0][0].init({ element: dockElement });
+        addDock.mock.calls[0][0].init({ element: new FakeElement() });
+        addDock.mock.calls[1][0].init({ element: new FakeElement() });
 
         expect(addCommand).toHaveBeenCalledTimes(1);
         expect((plugin as any).commands).toHaveLength(1);
         expect(eventBusOn).toHaveBeenCalledTimes(3);
-        expect(versionControlInstances).toHaveLength(1);
+        expect(snapshotPanelInstances).toHaveLength(1);
+        expect(diffPanelInstances).toHaveLength(1);
 
         await plugin.updateVersionControlSettings({ enabled: false, showDebugMeta: true });
 
         const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
         expect((plugin as any).commands).toHaveLength(0);
         expect(eventBusOff).toHaveBeenCalledTimes(3);
-        expect(versionControlInstances[0].$destroy).toHaveBeenCalledTimes(1);
+        expect(snapshotPanelInstances[0].$destroy).toHaveBeenCalledTimes(1);
+        expect(diffPanelInstances[0].$destroy).toHaveBeenCalledTimes(1);
+        expect(leftDock.remove).toHaveBeenCalledWith(SNAPSHOT_REGISTERED_DOCK_TYPE);
         expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE);
         expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_DOCK_TYPE);
     });
@@ -790,26 +888,80 @@ describe('HTTP settings sync', () => {
         expect(document.querySelector(`[data-icon="${TIMELINE_ICON_ID}"]`)).toBeNull();
     });
 
-    it('opens the timeline dock through toggleModel when available', async () => {
+    it('opens the snapshot dock through toggleModel when available', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
 
         await plugin.onload();
         plugin.openVersionControl();
 
-        const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
-        expect(rightDock.toggleModel).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE, true, false, false, true);
-        expect(rightDock.showDock).not.toHaveBeenCalled();
+        const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
+        expect(leftDock.toggleModel).toHaveBeenCalledWith(SNAPSHOT_REGISTERED_DOCK_TYPE, true, false, false, true);
+        expect(leftDock.showDock).not.toHaveBeenCalled();
     });
 
     it('falls back to showDock when toggleModel is unavailable', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
-        const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
-        rightDock.toggleModel = undefined;
+        const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
+        leftDock.toggleModel = undefined;
 
         await plugin.onload();
         plugin.openVersionControl();
 
-        expect(rightDock.showDock).toHaveBeenCalledTimes(1);
+        expect(leftDock.showDock).toHaveBeenCalledTimes(1);
+    });
+
+    it('stores a snapshot selection before opening and mounting the diff dock', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        await plugin.onload();
+        const snapshotDock = addDock.mock.calls.find(([options]) => options.type === SNAPSHOT_DOCK_TYPE)?.[0];
+        const diffDock = addDock.mock.calls.find(([options]) => options.type === TIMELINE_DOCK_TYPE)?.[0];
+        snapshotDock.init({ element: new FakeElement() });
+        (plugin as any).currentDocument = { id: 'doc-1', title: 'Doc 1' };
+        (plugin as any).updateVersionControlDocument({ id: 'doc-1', title: 'Doc 1' }, { force: true });
+        const selection = {
+            documentId: 'doc-1',
+            documentTitle: 'Doc 1',
+            node: {
+                name: 'node-a',
+                created: 1,
+                snapshotId: 'snapshot-a',
+                tag: 'sisyphustimeline_doc-1_node-a',
+                scope: 'document',
+            },
+        };
+
+        (snapshotPanelInstances[0].args as any).props.onSelectNode(selection);
+
+        const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
+        expect(rightDock.toggleModel).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE, true, false, false, true);
+        expect(diffPanelInstances).toHaveLength(0);
+
+        diffDock.init({ element: new FakeElement() });
+        expect((diffPanelInstances[0].args as any).props.selection).toEqual(selection);
+    });
+
+    it('clears the selected diff when the active document changes', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        await plugin.onload();
+        addDock.mock.calls[0][0].init({ element: new FakeElement() });
+        addDock.mock.calls[1][0].init({ element: new FakeElement() });
+        (plugin as any).currentDocument = { id: 'doc-1', title: 'Doc 1' };
+        (plugin as any).timelineSelection = {
+            documentId: 'doc-1',
+            documentTitle: 'Doc 1',
+            node: { name: 'A', created: 1, snapshotId: 'snapshot-a', scope: 'document' },
+        };
+
+        (plugin as any).updateVersionControlDocument({ id: 'doc-2', title: 'Doc 2' });
+
+        expect(diffPanelInstances[0].$set).toHaveBeenLastCalledWith(expect.objectContaining({
+            currentDocumentId: 'doc-2',
+            selection: null,
+        }));
+        expect(snapshotPanelInstances[0].$set).toHaveBeenLastCalledWith(expect.objectContaining({
+            currentDocumentId: 'doc-2',
+            selectedNodeKey: '',
+        }));
     });
 
     it('self-heals orphan puppy roots before remounting', async () => {

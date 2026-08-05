@@ -3,6 +3,7 @@ export type NotebookPermission = "none" | "r" | "rw" | "rwd";
 export interface PermissionTreeLabels {
     names: Record<NotebookPermission, string>;
     defaultSuffix: string;
+    pluginName: string;
     notebookScope: string;
     clickToChange: string;
 }
@@ -68,7 +69,7 @@ export function buildPermissionBadgeModel(
     return {
         permission,
         text: BADGE_TEXT[permission],
-        title: `${labels.names[permission]}${defaultSuffix}\n${labels.notebookScope}\n${labels.clickToChange}`,
+        title: `${labels.names[permission]}${defaultSuffix}\n${labels.pluginName}\n${labels.notebookScope}\n${labels.clickToChange}`,
         explicit,
     };
 }

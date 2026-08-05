@@ -12,7 +12,8 @@ import type { ActionVariant, ToolResult } from '../internal/shared';
 const EXTENSION_DESCRIPTION = [
     'Bridge tools exposed through the official SiYuan /mcp endpoint.',
     'Plugin tools are included by default; native SiYuan tools are included only when includeNativeTools is enabled.',
-    'Use action="list" to inspect discovery status. Every exposed tool keeps its official name as the action.',
+    'Use action="list" to inspect discovery status; while native tools are disabled, it returns counts only and omits tool details.',
+    'Every exposed tool keeps its official name as the action.',
     'Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.',
 ].join(' ');
 const RESERVED_EXTENSION_ACTIONS = new Set(['help', 'list']);
@@ -26,7 +27,7 @@ export const EXTENSION_VARIANTS: ActionVariant<'list'>[] = [{
             action: { type: 'string', const: 'list' },
             refresh: {
                 type: 'boolean',
-                description: 'Refresh the official SiYuan MCP registry before returning the list.',
+                description: 'Refresh the official SiYuan MCP registry before returning discovery status. Tool details are omitted while native tools are disabled.',
             },
         },
         required: ['action'],
@@ -142,7 +143,7 @@ export function listExtensionTools(
             action: { type: 'string', const: 'list' },
             refresh: {
                 type: 'boolean',
-                description: 'Refresh the official SiYuan MCP registry before returning the list.',
+                description: 'Refresh the official SiYuan MCP registry before returning discovery status. Tool details are omitted while native tools are disabled.',
             },
         },
         required: ['action'],
@@ -258,19 +259,24 @@ function formatDiscovery(
         nativeToolsEnabled: config.includeNativeTools,
         exposedCount: exposed.length,
         schemaBytes: JSON.stringify(exposed.map((tool) => tool.inputSchema)).length,
-        tools: snapshot.tools.map((tool) => ({
-            name: tool.name,
-            title: tool.title,
-            description: tool.description,
-            source: tool.source,
-            readOnlyHint: tool.readOnlyHint,
-            effectScope: tool.effectScope,
-            schemaDegraded: tool.schemaDegraded,
-            blocked: blocked.has(tool.name),
-            sourceEnabled: isSourceEnabled(tool, config),
-            reservedActionConflict: RESERVED_EXTENSION_ACTIONS.has(tool.name),
-            exposed: exposed.some((candidate) => candidate.name === tool.name),
-        })),
+        detailsIncluded: config.includeNativeTools,
+        ...(config.includeNativeTools
+            ? {
+                tools: snapshot.tools.map((tool) => ({
+                    name: tool.name,
+                    title: tool.title,
+                    description: tool.description,
+                    source: tool.source,
+                    readOnlyHint: tool.readOnlyHint,
+                    effectScope: tool.effectScope,
+                    schemaDegraded: tool.schemaDegraded,
+                    blocked: blocked.has(tool.name),
+                    sourceEnabled: isSourceEnabled(tool, config),
+                    reservedActionConflict: RESERVED_EXTENSION_ACTIONS.has(tool.name),
+                    exposed: exposed.some((candidate) => candidate.name === tool.name),
+                })),
+            }
+            : {}),
         hint: snapshot.error
             ? 'Official MCP tools require SiYuan 3.7.0+, an administrator session, and a valid API token.'
             : config.includeNativeTools
@@ -284,7 +290,8 @@ function helpResult(
     config: ExtensionCategoryToolConfig,
     runtime?: OfficialMcpRuntime,
 ): ToolResult {
-    const tool = runtime?.bridge.getTools().find((candidate) => candidate.name === topic);
+    const discoveredTools = runtime?.bridge.getTools() ?? [];
+    const tool = discoveredTools.find((candidate) => candidate.name === topic);
     if (topic && tool) {
         const sourceEnabled = isSourceEnabled(tool, config);
         const reservedActionConflict = RESERVED_EXTENSION_ACTIONS.has(tool.name);
@@ -325,12 +332,22 @@ function helpResult(
             },
         },
         includeNativeTools: config.includeNativeTools,
-        discoveredTools: runtime?.bridge.getTools().map((candidate) => ({
-            name: candidate.name,
-            source: candidate.source,
-            exposed: getExposedExtensionTools(config, runtime)
-                .some((tool) => tool.name === candidate.name),
-        })) ?? [],
+        discoveredCount: discoveredTools.length,
+        discoveredBySource: discoveredTools.reduce((counts, candidate) => {
+            counts[candidate.source] += 1;
+            return counts;
+        }, { plugin: 0, native: 0 }),
+        detailsIncluded: config.includeNativeTools,
+        ...(config.includeNativeTools
+            ? {
+                discoveredTools: discoveredTools.map((candidate) => ({
+                    name: candidate.name,
+                    source: candidate.source,
+                    exposed: getExposedExtensionTools(config, runtime)
+                        .some((exposedTool) => exposedTool.name === candidate.name),
+                })),
+            }
+            : {}),
     });
 }
 

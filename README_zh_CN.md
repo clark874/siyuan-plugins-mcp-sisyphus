@@ -23,7 +23,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **最新版本：**`v0.5.1` — 隔离官方 MCP 扩展连接失败，确保 Sisyphus 自带工具、CLI 与外层 MCP Server 正常运行；新增可直接复制给 AI 的 MCP/CLI 配置 Prompt。CLI 提升至 `v0.2.1`。
+> **最新版本：**`v0.5.2` — 文档时间线正式开放 MCP 与 CLI 调用，并强化块级 diff、行数统计、差异分页、可回退性判断和过期变更防护，让整篇与块级回退更安全。CLI 提升至 `v0.2.2`。
 
 ## 项目方向调整
 
@@ -35,30 +35,14 @@ SiYuan Sisyphus 最初诞生于一个朴素的愿望：让思源笔记能够连�
 
 这不是对原有能力的替换：
 
-- Sisyphus 自带的 13 个聚合工具、参数约定、笔记本权限和现有 Agent 工作流继续保持兼容；
+- Sisyphus 自带的 14 个聚合工具、参数约定、笔记本权限和现有 Agent 工作流继续保持兼容；
 - Sisyphus 已接入思源官方 MCP 端点，会发现并加载其他插件注册的 Tool；
 - 思源官方原生 MCP Tool 也可以选择接入，但由于权限边界不同，默认关闭；
 - 权限管理、文档时间线、多种连接方式等增强能力继续维护。
 
-```mermaid
-flowchart LR
-    Agent["外部 AI Agent<br/>Claude / Codex / Cursor / Cline / ..."]
-    Sisyphus["SiYuan Sisyphus<br/>MCP + CLI"]
-    Builtin["Sisyphus 聚合工具<br/>兼容现有工作流"]
-    Bridge["extension<br/>官方 MCP 桥接"]
-    Api["SiYuan /api/*"]
-    OfficialMcp["SiYuan /mcp"]
-    PluginTools["其他插件注册的 Tool"]
-    NativeTools["思源原生 MCP Tool<br/>可选，默认关闭"]
-    Workspace["思源工作空间"]
+![SiYuan Sisyphus 架构图](./assets/architecture_zh_CN.svg)
 
-    Agent --> Sisyphus
-    Sisyphus --> Builtin
-    Sisyphus --> Bridge
-    Builtin --> Api --> Workspace
-    Bridge --> OfficialMcp --> PluginTools
-    OfficialMcp -. 高风险选项 .-> NativeTools
-```
+> 架构概览：外部 AI Agent 连接 Sisyphus；聚合工具通过 `/api/*` 访问思源工作空间，`extension` 则通过官方 `/mcp` 端点桥接其他插件注册的 Tool。思源原生 MCP Tool 为可选能力，默认关闭。
 
 架构边界保持明确：Sisyphus 自带的 `fs`、时间线、权限管理、CLI、文档工具及其他聚合能力始终只调用思源 `/api/*`，不依赖官方 MCP。`/mcp` 只属于 `extension`，用于发现和转发其他插件注册的 Tool，以及用户主动开启的思源原生 Tool。
 
@@ -109,8 +93,8 @@ sisyphus notebook list
 - **AI 友好的笔记访问方式**：`fs` 支持 `/笔记本/项目/文档` 这类人类可读路径，让 AI 不必理解块 ID 和文档树细节。
 - **MCP 与 CLI 双入口**：MCP 适合多步 Agent 工作流，CLI 适合脚本、自动化和小型单次任务。
 - **笔记本级安全边界**：每个笔记本可独立设置 `none`、`r`、`rw`、`rwd` 权限。
-- **低上下文工具设计**：把 100+ 个思源能力收敛为 13 个按 action 路由的聚合工具，详细说明按需读取。
-- **面向 Agent 的场景 Skill**：内置浏览、编辑、搜索、数据库、导出、标签、闪卡、系统安全和思源排版指南。
+- **低上下文工具设计**：把 100+ 个思源能力收敛为 14 个按 action 路由的聚合工具，详细说明按需读取。
+- **面向 Agent 的场景 Skill**：内置浏览、编辑、搜索、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版指南。
 - **类 Git 文档时间线**：为单篇文档创建命名时间线节点，比较历史快照并按需回退。
 - **实用连接配置**：设置页提供常见 AI 客户端、本地、远程和 Docker 场景的连接片段。
 
@@ -143,19 +127,26 @@ sisyphus notebook list
 ## 类 Git 文档时间线
 
 <p align="center">
-  <img src="docs/archive/timeline.png" alt="文档时间线" width="720">
+  <img src="docs/archive/timeline-split.svg" alt="独立的文档快照与 Diff 面板" width="900">
 </p>
-<p align="center"><em>文档时间线：给思源笔记提供命名快照、可视化 diff 和回退能力。</em></p>
+<p align="center"><em>左侧文档快照负责节点管理，右侧文档 Diff 按需完成对比与回退。</em></p>
 
 文档时间线给普通思源文档补上一层类似源码版本管理的安全网：
 
-- 为当前文档创建命名时间线节点；
+- 创建仅属于当前文档的节点，或创建所有文档可见的全局节点；
+- 左侧“文档快照”采用类似 VSCode Source Control 的紧凑折叠分区，默认展开；
+- 点击快照节点后自动打开右侧“文档 Diff”，创建节点则只刷新并高亮，不打断当前 Diff；
+- 通过圆点颜色和“文档 / 全局”徽标识别节点作用域，并按时间混合排列；
+- 可删除文档或全局节点：删除只移除用于保护节点的 tag，底层快照仍保留；
 - 对比历史快照与当前文档；
 - 在统一 diff 和并排 diff 之间切换；
 - 使用变更缩略导航，并折叠未变化块；
+- 在“旧版全局节点”档案中保留旧时间线，可将同一旧节点关联到多个文档，或安全转换为新的全局节点；
 - 回退整篇文档，或单独恢复部分已解析块。
 
-这是基于思源快照构建的单文档时间线，不是完整 Git 替代品，也不是完整源码管理工作流。
+快照页只读取 attrs 与 tag 元数据；仅在选择节点后，Diff 页才创建一次当前状态快照并计算该节点差异。底层仍基于思源全数据空间快照：文档节点归属记录在文档属性中，全局节点由 tag 恢复。它不是完整 Git 替代品，也不是完整源码管理工作流。
+
+MCP 客户端和独立 CLI 可通过 [`timeline` 聚合工具](./docs/zh/reference/tools/timeline.md) 使用同一工作流。节点删除与两种回退 action 均为高危操作并默认关闭。
 
 ## MCP 与 CLI 双入口
 
@@ -167,7 +158,7 @@ MCP 和 CLI 共用 Sisyphus 核心调用路径，避免同一能力在两套入�
 
 ## 面向 Agent 的场景 Skill
 
-MCP Server 内置了浏览、编辑、搜索、数据库、导出、标签、闪卡、系统安全和思源排版等场景指南。普通 MCP 客户端无需安装任何 Skill：先读取 `siyuan://skills/index`，再加载匹配的 `siyuan://skills/{name}` 资源即可。对应的 MCP Prompts 是由用户显式调用的工作流入口，不会自动生效。
+MCP Server 内置了浏览、编辑、搜索、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版等场景指南。普通 MCP 客户端无需安装任何 Skill：先读取 `siyuan://skills/index`，再加载匹配的 `siyuan://skills/{name}` 资源即可。时间线任务可直接加载 `siyuan://skills/siyuan-mcp-timeline`，或调用 `siyuan_timeline` Prompt。对应的 MCP Prompts 是由用户显式调用的工作流入口，不会自动生效。
 
 支持安装 `SKILL.md` 包的 Agent 可以把同一套指南安装到本地：
 

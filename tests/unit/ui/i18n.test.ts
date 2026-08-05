@@ -96,6 +96,11 @@ describe('settings i18n', () => {
         }
     });
 
+    it('localizes the timeline tool group name', () => {
+        expect(readI18n('en_US').Timeline).toBe('Timeline');
+        expect(readI18n('zh_CN').Timeline).toBe('时间线');
+    });
+
     it('covers feedback tool labels and form copy in bundled locales', () => {
         const formKeys = [
             'feedbackGroupTitle',

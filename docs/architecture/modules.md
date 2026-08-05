@@ -14,7 +14,7 @@ src/
 ├── core/                     # MCP Server core
 │   ├── server.ts             # MCP Server creation & handler registration
 │   ├── http-transport.ts     # HTTP/S MCP transport layer
-│   ├── tool-registry.ts      # Registry of 13 aggregated tools, including dynamic extension actions
+│   ├── tool-registry.ts      # Registry of 14 aggregated tools, including dynamic extension actions
 │   ├── tool-lifecycle.ts     # Tool call AOP wrapper (analytics/telemetry/puppy)
 │   ├── permissions.ts        # Notebook-level 4-tier permission management
 │   ├── config.ts             # ToolConfig schema / defaults / migration
@@ -33,7 +33,7 @@ src/
 │   └── noops/                # No-op shims for heavy MCP SDK modules
 │       ├── noop-schema-validator.ts
 │       └── noop-experimental-tasks.ts
-├── tools/                    # 13 aggregated tool implementations
+├── tools/                    # 14 aggregated tool implementations
 │   ├── index.ts              # Barrel export: re-exports all tool modules
 │   ├── internal/             # Shared infrastructure for the tool layer
 │   │   ├── types.ts          # Shared types for the tool layer
@@ -77,6 +77,7 @@ src/
 │   │   ├── index.ts
 │   │   └── handlers.ts
 │   ├── tag/                  # tag tool
+│   ├── timeline/             # timeline snapshot diff and rollback tool
 │   │   └── index.ts
 │   └── mascot/               # mascot tool
 │       └── index.ts
@@ -200,7 +201,7 @@ interface ToolModule {
 
 | Export | Description |
 |--------|-------------|
-| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | Compile-time mapping of 13 aggregated categories |
+| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | Compile-time mapping of 14 aggregated categories |
 | `prepareAllTools(config, runtime)` | Run optional discovery/prepare hooks before dynamic validation or listing |
 | `listAllTools(config, runtime)` | Flatten and aggregate all enabled tool descriptors |
 | `resolveCategory(name)` | Reverse lookup category from tool name (e.g. `"notebook"`) |

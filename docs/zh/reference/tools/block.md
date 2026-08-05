@@ -15,7 +15,7 @@
 |------|---------|
 | 插入与更新 | `insert`, `prepend`, `append`, `update` |
 | 移动与结构 | `move`, `set_fold_state`, `get_children`, `breadcrumb` |
-| 元数据 | `set_attrs`, `get_attrs`, `info`, `dom`, `get_kramdown` |
+| 元数据 | `set_attrs`, `get_attrs`, `info`, `dom`, `get_kramdown`, `batch_kramdown` |
 | 引用 / 工具类 | `transfer_references`, `word_count`, `recent_updated` |
 | 日记辅助 | `add_to_daily_note` |
 | 文档上下文 | `docs_info` |
@@ -28,6 +28,7 @@
 - `move` 至少需要一个目标定位字段，例如 `parentID` 或 `previousID`。
 - 批量 `move` 时，`ids` 按期望的最终顺序传入。工具只会在内部倒序调用思源底层 API，并在结果中返回 `apiCallOrder` 便于排查。
 - `add_to_daily_note` 通过 `position` 把内容追加或前置到当天日记。
+- `batch_kramdown` 接受 1–20 个块或文档 ID，对每个输入项解析读取权限，再用一次内核请求获取允许读取的内容。响应与输入顺序一致，重复 ID 会保留；无权限或不存在的 ID 以逐项错误返回。
 
 ## 安全规则
 
@@ -63,6 +64,7 @@ siyuan block append --parent-id <doc-id> --data-type markdown --data "- [ ] Todo
 - `move`
 - `set_fold_state`
 - `get_kramdown`
+- `batch_kramdown`
 - `get_children`
 - `transfer_references`
 - `set_attrs`

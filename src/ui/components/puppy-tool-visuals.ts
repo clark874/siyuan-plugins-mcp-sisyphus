@@ -10,13 +10,14 @@ import {
     SEARCH_ACTIONS,
     SYSTEM_ACTIONS,
     TAG_ACTIONS,
+    TIMELINE_ACTIONS,
 } from '../setting/tool-config';
 
 export type PuppyState = 'idle' | 'reading' | 'writing' | 'deleting' | 'moving' | 'dangerous';
-export type ToolVariant = 'none' | 'fs' | 'notebook' | 'document' | 'block' | 'av' | 'file' | 'search' | 'tag' | 'system' | 'flashcard' | 'mascot';
+export type ToolVariant = 'none' | 'fs' | 'notebook' | 'document' | 'block' | 'av' | 'file' | 'search' | 'tag' | 'timeline' | 'system' | 'flashcard' | 'mascot';
 export type TestActionEntry = { tool: Exclude<ToolVariant, 'none'>; action: string };
 
-export const TOOL_VARIANTS = new Set<ToolVariant>(['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'mascot']);
+export const TOOL_VARIANTS = new Set<ToolVariant>(['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'timeline', 'system', 'flashcard', 'mascot']);
 
 const READING_ACTIONS = new Set([
     'get_kramdown', 'get_children', 'get_attrs', 'info', 'breadcrumb',
@@ -28,12 +29,12 @@ const READING_ACTIONS = new Set([
     'get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort',
     'search', 'get_primary_key_values', 'get_doc_assets', 'get_image_ocr_text',
     'list_unused_assets', 'list_cards', 'get_decks', 'get_cards', 'get_balance', 'shop',
-    'ls', 'tree', 'read',
+    'ls', 'tree', 'read', 'list_nodes', 'compare_node',
 ]);
 
 const BUILD_ACTIONS = new Set([
     'insert', 'prepend', 'append', 'create', 'create_daily_note', 'duplicate',
-    'write',
+    'write', 'create_node',
 ]);
 
 const EDIT_ACTIONS = new Set([
@@ -45,9 +46,9 @@ const EDIT_ACTIONS = new Set([
     'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells',
 ]);
 
-const DELETING_ACTIONS = new Set(['delete', 'remove', 'remove_card', 'rm']);
+const DELETING_ACTIONS = new Set(['delete', 'remove', 'remove_card', 'rm', 'delete_node']);
 const MOVING_ACTIONS = new Set(['move', 'mv']);
-const DANGEROUS_ACTIONS = new Set(['set_permission', 'upload_asset', 'workspace_info', 'perform_sync']);
+const DANGEROUS_ACTIONS = new Set(['set_permission', 'upload_asset', 'workspace_info', 'perform_sync', 'rollback_document', 'rollback_block']);
 
 export const RANDOM_TEST_ACTIONS: TestActionEntry[] = [
     ...FS_ACTIONS.map((action) => ({ tool: 'fs' as const, action })),
@@ -58,6 +59,7 @@ export const RANDOM_TEST_ACTIONS: TestActionEntry[] = [
     ...FILE_ACTIONS.map((action) => ({ tool: 'file' as const, action })),
     ...SEARCH_ACTIONS.map((action) => ({ tool: 'search' as const, action })),
     ...TAG_ACTIONS.map((action) => ({ tool: 'tag' as const, action })),
+    ...TIMELINE_ACTIONS.map((action) => ({ tool: 'timeline' as const, action })),
     ...SYSTEM_ACTIONS.map((action) => ({ tool: 'system' as const, action })),
     ...FLASHCARD_ACTIONS.map((action) => ({ tool: 'flashcard' as const, action })),
     ...MASCOT_ACTIONS.map((action) => ({ tool: 'mascot' as const, action })),

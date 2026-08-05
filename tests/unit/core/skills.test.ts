@@ -17,6 +17,7 @@ import {
     SEARCH_VARIANTS,
     SYSTEM_VARIANTS,
     TAG_VARIANTS,
+    TIMELINE_VARIANTS,
 } from '@/tools/index';
 import { scenarios } from '../../../skills/source/scenarios.mjs';
 
@@ -31,17 +32,18 @@ const variantsByTool: Record<string, Array<{ action: string; schema: Record<stri
     search: SEARCH_VARIANTS,
     system: SYSTEM_VARIANTS,
     tag: TAG_VARIANTS,
+    timeline: TIMELINE_VARIANTS,
 };
 
 describe('core/skills', () => {
-    it('embeds nine valid MCP skills without CLI invocation examples', () => {
-        expect(MCP_SKILLS).toHaveLength(9);
-        expect(new Set(MCP_SKILLS.map((skill) => skill.name)).size).toBe(9);
-        expect(new Set(MCP_SKILLS.map((skill) => skill.promptName)).size).toBe(9);
+    it('embeds ten valid MCP skills without CLI invocation examples', () => {
+        expect(MCP_SKILLS).toHaveLength(10);
+        expect(new Set(MCP_SKILLS.map((skill) => skill.name)).size).toBe(10);
+        expect(new Set(MCP_SKILLS.map((skill) => skill.promptName)).size).toBe(10);
 
         for (const skill of MCP_SKILLS) {
             expect(skill.text).toContain(`name: ${skill.name}`);
-            expect(skill.text).not.toMatch(/\bsiyuan-sisyphus\s+(fs|notebook|document|block|av|file|search|tag|system|flashcard|mascot|feedback)\b/);
+            expect(skill.text).not.toMatch(/\bsiyuan-sisyphus\s+(fs|notebook|document|block|av|file|search|tag|timeline|system|flashcard|mascot|feedback)\b/);
         }
     });
 
@@ -51,7 +53,9 @@ describe('core/skills', () => {
         const prompt = getMcpPrompt('siyuan_create_edit', 'Append a summary.');
 
         expect(index).toContain('siyuan://help/action/{tool}/{action}');
-        expect(prompts).toHaveLength(9);
+        expect(prompts).toHaveLength(10);
+        expect(index).toContain('siyuan-mcp-timeline');
+        expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_timeline' }));
         expect(prompts.find((item) => item.name === 'siyuan_create_edit')?.arguments).toEqual([
             expect.objectContaining({ name: 'task', required: false }),
         ]);

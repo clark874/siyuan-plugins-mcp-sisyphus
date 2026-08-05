@@ -24,8 +24,8 @@
                 type: "checkbox",
                 key: "versionControl__enabled",
                 value: currentVersionControlSettings.enabled,
-                title: label("version_control_enabled_title", "Enable Document Timeline"),
-                description: label("version_control_enabled_desc", "Register the document timeline dock, command, and editor listeners. Turn this off to remove the dock and stop loading the timeline UI."),
+                title: label("version_control_enabled_title", "Enable Document Snapshots and Diff"),
+                description: label("version_control_enabled_desc", "Register the left snapshot dock, right diff dock, command, and editor listeners. Turn this off to remove both docks."),
             },
             {
                 type: "checkbox",
@@ -39,7 +39,7 @@
                 key: "versionControl__showDebugMeta",
                 value: currentVersionControlSettings.showDebugMeta,
                 title: label("version_control_show_debug_meta_title", "Timeline Debug Metadata"),
-                description: label("version_control_show_debug_meta_desc", "Show document/block IDs and raw diff statuses such as unchanged in the document timeline."),
+                description: label("version_control_show_debug_meta_desc", "Show document/block IDs and raw diff statuses in the snapshot and diff docks."),
             },
             {
                 type: "checkbox",

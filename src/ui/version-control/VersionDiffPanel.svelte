@@ -14,18 +14,16 @@
         type RepoSnapshotFileChange,
     } from "./block-diff";
     import {
-        createTimelineTagName,
-        filterChangedUniqueTimelineEntries,
         formatSnapshotTime,
         getDocumentKey,
+        getTimelineNodeSelectionKey,
         canReuseLiveDocumentBlock,
-        isTimelineSnapshot,
-        selectInitialTimelineEntry,
         shouldUpdateDiffViewportState,
         snapshotLabel,
         sortSnapshotsNewestFirst,
         type TimelineEntry,
-        type TimelineEntryContent,
+        type TimelineNodeScope,
+        type TimelineNodeSelection,
         type TimelineSnapshot,
     } from "./timeline";
 
@@ -60,23 +58,19 @@
         updated?: string | number;
     };
     const CURRENT_SNAPSHOT_MEMO_PREFIX = "[Sisyphus Timeline Current]";
-    const ROOT_TIMELINE_SNAPSHOT_LABEL = "root";
-    const TIMELINE_AUTO_COLLAPSE_WIDTH = 920;
     const UNCHANGED_CONTEXT_BLOCKS = 1;
     const MINIMAP_UNIT_HEIGHT = 34;
     const LIVE_DOCUMENT_ANCHOR_OFFSET = 0.14;
 
     export let currentDocumentId = "";
     export let currentDocumentTitle = "";
+    export let selection: TimelineNodeSelection | null = null;
     export let showDebugMeta = false;
     export let i18n: Record<string, string> = {};
+    export let onOpenSnapshot: () => void = () => {};
 
-    let taggedSnapshots: Snapshot[] = [];
     let currentSnapshot: Snapshot | null = null;
-    let timelineEntries: TimelineEntry[] = [];
-    let selectedEntryKey = "";
-    let memo = "";
-    let loadingSnapshots = false;
+    let selectedEntry: TimelineEntry | undefined;
     let loadingDiff = false;
     let loadingFile = false;
     let applying = false;
@@ -88,18 +82,12 @@
     let error = "";
     let resolvedDocumentTitle = "";
     let mounted = false;
-    let loadedDocumentId = "";
-    let timelineCollapsed = true;
-    let panelVisible = false;
-    let autoTimelineCollapsed = false;
-    let forceTimelineExpanded = false;
+    let loadedSelectionKey = "";
+    let selectionLoadVersion = 0;
     let compareMode: CompareMode = "unified";
-    let refreshingSelection = false;
     let expandedHiddenKeys = new Set<string>();
     let shellElement: HTMLDivElement;
     let diffElement: HTMLElement;
-    let shellResizeObserver: ResizeObserver | undefined;
-    let shellMutationObserver: MutationObserver | undefined;
     let diffViewportTop = 0;
     let diffViewportHeight = 100;
     let diffMinimapCapacity = 1;
@@ -111,14 +99,13 @@
     let lastLiveDocumentBlock: HTMLElement | null = null;
     let lastLiveDocumentBlockId = "";
 
-    $: documentEntries = currentDocumentId ? timelineEntries.filter((entry) => entry.documentKey === currentDocumentId) : [];
-    $: selectedEntry = documentEntries.find((entry) => entry.key === selectedEntryKey);
+    $: selectionKey = getTimelineNodeSelectionKey(selection);
     $: displayDocumentTitle = getReadableDocumentTitle(resolvedDocumentTitle)
         || getReadableDocumentTitle(currentDocumentTitle)
+        || getReadableDocumentTitle(selection?.documentTitle)
         || getReadableDocumentTitle(selectedEntry?.title)
         || t("timeline_current_document_fallback", "这个文档");
     $: diffOpen = Boolean(selectedEntry);
-    $: effectiveTimelineCollapsed = timelineCollapsed;
     $: selectedSnapshotTitle = selectedEntry ? snapshotLabel(selectedEntry.snapshot) : "";
     $: selectedSnapshotTime = selectedEntry ? formatSnapshotTime(selectedEntry.snapshot) : "";
     $: currentSnapshotTime = currentSnapshot ? formatSnapshotTime(currentSnapshot) : "";
@@ -148,83 +135,29 @@
     $: if (mounted) {
         diffDisplayItems;
         compareMode;
-        selectedEntryKey;
         queueDiffViewportUpdate();
     }
-    $: if (shouldAutoLoadTimeline() && currentDocumentId !== loadedDocumentId && !loadingSnapshots) {
-        void loadTimeline();
+    $: if (mounted && selectionKey !== loadedSelectionKey) {
+        loadedSelectionKey = selectionKey;
+        if (selection && selection.documentId === currentDocumentId) {
+            void loadSelection(selection);
+        } else {
+            selectionLoadVersion += 1;
+            clearSelectedDiff();
+        }
     }
 
     onMount(async () => {
         mounted = true;
-        observeShellWidth();
         await tick();
-        await nextFrame();
-        updateShellVisibility();
-        if (shouldAutoLoadTimeline()) await loadTimeline();
+        queueDiffViewportUpdate();
     });
 
     onDestroy(() => {
-        shellResizeObserver?.disconnect();
-        shellMutationObserver?.disconnect();
+        selectionLoadVersion += 1;
         cancelDiffViewportUpdate();
         cancelDocumentScrollSync();
     });
-
-    function observeShellWidth() {
-        if (!shellElement) return;
-        if (typeof ResizeObserver !== "undefined") {
-            shellResizeObserver = new ResizeObserver((entries) => {
-                updateShellVisibility(entries[0]?.contentRect.width ?? shellElement.clientWidth);
-            });
-            shellResizeObserver.observe(shellElement);
-        }
-        observeShellAncestorVisibility();
-        updateShellVisibility();
-    }
-
-    function observeShellAncestorVisibility() {
-        if (typeof MutationObserver === "undefined") return;
-        shellMutationObserver = new MutationObserver(() => updateShellVisibility());
-        let element: HTMLElement | null = shellElement;
-        while (element) {
-            shellMutationObserver.observe(element, {
-                attributes: true,
-                attributeFilter: ["class", "style", "hidden", "aria-hidden"],
-            });
-            element = element.parentElement;
-        }
-    }
-
-    function updateShellVisibility(width = shellElement?.clientWidth ?? 0) {
-        panelVisible = isShellVisible();
-        autoTimelineCollapsed = !forceTimelineExpanded && width > 0 && width < TIMELINE_AUTO_COLLAPSE_WIDTH;
-    }
-
-    function isShellVisible(): boolean {
-        if (!shellElement?.getClientRects().length) return false;
-        let element: HTMLElement | null = shellElement;
-        while (element) {
-            if (element.hidden || element.getAttribute("aria-hidden") === "true") return false;
-            if (typeof getComputedStyle === "function") {
-                const style = getComputedStyle(element);
-                if (style.display === "none" || style.visibility === "hidden") return false;
-            }
-            element = element.parentElement;
-        }
-        return true;
-    }
-
-    function toggleTimelineCollapsed() {
-        if (!effectiveTimelineCollapsed) {
-            forceTimelineExpanded = false;
-        }
-        timelineCollapsed = !timelineCollapsed;
-    }
-
-    function shouldAutoLoadTimeline(): boolean {
-        return mounted && panelVisible && currentDocumentId !== "";
-    }
 
     async function toggleCompareMode() {
         const scrollProgress = getDiffScrollProgress();
@@ -675,10 +608,6 @@
         }, template);
     }
 
-    function timelineSnapshotCountText(count: number): string {
-        return t("timeline_snapshot_count", "${count} 个时间线快照", { count });
-    }
-
     function localizeAcceptReason(reason: string | undefined): string {
         if (!reason) return "";
         if (reason === "内容未变化") return t("timeline_accept_reason_unchanged", "内容未变化");
@@ -686,93 +615,81 @@
         return reason;
     }
 
-    async function loadTimeline() {
-        if (!shouldAutoLoadTimeline()) return;
-        loadingSnapshots = true;
+    async function loadSelection(nextSelection: TimelineNodeSelection) {
+        const loadVersion = ++selectionLoadVersion;
         loadingDiff = true;
         error = "";
+        selectedEntry = undefined;
+        currentSnapshot = null;
+        expandedHiddenKeys = new Set();
         clearDiff();
-        loadedDocumentId = currentDocumentId;
         try {
             await refreshDocumentTitle();
-            const data = await post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoTagSnapshots", {});
-            if (!shouldAutoLoadTimeline()) return;
-            taggedSnapshots = await ensureRootTimelineSnapshot(sortSnapshotsNewestFirst((data.snapshots ?? []).filter(isTimelineSnapshot)));
-            if (!shouldAutoLoadTimeline()) return;
-            currentSnapshot = currentDocumentId ? await createCurrentSnapshot() : null;
-            const entryContents: TimelineEntryContent[] = [];
-            const contentCache = new Map<string, string>();
-            if (currentSnapshot) {
-                for (const snapshot of taggedSnapshots) {
-                    if (snapshot.id === currentSnapshot.id) continue;
-                    const diff = await post<Record<string, RepoSnapshotFileChange[] | unknown>>("/api/repo/diffRepoSnapshots", {
-                        left: snapshot.id,
-                        right: currentSnapshot.id,
-                    });
-                    const changedFile = findChangedFileForCurrentDocument(buildChangedFiles(diff));
-                    if (!changedFile) {
-                        if (isRootTimelineSnapshot(snapshot)) {
-                            entryContents.push({
-                                entry: createRootTimelineEntry(snapshot, currentSnapshot),
-                                oldContent: ROOT_TIMELINE_SNAPSHOT_LABEL,
-                                newContent: `${ROOT_TIMELINE_SNAPSHOT_LABEL}:${currentSnapshot.id}`,
-                            });
-                        }
-                        continue;
-                    }
-                    const entry = createCurrentComparisonEntry(snapshot, currentSnapshot, changedFile);
-                    const [oldSnapshotContent, newSnapshotContent] = await Promise.all([
-                        readSnapshotFileContent(entry.oldFileId, contentCache),
-                        readSnapshotFileContent(entry.newFileId, contentCache),
-                    ]);
-                    entryContents.push({
-                        entry,
-                        oldContent: oldSnapshotContent,
-                        newContent: newSnapshotContent,
-                    });
-                }
+            if (loadVersion !== selectionLoadVersion || nextSelection.documentId !== currentDocumentId) return;
+            currentSnapshot = await createCurrentSnapshot();
+            if (loadVersion !== selectionLoadVersion) return;
+            const node = nextSelection.node;
+            if (node.snapshotId === currentSnapshot.id) {
+                selectedEntry = createNoChangeTimelineEntry(nextSelection, currentSnapshot);
+                return;
             }
-
-            timelineEntries = filterChangedUniqueTimelineEntries(entryContents);
-            const nextEntry = selectInitialTimelineEntry(timelineEntries, currentDocumentId, selectedEntryKey);
-            selectedEntryKey = nextEntry?.key ?? "";
-            if (nextEntry) await loadTimelineEntry(nextEntry);
+            const diff = await post<Record<string, RepoSnapshotFileChange[] | unknown>>("/api/repo/diffRepoSnapshots", {
+                left: node.snapshotId,
+                right: currentSnapshot.id,
+            });
+            if (loadVersion !== selectionLoadVersion) return;
+            const changedFile = findChangedFileForCurrentDocument(buildChangedFiles(diff));
+            if (!changedFile) {
+                selectedEntry = createNoChangeTimelineEntry(nextSelection, currentSnapshot);
+                return;
+            }
+            const entry = createCurrentComparisonEntry(snapshotFromSelection(nextSelection), currentSnapshot, changedFile, node.scope);
+            selectedEntry = entry;
+            await loadTimelineEntry(entry, loadVersion);
+            if (loadVersion !== selectionLoadVersion) return;
+            if (oldContent === newContent) {
+                selectedEntry = createNoChangeTimelineEntry(nextSelection, currentSnapshot);
+                clearDiff();
+            }
         } catch (err) {
-            error = getErrorMessage(err);
+            if (loadVersion === selectionLoadVersion) error = getErrorMessage(err);
         } finally {
-            loadingSnapshots = false;
-            loadingDiff = false;
+            if (loadVersion === selectionLoadVersion) loadingDiff = false;
         }
     }
 
-    async function ensureRootTimelineSnapshot(snapshots: Snapshot[]): Promise<Snapshot[]> {
-        if (!currentDocumentId || hasRootTimelineSnapshot(snapshots)) return snapshots;
-        await createRootTimelineSnapshot();
-        const snapshot = await findNewestSnapshotForMemo(ROOT_TIMELINE_SNAPSHOT_LABEL);
-        if (!snapshot?.id) throw new Error(t("timeline_error_root_snapshot_not_found", "根快照已创建，但未能定位"));
-        await post("/api/repo/tagSnapshot", {
-            id: snapshot.id,
-            name: createTimelineTagName(ROOT_TIMELINE_SNAPSHOT_LABEL, snapshots),
-        });
-        const data = await post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoTagSnapshots", {});
-        return sortSnapshotsNewestFirst((data.snapshots ?? []).filter(isTimelineSnapshot));
+    function snapshotFromSelection(nextSelection: TimelineNodeSelection): Snapshot {
+        const node = nextSelection.node;
+        return {
+            id: node.snapshotId,
+            ...(typeof node.tag === 'string' ? { tag: node.tag } : {}),
+            created: node.created,
+        };
     }
 
-    async function createRootTimelineSnapshot() {
-        try {
-            await post("/api/repo/createSnapshot", { memo: ROOT_TIMELINE_SNAPSHOT_LABEL });
-        } catch {
-            // SiYuan rejects duplicate snapshots when an equivalent automatic snapshot already exists.
-            // Root creation can still tag that newest snapshot via findNewestSnapshotForMemo's fallback.
-        }
-    }
-
-    function hasRootTimelineSnapshot(snapshots: Snapshot[]): boolean {
-        return snapshots.some((snapshot) => snapshotLabel(snapshot) === ROOT_TIMELINE_SNAPSHOT_LABEL);
-    }
-
-    function isRootTimelineSnapshot(snapshot: Snapshot): boolean {
-        return snapshotLabel(snapshot) === ROOT_TIMELINE_SNAPSHOT_LABEL;
+    function createNoChangeTimelineEntry(nextSelection: TimelineNodeSelection, current: Snapshot): TimelineEntry {
+        const node = nextSelection.node;
+        const nodeKey = encodeURIComponent(node.tag || node.name);
+        return {
+            key: `${node.snapshotId}:${current.id}:${nextSelection.documentId}:nochange:${nodeKey}`,
+            documentKey: nextSelection.documentId,
+            title: nextSelection.documentTitle || node.name || nextSelection.documentId,
+            kind: "modified",
+            snapshot: snapshotFromSelection(nextSelection),
+            previousSnapshot: current,
+            file: {
+                key: `${nextSelection.documentId}:nochange:${node.snapshotId}:${nodeKey}`,
+                kind: "modified",
+                title: nextSelection.documentTitle || node.name || nextSelection.documentId,
+                documentId: nextSelection.documentId,
+            },
+            oldFileId: "",
+            newFileId: "",
+            scope: node.scope,
+            hasDiff: false,
+            noChanges: true,
+            updated: node.created,
+        };
     }
 
     async function refreshDocumentTitle() {
@@ -809,11 +726,17 @@
         return files.find((file) => getDocumentKey(file) === currentDocumentId);
     }
 
-    function createCurrentComparisonEntry(snapshot: Snapshot, current: Snapshot, file: ChangedSnapshotFile): TimelineEntry {
+    function createCurrentComparisonEntry(
+        snapshot: Snapshot,
+        current: Snapshot,
+        file: ChangedSnapshotFile,
+        scope: TimelineNodeScope,
+    ): TimelineEntry {
         const oldFileId = getSnapshotFileId(file.oldFile);
         const newFileId = getSnapshotFileId(file.newFile);
+        const snapshotKey = encodeURIComponent(snapshot.tag || snapshot.id);
         return {
-            key: `${snapshot.id}:${current.id}:${currentDocumentId}:${oldFileId}:${newFileId}`,
+            key: `${snapshot.id}:${snapshotKey}:${current.id}:${currentDocumentId}:${oldFileId}:${newFileId}`,
             documentKey: currentDocumentId,
             title: file.title || currentDocumentTitle || currentDocumentId,
             kind: file.kind,
@@ -822,53 +745,10 @@
             file,
             oldFileId,
             newFileId,
+            scope,
             hasDiff: true,
             updated: file.newFile?.updated ?? file.oldFile?.updated ?? snapshot.updated ?? snapshot.created,
         };
-    }
-
-    function createRootTimelineEntry(snapshot: Snapshot, current: Snapshot): TimelineEntry {
-        return {
-            key: `${snapshot.id}:${current.id}:${currentDocumentId}:root`,
-            documentKey: currentDocumentId,
-            title: currentDocumentTitle || currentDocumentId,
-            kind: "modified",
-            snapshot,
-            previousSnapshot: current,
-            file: {
-                key: `${currentDocumentId}:root`,
-                kind: "modified",
-                title: currentDocumentTitle || currentDocumentId,
-                documentId: currentDocumentId,
-            },
-            oldFileId: "",
-            newFileId: "",
-            hasDiff: false,
-            updated: snapshot.updated ?? snapshot.created,
-        };
-    }
-
-    async function createTimelineNode() {
-        const text = memo.trim();
-        if (!text) {
-            showMessage(t("timeline_msg_name_required", "请先填写时间线节点名称"));
-            return;
-        }
-        loadingSnapshots = true;
-        error = "";
-        try {
-            await post("/api/repo/createSnapshot", { memo: text });
-            const snapshot = await findNewestSnapshotForMemo(text);
-            if (!snapshot?.id) throw new Error(t("timeline_error_new_snapshot_not_found", "快照已创建，但未能定位新快照"));
-            await post("/api/repo/tagSnapshot", { id: snapshot.id, name: createTimelineTagName(text, taggedSnapshots) });
-            memo = "";
-            showMessage(t("timeline_msg_node_created", "时间线节点已创建"));
-            await loadTimeline();
-        } catch (err) {
-            error = getErrorMessage(err);
-        } finally {
-            loadingSnapshots = false;
-        }
     }
 
     async function findNewestSnapshotForMemo(text: string): Promise<Snapshot | undefined> {
@@ -883,49 +763,15 @@
             ?? ordered[0];
     }
 
-    async function selectEntry(entry: TimelineEntry) {
-        selectedEntryKey = entry.key;
-        refreshingSelection = true;
-        try {
-            await refreshCurrentComparisonForSelection(entry.key);
-        } finally {
-            refreshingSelection = false;
+    async function refreshSelectedDiff() {
+        if (!selection || selection.documentId !== currentDocumentId) {
+            clearSelectedDiff();
+            return;
         }
+        await loadSelection(selection);
     }
 
-    async function refreshCurrentComparisonForSelection(entryKey: string) {
-        loadingDiff = true;
-        error = "";
-        try {
-            currentSnapshot = currentDocumentId ? await createCurrentSnapshot() : null;
-            if (!currentSnapshot) {
-                clearDiff();
-                return;
-            }
-            const baseEntry = timelineEntries.find((entry) => entry.key === entryKey);
-            if (!baseEntry) return;
-            const diff = await post<Record<string, RepoSnapshotFileChange[] | unknown>>("/api/repo/diffRepoSnapshots", {
-                left: baseEntry.snapshot.id,
-                right: currentSnapshot.id,
-            });
-            const changedFile = findChangedFileForCurrentDocument(buildChangedFiles(diff));
-            if (!changedFile) {
-                selectedEntryKey = "";
-                clearDiff();
-                return;
-            }
-            const refreshedEntry = createCurrentComparisonEntry(baseEntry.snapshot, currentSnapshot, changedFile);
-            timelineEntries = timelineEntries.map((entry) => entry.key === entryKey ? refreshedEntry : entry);
-            selectedEntryKey = refreshedEntry.key;
-            await loadTimelineEntry(refreshedEntry);
-        } catch (err) {
-            error = getErrorMessage(err);
-        } finally {
-            loadingDiff = false;
-        }
-    }
-
-    async function loadTimelineEntry(entry = selectedEntry) {
+    async function loadTimelineEntry(entry: TimelineEntry, expectedLoadVersion = selectionLoadVersion) {
         if (!entry) return;
         loadingFile = true;
         error = "";
@@ -934,6 +780,7 @@
                 entry.oldFileId ? post<SnapshotFileContent>("/api/repo/openRepoSnapshotFile", { id: entry.oldFileId }) : Promise.resolve(null),
                 entry.newFileId ? post<SnapshotFileContent>("/api/repo/openRepoSnapshotFile", { id: entry.newFileId }) : Promise.resolve(null),
             ]);
+            if (expectedLoadVersion !== selectionLoadVersion) return;
             oldFileContent = oldData;
             newFileContent = newData;
             oldContent = oldData?.content ?? "";
@@ -946,20 +793,13 @@
                 );
             }
         } catch (err) {
-            error = getErrorMessage(err);
+            if (expectedLoadVersion === selectionLoadVersion) error = getErrorMessage(err);
         } finally {
-            loadingFile = false;
-            resetDocumentScrollSync();
+            if (expectedLoadVersion === selectionLoadVersion) {
+                loadingFile = false;
+                resetDocumentScrollSync();
+            }
         }
-    }
-
-    async function readSnapshotFileContent(fileId: string, cache: Map<string, string>): Promise<string> {
-        if (!fileId) return "";
-        if (cache.has(fileId)) return cache.get(fileId) ?? "";
-        const data = await post<SnapshotFileContent>("/api/repo/openRepoSnapshotFile", { id: fileId });
-        const content = data?.content ?? "";
-        cache.set(fileId, content);
-        return content;
     }
 
     async function rollbackBlock(entry: BlockDiffEntry) {
@@ -1010,7 +850,7 @@
                 if (!restored) throw lastError ?? new Error(t("timeline_error_restore_removed_block_failed", "无法恢复删除块"));
             }
             showMessage(t("timeline_msg_block_rolled_back", "块已回退"));
-            await loadTimeline();
+            await refreshSelectedDiff();
         } catch (err) {
             error = getErrorMessage(err);
         } finally {
@@ -1030,7 +870,7 @@
         try {
             await post("/api/repo/rollbackRepoSnapshotFile", { id });
             showMessage(t("timeline_msg_document_rolled_back", "文档已回退到历史版本"));
-            await loadTimelineEntry();
+            await refreshSelectedDiff();
         } catch (err) {
             error = getErrorMessage(err);
         } finally {
@@ -1045,6 +885,16 @@
         newFileContent = null;
         blockEntries = [];
         lastSyncedDocumentBlockId = "";
+    }
+
+    function clearSelectedDiff() {
+        selectedEntry = undefined;
+        currentSnapshot = null;
+        loadingDiff = false;
+        loadingFile = false;
+        error = "";
+        expandedHiddenKeys = new Set();
+        clearDiff();
     }
 
     function blockText(block: BlockDiffEntry["oldBlock"]): string {
@@ -1078,13 +928,7 @@
     }
 </script>
 
-<div
-    bind:this={shellElement}
-    class:force-expanded={forceTimelineExpanded}
-    class:timeline-collapsed={effectiveTimelineCollapsed}
-    class:timeline-only={!diffOpen}
-    class="vc-shell"
->
+<div bind:this={shellElement} class="vc-shell">
     <main class="vc-main">
         <div class="vc-toolbar">
             <div class="vc-toolbar__meta">
@@ -1095,7 +939,13 @@
                         <span class="removed">-{diffLineStats.removed}</span>
                     </span>
                 {/if}
-                <span class="vc-snapshot-count">{timelineSnapshotCountText(taggedSnapshots.length)}</span>
+                {#if selection}
+                    <span class:global={selection.node.scope === "global"} class="vc-scope-badge">
+                        {selection.node.scope === "global"
+                            ? t("timeline_scope_global_badge", "全局")
+                            : t("timeline_scope_document_badge", "文档")}
+                    </span>
+                {/if}
                 {#if showDebugMeta && currentDocumentId}
                     <span class="vc-debug-id">{currentDocumentId}</span>
                 {/if}
@@ -1142,9 +992,6 @@
                         <path d="M2 6.55 4.8 9.4l2.85-2.85" fill="none" stroke="currentColor" stroke-width="2.05" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
-                <button type="button" class="vc-icon-button" on:click={toggleTimelineCollapsed} title={autoTimelineCollapsed ? t("timeline_auto_collapsed_title", "窗口过窄，时间线已自动折叠") : effectiveTimelineCollapsed ? t("timeline_action_expand", "展开时间线") : t("timeline_action_collapse", "折叠时间线")} aria-label={autoTimelineCollapsed ? t("timeline_auto_collapsed_title", "窗口过窄，时间线已自动折叠") : effectiveTimelineCollapsed ? t("timeline_action_expand", "展开时间线") : t("timeline_action_collapse", "折叠时间线")}>
-                    {effectiveTimelineCollapsed ? "‹" : "›"}
-                </button>
             </div>
         </div>
 
@@ -1154,10 +1001,15 @@
 
         <div class="vc-content">
             <section bind:this={diffElement} on:scroll={handleDiffScroll} on:click={handleDiffClick} class:unified-mode={compareMode === "unified"} class:split-mode={compareMode === "split"} class="vc-diff">
-                {#if loadingFile}
+                {#if loadingDiff}
+                    <div class="vc-empty">{t("diff_loading_selection", "正在创建当前状态快照并计算所选节点差异...")}</div>
+                {:else if loadingFile}
                     <div class="vc-empty">{t("timeline_loading_snapshot_file", "正在打开快照文件...")}</div>
                 {:else if !selectedEntry}
-                    <div class="vc-empty">{refreshingSelection ? t("timeline_loading_current_diff", "正在创建当前版本并加载差异...") : t("timeline_empty_select_node", "选择右侧时间线节点，查看历史版本与当前状态的差异")}</div>
+                    <div class="vc-empty vc-empty-selection">
+                        <p>{t("diff_empty_select_snapshot", "从左侧文档快照页选择一个节点，查看历史版本与当前状态的差异")}</p>
+                        <button type="button" class="vc-open-snapshot" on:click={onOpenSnapshot}>{t("diff_action_open_snapshot", "打开文档快照")}</button>
+                    </div>
                 {:else}
                     <div class:unified={compareMode === "unified"} class="vc-diff-head">
                         {#if compareMode === "unified"}
@@ -1395,157 +1247,17 @@
         </div>
     </main>
 
-    <aside class:collapsed={effectiveTimelineCollapsed} class="vc-sidebar">
-        {#if !effectiveTimelineCollapsed}
-            {#if !diffOpen}
-                <section class="vc-section vc-document-heading">
-                    <div class="vc-sidebar-heading">
-                        <div class="vc-section__title">{displayDocumentTitle}</div>
-                        <button type="button" class="vc-icon-button vc-sidebar-collapse" on:click={toggleTimelineCollapsed} title={t("timeline_action_collapse", "折叠时间线")} aria-label={t("timeline_action_collapse", "折叠时间线")}>›</button>
-                    </div>
-                    {#if showDebugMeta && currentDocumentId}
-                        <code>{currentDocumentId}</code>
-                    {/if}
-                    <small>{timelineSnapshotCountText(taggedSnapshots.length)}</small>
-                </section>
-            {/if}
-
-            <section class="vc-section">
-                <div class="vc-sidebar-heading vc-snapshot-heading">
-                    <div class="vc-section__title">{t("timeline_snapshot_section_title", "Snapshot")}</div>
-                    {#if diffOpen}
-                        <button type="button" class="vc-icon-button vc-sidebar-collapse" on:click={toggleTimelineCollapsed} title={t("timeline_action_collapse", "折叠时间线")} aria-label={t("timeline_action_collapse", "折叠时间线")}>›</button>
-                    {/if}
-                </div>
-                <textarea bind:value={memo} rows="3" placeholder={t("timeline_node_placeholder", "例如 feat：重构文档工具")}></textarea>
-                <button type="button" class="vc-primary" on:click={createTimelineNode} disabled={loadingSnapshots}>{t("timeline_action_create_node", "创建节点")}</button>
-            </section>
-
-            <section class="vc-section">
-                <div class="vc-section__title">{t("timeline_section_title", "Timeline")}</div>
-                {#if loadingSnapshots || loadingDiff}
-                    <div class="vc-empty compact">{t("timeline_loading", "加载中...")}</div>
-                {:else if !currentDocumentId}
-                    <div class="vc-empty compact">{t("timeline_no_document", "未检测到可用文档")}</div>
-                {:else if documentEntries.length === 0}
-                    <div class="vc-empty compact">{t("timeline_no_nodes_for_document", "「${title}」暂无时间线节点", { title: displayDocumentTitle })}</div>
-                {:else}
-                    <div class="vc-timeline">
-                        {#each documentEntries as entry}
-                            <button type="button" class:selected={entry.key === selectedEntryKey} on:click={() => selectEntry(entry)}>
-                                <span class:added={entry.kind === "added"} class:removed={entry.kind === "removed"} class:modified={entry.kind === "modified"}></span>
-                                <strong>
-                                    <em>{snapshotLabel(entry.snapshot)}</em>
-                                    {#if formatSnapshotTime(entry.snapshot)}
-                                        <small>{formatSnapshotTime(entry.snapshot)}</small>
-                                    {/if}
-                                </strong>
-                                {#if showDebugMeta}
-                                    <small>{entry.kind}</small>
-                                {/if}
-                            </button>
-                        {/each}
-                    </div>
-                {/if}
-            </section>
-        {/if}
-    </aside>
 </div>
 
 <style>
     .vc-shell {
         position: relative;
         isolation: isolate;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
         height: 100%;
         min-height: 360px;
         overflow: hidden;
         color: var(--b3-theme-on-background);
         background: var(--b3-theme-background);
-    }
-
-    .vc-shell.timeline-collapsed {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .vc-shell.timeline-only {
-        grid-template-columns: minmax(280px, 420px);
-        justify-content: end;
-    }
-
-    .vc-shell.force-expanded {
-        min-width: 0;
-    }
-
-    .vc-shell.timeline-only:not(.timeline-collapsed) .vc-main {
-        display: none;
-    }
-
-    .vc-sidebar {
-        position: relative;
-        z-index: 2;
-        grid-column: 2;
-        min-height: 0;
-        box-sizing: border-box;
-        border-left: 1px solid var(--b3-border-color);
-        padding: 12px;
-        overflow: auto;
-        background: var(--b3-theme-background);
-    }
-
-    .vc-sidebar.collapsed {
-        display: none;
-    }
-
-    .vc-section {
-        display: grid;
-        gap: 8px;
-        margin-bottom: 18px;
-    }
-
-    .vc-section__title {
-        font-weight: 600;
-        font-size: 13px;
-    }
-
-    .vc-sidebar-heading {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        justify-content: space-between;
-        min-width: 0;
-    }
-
-    .vc-sidebar-heading .vc-section__title {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .vc-sidebar-collapse {
-        flex: 0 0 auto;
-    }
-
-    .vc-document-heading code {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: var(--b3-theme-on-surface);
-        font-family: var(--b3-font-family-code);
-        font-size: 11px;
-    }
-
-    textarea {
-        width: 100%;
-        box-sizing: border-box;
-        border: 1px solid var(--b3-border-color);
-        border-radius: 6px;
-        padding: 8px;
-        background: var(--b3-theme-surface);
-        color: var(--b3-theme-on-surface);
-        resize: vertical;
     }
 
     button {
@@ -1584,82 +1296,29 @@
         opacity: 0.55;
     }
 
-    .vc-primary {
-        background: var(--b3-theme-primary);
-        color: var(--b3-theme-on-primary);
-        border-color: var(--b3-theme-primary);
-    }
 
-    .vc-timeline {
-        display: grid;
-        gap: 6px;
-    }
-
-    .vc-timeline button {
-        display: grid;
-        grid-template-columns: 12px minmax(0, 1fr) auto;
-        gap: 8px;
-        align-items: center;
-        text-align: left;
-    }
-
-    .vc-timeline button.selected {
-        border-color: var(--b3-theme-primary);
-        background: var(--b3-list-hover);
-    }
-
-    .vc-timeline strong {
-        display: grid;
-        gap: 2px;
-        overflow: hidden;
-        font-size: 12px;
-    }
-
-    .vc-timeline strong em,
-    .vc-timeline strong small {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .vc-timeline strong em {
-        font-style: normal;
-    }
-
-    .vc-timeline strong small {
-        margin: 0;
-        font-weight: 400;
-    }
-
-    .vc-timeline span {
-        width: 8px;
-        height: 8px;
+    .vc-scope-badge {
+        width: auto;
+        height: auto;
+        border: 1px solid color-mix(in srgb, var(--b3-theme-primary) 38%, var(--b3-border-color));
         border-radius: 999px;
-        background: var(--b3-theme-on-surface);
+        padding: 1px 6px;
+        color: var(--b3-theme-primary);
+        background: color-mix(in srgb, var(--b3-theme-primary) 8%, transparent);
+        font-size: 10px;
+        line-height: 1.5;
     }
 
-    .vc-timeline small {
-        margin: 0;
-        color: var(--b3-theme-on-surface);
-        font-size: 11px;
+    .vc-scope-badge.global {
+        border-color: color-mix(in srgb, #7657e8 48%, var(--b3-border-color));
+        color: #7657e8;
+        background: color-mix(in srgb, #7657e8 10%, transparent);
     }
 
-    .vc-timeline .added {
-        background: #2ea043;
-    }
-
-    .vc-timeline .removed {
-        background: #f85149;
-    }
-
-    .vc-timeline .modified {
-        background: #d29922;
-    }
 
     .vc-main {
         position: relative;
         z-index: 20;
-        grid-column: 1;
         min-width: 0;
         min-height: 0;
         height: 100%;
@@ -2252,49 +1911,29 @@
         font-size: 13px;
     }
 
-    .vc-empty.compact {
-        padding: 8px 0;
+    .vc-empty-selection {
+        min-height: 180px;
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        gap: 12px;
+        text-align: center;
     }
 
-    @media (max-width: 900px) {
-        .vc-shell {
-            grid-template-columns: minmax(0, 1fr);
-            grid-template-rows: auto minmax(0, 1fr);
-            height: 100%;
-        }
+    .vc-empty-selection p {
+        max-width: 360px;
+        margin: 0;
+        line-height: 1.6;
+    }
 
-        .vc-shell.timeline-collapsed {
-            grid-template-rows: minmax(0, 1fr);
-        }
+    .vc-open-snapshot {
+        border-color: var(--b3-theme-primary);
+        color: var(--b3-theme-primary);
+        background: color-mix(in srgb, var(--b3-theme-primary) 8%, var(--b3-theme-surface));
+    }
 
-        .vc-shell.timeline-only {
-            grid-template-columns: minmax(0, 1fr);
-            grid-template-rows: minmax(0, 1fr);
-            justify-content: stretch;
-        }
-
-        .vc-shell.timeline-only:not(.timeline-collapsed) .vc-main {
-            display: none;
-        }
-
-        .vc-main {
-            grid-column: 1;
-            grid-row: 2;
-            min-height: 0;
-        }
-
-        .vc-sidebar {
-            grid-column: 1;
-            grid-row: 1;
-            max-height: min(48vh, 420px);
-            border-left: 0;
-            border-bottom: 1px solid var(--b3-border-color);
-        }
-
-        .vc-sidebar.collapsed + .vc-main,
-        .vc-shell.timeline-collapsed .vc-main {
-            grid-row: 1;
-        }
+    .vc-empty.compact {
+        padding: 8px 0;
     }
 
     @media (max-width: 520px) {

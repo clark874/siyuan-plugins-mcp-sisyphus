@@ -23,7 +23,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Latest:** `v0.5.1` — Isolates official MCP extension failures so Sisyphus tools, the CLI, and the outer MCP server keep working; adds copy-ready AI setup prompts for MCP and CLI connections. CLI is now `v0.2.1`.
+> **Latest:** `v0.5.2` — Exposes the document timeline through MCP and CLI, with stronger block-aware diffs, line statistics, paginated changes, rollbackability checks, and stale-change protection for safer document or block restoration. CLI is now `v0.2.2`.
 
 ## Project Direction Update
 
@@ -31,30 +31,14 @@ I originally built SiYuan Sisyphus simply because I wanted my own SiYuan notes t
 
 This does not replace the existing project:
 
-- the 13 Sisyphus aggregate tools, parameter conventions, notebook permissions, and existing agent workflows remain compatible;
+- the 14 Sisyphus aggregate tools, parameter conventions, notebook permissions, and existing agent workflows remain compatible;
 - Sisyphus now connects to SiYuan's official MCP endpoint and discovers tools registered by other plugins;
 - native SiYuan MCP tools can also be included explicitly, but remain disabled by default because they have a different security boundary;
 - permission management, the document timeline, and multiple connection options continue to be maintained.
 
-```mermaid
-flowchart LR
-    Agent["External AI agents<br/>Claude / Codex / Cursor / Cline / ..."]
-    Sisyphus["SiYuan Sisyphus<br/>MCP + CLI"]
-    Builtin["Sisyphus aggregate tools<br/>existing workflows remain compatible"]
-    Bridge["extension<br/>official MCP bridge"]
-    Api["SiYuan /api/*"]
-    OfficialMcp["SiYuan /mcp"]
-    PluginTools["Tools registered by other plugins"]
-    NativeTools["Native SiYuan MCP tools<br/>optional, disabled by default"]
-    Workspace["SiYuan workspace"]
+![SiYuan Sisyphus architecture](./assets/architecture.svg)
 
-    Agent --> Sisyphus
-    Sisyphus --> Builtin
-    Sisyphus --> Bridge
-    Builtin --> Api --> Workspace
-    Bridge --> OfficialMcp --> PluginTools
-    OfficialMcp -. high-risk option .-> NativeTools
-```
+> Architecture summary: external AI agents connect to Sisyphus. Its aggregate tools access the SiYuan workspace through `/api/*`, while `extension` uses the official `/mcp` endpoint to bridge tools registered by other plugins. Native SiYuan MCP tools are optional and disabled by default.
 
 The boundary is deliberate: Sisyphus-owned capabilities—including `fs`, the document timeline, permission management, CLI, document tools, and the other aggregate workflows—always use SiYuan's `/api/*` endpoints and never depend on official MCP. `/mcp` belongs exclusively to `extension`, where it discovers and forwards tools registered by other plugins and native SiYuan tools explicitly enabled by the user.
 
@@ -105,8 +89,8 @@ For complete installation and connection instructions, see [Getting Started](./d
 - **AI-friendly note access**: use human-readable `fs` paths such as `/Notebook/Project/Note` without requiring agents to understand block IDs or document-tree internals.
 - **MCP and CLI entry points**: use MCP for multi-step agent workflows and CLI for scripts, automation, and small one-shot tasks.
 - **Notebook-level safety**: assign each notebook `none`, `r`, `rw`, or `rwd` access.
-- **Low-context tool design**: group 100+ SiYuan capabilities into 13 action-routed tools and load detailed guidance only when needed.
-- **Scenario Skills for agents**: provide guidance for browsing, editing, search, databases, exports, tags, flashcards, system safety, and SiYuan markup.
+- **Low-context tool design**: group 100+ SiYuan capabilities into 14 action-routed tools and load detailed guidance only when needed.
+- **Scenario Skills for agents**: provide guidance for browsing, editing, search, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup.
 - **Git-like document timeline**: create named timeline nodes, compare snapshots, and roll back a document when needed.
 - **Practical connection setup**: generate connection snippets for common AI clients and local, remote, and Docker deployments.
 
@@ -139,19 +123,26 @@ See the [`extension` tool documentation](./docs/reference/tools/extension.md) fo
 ## Git-Like Document Timeline
 
 <p align="center">
-  <img src="docs/archive/timeline.png" alt="Document Timeline" width="720">
+  <img src="docs/archive/timeline-split.svg" alt="Separate Document Snapshots and Diff docks" width="900">
 </p>
-<p align="center"><em>Document Timeline: named snapshots, visual diff, and rollback for SiYuan notes.</em></p>
+<p align="center"><em>The left snapshots dock manages nodes; the right diff dock compares and restores on demand.</em></p>
 
 The timeline gives ordinary SiYuan documents a source-control-style safety layer:
 
-- create named timeline nodes for the current document;
+- create document-only nodes or global nodes visible in every document;
+- manage nodes in a compact, collapsible left dock inspired by VSCode Source Control;
+- open the right Document Diff dock automatically when selecting a node, while node creation only refreshes and highlights the new entry;
+- distinguish scopes with colored dots and Document / Global badges in one chronological list;
+- delete document or global nodes by removing only their protective tags while retaining the underlying snapshots;
 - compare a historical snapshot with the current document;
 - switch between unified and split diff;
 - use a minimap-style change navigator and collapse unchanged blocks;
+- preserve older timeline nodes in a legacy archive, link one legacy node to multiple documents, or safely convert it into a new global node;
 - roll back the whole document, or restore supported parsed blocks individually.
 
-This is a document-focused timeline built on SiYuan snapshots. It is intentionally not a complete Git replacement or source-control workflow.
+The snapshots dock reads only attribute and tag metadata. A current-state snapshot and diff are created only after a node is selected, and only for that node. The foundation is still SiYuan's workspace-wide snapshots: document ownership is recorded in document attributes, while global nodes are recovered from tags. It is intentionally not a complete Git replacement or source-control workflow.
+
+The same workflow is available to MCP clients and the standalone CLI through the [`timeline` aggregate tool](./docs/reference/tools/timeline.md). Node deletion and both rollback actions are high-risk and disabled by default.
 
 ## MCP And CLI Entry Points
 
@@ -163,7 +154,7 @@ MCP and CLI share the same Sisyphus core call path, preventing one capability fr
 
 ## Scenario Skills For Agents
 
-The MCP server includes scenario-oriented guidance for browsing, editing, search, databases, exports, tags, flashcards, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
+The MCP server includes scenario-oriented guidance for browsing, editing, search, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. For timeline work, load `siyuan://skills/siyuan-mcp-timeline` or invoke the `siyuan_timeline` prompt. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
 
 Agents that support installable `SKILL.md` packages can install the same guidance locally:
 

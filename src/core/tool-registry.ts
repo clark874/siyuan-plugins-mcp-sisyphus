@@ -18,6 +18,7 @@ import {
     callSearchTool,
     callSystemTool,
     callTagTool,
+    callTimelineTool,
     listAvTools,
     listBlockTools,
     listDocumentTools,
@@ -31,6 +32,7 @@ import {
     listSearchTools,
     listSystemTools,
     listTagTools,
+    listTimelineTools,
     prepareExtensionTools,
 } from '@/tools/index';
 
@@ -80,6 +82,7 @@ export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
     feedback: { category: 'feedback', listTools: listFeedbackTools as ToolModule['listTools'], callTool: callFeedbackTool as ToolModule['callTool'] },
     search: { category: 'search', listTools: listSearchTools as ToolModule['listTools'], callTool: callSearchTool as ToolModule['callTool'] },
     tag: { category: 'tag', listTools: listTagTools as ToolModule['listTools'], callTool: callTagTool as ToolModule['callTool'] },
+    timeline: { category: 'timeline', listTools: listTimelineTools as ToolModule['listTools'], callTool: callTimelineTool as ToolModule['callTool'] },
     system: { category: 'system', listTools: listSystemTools as ToolModule['listTools'], callTool: callSystemTool as ToolModule['callTool'] },
     flashcard: { category: 'flashcard', listTools: listFlashcardTools as ToolModule['listTools'], callTool: callFlashcardTool as ToolModule['callTool'] },
     extension: {

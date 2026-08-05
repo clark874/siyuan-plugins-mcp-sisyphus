@@ -212,7 +212,7 @@ const filtered = results.filter(item => {
 
 | Dimension | Coverage | Tools |
 |-----------|----------|-------|
-| Functional | All actions | 13 tools |
+| Functional | All actions | 14 tools |
 | Permission | r / rw / none / rwd | notebook tool |
 | Scenario | Real user workflows | Multi-role simulation |
 | Boundary | Empty, oversized, special chars | Per-tool edge cases |
