@@ -14,20 +14,28 @@
         type RepoSnapshotFileChange,
     } from "./block-diff";
     import {
+        createGlobalTimelineTagName,
+        createTimelineNodeRecord,
         createTimelineTagName,
         filterChangedUniqueTimelineEntries,
         formatSnapshotTime,
         getDocumentKey,
+        getTimelineNodeIdentity,
         canReuseLiveDocumentBlock,
+        isTimelineNodeRecordPayloadValid,
+        migrateLegacyTimelineSnapshotToGlobal,
         parseTimelineNodeRecords,
+        reconcileDocumentTimelineNodes,
         selectInitialTimelineEntry,
         serializeTimelineNodeRecords,
         shouldUpdateDiffViewportState,
         snapshotLabel,
         sortSnapshotsNewestFirst,
+        GLOBAL_TIMELINE_TAG_VERIFICATION_ERROR,
         type TimelineEntry,
         type TimelineEntryContent,
         type TimelineNodeRecord,
+        type TimelineNodeScope,
         type TimelineSnapshot,
     } from "./timeline";
 
@@ -74,10 +82,15 @@
     export let i18n: Record<string, string> = {};
 
     let timelineNodes: TimelineNodeRecord[] = [];
+    let legacySnapshots: Snapshot[] = [];
+    let legacyArchiveExpanded = false;
+    let linkingLegacySnapshotId = "";
+    let convertingLegacySnapshotId = "";
     let currentSnapshot: Snapshot | null = null;
     let timelineEntries: TimelineEntry[] = [];
     let selectedEntryKey = "";
     let memo = "";
+    let createScope: TimelineNodeScope = "document";
     let loadingSnapshots = false;
     let loadingDiff = false;
     let loadingFile = false;
@@ -690,17 +703,37 @@
 
     async function loadTimeline() {
         if (!shouldAutoLoadTimeline()) return;
+        const documentId = currentDocumentId;
         loadingSnapshots = true;
         loadingDiff = true;
         error = "";
         clearDiff();
-        loadedDocumentId = currentDocumentId;
+        loadedDocumentId = documentId;
         try {
             await refreshDocumentTitle();
-            const nodes = await readTimelineNodes();
-            if (!shouldAutoLoadTimeline()) return;
+            const [attrNodes, tagData] = await Promise.all([
+                readTimelineNodes(documentId),
+                readTimelineTagSnapshots(),
+            ]);
+            if (!shouldAutoLoadTimeline() || currentDocumentId !== documentId) return;
+            const reconciliation = reconcileDocumentTimelineNodes(
+                documentId,
+                attrNodes,
+                tagData,
+            );
+            const documentNodes = reconciliation.documentNodes;
+            const nodes = [...documentNodes, ...reconciliation.globalNodes];
             timelineNodes = nodes;
-            if (!currentDocumentId || nodes.length === 0) {
+            legacySnapshots = reconciliation.legacySnapshots;
+            if (reconciliation.attrChanged) {
+                try {
+                    await writeTimelineNodes(documentNodes, documentId);
+                } catch {
+                    // The document-scoped tag remains a durable recovery index.
+                    // Keep the recovered node visible and retry attr repair on the next load.
+                }
+            }
+            if (nodes.length === 0) {
                 currentSnapshot = null;
                 timelineEntries = [];
                 selectedEntryKey = "";
@@ -710,7 +743,15 @@
             const entryContents: TimelineEntryContent[] = [];
             const contentCache = new Map<string, string>();
             for (const node of nodes) {
-                if (!node.snapshotId || node.snapshotId === currentSnapshot.id) continue;
+                if (!node.snapshotId) continue;
+                if (node.snapshotId === currentSnapshot.id) {
+                    entryContents.push({
+                        entry: createNoChangeTimelineEntry(node, currentSnapshot),
+                        oldContent: "",
+                        newContent: "",
+                    });
+                    continue;
+                }
                 const diff = await post<Record<string, RepoSnapshotFileChange[] | unknown>>("/api/repo/diffRepoSnapshots", {
                     left: node.snapshotId,
                     right: currentSnapshot.id,
@@ -724,11 +765,19 @@
                     });
                     continue;
                 }
-                const entry = createCurrentComparisonEntry(snapshotFromNode(node), currentSnapshot, changedFile);
+                const entry = createCurrentComparisonEntry(snapshotFromNode(node), currentSnapshot, changedFile, node.scope);
                 const [oldSnapshotContent, newSnapshotContent] = await Promise.all([
                     readSnapshotFileContent(entry.oldFileId, contentCache),
                     readSnapshotFileContent(entry.newFileId, contentCache),
                 ]);
+                if (oldSnapshotContent === newSnapshotContent) {
+                    entryContents.push({
+                        entry: createNoChangeTimelineEntry(node, currentSnapshot),
+                        oldContent: "",
+                        newContent: "",
+                    });
+                    continue;
+                }
                 entryContents.push({
                     entry,
                     oldContent: oldSnapshotContent,
@@ -748,22 +797,110 @@
         }
     }
 
-    async function readTimelineNodes(): Promise<TimelineNodeRecord[]> {
-        if (!currentDocumentId) return [];
+    async function readTimelineTagSnapshots(): Promise<Snapshot[]> {
         try {
-            const attrs = await post<Record<string, string>>("/api/attr/getBlockAttrs", { id: currentDocumentId });
-            return parseTimelineNodeRecords(attrs?.[TIMELINE_NODE_ATTR_KEY]);
+            const data = await post<{ snapshots?: Snapshot[] }>("/api/repo/getRepoTagSnapshots", {});
+            return data.snapshots ?? [];
         } catch {
             return [];
         }
     }
 
-    async function writeTimelineNodes(nodes: TimelineNodeRecord[]) {
-        if (!currentDocumentId) return;
+    async function readTimelineNodes(documentId = currentDocumentId): Promise<TimelineNodeRecord[]> {
+        if (!documentId) return [];
+        const attrs = await post<Record<string, string>>("/api/attr/getBlockAttrs", { id: documentId });
+        const raw = attrs?.[TIMELINE_NODE_ATTR_KEY];
+        if (!isTimelineNodeRecordPayloadValid(raw)) {
+            throw new Error(t("timeline_error_invalid_node_index", "文档时间线索引损坏，已停止写入以保护历史节点"));
+        }
+        const nodes = parseTimelineNodeRecords(raw);
+        return nodes;
+    }
+
+    async function writeTimelineNodes(nodes: TimelineNodeRecord[], documentId = currentDocumentId) {
+        if (!documentId) return;
+        const documentNodes = nodes.filter((node) => node.scope === "document");
         await post("/api/attr/setBlockAttrs", {
-            id: currentDocumentId,
-            attrs: { [TIMELINE_NODE_ATTR_KEY]: serializeTimelineNodeRecords(nodes) },
+            id: documentId,
+            attrs: { [TIMELINE_NODE_ATTR_KEY]: serializeTimelineNodeRecords(documentNodes) },
         });
+    }
+
+    async function associateLegacySnapshot(snapshot: Snapshot) {
+        const documentId = currentDocumentId;
+        if (!documentId || !snapshot.id || linkingLegacySnapshotId || convertingLegacySnapshotId) return;
+        const confirmed = window.confirm(t(
+            "timeline_confirm_link_legacy_node",
+            "将旧版节点「${node}」关联到文档「${title}」？旧 tag 会保留。",
+            { node: snapshotLabel(snapshot), title: displayDocumentTitle },
+        ));
+        if (!confirmed) return;
+        linkingLegacySnapshotId = snapshot.id;
+        error = "";
+        try {
+            const nodes = await readTimelineNodes(documentId);
+            const legacyNode = createTimelineNodeRecord(snapshot, "document", "legacy");
+            const identity = getTimelineNodeIdentity(legacyNode);
+            if (!nodes.some((node) => getTimelineNodeIdentity(node) === identity)) {
+                nodes.push(legacyNode);
+                await writeTimelineNodes(nodes, documentId);
+            }
+            showMessage(t("timeline_msg_legacy_node_linked", "旧版节点已关联到当前文档"));
+            await loadTimeline();
+        } catch (err) {
+            error = getErrorMessage(err);
+        } finally {
+            linkingLegacySnapshotId = "";
+        }
+    }
+
+    function isLegacySnapshotLinked(snapshot: Snapshot): boolean {
+        const identity = getTimelineNodeIdentity(createTimelineNodeRecord(snapshot, "document", "legacy"));
+        return timelineNodes.some((node) => (
+            node.scope === "document"
+            && node.source === "legacy"
+            && getTimelineNodeIdentity(node) === identity
+        ));
+    }
+
+    async function convertLegacySnapshotToGlobal(snapshot: Snapshot) {
+        if (!snapshot.id || !snapshot.tag || linkingLegacySnapshotId || convertingLegacySnapshotId) return;
+        const confirmed = window.confirm(t(
+            "timeline_confirm_convert_legacy_global",
+            "将旧版节点「${node}」转为全局节点？它将显示在所有文档的时间线中。",
+            { node: snapshotLabel(snapshot) },
+        ));
+        if (!confirmed) return;
+
+        convertingLegacySnapshotId = snapshot.id;
+        error = "";
+        try {
+            const taggedSnapshots = await readTimelineTagSnapshots();
+            const existingTags = taggedSnapshots
+                .map((item) => item.tag)
+                .filter((tag): tag is string => Boolean(tag));
+            const migration = await migrateLegacyTimelineSnapshotToGlobal(snapshot, existingTags, {
+                addTag: (snapshotId, tag) => post("/api/repo/tagSnapshot", { id: snapshotId, name: tag }),
+                readTaggedSnapshots: readTimelineTagSnapshots,
+                removeTag: (tag) => post("/api/repo/removeRepoTagSnapshot", { tag }),
+            });
+
+            if (!migration.oldTagRemoved) {
+                showMessage(t(
+                    "timeline_msg_legacy_global_partial",
+                    "已创建全局节点，但旧 tag 删除失败；两者均已保留，时间线会自动隐藏重复项",
+                ));
+            } else {
+                showMessage(t("timeline_msg_legacy_global_converted", "旧版节点已转为全局节点"));
+            }
+            await loadTimeline();
+        } catch (err) {
+            error = getErrorMessage(err) === GLOBAL_TIMELINE_TAG_VERIFICATION_ERROR
+                ? t("timeline_error_global_tag_verification_failed", "全局 tag 创建后未能验证，旧 tag 已保留")
+                : getErrorMessage(err);
+        } finally {
+            convertingLegacySnapshotId = "";
+        }
     }
 
     function snapshotFromNode(node: TimelineNodeRecord): Snapshot {
@@ -775,21 +912,23 @@
     }
 
     function createNoChangeTimelineEntry(node: TimelineNodeRecord, current: Snapshot): TimelineEntry {
+        const nodeKey = encodeURIComponent(node.tag || node.name);
         return {
-            key: `${node.snapshotId}:${current.id}:${currentDocumentId}:nochange`,
+            key: `${node.snapshotId}:${current.id}:${currentDocumentId}:nochange:${nodeKey}`,
             documentKey: currentDocumentId,
             title: node.name || currentDocumentTitle || currentDocumentId,
             kind: "modified",
             snapshot: snapshotFromNode(node),
             previousSnapshot: current,
             file: {
-                key: `${currentDocumentId}:nochange:${node.snapshotId}`,
+                key: `${currentDocumentId}:nochange:${node.snapshotId}:${nodeKey}`,
                 kind: "modified",
                 title: node.name || currentDocumentTitle || currentDocumentId,
                 documentId: currentDocumentId,
             },
             oldFileId: "",
             newFileId: "",
+            scope: node.scope,
             hasDiff: false,
             noChanges: true,
             updated: node.created,
@@ -830,11 +969,17 @@
         return files.find((file) => getDocumentKey(file) === currentDocumentId);
     }
 
-    function createCurrentComparisonEntry(snapshot: Snapshot, current: Snapshot, file: ChangedSnapshotFile): TimelineEntry {
+    function createCurrentComparisonEntry(
+        snapshot: Snapshot,
+        current: Snapshot,
+        file: ChangedSnapshotFile,
+        scope: TimelineNodeScope,
+    ): TimelineEntry {
         const oldFileId = getSnapshotFileId(file.oldFile);
         const newFileId = getSnapshotFileId(file.newFile);
+        const snapshotKey = encodeURIComponent(snapshot.tag || snapshot.id);
         return {
-            key: `${snapshot.id}:${current.id}:${currentDocumentId}:${oldFileId}:${newFileId}`,
+            key: `${snapshot.id}:${snapshotKey}:${current.id}:${currentDocumentId}:${oldFileId}:${newFileId}`,
             documentKey: currentDocumentId,
             title: file.title || currentDocumentTitle || currentDocumentId,
             kind: file.kind,
@@ -843,6 +988,7 @@
             file,
             oldFileId,
             newFileId,
+            scope,
             hasDiff: true,
             updated: file.newFile?.updated ?? file.oldFile?.updated ?? snapshot.updated ?? snapshot.created,
         };
@@ -864,16 +1010,29 @@
             await post("/api/repo/createSnapshot", { memo: text });
             const snapshot = await findNewestSnapshotForMemo(text);
             if (!snapshot?.id) throw new Error(t("timeline_error_new_snapshot_not_found", "快照已创建，但未能定位新快照"));
-            const existingTags = timelineNodes
+            const taggedSnapshots = await readTimelineTagSnapshots();
+            const existingTags = taggedSnapshots
                 .map((node) => node.tag)
                 .filter((tag): tag is string => Boolean(tag));
-            const tagName = createTimelineTagName(text, currentDocumentId, existingTags);
+            const tagName = createScope === "global"
+                ? createGlobalTimelineTagName(text, existingTags)
+                : createTimelineTagName(text, currentDocumentId, existingTags);
             await post("/api/repo/tagSnapshot", { id: snapshot.id, name: tagName });
-            const nodes = await readTimelineNodes();
-            nodes.push({ name: text, created: Date.now(), snapshotId: snapshot.id, tag: tagName });
-            await writeTimelineNodes(nodes);
+            if (createScope === "document") {
+                const nodes = await readTimelineNodes();
+                nodes.push({
+                    name: text,
+                    created: Date.now(),
+                    snapshotId: snapshot.id,
+                    tag: tagName,
+                    scope: "document",
+                });
+                await writeTimelineNodes(nodes);
+            }
             memo = "";
-            showMessage(t("timeline_msg_node_created", "时间线节点已创建"));
+            showMessage(createScope === "global"
+                ? t("timeline_msg_global_node_created", "全局时间线节点已创建")
+                : t("timeline_msg_document_node_created", "文档时间线节点已创建"));
             await loadTimeline();
         } catch (err) {
             error = getErrorMessage(err);
@@ -932,7 +1091,7 @@
                 clearDiff();
                 return;
             }
-            const refreshedEntry = createCurrentComparisonEntry(baseEntry.snapshot, currentSnapshot, changedFile);
+            const refreshedEntry = createCurrentComparisonEntry(baseEntry.snapshot, currentSnapshot, changedFile, baseEntry.scope);
             timelineEntries = timelineEntries.map((entry) => entry.key === entryKey ? refreshedEntry : entry);
             selectedEntryKey = refreshedEntry.key;
             await loadTimelineEntry(refreshedEntry);
@@ -1435,6 +1594,20 @@
                         <button type="button" class="vc-icon-button vc-sidebar-collapse" on:click={toggleTimelineCollapsed} title={t("timeline_action_collapse", "折叠时间线")} aria-label={t("timeline_action_collapse", "折叠时间线")}>›</button>
                     {/if}
                 </div>
+                <div class="vc-scope-selector" role="group" aria-label={t("timeline_create_scope", "节点作用域")}>
+                    <button
+                        type="button"
+                        class:active={createScope === "document"}
+                        on:click={() => createScope = "document"}
+                        title={t("timeline_scope_document_description", "仅显示在当前文档的时间线中")}
+                    >{t("timeline_scope_document_node", "文档节点")}</button>
+                    <button
+                        type="button"
+                        class:active={createScope === "global"}
+                        on:click={() => createScope = "global"}
+                        title={t("timeline_scope_global_description", "显示在所有文档的时间线中")}
+                    >{t("timeline_scope_global_node", "全局节点")}</button>
+                </div>
                 <textarea bind:value={memo} rows="3" placeholder={t("timeline_node_placeholder", "例如 feat：重构文档工具")}></textarea>
                 <button type="button" class="vc-primary" on:click={createTimelineNode} disabled={loadingSnapshots}>{t("timeline_action_create_node", "创建节点")}</button>
             </section>
@@ -1451,21 +1624,81 @@
                     <div class="vc-timeline">
                         {#each documentEntries as entry}
                             <button type="button" class:selected={entry.key === selectedEntryKey} on:click={() => selectEntry(entry)}>
-                                <span class:added={entry.kind === "added"} class:removed={entry.kind === "removed"} class:modified={entry.kind === "modified"}></span>
+                                <span class="vc-scope-dot" class:global={entry.scope === "global"} class:document={entry.scope === "document"}></span>
                                 <strong>
                                     <em>{snapshotLabel(entry.snapshot)}</em>
                                     {#if formatSnapshotTime(entry.snapshot)}
                                         <small>{formatSnapshotTime(entry.snapshot)}</small>
                                     {/if}
                                 </strong>
-                                {#if showDebugMeta}
-                                    <small>{entry.kind}</small>
-                                {/if}
+                                <span class="vc-scope-badge" class:global={entry.scope === "global"} class:document={entry.scope === "document"}>
+                                    {entry.scope === "global"
+                                        ? t("timeline_scope_global_badge", "全局")
+                                        : t("timeline_scope_document_badge", "文档")}
+                                </span>
                             </button>
                         {/each}
                     </div>
                 {/if}
             </section>
+
+            {#if legacySnapshots.length > 0}
+                <section class="vc-section vc-legacy-section">
+                    <button
+                        type="button"
+                        class="vc-legacy-toggle"
+                        aria-expanded={legacyArchiveExpanded}
+                        on:click={() => legacyArchiveExpanded = !legacyArchiveExpanded}
+                    >
+                        <strong>{t("timeline_legacy_section_title", "旧版全局节点")}</strong>
+                        <small>{legacySnapshots.length}</small>
+                        <span aria-hidden="true">{legacyArchiveExpanded ? "⌄" : "›"}</span>
+                    </button>
+                    {#if legacyArchiveExpanded}
+                        <p class="vc-legacy-description">
+                            {t("timeline_legacy_description", "这些节点由旧版本创建，快照仍受原 tag 保护。可关联到多个文档，或转为所有文档可见的全局节点。")}
+                        </p>
+                        <div class="vc-legacy-list">
+                            {#each legacySnapshots as snapshot (`${snapshot.id}:${snapshot.tag ?? ""}`)}
+                                <article class="vc-legacy-item">
+                                    <div>
+                                        <strong>{snapshotLabel(snapshot)}</strong>
+                                        {#if formatSnapshotTime(snapshot)}
+                                            <small>{formatSnapshotTime(snapshot)}</small>
+                                        {/if}
+                                        {#if showDebugMeta}
+                                            <code>{snapshot.id}</code>
+                                        {/if}
+                                    </div>
+                                    <div class="vc-legacy-actions">
+                                        <button
+                                            type="button"
+                                            on:click={() => associateLegacySnapshot(snapshot)}
+                                            disabled={isLegacySnapshotLinked(snapshot) || Boolean(linkingLegacySnapshotId) || Boolean(convertingLegacySnapshotId) || loadingSnapshots}
+                                        >
+                                            {isLegacySnapshotLinked(snapshot)
+                                                ? t("timeline_action_legacy_node_linked", "已关联当前文档")
+                                                : linkingLegacySnapshotId === snapshot.id
+                                                    ? t("timeline_action_linking_legacy_node", "正在关联...")
+                                                    : t("timeline_action_link_legacy_node", "添加为文档节点")}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="vc-global-action"
+                                            on:click={() => convertLegacySnapshotToGlobal(snapshot)}
+                                            disabled={Boolean(linkingLegacySnapshotId) || Boolean(convertingLegacySnapshotId) || loadingSnapshots}
+                                        >
+                                            {convertingLegacySnapshotId === snapshot.id
+                                                ? t("timeline_action_converting_legacy_global", "正在转换...")
+                                                : t("timeline_action_convert_legacy_global", "转为全局节点")}
+                                        </button>
+                                    </div>
+                                </article>
+                            {/each}
+                        </div>
+                    {/if}
+                </section>
+            {/if}
         {/if}
     </aside>
 </div>
@@ -1608,6 +1841,28 @@
         border-color: var(--b3-theme-primary);
     }
 
+    .vc-scope-selector {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        padding: 2px;
+        border: 1px solid var(--b3-border-color);
+        border-radius: 7px;
+        background: var(--b3-theme-surface);
+    }
+
+    .vc-scope-selector button {
+        min-height: 28px;
+        border: 0;
+        background: transparent;
+        font-size: 12px;
+    }
+
+    .vc-scope-selector button.active {
+        background: var(--b3-theme-background);
+        color: var(--b3-theme-primary);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--b3-theme-primary) 42%, var(--b3-border-color));
+    }
+
     .vc-timeline {
         display: grid;
         gap: 6px;
@@ -1649,11 +1904,11 @@
         font-weight: 400;
     }
 
-    .vc-timeline span {
+    .vc-timeline .vc-scope-dot {
         width: 8px;
         height: 8px;
         border-radius: 999px;
-        background: var(--b3-theme-on-surface);
+        background: var(--b3-theme-primary);
     }
 
     .vc-timeline small {
@@ -1662,16 +1917,104 @@
         font-size: 11px;
     }
 
-    .vc-timeline .added {
-        background: #2ea043;
+    .vc-timeline .vc-scope-dot.global {
+        background: #7657e8;
     }
 
-    .vc-timeline .removed {
-        background: #f85149;
+    .vc-scope-badge {
+        width: auto;
+        height: auto;
+        border: 1px solid color-mix(in srgb, var(--b3-theme-primary) 38%, var(--b3-border-color));
+        border-radius: 999px;
+        padding: 1px 6px;
+        color: var(--b3-theme-primary);
+        background: color-mix(in srgb, var(--b3-theme-primary) 8%, transparent);
+        font-size: 10px;
+        line-height: 1.5;
     }
 
-    .vc-timeline .modified {
-        background: #d29922;
+    .vc-scope-badge.global {
+        border-color: color-mix(in srgb, #7657e8 48%, var(--b3-border-color));
+        color: #7657e8;
+        background: color-mix(in srgb, #7657e8 10%, transparent);
+    }
+
+    .vc-legacy-section {
+        border-top: 1px solid var(--b3-border-color);
+    }
+
+    .vc-legacy-toggle {
+        width: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 8px;
+        align-items: center;
+        text-align: left;
+        background: transparent;
+    }
+
+    .vc-legacy-toggle strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vc-legacy-toggle small,
+    .vc-legacy-description,
+    .vc-legacy-item small {
+        color: var(--b3-theme-on-surface);
+        font-size: 11px;
+    }
+
+    .vc-legacy-description {
+        margin: 8px 0;
+        line-height: 1.5;
+    }
+
+    .vc-legacy-list {
+        display: grid;
+        gap: 8px;
+    }
+
+    .vc-legacy-item {
+        display: grid;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid var(--b3-border-color);
+        border-radius: 6px;
+        background: var(--b3-theme-surface);
+    }
+
+    .vc-legacy-item > div {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+    }
+
+    .vc-legacy-item strong,
+    .vc-legacy-item small,
+    .vc-legacy-item code {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vc-legacy-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+
+    .vc-legacy-actions button {
+        min-width: 0;
+        width: 100%;
+        padding-inline: 6px;
+        font-size: 11px;
+    }
+
+    .vc-legacy-actions .vc-global-action {
+        border-color: color-mix(in srgb, #7657e8 48%, var(--b3-border-color));
+        color: #7657e8;
     }
 
     .vc-main {

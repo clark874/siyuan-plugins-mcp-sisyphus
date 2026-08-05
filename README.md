@@ -129,13 +129,15 @@ See the [`extension` tool documentation](./docs/reference/tools/extension.md) fo
 
 The timeline gives ordinary SiYuan documents a source-control-style safety layer:
 
-- create named timeline nodes for the current document;
+- create document-only nodes or global nodes visible in every document;
+- distinguish scopes with colored dots and Document / Global badges in one chronological list;
 - compare a historical snapshot with the current document;
 - switch between unified and split diff;
 - use a minimap-style change navigator and collapse unchanged blocks;
+- preserve older timeline nodes in a legacy archive, link one legacy node to multiple documents, or safely convert it into a new global node;
 - roll back the whole document, or restore supported parsed blocks individually.
 
-This is a document-focused timeline built on SiYuan snapshots. It is intentionally not a complete Git replacement or source-control workflow.
+This is a document-aware timeline built on SiYuan workspace-wide snapshots: document ownership is recorded in document attributes, while global nodes are recovered from tags. It is intentionally not a complete Git replacement or source-control workflow.
 
 ## MCP And CLI Entry Points
 
