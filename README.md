@@ -31,7 +31,7 @@ I originally built SiYuan Sisyphus simply because I wanted my own SiYuan notes t
 
 This does not replace the existing project:
 
-- the 13 Sisyphus aggregate tools, parameter conventions, notebook permissions, and existing agent workflows remain compatible;
+- the 14 Sisyphus aggregate tools, parameter conventions, notebook permissions, and existing agent workflows remain compatible;
 - Sisyphus now connects to SiYuan's official MCP endpoint and discovers tools registered by other plugins;
 - native SiYuan MCP tools can also be included explicitly, but remain disabled by default because they have a different security boundary;
 - permission management, the document timeline, and multiple connection options continue to be maintained.
@@ -89,8 +89,8 @@ For complete installation and connection instructions, see [Getting Started](./d
 - **AI-friendly note access**: use human-readable `fs` paths such as `/Notebook/Project/Note` without requiring agents to understand block IDs or document-tree internals.
 - **MCP and CLI entry points**: use MCP for multi-step agent workflows and CLI for scripts, automation, and small one-shot tasks.
 - **Notebook-level safety**: assign each notebook `none`, `r`, `rw`, or `rwd` access.
-- **Low-context tool design**: group 100+ SiYuan capabilities into 13 action-routed tools and load detailed guidance only when needed.
-- **Scenario Skills for agents**: provide guidance for browsing, editing, search, databases, exports, tags, flashcards, system safety, and SiYuan markup.
+- **Low-context tool design**: group 100+ SiYuan capabilities into 14 action-routed tools and load detailed guidance only when needed.
+- **Scenario Skills for agents**: provide guidance for browsing, editing, search, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup.
 - **Git-like document timeline**: create named timeline nodes, compare snapshots, and roll back a document when needed.
 - **Practical connection setup**: generate connection snippets for common AI clients and local, remote, and Docker deployments.
 
@@ -142,6 +142,8 @@ The timeline gives ordinary SiYuan documents a source-control-style safety layer
 
 The snapshots dock reads only attribute and tag metadata. A current-state snapshot and diff are created only after a node is selected, and only for that node. The foundation is still SiYuan's workspace-wide snapshots: document ownership is recorded in document attributes, while global nodes are recovered from tags. It is intentionally not a complete Git replacement or source-control workflow.
 
+The same workflow is available to MCP clients and the standalone CLI through the [`timeline` aggregate tool](./docs/reference/tools/timeline.md). Node deletion and both rollback actions are high-risk and disabled by default.
+
 ## MCP And CLI Entry Points
 
 Use **MCP** when an AI client should discover tools, compose multi-step operations, and verify results. It fits agent workflows involving search, reading, editing, database inspection, and official plugin tools.
@@ -152,7 +154,7 @@ MCP and CLI share the same Sisyphus core call path, preventing one capability fr
 
 ## Scenario Skills For Agents
 
-The MCP server includes scenario-oriented guidance for browsing, editing, search, databases, exports, tags, flashcards, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
+The MCP server includes scenario-oriented guidance for browsing, editing, search, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. For timeline work, load `siyuan://skills/siyuan-mcp-timeline` or invoke the `siyuan_timeline` prompt. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
 
 Agents that support installable `SKILL.md` packages can install the same guidance locally:
 

@@ -9,6 +9,7 @@ import {
     type SearchAction,
     type SystemAction,
     type TagAction,
+    type TimelineAction,
     type MascotAction,
     type FeedbackAction,
     type FsAction,
@@ -102,6 +103,13 @@ export const TAG_GUIDANCE: string[] = [
     'There is no direct create action for tags; tags are created by writing #tag# into block markdown content.',
     'tag(action="remove") requires explicit user confirmation before execution.',
     'Recently written tags may appear with a short indexing delay in tag list/search results; retry briefly before treating that as a failure.',
+];
+
+export const TIMELINE_GUIDANCE: string[] = [
+    'timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.',
+    'compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.',
+    'delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.',
+    'Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.',
 ];
 
 export const SYSTEM_GUIDANCE: string[] = [
@@ -264,6 +272,15 @@ export const TAG_ACTION_HINTS: Partial<Record<TagAction, string>> = {
     remove: 'Deletes a workspace tag label. This action requires explicit user confirmation.',
 };
 
+export const TIMELINE_ACTION_HINTS: Partial<Record<TimelineAction, string>> = {
+    list_nodes: 'Use scope="global" without documentId, or scope="document"|"all" with documentId. Results are newest first and paginated.',
+    create_node: 'Use scope="document" with documentId for a document node, or scope="global" for a node visible to every document. The returned tag is the stable identifier for later actions.',
+    compare_node: 'Compares the tagged historical node with a newly created current-state snapshot for one document. Changed blocks are paginated; includeUnchanged defaults to false.',
+    delete_node: 'Removes the node tag but retains the underlying snapshot. Document tags require their matching documentId. This action is dangerous and disabled by default.',
+    rollback_document: 'Restores only the selected document file from the historical node, not the whole repository. Requires rwd and explicit confirmation; disabled by default.',
+    rollback_block: 'Pass a changeKey from compare_node. The diff is recalculated and stale or non-restorable changes are rejected. Requires rwd and explicit confirmation; disabled by default.',
+};
+
 export const SYSTEM_ACTION_HINTS: Partial<Record<SystemAction, string>> = {
     workspace_info: 'Returns workspace path metadata and current SiYuan version. High-risk: leaks the absolute workspace path; disabled by default and requires explicit user confirmation.',
     network: 'Returns masked proxy information only.',
@@ -307,6 +324,7 @@ export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
     file: FILE_GUIDANCE,
     search: SEARCH_GUIDANCE,
     tag: TAG_GUIDANCE,
+    timeline: TIMELINE_GUIDANCE,
     system: SYSTEM_GUIDANCE,
     flashcard: FLASHCARD_GUIDANCE,
     extension: EXTENSION_GUIDANCE,
@@ -323,6 +341,7 @@ export const TOOL_ACTION_HINTS: Record<ToolCategory, Partial<Record<string, stri
     file: FILE_ACTION_HINTS,
     search: SEARCH_ACTION_HINTS,
     tag: TAG_ACTION_HINTS,
+    timeline: TIMELINE_ACTION_HINTS,
     system: SYSTEM_ACTION_HINTS,
     flashcard: FLASHCARD_ACTION_HINTS,
     extension: EXTENSION_ACTION_HINTS,
@@ -502,6 +521,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
     },
     search: {},
     tag: {},
+    timeline: {},
     system: {
         changelog: [
             {

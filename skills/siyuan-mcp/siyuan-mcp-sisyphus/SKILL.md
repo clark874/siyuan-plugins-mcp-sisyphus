@@ -17,12 +17,13 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 | Attribute views, columns, rows, and cells | `siyuan-mcp-database` |
 | Assets, extraction, and exports | `siyuan-mcp-file-export` |
 | Tags, decks, cards, and review | `siyuan-mcp-tag-flashcard` |
+| Timeline nodes, snapshot comparison, and rollback | `siyuan-mcp-timeline` |
 | Permissions, system information, and dangerous operations | `siyuan-mcp-system-safety` |
 | Rich Markdown, math, diagrams, and SiYuan markup | `siyuan-mcp-markup-guide` |
 
 ## Tool choice
 
-Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `av` for real databases rather than Markdown tables. Low-complexity `feedback` and `mascot` actions need no separate scenario skill.
+Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `av` for real databases rather than Markdown tables. Use `timeline` for named snapshots, document diffs, and rollback. Low-complexity `feedback` and `mascot` actions need no separate scenario skill.
 
 ```text
 system(action="get_version")

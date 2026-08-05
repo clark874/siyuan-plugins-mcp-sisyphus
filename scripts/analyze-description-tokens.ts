@@ -12,6 +12,7 @@ const toolBaseDescriptions: Record<string, string> = {
   file: '📁 Grouped file and asset operations.',
   search: '🔍 Grouped search and query operations.',
   tag: '🏷️ Grouped tag operations.',
+  timeline: '🕓 Grouped document timeline, snapshot diff, and rollback operations.',
   system: '🖥️ Grouped system and notification operations.',
   mascot: '🐾 Grouped mascot balance and care operations. Every successful MCP tool call earns 1 coin for the mascot.',
 };
@@ -25,6 +26,7 @@ const toolBasicActions: Record<string, string[]> = {
   file: ['export_md', 'upload_asset'],
   search: ['fulltext', 'query_sql', 'search_tag', 'get_backlinks', 'get_backmentions'],
   tag: ['list', 'rename'],
+  timeline: ['list_nodes', 'create_node', 'compare_node'],
   system: ['get_version', 'get_current_time', 'conf', 'boot_progress'],
   mascot: ['get_balance', 'shop', 'buy'],
 };
@@ -38,6 +40,7 @@ const toolAdvancedActions: Record<string, string[]> = {
   file: ['render_template', 'render_sprig', 'export_resources'],
   search: [],
   tag: ['remove'],
+  timeline: ['delete_node', 'rollback_document', 'rollback_block'],
   system: ['workspace_info', 'network', 'changelog', 'sys_fonts', 'push_msg', 'push_err_msg'],
   mascot: [],
 };
@@ -71,6 +74,10 @@ const toolGuidance: Record<string, string[]> = {
   tag: [
     'Tag actions operate across the whole workspace rather than a single notebook.',
     'There is no direct create action for tags; tags are created by writing #标签# into block markdown content.',
+  ],
+  timeline: [
+    'timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.',
+    'compare_node creates an untagged current-state workspace snapshot before calculating the document diff.',
   ],
   system: [
     'All system actions in this tool are read-only.',
@@ -174,6 +181,12 @@ get_backmentions: Returns documents/blocks that mention the name of the given bl
   tag: `list: Optional sort, ignoreMaxListHint, and app are passed through to SiYuan.
 rename: Renames a workspace tag label everywhere it appears.
 remove: Deletes a workspace tag label. This action requires explicit user confirmation.`,
+  timeline: `list_nodes: Lists global or document timeline nodes with pagination.
+create_node: Creates a named global or document node and returns its stable tag.
+compare_node: Returns paginated block changes and opaque changeKey values.
+delete_node: Removes only the protective tag; dangerous and disabled by default.
+rollback_document: Restores one document file; dangerous and disabled by default.
+rollback_block: Restores one still-matching block change; dangerous and disabled by default.`,
   system: `workspace_info: Returns workspace path metadata and current SiYuan version. High-risk: leaks the absolute workspace path; disabled by default and requires explicit user confirmation.
 network: Returns masked proxy information only.
 changelog: Returns show/html fields for the current version changelog when available.

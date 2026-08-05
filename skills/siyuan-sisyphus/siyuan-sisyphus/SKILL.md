@@ -17,12 +17,13 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 | Attribute views, columns, rows, and cells | `siyuan-sisyphus-database` |
 | Assets, extraction, and exports | `siyuan-sisyphus-file-export` |
 | Tags, decks, cards, and review | `siyuan-sisyphus-tag-flashcard` |
+| Timeline nodes, snapshot comparison, and rollback | `siyuan-sisyphus-timeline` |
 | Permissions, system information, and dangerous operations | `siyuan-sisyphus-system-cli` |
 | Rich Markdown, math, diagrams, and SiYuan markup | `siyuan-markup-guide` |
 
 ## Tool choice
 
-Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `av` for real databases rather than Markdown tables. Low-complexity `feedback` and `mascot` actions need no separate scenario skill.
+Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `av` for real databases rather than Markdown tables. Use `timeline` for named snapshots, document diffs, and rollback. Low-complexity `feedback` and `mascot` actions need no separate scenario skill.
 
 ```bash
 siyuan-sisyphus system get-version --json

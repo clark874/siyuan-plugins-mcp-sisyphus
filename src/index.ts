@@ -652,6 +652,7 @@ export default class SiyuanMCP extends Plugin {
                 rwd: this.i18n?.mcpPermReadWriteDelete || "读写可删除",
             },
             defaultSuffix: this.i18n?.permission_tree_default_suffix || "（默认）",
+            pluginName: this.i18n?.permission_tree_plugin_name || "插件：思源 sisyphus MCP & CLI & GIT",
             notebookScope: this.i18n?.permission_tree_scope || "应用于整个笔记本及其子文档",
             clickToChange: this.i18n?.permission_tree_click_hint || "点击切换权限",
         };

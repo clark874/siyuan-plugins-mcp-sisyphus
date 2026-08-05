@@ -23,12 +23,13 @@ export const scenarios = [
 | Attribute views, columns, rows, and cells | {{skill database}} |
 | Assets, extraction, and exports | {{skill file-export}} |
 | Tags, decks, cards, and review | {{skill tag-flashcard}} |
+| Timeline nodes, snapshot comparison, and rollback | {{skill timeline}} |
 | Permissions, system information, and dangerous operations | {{skill system-safety}} |
 | Rich Markdown, math, diagrams, and SiYuan markup | {{skill markup-guide}} |
 
 ## Tool choice
 
-Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \`block\` for IDs, storage paths, metadata, or block-granular changes. Use \`av\` for real databases rather than Markdown tables. Low-complexity \`feedback\` and \`mascot\` actions need no separate scenario skill.
+Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \`block\` for IDs, storage paths, metadata, or block-granular changes. Use \`av\` for real databases rather than Markdown tables. Use \`timeline\` for named snapshots, document diffs, and rollback. Low-complexity \`feedback\` and \`mascot\` actions need no separate scenario skill.
 
 {{call version}}
 {{call notebooks}}
@@ -296,6 +297,54 @@ Ratings are 1 through 4, with larger values representing easier recall. Do not i
             create: call('flashcard', 'create_card', { deckID: '<deck-id>', blockIDs: ['<heading-block-id>'] }),
             due: call('flashcard', 'list_cards', { scope: 'deck', deckID: '<deck-id>', filter: 'due' }),
             review: call('flashcard', 'review_card', { deckID: '<deck-id>', cardID: '<card-id>', rating: 3 }),
+        },
+    },
+    {
+        id: 'timeline',
+        cliName: 'siyuan-sisyphus-timeline',
+        mcpName: 'siyuan-mcp-timeline',
+        cliDescription: 'CLI-only playbook for SiYuan document timelines with siyuan-sisyphus. Use to list or create named snapshot nodes, compare document versions, remove node tags, and safely roll back a document or one changed block.',
+        mcpDescription: 'MCP playbook for SiYuan document timelines. Use to list or create named snapshot nodes, compare document versions, remove node tags, and safely roll back a document or one changed block.',
+        title: 'Manage SiYuan Document Timelines',
+        displayName: 'SiYuan Timeline',
+        shortDescription: 'Compare and restore SiYuan document versions',
+        defaultPrompt: 'Use $NAME to inspect or update this SiYuan document timeline safely.',
+        body: `Resolve and read the document first. Use document-scoped nodes for one document and global nodes only when the same named snapshot should be discoverable across documents.
+
+## Create and compare nodes
+
+List existing nodes before creating a new one:
+
+{{call list}}
+{{call create}}
+
+Keep the returned \`tag\` as the stable identifier. After content changes, compare the same document with that tag:
+
+{{call compare}}
+
+\`compare_node\` creates an untagged current-state workspace snapshot before calculating the document diff. Paginate changed blocks with \`page\` and \`pageSize\`; request unchanged blocks only when they are required for context.
+
+## Delete or roll back
+
+\`delete_node\` removes the protective tag but retains the underlying snapshot. \`rollback_document\` restores only the selected document file, not the whole workspace. \`rollback_block\` accepts only a fresh opaque \`changeKey\` from \`compare_node\`; it recalculates the diff and rejects stale or unsafe changes.
+
+Before any delete or rollback, show the exact document, node name/tag, and consequence, then obtain explicit approval. These actions require \`rwd\` permission and may be disabled by default. Never bypass an unavailable dangerous action; inspect {{help timeline rollback_document}} and ask the user to enable it when appropriate.
+
+After approval, use the narrowest operation that satisfies the request:
+
+{{call rollbackBlock}}
+{{call rollbackDocument}}
+{{call delete}}
+
+After rollback, read the document again. After node creation or deletion, list nodes again. For a reversible rollback test, create a named protection node for the current state, roll back to the target, verify it, then restore from the protection node and verify again; obtain approval for both rollback operations.
+`,
+        calls: {
+            list: call('timeline', 'list_nodes', { scope: 'document', documentId: '<doc-id>', page: 1, pageSize: 50 }),
+            create: call('timeline', 'create_node', { name: 'Before revision', scope: 'document', documentId: '<doc-id>' }),
+            compare: call('timeline', 'compare_node', { documentId: '<doc-id>', tag: '<timeline-tag>', page: 1, pageSize: 20, includeUnchanged: false }),
+            rollbackBlock: call('timeline', 'rollback_block', { documentId: '<doc-id>', tag: '<timeline-tag>', changeKey: '<fresh-change-key>' }),
+            rollbackDocument: call('timeline', 'rollback_document', { documentId: '<doc-id>', tag: '<timeline-tag>' }),
+            delete: call('timeline', 'delete_node', { tag: '<timeline-tag>', documentId: '<doc-id>' }),
         },
     },
     {

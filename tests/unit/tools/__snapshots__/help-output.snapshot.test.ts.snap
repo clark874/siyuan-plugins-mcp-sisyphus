@@ -4843,5 +4843,237 @@ Tag actions operate across the whole workspace rather than a single notebook. Th
       "tool": "tag",
     },
   },
+  "timeline": {
+    "actions": {
+      "compare_node": {
+        "action": "compare_node",
+        "example": {
+          "action": "compare_node",
+          "documentId": "<documentId>",
+          "tag": "<tag>",
+        },
+        "fullDocResource": "siyuan://help/action/timeline/compare_node",
+        "guidance": [
+          "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
+          "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
+          "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
+        ],
+        "hint": "Compares the tagged historical node with a newly created current-state snapshot for one document. Changed blocks are paginated; includeUnchanged defaults to false.",
+        "requiredFields": [
+          "documentId",
+          "tag",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "documentId + tag",
+        ],
+        "tool": "timeline",
+      },
+      "create_node": {
+        "action": "create_node",
+        "example": {
+          "action": "create_node",
+          "name": "Research",
+          "scope": "global",
+        },
+        "fullDocResource": "siyuan://help/action/timeline/create_node",
+        "guidance": [
+          "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
+          "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
+          "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
+        ],
+        "hint": "Use scope="document" with documentId for a document node, or scope="global" for a node visible to every document. The returned tag is the stable identifier for later actions.",
+        "requiredFields": [
+          "name",
+          "scope",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "name + scope",
+        ],
+        "tool": "timeline",
+      },
+      "delete_node": {
+        "action": "delete_node",
+        "example": {
+          "action": "delete_node",
+          "tag": "<tag>",
+        },
+        "fullDocResource": "siyuan://help/action/timeline/delete_node",
+        "guidance": [
+          "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
+          "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
+          "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
+        ],
+        "hint": "Removes the node tag but retains the underlying snapshot. Document tags require their matching documentId. This action is dangerous and disabled by default.",
+        "requiredFields": [
+          "tag",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "tag",
+        ],
+        "tool": "timeline",
+      },
+      "list_nodes": {
+        "action": "list_nodes",
+        "example": {
+          "action": "list_nodes",
+          "scope": "global",
+        },
+        "fullDocResource": "siyuan://help/action/timeline/list_nodes",
+        "guidance": [
+          "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
+          "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
+          "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
+        ],
+        "hint": "Use scope="global" without documentId, or scope="document"|"all" with documentId. Results are newest first and paginated.",
+        "requiredFields": [
+          "scope",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "scope",
+        ],
+        "tool": "timeline",
+      },
+      "rollback_block": {
+        "action": "rollback_block",
+        "example": {
+          "action": "rollback_block",
+          "changeKey": "<changeKey>",
+          "documentId": "<documentId>",
+          "tag": "<tag>",
+        },
+        "fullDocResource": "siyuan://help/action/timeline/rollback_block",
+        "guidance": [
+          "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
+          "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
+          "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
+        ],
+        "hint": "Pass a changeKey from compare_node. The diff is recalculated and stale or non-restorable changes are rejected. Requires rwd and explicit confirmation; disabled by default.",
+        "requiredFields": [
+          "documentId",
+          "tag",
+          "changeKey",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "documentId + tag + changeKey",
+        ],
+        "tool": "timeline",
+      },
+      "rollback_document": {
+        "action": "rollback_document",
+        "example": {
+          "action": "rollback_document",
+          "documentId": "<documentId>",
+          "tag": "<tag>",
+        },
+        "fullDocResource": "siyuan://help/action/timeline/rollback_document",
+        "guidance": [
+          "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
+          "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
+          "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
+        ],
+        "hint": "Restores only the selected document file from the historical node, not the whole repository. Requires rwd and explicit confirmation; disabled by default.",
+        "requiredFields": [
+          "documentId",
+          "tag",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "documentId + tag",
+        ],
+        "tool": "timeline",
+      },
+    },
+    "description": "🕓 Grouped document timeline, snapshot diff, and rollback operations. Use the "action" field to select the operation.
+
+Common actions: list_nodes, create_node, compare_node. Required fields: list_nodes: scope; create_node: name, scope; compare_node: documentId, tag.
+
+Additional actions: delete_node, rollback_document, rollback_block. Read siyuan://help/action/timeline/{action} for details, or call action="help" if resources are unavailable.
+
+Parameter contract per action (fields outside the action's optional list should not be sent):
+timeline.list_nodes: required [scope] | optional [documentId, page, pageSize]
+timeline.create_node: required [name, scope] | optional [documentId]
+timeline.compare_node: required [documentId, tag] | optional [page, pageSize, includeUnchanged]
+timeline.delete_node: required [tag] | optional [documentId]
+timeline.rollback_document: required [documentId, tag] | optional []
+timeline.rollback_block: required [documentId, tag, changeKey] | optional []
+
+timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content. compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block. Requires user confirmation before: delete_node, rollback_document, rollback_block.",
+    "overview": {
+      "actionSummaries": {
+        "compare_node": "Compares the tagged historical node with a newly created current-state snapshot for one document. Changed blocks are paginated; includeUnchanged defaults to false.",
+        "create_node": "Use scope="document" with documentId for a document node, or scope="global" for a node visible to every document. The returned tag is the stable identifier for later actions.",
+        "delete_node": "Removes the node tag but retains the underlying snapshot. Document tags require their matching documentId. This action is dangerous and disabled by default.",
+        "list_nodes": "Use scope="global" without documentId, or scope="document"|"all" with documentId. Results are newest first and paginated.",
+        "rollback_block": "Pass a changeKey from compare_node. The diff is recalculated and stale or non-restorable changes are rejected. Requires rwd and explicit confirmation; disabled by default.",
+        "rollback_document": "Restores only the selected document file from the historical node, not the whole repository. Requires rwd and explicit confirmation; disabled by default.",
+      },
+      "actions": {
+        "compare_node": {
+          "hint": "Compares the tagged historical node with a newly created current-state snapshot for one document. Changed blocks are paginated; includeUnchanged defaults to false.",
+          "requiresConfirmation": false,
+        },
+        "create_node": {
+          "hint": "Use scope="document" with documentId for a document node, or scope="global" for a node visible to every document. The returned tag is the stable identifier for later actions.",
+          "requiresConfirmation": false,
+        },
+        "delete_node": {
+          "hint": "Removes the node tag but retains the underlying snapshot. Document tags require their matching documentId. This action is dangerous and disabled by default.",
+          "requiresConfirmation": true,
+        },
+        "list_nodes": {
+          "hint": "Use scope="global" without documentId, or scope="document"|"all" with documentId. Results are newest first and paginated.",
+          "requiresConfirmation": false,
+        },
+        "rollback_block": {
+          "hint": "Pass a changeKey from compare_node. The diff is recalculated and stale or non-restorable changes are rejected. Requires rwd and explicit confirmation; disabled by default.",
+          "requiresConfirmation": true,
+        },
+        "rollback_document": {
+          "hint": "Restores only the selected document file from the historical node, not the whole repository. Requires rwd and explicit confirmation; disabled by default.",
+          "requiresConfirmation": true,
+        },
+      },
+      "advancedActions": [
+        "delete_node",
+        "rollback_document",
+        "rollback_block",
+      ],
+      "commonActions": [
+        "list_nodes",
+        "create_node",
+        "compare_node",
+      ],
+      "detailsHint": "Call timeline(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
+      "guidance": [
+        "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
+        "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+        "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
+        "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
+      ],
+      "helpResources": [
+        "siyuan://help/action/timeline/{action}",
+        "siyuan://help/tool-overview",
+        "siyuan://help/examples",
+        "siyuan://help/ai-layout-guide",
+      ],
+      "requiresConfirmation": [
+        "delete_node",
+        "rollback_document",
+        "rollback_block",
+      ],
+      "tool": "timeline",
+    },
+  },
 }
 `;

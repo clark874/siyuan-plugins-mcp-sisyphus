@@ -111,6 +111,7 @@ function createTextResult(result: ToolResult, value: unknown): ToolResult {
 
 function shouldBypassSlimming(ctx: SlimContext): boolean {
     return ctx.category === 'extension'
+        || ctx.category === 'timeline'
         || ctx.action === 'help'
         || (ctx.category === 'system' && ctx.action === 'conf');
 }

@@ -3,6 +3,7 @@
     import {
         ACTIONS_BY_CATEGORY,
         TOOL_CATEGORIES,
+        buildDefaultToolConfig,
         isDangerousAction,
         type AvAction,
         type BlockAction,
@@ -17,6 +18,7 @@
         type SearchAction,
         type SystemAction,
         type TagAction,
+        type TimelineAction,
         type ToolCategory,
         type ToolConfig,
     } from "../tool-config";
@@ -36,7 +38,7 @@
     export let onRefreshExtensionTools: () => void | Promise<void> = () => {};
 
     interface ChangeEvent { key: string; value: any; }
-    type GroupAction = FsAction | NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | SystemAction | FlashcardAction | ExtensionAction | MascotAction | FeedbackAction;
+    type GroupAction = FsAction | NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | TimelineAction | SystemAction | FlashcardAction | ExtensionAction | MascotAction | FeedbackAction;
     const RESERVED_EXTENSION_ACTIONS = new Set(["help", "list"]);
 
     interface GroupDefinition {
@@ -213,6 +215,20 @@
             ],
         },
         {
+            category: "timeline",
+            icon: "🕓",
+            groupKey: "Timeline",
+            iconSvg: ICON_SVGS.compass,
+            actions: [
+                { key: "list_nodes", title: "List Nodes", description: "List global or document timeline nodes." },
+                { key: "create_node", title: "Create Node", description: "Create a named global or document timeline node." },
+                { key: "compare_node", title: "Compare Node", description: "Compare a document with a selected historical node." },
+                { key: "delete_node", title: "Delete Node", description: "Remove a timeline tag while retaining the underlying snapshot. Disabled by default." },
+                { key: "rollback_document", title: "Rollback Document", description: "Restore one document file from a timeline node. Disabled by default." },
+                { key: "rollback_block", title: "Rollback Block", description: "Restore one changed block from a timeline node. Disabled by default." },
+            ],
+        },
+        {
             category: "system",
             icon: "🖥️",
             groupKey: "System",
@@ -316,7 +332,14 @@
     let openCategories = new Set<ToolCategory>(DEFAULT_OPEN_CATEGORIES);
 
     const getDangerTitle = (title: string) => `${title} ${getLabel("mcpHighRiskBadge", "[High risk]")}`;
-    const getDangerDescription = (description: string) => `${description} ${getLabel("mcpRequiresConfirmation", "Requires explicit user confirmation before execution.")} ${getLabel("mcpDefaultVisible", "This action stays visible in the default configuration.")}`;
+    const DEFAULT_TOOL_CONFIG = buildDefaultToolConfig();
+    const getDangerDescription = (category: ToolCategory, action: string, description: string) => {
+        const defaultEnabled = Boolean(DEFAULT_TOOL_CONFIG[category].actions[action as never]);
+        const defaultState = defaultEnabled
+            ? getLabel("mcpDefaultEnabled", "Enabled by default.")
+            : getLabel("mcpDefaultDisabled", "Disabled by default.");
+        return `${description} ${getLabel("mcpRequiresConfirmation", "Requires explicit user confirmation before execution.")} ${defaultState}`;
+    };
 
     function buildUploadAssetThresholdItem(): ISettingItemCore {
         return {
@@ -341,7 +364,7 @@
                 key: `${definition.category}__action__${action.key}`,
                 value: config[definition.category].actions[action.key as keyof typeof config[typeof definition.category]["actions"]],
                 title: dangerous ? getDangerTitle(baseTitle) : baseTitle,
-                description: dangerous ? getDangerDescription(baseDescription) : baseDescription,
+                description: dangerous ? getDangerDescription(definition.category, action.key, baseDescription) : baseDescription,
                 ...(definition.category === "file" && action.key === "upload_asset"
                     ? { layout: "inline" as const }
                     : {}),

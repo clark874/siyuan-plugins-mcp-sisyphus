@@ -106,7 +106,7 @@ for (const scenario of scenarios) {
         const name = runtime === 'mcp' ? scenario.mcpName : scenario.cliName;
         const base = `skills/${bundle}/${name}`;
         const skill = renderSkill(scenario, runtime);
-        if (runtime === 'mcp' && /\bsiyuan-sisyphus\s+(fs|notebook|document|block|av|file|search|tag|system|flashcard|mascot|feedback)\b/.test(skill)) {
+        if (runtime === 'mcp' && /\bsiyuan-sisyphus\s+(fs|notebook|document|block|av|file|search|tag|timeline|system|flashcard|mascot|feedback)\b/.test(skill)) {
             throw new Error(`MCP skill contains a CLI command: ${scenario.mcpName}`);
         }
         if (runtime === 'cli' && /\b[a-z]+\(action=/.test(skill)) {

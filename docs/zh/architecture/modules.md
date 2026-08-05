@@ -14,7 +14,7 @@ src/
 ├── core/                     # MCP Server 核心
 │   ├── server.ts             # MCP Server 创建与 Handler 注册
 │   ├── http-transport.ts     # HTTP/S MCP 传输层
-│   ├── tool-registry.ts      # 13 个聚合工具注册表，包含动态 extension action
+│   ├── tool-registry.ts      # 14 个聚合工具注册表，包含动态 extension action
 │   ├── tool-lifecycle.ts     # 工具调用 AOP 切面（analytics/telemetry/puppy）
 │   ├── permissions.ts        # 笔记本级四级权限管理
 │   ├── config.ts             # ToolConfig schema / 默认值 / 迁移
@@ -33,7 +33,7 @@ src/
 │   └── noops/                # MCP SDK 重模块的 no-op shim
 │       ├── noop-schema-validator.ts
 │       └── noop-experimental-tasks.ts
-├── tools/                    # 13 个聚合工具的实现
+├── tools/                    # 14 个聚合工具的实现
 │   ├── index.ts              # Barrel export：统一导出所有工具
 │   ├── internal/             # 工具层共享基础设施
 │   │   ├── types.ts          # 工具层共享类型
@@ -77,6 +77,7 @@ src/
 │   │   ├── index.ts
 │   │   └── handlers.ts
 │   ├── tag/                  # tag 工具
+│   ├── timeline/             # 时间线快照 diff 与回档工具
 │   │   └── index.ts
 │   └── mascot/               # mascot 工具
 │       └── index.ts
@@ -200,7 +201,7 @@ interface ToolModule {
 
 | 导出 | 说明 |
 |------|------|
-| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | 13 个聚合 category 的编译期映射 |
+| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | 14 个聚合 category 的编译期映射 |
 | `prepareAllTools(config, runtime)` | 在动态校验或列举前执行可选的发现/准备钩子 |
 | `listAllTools(config, runtime)` | 扁平化聚合所有启用状态下的 tool descriptor |
 | `resolveCategory(name)` | 从 tool name（如 `"notebook"`）反查 category |

@@ -66,6 +66,7 @@ export interface DiffViewportState {
 export const TIMELINE_TAG_PREFIX = 'sisyphustimeline';
 export const GLOBAL_TIMELINE_TAG_PREFIX = `${TIMELINE_TAG_PREFIX}_global_`;
 export const GLOBAL_TIMELINE_TAG_VERIFICATION_ERROR = 'GLOBAL_TIMELINE_TAG_VERIFICATION_FAILED';
+export const TIMELINE_NODE_ATTR_KEY = 'custom-sisyphus-timeline';
 export const DIFF_VIEWPORT_EPSILON = 0.01;
 
 export interface TimelineNodeRecord {

@@ -257,7 +257,7 @@
 
 ## setting 模块
 
-**统计**: 共 23 个 API，已覆盖 0 个，覆盖率 0.0%
+**统计**: 共 23 个 API，已覆盖 8 个，覆盖率 34.8%
 
 | 序号 | 方法 | API 路径 | 处理函数 | 功能描述 | MCP 映射 | 状态 |
 |------|------|----------|----------|----------|----------|------|
@@ -331,20 +331,20 @@
 | 4 | POST | `/api/repo/purgeRepo` | purgeRepo | 仓库清除Repo | - | ❌ 未覆盖 |
 | 5 | POST | `/api/repo/purgeCloudRepo` | purgeCloudRepo | 仓库清除CloudRepo | - | ❌ 未覆盖 |
 | 6 | POST | `/api/repo/importRepoKey` | importRepoKey | 仓库导入RepoKey | - | ❌ 未覆盖 |
-| 7 | POST | `/api/repo/createSnapshot` | createSnapshot | 创建本地数据快照 | - | ❌ 未覆盖 |
-| 8 | POST | `/api/repo/tagSnapshot` | tagSnapshot | 为本地数据快照创建标签引用 | - | ❌ 未覆盖 |
+| 7 | POST | `/api/repo/createSnapshot` | createSnapshot | 创建本地数据快照 | timeline.create_node / compare_node / rollback_* | ✅ 已覆盖 |
+| 8 | POST | `/api/repo/tagSnapshot` | tagSnapshot | 为本地数据快照创建标签引用 | timeline.create_node | ✅ 已覆盖 |
 | 9 | POST | `/api/repo/checkoutRepo` | checkoutRepo | 仓库检查outRepo | - | ❌ 未覆盖 |
-| 10 | POST | `/api/repo/getRepoSnapshots` | getRepoSnapshots | 分页获取本地数据快照列表 | - | ❌ 未覆盖 |
-| 11 | POST | `/api/repo/getRepoTagSnapshots` | getRepoTagSnapshots | 获取本地已标记数据快照列表 | - | ❌ 未覆盖 |
-| 12 | POST | `/api/repo/removeRepoTagSnapshot` | removeRepoTagSnapshot | 删除本地数据快照标签引用 | - | ❌ 未覆盖 |
+| 10 | POST | `/api/repo/getRepoSnapshots` | getRepoSnapshots | 分页获取本地数据快照列表 | timeline.create_node / compare_node / rollback_* | ✅ 已覆盖 |
+| 11 | POST | `/api/repo/getRepoTagSnapshots` | getRepoTagSnapshots | 获取本地已标记数据快照列表 | timeline.list_nodes / create_node / compare_node / delete_node / rollback_* | ✅ 已覆盖 |
+| 12 | POST | `/api/repo/removeRepoTagSnapshot` | removeRepoTagSnapshot | 删除本地数据快照标签引用 | timeline.delete_node | ✅ 已覆盖 |
 | 13 | POST | `/api/repo/getCloudRepoTagSnapshots` | getCloudRepoTagSnapshots | 获取云端已标记数据快照列表 | - | ❌ 未覆盖 |
 | 14 | POST | `/api/repo/getCloudRepoSnapshots` | getCloudRepoSnapshots | 分页获取云端数据快照列表 | - | ❌ 未覆盖 |
 | 15 | POST | `/api/repo/removeCloudRepoTagSnapshot` | removeCloudRepoTagSnapshot | 删除云端数据快照标签引用 | - | ❌ 未覆盖 |
 | 16 | POST | `/api/repo/uploadCloudSnapshot` | uploadCloudSnapshot | 上传本地已标记数据快照到云端 | - | ❌ 未覆盖 |
 | 17 | POST | `/api/repo/downloadCloudSnapshot` | downloadCloudSnapshot | 下载云端数据快照到本地 | - | ❌ 未覆盖 |
-| 18 | POST | `/api/repo/diffRepoSnapshots` | diffRepoSnapshots | 对比两个数据快照的文件差异 | - | ❌ 未覆盖 |
-| 19 | POST | `/api/repo/openRepoSnapshotFile` | openRepoSnapshotFile | 打开数据快照中的单个文件 | - | ❌ 未覆盖 |
-| 20 | POST | `/api/repo/rollbackRepoSnapshotFile` | rollbackRepoSnapshotFile | 回滚数据快照中的单个文件 | - | ❌ 未覆盖 |
+| 18 | POST | `/api/repo/diffRepoSnapshots` | diffRepoSnapshots | 对比两个数据快照的文件差异 | timeline.compare_node / rollback_document / rollback_block | ✅ 已覆盖 |
+| 19 | POST | `/api/repo/openRepoSnapshotFile` | openRepoSnapshotFile | 打开数据快照中的单个文件 | timeline.compare_node / rollback_* | ✅ 已覆盖 |
+| 20 | POST | `/api/repo/rollbackRepoSnapshotFile` | rollbackRepoSnapshotFile | 回滚数据快照中的单个文件 | timeline.rollback_document | ✅ 已覆盖 |
 | 21 | POST | `/api/repo/getRepoFile` | getRepoFile | 仓库获取RepoFile | - | ❌ 未覆盖 |
 | 22 | POST | `/api/repo/setRepoIndexRetentionDays` | setRepoIndexRetentionDays | 仓库设置Repo索引RetentionDays | - | ❌ 未覆盖 |
 | 23 | POST | `/api/repo/setRetentionIndexesDaily` | setRetentionIndexesDaily | 仓库设置Retention索引esDaily | - | ❌ 未覆盖 |

@@ -16,6 +16,7 @@ const labels: PermissionTreeLabels = {
         rwd: "读写可删除",
     },
     defaultSuffix: "（默认）",
+    pluginName: "插件：思源 sisyphus MCP & CLI & GIT",
     notebookScope: "应用于整个笔记本及其子文档",
     clickToChange: "点击切换权限",
 };
@@ -45,14 +46,14 @@ describe("permission tree indicator", () => {
         expect(buildPermissionBadgeModel("r", false, labels)).toEqual({
             permission: "r",
             text: "R",
-            title: "只读（默认）\n应用于整个笔记本及其子文档\n点击切换权限",
+            title: "只读（默认）\n插件：思源 sisyphus MCP & CLI & GIT\n应用于整个笔记本及其子文档\n点击切换权限",
             explicit: false,
         });
     });
 
     it("renders all explicit permission codes without a default suffix", () => {
         expect(buildPermissionBadgeModel("none", true, labels).text).toBe("NONE");
-        expect(buildPermissionBadgeModel("rw", true, labels).title).toBe("读写不可删除\n应用于整个笔记本及其子文档\n点击切换权限");
+        expect(buildPermissionBadgeModel("rw", true, labels).title).toBe("读写不可删除\n插件：思源 sisyphus MCP & CLI & GIT\n应用于整个笔记本及其子文档\n点击切换权限");
         expect(buildPermissionBadgeModel("rwd", true, labels).text).toBe("RWD");
     });
 

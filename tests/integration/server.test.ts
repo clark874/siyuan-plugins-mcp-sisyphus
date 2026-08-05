@@ -323,6 +323,16 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('Removing a flashcard binding is separate from deleting the underlying note blocks.');
         });
 
+        it('formats MCP usage suggestions with type-specific emoji labels', () => {
+            const instructions = buildServerInstructions('');
+
+            expect(instructions).toContain('## Usage semantics');
+            expect(instructions).toContain('Bookmarks🔖: Collect existing blocks through block attributes');
+            expect(instructions).toContain('Tags🏷️: Use inline markdown tokens such as `#tag#`');
+            expect(instructions).toContain('Flashcards🧠: Treat flashcards as review semantics, not layout');
+            expect(instructions).toContain('MCP✍️: Prefer creating final content directly');
+        });
+
         it('should list tools with expected names', async () => {
             const { tools } = await client.listTools();
 
@@ -478,9 +488,13 @@ describe('MCP Server Integration', () => {
     describe('Scenario prompts', () => {
         it('lists prompts and returns embedded skill guidance with an optional task', async () => {
             const { prompts } = await client.listPrompts();
-            expect(prompts).toHaveLength(9);
+            expect(prompts).toHaveLength(10);
             expect(prompts).toContainEqual(expect.objectContaining({
                 name: 'siyuan_create_edit',
+                arguments: [expect.objectContaining({ name: 'task', required: false })],
+            }));
+            expect(prompts).toContainEqual(expect.objectContaining({
+                name: 'siyuan_timeline',
                 arguments: [expect.objectContaining({ name: 'task', required: false })],
             }));
 

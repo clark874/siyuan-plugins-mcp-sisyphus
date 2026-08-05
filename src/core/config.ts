@@ -1,6 +1,6 @@
 import type { SiYuanClient } from '../api/client';
 
-export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'system', 'flashcard', 'extension', 'mascot', 'feedback'] as const;
+export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'timeline', 'system', 'flashcard', 'extension', 'mascot', 'feedback'] as const;
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
@@ -12,6 +12,7 @@ export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attr
 export const FILE_ACTIONS = ['upload_asset', 'list_templates', 'read_template', 'create_template', 'update_template', 'delete_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
+export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'delete_node', 'rollback_document', 'rollback_block'] as const;
 export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const EXTENSION_ACTIONS = ['list'] as const;
@@ -26,6 +27,7 @@ export type AvAction = typeof AV_ACTIONS[number];
 export type FileAction = typeof FILE_ACTIONS[number];
 export type SearchAction = typeof SEARCH_ACTIONS[number];
 export type TagAction = typeof TAG_ACTIONS[number];
+export type TimelineAction = typeof TIMELINE_ACTIONS[number];
 export type SystemAction = typeof SYSTEM_ACTIONS[number];
 export type FlashcardAction = typeof FLASHCARD_ACTIONS[number];
 export type ExtensionAction = typeof EXTENSION_ACTIONS[number];
@@ -41,6 +43,7 @@ export type ToolActionMap = {
     file: FileAction;
     search: SearchAction;
     tag: TagAction;
+    timeline: TimelineAction;
     system: SystemAction;
     flashcard: FlashcardAction;
     extension: ExtensionAction;
@@ -76,6 +79,7 @@ export type ToolConfig = {
     file: FileCategoryToolConfig<FileAction>;
     search: CategoryToolConfig<SearchAction>;
     tag: CategoryToolConfig<TagAction>;
+    timeline: CategoryToolConfig<TimelineAction>;
     system: CategoryToolConfig<SystemAction>;
     flashcard: CategoryToolConfig<FlashcardAction>;
     extension: ExtensionCategoryToolConfig;
@@ -110,6 +114,7 @@ export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolAct
     file: FILE_ACTIONS,
     search: SEARCH_ACTIONS,
     tag: TAG_ACTIONS,
+    timeline: TIMELINE_ACTIONS,
     system: SYSTEM_ACTIONS,
     flashcard: FLASHCARD_ACTIONS,
     extension: EXTENSION_ACTIONS,
@@ -178,6 +183,10 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         list: 'basic', rename: 'basic',
         remove: 'advanced',
     },
+    timeline: {
+        list_nodes: 'basic', create_node: 'basic', compare_node: 'basic',
+        delete_node: 'advanced', rollback_document: 'advanced', rollback_block: 'advanced',
+    },
     system: {
         get_version: 'basic', get_current_time: 'basic', conf: 'basic', changelog: 'basic',
         workspace_info: 'advanced', network: 'advanced', notify: 'advanced', perform_sync: 'advanced',
@@ -210,6 +219,7 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     file: new Set(['upload_asset', 'delete_template', 'remove_unused_assets', 'delete_asset']),
     search: new Set(['find_replace']),
     tag: new Set(['remove']),
+    timeline: new Set(['delete_node', 'rollback_document', 'rollback_block']),
     system: new Set(['workspace_info', 'perform_sync']),
     flashcard: new Set(['remove_card']),
     extension: new Set(),
@@ -262,6 +272,10 @@ export function buildDefaultToolConfig(): ToolConfig {
         tag: {
             enabled: true,
             actions: createActionsRecord(TAG_ACTIONS, ['list', 'rename', 'remove']),
+        },
+        timeline: {
+            enabled: true,
+            actions: createActionsRecord(TIMELINE_ACTIONS, ['list_nodes', 'create_node', 'compare_node']),
         },
         system: {
             enabled: true,

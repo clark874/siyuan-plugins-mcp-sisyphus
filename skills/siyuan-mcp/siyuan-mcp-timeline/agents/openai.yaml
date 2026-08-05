@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Timeline MCP"
+  short_description: "Compare and restore SiYuan document versions"
+  default_prompt: "Use $siyuan-mcp-timeline to inspect or update this SiYuan document timeline safely."

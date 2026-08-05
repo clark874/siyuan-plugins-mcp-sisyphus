@@ -41,6 +41,10 @@ function createAllEnabledConfig(): ToolConfig {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.tag.map((action) => [action, true])) as ToolConfig['tag']['actions'],
         },
+        timeline: {
+            enabled: true,
+            actions: Object.fromEntries(ACTIONS_BY_CATEGORY.timeline.map((action) => [action, true])) as ToolConfig['timeline']['actions'],
+        },
         system: {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.system.map((action) => [action, true])) as ToolConfig['system']['actions'],

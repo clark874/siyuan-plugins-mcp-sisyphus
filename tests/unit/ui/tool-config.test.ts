@@ -29,6 +29,13 @@ describe('setting tool config', () => {
         expect(config.mascot.actions.shop).toBe(true);
         expect(config.mascot.actions.buy).toBe(true);
         expect(config.feedback.actions.submit).toBe(true);
+        expect(config.timeline.enabled).toBe(true);
+        expect(config.timeline.actions.list_nodes).toBe(true);
+        expect(config.timeline.actions.create_node).toBe(true);
+        expect(config.timeline.actions.compare_node).toBe(true);
+        expect(config.timeline.actions.delete_node).toBe(false);
+        expect(config.timeline.actions.rollback_document).toBe(false);
+        expect(config.timeline.actions.rollback_block).toBe(false);
         expect(config.userRulesText).toBe('创建文档/日记后主动设图标');
         expect(config.agentSiyuanMemoryText).toBe('');
         expect(config.agentSiyuanMemoryUpdatedAt).toBe('');
