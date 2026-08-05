@@ -646,7 +646,6 @@
     "puppy_preview_visible": "正在显示",
     "puppy_preview_hidden": "当前隐藏",
     "Permissions": "权限管理",
-    "mcpPermDesc": "该笔记本对 MCP 客户端的访问权限",
     "mcpPermRead": "只读",
     "mcpPermReadWrite": "读写不可删除",
     "mcpPermReadWriteDelete": "读写可删除",

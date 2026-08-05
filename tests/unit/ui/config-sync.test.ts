@@ -211,6 +211,8 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(panelSource).toContain('mcpPermClosedGroup');
         expect(panelSource).toContain('permissionCounts');
         expect(panelSource).toContain('permission-overview');
+        expect(panelSource).toContain('description: ""');
+        expect(panelSource).not.toContain('mcpPermDesc');
         expect(panelSource).toContain('sisyphus-permission-badge');
         expect(panelSource).toContain('buildPermissionTreeDescription()');
         expect(panelSource).not.toContain('mcpPermClosedHint');

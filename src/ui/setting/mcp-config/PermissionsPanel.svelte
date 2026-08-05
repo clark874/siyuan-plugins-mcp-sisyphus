@@ -34,7 +34,7 @@
             key: `perm__${nb.id}`,
             value: permissions[nb.id] ?? "r",
             title: nb.name,
-            description: getLabel("mcpPermDesc", "MCP 访问权限：无权限 / 只读 / 读写不可删除 / 读写可删除"),
+            description: "",
             options: {
                 none: getLabel("mcpPermNone", "禁止访问"),
                 r: getLabel("mcpPermRead", "只读"),

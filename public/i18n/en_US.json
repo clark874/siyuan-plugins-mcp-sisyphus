@@ -663,7 +663,6 @@
     "puppy_preview_visible": "Visible",
     "puppy_preview_hidden": "Hidden",
     "Permissions": "Permissions",
-    "mcpPermDesc": "MCP client access level for this notebook",
     "mcpPermRead": "Read Only",
     "mcpPermReadWrite": "Read/Write (No Delete)",
     "mcpPermReadWriteDelete": "Read/Write/Delete",
