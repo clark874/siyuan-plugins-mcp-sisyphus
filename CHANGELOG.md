@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.5.2 - 2026-08-05
+
+- 将文档时间线完整开放为 `timeline` 聚合工具，MCP 与 CLI 均可创建、列出、比较和删除节点，并执行整篇或块级回退
+- 强化 diff 能力：按块解析新增、删除、修改与未变更内容，提供行数统计、分页结果和可回退性判断，使用新鲜 `changeKey` 防止基于过期差异误操作
+- 感谢 [@xyx2233](https://github.com/xyx2233) 提交 [PR #45](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/pull/45)，为文档级时间线节点与本次 diff 强化提供基础
+- 完善高风险 action 权限、帮助提示、官方 Skill、双语文档与测试覆盖；CLI 包同步提升至 v0.2.2
+
 ## v0.5.1 - 2026-07-28
 
 - 隔离思源官方 MCP 扩展链路：仅在需要扩展 Tool 时惰性连接，连接失败时完整降级，不再影响 Sisyphus 自带工具、CLI 与外层 MCP Server 启动

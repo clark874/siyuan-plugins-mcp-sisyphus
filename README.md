@@ -23,7 +23,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Latest:** `v0.5.1` — Isolates official MCP extension failures so Sisyphus tools, the CLI, and the outer MCP server keep working; adds copy-ready AI setup prompts for MCP and CLI connections. CLI is now `v0.2.1`.
+> **Latest:** `v0.5.2` — Exposes the document timeline through MCP and CLI, with stronger block-aware diffs, line statistics, paginated changes, rollbackability checks, and stale-change protection for safer document or block restoration. CLI is now `v0.2.2`.
 
 ## Project Direction Update
 

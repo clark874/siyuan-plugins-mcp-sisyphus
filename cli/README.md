@@ -4,9 +4,9 @@
 
 > ⚠️ **Prerequisite: This CLI requires the `siyuan-plugins-mcp-sisyphus` plugin from this repo.** Install and enable the plugin in SiYuan first, then open the plugin settings panel and configure permissions before running CLI tool commands. The CLI now checks this requirement and will fail fast if the plugin is missing or not initialized.
 
-Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (fs, block, document, notebook, av, search, tag, file, system, flashcard, extension, mascot, feedback) is exposed as a subcommand you can call directly from a shell.
+Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (fs, block, document, notebook, av, search, tag, file, timeline, system, flashcard, extension, mascot, feedback) is exposed as a subcommand you can call directly from a shell.
 
-> **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, and system workflows.
+> **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, timeline, and system workflows.
 
 The published npm package is `siyuan-sisyphus`. It installs the primary command `siyuan-sisyphus`, and also provides the shorter alias `sisyphus` to avoid colliding with SiYuan's official CLI.
 
@@ -137,6 +137,11 @@ siyuan-sisyphus block word-count --id 20240318xyz
 siyuan-sisyphus search fulltext --query "TODO" --page-size 20
 siyuan-sisyphus search fulltext --query "TODO" --page 2 --page-size 20
 siyuan-sisyphus search query-sql --stmt "SELECT id, content FROM blocks WHERE type='h' LIMIT 5"
+
+# Timeline diff (keep the returned tag and fresh changeKey)
+siyuan-sisyphus timeline list-nodes --scope document --document-id 20240318xyz
+siyuan-sisyphus timeline create-node --name "Before revision" --scope document --document-id 20240318xyz
+siyuan-sisyphus timeline compare-node --document-id 20240318xyz --tag <timeline-tag> --page-size 20
 
 # Friendly aliases
 siyuan-sisyphus fs replace --path "/Notebook/Doc" --old A --new B
