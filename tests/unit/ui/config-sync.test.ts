@@ -157,6 +157,8 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(connectionSource).toContain('parseChangelogEntries');
         expect(connectionSource).toContain('let changelogExpanded = false;');
         expect(connectionSource).toContain('changelogEntries.slice(0, 1)');
+        expect(connectionSource).toContain('parseChangelogDescription');
+        expect(connectionSource).toContain('<strong>{segment.text}</strong>');
         expect(connectionSource).toContain('aria-expanded={changelogExpanded}');
         expect(connectionSource).toContain('class="http-changelog-timeline"');
         expect(connectionSource).toContain('class:http-changelog-timeline--collapsed={!changelogExpanded}');

@@ -126,16 +126,34 @@
     $: visibleChangelogEntries = changelogExpanded ? changelogEntries : changelogEntries.slice(0, 1);
     $: httpSupportReason = plugin?.httpLauncher ? "" : getHttpUnsupportedReason();
 
-    function parseChangelogEntries(text: string): Array<{ version: string; date: string; description: string }> {
+    function parseChangelogDescription(description: string): Array<{ text: string; strong: boolean }> {
+        const segments: Array<{ text: string; strong: boolean }> = [];
+        const strongPattern = /\*\*(.+?)\*\*/g;
+        let cursor = 0;
+        for (const match of description.matchAll(strongPattern)) {
+            const index = match.index ?? 0;
+            if (index > cursor) segments.push({ text: description.slice(cursor, index), strong: false });
+            segments.push({ text: match[1], strong: true });
+            cursor = index + match[0].length;
+        }
+        if (cursor < description.length) segments.push({ text: description.slice(cursor), strong: false });
+        return segments.length > 0 ? segments : [{ text: description, strong: false }];
+    }
+
+    function parseChangelogEntries(text: string): Array<{ version: string; date: string; description: string; segments: Array<{ text: string; strong: boolean }> }> {
         return text
             .split(/\r?\n/)
             .map((line) => line.trim())
             .filter(Boolean)
             .map((line) => {
                 const match = line.match(/^`?([^`\s]+)`?(?:\s*·\s*(\d{4}-\d{2}-\d{2}))?\s*[—–]\s*(.+)$/);
-                return match
-                    ? { version: match[1], date: match[2] ?? "", description: match[3] }
-                    : { version: "", date: "", description: line };
+                const description = match ? match[3] : line;
+                return {
+                    version: match?.[1] ?? "",
+                    date: match?.[2] ?? "",
+                    description: description.replace(/\*\*/g, ""),
+                    segments: parseChangelogDescription(description),
+                };
             });
     }
 
@@ -577,7 +595,11 @@ If the API URL is not reachable from the current host, container, WSL, or remote
                                     <span>{getLabel("toolSettingsChangelogBadge", "Latest")}</span>
                                 {/if}
                             </div>
-                            <p title={entry.description}>{entry.description}</p>
+                            <p title={entry.description}>
+                                {#each entry.segments as segment}
+                                    {#if segment.strong}<strong>{segment.text}</strong>{:else}{segment.text}{/if}
+                                {/each}
+                            </p>
                         </li>
                     {/each}
                 </ol>
@@ -1021,6 +1043,11 @@ If the API URL is not reachable from the current host, container, WSL, or remote
             line-height: 1.5;
             margin: 2px 0 0;
             overflow: hidden;
+        }
+
+        .http-changelog-timeline__item p strong {
+            color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+            font-weight: 700;
         }
 
         .http-status-row {
