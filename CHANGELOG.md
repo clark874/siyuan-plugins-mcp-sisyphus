@@ -6,7 +6,7 @@
 
 - 将文档时间线完整开放为 `timeline` 聚合工具，MCP 与 CLI 均可创建、列出、比较和删除节点，并执行整篇或块级回退
 - 强化 diff 能力：按块解析新增、删除、修改与未变更内容，提供行数统计、分页结果和可回退性判断，使用新鲜 `changeKey` 防止基于过期差异误操作
-- 感谢 [@xyx2233](https://github.com/xyx2233) 提交 [PR #45](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/pull/45)，为文档级时间线节点与本次 diff 强化提供基础
+- **感谢 [@xyx2233](https://github.com/xyx2233) 提交 [PR #45](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/pull/45)**，为文档级时间线节点与本次 diff 强化提供基础
 - 完善高风险 action 权限、帮助提示、官方 Skill、双语文档与测试覆盖；CLI 包同步提升至 v0.2.2
 
 ## v0.5.1 - 2026-07-28
@@ -36,6 +36,7 @@
 ## v0.4.13 - 2026-07-04
 
 - 新增 MCP HTTP 绑定地址选择，可在仅本机访问与所有 IPv4 网卡监听之间切换，远程和局域网部署配置更明确
+- **感谢 [@Ciciy-l](https://github.com/Ciciy-l) 提交 [PR #43](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/pull/43)**，贡献 MCP HTTP 绑定地址选择能力
 - 收起关闭笔记本权限列表，优化设置面板的权限配置与浏览体验
 - 优化错误码统计与文件图标展示，并补充绑定地址、配置同步和统计相关测试覆盖
 - CLI 包同步提升至 v0.1.16，短命令别名由 `siyuan` 改为 `sisyphus`，避免与思源官方 CLI 冲突
@@ -74,6 +75,7 @@
 
 - 优化文档时间线 diff 视口联动，历史版本切换与块级定位时滚动体验更稳定
 - 延迟注册并规范化文档时间线停靠栏入口，降低冷启动与布局未就绪场景下的入口丢失风险
+- **感谢 [@alone-tree](https://github.com/alone-tree) 提交 [PR #33](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/pull/33)**，优化思源 API 超时处理
 - 补充赞赏支持入口与相关展示信息，方便用户在 README 与插件元数据中找到支持方式
 
 ## v0.4.6 - 2026-05-17
@@ -86,6 +88,7 @@
 
 - 优化 MCP/HTTP 连接稳定性与错误提示，降低远程调用和客户端断连场景下的失败噪声
 - 修复 `file.extract_doc` 解析图片资源路径时误包含标题文本的问题，提升文档资源导出准确性
+- **感谢 [@alone-tree](https://github.com/alone-tree) 提交 [PR #25](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/pull/25) 与 [PR #26](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/pull/26)**，贡献连接稳定性和附件路径解析修复
 - 改进设置面板主题兼容与 CLI skills 安装引导，CLI 包同步提升至 v0.1.12
 
 ## v0.4.2 - 2026-05-15
@@ -104,6 +107,7 @@
 
 - 新增 **文档时间线（Document Timeline）**：基于思源快照为单篇文档提供版本控制，支持创建节点、左右对比差异、块级回退与整篇回退，配套侧边栏与顶部栏入口
 - 新增 `file(action="extract_doc")`：将文档和所有引用资源导出到自包含的未压缩文件夹，AI 工具可直接读取附件内容
+- **感谢 [@alone-tree](https://github.com/alone-tree) 提交 [PR #21](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/pull/21)**，贡献 `extract_doc` 文档与附件导出能力
 - 重构工具设置面板：默认折叠为手风琴样式，扁平化设计；权限管理独立为单独面板，提升大工具列表下的浏览效率
 - 补充 extract_doc、block-diff、timeline 与工具配置同步的单元测试覆盖
 
@@ -225,6 +229,7 @@
 ## v0.2.5 - 2026-04-11
 
 - 新增独立模式（standalone mode）支持，优化 schema 定义与兼容性
+- **感谢 [@JRbemt](https://github.com/JRbemt) 提交 [PR #10](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/pull/10)**，贡献 standalone 模式与 schema 修复
 
 ## v0.2.4 - 2026-04-10
 
@@ -287,6 +292,7 @@
 
 - 新增 `mascot` 聚合 tool，并加入余额查询、商店浏览与购买能力，让 MCP 交互多了一层轻量陪伴反馈
 - 修复思源 API 地址与鉴权读取流程，优先支持 `SIYUAN_API_URL` / `SIYUAN_TOKEN` 环境变量，改善 Docker 等部署场景下的可用性
+- **感谢 [@Jasaxion](https://github.com/Jasaxion) 提交 [PR #6](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/pull/6)**，贡献 API 地址、Token 鉴权与 Docker 兼容修复
 - 同步更新双语文档、技能说明、设置项文案与回归测试，补齐第 8 个聚合 tool 的说明与发布信息
 
 ## v0.1.11 - 2026-04-03
