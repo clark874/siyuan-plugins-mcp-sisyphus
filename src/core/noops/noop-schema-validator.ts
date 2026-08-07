@@ -1,4 +1,4 @@
-import type { JsonSchemaType, JsonSchemaValidator, JsonSchemaValidatorResult, jsonSchemaValidator } from '@modelcontextprotocol/sdk/validation';
+import type { JsonSchemaType, JsonSchemaValidator, JsonSchemaValidatorResult, jsonSchemaValidator } from '@modelcontextprotocol/server';
 
 // No-op JSON schema validator. The MCP SDK only uses this for
 // server.elicitInput(), which this project does not invoke.

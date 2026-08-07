@@ -3,8 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { Client } = require('@modelcontextprotocol/sdk/client');
-const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
+const { Client, InMemoryTransport } = require('@modelcontextprotocol/client');
 
 const DIST_SERVER_PATH = path.join(__dirname, '..', 'dist', 'mcp-server.cjs');
 const { createSiYuanServer } = require(DIST_SERVER_PATH);

@@ -23,7 +23,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **最新版本：**`v0.5.2` — 文档时间线正式开放 MCP 与 CLI 调用，并强化块级 diff、行数统计、差异分页、可回退性判断和过期变更防护，让整篇与块级回退更安全。CLI 提升至 `v0.2.2`。
+> **最新版本：**`v0.6.0` — 升级 MCP SDK v2，支持 MCP 2026-07-28 协商、协议级 elicitation、结构化 Tool 元数据，并默认通过 HTTP 与 stdio 发布 Skills-over-MCP。CLI 提升至 `v0.2.3`。
 
 ## 项目方向调整
 
@@ -156,6 +156,12 @@ MCP 客户端和独立 CLI 可通过 [`timeline` 聚合工具](./docs/zh/referen
 
 MCP 和 CLI 共用 Sisyphus 核心调用路径，避免同一能力在两套入口中产生不同语义。
 
+### MCP 2026-07-28 兼容
+
+服务端已迁移到 MCP TypeScript SDK v2。`stdio` 会自动服务新旧两代协议；HTTP 使用 SDK 标准分类器分流：MCP 2026-07-28 请求采用无会话、逐请求元数据模型，2025 代客户端继续使用原有隔离的 `mcp-session-id` 会话。内置的思源官方 MCP 桥接会自动协商双方支持的最新版本，并在必要时回退到旧协议。
+
+modern 协议下的高危调用使用 MCP 多轮输入确认：支持 elicitation 的客户端返回明确同意之前，操作不会下发。旧客户端为兼容性继续沿用 instructions/帮助文案确认边界。浏览器请求会校验 Origin；额外允许的来源主机可通过 `SIYUAN_MCP_ALLOWED_ORIGINS` 配置。
+
 ## 面向 Agent 的场景 Skill
 
 MCP Server 内置了浏览、编辑、搜索、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版等场景指南。普通 MCP 客户端无需安装任何 Skill：先读取 `siyuan://skills/index`，再加载匹配的 `siyuan://skills/{name}` 资源即可。时间线任务可直接加载 `siyuan://skills/siyuan-mcp-timeline`，或调用 `siyuan_timeline` Prompt。对应的 MCP Prompts 是由用户显式调用的工作流入口，不会自动生效。
@@ -168,6 +174,10 @@ siyuan-sisyphus skill install --bundle all # 同时安装 MCP 与 CLI 两套
 ```
 
 为保持兼容，不带 `--bundle` 的 `siyuan-sisyphus skill install` 仍默认安装 CLI Skill。Skill 负责工作流与安全决策；当前参数的真相源仍是 `siyuan://help/action/{tool}/{action}`（或对应的 `action="help"` 响应）。
+
+草案 SEP-2640 Skills-over-MCP 在 HTTP 与 stdio 传输中均默认开启，并会发布全部内置工作流 Skill。插件内置 HTTP 服务可在“连接配置 → HTTP/HTTPS 连接 → Skills over MCP”中开关，保存后会重启服务。独立启动服务端时可通过 `SIYUAN_MCP_SKILLS_EXTENSION=false` 显式关闭。启用后服务端声明 `io.modelcontextprotocol/skills`，实现 `skills/list`、`skills/get`，并提供带 SHA-256 完整性清单的 `skill://.../SKILL.md` 资源。由于 SEP-2640 仍是草案，既有 `siyuan://skills/*` Resource 与 Prompt 继续作为稳定回退。
+
+仓库还提供独立的 Codex Agent Plugin 包装：[`agent-plugin/siyuan-sisyphus`](./agent-plugin/siyuan-sisyphus)。它连接默认本机 HTTP 端点并打包同一组 5 个入口 Skill；若端点启用了 Bearer Token，请在客户端侧单独配置认证。
 
 ## 安全边界
 

@@ -7,15 +7,12 @@ const sdkMocks = vi.hoisted(() => ({
     close: vi.fn(),
 }));
 
-vi.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
+vi.mock('@modelcontextprotocol/client', () => ({
     Client: class {
         connect = sdkMocks.connect;
         request = sdkMocks.request;
         callTool = sdkMocks.callTool;
     },
-}));
-
-vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
     StreamableHTTPClientTransport: class {
         close = sdkMocks.close;
     },

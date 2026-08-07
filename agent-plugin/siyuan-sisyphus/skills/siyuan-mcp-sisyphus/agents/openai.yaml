@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Sisyphus MCP"
+  short_description: "Route and operate SiYuan MCP workflows"
+  default_prompt: "Use Sisyphus MCP to complete this SiYuan task safely."

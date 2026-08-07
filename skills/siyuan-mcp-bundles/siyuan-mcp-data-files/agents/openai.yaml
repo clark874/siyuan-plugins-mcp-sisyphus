@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Data and Files"
+  short_description: "Operate databases, assets, and exports"
+  default_prompt: "Handle this SiYuan database or file workflow safely."

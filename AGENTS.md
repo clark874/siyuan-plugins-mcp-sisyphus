@@ -28,7 +28,7 @@
 | 构建工具 | Vite 5.2+（多 target 构建） |
 | UI 框架 | Svelte 4（插件设置面板、桌面悬浮宠物组件） |
 | 校验 | Zod 4（action 参数校验） |
-| MCP SDK | `@modelcontextprotocol/sdk` ^1.26.0 |
+| MCP SDK | `@modelcontextprotocol/{server,client,core,node}` ^2.0.0 |
 | 测试 | Vitest 1.6+（Node 环境） |
 | 文档 | VitePress 1.6+（`docs/` 双语站点） |
 | 包管理 | pnpm（推荐） |
@@ -64,7 +64,7 @@ siyuan-plugins-mcp-sisyphus/
 │   │
 │   ├── core/                    # MCP 服务器核心与工具元数据
 │   │   ├── server.ts            # MCP Server 入口：createSiYuanServer()、startMcpServer()
-│   │   ├── http-transport.ts    # HTTP 模式 MCP 传输层（SSE / postMessage）
+│   │   ├── http-transport.ts    # HTTP MCP 2026 无状态 + legacy 有会话双协议传输
 │   │   ├── tool-registry.ts     # TOOL_REGISTRY：10 个聚合工具的注册表
 │   │   ├── tool-lifecycle.ts    # 工具调用生命周期：analytics、telemetry、token 计数、错误包装
 │   │   ├── config.ts            # ToolConfig 类型、默认值、配置迁移（扁平 → 嵌套）、危险动作定义
@@ -195,7 +195,7 @@ siyuan-plugins-mcp-sisyphus/
 - **路径别名**：`@/*` → `src/*`，在 `vite.config.ts`、`tsconfig.json`、`vitest.config.ts` 中均配置。
 - **Server target**：
   - 大量 Node 内置模块标记为 `external`（`child_process`、`fs`、`http`、`crypto` 等）。
-  - 使用自定义 `sdk-lightweight-resolver` 插件，将 MCP SDK 中的重型验证模块（ajv）和实验性任务模块替换为 no-op shim，显著减小包体积。
+  - 直接打包 MCP SDK v2 拆分包；服务端显式注入轻量 no-op schema validator。
   - 生产构建后自动清理 `dist/i18n/*.yaml` 等中间文件，并打包为 `package.zip`。
   - 自定义 rollup 插件 `assertNoLocalRequire` 确保产物不含 `require("./xxx")`（防止运行时找不到依赖）。
 - **CLI target**：
@@ -322,7 +322,7 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 
 - 每个 notebook 可配置四级权限：`rwd`（读写删）、`rw`（读写）、`r`（只读）、`none`（无访问）。
 - `PermissionManager` 在 `src/core/permissions.ts` 中实现，基于思源 API 读取的权限文件。
-- 危险动作（delete、remove、find_replace、upload_asset、set_permission 等）在 MCP 模式下要求用户确认（通过 MCP 资源或帮助文案提示）。
+- 危险动作（delete、remove、find_replace、upload_asset、set_permission 等）在 MCP 2026-07-28 模式下先经过多轮 elicitation 确认；legacy 客户端通过 instructions/help 明示确认要求。
 
 ### 渐进式披露（Progressive Disclosure）
 
@@ -412,7 +412,8 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
    - 绑定非回环地址（`0.0.0.0`）时必须启用 token 认证。
 
 3. **危险动作确认**：
-   - MCP 模式下，delete、remove、find_replace、upload_asset、set_permission 等操作会返回确认提示，要求用户显式确认。
+   - MCP 2026-07-28 模式下，delete、remove、find_replace、upload_asset、set_permission 等操作在执行前通过协议级多轮 elicitation 要求用户显式确认；拒绝或取消不会进入工具生命周期。
+   - legacy MCP 客户端保留 instructions/help 警告路径，避免破坏旧协议兼容性。
    - CLI 模式下不做二次确认（命令行输入即视为确认）。
 
 4. **权限隔离**：

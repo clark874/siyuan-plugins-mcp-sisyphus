@@ -350,6 +350,7 @@ describe('HTTP settings sync', () => {
             tlsCertFile: '',
             tlsKeyFile: '',
             tlsCaFile: '',
+            skillsExtensionEnabled: true,
         };
 
         await plugin.setHttpServerSettings(next);
@@ -362,6 +363,7 @@ describe('HTTP settings sync', () => {
             port: 39000,
             token: '12345678-token',
             siyuanToken: 'siyuan-token',
+            skillsExtensionEnabled: true,
         }));
     });
 
@@ -383,6 +385,7 @@ describe('HTTP settings sync', () => {
             tlsCertFile: '',
             tlsKeyFile: '',
             tlsCaFile: '',
+            skillsExtensionEnabled: false,
         };
 
         await plugin.updateHttpServerSettings(next);
@@ -417,6 +420,7 @@ describe('HTTP settings sync', () => {
             tlsCertFile: '',
             tlsKeyFile: '',
             tlsCaFile: '',
+            skillsExtensionEnabled: false,
         };
 
         const restarted = await plugin.refreshHttpServerAfterInstructionConfigChange();
@@ -464,6 +468,7 @@ describe('HTTP settings sync', () => {
             tlsCertFile: '',
             tlsKeyFile: '',
             tlsCaFile: '',
+            skillsExtensionEnabled: false,
         };
 
         await plugin.updateHttpServerSettings(next);
@@ -486,6 +491,7 @@ describe('HTTP settings sync', () => {
             tlsCertFile: '/tmp/cert.pem',
             tlsKeyFile: '',
             tlsCaFile: '',
+            skillsExtensionEnabled: false,
         };
 
         await expect(plugin.startHttpServer()).rejects.toThrow('HTTPS requires both certificate and key file paths.');

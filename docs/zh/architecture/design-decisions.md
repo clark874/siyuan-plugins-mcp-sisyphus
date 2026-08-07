@@ -164,7 +164,7 @@ Layer 3: 完整参考文档（docs/ 站点）
 └── src/shared/invocation-format.ts  双模式呈现统一
 
 CLI 不经过的层：
-├── @modelcontextprotocol/sdk   不启动 MCP server
+├── @modelcontextprotocol/server 不启动 MCP server
 ├── src/core/server.ts           不走 ListTools/CallTool handler
 ├── src/core/http-transport.ts   不启动 HTTP server
 ├── src/core/resources.ts        不暴露 MCP Resources
@@ -197,11 +197,12 @@ MCP 协议支持多种传输方式，需要根据使用场景选择最合适的�
 
 | 传输方式 | 实现 | 适用场景 |
 |----------|------|----------|
-| stdio | `StdioServerTransport` | 本地 AI 客户端（Claude Desktop、Kimi CLI） |
-| HTTP | `StreamableHTTP` (MCP 2025-03-26 spec) | 远程访问、浏览器、多客户端共享 |
+| stdio | SDK v2 `serveStdio()`，同时开启 legacy serving | 跨新旧协议版本的本地 AI 客户端 |
+| HTTP | SDK v2 请求分类器 + modern/legacy handler | 远程访问、浏览器、多客户端共享 |
 
 **HTTP 模式的增强设计**：
-- **会话管理**：支持多客户端并发，每个 session 独立 state
+- **双时代协商**：MCP 2026-07-28 请求使用严格无状态 handler，legacy 请求保留独立 session
+- **输入加固**：协议分发前校验 `Origin` 与 JSON content type
 - **Bearer Token 认证**：防止未授权访问
 - **TLS 支持**：生产环境加密传输
 - **父进程看门狗**：SiYuan 主进程退出时自动清理
@@ -209,7 +210,7 @@ MCP 协议支持多种传输方式，需要根据使用场景选择最合适的�
 ### 拒绝的替代方案
 
 - **方案 A：只支持 stdio**：无法满足远程访问和浏览器场景。
-- **方案 B：使用旧的 HTTP/SSE 传输**：MCP SDK 1.26 已主推 StreamableHTTP，SSE 模式逐步淘汰。
+- **方案 B：直接替换为 modern-only handler**：会破坏仍协商旧协议版本的客户端，因此保留兼容分支。
 - **方案 C：WebSocket 传输**：MCP 协议目前未标准化 WebSocket 传输，实现兼容性差。
 
 ### 当前结果
@@ -380,21 +381,23 @@ MCP Server (tool-lifecycle.ts)          Puppy UI (ToolPuppy.svelte)
 
 ### 做出的选择
 
-**提示词层确认 + 标记系统**：
+**协议级确认 + legacy 回退**：
 
 1. **`DANGEROUS_ACTIONS` 集合**：在 `config.ts` 中硬编码 15 个高危 action
 2. **自动注入警告**：`buildAggregatedTool()` 自动在 tool description 中附加 `"⚠️ 危险动作: ... 需要用户确认"`
 3. **Server Instructions**：`server-instructions.ts` 在 MCP instructions 中强调高危操作需确认
-4. **不阻塞调用**：系统**不**在代码层面阻止危险 action 的执行（LLM 可能绕过），而是依赖 LLM 自律 + 用户监督
+4. **Modern 代码级门禁**：MCP 2026-07-28 调用在进入工具生命周期前执行多轮 elicitation；取消或拒绝时不会执行 action
+5. **兼容回退**：legacy MCP 客户端无法表达新确认交换，继续使用 instructions/help 警告；CLI 中用户输入命令本身即确认
+6. **工具元数据**：通过保守 annotations 向支持的客户端声明 destructive/read-only 提示
 
 ### 拒绝的替代方案
 
-- **方案 A：代码层二次确认弹窗**：在 MCP 协议中无法实现弹窗确认（server 无法主动弹窗）；CLI 模式已约定"用户主动输入即确认"。
+- **方案 A：所有客户端强制使用 modern elicitation**：会破坏未声明该能力的 legacy 客户端，因此拒绝。
 - **方案 B：完全禁止危险 action**：过于保守，很多合理的自动化场景需要 delete/remove。
 - **方案 C：每个危险 action 要求额外 token/密码**：增加使用门槛，不符合 MCP 协议设计哲学。
 
 ### 当前结果
 
-- LLM 在调用危险 action 前通常会在对话中请求用户确认
+- modern 客户端收到可强制执行的协议级确认请求；legacy 客户端收到明确警告
 - 用户可通过 ToolConfig 完全禁用特定 action
 - 设置面板提供"高危动作"的视觉标记

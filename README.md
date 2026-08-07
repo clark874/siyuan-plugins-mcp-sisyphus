@@ -23,7 +23,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Latest:** `v0.5.2` — Exposes the document timeline through MCP and CLI, with stronger block-aware diffs, line statistics, paginated changes, rollbackability checks, and stale-change protection for safer document or block restoration. CLI is now `v0.2.2`.
+> **Latest:** `v0.6.0` — Upgrades to MCP SDK v2 with MCP 2026-07-28 negotiation, protocol-level elicitation, structured tool metadata, and default Skills-over-MCP publication over HTTP and stdio. CLI is now `v0.2.3`.
 
 ## Project Direction Update
 
@@ -152,6 +152,12 @@ Use **CLI** when one terminal command is enough. It avoids placing long tool sch
 
 MCP and CLI share the same Sisyphus core call path, preventing one capability from developing different semantics across two entry points.
 
+### MCP 2026-07-28 compatibility
+
+The server uses MCP TypeScript SDK v2. `stdio` automatically serves both protocol eras. HTTP uses the SDK classifier: MCP 2026-07-28 requests are stateless and carry per-request metadata, while 2025-era clients retain the existing isolated `mcp-session-id` sessions. The built-in official-SiYuan MCP bridge negotiates the newest mutually supported era and falls back to legacy automatically.
+
+Modern dangerous calls use MCP multi-round-trip input: the operation is not dispatched until an elicitation-capable client returns explicit approval. Legacy clients keep the existing instruction/help confirmation contract for compatibility. Browser requests are Origin-validated; configure extra allowed hostnames with `SIYUAN_MCP_ALLOWED_ORIGINS`.
+
 ## Scenario Skills For Agents
 
 The MCP server includes scenario-oriented guidance for browsing, editing, search, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. For timeline work, load `siyuan://skills/siyuan-mcp-timeline` or invoke the `siyuan_timeline` prompt. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
@@ -164,6 +170,10 @@ siyuan-sisyphus skill install --bundle all # MCP and CLI bundles
 ```
 
 Plain `siyuan-sisyphus skill install` remains the CLI bundle for backward compatibility. Skills describe workflows and safety decisions; the current parameter source of truth remains `siyuan://help/action/{tool}/{action}` or the corresponding `action="help"` response.
+
+Draft SEP-2640 Skills-over-MCP support is enabled by default for both HTTP and stdio transports and publishes all bundled workflow skills. For the plugin's built-in HTTP server, it can be toggled under Connection Config → HTTP/HTTPS Connection → Skills over MCP; saving restarts the server. Standalone servers can disable it with `SIYUAN_MCP_SKILLS_EXTENSION=false`. The extension advertises `io.modelcontextprotocol/skills`, implements `skills/list` and `skills/get`, and serves digest-addressed `skill://.../SKILL.md` resources. Because SEP-2640 is still a draft, the existing `siyuan://skills/*` resources and prompts remain the stable fallback.
+
+A standalone Codex Agent Plugin wrapper is available in [`agent-plugin/siyuan-sisyphus`](./agent-plugin/siyuan-sisyphus). It connects to the default local HTTP endpoint and packages the same five entry skills; configure HTTP authentication separately when the endpoint requires a bearer token.
 
 ## Safety Model
 

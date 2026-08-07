@@ -157,24 +157,6 @@ function createRendererConfig() {
 
 function createServerConfig() {
     return {
-        plugins: [
-            {
-                name: "sdk-lightweight-resolver",
-                enforce: "pre" as const,
-                resolveId(id: string) {
-                    if (id.endsWith("validation/ajv-provider.js") || id.endsWith("validation/ajv-provider")) {
-                        return resolve(__dirname, "src/core/noops/noop-schema-validator.ts");
-                    }
-                    if (id.endsWith("experimental/tasks/server.js") || id.endsWith("experimental/tasks/server")) {
-                        return resolve(__dirname, "src/core/noops/noop-experimental-tasks.ts");
-                    }
-                    if (id.endsWith("experimental/tasks/helpers.js") || id.endsWith("experimental/tasks/helpers")) {
-                        return resolve(__dirname, "src/core/noops/noop-experimental-tasks.ts");
-                    }
-                    return null;
-                },
-            },
-        ],
         resolve: {
             alias: {
                 "@": resolve(__dirname, "src"),
@@ -278,24 +260,6 @@ function readPluginVersion(): string {
 function createCliConfig() {
     const version = readCliVersion();
     return {
-        plugins: [
-            {
-                name: "sdk-lightweight-resolver",
-                enforce: "pre" as const,
-                resolveId(id: string) {
-                    if (id.endsWith("validation/ajv-provider.js") || id.endsWith("validation/ajv-provider")) {
-                        return resolve(__dirname, "src/core/noops/noop-schema-validator.ts");
-                    }
-                    if (id.endsWith("experimental/tasks/server.js") || id.endsWith("experimental/tasks/server")) {
-                        return resolve(__dirname, "src/core/noops/noop-experimental-tasks.ts");
-                    }
-                    if (id.endsWith("experimental/tasks/helpers.js") || id.endsWith("experimental/tasks/helpers")) {
-                        return resolve(__dirname, "src/core/noops/noop-experimental-tasks.ts");
-                    }
-                    return null;
-                },
-            },
-        ],
         publicDir: false as const,
         resolve: {
             alias: {

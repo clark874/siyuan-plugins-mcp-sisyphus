@@ -1,5 +1,5 @@
 import type { SiYuanClient } from '../api/client';
-import { AGENT_MEMORY_VIRTUAL_PATH, TOOL_CATEGORIES, USER_RULES_VIRTUAL_PATH, type ToolCategory, type ToolConfig } from './config';
+import { AGENT_MEMORY_VIRTUAL_PATH, isDangerousAction, TOOL_CATEGORIES, USER_RULES_VIRTUAL_PATH, type ToolCategory, type ToolConfig } from './config';
 import type { PermissionManager } from './permissions';
 import type { ToolResult } from '@/tools/internal/shared';
 import type { OfficialMcpRuntime, OfficialMcpDiscoverySnapshot } from './official-mcp-bridge';
@@ -43,9 +43,41 @@ import {
  */
 export interface ToolDescriptor {
     name: string;
+    title?: string;
     description?: string;
     inputSchema: Record<string, unknown>;
+    outputSchema?: Record<string, unknown>;
+    annotations?: {
+        title?: string;
+        readOnlyHint?: boolean;
+        destructiveHint?: boolean;
+        idempotentHint?: boolean;
+        openWorldHint?: boolean;
+    };
 }
+
+export const GENERIC_TOOL_OUTPUT_SCHEMA = {
+    type: 'object',
+    description: 'JSON object corresponding to the tool result. Non-object values are wrapped under value.',
+    additionalProperties: true,
+} as const;
+
+const TOOL_TITLES: Record<ToolCategory, string> = {
+    fs: 'SiYuan Filesystem',
+    notebook: 'SiYuan Notebooks',
+    document: 'SiYuan Documents',
+    block: 'SiYuan Blocks',
+    av: 'SiYuan Databases',
+    file: 'SiYuan Assets and Exports',
+    feedback: 'Sisyphus Feedback',
+    search: 'SiYuan Search',
+    tag: 'SiYuan Tags',
+    timeline: 'SiYuan History',
+    system: 'SiYuan System',
+    flashcard: 'SiYuan Flashcards',
+    extension: 'SiYuan Extension Tools',
+    mascot: 'Sisyphus Mascot',
+};
 
 /**
  * A single registry entry. Each tool module is erased to the generic config
@@ -119,7 +151,25 @@ export async function prepareAllTools(
 }
 
 export function listAllTools(config: ToolConfig, runtime?: OfficialMcpRuntime): ToolDescriptor[] {
-    const tools = TOOL_CATEGORIES.flatMap((cat) => TOOL_REGISTRY[cat].listTools(config[cat], runtime));
+    const tools = TOOL_CATEGORIES.flatMap((cat) => {
+        const enabledDangerousAction = Object.entries(config[cat].actions)
+            .some(([action, enabled]) => enabled && isDangerousAction(cat, action));
+        return TOOL_REGISTRY[cat].listTools(config[cat], runtime).map((tool) => ({
+            ...tool,
+            title: tool.title ?? TOOL_TITLES[cat],
+            outputSchema: tool.outputSchema ?? { ...GENERIC_TOOL_OUTPUT_SCHEMA },
+            annotations: tool.annotations ?? {
+                title: tool.title ?? TOOL_TITLES[cat],
+                // Aggregated tools generally mix reads and writes. False is
+                // deliberately conservative; action-level semantics remain
+                // documented in the discriminated input schema and help.
+                readOnlyHint: false,
+                destructiveHint: enabledDangerousAction,
+                idempotentHint: false,
+                openWorldHint: true,
+            },
+        }));
+    });
 
     return tools.map((tool) => ({
         ...tool,

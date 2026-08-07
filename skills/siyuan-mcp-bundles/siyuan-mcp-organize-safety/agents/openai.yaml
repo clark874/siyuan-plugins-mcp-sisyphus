@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Organize and Safety"
+  short_description: "Tags, flashcards, timelines, and safety"
+  default_prompt: "Organize or recover this SiYuan content with the required safeguards."

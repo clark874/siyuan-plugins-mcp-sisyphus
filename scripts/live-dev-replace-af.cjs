@@ -2,8 +2,7 @@
 
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { Client } = require('@modelcontextprotocol/sdk/client');
-const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
+const { Client, InMemoryTransport } = require('@modelcontextprotocol/client');
 
 const { createSiYuanServer } = require(path.join(__dirname, '..', 'dev', 'mcp-server.cjs'));
 

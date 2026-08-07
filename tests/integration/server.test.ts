@@ -1,6 +1,7 @@
+import { createHash } from 'node:crypto';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
+import { z } from 'zod';
 import { USER_RULES_VIRTUAL_PATH, resetToolConfigWarningStateForTests } from '@/core/config';
 import { USER_RULES_RESOURCE_URI } from '@/core/help';
 import { buildServerInstructions, createSiYuanServer, getMcpServerHelpText } from '@/core/server';
@@ -24,6 +25,7 @@ describe('MCP Server Integration', () => {
         expect(help).toContain('SIYUAN_MCP_TRANSPORT=http');
         expect(help).toContain('SIYUAN_API_URL');
         expect(help).toContain('SIYUAN_MCP_TLS_CERT');
+        expect(help).toContain('SIYUAN_MCP_SKILLS_EXTENSION');
     });
 
     beforeEach(async () => {
@@ -75,9 +77,76 @@ describe('MCP Server Integration', () => {
     afterEach(() => {
         delete process.env.SIYUAN_TOKEN;
         delete process.env.SIYUAN_MCP_TOOLS;
+        delete process.env.SIYUAN_MCP_SKILLS_EXTENSION;
     });
 
     describe('Server creation and tool listing', () => {
+        it('serves the default SEP-2640 skill catalog with verifiable resources', async () => {
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+            const skillsClient = new Client({ name: 'skills-extension-client', version: '1.0.0' });
+            await skillsClient.connect(clientTransport);
+
+            const list = await skillsClient.request(
+                { method: 'skills/list', params: {} },
+                z.object({ skills: z.array(z.any()), ttlMs: z.number().optional(), cacheScope: z.string().optional() }),
+            );
+            expect(list.skills).toHaveLength(5);
+            expect(list.skills.map((entry: any) => entry.frontmatter.name)).toContain('siyuan-mcp-sisyphus');
+            expect(list.skills.map((entry: any) => entry.frontmatter.name)).not.toContain('siyuan-mcp-timeline');
+            expect((skillsClient.getServerCapabilities() as any)?.extensions?.['io.modelcontextprotocol/skills']).toEqual({ directoryRead: false });
+
+            const entry = list.skills[0] as any;
+            const resource = await skillsClient.readResource({ uri: entry.uri });
+            const text = (resource.contents[0] as { text: string }).text;
+            expect(`sha256:${createHash('sha256').update(text, 'utf8').digest('hex')}`).toBe(
+                entry.resources.find((item: any) => item.uri === entry.uri).digest,
+            );
+
+            const unlisted = await skillsClient.request(
+                { method: 'skills/get', params: { uri: 'skill://siyuan-mcp-timeline/SKILL.md' } },
+                z.object({ skill: z.any() }),
+            );
+            expect(unlisted.skill.frontmatter.name).toBe('siyuan-mcp-timeline');
+            await skillsClient.close();
+        });
+
+        it('allows the SEP-2640 extension to be explicitly disabled', async () => {
+            process.env.SIYUAN_MCP_SKILLS_EXTENSION = 'false';
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+            const skillsClient = new Client({ name: 'skills-disabled-client', version: '1.0.0' });
+            await skillsClient.connect(clientTransport);
+
+            expect((skillsClient.getServerCapabilities() as any)?.extensions?.['io.modelcontextprotocol/skills']).toBeUndefined();
+            await expect(skillsClient.request(
+                { method: 'skills/list', params: {} },
+                z.object({ skills: z.array(z.any()) }),
+            )).rejects.toThrow();
+            await skillsClient.close();
+        });
+
+        it('advertises v2 tool metadata and returns structured content', async () => {
+            const { tools } = await client.listTools();
+            const system = tools.find((tool) => tool.name === 'system');
+
+            expect(system).toEqual(expect.objectContaining({
+                title: 'SiYuan System',
+                outputSchema: expect.objectContaining({ type: 'object' }),
+                annotations: expect.objectContaining({
+                    readOnlyHint: false,
+                    destructiveHint: true,
+                    idempotentHint: false,
+                    openWorldHint: true,
+                }),
+            }));
+
+            const result = await client.callTool({ name: 'system', arguments: { action: 'get_version' } });
+            expect(result.structuredContent).toEqual(expect.any(Object));
+        });
+
         it('loads tool config from SiYuan API in standalone mode', async () => {
             storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify({
                 document: {

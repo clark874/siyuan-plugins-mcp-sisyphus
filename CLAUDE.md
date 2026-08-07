@@ -14,7 +14,7 @@
 ```bash
 pnpm install
 # 所有依赖已安装，包括：
-# - @modelcontextprotocol/sdk ^1.26.0
+# - @modelcontextprotocol/{server,client,core,node} ^2.0.0
 # - zod ^4.3.6
 # - 及所有 devDependencies
 ```

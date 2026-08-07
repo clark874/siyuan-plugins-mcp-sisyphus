@@ -1,0 +1,24 @@
+{
+  "name": "siyuan-sisyphus",
+  "version": "0.6.0",
+  "description": "Operate SiYuan Note through the Sisyphus MCP server with bundled workflow skills.",
+  "author": {
+    "name": "Taihong Yang",
+    "url": "https://github.com/yangtaihong59"
+  },
+  "homepage": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
+  "repository": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
+  "license": "MIT",
+  "keywords": ["siyuan", "mcp", "notes", "skills"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "SiYuan Sisyphus",
+    "shortDescription": "Read and safely edit SiYuan notes",
+    "longDescription": "Connect Codex to a running SiYuan Sisyphus MCP endpoint and use five bounded workflow skills for reading, writing, databases, files, organization, and safety.",
+    "developerName": "Taihong Yang",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": "Use SiYuan Sisyphus to complete this note task safely."
+  }
+}

@@ -1,6 +1,6 @@
 {
   "name": "siyuan-plugins-mcp-sisyphus",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "type": "module",
   "description": "Let AI control your notes with a SiYuan MCP server that exposes 14 aggregated tools with action-level routing, including document timeline diff and official plugin tool bridging.",
   "repository": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
@@ -55,7 +55,11 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/core": "^2.0.0",
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "hono": "^4.11.4",
     "zod": "^4.3.6"
   }
 }

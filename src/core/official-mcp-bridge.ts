@@ -1,5 +1,4 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { z } from 'zod';
 
 import type { SiYuanClient } from '../api/client';
@@ -345,7 +344,14 @@ export class OfficialMcpBridge {
             );
             const client = new Client(
                 { name: 'siyuan-sisyphus-extension-bridge', version: '1.0.0' },
-                { capabilities: {}, jsonSchemaValidator: noopSchemaValidator },
+                {
+                    capabilities: {},
+                    jsonSchemaValidator: noopSchemaValidator,
+                    versionNegotiation: {
+                        mode: 'auto',
+                        probe: { timeoutMs: 5000, maxRetries: 0 },
+                    },
+                },
             );
             try {
                 await client.connect(transport, { timeout: 5000 });

@@ -74,7 +74,7 @@
 | **构建** | Vite | 多入口编译（renderer / server / cli），输出 CommonJS |
 | **前端框架** | Svelte | 设置面板 `McpConfig`、吉祥物 `ToolPuppy` |
 | **语言** | TypeScript | 源码 ESM（`"type": "module"`），产物 CJS |
-| **MCP 协议** | `@modelcontextprotocol/sdk` ^1.26.0 | stdio / StreamableHTTP 双传输 |
+| **MCP 协议** | 拆分后的 MCP TypeScript SDK v2 包 | 2026-07-28 + legacy 的 stdio/HTTP 双代服务 |
 | **校验** | Zod ^4.3.6 | 所有 tool action 的输入参数校验（约 913 行 schema） |
 | **测试** | Vitest | Unit + Integration + Smoke 三层测试 |
 | **文档** | VitePress | 双语站点（英文默认 + 简体中文 `/zh/`） |
@@ -104,14 +104,17 @@ SiYuan.app → 加载插件 → 启动 mcp-server.cjs (stdio)
 AI 客户端 / 浏览器 / 第三方服务
     ↓ HTTP POST (Bearer Token)
 SiYuan.app → 加载插件 → 启动内嵌 HTTP Server
-    ↓ StreamableHTTP (MCP 2025-03-26 spec)
+    ↓ MCP 2026-07-28 无状态请求或 legacy StreamableHTTP 会话
 调用 TOOL_REGISTRY → SiYuanClient → SiYuan HTTP API
 ```
 
 - 插件 `onload()` 时自动启动 HTTP server（若用户开启）
-- 支持会话管理、`mcp-session-id` 路由
+- 使用 SDK 标准分类器服务两代协议：modern 请求无状态，旧客户端继续使用 `mcp-session-id` 会话
+- 在分发前校验浏览器 Origin 主机名与 JSON POST Content-Type
 - 支持 TLS（自定义证书）、Token 鉴权、父进程看门狗（父进程退出自毁）
 - 适合远程访问、浏览器插件、多客户端共享
+
+modern 工具描述包含标题、通用结构化输出契约和保守 annotations。modern 高危调用会在进入工具生命周期前通过多轮 elicitation 暂停并确认。可选的草案 SEP-2640 扩展增加 `skills/list`、`skills/get` 和带摘要的 `skill://` 资源，但不替代稳定的帮助 Resource 与 Prompt。
 
 ### CLI 直接操作模式
 
@@ -138,6 +141,6 @@ SiYuanClient → SiYuan HTTP API
 
 1. **聚合工具表面**：13 个 MCP tool（fs / notebook / document / block / av / file / search / tag / system / flashcard / extension / mascot / feedback），而非 100+ 个单用途工具。
 2. **配置热加载**：`server.ts` 中 `getToolConfig()` 带 30 秒 TTL 缓存 + in-flight 去重，设置面板改动后无需重启即可生效。
-3. **危险动作标记**：`DANGEROUS_ACTIONS` 集合标记了 15 个高危 action（delete / remove / find_replace 等），在 tool description 和 server instructions 中自动注入警告，但不阻止调用（依赖 LLM 自律）。
+3. **危险动作门禁**：`DANGEROUS_ACTIONS` 集合标记了 15 个高危 action。MCP 2026-07-28 调用会在多轮 elicitation 接受前被阻止；legacy 客户端收到 description 与 instructions 警告。
 4. **Analytics 与 Telemetry**：每次工具调用都会记录 analytics 事件（JSONL 格式，2MB 自动轮转），telemetry 按配置周期聚合上报；CLI 模式下 analytics 会同步等待落盘。
 5. **Puppy 吉祥物**：通过轮询 `puppyEvents.json` 文件与 MCP server 解耦通信，支持空闲动画、拖拽、工资卡、测试模式等状态机。

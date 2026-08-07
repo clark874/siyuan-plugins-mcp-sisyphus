@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.6.0 - 2026-08-07
+
+- 升级至 MCP TypeScript SDK v2，支持 MCP 2026-07-28 无状态 HTTP 与新旧 stdio 协议自动协商，同时保留 2025 代 HTTP 会话兼容
+- 接入 SEP-2640 Skills-over-MCP，默认通过 HTTP 与 stdio 发布全部工作流 Skill，提供五个工作流 bundle 与 Codex agent plugin，并保留稳定的 Resource 与 Prompt 回退路径
+- 补充协议级 elicitation 危险操作确认、Tool 结构化输出和元数据，完善设置开关、双语文档与回归测试
+- CLI 官方 MCP 桥接同步升级协议自动协商能力，CLI 包提升至 v0.2.3
+
 ## v0.5.2 - 2026-08-05
 
 - 将文档时间线完整开放为 `timeline` 聚合工具，MCP 与 CLI 均可创建、列出、比较和删除节点，并执行整篇或块级回退

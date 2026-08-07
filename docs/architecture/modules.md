@@ -30,9 +30,8 @@ src/
 │   ├── server-instructions.ts# MCP Server instructions builder
 │   ├── help.ts               # Help text center
 │   ├── normalize.ts          # Request parameter normalization
-│   └── noops/                # No-op shims for heavy MCP SDK modules
-│       ├── noop-schema-validator.ts
-│       └── noop-experimental-tasks.ts
+│   └── noops/                # Explicit no-op schema validator for SDK v2
+│       └── noop-schema-validator.ts
 ├── tools/                    # 14 aggregated tool implementations
 │   ├── index.ts              # Barrel export: re-exports all tool modules
 │   ├── internal/             # Shared infrastructure for the tool layer
@@ -347,14 +346,15 @@ Converges `variants + handlers + actionSchema` into standard `{ listTools, callT
 
 ## 8. HTTP Transport: `src/core/http-transport.ts`
 
-**Responsibility**: Streamable HTTP MCP Server implementation based on `@modelcontextprotocol/sdk/server/streamableHttp.js`.
+**Responsibility**: SDK v2 HTTP MCP transport that classifies each request and routes it to the MCP 2026-07-28 stateless handler or the legacy sessionful handler.
 
 **Features**:
-- **Session management**: `Map<string, SessionEntry>`, dispatched by `mcp-session-id` header
+- **Dual-era routing**: Modern requests are stateless; legacy sessions use `Map<string, SessionEntry>` and `mcp-session-id`
+- **Request validation**: Enforces configured `Origin` hostnames and JSON content type before dispatch
 - **Bearer Token auth**: Validated via `SIYUAN_MCP_TOKEN` environment variable
 - **TLS**: `SIYUAN_MCP_TLS_CERT` + `SIYUAN_MCP_TLS_KEY` + optional CA
 - **Parent Watchdog**: Monitors `SIYUAN_MCP_PARENT_PID`, self-destructs when parent exits
-- **MCP 2025-03-26 spec**: Supports latest Streamable HTTP specification
+- **MCP 2026-07-28 + legacy compatibility**: Shares one runtime while preserving older clients
 
 ---
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Write and Format"
+  short_description: "Create, edit, and format SiYuan notes"
+  default_prompt: "Create or edit this SiYuan content and verify the result."
