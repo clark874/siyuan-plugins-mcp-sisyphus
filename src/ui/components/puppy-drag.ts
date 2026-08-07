@@ -1,6 +1,6 @@
 import { hasPointerMovedEnough } from './puppy-interactions';
 
-export type PointerState = 'pointer-down' | 'pointer-drag';
+export type PointerState = 'pointer-press' | 'pointer-drag';
 
 export type DragSession = {
     startX: number;
@@ -32,8 +32,8 @@ export function moveDrag(session: DragSession, clientX: number, clientY: number)
     const pointerMoved = session.pointerMoved || movedEnough;
     return {
         session: { ...session, pointerMoved },
-        posX: session.baseX + deltaX,
-        posY: session.baseY + deltaY,
-        pointerState: pointerMoved ? 'pointer-drag' : 'pointer-down',
+        posX: pointerMoved ? session.baseX + deltaX : session.baseX,
+        posY: pointerMoved ? session.baseY + deltaY : session.baseY,
+        pointerState: pointerMoved ? 'pointer-drag' : 'pointer-press',
     };
 }

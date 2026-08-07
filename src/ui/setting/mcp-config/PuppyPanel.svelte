@@ -68,70 +68,46 @@
         <span class:puppy-preview__status--enabled={puppySettings.visible} class="puppy-preview__status">
             {puppySettings.visible ? getLabel("puppy_preview_visible", "Visible") : getLabel("puppy_preview_hidden", "Hidden")}
         </span>
+        <div class="puppy-preview__appearance">
+            <label class="puppy-preview__color">
+                <span>{getLabel("puppy_appearance_body_title", "Body Color")}</span>
+                <input id="puppy__appearance__bodyColor" class="b3-text-field puppy-color-field" type="color" value={puppySettings.appearance.bodyColor} aria-label={getLabel("puppy_appearance_body_desc", "Choose the mascot body and tail color.")} title={getLabel("puppy_appearance_body_desc", "Choose the mascot body and tail color.")} on:input={(event) => emitColor("bodyColor", event)} />
+            </label>
+            <label class="puppy-preview__color">
+                <span>{getLabel("puppy_appearance_paw_title", "Paw Color")}</span>
+                <input id="puppy__appearance__pawColor" class="b3-text-field puppy-color-field" type="color" value={puppySettings.appearance.pawColor} aria-label={getLabel("puppy_appearance_paw_desc", "Choose the mascot paw color.")} title={getLabel("puppy_appearance_paw_desc", "Choose the mascot paw color.")} on:input={(event) => emitColor("pawColor", event)} />
+            </label>
+            <label class="puppy-preview__color">
+                <span>{getLabel("puppy_appearance_eye_title", "Eye Color")}</span>
+                <input id="puppy__appearance__eyeColor" class="b3-text-field puppy-color-field" type="color" value={puppySettings.appearance.eyeColor} aria-label={getLabel("puppy_appearance_eye_desc", "Choose the mascot eye color.")} title={getLabel("puppy_appearance_eye_desc", "Choose the mascot eye color.")} on:input={(event) => emitColor("eyeColor", event)} />
+            </label>
+            <div class="puppy-preview__buttons">
+                <button class="b3-button b3-button--outline" type="button" on:click={() => emitChange("puppy__appearance__randomize", true)}>
+                    {getLabel("puppy_appearance_random_button", "Randomize")}
+                </button>
+                <button class="b3-button b3-button--outline" type="button" on:click={() => emitChange("puppy__appearance__reset", true)}>
+                    {getLabel("puppy_appearance_reset_button", "Reset")}
+                </button>
+            </div>
+        </div>
     </section>
 {/if}
 <SettingPanel {group} settingItems={puppyItems} {display} on:changed={onChanged} />
 
-<div class="config__tab-container puppy-appearance-panel" class:fn__none={!display} data-name={`${group}-appearance`}>
-    <div class="puppy-appearance-actions">
-        <div>
-            <div class="puppy-appearance-title">{getLabel("puppy_appearance_random_title", "Random Appearance")}</div>
-            <div class="b3-label__text">{getLabel("puppy_appearance_random_desc", "Randomly pick colors for the mascot body, paws, and eyes.")}</div>
-        </div>
-        <div class="puppy-appearance-buttons">
-            <button class="b3-button b3-button--outline" type="button" on:click={() => emitChange("puppy__appearance__randomize", true)}>
-                {getLabel("puppy_appearance_random_button", "Randomize")}
-            </button>
-            <button class="b3-button b3-button--outline" type="button" on:click={() => emitChange("puppy__appearance__reset", true)}>
-                {getLabel("puppy_appearance_reset_button", "Reset")}
-            </button>
-        </div>
-    </div>
-
-    <div class="puppy-appearance-row">
-        <div>
-            <div class="puppy-appearance-title">{getLabel("puppy_appearance_body_title", "Body Color")}</div>
-            <div class="b3-label__text">{getLabel("puppy_appearance_body_desc", "Choose the mascot body and tail color.")}</div>
-        </div>
-        <input id="puppy__appearance__bodyColor" class="b3-text-field puppy-color-field" type="color" value={puppySettings.appearance.bodyColor} on:input={(event) => emitColor("bodyColor", event)} />
-    </div>
-    <div class="puppy-appearance-row">
-        <div>
-            <div class="puppy-appearance-title">{getLabel("puppy_appearance_paw_title", "Paw Color")}</div>
-            <div class="b3-label__text">{getLabel("puppy_appearance_paw_desc", "Choose the mascot paw color.")}</div>
-        </div>
-        <input id="puppy__appearance__pawColor" class="b3-text-field puppy-color-field" type="color" value={puppySettings.appearance.pawColor} on:input={(event) => emitColor("pawColor", event)} />
-    </div>
-    <div class="puppy-appearance-row">
-        <div>
-            <div class="puppy-appearance-title">{getLabel("puppy_appearance_eye_title", "Eye Color")}</div>
-            <div class="b3-label__text">{getLabel("puppy_appearance_eye_desc", "Choose the mascot eye color.")}</div>
-        </div>
-        <input id="puppy__appearance__eyeColor" class="b3-text-field puppy-color-field" type="color" value={puppySettings.appearance.eyeColor} on:input={(event) => emitColor("eyeColor", event)} />
-    </div>
-</div>
-
 <style>
-    .puppy-appearance-panel {
-        background: var(--mcp-config-surface, var(--b3-theme-surface));
-        border: 1px solid var(--mcp-config-border, var(--b3-border-color));
-        border-radius: var(--mcp-config-card-radius, 10px);
-        box-shadow: var(--mcp-config-shadow, none);
-        margin-top: var(--mcp-config-section-gap, 14px);
-        overflow: hidden;
-    }
-
     .puppy-preview {
         align-items: center;
         background: var(--mcp-config-surface-accent, var(--mcp-config-surface-raised, var(--b3-theme-surface)));
         border: 1px solid var(--mcp-config-primary-border, var(--b3-border-color));
         border-radius: var(--mcp-config-card-radius, 10px);
         box-shadow: var(--mcp-config-shadow, none);
-        display: flex;
-        gap: 16px;
+        column-gap: 16px;
+        display: grid;
+        grid-template-columns: 66px minmax(0, 1fr) auto;
         margin-bottom: var(--mcp-config-section-gap, 14px);
         min-height: 84px;
         padding: 14px 18px;
+        row-gap: 12px;
     }
 
     .puppy-preview__stage {
@@ -141,6 +117,7 @@
         border-radius: var(--mcp-config-control-radius, 8px);
         display: flex;
         flex: 0 0 66px;
+        grid-row: 1 / span 2;
         height: 66px;
         justify-content: center;
         overflow: hidden;
@@ -184,58 +161,50 @@
         color: var(--b3-theme-success, var(--b3-theme-primary));
     }
 
-    .puppy-appearance-actions,
-    .puppy-appearance-row {
+    .puppy-preview__appearance {
         align-items: center;
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
-        min-height: 46px;
-        padding: 13px 16px;
-    }
-
-    .puppy-appearance-actions:not(:last-child),
-    .puppy-appearance-row:not(:last-child) {
-        border-bottom: 1px solid var(--mcp-config-border, var(--b3-border-color));
-    }
-
-    .puppy-appearance-title {
-        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
-        font-size: var(--mcp-config-title-font-size, 14px);
-        font-weight: var(--mcp-config-title-font-weight, 500);
-        margin-bottom: 4px;
-    }
-
-    .puppy-appearance-buttons {
+        border-top: 1px solid var(--mcp-config-border, var(--b3-border-color));
         display: flex;
         flex-wrap: wrap;
+        gap: 10px 16px;
+        grid-column: 2 / -1;
+        padding-top: 12px;
+    }
+
+    .puppy-preview__color {
+        align-items: center;
+        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+        display: flex;
+        font-size: 12px;
+        gap: 7px;
+    }
+
+    .puppy-preview__buttons {
+        display: flex;
+        flex-wrap: nowrap;
         gap: 8px;
-        justify-content: flex-end;
+        margin-left: auto;
     }
 
     .puppy-color-field {
         box-sizing: border-box;
-        flex: 0 0 72px;
-        height: 32px;
-        min-width: 72px;
+        flex: 0 0 42px;
+        height: 28px;
+        min-width: 42px;
         padding: 2px 4px;
-        width: 72px;
+        width: 42px;
     }
 
     @media (max-width: 768px) {
         .puppy-preview {
             align-items: flex-start;
+            display: flex;
             flex-wrap: wrap;
         }
 
-        .puppy-appearance-actions,
-        .puppy-appearance-row {
-            align-items: stretch;
-            flex-direction: column;
-        }
-
-        .puppy-appearance-buttons {
-            justify-content: flex-start;
+        .puppy-preview__appearance {
+            flex: 1 0 100%;
+            width: 100%;
         }
     }
 </style>

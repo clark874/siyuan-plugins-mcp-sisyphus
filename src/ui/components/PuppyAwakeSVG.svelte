@@ -166,9 +166,15 @@
                 <rect x="72" y="72" width="6" height="6" fill="#3060d0" class="sy-puppy__paw sy-puppy__paw--right"/>
                 <rect x="66" y="78" width="6" height="6" fill="#3060d0" class="sy-puppy__paw sy-puppy__paw--right"/>
                 <rect x="72" y="78" width="6" height="6" fill="#3060d0" class="sy-puppy__paw sy-puppy__paw--right"/>
-                <rect x="84" y="60" width="6" height="6" fill="#4a7fff" class="sy-puppy__tail sy-puppy__tail--1"/>
-                <rect x="84" y="66" width="6" height="6" fill="#4a7fff" class="sy-puppy__tail sy-puppy__tail--2"/>
-                <rect x="90" y="72" width="6" height="6" fill="#4a7fff" class="sy-puppy__tail sy-puppy__tail--3"/>
+                <g class="sy-puppy__tail-chain">
+                    <rect x="84" y="60" width="6" height="6" fill="#4a7fff" class="sy-puppy__tail-root"/>
+                    <g class="sy-puppy__tail sy-puppy__tail--2">
+                        <rect x="84" y="66" width="6" height="6" fill="#4a7fff"/>
+                        <g class="sy-puppy__tail sy-puppy__tail--3">
+                            <rect x="90" y="72" width="6" height="6" fill="#4a7fff"/>
+                        </g>
+                    </g>
+                </g>
 
                 <g class="sy-puppy__eyes">
                     {#if eyeState === 'blink'}
@@ -194,6 +200,10 @@
                         <rect x="66" y="24" width="6" height="6" fill="#1a1f3c"/>
                         <rect x="72" y="24" width="6" height="6" fill="#1a1f3c"/>
                     {/if}
+                </g>
+                <g class="sy-puppy__idle-detail sy-puppy__idle-yawn-mouth" aria-hidden="true">
+                    <rect x="42" y="39" width="12" height="12" rx="3" fill="#1a1f3c"/>
+                    <rect x="45" y="46" width="6" height="3" rx="1" fill="#ff8fa3"/>
                 </g>
             </g>
 
@@ -459,12 +469,27 @@
         transform-origin: center top;
     }
 
+    :global(.sy-puppy__tail-chain rect) {
+        fill: var(--sy-puppy-body-color, #4a7fff);
+    }
+
     :global(.sy-puppy__eyes rect) {
         fill: var(--sy-puppy-eye-color, #1a1f3c);
     }
 
     :global(.sy-puppy__eyes line) {
         stroke: var(--sy-puppy-eye-color, #1a1f3c);
+    }
+
+    :global(.sy-puppy__idle-detail) {
+        opacity: 0;
+        pointer-events: none;
+        transform-box: fill-box;
+        transform-origin: center;
+    }
+
+    :global(.sy-puppy__idle-yawn-mouth > rect:first-child) {
+        fill: var(--sy-puppy-eye-color, #1a1f3c);
     }
 
     :global(.sy-puppy__cat),
@@ -477,7 +502,15 @@
     }
 
     :global(.sy-puppy__tail) {
-        transform-origin: 82px 65px;
+        transform-box: view-box;
+    }
+
+    :global(.sy-puppy__tail--2) {
+        transform-origin: 87px 66px;
+    }
+
+    :global(.sy-puppy__tail--3) {
+        transform-origin: 90px 72px;
     }
 
     :global(.sy-puppy__tool) {
@@ -615,7 +648,6 @@
         animation: sy-puppy-ear-twitch 2.6s steps(1) infinite;
     }
 
-    :global(.sy-puppy--idle .sy-puppy__tail--1),
     :global(.sy-puppy--idle .sy-puppy__tail--2),
     :global(.sy-puppy--idle .sy-puppy__tail--3) {
         animation: sy-puppy-tail-sway 2.4s steps(3) infinite;
@@ -641,6 +673,19 @@
         animation: sy-puppy-paw-shift-left 1.9s ease-in-out infinite;
     }
 
+    :global(.sy-puppy--idle-peek .sy-puppy__cat) {
+        animation: sy-puppy-idle-peek 2.2s steps(4) infinite;
+    }
+
+    :global(.sy-puppy--idle-peek .sy-puppy__paw--left) {
+        animation: sy-puppy-paw-peek 2.2s steps(4) infinite;
+    }
+
+    :global(.sy-puppy--idle-peek .sy-puppy__tail--2),
+    :global(.sy-puppy--idle-peek .sy-puppy__tail--3) {
+        animation: sy-puppy-tail-curious 2.2s steps(3) infinite;
+    }
+
     :global(.sy-puppy--idle-sit .sy-puppy__cat) {
         animation: sy-puppy-idle-sit 2.2s ease-in-out infinite;
     }
@@ -662,6 +707,69 @@
         animation: sy-puppy-groom-paw-right 1.5s steps(2) infinite;
     }
 
+    :global(.sy-puppy--idle-stretch .sy-puppy__cat) {
+        transform-origin: center bottom;
+        animation: sy-puppy-idle-stretch 3.2s ease-in-out infinite;
+    }
+
+    :global(.sy-puppy--idle-stretch .sy-puppy__paw--left) {
+        animation: sy-puppy-paw-stretch-left 3.2s ease-in-out infinite;
+    }
+
+    :global(.sy-puppy--idle-stretch .sy-puppy__paw--right) {
+        animation: sy-puppy-paw-stretch-right 3.2s ease-in-out infinite;
+    }
+
+    :global(.sy-puppy--idle-stretch .sy-puppy__tail--2),
+    :global(.sy-puppy--idle-stretch .sy-puppy__tail--3) {
+        animation: sy-puppy-tail-stretch 3.2s ease-in-out infinite;
+    }
+
+    :global(.sy-puppy--idle-yawn .sy-puppy__cat) {
+        animation: sy-puppy-idle-yawn 2.8s ease-in-out infinite;
+    }
+
+    :global(.sy-puppy--idle-yawn .sy-puppy__idle-yawn-mouth) {
+        opacity: 1;
+        animation: sy-puppy-yawn-mouth 2.8s steps(3) infinite;
+    }
+
+    :global(.sy-puppy--idle-yawn .sy-puppy__paw--left),
+    :global(.sy-puppy--idle-yawn .sy-puppy__paw--right) {
+        animation: sy-puppy-paw-yawn 2.8s ease-in-out infinite;
+    }
+
+    :global(.sy-puppy--idle-scratch .sy-puppy__cat) {
+        animation: sy-puppy-idle-scratch 1.35s steps(2) infinite;
+    }
+
+    :global(.sy-puppy--idle-scratch .sy-puppy__paw--left) {
+        animation: sy-puppy-paw-scratch-brace 1.35s steps(2) infinite;
+    }
+
+    :global(.sy-puppy--idle-scratch .sy-puppy__paw--right) {
+        animation: sy-puppy-paw-scratch 1.35s steps(2) infinite;
+    }
+
+    :global(.sy-puppy--idle-scratch .sy-puppy__tail--2),
+    :global(.sy-puppy--idle-scratch .sy-puppy__tail--3) {
+        animation: sy-puppy-tail-scratch 1.35s steps(2) infinite;
+    }
+
+    :global(.sy-puppy--idle-tail-play .sy-puppy__cat) {
+        transform-origin: 70% 75%;
+        animation: sy-puppy-idle-tail-play 2.6s steps(4) infinite;
+    }
+
+    :global(.sy-puppy--idle-tail-play .sy-puppy__paw--right) {
+        animation: sy-puppy-paw-tail-play 2.6s steps(4) infinite;
+    }
+
+    :global(.sy-puppy--idle-tail-play .sy-puppy__tail--2),
+    :global(.sy-puppy--idle-tail-play .sy-puppy__tail--3) {
+        animation: sy-puppy-tail-dodge 0.65s steps(3) infinite;
+    }
+
     :global(.sy-puppy--idle-lie .sy-puppy__cat) {
         animation: sy-puppy-idle-lie 2.8s ease-in-out infinite, sy-puppy-ear-twitch 4s steps(1) infinite;
     }
@@ -671,7 +779,6 @@
         animation: sy-puppy-paw-sprawl 2.8s ease-in-out infinite;
     }
 
-    :global(.sy-puppy--idle-lie .sy-puppy__tail--1),
     :global(.sy-puppy--idle-lie .sy-puppy__tail--2),
     :global(.sy-puppy--idle-lie .sy-puppy__tail--3) {
         animation-duration: 3.6s;
@@ -686,19 +793,13 @@
         animation: sy-puppy-paw-sleep 3.2s ease-in-out infinite;
     }
 
-    :global(.sy-puppy--idle-sleep .sy-puppy__tail--1),
     :global(.sy-puppy--idle-sleep .sy-puppy__tail--2),
     :global(.sy-puppy--idle-sleep .sy-puppy__tail--3) {
         animation: sy-puppy-tail-rest 4.2s ease-in-out infinite;
     }
 
-    :global(.sy-puppy.sy-puppy--pointer-down .sy-puppy__cat) {
-        animation: sy-puppy-pointer-down 0.18s ease-out forwards;
-    }
-
-    :global(.sy-puppy.sy-puppy--pointer-down .sy-puppy__paw--left),
-    :global(.sy-puppy.sy-puppy--pointer-down .sy-puppy__paw--right) {
-        animation: sy-puppy-pointer-grab 0.18s ease-out forwards;
+    :global(.sy-puppy.sy-puppy--pointer-press .sy-puppy__cat) {
+        animation: sy-puppy-pointer-press 0.14s ease-out forwards;
     }
 
     :global(.sy-puppy.sy-puppy--pointer-drag .sy-puppy__cat) {
@@ -710,7 +811,6 @@
         animation: sy-puppy-pointer-grip 0.52s steps(2) infinite;
     }
 
-    :global(.sy-puppy.sy-puppy--pointer-drag .sy-puppy__tail--1),
     :global(.sy-puppy.sy-puppy--pointer-drag .sy-puppy__tail--2),
     :global(.sy-puppy.sy-puppy--pointer-drag .sy-puppy__tail--3) {
         animation: sy-puppy-tail-trail 0.52s steps(2) infinite;
@@ -723,6 +823,24 @@
     :global(.sy-puppy.sy-puppy--pointer-release .sy-puppy__paw--left),
     :global(.sy-puppy.sy-puppy--pointer-release .sy-puppy__paw--right) {
         animation: sy-puppy-pointer-release-paw 0.26s ease-out forwards;
+    }
+
+    :global(.sy-puppy.sy-puppy--pointer-pet .sy-puppy__cat) {
+        transform-origin: center bottom;
+        animation: sy-puppy-pointer-pet 0.76s cubic-bezier(0.2, 0.72, 0.25, 1) forwards;
+    }
+
+    :global(.sy-puppy.sy-puppy--pointer-pet .sy-puppy__paw--left),
+    :global(.sy-puppy.sy-puppy--pointer-pet .sy-puppy__paw--right) {
+        animation: sy-puppy-pointer-pet-paw 0.76s cubic-bezier(0.2, 0.72, 0.25, 1) forwards;
+    }
+
+    :global(.sy-puppy.sy-puppy--pointer-pet .sy-puppy__tail--2) {
+        animation: sy-puppy-petting-tail-middle 0.38s ease-in-out 2;
+    }
+
+    :global(.sy-puppy.sy-puppy--pointer-pet .sy-puppy__tail--3) {
+        animation: sy-puppy-petting-tail-tip 0.38s ease-in-out 2;
     }
 
     :global(.sy-puppy--reading .sy-puppy__cat) {
@@ -1016,6 +1134,12 @@
         70% { transform: translateX(1px) rotate(3deg); }
     }
 
+    @keyframes sy-puppy-idle-peek {
+        0%, 18%, 100% { transform: translateX(0) rotate(0deg); }
+        36%, 68% { transform: translateX(-5px) translateY(-1px) rotate(-5deg); }
+        52% { transform: translateX(-7px) translateY(-2px) rotate(-7deg); }
+    }
+
     @keyframes sy-puppy-idle-sit {
         0%, 100% { transform: translateY(0) scaleY(1); }
         50% { transform: translateY(3px) scaleY(0.95); }
@@ -1024,6 +1148,30 @@
     @keyframes sy-puppy-idle-groom {
         0%, 100% { transform: translateX(0) rotate(0deg); }
         50% { transform: translateX(-4px) translateY(1px) rotate(-7deg); }
+    }
+
+    @keyframes sy-puppy-idle-stretch {
+        0%, 16%, 100% { transform: translate(0, 0) scale(1); }
+        38%, 72% { transform: translateY(3px) scaleX(1.08) scaleY(0.92) rotate(-2deg); }
+        54% { transform: translateY(4px) scaleX(1.12) scaleY(0.88) rotate(-3deg); }
+    }
+
+    @keyframes sy-puppy-idle-yawn {
+        0%, 14%, 100% { transform: translateY(0) scaleY(1); }
+        38%, 75% { transform: translateY(2px) scaleY(0.96); }
+        56% { transform: translateY(4px) scaleY(0.91) scaleX(1.03); }
+    }
+
+    @keyframes sy-puppy-idle-scratch {
+        0%, 100% { transform: translateX(0) rotate(0deg); }
+        35% { transform: translateX(-1px) rotate(-2deg); }
+        70% { transform: translateX(1px) rotate(2deg); }
+    }
+
+    @keyframes sy-puppy-idle-tail-play {
+        0%, 16%, 100% { transform: translate(0, 0) rotate(0deg); }
+        34%, 66% { transform: translate(3px, 1px) rotate(4deg); }
+        50% { transform: translate(5px, 2px) rotate(7deg) scaleX(1.02); }
     }
 
     @keyframes sy-puppy-idle-lie {
@@ -1056,6 +1204,12 @@
         50% { transform: translate(-1px, 1px) rotate(-6deg); }
     }
 
+    @keyframes sy-puppy-paw-peek {
+        0%, 18%, 100% { transform: translate(0, 0) rotate(0deg); }
+        36%, 68% { transform: translate(-3px, 2px) rotate(-8deg); }
+        52% { transform: translate(-5px, 2px) rotate(-12deg); }
+    }
+
     @keyframes sy-puppy-paw-tuck {
         0%, 100% { transform: translateY(0) scaleY(1); }
         50% { transform: translateY(2px) scaleY(0.92); }
@@ -1071,9 +1225,71 @@
         50% { transform: translate(-1px, 2px) rotate(4deg); }
     }
 
+    @keyframes sy-puppy-paw-stretch-left {
+        0%, 16%, 100% { transform: translate(0, 0) rotate(0deg); }
+        40%, 72% { transform: translate(-5px, 5px) rotate(-8deg); }
+        54% { transform: translate(-7px, 6px) rotate(-10deg); }
+    }
+
+    @keyframes sy-puppy-paw-stretch-right {
+        0%, 16%, 100% { transform: translate(0, 0) rotate(0deg); }
+        40%, 72% { transform: translate(5px, 5px) rotate(8deg); }
+        54% { transform: translate(7px, 6px) rotate(10deg); }
+    }
+
+    @keyframes sy-puppy-paw-yawn {
+        0%, 14%, 100% { transform: translateY(0) scaleY(1); }
+        42%, 72% { transform: translateY(3px) scaleY(0.9); }
+    }
+
+    @keyframes sy-puppy-yawn-mouth {
+        0%, 18%, 88%, 100% { transform: scale(0.2); opacity: 0; }
+        38%, 72% { transform: scale(0.8, 1); opacity: 1; }
+        54% { transform: scale(1, 1.16); opacity: 1; }
+    }
+
+    @keyframes sy-puppy-paw-scratch-brace {
+        0%, 100% { transform: translateY(1px) rotate(-2deg); }
+        50% { transform: translateY(2px) rotate(2deg); }
+    }
+
+    @keyframes sy-puppy-paw-scratch {
+        0%, 100% { transform: translate(3px, -43px) rotate(-18deg); }
+        50% { transform: translate(-1px, -48px) rotate(-30deg); }
+    }
+
+    @keyframes sy-puppy-paw-tail-play {
+        0%, 18%, 100% { transform: translate(0, 0) rotate(0deg); }
+        38%, 68% { transform: translate(9px, -2px) rotate(16deg); }
+        52% { transform: translate(13px, -4px) rotate(24deg); }
+    }
+
     @keyframes sy-puppy-tail-rest {
-        0%, 100% { transform: rotate(0deg) translateY(0); }
-        50% { transform: rotate(3deg) translateY(1px); }
+        0%, 100% { transform: rotate(0deg); }
+        50% { transform: rotate(2deg); }
+    }
+
+    @keyframes sy-puppy-tail-curious {
+        0%, 100% { transform: rotate(0deg); }
+        35% { transform: rotate(-3deg); }
+        70% { transform: rotate(5deg); }
+    }
+
+    @keyframes sy-puppy-tail-stretch {
+        0%, 16%, 100% { transform: rotate(0deg); }
+        40%, 72% { transform: rotate(-6deg); }
+        54% { transform: rotate(-10deg); }
+    }
+
+    @keyframes sy-puppy-tail-scratch {
+        0%, 100% { transform: rotate(-2deg); }
+        50% { transform: rotate(5deg); }
+    }
+
+    @keyframes sy-puppy-tail-dodge {
+        0%, 100% { transform: rotate(-4deg); }
+        33% { transform: rotate(-10deg); }
+        66% { transform: rotate(8deg); }
     }
 
     @keyframes sy-puppy-sleep-z {
@@ -1091,19 +1307,19 @@
     }
 
     @keyframes sy-puppy-tail-wag {
-        0%, 100% { transform: translateY(0) rotate(0deg); }
-        33% { transform: translateY(-3px) rotate(-8deg); }
-        66% { transform: translateY(-3px) rotate(8deg); }
+        0%, 100% { transform: rotate(0deg); }
+        33% { transform: rotate(-5deg); }
+        66% { transform: rotate(5deg); }
     }
 
     @keyframes sy-puppy-tail-sway {
-        0%, 100% { transform: translateY(0) rotate(0deg); }
-        50% { transform: translateY(-1px) rotate(6deg); }
+        0%, 100% { transform: rotate(0deg); }
+        50% { transform: rotate(3deg); }
     }
 
     @keyframes sy-puppy-tail-trail {
-        0%, 100% { transform: translateY(0) rotate(-4deg); }
-        50% { transform: translateY(-3px) rotate(10deg); }
+        0%, 100% { transform: rotate(-2deg); }
+        50% { transform: rotate(7deg); }
     }
 
     @keyframes sy-puppy-ear-twitch {
@@ -1111,14 +1327,9 @@
         50% { transform: scaleY(0.95); }
     }
 
-    @keyframes sy-puppy-pointer-down {
+    @keyframes sy-puppy-pointer-press {
         from { transform: translateY(0) scale(1); }
-        to { transform: translateY(3px) scale(1.03, 0.95); }
-    }
-
-    @keyframes sy-puppy-pointer-grab {
-        from { transform: translateY(0) rotate(0deg); }
-        to { transform: translateY(2px) rotate(6deg); }
+        to { transform: translateY(1px) scale(1, 0.99); }
     }
 
     @keyframes sy-puppy-pointer-drag {
@@ -1140,6 +1351,33 @@
     @keyframes sy-puppy-pointer-release-paw {
         0% { transform: translateY(2px) rotate(8deg); }
         100% { transform: translateY(0) rotate(0deg); }
+    }
+
+    @keyframes sy-puppy-pointer-pet {
+        0% { transform: translateY(1px) scale(1.01, 0.985) rotate(0deg); }
+        24% { transform: translateY(3px) scale(1.015, 0.975) rotate(-1deg); }
+        52% { transform: translateY(1px) scale(1.005, 0.99) rotate(1deg); }
+        76% { transform: translateY(2px) scale(1.01, 0.985) rotate(-1deg); }
+        100% { transform: translateY(0) scale(1) rotate(0deg); }
+    }
+
+    @keyframes sy-puppy-pointer-pet-paw {
+        0% { transform: translateY(0); }
+        30% { transform: translateY(2px); }
+        62% { transform: translateY(1px); }
+        100% { transform: translateY(0); }
+    }
+
+    @keyframes sy-puppy-petting-tail-middle {
+        0%, 100% { transform: rotate(0deg); }
+        45% { transform: rotate(4deg); }
+        72% { transform: rotate(-2deg); }
+    }
+
+    @keyframes sy-puppy-petting-tail-tip {
+        0%, 100% { transform: rotate(0deg); }
+        35% { transform: rotate(12deg); }
+        70% { transform: rotate(-6deg); }
     }
 
     @keyframes sy-puppy-reading-body {

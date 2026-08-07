@@ -23,7 +23,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Latest:** `v0.6.0` — Upgrades to MCP SDK v2 with MCP 2026-07-28 negotiation, protocol-level elicitation, structured tool metadata, and default Skills-over-MCP publication over HTTP and stdio. CLI is now `v0.2.3`.
+> **Latest:** `v0.6.0` — Upgrades to MCP SDK v2 with MCP 2026-07-28 negotiation, protocol-level elicitation, structured tool metadata, and default Skills-over-MCP publication over HTTP and stdio; also refreshes the 52-week analytics dashboard and mascot interactions. CLI is now `v0.2.3`.
 
 ## Project Direction Update
 

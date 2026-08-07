@@ -23,7 +23,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **最新版本：**`v0.6.0` — 升级 MCP SDK v2，支持 MCP 2026-07-28 协商、协议级 elicitation、结构化 Tool 元数据，并默认通过 HTTP 与 stdio 发布 Skills-over-MCP。CLI 提升至 `v0.2.3`。
+> **最新版本：**`v0.6.0` — 升级 MCP SDK v2，支持 MCP 2026-07-28 协商、协议级 elicitation、结构化 Tool 元数据，并默认通过 HTTP 与 stdio 发布 Skills-over-MCP；同时刷新 52 周分析面板与猫猫交互。CLI 提升至 `v0.2.3`。
 
 ## 项目方向调整
 
