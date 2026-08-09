@@ -3,6 +3,7 @@ import { resolve } from "path";
 import { defineConfig } from "vite";
 import { viteStaticCopy } from "vite-plugin-static-copy";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { viteSingleFile } from "vite-plugin-singlefile";
 import zipPack from "vite-plugin-zip-pack";
 import fg from "fast-glob";
 
@@ -14,6 +15,8 @@ const isDev = env.NODE_ENV === "development";
 
 const outputDir = isDev ? "dev" : "dist";
 const cliOutputDir = "cli/dist";
+const mcpAppOutputDir = ".mcp-app-dist";
+const mcpAppHtmlPath = resolve(__dirname, mcpAppOutputDir, "index.html");
 
 const serverExternals = [
     "siyuan",
@@ -55,7 +58,7 @@ const cliExtraExternals = [
     "node:readline",
 ];
 
-const validTargets = ["renderer", "server", "cli"] as const;
+const validTargets = ["renderer", "server", "cli", "mcp-app"] as const;
 type BuildTarget = typeof validTargets[number];
 const buildTarget: BuildTarget = (validTargets as readonly string[]).includes(env.BUILD_TARGET ?? "")
     ? (env.BUILD_TARGET as BuildTarget)
@@ -71,6 +74,7 @@ export default defineConfig(() => {
     switch (buildTarget) {
         case "server": return createServerConfig();
         case "cli": return createCliConfig();
+        case "mcp-app": return createMcpAppConfig();
         default: return createRendererConfig();
     }
 });
@@ -162,6 +166,7 @@ function createServerConfig() {
                 "@": resolve(__dirname, "src"),
             },
         },
+        plugins: [mcpAppHtmlModule()],
         define: {
             "process.env.DEV_MODE": JSON.stringify(isDev),
             "process.env.NODE_ENV": JSON.stringify(env.NODE_ENV),
@@ -233,6 +238,51 @@ function createServerConfig() {
                     entryFileNames: "mcp-server.cjs",
                 },
             },
+        },
+    };
+}
+
+function createMcpAppConfig() {
+    return {
+        root: resolve(__dirname, "src/mcp-apps"),
+        publicDir: false as const,
+        base: "./",
+        resolve: {
+            alias: {
+                "@": resolve(__dirname, "src"),
+            },
+        },
+        plugins: [viteSingleFile()],
+        build: {
+            outDir: resolve(__dirname, mcpAppOutputDir),
+            emptyOutDir: true,
+            minify: !isDev,
+            sourcemap: isSrcmap ? "inline" : false,
+            assetsInlineLimit: Number.MAX_SAFE_INTEGER,
+            cssCodeSplit: false,
+            rollupOptions: {
+                input: resolve(__dirname, "src/mcp-apps/index.html"),
+            },
+        },
+    };
+}
+
+function mcpAppHtmlModule() {
+    const publicId = "virtual:siyuan-mcp-app-html";
+    const resolvedId = `\0${publicId}`;
+    return {
+        name: "siyuan-mcp-app-html",
+        resolveId(id: string) {
+            return id === publicId ? resolvedId : undefined;
+        },
+        load(id: string) {
+            if (id !== resolvedId) return undefined;
+            this.addWatchFile(mcpAppHtmlPath);
+            try {
+                return `export default ${JSON.stringify(readFileSync(mcpAppHtmlPath, "utf8"))};`;
+            } catch {
+                throw new Error(`MCP App bundle not found at ${mcpAppHtmlPath}. Run npm run build:mcp-app before building the server.`);
+            }
         },
     };
 }

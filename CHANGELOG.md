@@ -2,11 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
-## v0.6.0 - 2026-08-07
+## v0.6.0 - 2026-08-09
 
 - 升级至 MCP TypeScript SDK v2，支持 MCP 2026-07-28 无状态 HTTP 与新旧 stdio 协议自动协商，同时保留 2025 代 HTTP 会话兼容
 - 接入 SEP-2640 Skills-over-MCP，默认通过 HTTP 与 stdio 发布全部工作流 Skill，提供五个工作流 bundle 与 Codex agent plugin，并保留稳定的 Resource 与 Prompt 回退路径
 - 补充协议级 elicitation 危险操作确认、Tool 结构化输出和元数据，完善设置开关、双语文档与回归测试
+- 新增闪卡复习、文档时间线与猫猫商店 MCP Apps，用专用启动 Tool 和模型不可见的 App action 隔离 AI 与人工交互权限
+- 固定闪卡候选快照并按笔记本权限补全题面与答案，优化时间线 Diff 二次确认与猫猫购买反馈
 - 重构本地分析面板为 52 周活动热力图、调用来源环形图和 Token 对比图，并优化猫猫外观设置、待机动画、抚摸与拖拽反馈
 - CLI 官方 MCP 桥接同步升级协议自动协商能力，CLI 包提升至 v0.2.3
 

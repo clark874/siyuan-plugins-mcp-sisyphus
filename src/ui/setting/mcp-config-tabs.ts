@@ -53,6 +53,7 @@ export const CATEGORY_TAB_DEFS: CategoryTabDefinition[] = [
 export const HTTP_GROUP_KEY = "Connection Config";
 export const PERM_GROUP_KEY = "Permissions";
 export const TOOL_GROUP_KEY = "Tool Settings";
+export const MCP_APPS_GROUP_KEY = "MCP Apps";
 export const PUPPY_GROUP_KEY = "Mascot Display";
 export const ANALYTICS_GROUP_KEY = "analyticsGroupTitle";
 export const DEBUG_GROUP_KEY = "debugGroupTitle";

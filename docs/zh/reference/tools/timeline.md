@@ -26,6 +26,16 @@ timeline(action="rollback_block", documentId="<文档 ID>", tag="<tag>", changeK
 
 `compare_node` 默认只返回发生变化的块；需要上下文时可设置 `includeUnchanged=true`。每个变更包含历史/当前 Markdown、不透明的 `changeKey`，以及是否支持块级回退。
 
+## MCP App
+
+支持 MCP Apps 的客户端通过专用的 `timeline_app` Tool 打开一次内联时间线界面；普通 `timeline` 查询不再生成 App。`timeline_app` 可接收 `documentId`，并可附带 `tag` 直接打开指定 Diff。节点列表省略重复的应用标题栏，比较页使用紧凑的统一 Diff。
+
+设置页的“App 软件”页面独立管理时间线 App 及其六个操作。App 内的列出、比较、创建、删除与回退全部通过模型不可见的 `timeline_app_action` Tool 执行；因此可以关闭 AI 的回退 action，同时保留由用户点击执行的 App 回退。App-only 隔离由支持 MCP Apps `visibility: ["app"]` 的 Host 执行。服务端的笔记本权限检查与高风险 elicitation/MRTR 确认仍然生效。
+
+在 Diff 页第一次点击整篇或单块回退时，App 会显示不占据布局空间的二次确认浮层；按钮不会位移，可在原位置再次点击。浮层不拦截鼠标事件，但仍会通过无障碍状态区域播报。
+
+当首次调用只列出全局节点、没有提供 `documentId` 时，界面可以浏览和创建全局节点，但会禁用文档比较；让 Agent 使用 `scope="all"` 和 `documentId` 重新调用即可进入完整 Diff 工作流。
+
 ## 安全与权限
 
 - 列出、比较文档节点需要笔记本读权限。
@@ -34,6 +44,7 @@ timeline(action="rollback_block", documentId="<文档 ID>", tag="<tag>", changeK
 - 全局节点只暴露快照元数据，不绑定具体笔记本权限。
 - `delete_node` 只删除保护 tag 和文档索引记录，底层仓库快照仍会保留。
 - 调用 `delete_node`、`rollback_document` 或 `rollback_block` 前必须获得用户明确确认；CLI 主动调用视为确认。
+- AI 权限沿用原默认值；时间线 App 及其六个操作默认开启，并可在“App 软件”页逐项关闭。
 - 旧版节点关联、迁移与转换仍只在插件时间线 UI 中提供。
 
 ## CLI 示例

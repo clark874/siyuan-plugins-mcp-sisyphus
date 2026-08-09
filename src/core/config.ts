@@ -13,6 +13,9 @@ export const FILE_ACTIONS = ['upload_asset', 'list_templates', 'read_template', 
 export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'delete_node', 'rollback_document', 'rollback_block'] as const;
+export const TIMELINE_APP_ACTIONS = TIMELINE_ACTIONS;
+export const FLASHCARD_REVIEW_APP_ACTIONS = ['review_card'] as const;
+export const MASCOT_SHOP_APP_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const EXTENSION_ACTIONS = ['list'] as const;
@@ -28,6 +31,9 @@ export type FileAction = typeof FILE_ACTIONS[number];
 export type SearchAction = typeof SEARCH_ACTIONS[number];
 export type TagAction = typeof TAG_ACTIONS[number];
 export type TimelineAction = typeof TIMELINE_ACTIONS[number];
+export type TimelineAppAction = typeof TIMELINE_APP_ACTIONS[number];
+export type FlashcardReviewAppAction = typeof FLASHCARD_REVIEW_APP_ACTIONS[number];
+export type MascotShopAppAction = typeof MASCOT_SHOP_APP_ACTIONS[number];
 export type SystemAction = typeof SYSTEM_ACTIONS[number];
 export type FlashcardAction = typeof FLASHCARD_ACTIONS[number];
 export type ExtensionAction = typeof EXTENSION_ACTIONS[number];
@@ -65,6 +71,19 @@ export interface ExtensionCategoryToolConfig extends CategoryToolConfig<Extensio
     blockedTools: string[];
 }
 
+export type TimelineCategoryToolConfig = CategoryToolConfig<TimelineAction>;
+
+export interface McpAppConfig<Action extends string> {
+    enabled: boolean;
+    actions: Record<Action, boolean>;
+}
+
+export interface McpAppsConfig {
+    timeline: McpAppConfig<TimelineAppAction>;
+    flashcardReview: McpAppConfig<FlashcardReviewAppAction>;
+    mascotShop: McpAppConfig<MascotShopAppAction>;
+}
+
 export interface DebugToolConfig {
     includeUiRefreshMetadata: boolean;
     slimResponses: boolean;
@@ -79,12 +98,13 @@ export type ToolConfig = {
     file: FileCategoryToolConfig<FileAction>;
     search: CategoryToolConfig<SearchAction>;
     tag: CategoryToolConfig<TagAction>;
-    timeline: CategoryToolConfig<TimelineAction>;
+    timeline: TimelineCategoryToolConfig;
     system: CategoryToolConfig<SystemAction>;
     flashcard: CategoryToolConfig<FlashcardAction>;
     extension: ExtensionCategoryToolConfig;
     mascot: CategoryToolConfig<MascotAction>;
     feedback: CategoryToolConfig<FeedbackAction>;
+    mcpApps: McpAppsConfig;
     userRulesText: string;
     agentSiyuanMemoryText: string;
     agentSiyuanMemoryUpdatedAt: string;
@@ -299,6 +319,20 @@ export function buildDefaultToolConfig(): ToolConfig {
             enabled: true,
             actions: createActionsRecord(FEEDBACK_ACTIONS, ['submit']),
         },
+        mcpApps: {
+            timeline: {
+                enabled: true,
+                actions: createActionsRecord(TIMELINE_APP_ACTIONS, TIMELINE_APP_ACTIONS),
+            },
+            flashcardReview: {
+                enabled: true,
+                actions: createActionsRecord(FLASHCARD_REVIEW_APP_ACTIONS, FLASHCARD_REVIEW_APP_ACTIONS),
+            },
+            mascotShop: {
+                enabled: true,
+                actions: createActionsRecord(MASCOT_SHOP_APP_ACTIONS, MASCOT_SHOP_APP_ACTIONS),
+            },
+        },
         userRulesText: '创建文档/日记后主动设图标',
         agentSiyuanMemoryText: '',
         agentSiyuanMemoryUpdatedAt: '',
@@ -406,6 +440,26 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
         }
     }
 
+    const appActionSets = {
+        timeline: TIMELINE_APP_ACTIONS,
+        flashcardReview: FLASHCARD_REVIEW_APP_ACTIONS,
+        mascotShop: MASCOT_SHOP_APP_ACTIONS,
+    } as const;
+    if (isRecord(raw.mcpApps)) {
+        for (const appName of Object.keys(appActionSets) as Array<keyof McpAppsConfig>) {
+            const appValue = raw.mcpApps[appName];
+            if (!isRecord(appValue)) continue;
+            if (typeof appValue.enabled === 'boolean') config.mcpApps[appName].enabled = appValue.enabled;
+            if (!isRecord(appValue.actions)) continue;
+            for (const action of appActionSets[appName]) {
+                const value = appValue.actions[action];
+                if (typeof value === 'boolean') {
+                    (config.mcpApps[appName].actions as Record<string, boolean>)[action] = value;
+                }
+            }
+        }
+    }
+
     for (const category of TOOL_CATEGORIES) {
         const categoryValue = raw[category];
         if (!isRecord(categoryValue)) continue;
@@ -426,6 +480,16 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
                         .map((name) => name.trim())
                         .filter(Boolean),
                 )).sort();
+            }
+        }
+        // Migrate the short-lived timeline.appActions format into the dedicated
+        // MCP Apps permission namespace without changing AI tool permissions.
+        if (category === 'timeline' && !isRecord(raw.mcpApps) && isRecord(categoryValue.appActions)) {
+            for (const action of TIMELINE_APP_ACTIONS) {
+                const value = categoryValue.appActions[action];
+                if (typeof value === 'boolean') {
+                    config.mcpApps.timeline.actions[action] = value;
+                }
             }
         }
         if (!isRecord(categoryValue.actions)) continue;

@@ -67,6 +67,11 @@ function createAllEnabledConfig(): ToolConfig {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.feedback.map((action) => [action, true])) as ToolConfig['feedback']['actions'],
         },
+        mcpApps: {
+            timeline: { enabled: true, actions: Object.fromEntries(ACTIONS_BY_CATEGORY.timeline.map((action) => [action, true])) as ToolConfig['mcpApps']['timeline']['actions'] },
+            flashcardReview: { enabled: true, actions: { review_card: true } },
+            mascotShop: { enabled: true, actions: { get_balance: true, shop: true, buy: true } },
+        },
         userRulesText: '',
         agentSiyuanMemoryText: '',
         agentSiyuanMemoryUpdatedAt: '',

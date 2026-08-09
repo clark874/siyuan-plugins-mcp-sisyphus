@@ -4,6 +4,21 @@ import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { z } from 'zod';
 import { USER_RULES_VIRTUAL_PATH, resetToolConfigWarningStateForTests } from '@/core/config';
 import { USER_RULES_RESOURCE_URI } from '@/core/help';
+import {
+    FLASHCARD_APP_HANDOFF_MESSAGE,
+    FLASHCARD_APP_MODEL_INSTRUCTION,
+    FLASHCARD_APP_PRESENTATION_MODE,
+    FLASHCARD_REVIEW_SESSION_TOOL_NAME,
+    FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME,
+    MCP_APPS_EXTENSION_ID,
+    MCP_APP_LEGACY_RESOURCE_URI_META_KEY,
+    MCP_APP_MIME_TYPE,
+    MCP_APP_RESOURCE_URIS,
+    TIMELINE_APP_ACTION_TOOL_NAME,
+    TIMELINE_APP_TOOL_NAME,
+    MASCOT_SHOP_APP_TOOL_NAME,
+    MASCOT_SHOP_APP_ACTION_TOOL_NAME,
+} from '@/core/mcp-apps';
 import { buildServerInstructions, createSiYuanServer, getMcpServerHelpText } from '@/core/server';
 import { AGENT_MEMORY_TOOL_DESCRIPTION_REMINDER, USER_RULES_TOOL_DESCRIPTION_REMINDER } from '@/core/tool-registry';
 
@@ -145,6 +160,199 @@ describe('MCP Server Integration', () => {
 
             const result = await client.callTool({ name: 'system', arguments: { action: 'get_version' } });
             expect(result.structuredContent).toEqual(expect.any(Object));
+        });
+
+        it('negotiates MCP Apps and serves the flashcard, timeline, and shop views', async () => {
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+            const appsClient = new Client(
+                { name: 'mcp-apps-client', version: '1.0.0' },
+                {
+                    capabilities: {
+                        extensions: {
+                            [MCP_APPS_EXTENSION_ID]: { mimeTypes: [MCP_APP_MIME_TYPE] },
+                        },
+                    },
+                },
+            );
+            await appsClient.connect(clientTransport);
+
+            expect((appsClient.getServerCapabilities() as any)?.extensions?.[MCP_APPS_EXTENSION_ID]).toEqual({
+                mimeTypes: [MCP_APP_MIME_TYPE],
+            });
+
+            const { tools } = await appsClient.listTools();
+            expect((tools.find((entry) => entry.name === 'flashcard') as any)?._meta?.ui).toBeUndefined();
+            expect((tools.find((entry) => entry.name === 'timeline') as any)?._meta?.ui).toBeUndefined();
+            expect((tools.find((entry) => entry.name === 'mascot') as any)?._meta?.ui).toBeUndefined();
+            expect((tools.find((entry) => entry.name === FLASHCARD_REVIEW_SESSION_TOOL_NAME) as any)?._meta?.ui).toEqual({
+                resourceUri: MCP_APP_RESOURCE_URIS.flashcard,
+                visibility: ['model'],
+            });
+            expect((tools.find((entry) => entry.name === FLASHCARD_REVIEW_SESSION_TOOL_NAME) as any)?._meta?.[MCP_APP_LEGACY_RESOURCE_URI_META_KEY]).toBe(MCP_APP_RESOURCE_URIS.flashcard);
+            const timelineAppAction = tools.find((entry) => entry.name === TIMELINE_APP_ACTION_TOOL_NAME) as any;
+            expect(timelineAppAction?._meta?.ui).toEqual({ visibility: ['app'] });
+            expect(timelineAppAction?.inputSchema?.properties?.action?.enum).toEqual([
+                'list_nodes',
+                'create_node',
+                'compare_node',
+                'delete_node',
+                'rollback_document',
+                'rollback_block',
+                'help',
+            ]);
+            expect((tools.find((entry) => entry.name === FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME) as any)?._meta?.ui).toEqual({ visibility: ['app'] });
+            expect((tools.find((entry) => entry.name === MASCOT_SHOP_APP_ACTION_TOOL_NAME) as any)?._meta?.ui).toEqual({ visibility: ['app'] });
+            for (const [toolName, resourceUri] of [
+                [TIMELINE_APP_TOOL_NAME, MCP_APP_RESOURCE_URIS.timeline],
+                [MASCOT_SHOP_APP_TOOL_NAME, MCP_APP_RESOURCE_URIS.mascot],
+            ] as const) {
+                const tool = tools.find((entry) => entry.name === toolName) as any;
+                expect(tool?._meta?.ui).toEqual({
+                    resourceUri,
+                    visibility: ['model'],
+                });
+                expect(tool?._meta?.[MCP_APP_LEGACY_RESOURCE_URI_META_KEY]).toBe(resourceUri);
+                const resource = await appsClient.readResource({ uri: resourceUri });
+                expect(resource.contents[0]).toEqual(expect.objectContaining({
+                    uri: resourceUri,
+                    mimeType: MCP_APP_MIME_TYPE,
+                    text: expect.stringContaining('SiYuan MCP App'),
+                }));
+            }
+            const flashcardResource = await appsClient.readResource({ uri: MCP_APP_RESOURCE_URIS.flashcard });
+            expect(flashcardResource.contents[0]).toEqual(expect.objectContaining({
+                uri: MCP_APP_RESOURCE_URIS.flashcard,
+                mimeType: MCP_APP_MIME_TYPE,
+                text: expect.stringContaining('SiYuan MCP App'),
+            }));
+            await appsClient.close();
+        });
+
+        it('starts a flashcard App session from the fixed candidate snapshot without drawing due cards twice', async () => {
+            let dueCalls = 0;
+            vi.mocked(global.fetch).mockImplementation(async (url, init) => {
+                const urlStr = String(url);
+                if (urlStr.includes('/api/file/getFile')) {
+                    const body = init?.body ? JSON.parse(String(init.body)) as { path?: string } : {};
+                    return {
+                        ok: true,
+                        text: async () => storedFiles[body.path ?? ''] ?? '',
+                    } as Response;
+                }
+                if (urlStr.includes('/api/riff/getRiffDueCards')) {
+                    dueCalls += 1;
+                    return jsonResponse({
+                        code: 0,
+                        msg: 'success',
+                        data: dueCalls === 1
+                            ? {
+                                cards: [{
+                                    deckID: 'deck-1',
+                                    cardID: 'card-1',
+                                    blockID: 'block-1',
+                                    state: 1,
+                                }],
+                                unreviewedCount: 1,
+                            }
+                            : { cards: [] },
+                    });
+                }
+                if (urlStr.includes('/api/block/getBlockInfo')) {
+                    return jsonResponse({ code: 0, msg: 'success', data: { box: 'notebook-1' } });
+                }
+                if (urlStr.includes('/api/block/getChildBlocks')) {
+                    return jsonResponse({ code: 0, msg: 'success', data: [{ id: 'answer-1', type: 'p' }] });
+                }
+                if (urlStr.includes('/api/block/getBlockKramdowns')) {
+                    return jsonResponse({
+                        code: 0,
+                        msg: 'success',
+                        data: {
+                            'block-1': '快照题目',
+                            'answer-1': '快照答案',
+                        },
+                    });
+                }
+                return jsonResponse({ code: 0, msg: 'success', data: {} });
+            });
+
+            const server = await createSiYuanServer();
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await server.connect(serverTransport);
+            const appsClient = new Client(
+                { name: 'flashcard-snapshot-client', version: '1.0.0' },
+                {
+                    capabilities: {
+                        extensions: {
+                            [MCP_APPS_EXTENSION_ID]: { mimeTypes: [MCP_APP_MIME_TYPE] },
+                        },
+                    },
+                },
+            );
+            await appsClient.connect(clientTransport);
+
+            const candidates = await appsClient.callTool({
+                name: 'flashcard',
+                arguments: { action: 'list_cards', scope: 'all', filter: 'due' },
+            });
+            const candidatePayload = candidates.structuredContent as any;
+            expect(candidatePayload.candidateToken).toEqual(expect.any(String));
+            expect(candidatePayload.cards).toEqual([
+                expect.objectContaining({ deckID: 'deck-1', cardID: 'card-1', front: '快照题目' }),
+            ]);
+
+            const session = await appsClient.callTool({
+                name: FLASHCARD_REVIEW_SESSION_TOOL_NAME,
+                arguments: {
+                    candidateToken: candidatePayload.candidateToken,
+                    cards: [{ deckID: 'deck-1', cardID: 'card-1' }],
+                    selectionReason: '固定候选快照回归测试。',
+                },
+            });
+            expect(session.isError).not.toBe(true);
+            expect(session.structuredContent).toMatchObject({
+                selectedCount: 1,
+                omittedCards: [],
+                presentationMode: FLASHCARD_APP_PRESENTATION_MODE,
+                message: FLASHCARD_APP_HANDOFF_MESSAGE,
+                modelInstruction: FLASHCARD_APP_MODEL_INSTRUCTION,
+                cards: [{
+                    front: '快照题目',
+                    back: '快照答案',
+                }],
+            });
+            const sessionText = session.content.find((item) => item.type === 'text')?.text ?? '';
+            expect(JSON.parse(sessionText)).toMatchObject({
+                presentationMode: FLASHCARD_APP_PRESENTATION_MODE,
+                message: FLASHCARD_APP_HANDOFF_MESSAGE,
+                modelInstruction: FLASHCARD_APP_MODEL_INSTRUCTION,
+            });
+            expect(sessionText).not.toContain('快照题目');
+            expect(sessionText).not.toContain('快照答案');
+            expect(dueCalls).toBe(1);
+
+            await appsClient.close();
+        });
+
+        it('keeps MCP App metadata out of tools for clients that did not opt in', async () => {
+            const { tools } = await client.listTools();
+            expect((tools.find((tool) => tool.name === 'flashcard') as any)?._meta?.ui).toBeUndefined();
+            expect((tools.find((tool) => tool.name === 'timeline') as any)?._meta?.ui).toBeUndefined();
+            expect((tools.find((tool) => tool.name === 'mascot') as any)?._meta?.ui).toBeUndefined();
+            expect(tools.find((tool) => tool.name === FLASHCARD_REVIEW_SESSION_TOOL_NAME)).toBeUndefined();
+            expect(tools.find((tool) => tool.name === TIMELINE_APP_ACTION_TOOL_NAME)).toBeUndefined();
+            expect(tools.find((tool) => tool.name === TIMELINE_APP_TOOL_NAME)).toBeUndefined();
+            expect(tools.find((tool) => tool.name === FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME)).toBeUndefined();
+            expect(tools.find((tool) => tool.name === MASCOT_SHOP_APP_TOOL_NAME)).toBeUndefined();
+            expect(tools.find((tool) => tool.name === MASCOT_SHOP_APP_ACTION_TOOL_NAME)).toBeUndefined();
+            const hiddenCall = await client.callTool({
+                name: TIMELINE_APP_ACTION_TOOL_NAME,
+                arguments: { action: 'create_node', name: 'hidden', scope: 'global' },
+            });
+            expect(hiddenCall.isError).toBe(true);
+            expect(hiddenCall.content.find((item) => item.type === 'text')?.text).toContain('Unknown tool');
         });
 
         it('loads tool config from SiYuan API in standalone mode', async () => {
@@ -362,6 +570,24 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('block(action=”update”) is best for single-block replacement');
             expect(instructions).toContain('Multi-line markdown may be truncated to the first line by SiYuan');
             expect(instructions).toContain('block(action=”append”), prepend, or insert');
+        });
+
+        it('makes the MCP App the sole flashcard presentation surface after a review session starts', () => {
+            const instructions = buildServerInstructions('');
+
+            expect(instructions).toContain('`flashcard_review_session` tool is available and succeeds');
+            expect(instructions).toContain('complete prompts and reference answers remain available in structured output');
+            expect(instructions).toContain('MUST NOT list, quote, restate, or reveal them');
+            expect(instructions).toContain(`Reply with exactly “${FLASHCARD_APP_HANDOFF_MESSAGE}” and stop.`);
+            expect(instructions).toContain('ordinary `flashcard` results retain their complete content');
+        });
+
+        it('explains that timeline App launches without a document are global-only', () => {
+            const instructions = buildServerInstructions('');
+
+            expect(instructions).toContain('Pass its `documentId` before launch');
+            expect(instructions).toContain('the App is global-only and can display only global timeline nodes');
+            expect(instructions).toContain('Omit `documentId` only when the user wants the global timeline');
         });
 
         it('directs basic path-style operations to the fs tool first', () => {

@@ -237,6 +237,50 @@ describe('mcp/tool-lifecycle', () => {
         });
     });
 
+    it('keeps mascot purchase metadata in the puppy event when responses are slimmed', async () => {
+        const { writePuppyEvent } = await import('@/core/puppy-state');
+
+        const result = await runToolCall(
+            {
+                client: {} as never,
+                category: 'mascot',
+                name: 'mascot_shop_app_action',
+                action: 'buy',
+                args: { action: 'buy', item_id: 'dried-fish' },
+                slimResponses: true,
+            },
+            async () => ({
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify({
+                        success: true,
+                        action: 'buy',
+                        item_id: 'dried-fish',
+                        item: 'Dried Fish',
+                        type: 'food',
+                        emoji: '🐟',
+                        cost: 4,
+                        balance: 6,
+                    }),
+                }],
+            }),
+        );
+
+        expect(JSON.parse(result.content[0].text)).toEqual({ success: true });
+        expect(vi.mocked(writePuppyEvent)).toHaveBeenLastCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                tool: 'mascot',
+                action: 'buy',
+                status: 'success',
+                itemId: 'dried-fish',
+                itemLabel: 'Dried Fish',
+                itemType: 'food',
+                itemEmoji: '🐟',
+            }),
+        );
+    });
+
     it('keeps full successful responses when slim responses is disabled', async () => {
         const fullPayload = {
             success: true,

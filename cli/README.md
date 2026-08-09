@@ -6,7 +6,7 @@
 
 Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (fs, block, document, notebook, av, search, tag, file, timeline, system, flashcard, extension, mascot, feedback) is exposed as a subcommand you can call directly from a shell.
 
-> **Latest:** `v0.2.3` upgrades the official MCP `extension` bridge to MCP SDK v2 with automatic protocol negotiation while preserving existing commands and flags.
+> **Latest:** `v0.2.3` upgrades the official MCP `extension` bridge to MCP SDK v2 with automatic protocol negotiation while preserving existing commands and flags. Readable flashcards now include permission-checked `front`, `back`, and review material in `list_cards` and `get_cards` output.
 
 > **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, timeline, and system workflows.
 

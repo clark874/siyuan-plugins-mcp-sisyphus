@@ -36,6 +36,14 @@ describe('setting tool config', () => {
         expect(config.timeline.actions.delete_node).toBe(false);
         expect(config.timeline.actions.rollback_document).toBe(false);
         expect(config.timeline.actions.rollback_block).toBe(false);
+        expect(config.mcpApps.timeline.actions).toEqual({
+            list_nodes: true,
+            create_node: true,
+            compare_node: true,
+            delete_node: true,
+            rollback_document: true,
+            rollback_block: true,
+        });
         expect(config.userRulesText).toBe('创建文档/日记后主动设图标');
         expect(config.agentSiyuanMemoryText).toBe('');
         expect(config.agentSiyuanMemoryUpdatedAt).toBe('');
@@ -138,6 +146,79 @@ describe('setting tool config', () => {
         expect(config.flashcard.actions.create_card).toBe(true);
         expect(config.flashcard.actions.remove_card).toBe(false);
         expect(config.flashcard.actions.review_card).toBe(true);
+    });
+
+    it('keeps MCP App timeline mutations independent from AI actions', () => {
+        const config = normalizeToolConfig({
+            timeline: {
+                enabled: true,
+                actions: {
+                    list_nodes: true,
+                    create_node: false,
+                    rollback_document: false,
+                },
+                appActions: {
+                    create_node: true,
+                    delete_node: false,
+                    rollback_document: true,
+                    rollback_block: false,
+                },
+            },
+        });
+
+        expect(config.timeline.actions.create_node).toBe(false);
+        expect(config.timeline.actions.rollback_document).toBe(false);
+        expect(config.mcpApps.timeline.actions).toEqual({
+            list_nodes: true,
+            create_node: true,
+            compare_node: true,
+            delete_node: false,
+            rollback_document: true,
+            rollback_block: false,
+        });
+    });
+
+    it('keeps the Timeline App enabled independently when the AI timeline tool is disabled', () => {
+        const config = normalizeToolConfig({
+            timeline: {
+                enabled: true,
+                actions: Object.fromEntries([
+                    'list_nodes',
+                    'create_node',
+                    'compare_node',
+                    'delete_node',
+                    'rollback_document',
+                    'rollback_block',
+                ].map((action) => [action, false])),
+                appActions: {
+                    create_node: false,
+                    delete_node: false,
+                    rollback_document: true,
+                    rollback_block: false,
+                },
+            },
+        });
+
+        expect(config.timeline.enabled).toBe(false);
+        expect(config.mcpApps.timeline.enabled).toBe(true);
+        expect(config.mcpApps.timeline.actions.rollback_document).toBe(true);
+    });
+
+    it('normalizes independent switches for all three MCP Apps', () => {
+        const config = normalizeToolConfig({
+            mcpApps: {
+                timeline: { enabled: false, actions: { rollback_document: false } },
+                flashcardReview: { enabled: true, actions: { review_card: false } },
+                mascotShop: { enabled: true, actions: { get_balance: true, shop: false, buy: false } },
+            },
+        });
+
+        expect(config.mcpApps.timeline.enabled).toBe(false);
+        expect(config.mcpApps.timeline.actions.rollback_document).toBe(false);
+        expect(config.mcpApps.flashcardReview.actions.review_card).toBe(false);
+        expect(config.mcpApps.mascotShop.actions).toEqual({ get_balance: true, shop: false, buy: false });
+        expect(config.flashcard.actions.review_card).toBe(true);
+        expect(config.mascot.actions.buy).toBe(true);
     });
 
     it('keeps av nested action toggles', () => {

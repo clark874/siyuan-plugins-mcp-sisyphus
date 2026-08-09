@@ -92,6 +92,18 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(source).toContain('key: "rollback_document"');
     });
 
+    it('renders MCP App permissions on a separate settings page', () => {
+        const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+        const appsSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/McpAppsPanel.svelte'), 'utf8');
+
+        expect(panelSource).not.toContain('timeline__app_action__');
+        expect(rootSource).toContain('{ id: MCP_APPS_GROUP_KEY');
+        expect(rootSource).toContain('key.startsWith("mcpApps__")');
+        expect(appsSource).toContain('config.mcpApps[definition.key]');
+        expect(appsSource).toContain('mcpApps__${definition.key}__action__${action.key}');
+    });
+
     it('keeps tool categories grouped under one settings page', () => {
         const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
         const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
@@ -119,7 +131,7 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         const tabsSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config-tabs.ts'), 'utf8');
 
         expect(tabsSource).toContain('description: string;');
-        expect(rootSource.match(/description: getLabel\("settings[A-Za-z]+Desc"/g)).toHaveLength(8);
+        expect(rootSource.match(/description: getLabel\("settings[A-Za-z]+Desc"/g)).toHaveLength(9);
         expect(rootSource).toContain('<aside class="config__sidebar">');
         expect(rootSource).toContain('<nav class="config__navigation"');
         expect(rootSource).toContain('class="config__nav-item"');

@@ -47,6 +47,7 @@ export interface ToolDescriptor {
     description?: string;
     inputSchema: Record<string, unknown>;
     outputSchema?: Record<string, unknown>;
+    _meta?: Record<string, unknown>;
     annotations?: {
         title?: string;
         readOnlyHint?: boolean;

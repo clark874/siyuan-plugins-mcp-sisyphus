@@ -10,6 +10,24 @@ import { noopSchemaValidator } from './noops/noop-schema-validator';
 import { OfficialMcpBridge, type OfficialMcpRuntime } from './official-mcp-bridge';
 
 import { PermissionManager } from './permissions';
+import {
+    callFlashcardReviewSessionTool,
+    callMascotShopAppTool,
+    callTimelineAppTool,
+    compactMcpAppToolResult,
+    decorateToolsWithMcpApps,
+    FLASHCARD_REVIEW_SESSION_TOOL_NAME,
+    FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME,
+    listMcpAppResources,
+    MCP_APPS_EXTENSION_ID,
+    MCP_APP_MIME_TYPE,
+    MASCOT_SHOP_APP_ACTION_TOOL_NAME,
+    MASCOT_SHOP_APP_TOOL_NAME,
+    readMcpAppResource,
+    supportsMcpApps,
+    TIMELINE_APP_ACTION_TOOL_NAME,
+    TIMELINE_APP_TOOL_NAME,
+} from './mcp-apps';
 import { listHelpResources, listHelpResourceTemplates, readHelpResource } from './resources';
 import { GENERIC_TOOL_OUTPUT_SCHEMA, listAllTools, prepareAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
 import { runToolCall } from './tool-lifecycle';
@@ -162,11 +180,12 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
                 tools: { listChanged: true },
                 resources: {},
                 prompts: {},
-                ...(skillsExtensionEnabled ? {
-                    extensions: {
+                extensions: {
+                    [MCP_APPS_EXTENSION_ID]: { mimeTypes: [MCP_APP_MIME_TYPE] },
+                    ...(skillsExtensionEnabled ? {
                         'io.modelcontextprotocol/skills': { directoryRead: false },
-                    },
-                } : {}),
+                    } : {}),
+                },
             },
             instructions: buildServerInstructions({
                 userRulesText: initialConfig.userRulesText,
@@ -190,18 +209,28 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         };
     }
 
-    server.setRequestHandler('tools/list', async () => {
+    server.setRequestHandler('tools/list', async (_request, ctx) => {
         const config = await getToolConfig();
         await prepareAllTools(config, officialMcpRuntime);
         // buildAggregatedTool always emits an object-root JSON Schema. Its
         // internal schema helpers intentionally retain Record<string, unknown>
         // so action-specific extensions remain visible to the CLI as well.
-        return { tools: listAllTools(config, officialMcpRuntime) as Tool[] };
+        const clientCapabilities = (
+            ctx.mcpReq.envelope as { clientCapabilities?: Parameters<typeof supportsMcpApps>[0] } | undefined
+        )?.clientCapabilities ?? server.getClientCapabilities();
+        const tools = decorateToolsWithMcpApps(
+            listAllTools(config, officialMcpRuntime),
+            supportsMcpApps(clientCapabilities),
+            config.mcpApps,
+        );
+        return { tools: tools as Tool[] };
     });
 
     server.setRequestHandler('resources/list', async () => {
+        const config = await getToolConfig();
         return {
             resources: [
+                ...listMcpAppResources(config.mcpApps),
                 ...listHelpResources(),
                 ...(skillsExtensionEnabled ? listSepSkillResources() : []),
             ],
@@ -214,7 +243,8 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
 
     server.setRequestHandler('resources/read', async (request) => {
         const config = await getToolConfig();
-        const resource = readHelpResource(request.params.uri, config.userRulesText)
+        const resource = readMcpAppResource(request.params.uri, config.mcpApps)
+            ?? readHelpResource(request.params.uri, config.userRulesText)
             ?? (skillsExtensionEnabled ? readSepSkillResource(request.params.uri) : undefined);
         if (!resource) {
             throw new ProtocolError(ProtocolErrorCode.InvalidRequest, `Unknown resource: ${request.params.uri}`);
@@ -260,7 +290,66 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
     server.setRequestHandler('tools/call', async (request, ctx) => {
         const { name, arguments: args } = request.params;
         const action = typeof args?.action === 'string' ? args.action : 'unknown';
-        const category = resolveCategory(name);
+        const clientCapabilities = (
+            ctx.mcpReq.envelope as { clientCapabilities?: Parameters<typeof supportsMcpApps>[0] } | undefined
+        )?.clientCapabilities ?? server.getClientCapabilities();
+        const appsEnabled = supportsMcpApps(clientCapabilities);
+        const appToolNames = new Set([
+            TIMELINE_APP_TOOL_NAME,
+            TIMELINE_APP_ACTION_TOOL_NAME,
+            FLASHCARD_REVIEW_SESSION_TOOL_NAME,
+            FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME,
+            MASCOT_SHOP_APP_TOOL_NAME,
+            MASCOT_SHOP_APP_ACTION_TOOL_NAME,
+        ]);
+        if (appToolNames.has(name) && !appsEnabled) {
+            return {
+                content: [{ type: 'text' as const, text: `Unknown tool: ${name}` }],
+                isError: true,
+            };
+        }
+        if ([FLASHCARD_REVIEW_SESSION_TOOL_NAME, TIMELINE_APP_TOOL_NAME, MASCOT_SHOP_APP_TOOL_NAME].includes(name)) {
+            const config = await getToolConfig();
+            const appEnabled = name === FLASHCARD_REVIEW_SESSION_TOOL_NAME
+                ? config.mcpApps.flashcardReview.enabled
+                : name === TIMELINE_APP_TOOL_NAME
+                    ? config.mcpApps.timeline.enabled
+                    : config.mcpApps.mascotShop.enabled;
+            if (!appEnabled) {
+                return {
+                    content: [{ type: 'text' as const, text: `Tool "${name}" is disabled.` }],
+                    isError: true,
+                };
+            }
+            if (name === FLASHCARD_REVIEW_SESSION_TOOL_NAME && (!config.flashcard.enabled || config.flashcard.actions.list_cards !== true)) {
+                return { content: [{ type: 'text' as const, text: 'flashcard_review_session requires flashcard(action="list_cards") to be enabled for candidate selection.' }], isError: true };
+            }
+            try {
+                const result = name === FLASHCARD_REVIEW_SESSION_TOOL_NAME
+                    ? await callFlashcardReviewSessionTool(client, permMgr, args, config.mcpApps.flashcardReview)
+                    : name === TIMELINE_APP_TOOL_NAME
+                        ? await callTimelineAppTool(client, permMgr, args, config.mcpApps.timeline)
+                        : await callMascotShopAppTool(client, permMgr, args, config.mcpApps.mascotShop);
+                return server.projectCallToolResult(result, GENERIC_TOOL_OUTPUT_SCHEMA);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                return server.projectCallToolResult(withStructuredContent({
+                    content: [{ type: 'text' as const, text: JSON.stringify({
+                        action: FLASHCARD_REVIEW_SESSION_TOOL_NAME,
+                        error: { message },
+                    }, null, 2) }],
+                    isError: true,
+                }), GENERIC_TOOL_OUTPUT_SCHEMA);
+            }
+        }
+        const appActionCategory = name === TIMELINE_APP_ACTION_TOOL_NAME
+            ? 'timeline'
+            : name === FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME
+                ? 'flashcard'
+                : name === MASCOT_SHOP_APP_ACTION_TOOL_NAME
+                    ? 'mascot'
+                    : undefined;
+        const category = appActionCategory ?? resolveCategory(name);
         if (!category) {
             return {
                 content: [{ type: 'text' as const, text: `Unknown tool: ${name}` }],
@@ -269,7 +358,14 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         }
 
         const config = await getToolConfig();
-        if (!config[category].enabled) {
+        const appActionConfig = name === TIMELINE_APP_ACTION_TOOL_NAME
+            ? config.mcpApps.timeline
+            : name === FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME
+                ? config.mcpApps.flashcardReview
+                : name === MASCOT_SHOP_APP_ACTION_TOOL_NAME
+                    ? config.mcpApps.mascotShop
+                    : undefined;
+        if (appActionConfig ? !appActionConfig.enabled : !config[category].enabled) {
             return {
                 content: [{ type: 'text' as const, text: `Tool "${name}" is disabled.` }],
                 isError: true,
@@ -277,9 +373,11 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         }
 
         const module = TOOL_REGISTRY[category];
-        const actionEnabled = category === 'extension'
-            ? true
-            : (config[category].actions as Record<string, boolean>)[action] === true;
+        const actionEnabled = appActionConfig
+            ? (appActionConfig.actions as Record<string, boolean>)[action] === true
+            : category === 'extension'
+                ? true
+                : (config[category].actions as Record<string, boolean>)[action] === true;
         const extensionTool = category === 'extension'
             ? officialMcpBridge.getTools().find((tool) => tool.name === action)
             : undefined;
@@ -360,14 +458,17 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
                     : JSON.stringify({ name, arguments: args ?? {} }),
                 slimResponses: config.debug.slimResponses,
             },
-            () => module.callTool(client, args, config[category], permMgr, officialMcpRuntime),
+            () => appActionConfig
+                ? module.callTool(client, args, appActionConfig, permMgr, officialMcpRuntime)
+                : module.callTool(client, args, config[category], permMgr, officialMcpRuntime),
         );
         // The low-level v2 Server leaves cross-era result projection to the
         // handler. Our tools currently have text-only output and no advertised
         // outputSchema, but projecting here keeps modern and legacy shapes in
         // sync when structured output is introduced later.
+        const projectedResult = withStructuredContent(result);
         return server.projectCallToolResult(
-            withStructuredContent(result),
+            compactMcpAppToolResult(name, action, projectedResult, appsEnabled, config.mcpApps),
             GENERIC_TOOL_OUTPUT_SCHEMA,
         );
     });
