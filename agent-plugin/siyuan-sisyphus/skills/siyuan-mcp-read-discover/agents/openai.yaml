@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Read and Discover"
+  short_description: "Browse, read, search, and query SiYuan"
+  default_prompt: "Find and read the relevant SiYuan content for this task."

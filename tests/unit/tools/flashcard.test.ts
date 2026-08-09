@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FlashcardListCardsSchema } from '@/core/types';
 import { callFlashcardTool } from '@/tools/flashcard';
+import { createFlashcardReviewSessionData } from '@/tools/flashcard/handlers';
 
 vi.mock('@/api/flashcard', () => ({
     getRiffDecks: vi.fn(),
@@ -18,6 +19,9 @@ vi.mock('@/api/flashcard', () => ({
 
 vi.mock('@/api/block', () => ({
     getBlockAttrs: vi.fn(),
+    getBlockInfo: vi.fn(),
+    getChildBlocks: vi.fn(),
+    getBlockKramdowns: vi.fn(),
     setBlockAttrs: vi.fn(),
 }));
 
@@ -48,6 +52,9 @@ describe('flashcard tool', () => {
         vi.mocked(api.addRiffCards).mockReset();
         vi.mocked(api.removeRiffCards).mockReset();
         vi.mocked(attributeApi.getBlockAttrs).mockReset();
+        vi.mocked(attributeApi.getBlockInfo).mockReset();
+        vi.mocked(attributeApi.getChildBlocks).mockReset();
+        vi.mocked(attributeApi.getBlockKramdowns).mockReset();
         vi.mocked(attributeApi.setBlockAttrs).mockReset();
     });
 
@@ -73,6 +80,254 @@ describe('flashcard tool', () => {
             filter: 'due',
             unreviewedCount: 2,
         });
+    });
+
+    it('revalidates, deduplicates, and preserves AI-selected review order', async () => {
+        const api = await import('@/api/flashcard');
+        const blockApi = await import('@/api/block');
+        vi.mocked(api.getRiffDueCards).mockResolvedValue({
+            cards: [
+                { deckID: 'deck-1', cardID: 'card-1', blockID: 'block-1', state: 1 },
+                { deckID: 'deck-1', cardID: 'card-2', blockID: 'block-2', state: 1 },
+            ],
+        });
+        vi.mocked(blockApi.getBlockInfo).mockResolvedValue({ box: 'notebook-1' });
+        vi.mocked(blockApi.getChildBlocks).mockImplementation(async (_client, blockID) => [
+            { id: `${blockID}-answer`, type: 'p' } as any,
+        ]);
+        vi.mocked(blockApi.getBlockKramdowns).mockImplementation(async (_client, ids) => Object.fromEntries(
+            ids.map((id) => [id, id.endsWith('-answer') ? `答案 ${id}` : `题目 ${id}`]),
+        ));
+        const permMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            canRead: vi.fn().mockReturnValue(true),
+        };
+
+        const session = await createFlashcardReviewSessionData({} as any, permMgr as any, {
+            selectionReason: '优先复习遗忘较多的卡。',
+            cards: [
+                { deckID: 'deck-1', cardID: 'card-2' },
+                { deckID: 'deck-1', cardID: 'card-1' },
+                { deckID: 'deck-1', cardID: 'card-2' },
+                { deckID: 'deck-2', cardID: 'missing' },
+            ],
+        });
+
+        expect(vi.mocked(api.getRiffDueCards)).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(api.getRiffDueCards)).toHaveBeenCalledWith(expect.anything(), '');
+        expect(session.cards.map((card) => card.cardID)).toEqual(['card-2', 'card-1']);
+        expect(session.cards[0]).toMatchObject({
+            front: '题目 block-2',
+            back: '答案 block-2-answer',
+        });
+        expect(session.duplicateCount).toBe(1);
+        expect(session.omittedCards).toEqual([
+            { deckID: 'deck-2', cardID: 'missing', reason: 'not_due_or_missing' },
+        ]);
+    });
+
+    it('matches a globally due card without deckID only when the selected cardID is unambiguous', async () => {
+        const api = await import('@/api/flashcard');
+        const blockApi = await import('@/api/block');
+        vi.mocked(api.getRiffDueCards).mockResolvedValue({
+            cards: [{ cardID: 'card-1', blockID: 'block-1', state: 0 }],
+        });
+        vi.mocked(blockApi.getBlockInfo).mockResolvedValue({ box: 'notebook-1' });
+        vi.mocked(blockApi.getChildBlocks).mockResolvedValue([]);
+        vi.mocked(blockApi.getBlockKramdowns).mockResolvedValue({ 'block-1': '题目' });
+        const permMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            canRead: vi.fn().mockReturnValue(true),
+        };
+
+        const session = await createFlashcardReviewSessionData({} as any, permMgr as any, {
+            selectionReason: '从当前全局到期队列选卡。',
+            cards: [{ deckID: 'deck-1', cardID: 'card-1' }],
+        });
+
+        expect(session.cards).toEqual([
+            expect.objectContaining({ deckID: 'deck-1', cardID: 'card-1', front: '题目' }),
+        ]);
+    });
+
+    it('uses the fixed candidate snapshot without drawing the global due queue again', async () => {
+        const api = await import('@/api/flashcard');
+        const blockApi = await import('@/api/block');
+        vi.mocked(blockApi.getBlockInfo).mockResolvedValue({ box: 'notebook-1' });
+        const permMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            canRead: vi.fn().mockReturnValue(true),
+        };
+
+        const session = await createFlashcardReviewSessionData({} as any, permMgr as any, {
+            selectionReason: '只从固定候选快照选卡。',
+            cards: [{ deckID: 'deck-1', cardID: 'card-1' }],
+        }, [
+            {
+                deckID: 'deck-1',
+                cardID: 'card-1',
+                blockID: 'block-1',
+                state: 0,
+                front: '快照题目',
+                back: '快照答案',
+            },
+        ]);
+
+        expect(vi.mocked(api.getRiffDueCards)).not.toHaveBeenCalled();
+        expect(vi.mocked(blockApi.getChildBlocks)).not.toHaveBeenCalled();
+        expect(vi.mocked(blockApi.getBlockKramdowns)).not.toHaveBeenCalled();
+        expect(session.cards).toEqual([
+            expect.objectContaining({ deckID: 'deck-1', cardID: 'card-1', front: '快照题目' }),
+        ]);
+        expect(session.omittedCards).toEqual([]);
+    });
+
+    it('refuses to start a review session when every selected card is unreadable', async () => {
+        const api = await import('@/api/flashcard');
+        const blockApi = await import('@/api/block');
+        vi.mocked(api.getRiffDueCards).mockResolvedValue({
+            cards: [{ deckID: 'deck-1', cardID: 'card-1', blockID: 'block-1' }],
+        });
+        vi.mocked(blockApi.getBlockInfo).mockResolvedValue({ box: 'private-notebook' });
+        const permMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            canRead: vi.fn().mockReturnValue(false),
+        };
+
+        await expect(createFlashcardReviewSessionData({} as any, permMgr as any, {
+            selectionReason: '测试不可读卡。',
+            cards: [{ deckID: 'deck-1', cardID: 'card-1' }],
+        })).rejects.toThrow('No selected flashcards are still due and readable');
+    });
+
+    it('hydrates due cards with separate front and back content for MCP App review', async () => {
+        const api = await import('@/api/flashcard');
+        const blockApi = await import('@/api/block');
+        vi.mocked(api.getRiffDueCards).mockResolvedValue({
+            cards: [{ cardID: 'card-1', blockID: 'heading-1', state: 0 }],
+        });
+        vi.mocked(blockApi.getChildBlocks).mockResolvedValue([
+            { id: 'answer-1', type: 'p' } as any,
+            { id: 'answer-2', type: 'l' } as any,
+        ]);
+        vi.mocked(blockApi.getBlockKramdowns).mockResolvedValue({
+            'heading-1': '## 什么是 REST API？\n{: id="heading-1" custom-riff-decks="deck-1"}',
+            'answer-1': 'REST API 是一种接口设计风格。\n{: id="answer-1"}',
+            'answer-2': '- 使用 HTTP 方法\n- 使用资源 URL\n{: id="answer-2"}',
+        });
+        vi.mocked(blockApi.getBlockInfo).mockResolvedValue({ box: 'notebook-1' });
+        const readablePermMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            canRead: vi.fn().mockReturnValue(true),
+        };
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'list_cards',
+            scope: 'all',
+            filter: 'due',
+        }, enabledActions as any, readablePermMgr as any);
+
+        expect(vi.mocked(blockApi.getChildBlocks)).toHaveBeenCalledWith(expect.anything(), 'heading-1');
+        expect(vi.mocked(blockApi.getBlockKramdowns)).toHaveBeenCalledWith(
+            expect.anything(),
+            ['heading-1', 'answer-1', 'answer-2'],
+            'md',
+        );
+        expect(JSON.parse(result.content[0].text).cards).toEqual([
+            expect.objectContaining({
+                cardID: 'card-1',
+                blockID: 'heading-1',
+                front: '什么是 REST API？',
+                back: 'REST API 是一种接口设计风格。\n\n- 使用 HTTP 方法\n- 使用资源 URL',
+                review: {
+                    kind: 'heading',
+                    prompt: '什么是 REST API？',
+                    referenceAnswer: 'REST API 是一种接口设计风格。\n\n- 使用 HTTP 方法\n- 使用资源 URL',
+                    gradable: true,
+                },
+            }),
+        ]);
+    });
+
+    it('turns SiYuan cloze markup into a masked prompt and separate reference answer', async () => {
+        const api = await import('@/api/flashcard');
+        const blockApi = await import('@/api/block');
+        vi.mocked(api.getRiffDueCards).mockResolvedValue({
+            cards: [{ cardID: 'card-cloze', blockID: 'cloze-1', state: 0 }],
+        });
+        vi.mocked(blockApi.getChildBlocks).mockResolvedValue([]);
+        vi.mocked(blockApi.getBlockKramdowns).mockResolvedValue({
+            'cloze-1': 'GPS 的基本观测量是 ==伪距== 和 ==载波相位==。\n{: id="cloze-1"}',
+        });
+        vi.mocked(blockApi.getBlockInfo).mockResolvedValue({ box: 'notebook-1' });
+        const readablePermMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            canRead: vi.fn().mockReturnValue(true),
+        };
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'list_cards',
+            scope: 'all',
+            filter: 'due',
+        }, enabledActions as any, readablePermMgr as any);
+
+        expect(JSON.parse(result.content[0].text).cards[0]).toMatchObject({
+            front: 'GPS 的基本观测量是 ____ 和 ____。',
+            back: '伪距；载波相位',
+            review: {
+                kind: 'cloze',
+                prompt: 'GPS 的基本观测量是 ____ 和 ____。',
+                referenceAnswer: '伪距；载波相位',
+                gradable: true,
+            },
+        });
+    });
+
+    it('does not hydrate card content from a notebook without read permission', async () => {
+        const api = await import('@/api/flashcard');
+        const blockApi = await import('@/api/block');
+        vi.mocked(api.getRiffDueCards).mockResolvedValue({
+            cards: [{ cardID: 'card-1', blockID: 'heading-1', state: 0 }],
+        });
+        vi.mocked(blockApi.getBlockInfo).mockResolvedValue({ box: 'private-notebook' });
+        const deniedPermMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            canRead: vi.fn().mockReturnValue(false),
+        };
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'list_cards',
+            scope: 'all',
+            filter: 'due',
+        }, enabledActions as any, deniedPermMgr as any);
+
+        expect(JSON.parse(result.content[0].text).cards).toEqual([
+            { cardID: 'card-1', blockID: 'heading-1', state: 0 },
+        ]);
+        expect(vi.mocked(blockApi.getChildBlocks)).not.toHaveBeenCalled();
+        expect(vi.mocked(blockApi.getBlockKramdowns)).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when notebook permission context cannot be resolved', async () => {
+        const api = await import('@/api/flashcard');
+        const blockApi = await import('@/api/block');
+        vi.mocked(api.getRiffDueCards).mockResolvedValue({
+            cards: [{ cardID: 'card-1', blockID: 'heading-1', state: 0 }],
+        });
+        vi.mocked(blockApi.getBlockInfo).mockRejectedValue(new Error('unavailable'));
+        const permMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            canRead: vi.fn().mockReturnValue(true),
+        };
+
+        const result = await callFlashcardTool({} as any, {
+            action: 'list_cards',
+            scope: 'all',
+            filter: 'due',
+        }, enabledActions as any, permMgr as any);
+
+        expect(JSON.parse(result.content[0].text).cards[0]).not.toHaveProperty('front');
+        expect(vi.mocked(blockApi.getBlockKramdowns)).not.toHaveBeenCalled();
     });
 
     it('treats empty list_cards deckID as omitted for scope="all"', async () => {

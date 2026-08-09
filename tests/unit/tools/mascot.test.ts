@@ -29,7 +29,7 @@ describe('mascot tool', () => {
 
     it('lists current shop items', async () => {
         const client = {
-            readFile: vi.fn(),
+            readFile: vi.fn().mockResolvedValue(JSON.stringify({ totalCalls: 9, balance: 6, updatedAt: 1 })),
             writeFile: vi.fn(),
         };
 
@@ -37,6 +37,8 @@ describe('mascot tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             action: 'shop',
+            balance: 6,
+            totalEarned: 9,
             items: SHOP_ITEMS,
         });
         expect(SHOP_ITEMS).toHaveLength(7);

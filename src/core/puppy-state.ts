@@ -24,6 +24,8 @@ export interface PuppyStats {
     lastAction?: string;
 }
 
+let lastPuppyEventSeq = 0;
+
 function normalizeCount(raw: unknown): number {
     if (typeof raw !== 'number' || !Number.isFinite(raw)) {
         return 0;
@@ -104,7 +106,12 @@ export async function spendPuppyBalance(client: SiYuanClient, cost: number, acti
 
 export async function writePuppyEvent(client: SiYuanClient, event: Omit<PuppyEvent, 'seq' | 'ts'>): Promise<void> {
     try {
-        const data = JSON.stringify({ ...event, seq: Date.now(), ts: Date.now() } satisfies PuppyEvent);
+        const now = Date.now();
+        // A fast tool can emit `running` and `success` in the same millisecond.
+        // Keep the sequence strictly increasing so the UI never discards the
+        // terminal event (which carries the hearts and purchased-item metadata).
+        lastPuppyEventSeq = Math.max(now, lastPuppyEventSeq + 1);
+        const data = JSON.stringify({ ...event, seq: lastPuppyEventSeq, ts: now } satisfies PuppyEvent);
         await client.writeFile(PUPPY_EVENTS_PATH, data);
     } catch {
         // Silent fail - never block tool calls for puppy events.

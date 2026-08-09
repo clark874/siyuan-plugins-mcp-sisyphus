@@ -545,6 +545,13 @@ If the API URL is not reachable from the current host, container, WSL, or remote
         httpSettings = { ...httpSettings, authEnabled: target.checked };
         httpDirty = true;
     }
+
+    function onSkillsExtensionChange(event: Event) {
+        const target = event.currentTarget as HTMLInputElement;
+        httpSettings = { ...httpSettings, skillsExtensionEnabled: target.checked };
+        httpDirty = true;
+    }
+
 </script>
 
 <SettingPanel {group} settingItems={[]} {display}>
@@ -782,6 +789,26 @@ If the API URL is not reachable from the current host, container, WSL, or remote
                                     <div class="http-warning">{getTlsMissingFilesMessage()}</div>
                                 {/if}
                             {/if}
+
+                            <section class="experimental-features" aria-labelledby="skills-over-mcp-title">
+                                <div class="experimental-features__header">
+                                    <div>
+                                        <div id="skills-over-mcp-title" class="experimental-features__title">
+                                            {getLabel("skillsOverMcpTitle", "Skills over MCP")}
+                                            <span>{getLabel("experimentalFeatureBadge", "Experimental")}</span>
+                                        </div>
+                                        <p>{getLabel("skillsOverMcpDesc", "Publish all bundled workflow skills through the draft SEP-2640 extension. This affects the built-in HTTP server only.")}</p>
+                                    </div>
+                                    <label class="experimental-features__master">
+                                        <input type="checkbox" checked={httpSettings.skillsExtensionEnabled} on:change={onSkillsExtensionChange} />
+                                        {getLabel("skillsOverMcpEnabled", "Enable")}
+                                    </label>
+                                </div>
+
+                                <p class="experimental-features__note">
+                                    {getLabel("skillsOverMcpRestartHint", "Save and restart the HTTP server, then reconnect the MCP client. Clients without SEP-2640 support can continue using the stable SiYuan skill resources.")}
+                                </p>
+                            </section>
                         </div>
 
                         {#if httpSettings.host !== "127.0.0.1" && httpSettings.host !== "localhost" && !httpSettings.authEnabled}
@@ -1104,6 +1131,63 @@ If the API URL is not reachable from the current host, container, WSL, or remote
             align-items: center;
             gap: 8px;
             flex-wrap: wrap;
+        }
+
+        .experimental-features {
+            background: color-mix(in srgb, var(--mcp-config-primary-soft) 42%, var(--b3-theme-background));
+            border: 1px solid var(--mcp-config-primary-border, var(--b3-border-color));
+            border-radius: var(--mcp-config-card-radius, 8px);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 4px;
+            padding: 13px 14px;
+        }
+
+        .experimental-features__header {
+            align-items: flex-start;
+            display: flex;
+            gap: 16px;
+            justify-content: space-between;
+        }
+
+        .experimental-features__title {
+            align-items: center;
+            color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+            display: flex;
+            font-weight: 650;
+            gap: 8px;
+        }
+
+        .experimental-features__title span {
+            background: color-mix(in srgb, var(--b3-theme-warning, #e0a000) 14%, transparent);
+            border: 1px solid color-mix(in srgb, var(--b3-theme-warning, #e0a000) 32%, transparent);
+            border-radius: 999px;
+            color: var(--b3-theme-warning, #b57600);
+            font-size: 10px;
+            line-height: 1.4;
+            padding: 1px 7px;
+        }
+
+        .experimental-features__header p,
+        .experimental-features__note {
+            color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+            line-height: 1.5;
+            margin: 3px 0 0;
+        }
+
+        .experimental-features__master {
+            align-items: center;
+            display: inline-flex;
+            flex: 0 0 auto;
+            gap: 7px;
+            white-space: nowrap;
+        }
+
+        @media (max-width: 720px) {
+            .experimental-features__header {
+                flex-direction: column;
+            }
         }
 
         .http-label {

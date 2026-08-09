@@ -211,7 +211,7 @@ Terminal output
 | Outer protocol | MCP stdio/HTTP | Direct function calls |
 | Config source | SiYuan storage (UI-controlled) | `~/.siyuan-sisyphus/config.json` |
 | Tool toggles | User fine-controlled | Same UI-controlled config |
-| Dangerous actions | Relies on LLM self-discipline | User typing command is confirmation |
+| Dangerous actions | Modern protocol gate; instruction fallback for legacy clients | User typing command is confirmation |
 | Analytics | Fire-and-forget | Synchronously flushed |
 | Permission default | Unconfigured notebook defaults to `r` (read-only) | Same `PermissionManager` behavior |
 | Result rendering | MCP JSON | Human-readable / `--json` |

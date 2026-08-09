@@ -2,6 +2,7 @@ import type { SiYuanClient } from '../../api/client';
 import * as attributeApi from '../../api/block';
 import * as flashcardApi from '../../api/flashcard';
 import type { FlashcardAction } from '../../core/config';
+import type { PermissionManager } from '../../core/permissions';
 import {
     FlashcardCreateCardSchema,
     FlashcardGetCardsSchema,
@@ -11,6 +12,7 @@ import {
     FlashcardReviewCardSchema,
 } from '../../core/types';
 import type { ToolActionHandler } from '../internal/define-tool';
+import { extractKramdownContentForEditing } from '../internal/kramdown-safe';
 import { createJsonResult } from '../internal/shared';
 import { sleep } from '../../shared/async';
 
@@ -44,6 +46,251 @@ function filterCardsByState(cards: flashcardApi.Flashcard[], filter: 'due' | 'ne
     if (filter === 'due') return cards;
     if (filter === 'new') return cards.filter(card => isNewCardState(card.state));
     return cards.filter(card => isOldCardState(card.state));
+}
+
+function flashcardBlockID(card: flashcardApi.Flashcard): string | undefined {
+    if (typeof card.blockID === 'string' && card.blockID.length > 0) return card.blockID;
+    if (typeof card.id === 'string' && card.id.length > 0) return card.id;
+    return undefined;
+}
+
+function flashcardFront(kramdown: string | undefined): string {
+    if (!kramdown) return '';
+    return extractKramdownContentForEditing(kramdown)
+        .replace(/^#{1,6}[ \t]+/, '')
+        .trim();
+}
+
+function inferReviewKind(blockType: unknown): NonNullable<flashcardApi.Flashcard['review']>['kind'] {
+    const normalizedType = typeof blockType === 'string' ? blockType.toLowerCase() : '';
+    if (normalizedType.includes('super') || normalizedType === 's') return 'super-block';
+    if (normalizedType.includes('list') || ['i', 'l'].includes(normalizedType)) return 'list';
+    if (normalizedType.includes('heading') || normalizedType === 'h') return 'heading';
+    return 'plain';
+}
+
+function createReviewMaterial(
+    promptSource: string,
+    childAnswer: string,
+    blockType: unknown,
+): NonNullable<flashcardApi.Flashcard['review']> {
+    const clozeAnswers: string[] = [];
+    const clozePrompt = promptSource.replace(/==([^=\n][\s\S]*?)==/g, (_raw, answer: string) => {
+        const normalized = answer.trim();
+        if (normalized) clozeAnswers.push(normalized);
+        return '____';
+    });
+    const hasCloze = clozeAnswers.length > 0;
+    const referenceAnswer = hasCloze ? clozeAnswers.join('；') : childAnswer.trim();
+    const prompt = (hasCloze ? clozePrompt : promptSource).trim();
+    return {
+        kind: hasCloze ? 'cloze' : inferReviewKind(blockType),
+        prompt,
+        referenceAnswer,
+        gradable: Boolean(prompt && referenceAnswer),
+    };
+}
+
+async function hydrateFlashcardContent(
+    client: SiYuanClient,
+    permMgr: PermissionManager,
+    cards: flashcardApi.Flashcard[],
+): Promise<flashcardApi.Flashcard[]> {
+    try {
+        await permMgr.reload();
+    } catch {
+        return cards;
+    }
+
+    const cardBlocks = await Promise.all(cards.map(async (card) => {
+        const blockID = flashcardBlockID(card);
+        if (!blockID) return { card, blockID, children: [] as Array<{ id: string; type?: string }> };
+        let notebook = '';
+        try {
+            const info = await attributeApi.getBlockInfo(client, blockID) as Record<string, unknown> | null;
+            notebook = typeof info?.box === 'string' ? info.box : '';
+        } catch {
+            return { card, blockID: undefined, children: [] as Array<{ id: string; type?: string }> };
+        }
+        if (!notebook || !permMgr.canRead(notebook)) {
+            return { card, blockID: undefined, children: [] as Array<{ id: string; type?: string }> };
+        }
+        try {
+            const children = await attributeApi.getChildBlocks(client, blockID);
+            return {
+                card,
+                blockID,
+                children: Array.isArray(children)
+                    ? children.filter((child): child is typeof child & { id: string } => typeof child?.id === 'string')
+                    : [],
+            };
+        } catch {
+            return { card, blockID, children: [] as Array<{ id: string; type?: string }> };
+        }
+    }));
+
+    const ids = [...new Set(cardBlocks.flatMap(({ blockID, children }) => [
+        ...(blockID ? [blockID] : []),
+        ...children.map((child) => child.id),
+    ]))];
+    if (ids.length === 0) return cards;
+
+    let kramdowns: Record<string, string> = {};
+    try {
+        kramdowns = await attributeApi.getBlockKramdowns(client, ids, 'md') ?? {};
+    } catch {
+        return cards;
+    }
+
+    return cardBlocks.map(({ card, blockID, children }) => {
+        if (!blockID) return card;
+        const promptSource = flashcardFront(kramdowns[blockID]);
+        const childAnswer = children
+            .map((child) => extractKramdownContentForEditing(kramdowns[child.id] ?? '', child.type))
+            .filter(Boolean)
+            .join('\n\n');
+        const blockType = card.type ?? (/^#{1,6}[ \t]+/.test(kramdowns[blockID] ?? '') ? 'h' : undefined);
+        const review = createReviewMaterial(promptSource, childAnswer, blockType);
+        if (!review.prompt && !review.referenceAnswer) return card;
+        return {
+            ...card,
+            ...(review.prompt ? { front: review.prompt } : {}),
+            ...(review.referenceAnswer ? { back: review.referenceAnswer } : {}),
+            review,
+        };
+    });
+}
+
+export interface FlashcardReviewSessionCardRef {
+    deckID: string;
+    cardID: string;
+}
+
+export interface FlashcardReviewSessionInput {
+    cards: FlashcardReviewSessionCardRef[];
+    selectionReason: string;
+}
+
+function reviewSessionCardKey(card: FlashcardReviewSessionCardRef): string {
+    return `${card.deckID}\u0000${card.cardID}`;
+}
+
+function hasReviewSessionPrompt(card: flashcardApi.Flashcard): boolean {
+    const prompt = typeof card.review?.prompt === 'string' ? card.review.prompt : card.front;
+    return typeof prompt === 'string' && prompt.trim().length > 0;
+}
+
+async function filterReadableFlashcards(
+    client: SiYuanClient,
+    permMgr: PermissionManager,
+    cards: flashcardApi.Flashcard[],
+): Promise<flashcardApi.Flashcard[]> {
+    try {
+        await permMgr.reload();
+    } catch {
+        return [];
+    }
+
+    const readable = await Promise.all(cards.map(async (card) => {
+        const blockID = flashcardBlockID(card);
+        if (!blockID) return false;
+        try {
+            const info = await attributeApi.getBlockInfo(client, blockID) as Record<string, unknown> | null;
+            const notebook = typeof info?.box === 'string' ? info.box : '';
+            return Boolean(notebook && permMgr.canRead(notebook));
+        } catch {
+            return false;
+        }
+    }));
+    return cards.filter((_card, index) => readable[index]);
+}
+
+/**
+ * Resolve an AI-selected review batch against the fixed candidate snapshot
+ * captured by flashcard(action="list_cards", scope="all"). The API fallback
+ * is retained for direct callers, while the MCP App path always supplies the
+ * snapshot so SiYuan cannot redraw the due queue between selection and review.
+ */
+export async function createFlashcardReviewSessionData(
+    client: SiYuanClient,
+    permMgr: PermissionManager,
+    input: FlashcardReviewSessionInput,
+    candidateSnapshot?: flashcardApi.Flashcard[],
+) {
+    const seen = new Set<string>();
+    const requested = input.cards.filter((card) => {
+        const key = reviewSessionCardKey(card);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+    const duplicateCount = input.cards.length - requested.length;
+    const hasCandidateSnapshot = candidateSnapshot !== undefined;
+    const dueCardsAtSelection = candidateSnapshot
+        ?? (await flashcardApi.getRiffDueCards(client, '')).cards;
+    const requestedByCardID = new Map<string, FlashcardReviewSessionCardRef[]>();
+    for (const card of requested) {
+        const matches = requestedByCardID.get(card.cardID) ?? [];
+        matches.push(card);
+        requestedByCardID.set(card.cardID, matches);
+    }
+    const dueByKey = new Map<string, flashcardApi.Flashcard>();
+    for (const card of Array.isArray(dueCardsAtSelection) ? dueCardsAtSelection : []) {
+        const cardID = typeof card.cardID === 'string' ? card.cardID : '';
+        if (!cardID) continue;
+
+        const cardDeckID = typeof card.deckID === 'string' ? card.deckID : '';
+        const requestedMatches = requestedByCardID.get(cardID) ?? [];
+        const deckID = cardDeckID || (requestedMatches.length === 1 ? requestedMatches[0].deckID : '');
+        if (!deckID) continue;
+
+        const key = reviewSessionCardKey({ deckID, cardID });
+        if (!seen.has(key)) continue;
+        dueByKey.set(key, { ...card, deckID });
+    }
+
+    const dueCards = requested
+        .map((card) => dueByKey.get(reviewSessionCardKey(card)))
+        .filter((card): card is flashcardApi.Flashcard => Boolean(card));
+    const readableCards = await filterReadableFlashcards(client, permMgr, dueCards);
+    const hydratedCards = (hasCandidateSnapshot
+        ? readableCards
+        : await hydrateFlashcardContent(client, permMgr, readableCards))
+        .filter(hasReviewSessionPrompt);
+    const hydratedByKey = new Map(hydratedCards.map((card) => [
+        reviewSessionCardKey({ deckID: String(card.deckID ?? ''), cardID: String(card.cardID ?? '') }),
+        card,
+    ]));
+    const cards = requested
+        .map((card) => hydratedByKey.get(reviewSessionCardKey(card)))
+        .filter((card): card is flashcardApi.Flashcard => Boolean(card));
+    const readableKeys = new Set(readableCards.map((card) => reviewSessionCardKey({
+        deckID: String(card.deckID ?? ''),
+        cardID: String(card.cardID ?? ''),
+    })));
+    const omittedCards: Array<FlashcardReviewSessionCardRef & {
+        reason: 'not_due_or_missing' | 'unreadable' | 'content_unavailable';
+    }> = [];
+    for (const card of requested) {
+        const key = reviewSessionCardKey(card);
+        if (!dueByKey.has(key)) omittedCards.push({ ...card, reason: 'not_due_or_missing' });
+        else if (!readableKeys.has(key)) omittedCards.push({ ...card, reason: 'unreadable' });
+        else if (!hydratedByKey.has(key)) omittedCards.push({ ...card, reason: 'content_unavailable' });
+    }
+
+    if (cards.length === 0) {
+        throw new Error('No selected flashcards are still due and readable. Ask the user to refresh the due-card candidates before starting another session.');
+    }
+
+    return {
+        action: 'flashcard_review_session',
+        selectionReason: input.selectionReason,
+        requestedCount: input.cards.length,
+        selectedCount: cards.length,
+        duplicateCount,
+        cards,
+        omittedCards,
+    };
 }
 
 function normalizeWritableDeckID(deckID: string): string {
@@ -182,7 +429,7 @@ async function getStableRiffCards(
     return lastResult;
 }
 
-const handleListCards: FlashcardActionHandler = async ({ client, rawArgs }) => {
+const handleListCards: FlashcardActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FlashcardListCardsSchema.parse(rawArgs);
     const result = parsed.scope === 'all'
         ? await flashcardApi.getRiffDueCards(client, '', parsed.reviewedCards)
@@ -193,6 +440,7 @@ const handleListCards: FlashcardActionHandler = async ({ client, rawArgs }) => {
                 : await flashcardApi.getTreeRiffDueCards(client, parsed.rootID, parsed.reviewedCards);
 
     const safeResult = result ?? {} as flashcardApi.FlashcardListResult;
+    const cards = filterCardsByState(Array.isArray(safeResult.cards) ? safeResult.cards : [], parsed.filter);
     return createJsonResult({
         ...safeResult,
         action: 'list_cards',
@@ -202,7 +450,7 @@ const handleListCards: FlashcardActionHandler = async ({ client, rawArgs }) => {
         ...(parsed.notebook ? { notebook: parsed.notebook } : {}),
         ...(parsed.rootID ? { rootID: parsed.rootID } : {}),
         ...(parsed.reviewedCards !== undefined ? { reviewedCards: parsed.reviewedCards } : {}),
-        cards: filterCardsByState(Array.isArray(safeResult.cards) ? safeResult.cards : [], parsed.filter),
+        cards: await hydrateFlashcardContent(client, permMgr, cards),
     });
 };
 
@@ -229,15 +477,16 @@ const handleGetDecks: FlashcardActionHandler = async ({ client, rawArgs }) => {
     });
 };
 
-const handleGetCards: FlashcardActionHandler = async ({ client, rawArgs }) => {
+const handleGetCards: FlashcardActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FlashcardGetCardsSchema.parse(rawArgs);
     const result = await getStableRiffCards(client, parsed.deckID, parsed.page ?? 1, parsed.pageSize);
+    const cards = normalizeGetCardsResult(result);
     return createJsonResult({
         action: 'get_cards',
         deckID: parsed.deckID,
         page: parsed.page ?? 1,
         ...(parsed.pageSize !== undefined ? { pageSize: parsed.pageSize } : {}),
-        cards: normalizeGetCardsResult(result),
+        cards: await hydrateFlashcardContent(client, permMgr, cards),
         total: result?.total,
         pageCount: result?.pageCount,
     });

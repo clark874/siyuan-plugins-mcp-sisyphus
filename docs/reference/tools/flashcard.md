@@ -20,6 +20,16 @@ Related pages:
 
 - `remove_card` requires explicit confirmation.
 
+## MCP App
+
+For MCP Apps clients, `flashcard(action="list_cards", scope="all", filter="due")` returns model-visible candidate summaries containing the prompt and scheduling metadata but no answer. Cards without a readable prompt are removed before the model selects. The result also includes an opaque `candidateToken` for a fixed ten-minute candidate snapshot. The model must copy that token unchanged, choose 1–20 cards only from the exact `cards` array in the same result, then call the App-only `flashcard_review_session` presentation tool with ordered `{ deckID, cardID }` pairs and a short `selectionReason`. Deck inventories, `get_cards`, earlier results, and guessed IDs are not valid selection sources. The presentation tool validates against this snapshot instead of drawing SiYuan's due queue a second time, so kernel sampling or daily-limit ordering cannot remove valid selections between the two calls. Notebook permission is still checked when the session starts.
+
+The resulting inline App omits a redundant title bar and keeps the classic flow: view the prompt, reveal the answer, then choose Again, Hard, Good, or Easy. The model still receives the complete selected prompts and reference answers in `structuredContent`, but the successful result is marked `presentationMode: "mcp-app-only"` and instructs the model to reply only “复习界面已打开，请在卡片中完成本轮。” It must not repeat cards, start Q1 in chat, ask for chat answers, assign ratings, or call `review_card` itself. Each rating remains an App action through the existing `flashcard(action="review_card")` path and retains its action and permission checks. The App does not call AI or create chat turns during the round. The model resumes content discussion only if the user explicitly switches to chat-based review or, after the final card, clicks **Ask AI about this round** to send the explicit Socratic-teaching handoff.
+
+When notebook read permission allows it, `list_cards` and `get_cards` hydrate each card from its `blockID` with separate `front` and `back` fields: the source block is the front and its direct child blocks are joined in order as the back. If content lookup fails or the notebook is not readable, the response retains only the original scheduling metadata.
+
+Ratings are submitted through the model-hidden `flashcard_review_app_action` and controlled on the separate MCP Apps settings page; the ordinary `flashcard` Tool carries no UI resource. Clients without `io.modelcontextprotocol/ui` receive neither launchers nor App-only tools, while text, structured output, and CLI behavior remain unchanged.
+
 ## Notes
 
 - `review_card` accepts either a `rating` or `skip=true`.

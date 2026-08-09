@@ -138,6 +138,13 @@ export async function runToolCall(
     handler: () => Promise<ToolResult>,
 ): Promise<ToolResult> {
     const { client, category, name, action, args } = ctx;
+    // App-only action tools use transport-facing aliases such as
+    // `mascot_shop_app_action`. The desktop puppy consumes canonical tool
+    // categories, otherwise mascot-only decorations (hearts and the bought
+    // item) are skipped even though the cat still enters its generic action
+    // animation. Extension tools are the exception: their concrete name is
+    // the only useful identity available to the puppy event stream.
+    const puppyTool = category === 'extension' ? name : category;
     const requestText = ctx.requestText;
     const startTime = Date.now();
 
@@ -147,7 +154,7 @@ export async function runToolCall(
         ? await readPuppyStats(client)
         : await earnPuppyBalance(client, `${name}/${action}`);
     await writePuppyEvent(client, {
-        tool: name,
+        tool: puppyTool,
         action,
         status: 'running',
         totalCalls: preStats.totalCalls,
@@ -164,6 +171,9 @@ export async function runToolCall(
         maybeSendTelemetry(client).catch(() => { /* never block on telemetry */ });
         throw error;
     }
+    // The desktop mascot needs the complete purchase payload. Extract it before
+    // slim responses discard display-only fields such as emoji and item type.
+    const mascotMeta = category === 'mascot' ? extractMascotEventMeta(result) : {};
     if (ctx.slimResponses) {
         result = slimToolResult(result, {
             category,
@@ -174,9 +184,8 @@ export async function runToolCall(
     }
 
     const postStats = category === 'mascot' ? await readPuppyStats(client) : preStats;
-    const mascotMeta = category === 'mascot' ? extractMascotEventMeta(result) : {};
     await writePuppyEvent(client, {
-        tool: name,
+        tool: puppyTool,
         action,
         status: result.isError ? 'error' : 'success',
         totalCalls: postStats.totalCalls,

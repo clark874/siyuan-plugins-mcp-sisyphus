@@ -2,8 +2,8 @@ import { createServer as createHttpServer, IncomingMessage, ServerResponse } fro
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import type { Socket } from 'node:net';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { createMcpHandler, isJsonContentType, isLegacyRequest, type Server } from '@modelcontextprotocol/server';
+import { NodeStreamableHTTPServerTransport, originValidation, toNodeHandler, toWebRequest } from '@modelcontextprotocol/node';
 
 export interface TlsOptions {
     /** Path to PEM-encoded certificate file */
@@ -20,6 +20,10 @@ export interface HttpServerOptions {
     token?: string;
     path?: string;
     serverFactory?: ServerFactory;
+    /** Browser Origin hostnames allowed to call this endpoint (scheme/port ignored). */
+    allowedOriginHostnames?: string[];
+    /** Dispose resources shared by all server instances when HTTP shuts down. */
+    dispose?: () => Promise<void> | void;
     /** When provided, the server starts in HTTPS mode using these TLS credentials */
     tls?: TlsOptions;
 }
@@ -33,7 +37,7 @@ export interface HttpMcpServerHandle {
 
 interface SessionEntry {
     server: Server;
-    transport: StreamableHTTPServerTransport;
+    transport: NodeStreamableHTTPServerTransport;
 }
 
 export type ServerFactory = () => Promise<Server>;
@@ -78,6 +82,22 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
         const { createSiYuanServer } = await import('./server');
         return createSiYuanServer();
     });
+    const defaultOriginHostnames = ['localhost', '127.0.0.1', '[::1]'];
+    if (opts.host !== '0.0.0.0' && opts.host !== '::' && !defaultOriginHostnames.includes(opts.host)) {
+        defaultOriginHostnames.push(opts.host);
+    }
+    const validateOrigin = originValidation(opts.allowedOriginHostnames ?? defaultOriginHostnames);
+    const modernHandler = createMcpHandler(() => createServer(), {
+        legacy: 'reject',
+        onerror: (error) => {
+            console.error('[MCP][HTTP][modern] handler error:', error.message);
+        },
+    });
+    const modernNodeHandler = toNodeHandler(modernHandler, {
+        onerror: (error) => {
+            console.error('[MCP][HTTP][modern] adapter error:', error.message);
+        },
+    });
 
     const requestHandler = async (req: IncomingMessage, res: ServerResponse) => {
         try {
@@ -89,6 +109,10 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
                 return;
             }
 
+            // MCP 2026-07-28 requires browser Origin validation. Non-browser
+            // clients normally omit Origin and continue to pass this guard.
+            if (!validateOrigin(req, res)) return;
+
             // Auth check
             if (opts.token) {
                 const auth = req.headers['authorization'];
@@ -99,17 +123,33 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
                 }
             }
 
-            // Parse body for POST
-            const parsedBody = req.method === 'POST' ? await readJsonBody(req) : undefined;
+            if (req.method === 'POST') {
+                const contentType = req.headers['content-type'];
+                const value = Array.isArray(contentType) ? contentType[0] : contentType;
+                if (!isJsonContentType(value)) {
+                    res.writeHead(415, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'unsupported_media_type', expected: 'application/json' }));
+                    return;
+                }
+            }
 
-            // Session dispatch
+            // Parse once, then use the SDK's canonical classifier to route a
+            // request to the modern stateless leg or the legacy session leg.
+            const parsedBody = req.method === 'POST' ? await readJsonBody(req) : undefined;
+            const probe = await toWebRequest(req, parsedBody);
+            if (!(await isLegacyRequest(probe, parsedBody))) {
+                await modernNodeHandler(req, res, parsedBody);
+                return;
+            }
+
+            // Legacy session dispatch (2025-era clients).
             const sessionIdHeader = req.headers['mcp-session-id'];
             const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
             let entry = sessionId ? sessions.get(sessionId) : undefined;
 
             if (!entry) {
                 // New session
-                const transport = new StreamableHTTPServerTransport({
+                const transport = new NodeStreamableHTTPServerTransport({
                     sessionIdGenerator: () => randomUUID(),
                     retryInterval: 5000,
                 });
@@ -187,6 +227,18 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
 
         await Promise.allSettled(Array.from(sessions.values()).map(closeSessionEntry));
         sessions.clear();
+        try {
+            await modernHandler.close();
+        } catch (error) {
+            console.error('[MCP][HTTP] modern handler close error:', error instanceof Error ? error.message : String(error));
+        }
+        if (opts.dispose) {
+            try {
+                await opts.dispose();
+            } catch (error) {
+                console.error('[MCP][HTTP] shared runtime close error:', error instanceof Error ? error.message : String(error));
+            }
+        }
 
         await new Promise<void>((resolve) => {
             const drainTimer = setTimeout(() => {

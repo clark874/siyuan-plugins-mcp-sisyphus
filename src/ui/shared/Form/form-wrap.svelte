@@ -16,7 +16,9 @@
     <div class="item-wrap b3-label" data-key="CustomCSS">
         <div class="fn__block">
             <span class="title">{title}</span>
-            <div class="b3-label__text">{@html description}</div>
+            {#if description}
+                <div class="b3-label__text">{@html description}</div>
+            {/if}
             <div class="fn__hr"></div>
             <div style="display: flex; flex-direction: column; gap: 5px; position: relative;">
                 <slot />
@@ -27,9 +29,11 @@
     <div class="item-wrap fn__flex b3-label config__item">
         <div class="fn__flex-1">
             <span class="title">{title}</span>
-            <div class="b3-label__text">
-                {@html description}
-            </div>
+            {#if description}
+                <div class="b3-label__text">
+                    {@html description}
+                </div>
+            {/if}
         </div>
         <span class="fn__space" />
         <slot />

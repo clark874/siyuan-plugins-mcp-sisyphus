@@ -49,6 +49,18 @@ siyuan-sisyphus skill install --bundle all
 
 `skill list` and `skill read` accept the same `--bundle cli|mcp|all` selector. Skills define task flow, path semantics, and safety rules; they do not replace action schemas. For exact current parameters, read `siyuan://help/action/{tool}/{action}` or call the tool's `help` action.
 
+## MCP 2026-07-28 And Legacy Clients
+
+- `stdio` accepts both protocol eras automatically.
+- HTTP routes 2026-07-28 requests to a stateless per-request handler and keeps stateful `mcp-session-id` sessions for legacy clients.
+- Modern dangerous actions request confirmation through MCP multi-round-trip elicitation before dispatch. A modern client must advertise elicitation support to execute them.
+- Browser requests with an `Origin` header are checked against localhost plus `SIYUAN_MCP_ALLOWED_ORIGINS` (comma-separated hostnames).
+- The internal official-SiYuan MCP client uses automatic version negotiation.
+
+SEP-2640 is a draft extension and is enabled by default for both HTTP and stdio transports, publishing all bundled workflow skills. For the built-in HTTP server, it can be toggled under Connection Config → HTTP/HTTPS Connection → Skills over MCP. Standalone servers can set `SIYUAN_MCP_SKILLS_EXTENSION=false` to disable it. This advertises `io.modelcontextprotocol/skills` and enables `skills/list`, `skills/get`, and all bundled `skill://` resources. The regular `siyuan://skills/*` resources continue to work whether the extension is enabled or not.
+
+The repository's validated Codex wrapper lives at `agent-plugin/siyuan-sisyphus`. Its MCP config points to `http://127.0.0.1:36806/mcp`; add client-side bearer authentication if your server requires `SIYUAN_MCP_TOKEN`.
+
 ## Next Steps
 
 After setup, try the [Common Tasks](../reference/common-tasks.md) page for quick MCP/CLI examples.

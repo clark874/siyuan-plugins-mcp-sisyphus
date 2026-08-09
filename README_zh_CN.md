@@ -23,7 +23,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **最新版本：**`v0.5.2` — 文档时间线正式开放 MCP 与 CLI 调用，并强化块级 diff、行数统计、差异分页、可回退性判断和过期变更防护，让整篇与块级回退更安全。CLI 提升至 `v0.2.2`。
+> **最新版本：**`v0.6.0` — 升级 MCP SDK v2，支持 MCP 2026-07-28 协商、协议级 elicitation、结构化 Tool 元数据，并默认通过 HTTP 与 stdio 发布 Skills-over-MCP；新增闪卡复习、文档时间线和猫猫商店 MCP Apps，同时更新分析面板与猫猫交互。CLI 提升至 `v0.2.3`。
 
 ## 项目方向调整
 
@@ -95,8 +95,28 @@ sisyphus notebook list
 - **笔记本级安全边界**：每个笔记本可独立设置 `none`、`r`、`rw`、`rwd` 权限。
 - **低上下文工具设计**：把 100+ 个思源能力收敛为 14 个按 action 路由的聚合工具，详细说明按需读取。
 - **面向 Agent 的场景 Skill**：内置浏览、编辑、搜索、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版指南。
+- **MCP Apps 交互界面**：闪卡复习、文档时间线和猫猫商店分别由专用启动 Tool 打开一次；普通聚合 Tool 不再重复生成 App，人工 action 在独立“App 软件”设置页管理。
 - **类 Git 文档时间线**：为单篇文档创建命名时间线节点，比较历史快照并按需回退。
 - **实用连接配置**：设置页提供常见 AI 客户端、本地、远程和 Docker 场景的连接片段。
+
+## MCP Apps：把工具工作流直接放进对话
+
+v0.6.0 为能够协商 `io.modelcontextprotocol/ui` 的客户端新增了三个内联 MCP App。需要连续交互的任务不必再拆成长串聊天消息：Agent 先准备一次上下文，再打开一个专注的界面，由用户直接完成后续操作。
+
+| App | 专用启动 Tool | 在 App 中可以做什么 |
+|-----|---------------|---------------------|
+| 闪卡复习 | `flashcard_review_session` | Agent 从一份固定且经过权限检查的到期候选快照中选择 1–20 张卡；用户逐张显示答案并选择重来 / 困难 / 良好 / 简单，不会提前在聊天中泄露后续卡片。完成后还可以让 Agent 讲解本轮内容。 |
+| 文档时间线 | `timeline_app` | 浏览和创建命名节点，对比历史快照与当前文档，查看紧凑的块级 Diff，并回退整篇文档或受支持的单个块。传入 `documentId` 才会打开目标文档的时间线；省略时会明确进入“仅全局”视图，只能看到全局节点。回退使用原位置二次点击确认，按钮不会因提示出现而离开鼠标位置。 |
+| 猫猫商店 | `mascot_shop_app` | 浏览像素风自动售货机，把商品放入取货口，并在真正取走时完成购买；购买成功后，桌面猫猫会同步展示商品和爱心动画。 |
+
+三个 App 采用刻意分离的交互模型：
+
+- **一个启动器只打开一次 App**：只有专用启动 Tool 携带 UI 资源；普通 `flashcard`、`timeline`、`mascot` 调用仍是数据工具，不会重复生成 App 面板。
+- **Agent 负责准备，用户负责决定**：App 打开后会成为本轮唯一交互界面；模型不会代替用户回答闪卡、选择评分、回退笔记或购买商品。
+- **人工操作权限独立管理**：App action 通过 `visibility: ["app"]` 对模型隐藏，并可在“设置 → MCP → App 软件”中逐项启用。笔记本权限、action 开关以及高风险操作的服务端确认仍然生效。
+- **平滑兼容旧客户端**：未声明 MCP Apps 支持的客户端不会收到启动器和 App-only action；原有聚合工具响应、`structuredContent` 与独立 CLI 行为保持不变。
+
+进一步了解可阅读[闪卡复习](./docs/zh/reference/tools/flashcard.md)、[时间线 App](./docs/zh/reference/tools/timeline.md)和[猫猫商店](./docs/zh/reference/tools/mascot.md)说明。
 
 ## 官方 MCP 生态接入
 
@@ -146,7 +166,7 @@ sisyphus notebook list
 
 快照页只读取 attrs 与 tag 元数据；仅在选择节点后，Diff 页才创建一次当前状态快照并计算该节点差异。底层仍基于思源全数据空间快照：文档节点归属记录在文档属性中，全局节点由 tag 恢复。它不是完整 Git 替代品，也不是完整源码管理工作流。
 
-MCP 客户端和独立 CLI 可通过 [`timeline` 聚合工具](./docs/zh/reference/tools/timeline.md) 使用同一工作流。节点删除与两种回退 action 均为高危操作并默认关闭。
+MCP 客户端和独立 CLI 可通过 [`timeline` 聚合工具](./docs/zh/reference/tools/timeline.md) 使用同一工作流。AI 直接调用的节点删除与两种回退 action 均为高危操作并默认关闭；MCP App 的人工写操作使用独立权限，可允许用户点击回退而不向 AI 开放回退 Tool。
 
 ## MCP 与 CLI 双入口
 
@@ -155,6 +175,12 @@ MCP 客户端和独立 CLI 可通过 [`timeline` 聚合工具](./docs/zh/referen
 当一个终端命令就够时，使用 **CLI**。它不会把长工具 Schema 塞进模型上下文，更适合脚本、自动化和小型单次任务。
 
 MCP 和 CLI 共用 Sisyphus 核心调用路径，避免同一能力在两套入口中产生不同语义。
+
+### MCP 2026-07-28 兼容
+
+服务端已迁移到 MCP TypeScript SDK v2。`stdio` 会自动服务新旧两代协议；HTTP 使用 SDK 标准分类器分流：MCP 2026-07-28 请求采用无会话、逐请求元数据模型，2025 代客户端继续使用原有隔离的 `mcp-session-id` 会话。内置的思源官方 MCP 桥接会自动协商双方支持的最新版本，并在必要时回退到旧协议。
+
+modern 协议下的高危调用使用 MCP 多轮输入确认：支持 elicitation 的客户端返回明确同意之前，操作不会下发。旧客户端为兼容性继续沿用 instructions/帮助文案确认边界。浏览器请求会校验 Origin；额外允许的来源主机可通过 `SIYUAN_MCP_ALLOWED_ORIGINS` 配置。
 
 ## 面向 Agent 的场景 Skill
 
@@ -168,6 +194,10 @@ siyuan-sisyphus skill install --bundle all # 同时安装 MCP 与 CLI 两套
 ```
 
 为保持兼容，不带 `--bundle` 的 `siyuan-sisyphus skill install` 仍默认安装 CLI Skill。Skill 负责工作流与安全决策；当前参数的真相源仍是 `siyuan://help/action/{tool}/{action}`（或对应的 `action="help"` 响应）。
+
+草案 SEP-2640 Skills-over-MCP 在 HTTP 与 stdio 传输中均默认开启，并会发布全部内置工作流 Skill。插件内置 HTTP 服务可在“连接配置 → HTTP/HTTPS 连接 → Skills over MCP”中开关，保存后会重启服务。独立启动服务端时可通过 `SIYUAN_MCP_SKILLS_EXTENSION=false` 显式关闭。启用后服务端声明 `io.modelcontextprotocol/skills`，实现 `skills/list`、`skills/get`，并提供带 SHA-256 完整性清单的 `skill://.../SKILL.md` 资源。由于 SEP-2640 仍是草案，既有 `siyuan://skills/*` Resource 与 Prompt 继续作为稳定回退。
+
+仓库还提供独立的 Codex Agent Plugin 包装：[`agent-plugin/siyuan-sisyphus`](./agent-plugin/siyuan-sisyphus)。它连接默认本机 HTTP 端点并打包同一组 5 个入口 Skill；若端点启用了 Bearer Token，请在客户端侧单独配置认证。
 
 ## 安全边界
 

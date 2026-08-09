@@ -92,6 +92,18 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(source).toContain('key: "rollback_document"');
     });
 
+    it('renders MCP App permissions on a separate settings page', () => {
+        const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
+        const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
+        const appsSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/McpAppsPanel.svelte'), 'utf8');
+
+        expect(panelSource).not.toContain('timeline__app_action__');
+        expect(rootSource).toContain('{ id: MCP_APPS_GROUP_KEY');
+        expect(rootSource).toContain('key.startsWith("mcpApps__")');
+        expect(appsSource).toContain('config.mcpApps[definition.key]');
+        expect(appsSource).toContain('mcpApps__${definition.key}__action__${action.key}');
+    });
+
     it('keeps tool categories grouped under one settings page', () => {
         const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config/ToolCategoriesPanel.svelte'), 'utf8');
         const rootSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config.svelte'), 'utf8');
@@ -119,7 +131,7 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         const tabsSource = readFileSync(resolve(process.cwd(), 'src/ui/setting/mcp-config-tabs.ts'), 'utf8');
 
         expect(tabsSource).toContain('description: string;');
-        expect(rootSource.match(/description: getLabel\("settings[A-Za-z]+Desc"/g)).toHaveLength(8);
+        expect(rootSource.match(/description: getLabel\("settings[A-Za-z]+Desc"/g)).toHaveLength(9);
         expect(rootSource).toContain('<aside class="config__sidebar">');
         expect(rootSource).toContain('<nav class="config__navigation"');
         expect(rootSource).toContain('class="config__nav-item"');
@@ -170,6 +182,21 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(connectionSource.match(/class="ai-setup-card"/g)).toHaveLength(2);
         expect(connectionSource).toContain('generateMcpAiSetupPrompt');
         expect(connectionSource).toContain('generateCliAiSetupPrompt');
+        expect(connectionSource).toContain('class="experimental-features"');
+        expect(connectionSource).toContain('skillsExtensionEnabled');
+        expect(connectionSource).not.toContain('skillsExtensionCatalog');
+        expect(analyticsSource).toContain('class="analytics-heatmap"');
+        expect(analyticsSource).toContain('analytics-heatmap__cell--level-4');
+        expect(analyticsSource).not.toContain('analytics-heatmap__legend');
+        expect(analyticsSource).toContain('grid-template-columns: repeat(52, minmax(8px, 1fr))');
+        expect(analyticsSource).toContain('buildDailyHeatmap');
+        expect(analyticsSource).toContain('52 * 7');
+        expect(analyticsSource).toContain('class="analytics-bar-chart"');
+        expect(analyticsSource).toContain('class="analytics-bar-chart__summary"');
+        expect(analyticsSource).toContain('class="analytics-donut"');
+        expect(analyticsSource).toContain('class="analytics-token-chart"');
+        expect(analyticsSource).toContain('buildTransportGradient');
+        expect(analyticsSource).not.toContain('class="analytics-list"');
         expect(analyticsSource).toContain('analytics-actions__primary');
         expect(analyticsSource).toContain('analytics-actions__danger');
     });
@@ -211,6 +238,8 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(panelSource).toContain('mcpPermClosedGroup');
         expect(panelSource).toContain('permissionCounts');
         expect(panelSource).toContain('permission-overview');
+        expect(panelSource).toContain('description: ""');
+        expect(panelSource).not.toContain('mcpPermDesc');
         expect(panelSource).toContain('sisyphus-permission-badge');
         expect(panelSource).toContain('buildPermissionTreeDescription()');
         expect(panelSource).not.toContain('mcpPermClosedHint');
@@ -310,6 +339,10 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(puppySource).toContain('on:input={(event) => emitColor("bodyColor", event)}');
         expect(puppySource).toContain('PuppyAwakeSVG');
         expect(puppySource).toContain('puppy-preview');
+        expect(puppySource).toContain('class="puppy-preview__appearance"');
+        expect(puppySource).toContain('class="puppy-preview__buttons"');
+        expect(puppySource).not.toContain('class="puppy-appearance-actions"');
+        expect(puppySource).not.toContain('class="config__tab-container puppy-appearance-panel"');
         expect(rootSource).toContain('buildRandomPuppyAppearance');
         expect(rootSource).toContain('buildDefaultPuppyAppearance');
         expect(rootSource).toContain('key.startsWith("puppy__appearance__")');

@@ -164,7 +164,7 @@ Shared layers:
 └── src/shared/invocation-format.ts  Dual-mode presentation unification
 
 Layers CLI does NOT use:
-├── @modelcontextprotocol/sdk   Does not start MCP server
+├── @modelcontextprotocol/server Does not start MCP server
 ├── src/core/server.ts           Skips ListTools/CallTool handlers
 ├── src/core/http-transport.ts   Does not start HTTP server
 ├── src/core/resources.ts        Does not expose MCP Resources
@@ -197,11 +197,12 @@ Support **stdio** (default) and **HTTP/S** transports:
 
 | Transport | Implementation | Use Case |
 |-----------|---------------|----------|
-| stdio | `StdioServerTransport` | Local AI clients (Claude Desktop, Kimi CLI) |
-| HTTP | `StreamableHTTP` (MCP 2025-03-26 spec) | Remote access, browsers, multi-client sharing |
+| stdio | SDK v2 `serveStdio()` with legacy serving enabled | Local AI clients across both protocol eras |
+| HTTP | SDK v2 request classifier + modern/legacy handlers | Remote access, browsers, multi-client sharing |
 
 **HTTP mode enhancements**:
-- **Session management**: Supports multi-client concurrency, independent state per session
+- **Dual-era negotiation**: MCP 2026-07-28 requests use a strict stateless handler; legacy requests retain independent sessions
+- **Input hardening**: Validates `Origin` and JSON content type before protocol dispatch
 - **Bearer Token auth**: Prevents unauthorized access
 - **TLS support**: Encrypted transport for production
 - **Parent Watchdog**: Auto-cleanup when SiYuan main process exits
@@ -209,7 +210,7 @@ Support **stdio** (default) and **HTTP/S** transports:
 ### Rejected Alternatives
 
 - **Option A: stdio only**: Cannot satisfy remote access and browser scenarios.
-- **Option B: Legacy HTTP/SSE transport**: MCP SDK 1.26 promotes StreamableHTTP; SSE mode is being deprecated.
+- **Option B: Replace the endpoint with a modern-only handler**: Rejected because existing clients still negotiate older protocol revisions.
 - **Option C: WebSocket transport**: MCP protocol has not standardized WebSocket transport; poor compatibility.
 
 ### Current Outcome
@@ -380,21 +381,23 @@ Certain operations (delete/remove/find_replace etc.) are destructive and need to
 
 ### Choice Made
 
-**Prompt-level confirmation + marking system**:
+**Protocol confirmation with legacy fallback**:
 
 1. **`DANGEROUS_ACTIONS` set**: Hard-coded in `config.ts` with 15 high-risk actions
 2. **Auto-injected warnings**: `buildAggregatedTool()` automatically appends `"⚠️ Dangerous action: ... requires user confirmation"` to tool descriptions
 3. **Server Instructions**: `server-instructions.ts` emphasizes high-risk operations requiring confirmation in MCP instructions
-4. **No call blocking**: The system **does not** block dangerous actions at the code level (LLM may bypass), relying instead on LLM self-discipline + user supervision
+4. **Modern code-level gate**: MCP 2026-07-28 calls use multi-round elicitation before the tool lifecycle begins; cancellation or rejection returns without executing the action
+5. **Compatibility fallback**: Legacy MCP clients keep the instruction/help warning flow because they cannot express the new confirmation exchange; CLI command entry remains the user's confirmation
+6. **Tool metadata**: Conservative annotations expose destructive/read-only hints to capable clients
 
 ### Rejected Alternatives
 
-- **Option A: Code-level secondary confirmation popup**: Cannot implement popup confirmation in MCP protocol (server cannot proactively pop up); CLI mode already follows the convention "user typing command is confirmation".
+- **Option A: Require modern elicitation from every client**: Rejected because it would break legacy clients that do not advertise the capability.
 - **Option B: Completely prohibit dangerous actions**: Too conservative; many legitimate automation scenarios need delete/remove.
 - **Option C: Each dangerous action requires extra token/password**: Increases usage barrier, inconsistent with MCP protocol design philosophy.
 
 ### Current Outcome
 
-- LLM typically requests user confirmation in conversation before calling dangerous actions
+- Modern clients receive an enforceable protocol-level confirmation request; legacy clients receive explicit warnings
 - Users can completely disable specific actions via ToolConfig
 - Settings panel provides visual marking for "dangerous actions"

@@ -333,8 +333,8 @@
 
     const getDangerTitle = (title: string) => `${title} ${getLabel("mcpHighRiskBadge", "[High risk]")}`;
     const DEFAULT_TOOL_CONFIG = buildDefaultToolConfig();
-    const getDangerDescription = (category: ToolCategory, action: string, description: string) => {
-        const defaultEnabled = Boolean(DEFAULT_TOOL_CONFIG[category].actions[action as never]);
+    const getDangerDescription = (category: ToolCategory, action: string, description: string, explicitDefault?: boolean) => {
+        const defaultEnabled = explicitDefault ?? Boolean(DEFAULT_TOOL_CONFIG[category].actions[action as never]);
         const defaultState = defaultEnabled
             ? getLabel("mcpDefaultEnabled", "Enabled by default.")
             : getLabel("mcpDefaultDisabled", "Disabled by default.");

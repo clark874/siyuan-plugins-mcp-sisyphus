@@ -4,8 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { Client } = require('@modelcontextprotocol/sdk/client');
-const { InMemoryTransport } = require('@modelcontextprotocol/sdk/inMemory.js');
+const { Client, InMemoryTransport } = require('@modelcontextprotocol/client');
 const { createSiYuanServer } = require(path.join(__dirname, '..', '..', 'dist', 'mcp-server.cjs'));
 
 const SIYUAN_URL = 'http://127.0.0.1:6806';

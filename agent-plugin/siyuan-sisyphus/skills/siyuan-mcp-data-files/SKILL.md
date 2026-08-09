@@ -1,0 +1,12 @@
+---
+name: siyuan-mcp-data-files
+description: Database and file workflow for SiYuan MCP. Use for attribute views, columns, rows, cells, assets, uploads, OCR, templates, Markdown export, document extraction, and resource export.
+---
+
+# Work with SiYuan Databases and Files
+
+For attribute views, inspect the AV and view before changing rows or cells. Keep AV, view, row, column, and block IDs distinct; preserve each column's declared value type and re-render after mutation.
+
+File uploads and local exports are the explicit remote-safety exception because they may access the machine running the server. Confirm exact local paths and scope first. Stop for large-upload confirmation when requested, use a task-specific output directory, and list exact targets before asset deletion or cleanup.
+
+For detailed action sequences, read `skill://siyuan-mcp-database/SKILL.md` and `skill://siyuan-mcp-file-export/SKILL.md`. If the experimental Skills extension is disabled, use the stable resources `siyuan://skills/siyuan-mcp-database` and `siyuan://skills/siyuan-mcp-file-export` instead.

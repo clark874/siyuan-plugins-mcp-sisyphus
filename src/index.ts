@@ -180,6 +180,7 @@ export default class SiyuanMCP extends Plugin {
             tlsCertFile: this.httpSettings.tlsEnabled && this.httpSettings.tlsCertFile ? this.httpSettings.tlsCertFile : undefined,
             tlsKeyFile: this.httpSettings.tlsEnabled && this.httpSettings.tlsKeyFile ? this.httpSettings.tlsKeyFile : undefined,
             tlsCaFile: this.httpSettings.tlsEnabled && this.httpSettings.tlsCaFile ? this.httpSettings.tlsCaFile : undefined,
+            skillsExtensionEnabled: this.httpSettings.skillsExtensionEnabled,
         });
     }
 

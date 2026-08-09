@@ -1,7 +1,6 @@
 import { createServer } from 'node:net';
 
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createSiYuanServer } from '@/core/server';
@@ -227,5 +226,73 @@ describe('HTTP MCP concurrency', () => {
                 iso: new Date(1712640000000).toISOString(),
             });
         }
+    });
+
+    it('negotiates MCP 2026-07-28 without creating a legacy HTTP session', async () => {
+        const port = await getAvailablePort();
+        serverHandle = await startHttpMcpServer({
+            host: '127.0.0.1',
+            port,
+            token: 'http-test-token',
+            path: '/mcp',
+            serverFactory: createSiYuanServer,
+        });
+
+        const client = new Client(
+            { name: 'http-modern-client', version: '1.0.0' },
+            {
+                capabilities: { elicitation: {} },
+                versionNegotiation: { mode: 'auto' },
+            },
+        );
+        const confirm = vi.fn().mockResolvedValue({
+            action: 'accept',
+            content: { confirm: true },
+        });
+        client.setRequestHandler('elicitation/create', confirm);
+        const transport = new StreamableHTTPClientTransport(
+            new URL(`http://127.0.0.1:${serverHandle.port}${serverHandle.path}`),
+            { requestInit: { headers: { Authorization: 'Bearer http-test-token' } } },
+        );
+        clients.push(client);
+        transports.push(transport);
+
+        await client.connect(transport);
+        const tools = await client.listTools();
+        const versionResult = await client.callTool({ name: 'system', arguments: { action: 'get_version' } });
+        const syncResult = await client.callTool({ name: 'system', arguments: { action: 'perform_sync' } });
+
+        expect(client.getNegotiatedProtocolVersion()).toBe('2026-07-28');
+        expect(client.getDiscoverResult()?.supportedVersions).toContain('2026-07-28');
+        expect(transport.sessionId).toBeUndefined();
+        expect(tools.tools.map((tool) => tool.name)).toContain('system');
+        expect(parseToolResultText(versionResult)).toEqual({ version: '3.1.0' });
+        expect(confirm).toHaveBeenCalledTimes(1);
+        expect(syncResult.isError).not.toBe(true);
+        expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/api/sync/performSync'))).toBe(true);
+    });
+
+    it('rejects untrusted browser origins before MCP dispatch', async () => {
+        const port = await getAvailablePort();
+        serverHandle = await startHttpMcpServer({
+            host: '127.0.0.1',
+            port,
+            path: '/mcp',
+            serverFactory: createSiYuanServer,
+        });
+
+        const response = await originalFetch(
+            `http://127.0.0.1:${serverHandle.port}${serverHandle.path}`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Origin: 'https://attacker.example',
+                },
+                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'server/discover', params: {} }),
+            },
+        );
+
+        expect(response.status).toBe(403);
     });
 });

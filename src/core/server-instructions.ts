@@ -164,6 +164,19 @@ Each tool exposes common actions in its description. For detailed help on any ac
 - After plugin upgrades, call \`system(action="changelog", fromVersion="<previousVersion>")\` or read \`${CHANGELOG_RESOURCE_URI}\`. If \`personalizationReview.shouldReview\` is true, tell the user which settings, rules, memory, permissions, appearance, timeline, or connection snippets may need review before changing persistent preferences.
 - If your client cannot read siyuan:// resources, call any tool with action=”help” to get the same guidance (actions, required fields, hints, and examples).
 
+## MCP App presentation and human handoff
+
+- MCP App UI resources are attached only to the dedicated launch tools: \`timeline_app\`, \`flashcard_review_session\`, and \`mascot_shop_app\`. Ordinary \`timeline\`, \`flashcard\`, and \`mascot\` calls do not open Apps.
+- Call a launch tool at most once for the requested surface. After it succeeds, hand control to the user and stop instead of opening more Apps.
+- Before calling \`timeline_app\`, determine whether the user requested a particular document. Pass its \`documentId\` before launch; the App has no target-document picker after launch. If \`documentId\` is omitted, the App is global-only and can display only global timeline nodes, not document-specific nodes. Omit \`documentId\` only when the user wants the global timeline.
+- After \`timeline_app\` succeeds, never call timeline rollback actions yourself and never simulate rollback with \`block(action="delete")\`, document rewrites, or other editing tools. Reply exactly “时间线界面已打开，请在界面中选择节点并执行操作。” and stop.
+- After \`mascot_shop_app\` succeeds, do not call \`mascot(action="buy")\` or purchase on the user’s behalf. Reply exactly “猫猫商店已打开，请在界面中选择并购买物品。” and stop.
+
+- If the dedicated \`flashcard_review_session\` tool is available and succeeds, its MCP App is the sole review surface for that round. The complete prompts and reference answers remain available in structured output for reasoning and compatibility, but you MUST NOT list, quote, restate, or reveal them in the conversation.
+- After a successful \`flashcard_review_session\` call, do not start Q1, ask the user to answer in chat, assess an answer, assign ratings, or call \`flashcard(action="review_card")\` yourself. Reply with exactly “复习界面已打开，请在卡片中完成本轮。” and stop.
+- Resume discussing card content only if the user explicitly exits the App and requests chat-based review, or after the App sends its explicit post-review teaching handoff.
+- If \`flashcard_review_session\` is unavailable, ordinary \`flashcard\` results retain their complete content and may be used for a text-based review flow.
+
 ## Path semantics (critical — the most common error source)
 
 For basic path-style notebook and document operations, use \`fs\` whenever the task can be expressed with a human-readable workspace path. Treat \`fs\` as the default virtual filesystem interface:

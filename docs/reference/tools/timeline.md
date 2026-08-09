@@ -26,6 +26,14 @@ timeline(action="rollback_block", documentId="<doc-id>", tag="<tag>", changeKey=
 
 `compare_node` returns changed blocks by default. Set `includeUnchanged=true` when unchanged context is needed. Each change includes historical/current Markdown, an opaque `changeKey`, and whether block rollback is supported.
 
+## MCP App
+
+MCP Apps clients open exactly one inline timeline through the dedicated `timeline_app` Tool; ordinary `timeline` queries no longer render Apps. Pass `documentId` for a document timeline and optionally `tag` to open a specific diff directly.
+
+The separate MCP Apps settings page controls the Timeline App and all six human operations. Listing, comparing, creating, deleting, and rollback clicks use the model-hidden `timeline_app_action` Tool, so AI rollback can remain disabled while a user performs rollback inside the App. Notebook permission checks and high-risk elicitation/MRTR confirmation still apply.
+
+On the Diff screen, the first document or block rollback click opens a non-layout confirmation overlay. The control stays under the pointer for the second click; the overlay does not intercept pointer events and remains available to assistive technology as a live status message.
+
 ## Safety and permissions
 
 - Listing and comparing document nodes require notebook read permission.
@@ -34,6 +42,7 @@ timeline(action="rollback_block", documentId="<doc-id>", tag="<tag>", changeKey=
 - Global nodes expose snapshot metadata only and are not attached to a notebook permission.
 - `delete_node` removes the protective tag and document index entry only. The underlying repository snapshot remains available.
 - Explicit user confirmation is required before `delete_node`, `rollback_document`, or `rollback_block`. CLI invocation is treated as confirmation.
+- AI permissions retain their existing defaults. The Timeline App and all six App actions are enabled by default and can be disabled independently.
 - Legacy node association and migration remain available only in the plugin timeline UI.
 
 ## CLI examples

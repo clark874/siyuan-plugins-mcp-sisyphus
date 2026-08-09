@@ -23,7 +23,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Latest:** `v0.5.2` — Exposes the document timeline through MCP and CLI, with stronger block-aware diffs, line statistics, paginated changes, rollbackability checks, and stale-change protection for safer document or block restoration. CLI is now `v0.2.2`.
+> **Latest:** `v0.6.0` — Upgrades to MCP SDK v2 with MCP 2026-07-28 negotiation, protocol-level elicitation, structured tool metadata, and default Skills-over-MCP publication over HTTP and stdio; adds MCP Apps for flashcard review, document timelines, and the mascot shop; and refreshes the analytics dashboard and mascot interactions. CLI is now `v0.2.3`.
 
 ## Project Direction Update
 
@@ -91,8 +91,28 @@ For complete installation and connection instructions, see [Getting Started](./d
 - **Notebook-level safety**: assign each notebook `none`, `r`, `rw`, or `rwd` access.
 - **Low-context tool design**: group 100+ SiYuan capabilities into 14 action-routed tools and load detailed guidance only when needed.
 - **Scenario Skills for agents**: provide guidance for browsing, editing, search, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup.
+- **MCP Apps views**: dedicated launch tools open flashcard review, document timeline, and mascot shop exactly once; ordinary aggregate tools never render duplicate Apps, and human actions are managed on a separate MCP Apps settings page.
 - **Git-like document timeline**: create named timeline nodes, compare snapshots, and roll back a document when needed.
 - **Practical connection setup**: generate connection snippets for common AI clients and local, remote, and Docker deployments.
+
+## MCP Apps: Interactive Workflows Inside The Conversation
+
+Version 0.6.0 adds three inline MCP Apps for clients that negotiate `io.modelcontextprotocol/ui`. Instead of turning an interactive task into a long sequence of chat messages, the agent prepares the required context once and opens a focused interface where the user finishes the workflow directly.
+
+| App | Dedicated launcher | What happens in the App |
+|-----|--------------------|-------------------------|
+| Flashcard review | `flashcard_review_session` | The agent selects 1–20 due cards from a fixed, permission-checked candidate snapshot. The user reveals each answer and rates it Again / Hard / Good / Easy without exposing the remaining cards in chat. After the round, the user can ask the agent to explain the reviewed material. |
+| Document timeline | `timeline_app` | Browse and create named nodes, compare a snapshot with the current document, inspect a compact block-level diff, and restore the whole document or one supported block. Pass `documentId` for a document timeline; omitting it intentionally opens a global-only view that can show only global nodes. Rollback uses an in-place second-click confirmation, so the target button does not move under the pointer. |
+| Mascot shop | `mascot_shop_app` | Browse the pixel-art vending machine, queue items in the pickup slot, and complete a purchase only when the item is collected. A successful pickup also triggers the desktop mascot's item and heart animation. |
+
+The Apps follow a deliberately separated interaction model:
+
+- **One launcher, one App:** only the dedicated launcher carries the UI resource. Ordinary `flashcard`, `timeline`, and `mascot` calls remain data tools and never produce duplicate App panels.
+- **The agent prepares; the user decides:** once an App opens, it becomes the sole interaction surface for that round. The model does not answer flashcards, choose ratings, roll back notes, or purchase items on the user's behalf.
+- **Independent human-action permissions:** App actions are hidden from the model with `visibility: ["app"]` and can be enabled individually under Settings → MCP → MCP Apps. Notebook permissions, action switches, and server-side confirmation for high-risk operations still apply.
+- **Graceful compatibility:** clients that do not advertise MCP Apps support do not receive the launchers or App-only actions. Existing aggregate-tool responses, `structuredContent`, and standalone CLI behavior remain unchanged.
+
+See the detailed guides for [flashcard review](./docs/reference/tools/flashcard.md), the [timeline App](./docs/reference/tools/timeline.md), and the [mascot shop](./docs/reference/tools/mascot.md).
 
 ## Official MCP Ecosystem Integration
 
@@ -142,7 +162,7 @@ The timeline gives ordinary SiYuan documents a source-control-style safety layer
 
 The snapshots dock reads only attribute and tag metadata. A current-state snapshot and diff are created only after a node is selected, and only for that node. The foundation is still SiYuan's workspace-wide snapshots: document ownership is recorded in document attributes, while global nodes are recovered from tags. It is intentionally not a complete Git replacement or source-control workflow.
 
-The same workflow is available to MCP clients and the standalone CLI through the [`timeline` aggregate tool](./docs/reference/tools/timeline.md). Node deletion and both rollback actions are high-risk and disabled by default.
+The same workflow is available to MCP clients and the standalone CLI through the [`timeline` aggregate tool](./docs/reference/tools/timeline.md). Direct AI access to node deletion and both rollback actions is high-risk and disabled by default; MCP App writes use independent permissions so a user can click rollback without exposing that Tool to the model.
 
 ## MCP And CLI Entry Points
 
@@ -151,6 +171,12 @@ Use **MCP** when an AI client should discover tools, compose multi-step operatio
 Use **CLI** when one terminal command is enough. It avoids placing long tool schemas in the model context and works well for scripts, automation, and small one-shot tasks.
 
 MCP and CLI share the same Sisyphus core call path, preventing one capability from developing different semantics across two entry points.
+
+### MCP 2026-07-28 compatibility
+
+The server uses MCP TypeScript SDK v2. `stdio` automatically serves both protocol eras. HTTP uses the SDK classifier: MCP 2026-07-28 requests are stateless and carry per-request metadata, while 2025-era clients retain the existing isolated `mcp-session-id` sessions. The built-in official-SiYuan MCP bridge negotiates the newest mutually supported era and falls back to legacy automatically.
+
+Modern dangerous calls use MCP multi-round-trip input: the operation is not dispatched until an elicitation-capable client returns explicit approval. Legacy clients keep the existing instruction/help confirmation contract for compatibility. Browser requests are Origin-validated; configure extra allowed hostnames with `SIYUAN_MCP_ALLOWED_ORIGINS`.
 
 ## Scenario Skills For Agents
 
@@ -164,6 +190,10 @@ siyuan-sisyphus skill install --bundle all # MCP and CLI bundles
 ```
 
 Plain `siyuan-sisyphus skill install` remains the CLI bundle for backward compatibility. Skills describe workflows and safety decisions; the current parameter source of truth remains `siyuan://help/action/{tool}/{action}` or the corresponding `action="help"` response.
+
+Draft SEP-2640 Skills-over-MCP support is enabled by default for both HTTP and stdio transports and publishes all bundled workflow skills. For the plugin's built-in HTTP server, it can be toggled under Connection Config → HTTP/HTTPS Connection → Skills over MCP; saving restarts the server. Standalone servers can disable it with `SIYUAN_MCP_SKILLS_EXTENSION=false`. The extension advertises `io.modelcontextprotocol/skills`, implements `skills/list` and `skills/get`, and serves digest-addressed `skill://.../SKILL.md` resources. Because SEP-2640 is still a draft, the existing `siyuan://skills/*` resources and prompts remain the stable fallback.
+
+A standalone Codex Agent Plugin wrapper is available in [`agent-plugin/siyuan-sisyphus`](./agent-plugin/siyuan-sisyphus). It connects to the default local HTTP endpoint and packages the same five entry skills; configure HTTP authentication separately when the endpoint requires a bearer token.
 
 ## Safety Model
 

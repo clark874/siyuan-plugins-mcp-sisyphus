@@ -6,6 +6,7 @@ describe('HTTP server settings storage', () => {
     it('defaults to loopback binding', () => {
         expect(buildDefaultHttpServerSettings().host).toBe('127.0.0.1');
         expect(normalizeHttpServerSettings(undefined).host).toBe('127.0.0.1');
+        expect(buildDefaultHttpServerSettings().skillsExtensionEnabled).toBe(true);
     });
 
     it('allows binding the HTTP server to all IPv4 interfaces', () => {
@@ -15,5 +16,16 @@ describe('HTTP server settings storage', () => {
     it('falls back to loopback for unsupported bind hosts', () => {
         expect(normalizeHttpServerSettings({ host: 'localhost' }).host).toBe('127.0.0.1');
         expect(normalizeHttpServerSettings({ host: '192.168.1.10' }).host).toBe('127.0.0.1');
+    });
+
+    it('normalizes the Skills over MCP switch while preserving old HTTP configs', () => {
+        const migrated = normalizeHttpServerSettings({ port: 39000 });
+        expect(migrated.skillsExtensionEnabled).toBe(true);
+
+        const enabled = normalizeHttpServerSettings({
+            skillsExtensionEnabled: true,
+        });
+        expect(enabled.skillsExtensionEnabled).toBe(true);
+        expect(enabled).not.toHaveProperty('skillsExtensionCatalog');
     });
 });

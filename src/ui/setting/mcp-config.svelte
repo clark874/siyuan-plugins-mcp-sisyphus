@@ -42,6 +42,7 @@
     import PuppyPanel from "./mcp-config/PuppyPanel.svelte";
     import TelemetryPanel from "./mcp-config/TelemetryPanel.svelte";
     import ToolCategoriesPanel from "./mcp-config/ToolCategoriesPanel.svelte";
+    import McpAppsPanel from "./mcp-config/McpAppsPanel.svelte";
     import UserRulesPanel from "./mcp-config/UserRulesPanel.svelte";
     import {
         discoverOfficialTools,
@@ -52,6 +53,7 @@
         ICON_SVGS,
         PERM_GROUP_KEY,
         TOOL_GROUP_KEY,
+        MCP_APPS_GROUP_KEY,
         PUPPY_GROUP_KEY,
         ANALYTICS_GROUP_KEY,
         DEBUG_GROUP_KEY,
@@ -71,6 +73,7 @@
     const ANALYTICS_GROUP_LABEL = "Usage Stats";
     const DEBUG_GROUP_LABEL = "Debug";
     const FEEDBACK_GROUP_LABEL = "Feedback";
+    const MCP_APPS_GROUP_LABEL = "MCP Apps";
 
     let config: ToolConfig = buildDefaultToolConfig();
     let httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
@@ -102,10 +105,12 @@
     $: userRulesGroupLabel = getLabel(USER_RULES_GROUP_KEY, USER_RULES_GROUP_LABEL);
 
     $: toolGroupLabel = getLabel(TOOL_GROUP_KEY, TOOL_GROUP_KEY);
+    $: mcpAppsGroupLabel = getLabel(MCP_APPS_GROUP_KEY, MCP_APPS_GROUP_LABEL);
     $: tabItems = [
         { id: HTTP_GROUP_KEY, label: httpGroupLabel, description: getLabel("settingsConnectionDesc", "Connect MCP clients or use the standalone CLI, then inspect the current service status."), iconSvg: ICON_SVGS.globe },
         { id: PERM_GROUP_KEY, label: permGroupLabel, description: getLabel("settingsPermissionsDesc", "Control which notebooks MCP clients can read, edit, or delete."), iconSvg: ICON_SVGS.lock },
         { id: TOOL_GROUP_KEY, label: toolGroupLabel, description: getLabel("settingsToolsDesc", "Choose the grouped tools and actions exposed to connected agents."), iconSvg: ICON_SVGS.folder },
+        { id: MCP_APPS_GROUP_KEY, label: mcpAppsGroupLabel, description: getLabel("settingsMcpAppsDesc", "Control interactive MCP Apps and the actions performed manually inside them."), iconSvg: ICON_SVGS.layout },
         { id: PUPPY_GROUP_KEY, label: puppyGroupLabel, description: getLabel("settingsMascotDesc", "Adjust the on-screen mascot behavior and preview its appearance."), iconSvg: ICON_SVGS.paw },
         { id: ANALYTICS_GROUP_KEY, label: analyticsGroupLabel, description: getLabel("settingsAnalyticsDesc", "Review local usage patterns, activity trends, and tool statistics."), iconSvg: ICON_SVGS.barChart },
         { id: DEBUG_GROUP_KEY, label: debugGroupLabel, description: getLabel("settingsDebugDesc", "Manage advanced diagnostics and developer-oriented display options."), iconSvg: ICON_SVGS.bug },
@@ -213,6 +218,21 @@
                 ...config[category],
                 enabled: enabled ? true : hasEnabledActions ? config[category].enabled : false,
                 actions: nextActions,
+            },
+        };
+    }
+
+    function setMcpAppEnabled(appName: keyof ToolConfig["mcpApps"], enabled: boolean) {
+        config = { ...config, mcpApps: { ...config.mcpApps, [appName]: { ...config.mcpApps[appName], enabled } } };
+    }
+
+    function setMcpAppActionEnabled(appName: keyof ToolConfig["mcpApps"], action: string, enabled: boolean) {
+        const appConfig = config.mcpApps[appName];
+        config = {
+            ...config,
+            mcpApps: {
+                ...config.mcpApps,
+                [appName]: { ...appConfig, enabled: enabled ? true : appConfig.enabled, actions: { ...appConfig.actions, [action]: enabled } },
             },
         };
     }
@@ -495,6 +515,14 @@
             return;
         }
 
+        if (key.startsWith("mcpApps__")) {
+            const [, appName, kind, action] = key.split("__");
+            if (appName && kind === "enabled") setMcpAppEnabled(appName as keyof ToolConfig["mcpApps"], Boolean(value));
+            else if (appName && kind === "action" && action) setMcpAppActionEnabled(appName as keyof ToolConfig["mcpApps"], action, Boolean(value));
+            await persistConfig();
+            return;
+        }
+
         const [category, , action] = key.split("__");
         if (category && action) {
             setActionEnabled(category as ToolCategory, action, Boolean(value));
@@ -580,6 +608,7 @@
                     {extensionDiscovery}
                     onRefreshExtensionTools={refreshExtensionTools}
                 />
+                <McpAppsPanel display={focusGroup === MCP_APPS_GROUP_KEY} {config} {getLabel} {onChanged} />
                 <PuppyPanel group={puppyGroupLabel} display={focusGroup === PUPPY_GROUP_KEY} {puppySettings} {getLabel} {onChanged} />
                 <TelemetryPanel
                     analyticsGroup={analyticsGroupLabel}

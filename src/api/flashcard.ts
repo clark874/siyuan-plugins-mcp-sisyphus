@@ -4,6 +4,14 @@ export interface Flashcard {
     deckID?: string;
     cardID?: string;
     blockID?: string;
+    front?: string;
+    back?: string;
+    review?: {
+        kind: 'heading' | 'cloze' | 'super-block' | 'list' | 'plain';
+        prompt: string;
+        referenceAnswer: string;
+        gradable: boolean;
+    };
     lapses?: number;
     reps?: number;
     state?: number | string;

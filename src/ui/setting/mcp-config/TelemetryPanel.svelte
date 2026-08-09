@@ -1,8 +1,9 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onMount, tick } from "svelte";
     import { fetchPost, showMessage } from "siyuan";
 
     import SettingPanel from "../../shared/setting-panel.svelte";
+    import type { AnalyticsEvent, AnalyticsSummary } from "../../../core/analytics";
     import type { ToolConfig } from "../tool-config";
     import type { TelemetryConfig } from "../tool-config-storage";
 
@@ -18,12 +19,49 @@
 
     interface ChangeEvent { key: string; value: any; }
 
-    let analyticsSummary: any = null;
-    let recentAnalyticsEvents: any[] = [];
+    interface TokenChartItem {
+        key: string;
+        label: string;
+        value: number | null;
+        meta: string;
+    }
+
+    interface HeatmapDay {
+        date: string;
+        count: number;
+        errorCount: number;
+        level: number;
+        future: boolean;
+    }
+
+    interface HeatmapMonth {
+        label: string;
+        column: number;
+    }
+
+    interface TransportChartItem {
+        key: "cli" | "stdio" | "http";
+        label: string;
+        count: number;
+        color: string;
+    }
+
+    let analyticsSummary: AnalyticsSummary | null = null;
+    let recentAnalyticsEvents: AnalyticsEvent[] = [];
     let analyticsLoading = false;
     let analyticsError = "";
     let telemetryItems: ISettingItem[] = [];
     let telemetryPreviewJson = "";
+    let tokenChart: TokenChartItem[] = [];
+    let tokenChartMax = 1;
+    let heatmapTrend: AnalyticsSummary["dailyTrend"] = [];
+    let heatmapDays: HeatmapDay[] = [];
+    let heatmapMonths: HeatmapMonth[] = [];
+    let heatmapViewport: HTMLDivElement | null = null;
+    let topActionMax = 1;
+    let transportChart: TransportChartItem[] = [];
+    let transportTotal = 0;
+    let transportGradient = "var(--mcp-config-border, var(--b3-border-color)) 0 100%";
 
     function buildTelemetryItems(
         currentTelemetryConfig: TelemetryConfig,
@@ -88,11 +126,14 @@
                 setToken: () => {},
             } as any, Number.POSITIVE_INFINITY);
             const summaryCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+            const heatmapCutoff = Date.now() - 52 * 7 * 24 * 60 * 60 * 1000;
             analyticsSummary = computeAnalyticsSummary(events.filter((event: any) => event.ts >= summaryCutoff), { currentToolConfig });
+            heatmapTrend = computeAnalyticsSummary(events.filter((event: any) => event.ts >= heatmapCutoff)).dailyTrend;
             recentAnalyticsEvents = getRecentAnalyticsEvents(events, 100);
         } catch (e) {
             analyticsError = e instanceof Error ? e.message : String(e);
             analyticsSummary = null;
+            heatmapTrend = [];
             recentAnalyticsEvents = [];
         } finally {
             analyticsLoading = false;
@@ -205,6 +246,80 @@
             : getLabel("analyticsRecentMissingText", "Not captured for this legacy event.");
     }
 
+    function buildDailyHeatmap(trend: AnalyticsSummary["dailyTrend"]): HeatmapDay[] {
+        const millisecondsPerDay = 24 * 60 * 60 * 1000;
+        const days = new Map(trend.map((day) => [day.date, day]));
+        const today = new Date();
+        const utcToday = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+        const currentWeekStart = utcToday - today.getUTCDay() * millisecondsPerDay;
+        const rangeStart = currentWeekStart - 51 * 7 * millisecondsPerDay;
+        const result = Array.from({ length: 52 * 7 }, (_, index) => {
+            const timestamp = rangeStart + index * millisecondsPerDay;
+            const key = new Date(timestamp).toISOString().slice(0, 10);
+            const existing = days.get(key);
+            return {
+                date: key,
+                count: existing?.count ?? 0,
+                errorCount: existing?.errorCount ?? 0,
+                level: 0,
+                future: timestamp > utcToday,
+            };
+        });
+        const maxCount = Math.max(1, ...result.map((day) => day.count));
+
+        return result.map((day) => ({
+            ...day,
+            level: day.count > 0 ? Math.max(1, Math.ceil(day.count / maxCount * 4)) : 0,
+        }));
+    }
+
+    function buildHeatmapMonths(days: HeatmapDay[]): HeatmapMonth[] {
+        const months: HeatmapMonth[] = [];
+        const formatter = new Intl.DateTimeFormat(undefined, { month: "short", timeZone: "UTC" });
+
+        for (let week = 0; week < 52; week += 1) {
+            const weekDays = days.slice(week * 7, week * 7 + 7);
+            const monthStart = weekDays.find((day) => new Date(`${day.date}T00:00:00Z`).getUTCDate() === 1);
+            if (week === 0 || monthStart) {
+                const date = new Date(`${(monthStart ?? weekDays[0]).date}T00:00:00Z`);
+                const label = formatter.format(date);
+                if (months.length === 0 || months[months.length - 1].label !== label) {
+                    months.push({ label, column: week + 1 });
+                }
+            }
+        }
+
+        return months;
+    }
+
+    function getHeatmapDayLabel(day: HeatmapDay): string {
+        const calls = `${day.count} ${getLabel("analyticsCallCount", "call(s)")}`;
+        const errors = day.errorCount > 0
+            ? `, ${day.errorCount} ${getLabel("analyticsErrorShort", "err")}`
+            : "";
+        return `${day.date}: ${calls}${errors}`;
+    }
+
+    async function scrollHeatmapToLatest() {
+        await tick();
+        if (heatmapViewport) {
+            heatmapViewport.scrollLeft = heatmapViewport.scrollWidth;
+        }
+    }
+
+    function buildTransportGradient(items: TransportChartItem[], total: number): string {
+        if (total === 0) {
+            return "var(--mcp-config-border, var(--b3-border-color)) 0 100%";
+        }
+
+        let cursor = 0;
+        return items.map((item) => {
+            const start = cursor;
+            cursor += item.count / total * 100;
+            return `${item.color} ${start}% ${cursor}%`;
+        }).join(", ");
+    }
+
     async function writeClipboardText(text: string) {
         if (navigator.clipboard?.writeText) {
             await navigator.clipboard.writeText(text);
@@ -268,6 +383,61 @@
     }
 
     $: telemetryItems = buildTelemetryItems(telemetryConfig, getLabel);
+    $: tokenChart = [
+        {
+            key: "cli",
+            label: getLabel("analyticsCliAvgTokens", "CLI Avg Tokens"),
+            value: analyticsSummary?.tokenUsage?.cliAvgApproxTokens ?? null,
+            meta: analyticsSummary?.tokenUsage?.cliMeasuredCalls
+                ? `${analyticsSummary.tokenUsage.cliMeasuredCalls} ${getLabel("analyticsCallCount", "call(s)")}`
+                : "",
+        },
+        {
+            key: "mcp",
+            label: getLabel("analyticsMcpAvgTokens", "MCP Avg Tokens"),
+            value: analyticsSummary?.tokenUsage?.mcpAvgApproxTokens ?? null,
+            meta: analyticsSummary?.tokenUsage?.mcpMeasuredCalls
+                ? `${analyticsSummary.tokenUsage.mcpMeasuredCalls} ${getLabel("analyticsCallCount", "call(s)")}`
+                : "",
+        },
+        {
+            key: "initial",
+            label: getLabel("analyticsMcpFirstConnect", "MCP First Connect"),
+            value: analyticsSummary?.tokenUsage?.mcpInitialApproxTokens ?? null,
+            meta: analyticsSummary?.tokenUsage?.mcpInitialChars != null
+                ? `${analyticsSummary.tokenUsage.mcpInitialChars} ${getLabel("analyticsCharCount", "chars")}`
+                : "",
+        },
+    ];
+    $: tokenChartMax = Math.max(1, ...tokenChart.map((item) => item.value ?? 0));
+    $: topActionMax = Math.max(1, ...(analyticsSummary?.topActions.map((action) => action.count) ?? []));
+    $: heatmapDays = buildDailyHeatmap(heatmapTrend);
+    $: heatmapMonths = buildHeatmapMonths(heatmapDays);
+    $: if (analyticsDisplay && heatmapDays.length > 0) {
+        void scrollHeatmapToLatest();
+    }
+    $: transportChart = [
+        {
+            key: "cli",
+            label: getLabel("analyticsSourceCli", "CLI"),
+            count: analyticsSummary?.transportDistribution?.cli ?? 0,
+            color: "var(--analytics-cli-color)",
+        },
+        {
+            key: "stdio",
+            label: getLabel("analyticsSourceStdio", "stdio"),
+            count: analyticsSummary?.transportDistribution?.stdio ?? 0,
+            color: "var(--analytics-stdio-color)",
+        },
+        {
+            key: "http",
+            label: getLabel("analyticsSourceHttp", "http"),
+            count: analyticsSummary?.transportDistribution?.http ?? 0,
+            color: "var(--analytics-http-color)",
+        },
+    ];
+    $: transportTotal = transportChart.reduce((sum, item) => sum + item.count, 0);
+    $: transportGradient = buildTransportGradient(transportChart, transportTotal);
 </script>
 
 <SettingPanel group={analyticsGroup} settingItems={[]} display={analyticsDisplay}>
@@ -282,45 +452,15 @@
             {/if}
 
             <div class="analytics-grid">
-                <div class="analytics-card">
+                <div class="analytics-card analytics-card--primary">
                     <div class="analytics-card__value">{analyticsSummary?.totalCalls ?? 0}</div>
                     <div class="analytics-card__label">{getLabel("analyticsTotalCalls", "Total Calls")}</div>
                 </div>
-                <div class="analytics-card">
-                    <div class="analytics-card__value">
-                        {#if analyticsSummary?.tokenUsage?.cliAvgApproxTokens != null}
-                            ~{Math.round(analyticsSummary.tokenUsage.cliAvgApproxTokens)}
-                        {:else}
-                            —
-                        {/if}
-                    </div>
-                    <div class="analytics-card__label">{getLabel("analyticsCliAvgTokens", "CLI Avg Tokens")}</div>
-                </div>
-                <div class="analytics-card">
-                    <div class="analytics-card__value">
-                        {#if analyticsSummary?.tokenUsage?.mcpAvgApproxTokens != null}
-                            ~{Math.round(analyticsSummary.tokenUsage.mcpAvgApproxTokens)}
-                        {:else}
-                            —
-                        {/if}
-                    </div>
-                    <div class="analytics-card__label">{getLabel("analyticsMcpAvgTokens", "MCP Avg Tokens")}</div>
-                </div>
-                <div class="analytics-card">
-                    <div class="analytics-card__value">
-                        {#if analyticsSummary?.tokenUsage?.mcpInitialApproxTokens != null}
-                            ~{Math.round(analyticsSummary.tokenUsage.mcpInitialApproxTokens)}
-                        {:else}
-                            —
-                        {/if}
-                    </div>
-                    <div class="analytics-card__label">{getLabel("analyticsMcpFirstConnect", "MCP First Connect")}</div>
-                </div>
-                <div class="analytics-card">
+                <div class="analytics-card analytics-card--error">
                     <div class="analytics-card__value">{analyticsSummary?.errorCalls ?? 0}</div>
                     <div class="analytics-card__label">{getLabel("analyticsErrors", "Errors")}</div>
                 </div>
-                <div class="analytics-card">
+                <div class="analytics-card analytics-card--error">
                     <div class="analytics-card__value">{(((analyticsSummary?.errorRate ?? 0) * 100).toFixed(1))}%</div>
                     <div class="analytics-card__label">{getLabel("analyticsErrorRate", "Error Rate")}</div>
                 </div>
@@ -330,105 +470,124 @@
                 </div>
             </div>
 
-            <div class="analytics-block">
-                <div class="analytics-block__title">{getLabel("analyticsTokenUsage", "Token Usage")}</div>
-                <div class="analytics-list">
-                    <div class="analytics-list__item">
-                        <span class="analytics-list__name">{getLabel("analyticsCliAvgTokens", "CLI Avg Tokens")}</span>
-                        <span class="analytics-list__count">
-                            {#if analyticsSummary?.tokenUsage?.cliAvgApproxTokens != null}
-                                ~{Math.round(analyticsSummary.tokenUsage.cliAvgApproxTokens)}
-                            {:else}
-                                —
-                            {/if}
-                        </span>
-                        <span class="analytics-list__meta">
-                            {#if analyticsSummary?.tokenUsage?.cliMeasuredCalls}
-                                {analyticsSummary.tokenUsage.cliMeasuredCalls} {getLabel("analyticsCallCount", "call(s)")}
-                            {/if}
-                        </span>
-                    </div>
-                    <div class="analytics-list__item">
-                        <span class="analytics-list__name">{getLabel("analyticsMcpAvgTokens", "MCP Avg Tokens")}</span>
-                        <span class="analytics-list__count">
-                            {#if analyticsSummary?.tokenUsage?.mcpAvgApproxTokens != null}
-                                ~{Math.round(analyticsSummary.tokenUsage.mcpAvgApproxTokens)}
-                            {:else}
-                                —
-                            {/if}
-                        </span>
-                        <span class="analytics-list__meta">
-                            {#if analyticsSummary?.tokenUsage?.mcpMeasuredCalls}
-                                {analyticsSummary.tokenUsage.mcpMeasuredCalls} {getLabel("analyticsCallCount", "call(s)")}
-                            {/if}
-                        </span>
-                    </div>
-                    <div class="analytics-list__item">
-                        <span class="analytics-list__name">{getLabel("analyticsMcpFirstConnect", "MCP First Connect")}</span>
-                        <span class="analytics-list__count">
-                            {#if analyticsSummary?.tokenUsage?.mcpInitialApproxTokens != null}
-                                ~{Math.round(analyticsSummary.tokenUsage.mcpInitialApproxTokens)}
-                            {:else}
-                                —
-                            {/if}
-                        </span>
-                        <span class="analytics-list__meta">
-                            {#if analyticsSummary?.tokenUsage?.mcpInitialChars != null}
-                                {analyticsSummary.tokenUsage.mcpInitialChars} {getLabel("analyticsCharCount", "chars")}
-                            {/if}
-                        </span>
+            {#if heatmapTrend.length > 0}
+                <div class="analytics-block analytics-trend">
+                    <div class="analytics-block__title">{getLabel("analyticsDailyTrend", "Daily activity (last 52 weeks)")}</div>
+                    <div class="analytics-heatmap__viewport" bind:this={heatmapViewport}>
+                        <div class="analytics-heatmap" role="grid" aria-label={getLabel("analyticsDailyTrend", "Daily activity (last 52 weeks)")}>
+                            <div class="analytics-heatmap__months" aria-hidden="true">
+                                {#each heatmapMonths as month}
+                                    <span style={`grid-column: ${month.column}`}>{month.label}</span>
+                                {/each}
+                            </div>
+                            <div class="analytics-heatmap__body">
+                                <div class="analytics-heatmap__weekdays" aria-hidden="true">
+                                    <span></span>
+                                    <span>{getLabel("analyticsWeekdayMon", "Mon")}</span>
+                                    <span></span>
+                                    <span>{getLabel("analyticsWeekdayWed", "Wed")}</span>
+                                    <span></span>
+                                    <span>{getLabel("analyticsWeekdayFri", "Fri")}</span>
+                                    <span></span>
+                                </div>
+                                <div class="analytics-heatmap__cells">
+                                    {#each heatmapDays as day}
+                                        <span
+                                            class={`analytics-heatmap__cell analytics-heatmap__cell--level-${day.level}`}
+                                            class:analytics-heatmap__cell--error={day.errorCount > 0}
+                                            class:analytics-heatmap__cell--future={day.future}
+                                            role="gridcell"
+                                            aria-label={getHeatmapDayLabel(day)}
+                                            title={getHeatmapDayLabel(day)}
+                                        ></span>
+                                    {/each}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="analytics-note">
-                    {getLabel("analyticsTokenApproxHint", "Approximate token counts based on observed text length; MCP first-connection cost is shown separately from per-call averages.")}
+            {/if}
+
+            <div class="analytics-chart-grid">
+                {#if analyticsSummary && analyticsSummary.topActions.length > 0}
+                    <div class="analytics-block">
+                        <div class="analytics-block__title">{getLabel("analyticsTopActions", "Top Actions")}</div>
+                        <div class="analytics-bar-chart">
+                            {#each analyticsSummary.topActions as action}
+                                <div class="analytics-bar-chart__item">
+                                    <div class="analytics-bar-chart__header">
+                                        <span class="analytics-bar-chart__label" title={`${action.tool}.${action.action}`}>{action.tool}.{action.action}</span>
+                                        <span class="analytics-bar-chart__summary">
+                                            <span>~{Math.round(action.avgDurationMs)}ms</span>
+                                            {#if action.errorCount > 0}
+                                                <span class="analytics-bar-chart__error-label">{action.errorCount} {getLabel("analyticsErrorShort", "err")}</span>
+                                            {/if}
+                                            <strong class="analytics-bar-chart__value">{action.count}</strong>
+                                        </span>
+                                    </div>
+                                    <div class="analytics-bar-chart__track" title={`${action.count} ${getLabel("analyticsCallCount", "call(s)")}`}>
+                                        <span class="analytics-bar-chart__fill" style={`--bar-width: ${action.count / topActionMax * 100}%`}>
+                                            {#if action.errorCount > 0}
+                                                <span class="analytics-bar-chart__error" style={`--error-width: ${action.errorCount / action.count * 100}%`}></span>
+                                            {/if}
+                                        </span>
+                                    </div>
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
+
+                <div class="analytics-block analytics-transport">
+                    <div class="analytics-block__title">{getLabel("analyticsTransport", "Invocation Source")}</div>
+                    <div class="analytics-transport__content">
+                        <div
+                            class="analytics-donut"
+                            role="img"
+                            aria-label={`${getLabel("analyticsTransport", "Invocation Source")}: ${transportTotal}`}
+                            style={`--transport-gradient: ${transportGradient}`}
+                        >
+                            <div class="analytics-donut__center">
+                                <strong>{transportTotal}</strong>
+                                <span>{getLabel("analyticsTotalCalls", "Total Calls")}</span>
+                            </div>
+                        </div>
+                        <div class="analytics-legend">
+                            {#each transportChart as item}
+                                <div class="analytics-legend__item">
+                                    <span class={`analytics-legend__swatch analytics-legend__swatch--${item.key}`}></span>
+                                    <span class="analytics-legend__label">{item.label}</span>
+                                    <strong>{item.count}</strong>
+                                    <span class="analytics-legend__percent">{transportTotal > 0 ? `${(item.count / transportTotal * 100).toFixed(0)}%` : "0%"}</span>
+                                </div>
+                            {/each}
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {#if analyticsSummary && analyticsSummary.topActions.length > 0}
-                <div class="analytics-block">
-                    <div class="analytics-block__title">{getLabel("analyticsTopActions", "Top Actions")}</div>
-                    <div class="analytics-list">
-                        {#each analyticsSummary.topActions as action}
-                            <div class="analytics-list__item">
-                                <span class="analytics-list__name">{action.tool}.{action.action}</span>
-                                <span class="analytics-list__count">{action.count}</span>
-                                <span class="analytics-list__meta">{action.errorCount > 0 ? `${action.errorCount} ${getLabel("analyticsErrorShort", "err")}` : ''} ~{Math.round(action.avgDurationMs)}ms</span>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            {/if}
-
-            {#if analyticsSummary && analyticsSummary.dailyTrend.length > 0}
-                <div class="analytics-block">
-                    <div class="analytics-block__title">{getLabel("analyticsDailyTrend", "Daily Trend (last 7 days)")}</div>
-                    <div class="analytics-list">
-                        {#each analyticsSummary.dailyTrend.slice(-7) as day}
-                            <div class="analytics-list__item">
-                                <span class="analytics-list__name">{day.date}</span>
-                                <span class="analytics-list__count">{day.count}</span>
-                                <span class="analytics-list__meta">{day.errorCount > 0 ? `${day.errorCount} ${getLabel("analyticsErrorShort", "err")}` : ''}</span>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            {/if}
-
             <div class="analytics-block">
-                <div class="analytics-block__title">{getLabel("analyticsTransport", "Invocation Source")}</div>
-                <div class="analytics-list">
-                    <div class="analytics-list__item">
-                        <span class="analytics-list__name">{getLabel("analyticsSourceCli", "cli")}</span>
-                        <span class="analytics-list__count">{analyticsSummary?.transportDistribution?.cli ?? 0}</span>
-                    </div>
-                    <div class="analytics-list__item">
-                        <span class="analytics-list__name">{getLabel("analyticsSourceStdio", "stdio")}</span>
-                        <span class="analytics-list__count">{analyticsSummary?.transportDistribution?.stdio ?? 0}</span>
-                    </div>
-                    <div class="analytics-list__item">
-                        <span class="analytics-list__name">{getLabel("analyticsSourceHttp", "http")}</span>
-                        <span class="analytics-list__count">{analyticsSummary?.transportDistribution?.http ?? 0}</span>
-                    </div>
+                <div class="analytics-block__title">{getLabel("analyticsTokenUsage", "Token Usage")}</div>
+                <div class="analytics-token-chart">
+                    {#each tokenChart as item}
+                        <div class="analytics-token-chart__item">
+                            <div class="analytics-token-chart__header">
+                                <span>{item.label}</span>
+                                <strong>{item.value != null ? `~${Math.round(item.value)}` : "—"}</strong>
+                            </div>
+                            <div class="analytics-token-chart__track">
+                                <span
+                                    class:analytics-token-chart__fill--initial={item.key === "initial"}
+                                    class="analytics-token-chart__fill"
+                                    style={`--bar-width: ${(item.value ?? 0) / tokenChartMax * 100}%`}
+                                ></span>
+                            </div>
+                            <div class="analytics-token-chart__meta">{item.meta}</div>
+                        </div>
+                    {/each}
+                </div>
+                <div class="analytics-note">
+                    {getLabel("analyticsTokenApproxHint", "Approximate token counts based on observed text length; MCP first-connection cost is shown separately from per-call averages.")}
                 </div>
             </div>
 
@@ -529,6 +688,10 @@
 
 <style lang="scss">
     .analytics-section {
+        --analytics-cli-color: var(--b3-theme-primary, #4a7fff);
+        --analytics-stdio-color: color-mix(in srgb, var(--b3-theme-primary, #4a7fff) 58%, #9b6cff);
+        --analytics-http-color: var(--b3-theme-success, #3fb950);
+        --analytics-error-color: var(--b3-theme-error, #d23f31);
         display: flex;
         flex-direction: column;
         gap: var(--mcp-config-section-gap, 14px);
@@ -574,12 +737,11 @@
         transform: translateY(-1px);
     }
 
-    .analytics-card:first-child {
+    .analytics-card--primary {
         border-color: var(--mcp-config-primary-border, var(--b3-border-color));
     }
 
-    .analytics-card:nth-child(5),
-    .analytics-card:nth-child(6) {
+    .analytics-card--error {
         background: linear-gradient(135deg, color-mix(in srgb, var(--b3-theme-error) 7%, transparent), transparent 74%), var(--mcp-config-surface-raised, var(--b3-theme-surface));
     }
 
@@ -612,33 +774,300 @@
         margin-bottom: 10px;
     }
 
-    .analytics-list__item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 6px 0;
-        border-bottom: 1px solid var(--mcp-config-border, var(--b3-border-color));
+    .analytics-chart-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(250px, 0.85fr);
+        gap: var(--mcp-config-section-gap, 14px);
     }
 
-    .analytics-list__item:last-child {
-        border-bottom: none;
+    .analytics-heatmap__viewport {
+        overflow-x: auto;
+        padding: 3px 0 5px;
+        scrollbar-width: thin;
     }
 
-    .analytics-list__name {
-        flex: 1;
+    .analytics-heatmap {
+        --heatmap-gap: 3px;
+        min-width: 600px;
+        width: 100%;
     }
 
-    .analytics-list__count {
-        min-width: 48px;
-        text-align: right;
-        font-weight: var(--mcp-config-title-font-weight, 500);
-    }
-
-    .analytics-list__meta {
-        min-width: 80px;
-        text-align: right;
-        font-size: 11px;
+    .analytics-heatmap__months {
         color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        display: grid;
+        font-size: 10px;
+        gap: var(--heatmap-gap);
+        grid-template-columns: repeat(52, minmax(8px, 1fr));
+        height: 18px;
+        margin-left: 28px;
+    }
+
+    .analytics-heatmap__months span {
+        white-space: nowrap;
+    }
+
+    .analytics-heatmap__body {
+        display: flex;
+        gap: 6px;
+    }
+
+    .analytics-heatmap__weekdays {
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        display: grid;
+        flex: 0 0 22px;
+        font-size: 9px;
+        gap: var(--heatmap-gap);
+        grid-template-rows: repeat(7, 1fr);
+        line-height: 1;
+    }
+
+    .analytics-heatmap__cells {
+        display: grid;
+        flex: 1;
+        gap: var(--heatmap-gap);
+        grid-auto-flow: column;
+        grid-template-columns: repeat(52, minmax(8px, 1fr));
+        grid-template-rows: repeat(7, auto);
+    }
+
+    .analytics-heatmap__cell {
+        background: color-mix(in srgb, var(--b3-theme-on-background) 7%, transparent);
+        border: 1px solid color-mix(in srgb, var(--b3-theme-on-background) 5%, transparent);
+        border-radius: 2px;
+        box-sizing: border-box;
+        display: block;
+        aspect-ratio: 1;
+        width: 100%;
+    }
+
+    .analytics-heatmap__cell--level-1 {
+        background: color-mix(in srgb, var(--analytics-http-color) 28%, var(--mcp-config-surface, var(--b3-theme-surface)));
+        border-color: color-mix(in srgb, var(--analytics-http-color) 18%, transparent);
+    }
+
+    .analytics-heatmap__cell--level-2 {
+        background: color-mix(in srgb, var(--analytics-http-color) 48%, var(--mcp-config-surface, var(--b3-theme-surface)));
+        border-color: color-mix(in srgb, var(--analytics-http-color) 28%, transparent);
+    }
+
+    .analytics-heatmap__cell--level-3 {
+        background: color-mix(in srgb, var(--analytics-http-color) 72%, var(--mcp-config-surface, var(--b3-theme-surface)));
+        border-color: color-mix(in srgb, var(--analytics-http-color) 42%, transparent);
+    }
+
+    .analytics-heatmap__cell--level-4 {
+        background: var(--analytics-http-color);
+        border-color: color-mix(in srgb, var(--analytics-http-color) 74%, var(--b3-theme-on-background));
+    }
+
+    .analytics-heatmap__cell--error {
+        box-shadow: inset 0 0 0 1px var(--analytics-error-color);
+    }
+
+    .analytics-heatmap__cell--future {
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
+    }
+
+    .analytics-bar-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+    }
+
+    .analytics-token-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 13px;
+    }
+
+    .analytics-bar-chart__item,
+    .analytics-token-chart__item {
+        min-width: 0;
+    }
+
+    .analytics-bar-chart__header,
+    .analytics-token-chart__header {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        margin-bottom: 6px;
+    }
+
+    .analytics-bar-chart__header {
+        gap: 8px;
+        margin-bottom: 4px;
+        min-height: 17px;
+    }
+
+    .analytics-bar-chart__label {
+        font-family: var(--mcp-config-code-font);
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .analytics-bar-chart__value,
+    .analytics-token-chart__header strong {
+        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+        flex: 0 0 auto;
+        font-weight: 650;
+    }
+
+    .analytics-bar-chart__summary {
+        align-items: center;
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        display: flex;
+        flex: 0 0 auto;
+        font-size: 10px;
+        gap: 8px;
+        white-space: nowrap;
+    }
+
+    .analytics-bar-chart__summary .analytics-bar-chart__value {
+        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+        font-size: 12px;
+        min-width: 16px;
+        text-align: right;
+    }
+
+    .analytics-bar-chart__track,
+    .analytics-token-chart__track {
+        background: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent);
+        border-radius: 999px;
+        height: 9px;
+        overflow: hidden;
+    }
+
+    .analytics-bar-chart__track {
+        height: 7px;
+    }
+
+    .analytics-bar-chart__fill,
+    .analytics-token-chart__fill {
+        background: linear-gradient(90deg, color-mix(in srgb, var(--b3-theme-primary) 70%, white), var(--b3-theme-primary));
+        border-radius: inherit;
+        display: block;
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+        transition: width 0.2s ease;
+        width: var(--bar-width);
+    }
+
+    .analytics-bar-chart__error {
+        background: var(--analytics-error-color);
+        height: 100%;
+        position: absolute;
+        right: 0;
+        width: var(--error-width);
+    }
+
+    .analytics-token-chart__meta {
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        display: flex;
+        font-size: 11px;
+        justify-content: space-between;
+        margin-top: 4px;
+        min-height: 16px;
+    }
+
+    .analytics-bar-chart__error-label {
+        color: var(--analytics-error-color);
+    }
+
+    .analytics-transport__content {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 4px 0 2px;
+    }
+
+    .analytics-donut {
+        align-items: center;
+        background: conic-gradient(var(--transport-gradient));
+        border-radius: 50%;
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b3-theme-on-background) 5%, transparent);
+        display: flex;
+        height: 132px;
+        justify-content: center;
+        width: 132px;
+    }
+
+    .analytics-donut__center {
+        align-items: center;
+        background: var(--mcp-config-surface, var(--b3-theme-surface));
+        border-radius: 50%;
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--mcp-config-border, var(--b3-border-color)) 55%, transparent);
+        display: flex;
+        flex-direction: column;
+        height: 82px;
+        justify-content: center;
+        width: 82px;
+    }
+
+    .analytics-donut__center strong {
+        color: var(--mcp-config-title-color, var(--b3-theme-on-background));
+        font-size: 22px;
+        line-height: 1.1;
+    }
+
+    .analytics-donut__center span {
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        font-size: 10px;
+        margin-top: 4px;
+    }
+
+    .analytics-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        width: 100%;
+    }
+
+    .analytics-legend__item {
+        align-items: center;
+        display: grid;
+        gap: 7px;
+        grid-template-columns: 9px minmax(54px, 1fr) auto 34px;
+    }
+
+    .analytics-legend__swatch {
+        border-radius: 3px;
+        height: 9px;
+        width: 9px;
+    }
+
+    .analytics-legend__swatch--cli {
+        background: var(--analytics-cli-color);
+    }
+
+    .analytics-legend__swatch--stdio {
+        background: var(--analytics-stdio-color);
+    }
+
+    .analytics-legend__swatch--http {
+        background: var(--analytics-http-color);
+    }
+
+    .analytics-legend__percent {
+        color: var(--mcp-config-caption-color, var(--b3-theme-on-surface-light));
+        font-size: 11px;
+        text-align: right;
+    }
+
+    .analytics-token-chart {
+        display: grid;
+        gap: clamp(14px, 2vw, 24px);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .analytics-token-chart__fill--initial {
+        background: linear-gradient(90deg, color-mix(in srgb, var(--analytics-stdio-color) 72%, white), var(--analytics-stdio-color));
     }
 
     .analytics-actions {
@@ -849,6 +1278,27 @@
             grid-template-columns: repeat(2, 1fr);
         }
 
+        .analytics-chart-grid,
+        .analytics-token-chart {
+            grid-template-columns: 1fr;
+        }
+
+        .analytics-transport__content {
+            align-items: center;
+            flex-direction: row;
+        }
+
+        .analytics-donut {
+            flex: 0 0 112px;
+            height: 112px;
+            width: 112px;
+        }
+
+        .analytics-donut__center {
+            height: 70px;
+            width: 70px;
+        }
+
         .analytics-call__summary,
         .analytics-call__columns {
             grid-template-columns: 1fr;
@@ -867,5 +1317,12 @@
             justify-content: space-between;
             width: 100%;
         }
+    }
+
+    @media (max-width: 430px) {
+        .analytics-transport__content {
+            flex-direction: column;
+        }
+
     }
 </style>

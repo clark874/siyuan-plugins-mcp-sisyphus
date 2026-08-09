@@ -30,9 +30,8 @@ src/
 │   ├── server-instructions.ts# MCP Server instructions 构建
 │   ├── help.ts               # 帮助文案中心
 │   ├── normalize.ts          # 请求参数归一化
-│   └── noops/                # MCP SDK 重模块的 no-op shim
-│       ├── noop-schema-validator.ts
-│       └── noop-experimental-tasks.ts
+│   └── noops/                # SDK v2 显式 no-op schema validator
+│       └── noop-schema-validator.ts
 ├── tools/                    # 14 个聚合工具的实现
 │   ├── index.ts              # Barrel export：统一导出所有工具
 │   ├── internal/             # 工具层共享基础设施
@@ -347,14 +346,15 @@ type ToolConfig = {
 
 ## 8. HTTP 传输层：`src/core/http-transport.ts`
 
-**职责**：基于 `@modelcontextprotocol/sdk/server/streamableHttp.js` 实现 Streamable HTTP MCP Server。
+**职责**：基于 SDK v2 实现 HTTP MCP 传输，逐请求分类并路由到 MCP 2026-07-28 无状态 handler 或 legacy 有会话 handler。
 
 **特性**：
-- **会话管理**：`Map<string, SessionEntry>`，按 `mcp-session-id` header 分发
+- **双时代路由**：modern 请求无状态；legacy 会话通过 `Map<string, SessionEntry>` 和 `mcp-session-id` 分发
+- **请求校验**：分发前校验配置的 `Origin` hostname 与 JSON content type
 - **Bearer Token 认证**：通过 `SIYUAN_MCP_TOKEN` 环境变量验证
 - **TLS**：`SIYUAN_MCP_TLS_CERT` + `SIYUAN_MCP_TLS_KEY` + optional CA
 - **父进程看门狗**：监控 `SIYUAN_MCP_PARENT_PID`，父进程退出则 shutdown
-- **MCP 2025-03-26 spec**：支持 Streamable HTTP 最新规范
+- **MCP 2026-07-28 + legacy 兼容**：共享一套 runtime，同时保留旧客户端
 
 ---
 

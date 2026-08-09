@@ -77,7 +77,7 @@ Both products **share the same core**: `TOOL_REGISTRY`, `SiYuanClient`, `Permiss
 | **Build** | Vite | Multi-entry compilation (renderer / server / cli), outputs CommonJS |
 | **Frontend** | Svelte | Settings panel `McpConfig`, mascot `ToolPuppy` |
 | **Language** | TypeScript | Source uses ESM (`"type": "module"`), output is CJS |
-| **MCP Protocol** | `@modelcontextprotocol/sdk` ^1.26.0 | stdio / StreamableHTTP dual transport |
+| **MCP Protocol** | split MCP TypeScript SDK v2 packages | 2026-07-28 + legacy stdio/HTTP dual-era serving |
 | **Validation** | Zod ^4.3.6 | Input parameter schemas for all tool actions (~913 lines) |
 | **Testing** | Vitest | Unit + Integration + Smoke three-tier testing |
 | **Docs** | VitePress | Bilingual site (English default + Simplified Chinese `/zh/`) |
@@ -107,14 +107,17 @@ Calls TOOL_REGISTRY → SiYuanClient → SiYuan HTTP API
 AI Client / Browser / Third-party service
     ↓ HTTP POST (Bearer Token)
 SiYuan.app → loads plugin → starts embedded HTTP Server
-    ↓ StreamableHTTP (MCP 2025-03-26 spec)
+    ↓ MCP 2026-07-28 stateless or legacy StreamableHTTP session
 Calls TOOL_REGISTRY → SiYuanClient → SiYuan HTTP API
 ```
 
 - Plugin auto-starts HTTP server on `onload()` (if user-enabled)
-- Supports Session management, `mcp-session-id` routing
+- Uses the SDK classifier for dual-era routing: modern requests are stateless; legacy clients retain `mcp-session-id` sessions
+- Validates browser Origin hostnames and JSON POST content types before dispatch
 - Supports TLS (custom certificates), Token auth, Parent Watchdog (self-destruct on parent exit)
 - Suitable for remote access, browser extensions, multi-client sharing
+
+Modern tool descriptors include titles, a generic structured-output contract, and conservative annotations. Dangerous modern calls are paused through multi-round-trip elicitation before the tool lifecycle begins. The optional draft SEP-2640 extension adds `skills/list`, `skills/get`, and digest-addressed `skill://` resources without replacing the stable help resources and prompts.
 
 ### CLI Direct Operation Mode
 
@@ -141,6 +144,6 @@ Terminal output (human-readable / --json)
 
 1. **Aggregated tool surface**: 13 MCP tools (fs / notebook / document / block / av / file / search / tag / system / flashcard / extension / mascot / feedback), rather than 100+ single-purpose tools.
 2. **Config hot-reload**: `server.ts` `getToolConfig()` has a 30-second TTL cache + in-flight deduplication. Changes from the settings panel take effect without restart.
-3. **Dangerous action marking**: `DANGEROUS_ACTIONS` set marks 15 high-risk actions (delete / remove / find_replace, etc.). Warnings are auto-injected into tool descriptions and server instructions, but calls are not blocked (relies on LLM self-discipline).
+3. **Dangerous action gate**: `DANGEROUS_ACTIONS` marks 15 high-risk actions. MCP 2026-07-28 calls are blocked until multi-round elicitation is accepted; legacy clients receive description and instruction warnings.
 4. **Analytics & Telemetry**: Every tool call records an analytics event (JSONL format, 2MB auto-rotation). Telemetry aggregates and reports periodically per config. In CLI mode, analytics is synchronously flushed before exit.
 5. **Puppy mascot**: Communicates with the MCP server via polling `puppyEvents.json` files (decoupled). Supports idle animations, drag, wage card, test mode, and other state machines.

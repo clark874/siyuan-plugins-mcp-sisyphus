@@ -1,19 +1,37 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ErrorCode, GetPromptRequestSchema, ListPromptsRequestSchema, ListResourcesRequestSchema, ListResourceTemplatesRequestSchema, ListToolsRequestSchema, McpError, ReadResourceRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { acceptedContent, inputRequired, ProtocolError, ProtocolErrorCode, Server, type CallToolResult, type Tool } from '@modelcontextprotocol/server';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import { z } from 'zod';
 import { startHttpMcpServer, type TlsOptions } from './http-transport';
 import { buildServerInstructions } from './server-instructions';
 
 import { SiYuanClient } from '../api/client';
-import { buildDefaultToolConfig, loadToolConfigFromApiFileWithStatus, type ToolConfig, type ToolConfigLoadResult } from './config';
+import { buildDefaultToolConfig, isDangerousAction, loadToolConfigFromApiFileWithStatus, type ToolCategory, type ToolConfig, type ToolConfigLoadResult } from './config';
 import { noopSchemaValidator } from './noops/noop-schema-validator';
 import { OfficialMcpBridge, type OfficialMcpRuntime } from './official-mcp-bridge';
 
 import { PermissionManager } from './permissions';
+import {
+    callFlashcardReviewSessionTool,
+    callMascotShopAppTool,
+    callTimelineAppTool,
+    compactMcpAppToolResult,
+    decorateToolsWithMcpApps,
+    FLASHCARD_REVIEW_SESSION_TOOL_NAME,
+    FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME,
+    listMcpAppResources,
+    MCP_APPS_EXTENSION_ID,
+    MCP_APP_MIME_TYPE,
+    MASCOT_SHOP_APP_ACTION_TOOL_NAME,
+    MASCOT_SHOP_APP_TOOL_NAME,
+    readMcpAppResource,
+    supportsMcpApps,
+    TIMELINE_APP_ACTION_TOOL_NAME,
+    TIMELINE_APP_TOOL_NAME,
+} from './mcp-apps';
 import { listHelpResources, listHelpResourceTemplates, readHelpResource } from './resources';
-import { listAllTools, prepareAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
+import { GENERIC_TOOL_OUTPUT_SCHEMA, listAllTools, prepareAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
 import { runToolCall } from './tool-lifecycle';
-import { getMcpPrompt, listMcpPrompts } from './skills';
+import { getMcpPrompt, getSepSkill, listMcpPrompts, listSepSkillResources, listSepSkills, readSepSkillResource } from './skills';
 
 export { buildServerInstructions } from './server-instructions';
 
@@ -35,6 +53,8 @@ export function getMcpServerHelpText(): string {
         '  SIYUAN_MCP_PORT=36806                 Bind port, default 36806',
         '  SIYUAN_MCP_PATH=/mcp                  HTTP MCP path, default /mcp',
         '  SIYUAN_MCP_TOKEN=...                  Bearer token for MCP HTTP clients',
+        '  SIYUAN_MCP_ALLOWED_ORIGINS=host,...   Browser Origin hostname allowlist',
+        '  SIYUAN_MCP_SKILLS_EXTENSION=false    Disable draft SEP-2640 Skills extension (enabled by default)',
         '',
         'TLS environment:',
         '  SIYUAN_MCP_TLS_CERT=/path/cert.pem',
@@ -86,9 +106,23 @@ function createInstructionClient(): SiYuanClient {
 
 export interface CreateSiYuanServerOptions {
     officialMcpFetch?: typeof fetch;
+    runtime?: SiYuanServerRuntime;
 }
 
-export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}): Promise<Server> {
+export interface SiYuanServerRuntime {
+    client: SiYuanClient;
+    fastClient: SiYuanClient;
+    instructionClient: SiYuanClient;
+    initialConfigLoad: ToolConfigLoadResult;
+    officialMcpBridge: OfficialMcpBridge;
+    permMgr: PermissionManager;
+    getToolConfig(): Promise<ToolConfig>;
+    close(): Promise<void>;
+}
+
+export async function createSiYuanServerRuntime(
+    options: Pick<CreateSiYuanServerOptions, 'officialMcpFetch'> = {},
+): Promise<SiYuanServerRuntime> {
     const client = await initSiYuanClient();
     const fastClient = createFastClient();
     const instructionClient = createInstructionClient();
@@ -104,12 +138,55 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
     }
 
     const initialConfigLoad: ToolConfigLoadResult = await loadToolConfigFromApiFileWithStatus(instructionClient);
-    const initialConfig = initialConfigLoad.config;
     const officialMcpBridge = new OfficialMcpBridge(client, { fetch: options.officialMcpFetch });
+    const permMgr = new PermissionManager(fastClient);
+    try {
+        await permMgr.load();
+    } catch {
+        // SiYuan offline — permissions default to rwd (no restrictions).
+    }
+
+    return {
+        client,
+        fastClient,
+        instructionClient,
+        initialConfigLoad,
+        officialMcpBridge,
+        permMgr,
+        getToolConfig,
+        close: () => officialMcpBridge.close(),
+    };
+}
+
+export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}): Promise<Server> {
+    const ownsRuntime = !options.runtime;
+    const runtime = options.runtime ?? await createSiYuanServerRuntime(options);
+    const {
+        client,
+        initialConfigLoad,
+        officialMcpBridge,
+        permMgr,
+        getToolConfig,
+    } = runtime;
+    const initialConfig = initialConfigLoad.config;
+    const skillsExtensionSetting = process.env.SIYUAN_MCP_SKILLS_EXTENSION?.trim().toLowerCase();
+    const skillsExtensionEnabled = skillsExtensionSetting === undefined
+        || skillsExtensionSetting === ''
+        || ['1', 'true', 'yes', 'on'].includes(skillsExtensionSetting);
     const server = new Server(
         { name: 'siyuan-mcp', version: '2.0.0' },
         {
-            capabilities: { tools: { listChanged: true }, resources: {}, prompts: {} },
+            capabilities: {
+                tools: { listChanged: true },
+                resources: {},
+                prompts: {},
+                extensions: {
+                    [MCP_APPS_EXTENSION_ID]: { mimeTypes: [MCP_APP_MIME_TYPE] },
+                    ...(skillsExtensionEnabled ? {
+                        'io.modelcontextprotocol/skills': { directoryRead: false },
+                    } : {}),
+                },
+            },
             instructions: buildServerInstructions({
                 userRulesText: initialConfig.userRulesText,
                 agentSiyuanMemoryText: initialConfig.agentSiyuanMemoryText,
@@ -126,55 +203,153 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         notifyToolListChanged: () => server.sendToolListChanged(),
         discoveryMode: 'background',
     };
-    server.onclose = () => {
-        void officialMcpBridge.close();
-    };
-    const permMgr = new PermissionManager(fastClient);
-    try {
-        await permMgr.load();
-    } catch {
-        // SiYuan offline — permissions default to rwd (no restrictions).
+    if (ownsRuntime) {
+        server.onclose = () => {
+            void runtime.close();
+        };
     }
 
-    server.setRequestHandler(ListToolsRequestSchema, async () => {
+    server.setRequestHandler('tools/list', async (_request, ctx) => {
         const config = await getToolConfig();
         await prepareAllTools(config, officialMcpRuntime);
-        return { tools: listAllTools(config, officialMcpRuntime) };
+        // buildAggregatedTool always emits an object-root JSON Schema. Its
+        // internal schema helpers intentionally retain Record<string, unknown>
+        // so action-specific extensions remain visible to the CLI as well.
+        const clientCapabilities = (
+            ctx.mcpReq.envelope as { clientCapabilities?: Parameters<typeof supportsMcpApps>[0] } | undefined
+        )?.clientCapabilities ?? server.getClientCapabilities();
+        const tools = decorateToolsWithMcpApps(
+            listAllTools(config, officialMcpRuntime),
+            supportsMcpApps(clientCapabilities),
+            config.mcpApps,
+        );
+        return { tools: tools as Tool[] };
     });
 
-    server.setRequestHandler(ListResourcesRequestSchema, async () => {
-        return { resources: listHelpResources() };
+    server.setRequestHandler('resources/list', async () => {
+        const config = await getToolConfig();
+        return {
+            resources: [
+                ...listMcpAppResources(config.mcpApps),
+                ...listHelpResources(),
+                ...(skillsExtensionEnabled ? listSepSkillResources() : []),
+            ],
+        };
     });
 
-    server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
+    server.setRequestHandler('resources/templates/list', async () => {
         return { resourceTemplates: listHelpResourceTemplates() };
     });
 
-    server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+    server.setRequestHandler('resources/read', async (request) => {
         const config = await getToolConfig();
-        const resource = readHelpResource(request.params.uri, config.userRulesText);
+        const resource = readMcpAppResource(request.params.uri, config.mcpApps)
+            ?? readHelpResource(request.params.uri, config.userRulesText)
+            ?? (skillsExtensionEnabled ? readSepSkillResource(request.params.uri) : undefined);
         if (!resource) {
-            throw new McpError(ErrorCode.InvalidRequest, `Unknown resource: ${request.params.uri}`);
+            throw new ProtocolError(ProtocolErrorCode.InvalidRequest, `Unknown resource: ${request.params.uri}`);
         }
         return { contents: [resource] };
     });
 
-    server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    server.setRequestHandler('prompts/list', async () => {
         return { prompts: listMcpPrompts() };
     });
 
-    server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+    server.setRequestHandler('prompts/get', async (request) => {
         const prompt = getMcpPrompt(request.params.name, request.params.arguments?.task);
         if (!prompt) {
-            throw new McpError(ErrorCode.InvalidParams, `Unknown prompt: ${request.params.name}`);
+            throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Unknown prompt: ${request.params.name}`);
         }
         return prompt;
     });
 
-    server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    if (skillsExtensionEnabled) {
+        server.setRequestHandler(
+            'skills/list',
+            { params: z.object({ cursor: z.string().optional() }) },
+            async () => ({
+                skills: listSepSkills(),
+                ttlMs: 300_000,
+                cacheScope: 'public',
+            }),
+        );
+        server.setRequestHandler(
+            'skills/get',
+            { params: z.object({ uri: z.string().min(1) }) },
+            async ({ uri }) => {
+                const skill = getSepSkill(uri);
+                if (!skill) {
+                    throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Unknown skill URI: ${uri}`);
+                }
+                return { skill };
+            },
+        );
+    }
+
+    server.setRequestHandler('tools/call', async (request, ctx) => {
         const { name, arguments: args } = request.params;
         const action = typeof args?.action === 'string' ? args.action : 'unknown';
-        const category = resolveCategory(name);
+        const clientCapabilities = (
+            ctx.mcpReq.envelope as { clientCapabilities?: Parameters<typeof supportsMcpApps>[0] } | undefined
+        )?.clientCapabilities ?? server.getClientCapabilities();
+        const appsEnabled = supportsMcpApps(clientCapabilities);
+        const appToolNames = new Set([
+            TIMELINE_APP_TOOL_NAME,
+            TIMELINE_APP_ACTION_TOOL_NAME,
+            FLASHCARD_REVIEW_SESSION_TOOL_NAME,
+            FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME,
+            MASCOT_SHOP_APP_TOOL_NAME,
+            MASCOT_SHOP_APP_ACTION_TOOL_NAME,
+        ]);
+        if (appToolNames.has(name) && !appsEnabled) {
+            return {
+                content: [{ type: 'text' as const, text: `Unknown tool: ${name}` }],
+                isError: true,
+            };
+        }
+        if ([FLASHCARD_REVIEW_SESSION_TOOL_NAME, TIMELINE_APP_TOOL_NAME, MASCOT_SHOP_APP_TOOL_NAME].includes(name)) {
+            const config = await getToolConfig();
+            const appEnabled = name === FLASHCARD_REVIEW_SESSION_TOOL_NAME
+                ? config.mcpApps.flashcardReview.enabled
+                : name === TIMELINE_APP_TOOL_NAME
+                    ? config.mcpApps.timeline.enabled
+                    : config.mcpApps.mascotShop.enabled;
+            if (!appEnabled) {
+                return {
+                    content: [{ type: 'text' as const, text: `Tool "${name}" is disabled.` }],
+                    isError: true,
+                };
+            }
+            if (name === FLASHCARD_REVIEW_SESSION_TOOL_NAME && (!config.flashcard.enabled || config.flashcard.actions.list_cards !== true)) {
+                return { content: [{ type: 'text' as const, text: 'flashcard_review_session requires flashcard(action="list_cards") to be enabled for candidate selection.' }], isError: true };
+            }
+            try {
+                const result = name === FLASHCARD_REVIEW_SESSION_TOOL_NAME
+                    ? await callFlashcardReviewSessionTool(client, permMgr, args, config.mcpApps.flashcardReview)
+                    : name === TIMELINE_APP_TOOL_NAME
+                        ? await callTimelineAppTool(client, permMgr, args, config.mcpApps.timeline)
+                        : await callMascotShopAppTool(client, permMgr, args, config.mcpApps.mascotShop);
+                return server.projectCallToolResult(result, GENERIC_TOOL_OUTPUT_SCHEMA);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                return server.projectCallToolResult(withStructuredContent({
+                    content: [{ type: 'text' as const, text: JSON.stringify({
+                        action: FLASHCARD_REVIEW_SESSION_TOOL_NAME,
+                        error: { message },
+                    }, null, 2) }],
+                    isError: true,
+                }), GENERIC_TOOL_OUTPUT_SCHEMA);
+            }
+        }
+        const appActionCategory = name === TIMELINE_APP_ACTION_TOOL_NAME
+            ? 'timeline'
+            : name === FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME
+                ? 'flashcard'
+                : name === MASCOT_SHOP_APP_ACTION_TOOL_NAME
+                    ? 'mascot'
+                    : undefined;
+        const category = appActionCategory ?? resolveCategory(name);
         if (!category) {
             return {
                 content: [{ type: 'text' as const, text: `Unknown tool: ${name}` }],
@@ -183,7 +358,14 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         }
 
         const config = await getToolConfig();
-        if (!config[category].enabled) {
+        const appActionConfig = name === TIMELINE_APP_ACTION_TOOL_NAME
+            ? config.mcpApps.timeline
+            : name === FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME
+                ? config.mcpApps.flashcardReview
+                : name === MASCOT_SHOP_APP_ACTION_TOOL_NAME
+                    ? config.mcpApps.mascotShop
+                    : undefined;
+        if (appActionConfig ? !appActionConfig.enabled : !config[category].enabled) {
             return {
                 content: [{ type: 'text' as const, text: `Tool "${name}" is disabled.` }],
                 isError: true,
@@ -191,6 +373,79 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         }
 
         const module = TOOL_REGISTRY[category];
+        const actionEnabled = appActionConfig
+            ? (appActionConfig.actions as Record<string, boolean>)[action] === true
+            : category === 'extension'
+                ? true
+                : (config[category].actions as Record<string, boolean>)[action] === true;
+        const extensionTool = category === 'extension'
+            ? officialMcpBridge.getTools().find((tool) => tool.name === action)
+            : undefined;
+        const requiresConfirmation = actionEnabled && (
+            isDangerousAction(category as ToolCategory, action)
+            || (category === 'extension' && action !== 'list' && action !== 'help' && extensionTool?.readOnlyHint !== true)
+        );
+
+        // 2026-07-28 carries confirmation in-band through MRTR. Legacy
+        // clients keep the existing instruction-level confirmation contract
+        // because many of them do not advertise elicitation support.
+        if (requiresConfirmation && ctx.mcpReq.envelope) {
+            const confirmationKey = 'dangerous-action-confirmation';
+            const hasResponse = Object.prototype.hasOwnProperty.call(
+                ctx.mcpReq.inputResponses ?? {},
+                confirmationKey,
+            );
+            const confirmation = acceptedContent<{ confirm?: boolean }>(
+                ctx.mcpReq.inputResponses,
+                confirmationKey,
+            );
+
+            if (!hasResponse) {
+                const argumentPreview = JSON.stringify(args ?? {});
+                return inputRequired({
+                    inputRequests: {
+                        [confirmationKey]: inputRequired.elicit({
+                            message: [
+                                `Confirm high-risk SiYuan action ${name}(action="${action}").`,
+                                `Arguments: ${argumentPreview.length > 1800 ? `${argumentPreview.slice(0, 1800)}…` : argumentPreview}`,
+                                'The operation has not run yet.',
+                            ].join('\n'),
+                            requestedSchema: {
+                                type: 'object',
+                                properties: {
+                                    confirm: {
+                                        type: 'boolean',
+                                        title: 'Confirm execution',
+                                        description: 'Set true only after the user explicitly approves this exact action.',
+                                    },
+                                },
+                                required: ['confirm'],
+                                additionalProperties: false,
+                            },
+                        }),
+                    },
+                });
+            }
+
+            if (confirmation?.confirm !== true) {
+                const declined = {
+                    content: [{
+                        type: 'text' as const,
+                        text: JSON.stringify({
+                            success: false,
+                            cancelled: true,
+                            message: `High-risk action ${name}(action="${action}") was not executed because confirmation was declined or cancelled.`,
+                        }, null, 2),
+                    }],
+                    isError: true,
+                };
+                return server.projectCallToolResult(
+                    withStructuredContent(declined),
+                    GENERIC_TOOL_OUTPUT_SCHEMA,
+                );
+            }
+        }
+
         const result = await runToolCall(
             {
                 client,
@@ -203,14 +458,42 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
                     : JSON.stringify({ name, arguments: args ?? {} }),
                 slimResponses: config.debug.slimResponses,
             },
-            () => module.callTool(client, args, config[category], permMgr, officialMcpRuntime),
+            () => appActionConfig
+                ? module.callTool(client, args, appActionConfig, permMgr, officialMcpRuntime)
+                : module.callTool(client, args, config[category], permMgr, officialMcpRuntime),
         );
-        // The MCP SDK CallToolResult uses a wider ContentBlock union; our
-        // ToolResult always emits text-only content, which is a valid subset.
-        return result as { content: { type: 'text'; text: string }[]; isError?: boolean };
+        // The low-level v2 Server leaves cross-era result projection to the
+        // handler. Our tools currently have text-only output and no advertised
+        // outputSchema, but projecting here keeps modern and legacy shapes in
+        // sync when structured output is introduced later.
+        const projectedResult = withStructuredContent(result);
+        return server.projectCallToolResult(
+            compactMcpAppToolResult(name, action, projectedResult, appsEnabled, config.mcpApps),
+            GENERIC_TOOL_OUTPUT_SCHEMA,
+        );
     });
 
     return server;
+}
+
+function withStructuredContent(result: {
+    content: Array<{ type: 'text'; text: string }>;
+    isError?: boolean;
+    structuredContent?: Record<string, unknown>;
+}): CallToolResult {
+    if (result.structuredContent) return result as CallToolResult;
+
+    const text = result.content.find((item) => item.type === 'text')?.text ?? '';
+    let value: unknown = text;
+    try {
+        value = JSON.parse(text);
+    } catch {
+        // Preserve non-JSON tool responses under a stable object key.
+    }
+    const structuredContent = value !== null && typeof value === 'object' && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : { value };
+    return { ...result, structuredContent } as CallToolResult;
 }
 
 function parseTransportMode(): 'stdio' | 'http' {
@@ -251,23 +534,34 @@ export async function startMcpServer() {
             throw new Error('[MCP] HTTPS requires both SIYUAN_MCP_TLS_CERT and SIYUAN_MCP_TLS_KEY to be set.');
         }
 
-        await startHttpMcpServer({
-            host: process.env.SIYUAN_MCP_HOST ?? '127.0.0.1',
-            port,
-            token: process.env.SIYUAN_MCP_TOKEN || undefined,
-            path: process.env.SIYUAN_MCP_PATH || '/mcp',
-            serverFactory: createSiYuanServer,
-            tls,
-        });
+        const runtime = await createSiYuanServerRuntime();
+        try {
+            await startHttpMcpServer({
+                host: process.env.SIYUAN_MCP_HOST ?? '127.0.0.1',
+                port,
+                token: process.env.SIYUAN_MCP_TOKEN || undefined,
+                path: process.env.SIYUAN_MCP_PATH || '/mcp',
+                allowedOriginHostnames: process.env.SIYUAN_MCP_ALLOWED_ORIGINS
+                    ?.split(',')
+                    .map((value) => value.trim())
+                    .filter(Boolean),
+                serverFactory: () => createSiYuanServer({ runtime }),
+                dispose: () => runtime.close(),
+                tls,
+            });
+        } catch (error) {
+            await runtime.close();
+            throw error;
+        }
         return;
     }
 
-    const server = await createSiYuanServer();
-    const transport = new StdioServerTransport(
-        typeof process !== 'undefined' ? process.stdin : undefined,
-        typeof process !== 'undefined' ? process.stdout : undefined,
-    );
-    await server.connect(transport);
+    serveStdio(() => createSiYuanServer(), {
+        legacy: 'serve',
+        onerror: (error) => {
+            console.error('[MCP][stdio] transport error:', error.message);
+        },
+    });
 }
 
 if (require.main === module) {

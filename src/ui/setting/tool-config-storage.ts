@@ -5,7 +5,6 @@ import {
     normalizeTelemetryConfig,
     type TelemetryConfig,
 } from "./telemetry-config";
-
 export {
     buildDefaultTelemetryConfig,
     normalizeTelemetryConfig,
@@ -267,6 +266,7 @@ export interface HttpServerSettings {
     tlsCertFile: string;
     tlsKeyFile: string;
     tlsCaFile: string;
+    skillsExtensionEnabled: boolean;
 }
 
 export function hasValidHttpTlsFiles(settings: HttpServerSettings): boolean {
@@ -299,6 +299,7 @@ export function buildDefaultHttpServerSettings(): HttpServerSettings {
         tlsCertFile: "",
         tlsKeyFile: "",
         tlsCaFile: "",
+        skillsExtensionEnabled: true,
     };
 }
 
@@ -334,6 +335,9 @@ export function normalizeHttpServerSettings(raw: unknown): HttpServerSettings {
         tlsCertFile: typeof record.tlsCertFile === "string" ? record.tlsCertFile : defaults.tlsCertFile,
         tlsKeyFile: typeof record.tlsKeyFile === "string" ? record.tlsKeyFile : defaults.tlsKeyFile,
         tlsCaFile: typeof record.tlsCaFile === "string" ? record.tlsCaFile : defaults.tlsCaFile,
+        skillsExtensionEnabled: typeof record.skillsExtensionEnabled === "boolean"
+            ? record.skillsExtensionEnabled
+            : defaults.skillsExtensionEnabled,
     };
 }
 

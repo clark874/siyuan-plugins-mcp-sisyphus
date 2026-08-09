@@ -130,6 +130,7 @@ export interface HttpServerLaunchOptions {
     tlsCertFile?: string;
     tlsKeyFile?: string;
     tlsCaFile?: string;
+    skillsExtensionEnabled?: boolean;
 }
 
 export interface HttpServerSupportInfo {
@@ -239,6 +240,7 @@ export class HttpServerLauncher {
         if (opts.tlsCertFile) env.SIYUAN_MCP_TLS_CERT = opts.tlsCertFile;
         if (opts.tlsKeyFile) env.SIYUAN_MCP_TLS_KEY = opts.tlsKeyFile;
         if (opts.tlsCaFile) env.SIYUAN_MCP_TLS_CA = opts.tlsCaFile;
+        env.SIYUAN_MCP_SKILLS_EXTENSION = opts.skillsExtensionEnabled ? "true" : "false";
 
         let child: ChildProcess;
         try {

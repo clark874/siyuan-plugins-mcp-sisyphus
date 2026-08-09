@@ -26,12 +26,13 @@
     const IDLE_TIMEOUT = 3000;
     const RESULT_DISPLAY_TIME = 2400;
     const POINTER_RELEASE_TIME = 260;
+    const PETTING_RESPONSE_TIME = 760;
     const HEART_DISPLAY_TIME = 980;
     const FEED_PROP_DISPLAY_TIME = 10000;
     const CLICK_HINT_DISPLAY_TIME = 2600;
 
     type ResultState = 'none' | 'success' | 'error';
-    type PointerState = 'none' | 'pointer-down' | 'pointer-drag' | 'pointer-release';
+    type PointerState = 'none' | 'pointer-press' | 'pointer-drag' | 'pointer-release' | 'pointer-pet';
 
     const TEST_SUCCESS_WEIGHT = 0.8;
 
@@ -161,7 +162,7 @@
     }
 
     function shouldCycleIdleMotion() {
-        return mounted && state === 'idle' && pointerState === 'none' && !testModeEnabled;
+        return mounted && visible && state === 'idle' && pointerState === 'none' && !testModeEnabled;
     }
 
     function scheduleIdleMotion() {
@@ -178,7 +179,7 @@
 
     function setPointerState(next: PointerState) {
         clearPointerReleaseTimer();
-        if (next !== 'none' && (idleMotion === 'lie' || idleMotion === 'sleep')) {
+        if (next !== 'none' && idleMotion !== 'stand') {
             idleMotion = 'stand';
         }
         pointerState = next;
@@ -187,11 +188,11 @@
             return;
         }
         clearIdleMotionTimer();
-        if (next === 'pointer-release') {
+        if (next === 'pointer-release' || next === 'pointer-pet') {
             pointerReleaseTimer = setTimeout(() => {
                 pointerState = 'none';
                 scheduleIdleMotion();
-            }, POINTER_RELEASE_TIME);
+            }, next === 'pointer-pet' ? PETTING_RESPONSE_TIME : POINTER_RELEASE_TIME);
         }
     }
 
@@ -200,6 +201,7 @@
         if (testModeEnabled) {
             stopPolling();
             clearIdleMotionTimer();
+            idleMotion = 'stand';
             testRunner?.start();
             return;
         }
@@ -220,17 +222,25 @@
         savePuppyPosition({ x: posX, y: posY });
     }
 
+    function beginPointerInteraction(clientX: number, clientY: number) {
+        dragSession = startDrag(clientX, clientY, posX, posY);
+        if (pointerState === 'pointer-pet') {
+            clearPointerReleaseTimer();
+            clearIdleMotionTimer();
+            return;
+        }
+        setPointerState('pointer-press');
+    }
+
     function onMouseDown(e: MouseEvent) {
-        dragSession = startDrag(e.clientX, e.clientY, posX, posY);
-        setPointerState('pointer-down');
+        beginPointerInteraction(e.clientX, e.clientY);
         e.preventDefault();
     }
 
     function onTouchStart(e: TouchEvent) {
         const touch = e.touches[0];
         if (!touch) return;
-        dragSession = startDrag(touch.clientX, touch.clientY, posX, posY);
-        setPointerState('pointer-down');
+        beginPointerInteraction(touch.clientX, touch.clientY);
         e.preventDefault();
     }
 
@@ -240,7 +250,9 @@
         dragSession = moved.session;
         posX = moved.posX;
         posY = moved.posY;
-        setPointerState(moved.pointerState);
+        if (moved.pointerState === 'pointer-drag' || pointerState !== 'pointer-pet') {
+            setPointerState(moved.pointerState);
+        }
     }
 
     function onTouchMove(e: TouchEvent) {
@@ -251,7 +263,9 @@
         dragSession = moved.session;
         posX = moved.posX;
         posY = moved.posY;
-        setPointerState(moved.pointerState);
+        if (moved.pointerState === 'pointer-drag' || pointerState !== 'pointer-pet') {
+            setPointerState(moved.pointerState);
+        }
         e.preventDefault();
     }
 
@@ -276,7 +290,7 @@
             triggerClickHint();
         }
         dragSession = null;
-        setPointerState('pointer-release');
+        setPointerState(shouldSave ? 'pointer-release' : 'pointer-pet');
     }
 
     function onTouchEnd() {
@@ -429,6 +443,7 @@
 
     let prevVisible = visible;
     $: isSleeping = state === 'idle' && idleMotion === 'sleep';
+    $: isYawning = state === 'idle' && idleMotion === 'yawn';
     $: if (mounted) {
         if (visible && !testModeEnabled) {
             startPolling();
@@ -443,7 +458,8 @@
         }
         prevVisible = visible;
     }
-    $: eyeState = isSleeping ? 'blink' :
+    $: eyeState = pointerState === 'pointer-pet' ? 'happy' :
+        isSleeping || isYawning ? 'blink' :
         blinking ? 'blink' :
         resultState === 'success' ? 'happy' :
         resultState === 'error' ? 'sad' :

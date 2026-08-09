@@ -54,10 +54,13 @@ const mascotTool = defineTool<MascotAction>({
                 totalEarned: stats.totalCalls,
             });
         },
-        shop: async ({ rawArgs }) => {
+        shop: async ({ client, rawArgs }) => {
             MascotShopSchema.parse(rawArgs);
+            const stats = await readPuppyStats(client);
             return createJsonResult({
                 action: 'shop',
+                balance: stats.balance,
+                totalEarned: stats.totalCalls,
                 items: SHOP_ITEMS,
             });
         },

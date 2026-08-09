@@ -98,7 +98,7 @@ describe('core/puppy-state', () => {
         await expect(spendPuppyBalance(client, 4, 'buy')).rejects.toThrow('Insufficient mascot balance. Need 4, have 3.');
     });
 
-    it('writes puppy events with sequence metadata and silently ignores failures', async () => {
+    it('writes puppy events with strictly increasing sequence metadata and silently ignores failures', async () => {
         vi.spyOn(Date, 'now').mockReturnValue(123);
         const client = createClient();
 
@@ -117,6 +117,24 @@ describe('core/puppy-state', () => {
             totalCalls: 1,
             balance: 1,
             seq: 123,
+            ts: 123,
+        }));
+
+        await writePuppyEvent(client, {
+            tool: 'system',
+            action: 'get_version',
+            status: 'success',
+            totalCalls: 1,
+            balance: 1,
+        });
+
+        expect(client.writeFile).toHaveBeenLastCalledWith(PUPPY_EVENTS_PATH, JSON.stringify({
+            tool: 'system',
+            action: 'get_version',
+            status: 'success',
+            totalCalls: 1,
+            balance: 1,
+            seq: 124,
             ts: 123,
         }));
 

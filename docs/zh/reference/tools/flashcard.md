@@ -20,6 +20,16 @@
 
 - `remove_card` 需要显式确认。
 
+## MCP App
+
+对于支持 MCP Apps 的客户端，`flashcard(action="list_cards", scope="all", filter="due")` 会向模型返回不含答案的候选摘要，包括题面与调度元数据；没有可读题面的卡片会在 AI 选卡前被排除。结果还会携带一个不透明的 `candidateToken`，对应一份有效期十分钟的固定候选快照。AI 必须原样复制该 token，只从同一结果的 `cards` 数组中自主选择 1–20 张卡，再调用仅对 MCP Apps 客户端提供的展示工具 `flashcard_review_session`，传入有序的 `{ deckID, cardID }` 与简短的 `selectionReason`；不能把 `get_cards`、牌组库存、旧轮次结果或猜测的 ID 当作候选来源。展示工具会验证这份快照，不再第二次抽取思源到期队列，因此内核抽样或每日限额排序不会在两次调用之间过滤掉已选卡；启动会话时仍会重新检查笔记本权限。
+
+打开后的内联 App 不再重复显示标题栏，直接进入经典流程：看题、显示答案、选择 Again / Hard / Good / Easy。模型仍会在 `structuredContent` 中获得本轮完整题目和参考答案，但成功结果会标记 `presentationMode: "mcp-app-only"`，并要求模型只回复“复习界面已打开，请在卡片中完成本轮。”，不得复述卡片、在聊天中开始 Q1、要求用户在聊天作答、代替用户评分或自行调用 `review_card`。每次评分仍由 App 调用现有的 `flashcard(action="review_card")`，不会绕过 action 开关或服务端权限逻辑。只有用户明确切换为聊天复习，或最后一张完成后主动点击“让 AI 讲解本轮”发送课后教学请求，模型才能重新讨论卡片内容。
+
+`list_cards` 与 `get_cards` 会在笔记本读取权限允许时，根据卡片的 `blockID` 补充 `front` 和 `back`：源块内容作为题面，直接子块按顺序合并为答案。内容读取失败或笔记本不可读时只保留原有卡片调度元数据，不会绕过权限返回正文。
+
+评分由模型不可见的 `flashcard_review_app_action` 提交，并在独立“App 软件”页控制；普通 `flashcard` Tool 不绑定 UI。未声明 `io.modelcontextprotocol/ui` 的客户端不会看到启动器或 App-only Tool，原有文本、`structuredContent` 和 CLI 行为保持不变。
+
 ## 说明
 
 - `review_card` 可传 `rating`，也可用 `skip=true` 跳过当前卡片。

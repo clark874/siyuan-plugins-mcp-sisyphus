@@ -172,4 +172,21 @@ describe('settings i18n', () => {
             expect(i18n.cliAiSetupPrompt).toContain('{{apiToken}}');
         }
     });
+
+    it('covers Skills over MCP experimental settings in bundled locales', () => {
+        const keys = [
+            'skillsOverMcpTitle',
+            'experimentalFeatureBadge',
+            'skillsOverMcpDesc',
+            'skillsOverMcpEnabled',
+            'skillsOverMcpRestartHint',
+        ];
+
+        for (const locale of ['en_US', 'zh_CN']) {
+            const i18n = readI18n(locale);
+            for (const key of keys) {
+                expect(i18n[key], `${locale} ${key}`).toEqual(expect.any(String));
+            }
+        }
+    });
 });

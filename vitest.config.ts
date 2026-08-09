@@ -18,6 +18,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       'siyuan': path.resolve(__dirname, './tests/mocks/siyuan.ts'),
+      'virtual:siyuan-mcp-app-html': path.resolve(__dirname, './tests/fixtures/mcp-app-html.ts'),
     },
   },
 });
