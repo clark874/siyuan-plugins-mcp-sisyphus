@@ -409,12 +409,20 @@ export function verifyApplied(request: ChangeRequest, afterState: unknown, expec
         case 'plugin_install': {
             const state = afterState as Record<string, unknown> | null;
             const descriptor = state?.descriptor as Record<string, unknown> | undefined;
+            const expectedRepoURL = request.repoURL.replace(/\/+$/, '');
+            const installedRepoURL = typeof state?.repoURL === 'string' ? state.repoURL.replace(/\/+$/, '') : '';
+            const descriptorRepoURL = typeof descriptor?.url === 'string' ? descriptor.url.replace(/\/+$/, '') : '';
+            // 思源的已安装插件接口当前不会保留集市 repoHash，而是返回空字符串。
+            // 非空时仍必须与计划固定的修订号一致，避免接受冲突的安装结果。
+            const revisionMatches = state?.repoHash === '' || state?.repoHash === request.repoHash;
             return state?.name === request.packageName
-                && state.repoHash === request.repoHash
+                && revisionMatches
                 && typeof expectedPackageVersion === 'string'
                 && state.version === expectedPackageVersion
+                && installedRepoURL === expectedRepoURL
                 && descriptor?.name === request.packageName
                 && descriptor.version === expectedPackageVersion
+                && descriptorRepoURL === expectedRepoURL
                 && typeof state.treeHash === 'string'
                 && typeof state.treeEntries === 'number'
                 && state.treeEntries > 0;

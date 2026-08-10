@@ -230,9 +230,9 @@ function normalizeBazaarPackage(pkg: Record<string, unknown>, kind: packagesApi.
     const name = readString(pkg.name) ?? 'unknown';
     const bazaarIncompatible = typeof pkg.bazaarIncompatible === 'boolean' ? pkg.bazaarIncompatible : undefined;
     const disallowInstall = typeof pkg.disallowInstall === 'boolean' ? pkg.disallowInstall : undefined;
-    const compatible = bazaarIncompatible === undefined
-        ? disallowInstall === undefined ? undefined : !disallowInstall
-        : !bazaarIncompatible;
+    const compatible = bazaarIncompatible === undefined && disallowInstall === undefined
+        ? undefined
+        : bazaarIncompatible !== true && disallowInstall !== true;
     return {
         name,
         displayName: readString(pkg.preferredName) ?? name,

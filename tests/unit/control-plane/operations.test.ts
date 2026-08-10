@@ -109,7 +109,7 @@ describe('control-plane operations', () => {
         expect(client.writeFile).not.toHaveBeenCalled();
     });
 
-    it('does not accept an installed plugin result with missing revision evidence', () => {
+    it('accepts the empty installed revision emitted by SiYuan but rejects conflicting package identity', () => {
         const request = {
             kind: 'plugin_install' as const,
             packageName: 'demo-plugin',
@@ -119,13 +119,17 @@ describe('control-plane operations', () => {
         const state = {
             name: 'demo-plugin',
             version: '2.0.0',
-            descriptor: { name: 'demo-plugin', version: '2.0.0' },
+            repoURL: 'https://github.com/example/demo-plugin',
+            repoHash: '',
+            descriptor: { name: 'demo-plugin', version: '2.0.0', url: 'https://github.com/example/demo-plugin' },
             treeHash: 'sha256:tree',
             treeEntries: 3,
         };
 
-        expect(verifyApplied(request, state, '2.0.0')).toBe(false);
-        expect(verifyApplied(request, { ...state, repoHash: request.repoHash }, '2.0.0')).toBe(true);
+        expect(verifyApplied(request, state, '2.0.0')).toBe(true);
+        expect(verifyApplied(request, { ...state, repoHash: 'deadbeef' }, '2.0.0')).toBe(false);
+        expect(verifyApplied(request, { ...state, repoURL: 'https://github.com/example/other-plugin' }, '2.0.0')).toBe(false);
+        expect(verifyApplied(request, { ...state, descriptor: { ...state.descriptor, url: 'https://github.com/example/other-plugin' } }, '2.0.0')).toBe(false);
     });
 
     it('creates an exact package archive before an update and restores it on rollback', async () => {

@@ -187,6 +187,32 @@ describe('system tool schemas', () => {
         });
     });
 
+    it('excludes packages that SiYuan disallows even when bazaarIncompatible is false', async () => {
+        const client = createMockClient({
+            request: vi.fn().mockResolvedValueOnce({
+                packages: [
+                    { name: 'usable', installed: false, bazaarIncompatible: false, disallowInstall: false },
+                    { name: 'requires-newer-siyuan', installed: false, bazaarIncompatible: false, disallowInstall: true },
+                ],
+            }),
+        });
+        const config = buildDefaultToolConfig().system;
+        const result = await callSystemTool(client, {
+            action: 'search_bazaar',
+            kind: 'plugin',
+            installation: 'not_installed',
+            compatibility: 'compatible',
+        }, config, {} as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.total).toBe(1);
+        expect(parsed.items).toEqual([expect.objectContaining({
+            name: 'usable',
+            compatible: true,
+            installAllowed: true,
+        })]);
+    });
+
     it('returns exact bazaar metadata together with local installed state', async () => {
         const request = vi.fn()
             .mockResolvedValueOnce({
