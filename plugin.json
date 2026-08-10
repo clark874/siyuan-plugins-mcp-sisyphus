@@ -1,8 +1,8 @@
 {
   "name": "siyuan-plugins-mcp-sisyphus",
   "author": "Taihong Yang",
-  "url": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
-  "version": "0.6.0",
+  "url": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus",
+  "version": "0.6.1-local.3",
   "minAppVersion": "2.9.0",
   "backends": [
     "all"

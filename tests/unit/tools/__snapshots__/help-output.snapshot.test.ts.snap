@@ -4468,6 +4468,34 @@ All search actions are read-only except find_replace, which modifies content and
   },
   "system": {
     "actions": {
+      "apply_change": {
+        "action": "apply_change",
+        "example": {
+          "action": "apply_change",
+          "planID": "<planID>",
+        },
+        "fullDocResource": "siyuan://help/action/system/apply_change",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Requires explicit confirmation. Rechecks the target hash, rejects stale plans, applies one operation, verifies by rereading, and attempts automatic recovery on failure.",
+        "requiredFields": [
+          "planID",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "planID",
+        ],
+        "tool": "system",
+      },
       "audit_environment": {
         "action": "audit_environment",
         "example": {
@@ -4483,9 +4511,10 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "fullDocResource": "siyuan://help/action/system/audit_environment",
         "guidance": [
-          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4525,9 +4554,10 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "fullDocResource": "siyuan://help/action/system/changelog",
         "guidance": [
-          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4549,9 +4579,10 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/conf",
         "guidance": [
-          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4566,6 +4597,64 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "tool": "system",
       },
+      "discard_change_plan": {
+        "action": "discard_change_plan",
+        "example": {
+          "action": "discard_change_plan",
+          "planID": "<planID>",
+        },
+        "fullDocResource": "siyuan://help/action/system/discard_change_plan",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Marks an unapplied or expired plan discarded without changing its target.",
+        "requiredFields": [
+          "planID",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "planID",
+        ],
+        "tool": "system",
+      },
+      "get_control_change": {
+        "action": "get_control_change",
+        "example": {
+          "action": "get_control_change",
+          "id": "20240318112233-abc123",
+          "kind": "plan",
+        },
+        "fullDocResource": "siyuan://help/action/system/get_control_change",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Returns one compact redacted plan or change record by UUID without exposing stored snapshot content.",
+        "requiredFields": [
+          "kind",
+          "id",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "kind + id",
+        ],
+        "tool": "system",
+      },
       "get_current_time": {
         "action": "get_current_time",
         "example": {
@@ -4573,9 +4662,10 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/get_current_time",
         "guidance": [
-          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4590,6 +4680,34 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "tool": "system",
       },
+      "get_plugin": {
+        "action": "get_plugin",
+        "example": {
+          "action": "get_plugin",
+          "pluginName": "<pluginName>",
+        },
+        "fullDocResource": "siyuan://help/action/system/get_plugin",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Returns compact metadata for one exact installed plugin plus its controlled storage-root mapping.",
+        "requiredFields": [
+          "pluginName",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "pluginName",
+        ],
+        "tool": "system",
+      },
       "get_version": {
         "action": "get_version",
         "example": {
@@ -4597,9 +4715,10 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/get_version",
         "guidance": [
-          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4607,6 +4726,59 @@ All search actions are read-only except find_replace, which modifies content and
           "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
         ],
         "hint": "Returns the current SiYuan version as {version}.",
+        "requiredFields": [],
+        "requiresConfirmation": false,
+        "shapes": [
+          "action only",
+        ],
+        "tool": "system",
+      },
+      "inspect_plugin": {
+        "action": "inspect_plugin",
+        "example": {
+          "action": "inspect_plugin",
+          "pluginName": "<pluginName>",
+        },
+        "fullDocResource": "siyuan://help/action/system/inspect_plugin",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Combines safe configuration reads with a declarative adapter and uncertainty-preserving generic field classification. Unrecognized fields remain explicit in the English category "unknown".",
+        "requiredFields": [
+          "pluginName",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "pluginName",
+        ],
+        "tool": "system",
+      },
+      "list_control_changes": {
+        "action": "list_control_changes",
+        "example": {
+          "action": "list_control_changes",
+        },
+        "fullDocResource": "siyuan://help/action/system/list_control_changes",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Lists compact redacted plan/change audit records. Stored rollback snapshots and requested content are never returned.",
         "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
@@ -4633,9 +4805,10 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "fullDocResource": "siyuan://help/action/system/list_packages",
         "guidance": [
-          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4652,6 +4825,84 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "tool": "system",
       },
+      "list_plugin_storage": {
+        "action": "list_plugin_storage",
+        "example": {
+          "action": "list_plugin_storage",
+          "pluginName": "<pluginName>",
+        },
+        "fullDocResource": "siyuan://help/action/system/list_plugin_storage",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Lists one installed plugin storage root with safe relative paths, symlink rejection, recursion limits, pagination, and a hard entry cap.",
+        "requiredFields": [
+          "pluginName",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "pluginName",
+        ],
+        "tool": "system",
+      },
+      "list_plugin_updates": {
+        "action": "list_plugin_updates",
+        "example": {
+          "action": "list_plugin_updates",
+        },
+        "fullDocResource": "siyuan://help/action/system/list_plugin_updates",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Lists only installed plugins that SiYuan marks outdated; this action does not install updates.",
+        "requiredFields": [],
+        "requiresConfirmation": false,
+        "shapes": [
+          "action only",
+        ],
+        "tool": "system",
+      },
+      "list_snippets": {
+        "action": "list_snippets",
+        "example": {
+          "action": "list_snippets",
+        },
+        "fullDocResource": "siyuan://help/action/system/list_snippets",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Lists CSS/JavaScript snippet metadata and SHA-256 hashes without content by default. includeContent requires an exact snippetID and still redacts and truncates content.",
+        "requiredFields": [],
+        "requiresConfirmation": false,
+        "shapes": [
+          "action only",
+        ],
+        "tool": "system",
+      },
       "network": {
         "action": "network",
         "example": {
@@ -4659,9 +4910,10 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/network",
         "guidance": [
-          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4685,9 +4937,10 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/notify",
         "guidance": [
-          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4712,9 +4965,10 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/perform_sync",
         "guidance": [
-          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4729,6 +4983,92 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "tool": "system",
       },
+      "plan_change": {
+        "action": "plan_change",
+        "example": {
+          "action": "plan_change",
+          "change": "<change>",
+        },
+        "fullDocResource": "siyuan://help/action/system/plan_change",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Creates a time-limited change plan with a pre-change state hash, redacted diff, risk summary, and exact rollback snapshot. Plugin updates/uninstalls use an exact plugin-directory archive, not the online repoHash, for rollback. It does not change the target.",
+        "requiredFields": [
+          "change",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "change",
+        ],
+        "tool": "system",
+      },
+      "read_plugin_storage": {
+        "action": "read_plugin_storage",
+        "example": {
+          "action": "read_plugin_storage",
+          "path": "/20240318112233-abc123.sy",
+          "pluginName": "<pluginName>",
+        },
+        "fullDocResource": "siyuan://help/action/system/read_plugin_storage",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Reads one allowlisted text configuration under an installed plugin root. Binary, database, archive, credential-like, oversized, traversing, and symlink paths are rejected.",
+        "requiredFields": [
+          "pluginName",
+          "path",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "pluginName + path",
+        ],
+        "tool": "system",
+      },
+      "rollback_change": {
+        "action": "rollback_change",
+        "example": {
+          "action": "rollback_change",
+          "changeID": "<changeID>",
+        },
+        "fullDocResource": "siyuan://help/action/system/rollback_change",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Requires explicit confirmation. Restores the exact pre-change state from an applied change record and verifies the restored hash.",
+        "requiredFields": [
+          "changeID",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "changeID",
+        ],
+        "tool": "system",
+      },
       "workspace_info": {
         "action": "workspace_info",
         "example": {
@@ -4736,9 +5076,10 @@ All search actions are read-only except find_replace, which modifies content and
         },
         "fullDocResource": "siyuan://help/action/system/workspace_info",
         "guidance": [
-          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4756,9 +5097,9 @@ All search actions are read-only except find_replace, which modifies content and
     },
     "description": "🖥️ Grouped system and notification operations. Use the "action" field to select the operation.
 
-Common actions: conf, changelog, get_version, get_current_time, audit_environment, list_packages. Required fields: conf: no additional fields; changelog: no additional fields; get_version: no additional fields; get_current_time: no additional fields; audit_environment: no additional fields; list_packages: kind.
+Common actions: conf, changelog, get_version, get_current_time, audit_environment, list_packages, get_plugin, list_plugin_updates, list_snippets, list_plugin_storage. Required fields: conf: no additional fields; changelog: no additional fields; get_version: no additional fields; get_current_time: no additional fields; audit_environment: no additional fields; list_packages: kind; get_plugin: pluginName; list_plugin_updates: no additional fields; list_snippets: no additional fields; list_plugin_storage: pluginName.
 
-Additional actions: workspace_info, network, notify, perform_sync. Read siyuan://help/action/system/{action} for details, or call action="help" if resources are unavailable.
+Additional actions: workspace_info, network, notify, perform_sync, read_plugin_storage, inspect_plugin, plan_change, apply_change, rollback_change, discard_change_plan, list_control_changes, get_control_change. Read siyuan://help/action/system/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 system.workspace_info: required [] | optional []
@@ -4771,22 +5112,50 @@ system.get_version: required [] | optional []
 system.get_current_time: required [] | optional []
 system.audit_environment: required [] | optional [frontend]
 system.list_packages: required [kind] | optional [keyword, frontend, page, pageSize]
+system.get_plugin: required [pluginName] | optional [frontend]
+system.list_plugin_updates: required [] | optional [frontend, page, pageSize]
+system.list_snippets: required [] | optional [type, enabled, keyword, snippetID, includeContent, maxChars, page, pageSize]
+system.list_plugin_storage: required [pluginName] | optional [path, recursive, maxDepth, frontend, page, pageSize]
+system.read_plugin_storage: required [pluginName, path] | optional [frontend, maxChars]
+system.inspect_plugin: required [pluginName] | optional [frontend]
+system.plan_change: required [change] | optional [ttlMinutes]
+system.apply_change: required [planID] | optional []
+system.rollback_change: required [changeID] | optional []
+system.discard_change_plan: required [planID] | optional []
+system.list_control_changes: required [] | optional [kind, page, pageSize]
+system.get_control_change: required [kind, id] | optional []
 
-Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution. Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts. Requires user confirmation before: workspace_info, perform_sync.",
+Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution. Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts. Requires user confirmation before: workspace_info, perform_sync, apply_change, rollback_change.",
     "overview": {
       "actionSummaries": {
+        "apply_change": "Requires explicit confirmation. Rechecks the target hash, rejects stale plans, applies one operation, verifies by rereading, and attempts automatic recovery on failure.",
         "audit_environment": "Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.",
         "changelog": "Reads the bundled plugin CHANGELOG with structured personalizationReview hints. Pass fromVersion after upgrades, version for one exact entry, or includeRaw=true for Markdown.",
         "conf": "Defaults to a navigable summary. Use mode="get" with keyPath to read one config field or subtree at a time, e.g. conf.appearance.mode or conf.langs[0].",
+        "discard_change_plan": "Marks an unapplied or expired plan discarded without changing its target.",
+        "get_control_change": "Returns one compact redacted plan or change record by UUID without exposing stored snapshot content.",
         "get_current_time": "Returns the current system time as {currentTime} epoch milliseconds and {iso} ISO 8601 text.",
+        "get_plugin": "Returns compact metadata for one exact installed plugin plus its controlled storage-root mapping.",
         "get_version": "Returns the current SiYuan version as {version}.",
+        "inspect_plugin": "Combines safe configuration reads with a declarative adapter and uncertainty-preserving generic field classification. Unrecognized fields remain explicit in the English category "unknown".",
+        "list_control_changes": "Lists compact redacted plan/change audit records. Stored rollback snapshots and requested content are never returned.",
         "list_packages": "Lists compact installed-package metadata with kind, optional keyword/frontend, and page/pageSize. README and plugin configuration content are excluded.",
+        "list_plugin_storage": "Lists one installed plugin storage root with safe relative paths, symlink rejection, recursion limits, pagination, and a hard entry cap.",
+        "list_plugin_updates": "Lists only installed plugins that SiYuan marks outdated; this action does not install updates.",
+        "list_snippets": "Lists CSS/JavaScript snippet metadata and SHA-256 hashes without content by default. includeContent requires an exact snippetID and still redacts and truncates content.",
         "network": "Returns masked proxy information only.",
         "notify": "Show an info or error notification in the SiYuan UI. Optional timeout is in milliseconds.",
         "perform_sync": "Triggers SiYuan sync immediately through /api/sync/performSync. This action can change local and remote sync state and requires explicit user confirmation.",
+        "plan_change": "Creates a time-limited change plan with a pre-change state hash, redacted diff, risk summary, and exact rollback snapshot. Plugin updates/uninstalls use an exact plugin-directory archive, not the online repoHash, for rollback. It does not change the target.",
+        "read_plugin_storage": "Reads one allowlisted text configuration under an installed plugin root. Binary, database, archive, credential-like, oversized, traversing, and symlink paths are rejected.",
+        "rollback_change": "Requires explicit confirmation. Restores the exact pre-change state from an applied change record and verifies the restored hash.",
         "workspace_info": "Returns workspace path metadata and current SiYuan version. High-risk: leaks the absolute workspace path; disabled by default and requires explicit user confirmation.",
       },
       "actions": {
+        "apply_change": {
+          "hint": "Requires explicit confirmation. Rechecks the target hash, rejects stale plans, applies one operation, verifies by rereading, and attempts automatic recovery on failure.",
+          "requiresConfirmation": true,
+        },
         "audit_environment": {
           "hint": "Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.",
           "requiresConfirmation": false,
@@ -4799,16 +5168,48 @@ Most system actions in this tool are read-only; perform_sync is the mutating exc
           "hint": "Defaults to a navigable summary. Use mode="get" with keyPath to read one config field or subtree at a time, e.g. conf.appearance.mode or conf.langs[0].",
           "requiresConfirmation": false,
         },
+        "discard_change_plan": {
+          "hint": "Marks an unapplied or expired plan discarded without changing its target.",
+          "requiresConfirmation": false,
+        },
+        "get_control_change": {
+          "hint": "Returns one compact redacted plan or change record by UUID without exposing stored snapshot content.",
+          "requiresConfirmation": false,
+        },
         "get_current_time": {
           "hint": "Returns the current system time as {currentTime} epoch milliseconds and {iso} ISO 8601 text.",
+          "requiresConfirmation": false,
+        },
+        "get_plugin": {
+          "hint": "Returns compact metadata for one exact installed plugin plus its controlled storage-root mapping.",
           "requiresConfirmation": false,
         },
         "get_version": {
           "hint": "Returns the current SiYuan version as {version}.",
           "requiresConfirmation": false,
         },
+        "inspect_plugin": {
+          "hint": "Combines safe configuration reads with a declarative adapter and uncertainty-preserving generic field classification. Unrecognized fields remain explicit in the English category "unknown".",
+          "requiresConfirmation": false,
+        },
+        "list_control_changes": {
+          "hint": "Lists compact redacted plan/change audit records. Stored rollback snapshots and requested content are never returned.",
+          "requiresConfirmation": false,
+        },
         "list_packages": {
           "hint": "Lists compact installed-package metadata with kind, optional keyword/frontend, and page/pageSize. README and plugin configuration content are excluded.",
+          "requiresConfirmation": false,
+        },
+        "list_plugin_storage": {
+          "hint": "Lists one installed plugin storage root with safe relative paths, symlink rejection, recursion limits, pagination, and a hard entry cap.",
+          "requiresConfirmation": false,
+        },
+        "list_plugin_updates": {
+          "hint": "Lists only installed plugins that SiYuan marks outdated; this action does not install updates.",
+          "requiresConfirmation": false,
+        },
+        "list_snippets": {
+          "hint": "Lists CSS/JavaScript snippet metadata and SHA-256 hashes without content by default. includeContent requires an exact snippetID and still redacts and truncates content.",
           "requiresConfirmation": false,
         },
         "network": {
@@ -4823,6 +5224,18 @@ Most system actions in this tool are read-only; perform_sync is the mutating exc
           "hint": "Triggers SiYuan sync immediately through /api/sync/performSync. This action can change local and remote sync state and requires explicit user confirmation.",
           "requiresConfirmation": true,
         },
+        "plan_change": {
+          "hint": "Creates a time-limited change plan with a pre-change state hash, redacted diff, risk summary, and exact rollback snapshot. Plugin updates/uninstalls use an exact plugin-directory archive, not the online repoHash, for rollback. It does not change the target.",
+          "requiresConfirmation": false,
+        },
+        "read_plugin_storage": {
+          "hint": "Reads one allowlisted text configuration under an installed plugin root. Binary, database, archive, credential-like, oversized, traversing, and symlink paths are rejected.",
+          "requiresConfirmation": false,
+        },
+        "rollback_change": {
+          "hint": "Requires explicit confirmation. Restores the exact pre-change state from an applied change record and verifies the restored hash.",
+          "requiresConfirmation": true,
+        },
         "workspace_info": {
           "hint": "Returns workspace path metadata and current SiYuan version. High-risk: leaks the absolute workspace path; disabled by default and requires explicit user confirmation.",
           "requiresConfirmation": true,
@@ -4833,6 +5246,14 @@ Most system actions in this tool are read-only; perform_sync is the mutating exc
         "network",
         "notify",
         "perform_sync",
+        "read_plugin_storage",
+        "inspect_plugin",
+        "plan_change",
+        "apply_change",
+        "rollback_change",
+        "discard_change_plan",
+        "list_control_changes",
+        "get_control_change",
       ],
       "commonActions": [
         "conf",
@@ -4841,12 +5262,17 @@ Most system actions in this tool are read-only; perform_sync is the mutating exc
         "get_current_time",
         "audit_environment",
         "list_packages",
+        "get_plugin",
+        "list_plugin_updates",
+        "list_snippets",
+        "list_plugin_storage",
       ],
       "detailsHint": "Call system(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
-        "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+        "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
         "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
         "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+        "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
         "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
         "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
         "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4862,6 +5288,8 @@ Most system actions in this tool are read-only; perform_sync is the mutating exc
       "requiresConfirmation": [
         "workspace_info",
         "perform_sync",
+        "apply_change",
+        "rollback_change",
       ],
       "tool": "system",
     },

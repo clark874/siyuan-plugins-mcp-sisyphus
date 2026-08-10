@@ -24,6 +24,7 @@ interface ContractCase {
     action: string;
     args: Record<string, unknown>;
     expectedEndpoint?: string;
+    expectedError?: boolean;
 }
 
 const docRow = {
@@ -178,7 +179,9 @@ async function runContracts(
         global.fetch = fetchMock as never;
         const result = await caller(client, contract.args, config, permMgr);
         const parsed = parseResult(result);
-        expect(parsed && typeof parsed === 'object' && 'error' in parsed ? parsed.error : undefined, `${toolName}.${contract.action}`).toBeUndefined();
+        const error = parsed && typeof parsed === 'object' && 'error' in parsed ? parsed.error : undefined;
+        if (contract.expectedError) expect(error, `${toolName}.${contract.action}`).toBeDefined();
+        else expect(error, `${toolName}.${contract.action}`).toBeUndefined();
         if (contract.expectedEndpoint) {
             expectEndpointCalled(client, contract.expectedEndpoint, fetchMock);
         }
@@ -309,6 +312,18 @@ describe('tool action contract coverage', () => {
             { action: 'get_current_time', args: { action: 'get_current_time' }, expectedEndpoint: '/api/system/currentTime' },
             { action: 'audit_environment', args: { action: 'audit_environment' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin' },
             { action: 'list_packages', args: { action: 'list_packages', kind: 'plugin' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin' },
+            { action: 'get_plugin', args: { action: 'get_plugin', pluginName: 'demo-plugin' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin', expectedError: true },
+            { action: 'list_plugin_updates', args: { action: 'list_plugin_updates' }, expectedEndpoint: '/api/bazaar/getBazaarPlugin' },
+            { action: 'list_snippets', args: { action: 'list_snippets' }, expectedEndpoint: '/api/snippet/getSnippet' },
+            { action: 'list_plugin_storage', args: { action: 'list_plugin_storage', pluginName: 'demo-plugin' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin', expectedError: true },
+            { action: 'read_plugin_storage', args: { action: 'read_plugin_storage', pluginName: 'demo-plugin', path: 'config.json' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin', expectedError: true },
+            { action: 'inspect_plugin', args: { action: 'inspect_plugin', pluginName: 'demo-plugin' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin', expectedError: true },
+            { action: 'plan_change', args: { action: 'plan_change', change: { kind: 'snippet_upsert', snippet: { id: 'contract-snippet', name: 'Contract', type: 'css', enabled: false, content: 'body{}' } } }, expectedEndpoint: '/api/snippet/getSnippet' },
+            { action: 'apply_change', args: { action: 'apply_change', planID: '11111111-1111-4111-8111-111111111111' }, expectedError: true },
+            { action: 'rollback_change', args: { action: 'rollback_change', changeID: '11111111-1111-4111-8111-111111111111' }, expectedError: true },
+            { action: 'discard_change_plan', args: { action: 'discard_change_plan', planID: '11111111-1111-4111-8111-111111111111' }, expectedError: true },
+            { action: 'list_control_changes', args: { action: 'list_control_changes' }, expectedEndpoint: '/api/file/readDir' },
+            { action: 'get_control_change', args: { action: 'get_control_change', kind: 'plan', id: '11111111-1111-4111-8111-111111111111' }, expectedError: true },
         ]);
     });
 

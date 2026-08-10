@@ -1,7 +1,12 @@
 import type { SiYuanClient } from '../../api/client';
 import * as notificationApi from '../../api/notification';
 import * as packagesApi from '../../api/packages';
+import * as snippetsApi from '../../api/snippets';
 import * as systemApi from '../../api/system';
+import { PLUGIN_ADAPTERS, interpretPluginConfig } from '../../control-plane/adapters';
+import * as controlPlane from '../../control-plane/operations';
+import * as pluginStorage from '../../control-plane/plugin-storage';
+import { redactText, sha256, truncateContent } from '../../control-plane/security';
 import { buildChangelogResponse } from '../../core/changelog';
 import type { SystemAction } from '../../core/config';
 import {
@@ -13,6 +18,18 @@ import {
     SystemNetworkSchema,
     SystemNotifySchema,
     SystemListPackagesSchema,
+    SystemGetPluginSchema,
+    SystemListPluginUpdatesSchema,
+    SystemListSnippetsSchema,
+    SystemListPluginStorageSchema,
+    SystemReadPluginStorageSchema,
+    SystemInspectPluginSchema,
+    SystemPlanChangeSchema,
+    SystemApplyChangeSchema,
+    SystemRollbackChangeSchema,
+    SystemDiscardChangePlanSchema,
+    SystemListControlChangesSchema,
+    SystemGetControlChangeSchema,
     SystemPerformSyncSchema,
     SystemWorkspaceInfoSchema,
 } from '../../core/types';
@@ -175,7 +192,7 @@ function truncateText(value: unknown, maxLength: number): string | undefined {
     return text.length <= maxLength ? text : `${text.slice(0, maxLength)}…`;
 }
 
-function normalizeInstalledPackage(pkg: Record<string, unknown>, kind: packagesApi.InstalledPackageKind) {
+export function normalizeInstalledPackage(pkg: Record<string, unknown>, kind: packagesApi.InstalledPackageKind) {
     const name = readString(pkg.name) ?? 'unknown';
     const incompatible = typeof pkg.installedIncompatible === 'boolean'
         ? pkg.installedIncompatible
@@ -319,6 +336,232 @@ const handleListPackages: ToolActionHandler = async ({ client, rawArgs }) => {
     });
 };
 
+const handleGetPlugin: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemGetPluginSchema.parse(rawArgs);
+    const frontend = parsed.frontend ?? 'desktop';
+    const plugin = await packagesApi.getInstalledPlugin(client, parsed.pluginName, frontend);
+    if (!plugin) throw new Error(`Installed plugin not found: ${parsed.pluginName}`);
+    const resolved = await pluginStorage.resolvePluginStorage(client, parsed.pluginName, frontend);
+    return createJsonResult({
+        readonly: true,
+        frontend,
+        plugin: normalizeInstalledPackage(plugin, 'plugin'),
+        storage: {
+            mappedRoot: resolved.storageRootName,
+            adapterAvailable: PLUGIN_ADAPTERS[parsed.pluginName] !== undefined,
+        },
+    });
+};
+
+const handleListPluginUpdates: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemListPluginUpdatesSchema.parse(rawArgs);
+    const frontend = parsed.frontend ?? 'desktop';
+    const page = parsed.page ?? 1;
+    const pageSize = parsed.pageSize ?? DEFAULT_PACKAGE_PAGE_SIZE;
+    const [installed, available] = await Promise.all([
+        packagesApi.getInstalledPackages(client, 'plugin', '', frontend),
+        packagesApi.getBazaarPlugins(client, '', frontend),
+    ]);
+    const availableByName = new Map(available.map((plugin) => [readString(plugin.name), plugin]));
+    const plugins = installed
+        .filter((plugin) => plugin.outdated === true);
+    const start = (page - 1) * pageSize;
+    return createJsonResult({
+        readonly: true,
+        frontend,
+        total: plugins.length,
+        page,
+        pageSize,
+        pageCount: plugins.length === 0 ? 0 : Math.ceil(plugins.length / pageSize),
+        items: plugins.slice(start, start + pageSize).map((plugin) => {
+            const online = availableByName.get(readString(plugin.name));
+            return {
+                installed: normalizeInstalledPackage(plugin, 'plugin'),
+                available: online ? {
+                    version: readString(online.version),
+                    repository: readString(online.repoURL),
+                    repositoryHash: readString(online.repoHash),
+                    minAppVersion: readString(online.minAppVersion),
+                } : undefined,
+                updateAllowed: plugin.disallowUpdate !== true,
+            };
+        }),
+    });
+};
+
+const handleListSnippets: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemListSnippetsSchema.parse(rawArgs);
+    const enabled = parsed.enabled === 'enabled' ? 1 : parsed.enabled === 'disabled' ? 0 : 2;
+    let snippets = await snippetsApi.getSnippets(client, parsed.type ?? 'all', enabled, parsed.keyword?.trim() ?? '');
+    if (parsed.snippetID) snippets = snippets.filter((snippet) => snippet.id === parsed.snippetID);
+    const page = parsed.page ?? 1;
+    const pageSize = parsed.pageSize ?? DEFAULT_PACKAGE_PAGE_SIZE;
+    const start = (page - 1) * pageSize;
+    const items = snippets.slice(start, start + pageSize).map((snippet) => {
+        const base = {
+            id: snippet.id,
+            name: snippet.name,
+            type: snippet.type,
+            enabled: snippet.enabled,
+            disabledInPublish: snippet.disabledInPublish,
+            contentLength: snippet.content.length,
+            contentHash: sha256(snippet.content),
+        };
+        if (!parsed.includeContent) return base;
+        const redacted = redactText(snippet.content);
+        const limited = truncateContent(redacted.content, parsed.maxChars ?? 12_000);
+        return { ...base, content: limited.content, redacted: redacted.redacted, truncated: limited.truncated };
+    });
+    return createJsonResult({
+        readonly: true,
+        total: snippets.length,
+        page,
+        pageSize,
+        pageCount: snippets.length === 0 ? 0 : Math.ceil(snippets.length / pageSize),
+        items,
+        hints: ['Snippet content is excluded by default. Exact content reads are always redacted and length-limited.'],
+    });
+};
+
+const handleListPluginStorage: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemListPluginStorageSchema.parse(rawArgs);
+    const result = await pluginStorage.listPluginStorage(client, {
+        pluginName: parsed.pluginName,
+        path: parsed.path,
+        recursive: parsed.recursive,
+        maxDepth: parsed.maxDepth,
+        frontend: parsed.frontend,
+    });
+    const page = parsed.page ?? 1;
+    const pageSize = parsed.pageSize ?? DEFAULT_PACKAGE_PAGE_SIZE;
+    const start = (page - 1) * pageSize;
+    return createJsonResult({
+        readonly: true,
+        pluginName: parsed.pluginName,
+        storageRootName: result.storageRootName,
+        path: result.path,
+        total: result.entries.length,
+        page,
+        pageSize,
+        pageCount: result.entries.length === 0 ? 0 : Math.ceil(result.entries.length / pageSize),
+        truncatedBySafetyLimit: result.truncated,
+        safetyLimits: { maxDepth: 4, maxEntries: 200 },
+        entries: result.entries.slice(start, start + pageSize),
+    });
+};
+
+const handleReadPluginStorage: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemReadPluginStorageSchema.parse(rawArgs);
+    return createJsonResult({
+        readonly: true,
+        pluginName: parsed.pluginName,
+        safetyLimits: { maxFileBytes: 128 * 1024, maxOutputChars: 32_000 },
+        ...await pluginStorage.readPluginStorage(client, {
+            pluginName: parsed.pluginName,
+            path: parsed.path,
+            maxChars: parsed.maxChars,
+            frontend: parsed.frontend,
+        }),
+    });
+};
+
+const handleInspectPlugin: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemInspectPluginSchema.parse(rawArgs);
+    const frontend = parsed.frontend ?? 'desktop';
+    const plugin = await packagesApi.getInstalledPlugin(client, parsed.pluginName, frontend);
+    if (!plugin) throw new Error(`Installed plugin not found: ${parsed.pluginName}`);
+    const adapter = PLUGIN_ADAPTERS[parsed.pluginName];
+    let candidates = adapter?.configFiles ?? [];
+    if (candidates.length === 0) {
+        const listing = await pluginStorage.listPluginStorage(client, { pluginName: parsed.pluginName, frontend });
+        candidates = listing.entries
+            .filter((entry) => !entry.isDir && !entry.isSymlink && /(?:config|setting|option|preference|\.json$)/i.test(entry.name))
+            .slice(0, 5)
+            .map((entry) => entry.path);
+    }
+    const files: Array<Record<string, unknown>> = [];
+    for (const path of candidates.slice(0, 10)) {
+        try {
+            const read = await pluginStorage.readPluginStorage(client, {
+                pluginName: parsed.pluginName,
+                path,
+                maxChars: 32_000,
+                frontend,
+            });
+            let parsedContent: unknown = read.content;
+            if (read.format === 'json') {
+                try { parsedContent = JSON.parse(read.content) as unknown; } catch { /* 保留脱敏文本 */ }
+            }
+            files.push({
+                path,
+                format: read.format,
+                byteLength: read.byteLength,
+                redacted: read.redacted,
+                truncated: read.truncated,
+                fields: read.format === 'json' ? interpretPluginConfig(parsed.pluginName, parsedContent) : [],
+            });
+        } catch (error) {
+            files.push({ path, readable: false, reason: error instanceof Error ? error.message : String(error) });
+        }
+    }
+    return createJsonResult({
+        readonly: true,
+        plugin: normalizeInstalledPackage(plugin, 'plugin'),
+        adapter: adapter ? { available: true, storageRoot: adapter.storageRoot ?? parsed.pluginName, declaredFiles: adapter.configFiles } : { available: false },
+        inspectedFiles: files,
+        limitations: [
+            'Inferred field categories are naming-based and are not proof of plugin runtime semantics.',
+            'Unknown fields remain explicit; secrets and raw credentials are never returned.',
+        ],
+    });
+};
+
+const handlePlanChange: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemPlanChangeSchema.parse(rawArgs);
+    const plan = await controlPlane.planChange(client, parsed.change as controlPlane.ChangeRequest, parsed.ttlMinutes);
+    return createJsonResult({
+        planned: true,
+        ...controlPlane.publicPlan(plan),
+        next: `Call system(action="apply_change", planID="${plan.id}") after reviewing the diff and risks.`,
+    });
+};
+
+const handleApplyChange: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemApplyChangeSchema.parse(rawArgs);
+    return createJsonResult({ applied: true, ...await controlPlane.applyChange(client, parsed.planID) });
+};
+
+const handleRollbackChange: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemRollbackChangeSchema.parse(rawArgs);
+    return createJsonResult({ rolledBack: true, ...await controlPlane.rollbackChange(client, parsed.changeID) });
+};
+
+const handleDiscardChangePlan: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemDiscardChangePlanSchema.parse(rawArgs);
+    return createJsonResult({ discarded: true, ...await controlPlane.discardPlan(client, parsed.planID) });
+};
+
+const handleListControlChanges: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemListControlChangesSchema.parse(rawArgs);
+    const records = await controlPlane.listControlRecords(client, parsed.kind ?? 'all');
+    const page = parsed.page ?? 1;
+    const pageSize = parsed.pageSize ?? DEFAULT_PACKAGE_PAGE_SIZE;
+    const start = (page - 1) * pageSize;
+    return createJsonResult({
+        readonly: true,
+        total: records.length,
+        page,
+        pageSize,
+        pageCount: records.length === 0 ? 0 : Math.ceil(records.length / pageSize),
+        items: records.slice(start, start + pageSize),
+    });
+};
+
+const handleGetControlChange: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemGetControlChangeSchema.parse(rawArgs);
+    return createJsonResult({ readonly: true, ...await controlPlane.getControlRecord(client, parsed.kind, parsed.id) });
+};
+
 export const SYSTEM_ACTION_HANDLERS: Record<SystemAction, ToolActionHandler> = {
     workspace_info: handleWorkspaceInfo,
     network: handleNetwork,
@@ -330,4 +573,16 @@ export const SYSTEM_ACTION_HANDLERS: Record<SystemAction, ToolActionHandler> = {
     get_current_time: handleGetCurrentTime,
     audit_environment: handleAuditEnvironment,
     list_packages: handleListPackages,
+    get_plugin: handleGetPlugin,
+    list_plugin_updates: handleListPluginUpdates,
+    list_snippets: handleListSnippets,
+    list_plugin_storage: handleListPluginStorage,
+    read_plugin_storage: handleReadPluginStorage,
+    inspect_plugin: handleInspectPlugin,
+    plan_change: handlePlanChange,
+    apply_change: handleApplyChange,
+    rollback_change: handleRollbackChange,
+    discard_change_plan: handleDiscardChangePlan,
+    list_control_changes: handleListControlChanges,
+    get_control_change: handleGetControlChange,
 };

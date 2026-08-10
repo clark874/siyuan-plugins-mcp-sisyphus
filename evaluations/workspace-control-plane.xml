@@ -1,0 +1,42 @@
+<evaluation>
+   <qa_pair>
+      <question>先读取 system 工具总览，再比较代码片段清单与插件配置读取动作。哪一个动作默认只返回代码片段哈希和长度、且仅在提供精确片段编号后才允许返回脱敏正文？只回答动作名。</question>
+      <answer>list_snippets</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>结合 system 工具总览、插件存储列目录帮助和配置读取帮助，单个插件文本配置允许读取的最大字节数是多少？只回答十进制整数。</question>
+      <answer>131072</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>阅读变更规划帮助并核对所有允许的设置分区。可由 setting_patch 修改的顶层设置分区共有多少个？只回答整数。</question>
+      <answer>8</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>比较 plan_change、apply_change 与 rollback_change 的说明。计划生成后目标状态发生变化时，执行动作应继续、自动覆盖还是拒绝？只回答“继续”“覆盖”或“拒绝”。</question>
+      <answer>拒绝</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>先读取 system 总览，再分别读取 apply_change 与 rollback_change 的帮助。工作区控制面中需要协议级确认的目标变更动作共有多少个？只回答整数，不计 perform_sync 和 workspace_info。</question>
+      <answer>2</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>先读取插件详情动作说明，再读取插件存储说明并检查适配器映射。安装包 kmind-plugin 的受控存储根名称是什么？只回答根名称。</question>
+      <answer>kmind</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>比较插件存储列目录与读取正文的安全规则。递归列出插件专属存储时允许的最大深度是多少？只回答整数。</question>
+      <answer>4</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>比较插件存储分页参数、递归限制与硬安全上限。一次安全扫描最多保留多少个目录项？只回答整数。</question>
+      <answer>200</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>读取插件更新清单、变更规划和回滚说明。插件更新前用于保证精确回滚的是在线 repoHash、插件目录归档还是 README？只回答“在线 repoHash”“插件目录归档”或“README”。</question>
+      <answer>插件目录归档</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>对比插件配置解释器的三种置信来源。无法由声明式适配器或字段命名规则识别的配置字段最终归入哪个英文类别？只回答类别名。</question>
+      <answer>unknown</answer>
+   </qa_pair>
+</evaluation>

@@ -1,5 +1,7 @@
 # SiYuan Sisyphus MCP & CLI
 
+> **本地维护分支：** 当前 Fork 的 `v0.6.1-local.3` 在上游 `v0.6.0` 基础上增加思源工作区控制面。新增能力包括插件与代码片段盘点、插件配置脱敏读取与解释，以及带计划、确认、核验、精确快照和回滚的受控修改。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [system 工具文档](docs/reference/tools/system.md) 与 [设计文档](docs/plans/2026-08-10-sisyphus-workspace-control-plane-design.md)。
+
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
     <img src="https://img.shields.io/npm/v/siyuan-sisyphus?style=flat-square&color=%23cb3837" alt="npm version">
@@ -23,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **最新版本：**`v0.6.0` — 升级 MCP SDK v2，支持 MCP 2026-07-28 协商、协议级 elicitation、结构化 Tool 元数据，并默认通过 HTTP 与 stdio 发布 Skills-over-MCP；新增闪卡复习、文档时间线和猫猫商店 MCP Apps，同时更新分析面板与猫猫交互。CLI 提升至 `v0.2.3`。
+> **当前本地维护版本：**`v0.6.1-local.3` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件配置安全解释和可回滚受控修改；CLI 仍为 `v0.2.3`。
 
 ## 项目方向调整
 

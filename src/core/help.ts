@@ -114,9 +114,10 @@ export const TIMELINE_GUIDANCE: string[] = [
 ];
 
 export const SYSTEM_GUIDANCE: string[] = [
-    'Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.',
+    'Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.',
     'Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.',
     'Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.',
+    'Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.',
     'system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.',
     'system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.',
     'system(action="conf") returns masked configuration, not raw secrets.',
@@ -296,6 +297,18 @@ export const SYSTEM_ACTION_HINTS: Partial<Record<SystemAction, string>> = {
     get_current_time: 'Returns the current system time as {currentTime} epoch milliseconds and {iso} ISO 8601 text.',
     audit_environment: 'Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.',
     list_packages: 'Lists compact installed-package metadata with kind, optional keyword/frontend, and page/pageSize. README and plugin configuration content are excluded.',
+    get_plugin: 'Returns compact metadata for one exact installed plugin plus its controlled storage-root mapping.',
+    list_plugin_updates: 'Lists only installed plugins that SiYuan marks outdated; this action does not install updates.',
+    list_snippets: 'Lists CSS/JavaScript snippet metadata and SHA-256 hashes without content by default. includeContent requires an exact snippetID and still redacts and truncates content.',
+    list_plugin_storage: 'Lists one installed plugin storage root with safe relative paths, symlink rejection, recursion limits, pagination, and a hard entry cap.',
+    read_plugin_storage: 'Reads one allowlisted text configuration under an installed plugin root. Binary, database, archive, credential-like, oversized, traversing, and symlink paths are rejected.',
+    inspect_plugin: 'Combines safe configuration reads with a declarative adapter and uncertainty-preserving generic field classification. Unrecognized fields remain explicit in the English category "unknown".',
+    plan_change: 'Creates a time-limited change plan with a pre-change state hash, redacted diff, risk summary, and exact rollback snapshot. Plugin updates/uninstalls use an exact plugin-directory archive, not the online repoHash, for rollback. It does not change the target.',
+    apply_change: 'Requires explicit confirmation. Rechecks the target hash, rejects stale plans, applies one operation, verifies by rereading, and attempts automatic recovery on failure.',
+    rollback_change: 'Requires explicit confirmation. Restores the exact pre-change state from an applied change record and verifies the restored hash.',
+    discard_change_plan: 'Marks an unapplied or expired plan discarded without changing its target.',
+    list_control_changes: 'Lists compact redacted plan/change audit records. Stored rollback snapshots and requested content are never returned.',
+    get_control_change: 'Returns one compact redacted plan or change record by UUID without exposing stored snapshot content.',
 };
 
 export const FLASHCARD_ACTION_HINTS: Partial<Record<FlashcardAction, string>> = {

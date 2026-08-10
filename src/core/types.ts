@@ -1253,3 +1253,110 @@ export const SystemListPackagesSchema = z.object({
     page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
     pageSize: z.number().int().min(1).max(100).optional().describe("Packages per page; defaults to 50"),
 });
+
+export const SystemGetPluginSchema = z.object({
+    action: z.literal("get_plugin"),
+    pluginName: z.string().trim().min(1).max(128).describe("Exact installed plugin package name"),
+    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
+});
+
+export const SystemListPluginUpdatesSchema = z.object({
+    action: z.literal("list_plugin_updates"),
+    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
+    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
+    pageSize: z.number().int().min(1).max(100).optional().describe("Plugins per page; defaults to 50"),
+});
+
+export const SystemListSnippetsSchema = z.object({
+    action: z.literal("list_snippets"),
+    type: z.enum(["all", "js", "css"]).optional().describe("Snippet type; defaults to all"),
+    enabled: z.enum(["all", "enabled", "disabled"]).optional().describe("Enabled-state filter; defaults to all"),
+    keyword: z.string().max(200).optional().describe("Optional name or content keyword"),
+    snippetID: z.string().max(128).optional().describe("Optional exact snippet ID"),
+    includeContent: z.boolean().optional().describe("Return redacted, truncated content only when snippetID is provided"),
+    maxChars: z.number().int().min(1).max(32000).optional().describe("Maximum returned content characters; defaults to 12000"),
+    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
+    pageSize: z.number().int().min(1).max(100).optional().describe("Snippets per page; defaults to 50"),
+}).superRefine((value, ctx) => {
+    if (value.includeContent && !value.snippetID) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["snippetID"], message: "snippetID is required when includeContent=true." });
+    }
+});
+
+export const SystemListPluginStorageSchema = z.object({
+    action: z.literal("list_plugin_storage"),
+    pluginName: z.string().trim().min(1).max(128).describe("Exact installed plugin package name"),
+    path: z.string().max(512).optional().describe("Safe relative path inside the plugin storage root"),
+    recursive: z.boolean().optional().describe("Recursively list safe subdirectories; defaults to false"),
+    maxDepth: z.number().int().min(0).max(4).optional().describe("Maximum recursion depth; defaults to 2 when recursive"),
+    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin validation; defaults to desktop"),
+    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
+    pageSize: z.number().int().min(1).max(100).optional().describe("Entries per page; defaults to 50"),
+});
+
+export const SystemReadPluginStorageSchema = z.object({
+    action: z.literal("read_plugin_storage"),
+    pluginName: z.string().trim().min(1).max(128).describe("Exact installed plugin package name"),
+    path: z.string().min(1).max(512).describe("Safe relative text-file path inside the plugin storage root"),
+    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin validation; defaults to desktop"),
+    maxChars: z.number().int().min(1).max(32000).optional().describe("Maximum returned characters after redaction; defaults to 12000"),
+});
+
+export const SystemInspectPluginSchema = z.object({
+    action: z.literal("inspect_plugin"),
+    pluginName: z.string().trim().min(1).max(128).describe("Exact installed plugin package name"),
+    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin validation; defaults to desktop"),
+});
+
+const SystemSnippetChangeSchema = z.object({
+    id: z.string().trim().min(1).max(128).describe("Stable snippet ID"),
+    name: z.string().trim().min(1).max(256).describe("Snippet display name"),
+    type: z.enum(["js", "css"]).describe("Snippet type"),
+    enabled: z.boolean().describe("Whether the snippet is enabled"),
+    disabledInPublish: z.boolean().optional().default(false).describe("Disable the snippet in publish mode"),
+    content: z.string().max(131072).describe("Complete snippet content; credential-like content is rejected"),
+});
+
+export const SystemControlChangeRequestSchema = z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("plugin_state"), pluginName: z.string().trim().min(1).max(128), enabled: z.boolean(), frontend: SystemFrontendSchema.optional() }),
+    z.object({ kind: z.literal("snippet_upsert"), snippet: SystemSnippetChangeSchema }),
+    z.object({ kind: z.literal("snippet_remove"), snippetID: z.string().trim().min(1).max(128) }),
+    z.object({ kind: z.literal("plugin_storage_write"), pluginName: z.string().trim().min(1).max(128), path: z.string().min(1).max(512), content: z.string().max(131072), frontend: SystemFrontendSchema.optional() }),
+    z.object({ kind: z.literal("plugin_install"), packageName: z.string().trim().min(1).max(128), repoURL: z.string().url().max(512), repoHash: z.string().min(7).max(64), frontend: SystemFrontendSchema.optional() }),
+    z.object({ kind: z.literal("plugin_uninstall"), pluginName: z.string().trim().min(1).max(128), frontend: SystemFrontendSchema.optional() }),
+    z.object({ kind: z.literal("setting_patch"), section: z.enum(["editor", "export", "fileTree", "search", "keymap", "appearance", "flashcard", "snippet"]), patch: z.record(z.string(), z.unknown()) }),
+]);
+
+export const SystemPlanChangeSchema = z.object({
+    action: z.literal("plan_change"),
+    change: SystemControlChangeRequestSchema.describe("One reversible workspace-control operation"),
+    ttlMinutes: z.number().int().min(1).max(1440).optional().describe("Plan validity in minutes; defaults to 30"),
+});
+
+export const SystemApplyChangeSchema = z.object({
+    action: z.literal("apply_change"),
+    planID: z.string().uuid().describe("Plan ID returned by plan_change"),
+});
+
+export const SystemRollbackChangeSchema = z.object({
+    action: z.literal("rollback_change"),
+    changeID: z.string().uuid().describe("Applied change ID returned by apply_change"),
+});
+
+export const SystemDiscardChangePlanSchema = z.object({
+    action: z.literal("discard_change_plan"),
+    planID: z.string().uuid().describe("Unapplied plan ID to discard"),
+});
+
+export const SystemListControlChangesSchema = z.object({
+    action: z.literal("list_control_changes"),
+    kind: z.enum(["plan", "change", "all"]).optional().describe("Record kind; defaults to all"),
+    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
+    pageSize: z.number().int().min(1).max(100).optional().describe("Records per page; defaults to 50"),
+});
+
+export const SystemGetControlChangeSchema = z.object({
+    action: z.literal("get_control_change"),
+    kind: z.enum(["plan", "change"]).describe("Record kind"),
+    id: z.string().uuid().describe("Plan or change ID"),
+});

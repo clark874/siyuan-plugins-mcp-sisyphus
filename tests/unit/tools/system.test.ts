@@ -12,6 +12,8 @@ describe('system tool schemas', () => {
         const changelog = SYSTEM_VARIANTS.find((variant) => variant.action === 'changelog');
         const performSync = SYSTEM_VARIANTS.find((variant) => variant.action === 'perform_sync');
         const listPackages = SYSTEM_VARIANTS.find((variant) => variant.action === 'list_packages');
+        const planChange = SYSTEM_VARIANTS.find((variant) => variant.action === 'plan_change');
+        const applyChange = SYSTEM_VARIANTS.find((variant) => variant.action === 'apply_change');
 
         expect(conf?.schema.properties?.mode?.enum).toEqual(['summary', 'get']);
         expect(conf?.schema.properties?.maxDepth?.type).toBe('integer');
@@ -30,6 +32,8 @@ describe('system tool schemas', () => {
         expect(listPackages?.schema.properties?.kind?.enum).toEqual(['plugin', 'widget', 'theme', 'icon', 'template']);
         expect(listPackages?.schema.properties?.page?.minimum).toBe(1);
         expect(listPackages?.schema.properties?.pageSize?.maximum).toBe(100);
+        expect(planChange?.schema.required).toEqual(['action', 'change']);
+        expect(applyChange?.schema.required).toEqual(['action', 'planID']);
     });
 
     it('keeps perform_sync enabled by default and marked high-risk', () => {
@@ -37,6 +41,10 @@ describe('system tool schemas', () => {
 
         expect(config.actions.perform_sync).toBe(true);
         expect(isDangerousAction('system', 'perform_sync')).toBe(true);
+        expect(config.actions.plan_change).toBe(true);
+        expect(isDangerousAction('system', 'plan_change')).toBe(false);
+        expect(isDangerousAction('system', 'apply_change')).toBe(true);
+        expect(isDangerousAction('system', 'rollback_change')).toBe(true);
     });
 
     it('publishes typed system parameters plus strict internal branches', () => {

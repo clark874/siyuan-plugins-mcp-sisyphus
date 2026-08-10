@@ -192,6 +192,44 @@ describe('SiYuanClient', () => {
         });
     });
 
+    describe('readFileTextLimited', () => {
+        it('streams UTF-8 text under the byte limit', async () => {
+            const bytes = new TextEncoder().encode('安全配置');
+            mockFetch.mockResolvedValue(new Response(bytes, {
+                status: 200,
+                headers: { 'content-length': String(bytes.byteLength) },
+            }));
+
+            await expect(client.readFileTextLimited('/data/config.json', bytes.byteLength)).resolves.toEqual({
+                content: '安全配置',
+                byteLength: bytes.byteLength,
+            });
+        });
+
+        it('rejects a declared oversized file before reading the body', async () => {
+            mockFetch.mockResolvedValue(new Response('oversized', {
+                status: 200,
+                headers: { 'content-length': '999' },
+            }));
+
+            await expect(client.readFileTextLimited('/data/config.json', 8)).rejects.toThrow('exceeds');
+        });
+
+        it('rejects a streamed file when chunks exceed the limit', async () => {
+            mockFetch.mockResolvedValue(new Response('123456789', { status: 200 }));
+
+            await expect(client.readFileTextLimited('/data/config.json', 8)).rejects.toThrow('exceeds');
+        });
+
+        it('cancels a bounded read when the response body stalls', async () => {
+            const stream = new ReadableStream<Uint8Array>({ start() { /* 保持流开启但不发送数据 */ } });
+            mockFetch.mockResolvedValue(new Response(stream, { status: 200 }));
+            const timeoutClient = new SiYuanClient({ timeout: 5 });
+
+            await expect(timeoutClient.readFileTextLimited('/data/stalled.json', 128)).rejects.toThrow('stalled');
+        });
+    });
+
     describe('readFileBinary', () => {
         it('should read binary file content successfully', async () => {
             const bytes = new Uint8Array([65, 66, 67]);

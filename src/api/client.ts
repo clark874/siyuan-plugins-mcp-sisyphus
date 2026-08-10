@@ -7,6 +7,16 @@ export interface SiYuanClientConfig {
 
 export type { SiYuanResponse } from '../types/shared';
 
+export interface LimitedTextReadResult {
+    content: string;
+    byteLength: number;
+}
+
+export interface LimitedBinaryReadResult {
+    content: Uint8Array;
+    byteLength: number;
+}
+
 export class SiYuanClient {
     private baseUrl: string;
     private timeout: number;
@@ -117,6 +127,83 @@ export class SiYuanClient {
         return await response.text();
     }
 
+    private async readResponseBytesLimited(response: Response, maxBytes: number): Promise<LimitedBinaryReadResult> {
+        if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+            throw new Error('maxBytes must be a positive safe integer.');
+        }
+        const declaredLength = Number(response.headers?.get('content-length'));
+        if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+            await response.body?.cancel().catch(() => undefined);
+            throw new Error(`File exceeds the ${maxBytes}-byte read limit.`);
+        }
+
+        if (!response.body) {
+            const buffer = new Uint8Array(await response.arrayBuffer());
+            if (buffer.byteLength > maxBytes) {
+                throw new Error(`File exceeds the ${maxBytes}-byte read limit.`);
+            }
+            return {
+                content: buffer,
+                byteLength: buffer.byteLength,
+            };
+        }
+
+        const reader = response.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let byteLength = 0;
+        try {
+            while (true) {
+                let timeoutID: ReturnType<typeof setTimeout> | undefined;
+                const idleTimeout = new Promise<never>((_, reject) => {
+                    timeoutID = setTimeout(() => reject(new Error(`File response body stalled for ${this.timeout}ms.`)), this.timeout);
+                });
+                let chunk: ReadableStreamReadResult<Uint8Array>;
+                try {
+                    chunk = await Promise.race([reader.read(), idleTimeout]);
+                } catch (error) {
+                    await reader.cancel(error).catch(() => undefined);
+                    throw error;
+                } finally {
+                    if (timeoutID !== undefined) clearTimeout(timeoutID);
+                }
+                const { done, value } = chunk;
+                if (done) break;
+                if (!value) continue;
+                byteLength += value.byteLength;
+                if (byteLength > maxBytes) {
+                    await reader.cancel().catch(() => undefined);
+                    throw new Error(`File exceeds the ${maxBytes}-byte read limit.`);
+                }
+                chunks.push(value);
+            }
+        } finally {
+            reader.releaseLock();
+        }
+
+        const contentBytes = new Uint8Array(byteLength);
+        let offset = 0;
+        for (const chunk of chunks) {
+            contentBytes.set(chunk, offset);
+            offset += chunk.byteLength;
+        }
+        return {
+            content: contentBytes,
+            byteLength,
+        };
+    }
+
+    async readFileBinaryLimited(path: string, maxBytes: number): Promise<LimitedBinaryReadResult> {
+        return this.readResponseBytesLimited(await this.readRemoteFile(path), maxBytes);
+    }
+
+    async readFileTextLimited(path: string, maxBytes: number): Promise<LimitedTextReadResult> {
+        const result = await this.readFileBinaryLimited(path, maxBytes);
+        return {
+            content: new TextDecoder('utf-8', { fatal: true }).decode(result.content),
+            byteLength: result.byteLength,
+        };
+    }
+
     async readFileBinary(path: string): Promise<Uint8Array> {
         const response = await this.readRemoteFile(path);
         return new Uint8Array(await response.arrayBuffer());
@@ -130,6 +217,14 @@ export class SiYuanClient {
         formData.append('modTime', String(Date.now()));
         formData.append('file', file);
 
+        await this.requestFormData<null>('/api/file/putFile', formData);
+    }
+
+    async createDirectory(path: string): Promise<void> {
+        const formData = new FormData();
+        formData.append('path', path);
+        formData.append('isDir', 'true');
+        formData.append('modTime', String(Date.now()));
         await this.requestFormData<null>('/api/file/putFile', formData);
     }
 

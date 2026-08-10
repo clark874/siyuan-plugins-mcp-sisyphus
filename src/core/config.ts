@@ -16,7 +16,7 @@ export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'd
 export const TIMELINE_APP_ACTIONS = TIMELINE_ACTIONS;
 export const FLASHCARD_REVIEW_APP_ACTIONS = ['review_card'] as const;
 export const MASCOT_SHOP_APP_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
-export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'audit_environment', 'list_packages'] as const;
+export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'audit_environment', 'list_packages', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const EXTENSION_ACTIONS = ['list'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
@@ -209,7 +209,11 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     },
     system: {
         get_version: 'basic', get_current_time: 'basic', conf: 'basic', changelog: 'basic',
-        audit_environment: 'basic', list_packages: 'basic',
+        audit_environment: 'basic', list_packages: 'basic', get_plugin: 'basic',
+        list_plugin_updates: 'basic', list_snippets: 'basic', list_plugin_storage: 'basic',
+        read_plugin_storage: 'advanced', inspect_plugin: 'advanced',
+        plan_change: 'advanced', apply_change: 'advanced', rollback_change: 'advanced',
+        discard_change_plan: 'advanced', list_control_changes: 'advanced', get_control_change: 'advanced',
         workspace_info: 'advanced', network: 'advanced', notify: 'advanced', perform_sync: 'advanced',
     },
     flashcard: {
@@ -241,7 +245,7 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     search: new Set(['find_replace']),
     tag: new Set(['remove']),
     timeline: new Set(['delete_node', 'rollback_document', 'rollback_block']),
-    system: new Set(['workspace_info', 'perform_sync']),
+    system: new Set(['workspace_info', 'perform_sync', 'apply_change', 'rollback_change']),
     flashcard: new Set(['remove_card']),
     extension: new Set(),
     mascot: new Set(),
@@ -300,7 +304,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         system: {
             enabled: true,
-            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'audit_environment', 'list_packages']),
+            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'audit_environment', 'list_packages', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change']),
         },
         flashcard: {
             enabled: true,

@@ -1,5 +1,7 @@
 # SiYuan Sisyphus MCP & CLI
 
+> **本地维护分支：** 当前 Fork 的 `v0.6.1-local.3` 在上游 `v0.6.0` 基础上增加思源工作区控制面。新增能力包括插件与代码片段盘点、插件配置脱敏读取与解释，以及带计划、确认、核验、精确快照和回滚的受控修改。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [system 工具文档](docs/reference/tools/system.md) 与 [设计文档](docs/plans/2026-08-10-sisyphus-workspace-control-plane-design.md)。
+
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
     <img src="https://img.shields.io/npm/v/siyuan-sisyphus?style=flat-square&color=%23cb3837" alt="npm version">
