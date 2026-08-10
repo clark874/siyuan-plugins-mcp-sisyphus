@@ -1254,6 +1254,36 @@ export const SystemListPackagesSchema = z.object({
     pageSize: z.number().int().min(1).max(100).optional().describe("Packages per page; defaults to 50"),
 });
 
+const SystemBazaarPackageKindSchema = z.enum(["plugin", "widget", "theme", "icon", "template"]);
+
+export const SystemSearchBazaarSchema = z.object({
+    action: z.literal("search_bazaar"),
+    kind: SystemBazaarPackageKindSchema.describe("Online bazaar package type"),
+    keyword: z.string().max(200).optional().describe("Optional package name, display name, author, description, or keyword query"),
+    installation: z.enum(["all", "installed", "not_installed"]).optional().describe("Installation-state filter; defaults to all"),
+    compatibility: z.enum(["all", "compatible", "incompatible"]).optional().describe("Current SiYuan compatibility filter; defaults to all"),
+    sortBy: z.enum(["downloads", "stars", "updated", "name"]).optional().describe("Sort field; defaults to downloads"),
+    sortOrder: z.enum(["asc", "desc"]).optional().describe("Sort direction; defaults to desc except name"),
+    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
+    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
+    pageSize: z.number().int().min(1).max(100).optional().describe("Bazaar packages per page; defaults to 20"),
+});
+
+export const SystemGetBazaarPackageSchema = z.object({
+    action: z.literal("get_bazaar_package"),
+    kind: SystemBazaarPackageKindSchema.describe("Online bazaar package type"),
+    packageName: z.string().trim().min(1).max(128).describe("Exact bazaar package name"),
+    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
+});
+
+export const SystemReadBazaarReadmeSchema = z.object({
+    action: z.literal("read_bazaar_readme"),
+    kind: SystemBazaarPackageKindSchema.describe("Online bazaar package type"),
+    packageName: z.string().trim().min(1).max(128).describe("Exact bazaar package name; repository coordinates are resolved server-side"),
+    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
+    maxChars: z.number().int().min(1).max(32000).optional().describe("Maximum returned plain-text characters; defaults to 12000"),
+});
+
 export const SystemGetPluginSchema = z.object({
     action: z.literal("get_plugin"),
     pluginName: z.string().trim().min(1).max(128).describe("Exact installed plugin package name"),

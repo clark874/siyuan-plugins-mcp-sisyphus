@@ -12,6 +12,9 @@ describe('system tool schemas', () => {
         const changelog = SYSTEM_VARIANTS.find((variant) => variant.action === 'changelog');
         const performSync = SYSTEM_VARIANTS.find((variant) => variant.action === 'perform_sync');
         const listPackages = SYSTEM_VARIANTS.find((variant) => variant.action === 'list_packages');
+        const searchBazaar = SYSTEM_VARIANTS.find((variant) => variant.action === 'search_bazaar');
+        const getBazaarPackage = SYSTEM_VARIANTS.find((variant) => variant.action === 'get_bazaar_package');
+        const readBazaarReadme = SYSTEM_VARIANTS.find((variant) => variant.action === 'read_bazaar_readme');
         const planChange = SYSTEM_VARIANTS.find((variant) => variant.action === 'plan_change');
         const applyChange = SYSTEM_VARIANTS.find((variant) => variant.action === 'apply_change');
 
@@ -32,6 +35,12 @@ describe('system tool schemas', () => {
         expect(listPackages?.schema.properties?.kind?.enum).toEqual(['plugin', 'widget', 'theme', 'icon', 'template']);
         expect(listPackages?.schema.properties?.page?.minimum).toBe(1);
         expect(listPackages?.schema.properties?.pageSize?.maximum).toBe(100);
+        expect(searchBazaar?.schema.required).toEqual(['action', 'kind']);
+        expect(searchBazaar?.schema.properties?.installation?.enum).toEqual(['all', 'installed', 'not_installed']);
+        expect(searchBazaar?.schema.properties?.sortBy?.enum).toEqual(['downloads', 'stars', 'updated', 'name']);
+        expect(getBazaarPackage?.schema.required).toEqual(['action', 'kind', 'packageName']);
+        expect(readBazaarReadme?.schema.required).toEqual(['action', 'kind', 'packageName']);
+        expect(readBazaarReadme?.schema.properties?.maxChars?.maximum).toBe(32000);
         expect(planChange?.schema.required).toEqual(['action', 'change']);
         expect(applyChange?.schema.required).toEqual(['action', 'planID']);
     });
@@ -138,6 +147,110 @@ describe('system tool schemas', () => {
             frontend: 'desktop',
             keyword: '',
         });
+    });
+
+    it('searches the online bazaar with installation filters, stable sorting, and pagination', async () => {
+        const client = createMockClient({
+            request: vi.fn().mockResolvedValueOnce({
+                packages: [
+                    { name: 'installed-low', preferredName: 'Installed Low', installed: true, downloads: 5, stars: 2, bazaarIncompatible: false },
+                    { name: 'new-high', preferredName: 'New High', preferredDesc: '<strong>Popular</strong> &amp; useful', installed: false, downloads: 200, stars: 10, bazaarIncompatible: false },
+                    { name: 'new-mid', preferredName: 'New Mid', installed: false, downloads: 100, stars: 50, bazaarIncompatible: false },
+                ],
+            }),
+        });
+        const config = buildDefaultToolConfig().system;
+        const result = await callSystemTool(client, {
+            action: 'search_bazaar',
+            kind: 'plugin',
+            installation: 'not_installed',
+            sortBy: 'downloads',
+            sortOrder: 'desc',
+            page: 1,
+            pageSize: 1,
+        }, config, {} as never);
+        const parsed = parseResult(result);
+
+        expect(parsed).toEqual(expect.objectContaining({
+            readonly: true,
+            kind: 'plugin',
+            total: 2,
+            page: 1,
+            pageSize: 1,
+            pageCount: 2,
+            hasMore: true,
+            items: [expect.objectContaining({ name: 'new-high', description: 'Popular & useful', downloads: 200, installed: false })],
+        }));
+        expect(client.request).toHaveBeenCalledWith('/api/bazaar/getBazaarPlugin', {
+            frontend: 'desktop',
+            keyword: '',
+        });
+    });
+
+    it('returns exact bazaar metadata together with local installed state', async () => {
+        const request = vi.fn()
+            .mockResolvedValueOnce({
+                packages: [{
+                    name: 'demo-plugin', preferredName: 'Demo Plugin', version: '2.0.0', repoURL: 'https://github.com/example/demo',
+                    repoHash: 'abcdef1', installed: true, outdated: true, downloads: 99, bazaarIncompatible: false,
+                }],
+            })
+            .mockResolvedValueOnce({
+                packages: [{ name: 'demo-plugin', version: '1.0.0', enabled: true, installedIncompatible: false }],
+            });
+        const config = buildDefaultToolConfig().system;
+        const result = await callSystemTool(createMockClient({ request }), {
+            action: 'get_bazaar_package',
+            kind: 'plugin',
+            packageName: 'demo-plugin',
+        }, config, {} as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.package).toEqual(expect.objectContaining({
+            name: 'demo-plugin',
+            version: '2.0.0',
+            repositoryHash: 'abcdef1',
+            installed: true,
+            outdated: true,
+        }));
+        expect(parsed.local).toEqual(expect.objectContaining({
+            version: '1.0.0',
+            enabled: true,
+        }));
+    });
+
+    it('returns a sanitized, redacted, truncated README for an exact bazaar package', async () => {
+        const request = vi.fn()
+            .mockResolvedValueOnce({
+                packages: [{ name: 'demo-plugin', preferredName: 'Demo Plugin', repoURL: 'https://github.com/example/demo', repoHash: 'abcdef1' }],
+            })
+            .mockResolvedValueOnce({
+                html: '<h1>Demo &amp; Test</h1><script>alert(1)</script><p>token=abcdefghijklmnop</p><p>Long content</p>',
+            });
+        const config = buildDefaultToolConfig().system;
+        const result = await callSystemTool(createMockClient({ request }), {
+            action: 'read_bazaar_readme',
+            kind: 'plugin',
+            packageName: 'demo-plugin',
+            maxChars: 24,
+        }, config, {} as never);
+        const parsed = parseResult(result);
+
+        expect(parsed).toEqual(expect.objectContaining({
+            readonly: true,
+            untrustedContent: true,
+            package: expect.objectContaining({ name: 'demo-plugin' }),
+            sourceFormat: 'html',
+            outputFormat: 'plain_text',
+            redacted: true,
+            truncated: true,
+            contentHash: expect.stringMatching(/^sha256:/),
+        }));
+        expect(parsed.content).toContain('Demo & Test');
+        expect(parsed.content).not.toContain('<script>');
+        expect(parsed.content).not.toContain('alert(1)');
+        expect(parsed.content).not.toContain('abcdefghijklmnop');
+        expect(parsed.hints[0]).toContain('untrusted third-party content');
     });
 
     it('returns a read-only environment summary without plugin configuration content', async () => {

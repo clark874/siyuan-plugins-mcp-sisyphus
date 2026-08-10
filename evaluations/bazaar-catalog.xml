@@ -1,0 +1,42 @@
+<evaluation>
+   <qa_pair>
+      <question>需要浏览思源插件集市中的可下载插件，但不得安装任何内容。应调用哪个 system 动作？只回答动作名。</question>
+      <answer>search_bazaar</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>需要把一个集市包的在线版本、兼容性与本地安装状态合并核对。应调用哪个 system 动作？只回答动作名。</question>
+      <answer>get_bazaar_package</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>需要读取一个集市插件的功能说明，同时避免返回原始 HTML 和秘密字段。应调用哪个 system 动作？只回答动作名。</question>
+      <answer>read_bazaar_readme</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>search_bazaar 能否直接安装、更新或卸载插件？只回答“能”或“不能”。</question>
+      <answer>不能</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>希望只查看未安装且与当前思源版本兼容的插件，installation 和 compatibility 应分别填写什么？用逗号分隔。</question>
+      <answer>not_installed,compatible</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>希望优先查看下载量最高的集市插件，sortBy 和 sortOrder 应分别填写什么？用逗号分隔。</question>
+      <answer>downloads,desc</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>read_bazaar_readme 允许返回的最大字符数是多少？只回答十进制整数。</question>
+      <answer>32000</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>read_bazaar_readme 的正文输出格式是原始 HTML、Markdown 还是纯文本？只回答“原始 HTML”“Markdown”或“纯文本”。</question>
+      <answer>纯文本</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>浏览后决定安装插件，是否应绕过控制面直接调用思源安装接口？只回答“是”或“否”。</question>
+      <answer>否</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>若要安装、更新或卸载插件，既有受控链路的两个核心动作依次是什么？用箭头连接动作名。</question>
+      <answer>plan_change→apply_change</answer>
+   </qa_pair>
+</evaluation>

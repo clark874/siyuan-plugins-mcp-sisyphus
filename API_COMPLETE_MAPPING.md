@@ -1,6 +1,6 @@
 # SiYuan API 完整映射表
 
-> 本表的 459 端点扫描与 119 端点统计来自上游 `v0.6.0` 基线，尚未重新生成全量计数。本地维护版 `v0.6.1-local.3` 另行接入插件清单与状态、在线更新元数据、代码片段、受限插件存储、允许的系统设置、归档与回滚接口；准确能力边界以 [system 工具文档](docs/reference/tools/system.md) 为准。避免在未重新运行全量映射生成器前手工改写总覆盖率。
+> 本表的 459 端点扫描与 119 端点统计来自上游 `v0.6.0` 基线，尚未重新生成全量计数。本地维护版 `v0.6.2-local.4` 另行接入插件清单与状态、在线集市目录与 README、在线更新元数据、代码片段、受限插件存储、允许的系统设置、归档与回滚接口；准确能力边界以 [system 工具文档](docs/reference/tools/system.md) 为准。避免在未重新运行全量映射生成器前手工改写总覆盖率。
 
 ## 统计信息
 - **SiYuan API 总数**: 459 个端点
@@ -291,31 +291,31 @@
 
 ## bazaar 模块
 
-**统计**: 共 23 个 API，已覆盖 5 个，覆盖率 21.7%
+**统计**: 共 23 个 API，已覆盖 11 个，覆盖率 47.8%
 
 | 序号 | 方法 | API 路径 | 处理函数 | 功能描述 | MCP 映射 | 状态 |
 |------|------|----------|----------|----------|----------|------|
-| 1 | POST | `/api/bazaar/getBazaarPlugin` | getBazaarPlugin | 集市获取BazaarPlugin | - | ❌ 未覆盖 |
+| 1 | POST | `/api/bazaar/getBazaarPlugin` | getBazaarPlugin | 集市获取BazaarPlugin | `system.search_bazaar` / `system.get_bazaar_package` / `system.list_plugin_updates` | ✅ 已覆盖 |
 | 2 | POST | `/api/bazaar/getInstalledPlugin` | getInstalledPlugin | 集市获取InstalledPlugin | `system.list_packages` / `system.audit_environment` | ✅ 已覆盖 |
 | 3 | POST | `/api/bazaar/installBazaarPlugin` | installBazaarPlugin | 集市installBazaarPlugin | - | ❌ 未覆盖 |
 | 4 | POST | `/api/bazaar/uninstallBazaarPlugin` | uninstallBazaarPlugin | 集市uninstallBazaarPlugin | - | ❌ 未覆盖 |
-| 5 | POST | `/api/bazaar/getBazaarWidget` | getBazaarWidget | 集市获取BazaarWidget | - | ❌ 未覆盖 |
+| 5 | POST | `/api/bazaar/getBazaarWidget` | getBazaarWidget | 集市获取BazaarWidget | `system.search_bazaar` / `system.get_bazaar_package` | ✅ 已覆盖 |
 | 6 | POST | `/api/bazaar/getInstalledWidget` | getInstalledWidget | 集市获取InstalledWidget | `system.list_packages` / `system.audit_environment` | ✅ 已覆盖 |
 | 7 | POST | `/api/bazaar/installBazaarWidget` | installBazaarWidget | 集市installBazaarWidget | - | ❌ 未覆盖 |
 | 8 | POST | `/api/bazaar/uninstallBazaarWidget` | uninstallBazaarWidget | 集市uninstallBazaarWidget | - | ❌ 未覆盖 |
-| 9 | POST | `/api/bazaar/getBazaarIcon` | getBazaarIcon | 集市获取Bazaar图标 | - | ❌ 未覆盖 |
+| 9 | POST | `/api/bazaar/getBazaarIcon` | getBazaarIcon | 集市获取Bazaar图标 | `system.search_bazaar` / `system.get_bazaar_package` | ✅ 已覆盖 |
 | 10 | POST | `/api/bazaar/getInstalledIcon` | getInstalledIcon | 集市获取Installed图标 | `system.list_packages` / `system.audit_environment` | ✅ 已覆盖 |
 | 11 | POST | `/api/bazaar/installBazaarIcon` | installBazaarIcon | 集市installBazaar图标 | - | ❌ 未覆盖 |
 | 12 | POST | `/api/bazaar/uninstallBazaarIcon` | uninstallBazaarIcon | 集市uninstallBazaar图标 | - | ❌ 未覆盖 |
-| 13 | POST | `/api/bazaar/getBazaarTemplate` | getBazaarTemplate | 集市获取Bazaar模板 | - | ❌ 未覆盖 |
+| 13 | POST | `/api/bazaar/getBazaarTemplate` | getBazaarTemplate | 集市获取Bazaar模板 | `system.search_bazaar` / `system.get_bazaar_package` | ✅ 已覆盖 |
 | 14 | POST | `/api/bazaar/getInstalledTemplate` | getInstalledTemplate | 集市获取Installed模板 | `system.list_packages` / `system.audit_environment` | ✅ 已覆盖 |
 | 15 | POST | `/api/bazaar/installBazaarTemplate` | installBazaarTemplate | 集市installBazaar模板 | - | ❌ 未覆盖 |
 | 16 | POST | `/api/bazaar/uninstallBazaarTemplate` | uninstallBazaarTemplate | 集市uninstallBazaar模板 | - | ❌ 未覆盖 |
-| 17 | POST | `/api/bazaar/getBazaarTheme` | getBazaarTheme | 集市获取BazaarTheme | - | ❌ 未覆盖 |
+| 17 | POST | `/api/bazaar/getBazaarTheme` | getBazaarTheme | 集市获取BazaarTheme | `system.search_bazaar` / `system.get_bazaar_package` | ✅ 已覆盖 |
 | 18 | POST | `/api/bazaar/getInstalledTheme` | getInstalledTheme | 集市获取InstalledTheme | `system.list_packages` / `system.audit_environment` | ✅ 已覆盖 |
 | 19 | POST | `/api/bazaar/installBazaarTheme` | installBazaarTheme | 集市installBazaarTheme | - | ❌ 未覆盖 |
 | 20 | POST | `/api/bazaar/uninstallBazaarTheme` | uninstallBazaarTheme | 集市uninstallBazaarTheme | - | ❌ 未覆盖 |
-| 21 | POST | `/api/bazaar/getBazaarPackageREADME` | getBazaarPackageREADME | 集市获取BazaarPackageREADME | - | ❌ 未覆盖 |
+| 21 | POST | `/api/bazaar/getBazaarPackageREADME` | getBazaarPackageREADME | 集市获取BazaarPackageREADME | `system.read_bazaar_readme` | ✅ 已覆盖 |
 | 22 | POST | `/api/bazaar/getUpdatedPackage` | getUpdatedPackage | 集市获取UpdatedPackage | - | ❌ 未覆盖 |
 | 23 | POST | `/api/bazaar/batchUpdatePackage` | batchUpdatePackage | 集市批量UpdatePackage | - | ❌ 未覆盖 |
 

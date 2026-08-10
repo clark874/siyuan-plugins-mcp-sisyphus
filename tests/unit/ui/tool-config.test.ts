@@ -49,6 +49,26 @@ describe('setting tool config', () => {
         expect(config.agentSiyuanMemoryUpdatedAt).toBe('');
         expect(config.debug.includeUiRefreshMetadata).toBe(false);
         expect(config.debug.slimResponses).toBe(true);
+        expect(config.system.actions.search_bazaar).toBe(true);
+        expect(config.system.actions.get_bazaar_package).toBe(true);
+        expect(config.system.actions.read_bazaar_readme).toBe(true);
+    });
+
+    it('enables newly added bazaar read actions when an older nested config omits them', () => {
+        const config = normalizeToolConfig({
+            system: {
+                enabled: true,
+                actions: {
+                    audit_environment: true,
+                    list_packages: true,
+                },
+            },
+        });
+
+        expect(config.system.enabled).toBe(true);
+        expect(config.system.actions.search_bazaar).toBe(true);
+        expect(config.system.actions.get_bazaar_package).toBe(true);
+        expect(config.system.actions.read_bazaar_readme).toBe(true);
     });
 
     it('keeps nested file config action toggles and upload threshold together', () => {
