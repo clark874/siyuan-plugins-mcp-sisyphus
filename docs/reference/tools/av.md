@@ -17,7 +17,7 @@ Related pages:
 | Row operations | `add_rows`, `remove_rows` |
 | Column operations | `add_column`, `remove_column` |
 | Cell updates | `set_cells` |
-| Structure | `duplicate` |
+| Structure | `rename`, `duplicate` |
 
 ## Parameters and Semantics
 
@@ -27,6 +27,7 @@ Related pages:
 - `set_cells` is typed by `valueType` and accepts either single-cell fields or a `cells` / `items` array.
 - `rowID` refers to the row item ID, not the source block ID.
 - AV writes follow SiYuan frontend transaction operations where possible, including row/column/cell operations and database block `updated` refresh metadata.
+- `rename` uses the native `setAttrViewName` transaction and records the previous name for undo when available.
 - `duplicate` follows SiYuan's copy-as-mirror flow: it duplicates the AV definition, spins the AV block DOM, and inserts the mirror database block through a transaction. `previousID` controls the insertion position when provided; otherwise `blockID` or an automatically resolved owning database block is used as the default insertion context.
 
 ## Safety Rules
@@ -54,6 +55,14 @@ MCP:
 }
 ```
 
+```json
+{
+  "action": "rename",
+  "avID": "<attribute-view-id>",
+  "name": "Research Assets"
+}
+```
+
 CLI:
 
 ```bash
@@ -71,6 +80,7 @@ siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "Plain text r
 - `get_attribute_view_keys`
 - `get_attribute_view_filter_sort`
 - `search`
+- `rename`
 - `add_rows`
 - `remove_rows`
 - `add_column`

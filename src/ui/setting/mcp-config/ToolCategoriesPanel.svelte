@@ -242,6 +242,8 @@
                 { key: "perform_sync", title: "Perform Sync", description: "Trigger SiYuan sync immediately. High risk: affects local and remote sync state." },
                 { key: "get_version", title: "Get Version", description: "Get the SiYuan system version." },
                 { key: "get_current_time", title: "Get Current Time", description: "Get the current system time." },
+                { key: "audit_environment", title: "Audit Environment", description: "Get a compact read-only summary of masked configuration and installed package counts." },
+                { key: "list_packages", title: "List Packages", description: "List installed plugins, widgets, themes, icons, or templates without reading their configuration files." },
             ],
         },
         {

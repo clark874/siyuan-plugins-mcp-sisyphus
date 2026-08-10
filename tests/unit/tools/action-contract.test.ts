@@ -133,6 +133,7 @@ function createContractClient() {
             if (endpoint === '/api/system/getWorkspaceInfo') return { workspace: '/workspace' };
             if (endpoint === '/api/system/getNetwork') return { proxy: '' };
             if (endpoint === '/api/system/getConf') return { conf: { appearance: { mode: 0 } } };
+            if (endpoint.startsWith('/api/bazaar/getInstalled')) return { packages: [] };
             if (endpoint === '/api/sync/performSync') return { synced: true };
             if (endpoint === '/api/system/version') return '3.3.0';
             if (endpoint === '/api/system/currentTime') return 1710000000000;
@@ -306,6 +307,8 @@ describe('tool action contract coverage', () => {
             { action: 'perform_sync', args: { action: 'perform_sync' }, expectedEndpoint: '/api/sync/performSync' },
             { action: 'get_version', args: { action: 'get_version' }, expectedEndpoint: '/api/system/version' },
             { action: 'get_current_time', args: { action: 'get_current_time' }, expectedEndpoint: '/api/system/currentTime' },
+            { action: 'audit_environment', args: { action: 'audit_environment' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin' },
+            { action: 'list_packages', args: { action: 'list_packages', kind: 'plugin' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin' },
         ]);
     });
 

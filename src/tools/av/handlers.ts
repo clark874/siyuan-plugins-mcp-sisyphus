@@ -17,6 +17,7 @@ import {
     AvRenderSchema,
     AvRemoveColumnSchema,
     AvRemoveRowsSchema,
+    AvRenameSchema,
     AvSearchSchema,
     AvSetCellsSchema,
 } from '../../core/types';
@@ -514,6 +515,41 @@ async function collectAvDatabaseBlockCandidates(
     return candidateBlockIDs;
 }
 
+async function collectVerifiedAvDatabaseBlockCandidates(
+    client: SiYuanClient,
+    avID: string,
+): Promise<string[]> {
+    const candidateBlockIDs = await getAvMirrorDatabaseBlockIds(client, avID);
+    const sqlMatches = await findAvDatabaseBlockIdsBySql(client, avID);
+    for (const blockID of sqlMatches) {
+        if (!candidateBlockIDs.includes(blockID)) {
+            candidateBlockIDs.push(blockID);
+        }
+    }
+    const verifiedBlockIDs: string[] = [];
+    for (const blockID of candidateBlockIDs) {
+        if (await isExactAvDatabaseBlockDom(client, avID, blockID)) {
+            verifiedBlockIDs.push(blockID);
+        }
+    }
+    return verifiedBlockIDs;
+}
+
+async function isExactAvDatabaseBlockDom(
+    client: SiYuanClient,
+    avID: string,
+    blockID: string,
+): Promise<boolean> {
+    try {
+        const response = await blockApi.getBlockDOM(client, blockID);
+        const dom = typeof response?.dom === 'string' ? response.dom : '';
+        return dom.includes('data-type="NodeAttributeView"') && dom.includes(`data-av-id="${avID}"`);
+    } catch (error) {
+        if (isMissingBlockError(error)) return false;
+        throw error;
+    }
+}
+
 async function isExplicitAvDatabaseBlock(
     client: SiYuanClient,
     avID: string,
@@ -536,6 +572,14 @@ async function isExplicitAvDatabaseBlock(
         }
         throw error;
     }
+}
+
+async function isVerifiedExplicitAvDatabaseBlock(
+    client: SiYuanClient,
+    avID: string,
+    blockID: string,
+): Promise<boolean> {
+    return isExactAvDatabaseBlockDom(client, avID, blockID);
 }
 
 function createAvBlockContextErrorResult(
@@ -572,29 +616,34 @@ async function ensurePermissionForAvId(
     options?: {
         blockID?: string;
         action?: AvAction;
+        databaseBlocksOnly?: boolean;
     },
-): Promise<{ denied: ToolResult | null; avData: unknown }> {
+): Promise<{ denied: ToolResult | null; avData: unknown; permissionBlockID?: string }> {
     const response = await avApi.getAttributeView(client, avID);
     const avData = response.av;
 
     if (options?.blockID) {
         const { denied } = await ensurePermissionForDocumentId(client, permMgr, options.blockID, required);
-        if (denied) return { denied, avData };
-        const matchesAv = await isExplicitAvDatabaseBlock(client, avID, avData, options.blockID);
+        if (denied) return { denied, avData, permissionBlockID: options.blockID };
+        const matchesAv = options.databaseBlocksOnly
+            ? await isVerifiedExplicitAvDatabaseBlock(client, avID, options.blockID)
+            : await isExplicitAvDatabaseBlock(client, avID, avData, options.blockID);
         if (!matchesAv) {
             return {
                 denied: createAvBlockContextErrorResult(options.action ?? 'get', avID, options.blockID),
                 avData,
             };
         }
-        return { denied: null, avData };
+        return { denied: null, avData, permissionBlockID: options.blockID };
     }
-    const candidateBlockIDs = await collectAvDatabaseBlockCandidates(client, avID, avData);
+    const candidateBlockIDs = options?.databaseBlocksOnly
+        ? await collectVerifiedAvDatabaseBlockCandidates(client, avID)
+        : await collectAvDatabaseBlockCandidates(client, avID, avData);
 
     for (const candidateBlockID of candidateBlockIDs) {
         try {
             const { denied } = await ensurePermissionForDocumentId(client, permMgr, candidateBlockID, required);
-            return { denied, avData };
+            return { denied, avData, permissionBlockID: candidateBlockID };
         } catch (error) {
             if (isMissingBlockError(error)) continue;
             throw error;
@@ -924,7 +973,8 @@ async function resolveAvTransactionBlockId(
     avData: unknown,
     explicitBlockID?: string,
 ): Promise<string | undefined> {
-    return explicitBlockID ?? await resolveAvOwningBlockId(client, avID, avData);
+    if (explicitBlockID) return explicitBlockID;
+    return resolveAvOwningBlockId(client, avID, avData);
 }
 
 function withUpdatedOperation(
@@ -949,11 +999,11 @@ function withUpdatedOperation(
                 data: updated,
             },
         ],
-        undoOperations: [{
+        undoOperations: typeof previousUpdated === 'string' ? [{
             action: 'doUpdateUpdated',
             id: blockID,
-            data: typeof previousUpdated === 'string' ? previousUpdated : '',
-        }],
+            data: previousUpdated,
+        }] : [],
     };
 }
 
@@ -1396,6 +1446,51 @@ async function handleAddColumn({ client, permMgr, rawArgs }: ToolHandlerContext)
     }), refreshOperations);
 }
 
+async function handleRename({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
+    const parsed = AvRenameSchema.parse(rawArgs);
+    const { denied, avData, permissionBlockID } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', {
+        blockID: parsed.blockID,
+        action: 'rename',
+        databaseBlocksOnly: true,
+    });
+    if (denied) return denied;
+
+    const previousName = typeof (avData as { name?: unknown } | null)?.name === 'string'
+        ? (avData as { name: string }).name
+        : undefined;
+    const transactionBlockID = permissionBlockID;
+    if (!transactionBlockID) {
+        throw new Error(`Unable to resolve a verified database block for attribute view "${parsed.avID}".`);
+    }
+    const previousAttrs = await blockApi.getBlockAttrs(client, transactionBlockID);
+    if (typeof previousAttrs.updated !== 'string' || !/^\d{14}$/.test(previousAttrs.updated)) {
+        throw new Error(`Unable to read a restorable updated value for database block "${transactionBlockID}".`);
+    }
+    const updatedOps = withUpdatedOperation([{
+        action: 'setAttrViewName',
+        id: parsed.avID,
+        data: parsed.name,
+    }], transactionBlockID, previousAttrs.updated);
+    await transactionApi.performTransactions(client, [{
+        doOperations: updatedOps.doOperations,
+        undoOperations: [
+            ...(previousName !== undefined ? [{
+                action: 'setAttrViewName',
+                id: parsed.avID,
+                data: previousName,
+            }] : []),
+            ...updatedOps.undoOperations,
+        ],
+    }]);
+
+    const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, transactionBlockID);
+    return applyUiRefresh(client, createWriteSuccessResult({
+        action: 'rename',
+        avID: parsed.avID,
+        name: parsed.name,
+    }), refreshOperations);
+}
+
 async function handleRemoveColumn({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvRemoveColumnSchema.parse(rawArgs);
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'remove_column' });
@@ -1662,6 +1757,7 @@ export const AV_ACTION_HANDLERS: Record<AvAction, ToolActionHandler> = {
     get_attribute_view_keys: handleGetAttributeViewKeys,
     get_attribute_view_filter_sort: handleGetAttributeViewFilterSort,
     search: handleSearch,
+    rename: handleRename,
     add_rows: handleAddRows,
     remove_rows: handleRemoveRows,
     add_column: handleAddColumn,

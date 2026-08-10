@@ -289,28 +289,28 @@
 
 ## bazaar 模块
 
-**统计**: 共 23 个 API，已覆盖 0 个，覆盖率 0.0%
+**统计**: 共 23 个 API，已覆盖 5 个，覆盖率 21.7%
 
 | 序号 | 方法 | API 路径 | 处理函数 | 功能描述 | MCP 映射 | 状态 |
 |------|------|----------|----------|----------|----------|------|
 | 1 | POST | `/api/bazaar/getBazaarPlugin` | getBazaarPlugin | 集市获取BazaarPlugin | - | ❌ 未覆盖 |
-| 2 | POST | `/api/bazaar/getInstalledPlugin` | getInstalledPlugin | 集市获取InstalledPlugin | - | ❌ 未覆盖 |
+| 2 | POST | `/api/bazaar/getInstalledPlugin` | getInstalledPlugin | 集市获取InstalledPlugin | `system.list_packages` / `system.audit_environment` | ✅ 已覆盖 |
 | 3 | POST | `/api/bazaar/installBazaarPlugin` | installBazaarPlugin | 集市installBazaarPlugin | - | ❌ 未覆盖 |
 | 4 | POST | `/api/bazaar/uninstallBazaarPlugin` | uninstallBazaarPlugin | 集市uninstallBazaarPlugin | - | ❌ 未覆盖 |
 | 5 | POST | `/api/bazaar/getBazaarWidget` | getBazaarWidget | 集市获取BazaarWidget | - | ❌ 未覆盖 |
-| 6 | POST | `/api/bazaar/getInstalledWidget` | getInstalledWidget | 集市获取InstalledWidget | - | ❌ 未覆盖 |
+| 6 | POST | `/api/bazaar/getInstalledWidget` | getInstalledWidget | 集市获取InstalledWidget | `system.list_packages` / `system.audit_environment` | ✅ 已覆盖 |
 | 7 | POST | `/api/bazaar/installBazaarWidget` | installBazaarWidget | 集市installBazaarWidget | - | ❌ 未覆盖 |
 | 8 | POST | `/api/bazaar/uninstallBazaarWidget` | uninstallBazaarWidget | 集市uninstallBazaarWidget | - | ❌ 未覆盖 |
 | 9 | POST | `/api/bazaar/getBazaarIcon` | getBazaarIcon | 集市获取Bazaar图标 | - | ❌ 未覆盖 |
-| 10 | POST | `/api/bazaar/getInstalledIcon` | getInstalledIcon | 集市获取Installed图标 | - | ❌ 未覆盖 |
+| 10 | POST | `/api/bazaar/getInstalledIcon` | getInstalledIcon | 集市获取Installed图标 | `system.list_packages` / `system.audit_environment` | ✅ 已覆盖 |
 | 11 | POST | `/api/bazaar/installBazaarIcon` | installBazaarIcon | 集市installBazaar图标 | - | ❌ 未覆盖 |
 | 12 | POST | `/api/bazaar/uninstallBazaarIcon` | uninstallBazaarIcon | 集市uninstallBazaar图标 | - | ❌ 未覆盖 |
 | 13 | POST | `/api/bazaar/getBazaarTemplate` | getBazaarTemplate | 集市获取Bazaar模板 | - | ❌ 未覆盖 |
-| 14 | POST | `/api/bazaar/getInstalledTemplate` | getInstalledTemplate | 集市获取Installed模板 | - | ❌ 未覆盖 |
+| 14 | POST | `/api/bazaar/getInstalledTemplate` | getInstalledTemplate | 集市获取Installed模板 | `system.list_packages` / `system.audit_environment` | ✅ 已覆盖 |
 | 15 | POST | `/api/bazaar/installBazaarTemplate` | installBazaarTemplate | 集市installBazaar模板 | - | ❌ 未覆盖 |
 | 16 | POST | `/api/bazaar/uninstallBazaarTemplate` | uninstallBazaarTemplate | 集市uninstallBazaar模板 | - | ❌ 未覆盖 |
 | 17 | POST | `/api/bazaar/getBazaarTheme` | getBazaarTheme | 集市获取BazaarTheme | - | ❌ 未覆盖 |
-| 18 | POST | `/api/bazaar/getInstalledTheme` | getInstalledTheme | 集市获取InstalledTheme | - | ❌ 未覆盖 |
+| 18 | POST | `/api/bazaar/getInstalledTheme` | getInstalledTheme | 集市获取InstalledTheme | `system.list_packages` / `system.audit_environment` | ✅ 已覆盖 |
 | 19 | POST | `/api/bazaar/installBazaarTheme` | installBazaarTheme | 集市installBazaarTheme | - | ❌ 未覆盖 |
 | 20 | POST | `/api/bazaar/uninstallBazaarTheme` | uninstallBazaarTheme | 集市uninstallBazaarTheme | - | ❌ 未覆盖 |
 | 21 | POST | `/api/bazaar/getBazaarPackageREADME` | getBazaarPackageREADME | 集市获取BazaarPackageREADME | - | ❌ 未覆盖 |

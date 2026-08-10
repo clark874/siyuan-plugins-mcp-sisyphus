@@ -13,7 +13,7 @@ Related pages:
 | Group | Actions |
 |------|---------|
 | Basic info | `get_version`, `get_current_time`, `changelog` |
-| Config / environment | `conf`, `network`, `workspace_info` |
+| Config / environment | `conf`, `network`, `workspace_info`, `audit_environment`, `list_packages` |
 | Notifications | `notify` |
 | Sync | `perform_sync` |
 
@@ -22,6 +22,8 @@ Related pages:
 - `workspace_info` is high-risk because it exposes the absolute workspace path and requires confirmation.
 - `conf` is read-only. Use `mode="summary"` for a compact overview, or `mode="get"` with `keyPath` for a specific field.
 - `changelog` is read-only. Use `fromVersion` after plugin upgrades to find changes that may affect user rules, `/AGENTS.md` memory, permissions, appearance, connection snippets, timeline settings, or tool configuration.
+- `audit_environment` is read-only and returns a compact masked-configuration summary plus installed package counts.
+- `list_packages` is read-only and returns compact installed-package metadata with pagination. It never reads third-party plugin configuration files.
 - `notify` shows a SiYuan notification with `msg`, `level`, and optional `timeout`.
 - `perform_sync` triggers SiYuan sync immediately through `/api/sync/performSync`. It requires confirmation.
 
@@ -35,3 +37,5 @@ Related pages:
 - `perform_sync`
 - `get_version`
 - `get_current_time`
+- `audit_environment`
+- `list_packages`

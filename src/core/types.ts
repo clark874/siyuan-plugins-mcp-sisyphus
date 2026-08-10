@@ -781,6 +781,13 @@ export const AvSearchSchema = z.object({
     excludes: z.array(z.string()).optional().describe("Optional AV IDs to exclude"),
 });
 
+export const AvRenameSchema = z.object({
+    action: z.literal("rename"),
+    avID: z.string().describe("Attribute view ID"),
+    blockID: z.string().optional().describe("Registered database block ID for explicit database-block context"),
+    name: z.string().trim().min(1).max(512).describe("New database name"),
+});
+
 export const AvAddRowsSchema = z.object({
     action: z.literal("add_rows"),
     avID: z.string().describe("Attribute view ID"),
@@ -1229,4 +1236,20 @@ export const SystemGetVersionSchema = z.object({
 
 export const SystemGetCurrentTimeSchema = z.object({
     action: z.literal("get_current_time"),
+});
+
+const SystemFrontendSchema = z.enum(["desktop", "desktop-window", "mobile", "browser-desktop", "browser-mobile"]);
+
+export const SystemAuditEnvironmentSchema = z.object({
+    action: z.literal("audit_environment"),
+    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
+});
+
+export const SystemListPackagesSchema = z.object({
+    action: z.literal("list_packages"),
+    kind: z.enum(["plugin", "widget", "theme", "icon", "template"]).describe("Installed package type to list"),
+    keyword: z.string().max(200).optional().describe("Optional package-name, display-name, author, or keyword filter"),
+    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
+    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
+    pageSize: z.number().int().min(1).max(100).optional().describe("Packages per page; defaults to 50"),
 });

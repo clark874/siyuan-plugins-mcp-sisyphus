@@ -37,7 +37,7 @@
 - `search`: fulltext, query_sql, get_backlinks, search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs
 - `tag`: list, rename, remove
 - `timeline`: list_nodes, create_node, compare_node, delete_node, rollback_document, rollback_block
-- `system`: workspace_info, network, conf, notify, changelog, perform_sync, get_version, get_current_time
+- `system`: workspace_info, network, conf, notify, changelog, perform_sync, get_version, get_current_time, audit_environment, list_packages
 - `flashcard`: list_cards, get_decks, get_cards, review_card, create_card, remove_card
 - `extension`: list，以及已启用官方插件工具和可选思源原生 MCP 工具对应的动态 action
 - `mascot`: get_balance, shop, buy

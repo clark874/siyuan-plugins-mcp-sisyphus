@@ -18,6 +18,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -47,6 +48,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -74,6 +76,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -101,6 +104,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -128,6 +132,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -155,6 +160,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -182,6 +188,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -209,6 +216,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -239,6 +247,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -252,6 +261,36 @@ exports[`tool description and help outputs > matches the locked snapshot for all
         "requiresConfirmation": false,
         "shapes": [
           "avID + srcIDs",
+        ],
+        "tool": "av",
+      },
+      "rename": {
+        "action": "rename",
+        "example": {
+          "action": "rename",
+          "avID": "<avID>",
+          "name": "Research",
+        },
+        "fullDocResource": "siyuan://help/action/av/rename",
+        "guidance": [
+          "AV actions operate on real SiYuan attribute views (database blocks), not Markdown tables.",
+          "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
+          "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
+          "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
+          "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
+          "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
+          "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
+          "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
+        ],
+        "hint": "Use avID + name to rename the database definition through a SiYuan transaction. Optional blockID pins the permission and refresh context to a registered database block for this AV.",
+        "requiredFields": [
+          "avID",
+          "name",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "avID + name",
         ],
         "tool": "av",
       },
@@ -285,6 +324,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -310,6 +350,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -337,6 +378,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
           "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
           "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+          "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
           "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
           "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -357,7 +399,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
 
 Common actions: get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, get_primary_key_values. Required fields: get: id; render: no additional fields; get_attribute_view_keys: id; get_attribute_view_filter_sort: id; search: keyword; get_primary_key_values: avID.
 
-Additional actions: add_rows, remove_rows, add_column, remove_column, set_cells, duplicate. Read siyuan://help/action/av/{action} for details, or call action="help" if resources are unavailable.
+Additional actions: rename, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate. Read siyuan://help/action/av/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 av.get: required [id] | optional [blockID]
@@ -365,6 +407,7 @@ av.render: required [] | optional [id, blockID, viewID, page, pageSize, query, g
 av.get_attribute_view_keys: required [id] | optional []
 av.get_attribute_view_filter_sort: required [id] | optional [blockID]
 av.search: required [keyword] | optional [excludes]
+av.rename: required [avID, name] | optional [blockID]
 av.add_rows: required [avID] | optional [blockIDs, primaryKeyTexts, blockID, viewID, groupID, previousID, ignoreDefaultFill]
 av.remove_rows: required [avID, srcIDs] | optional [blockID]
 av.add_column: required [avID, keyName, keyType] | optional [blockID, keyID, keyIcon, previousKeyID]
@@ -385,6 +428,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "get_primary_key_values": "Returns the AV name plus primary-key rows, with optional keyword/page/pageSize filtering.",
         "remove_column": "Use avID + keyID, and optionally blockID to target a specific registered database block. removeRelationDest only matters for relation columns.",
         "remove_rows": "Use avID + srcIDs to remove rows from the AV. Optional blockID pins a specific registered database block when you need explicit block-view context.",
+        "rename": "Use avID + name to rename the database definition through a SiYuan transaction. Optional blockID pins the permission and refresh context to a registered database block for this AV.",
         "render": "Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
         "search": "Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.",
         "set_cells": "Use avID + cells[]. Each item requires rowID + columnID + valueType and its matching typed field. For a single-cell write, pass rowID + columnID + valueType directly. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[].",
@@ -426,6 +470,10 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "hint": "Use avID + srcIDs to remove rows from the AV. Optional blockID pins a specific registered database block when you need explicit block-view context.",
           "requiresConfirmation": false,
         },
+        "rename": {
+          "hint": "Use avID + name to rename the database definition through a SiYuan transaction. Optional blockID pins the permission and refresh context to a registered database block for this AV.",
+          "requiresConfirmation": false,
+        },
         "render": {
           "hint": "Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
           "requiresConfirmation": false,
@@ -440,6 +488,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         },
       },
       "advancedActions": [
+        "rename",
         "add_rows",
         "remove_rows",
         "add_column",
@@ -461,6 +510,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.",
         "Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.",
         "Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").",
+        "Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.",
         "For cell writes, rowID must be the database row item ID stored in each AV value's blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.",
         "AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.",
         "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
@@ -4418,6 +4468,38 @@ All search actions are read-only except find_replace, which modifies content and
   },
   "system": {
     "actions": {
+      "audit_environment": {
+        "action": "audit_environment",
+        "example": {
+          "action": "audit_environment",
+        },
+        "examples": [
+          {
+            "mcp": {
+              "action": "audit_environment",
+            },
+            "title": "Audit the current SiYuan environment without reading plugin configuration",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/system/audit_environment",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.",
+        "requiredFields": [],
+        "requiresConfirmation": false,
+        "shapes": [
+          "action only",
+        ],
+        "tool": "system",
+      },
       "changelog": {
         "action": "changelog",
         "example": {
@@ -4444,6 +4526,8 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/changelog",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4466,6 +4550,8 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/conf",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4488,6 +4574,8 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/get_current_time",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4510,6 +4598,8 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/get_version",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4524,6 +4614,44 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "tool": "system",
       },
+      "list_packages": {
+        "action": "list_packages",
+        "example": {
+          "action": "list_packages",
+          "kind": "plugin",
+        },
+        "examples": [
+          {
+            "mcp": {
+              "action": "list_packages",
+              "kind": "plugin",
+              "page": 1,
+              "pageSize": 50,
+            },
+            "title": "List installed plugins with compact metadata",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/system/list_packages",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "Lists compact installed-package metadata with kind, optional keyword/frontend, and page/pageSize. README and plugin configuration content are excluded.",
+        "requiredFields": [
+          "kind",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "kind",
+        ],
+        "tool": "system",
+      },
       "network": {
         "action": "network",
         "example": {
@@ -4532,6 +4660,8 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/network",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4556,6 +4686,8 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/notify",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4581,6 +4713,8 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/perform_sync",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4603,6 +4737,8 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/workspace_info",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
           "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
           "system(action="conf") returns masked configuration, not raw secrets.",
@@ -4620,7 +4756,7 @@ All search actions are read-only except find_replace, which modifies content and
     },
     "description": "🖥️ Grouped system and notification operations. Use the "action" field to select the operation.
 
-Common actions: conf, changelog, get_version, get_current_time. Required fields: conf: no additional fields; changelog: no additional fields; get_version: no additional fields; get_current_time: no additional fields.
+Common actions: conf, changelog, get_version, get_current_time, audit_environment, list_packages. Required fields: conf: no additional fields; changelog: no additional fields; get_version: no additional fields; get_current_time: no additional fields; audit_environment: no additional fields; list_packages: kind.
 
 Additional actions: workspace_info, network, notify, perform_sync. Read siyuan://help/action/system/{action} for details, or call action="help" if resources are unavailable.
 
@@ -4633,20 +4769,28 @@ system.changelog: required [] | optional [version, fromVersion, limit, includeRa
 system.perform_sync: required [] | optional []
 system.get_version: required [] | optional []
 system.get_current_time: required [] | optional []
+system.audit_environment: required [] | optional [frontend]
+system.list_packages: required [kind] | optional [keyword, frontend, page, pageSize]
 
-Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution. system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default. Requires user confirmation before: workspace_info, perform_sync.",
+Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution. Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts. Requires user confirmation before: workspace_info, perform_sync.",
     "overview": {
       "actionSummaries": {
+        "audit_environment": "Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.",
         "changelog": "Reads the bundled plugin CHANGELOG with structured personalizationReview hints. Pass fromVersion after upgrades, version for one exact entry, or includeRaw=true for Markdown.",
         "conf": "Defaults to a navigable summary. Use mode="get" with keyPath to read one config field or subtree at a time, e.g. conf.appearance.mode or conf.langs[0].",
         "get_current_time": "Returns the current system time as {currentTime} epoch milliseconds and {iso} ISO 8601 text.",
         "get_version": "Returns the current SiYuan version as {version}.",
+        "list_packages": "Lists compact installed-package metadata with kind, optional keyword/frontend, and page/pageSize. README and plugin configuration content are excluded.",
         "network": "Returns masked proxy information only.",
         "notify": "Show an info or error notification in the SiYuan UI. Optional timeout is in milliseconds.",
         "perform_sync": "Triggers SiYuan sync immediately through /api/sync/performSync. This action can change local and remote sync state and requires explicit user confirmation.",
         "workspace_info": "Returns workspace path metadata and current SiYuan version. High-risk: leaks the absolute workspace path; disabled by default and requires explicit user confirmation.",
       },
       "actions": {
+        "audit_environment": {
+          "hint": "Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.",
+          "requiresConfirmation": false,
+        },
         "changelog": {
           "hint": "Reads the bundled plugin CHANGELOG with structured personalizationReview hints. Pass fromVersion after upgrades, version for one exact entry, or includeRaw=true for Markdown.",
           "requiresConfirmation": false,
@@ -4661,6 +4805,10 @@ Most system actions in this tool are read-only; perform_sync is the mutating exc
         },
         "get_version": {
           "hint": "Returns the current SiYuan version as {version}.",
+          "requiresConfirmation": false,
+        },
+        "list_packages": {
+          "hint": "Lists compact installed-package metadata with kind, optional keyword/frontend, and page/pageSize. README and plugin configuration content are excluded.",
           "requiresConfirmation": false,
         },
         "network": {
@@ -4691,10 +4839,14 @@ Most system actions in this tool are read-only; perform_sync is the mutating exc
         "changelog",
         "get_version",
         "get_current_time",
+        "audit_environment",
+        "list_packages",
       ],
       "detailsHint": "Call system(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
         "Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.",
+        "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+        "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
         "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
         "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
         "system(action="conf") returns masked configuration, not raw secrets.",

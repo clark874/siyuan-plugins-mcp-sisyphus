@@ -1,15 +1,18 @@
 import type { SiYuanClient } from '../../api/client';
 import * as notificationApi from '../../api/notification';
+import * as packagesApi from '../../api/packages';
 import * as systemApi from '../../api/system';
 import { buildChangelogResponse } from '../../core/changelog';
 import type { SystemAction } from '../../core/config';
 import {
     SystemChangelogSchema,
     SystemConfSchema,
+    SystemAuditEnvironmentSchema,
     SystemGetCurrentTimeSchema,
     SystemGetVersionSchema,
     SystemNetworkSchema,
     SystemNotifySchema,
+    SystemListPackagesSchema,
     SystemPerformSyncSchema,
     SystemWorkspaceInfoSchema,
 } from '../../core/types';
@@ -18,6 +21,8 @@ import { createJsonResult, type ToolResult } from '../internal/shared';
 
 const DEFAULT_CONF_MAX_DEPTH = 1;
 const DEFAULT_CONF_MAX_ITEMS = 12;
+const DEFAULT_PACKAGE_PAGE_SIZE = 50;
+const PACKAGE_DESCRIPTION_MAX_LENGTH = 300;
 
 type SummaryNode =
     | { type: 'null'; value: null; truncated: false }
@@ -154,6 +159,55 @@ function buildConfResponse(raw: unknown, mode: 'summary' | 'get', keyPath: strin
     };
 }
 
+function readString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function readStringArray(value: unknown): string[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const items = value.filter((item): item is string => typeof item === 'string');
+    return items.length > 0 ? items : undefined;
+}
+
+function truncateText(value: unknown, maxLength: number): string | undefined {
+    const text = readString(value);
+    if (!text) return undefined;
+    return text.length <= maxLength ? text : `${text.slice(0, maxLength)}…`;
+}
+
+function normalizeInstalledPackage(pkg: Record<string, unknown>, kind: packagesApi.InstalledPackageKind) {
+    const name = readString(pkg.name) ?? 'unknown';
+    const incompatible = typeof pkg.installedIncompatible === 'boolean'
+        ? pkg.installedIncompatible
+        : undefined;
+    return {
+        name,
+        displayName: readString(pkg.preferredName) ?? name,
+        description: truncateText(pkg.preferredDesc, PACKAGE_DESCRIPTION_MAX_LENGTH),
+        version: readString(pkg.version),
+        author: readString(pkg.author),
+        repository: readString(pkg.repoURL) ?? readString(pkg.url),
+        minAppVersion: readString(pkg.minAppVersion),
+        enabled: kind === 'plugin' ? pkg.enabled === true : undefined,
+        compatible: incompatible === undefined ? undefined : !incompatible,
+        outdated: typeof pkg.outdated === 'boolean' ? pkg.outdated : undefined,
+        current: typeof pkg.current === 'boolean' ? pkg.current : undefined,
+        installedAt: readString(pkg.hInstallDate),
+        frontends: readStringArray(pkg.frontends),
+        backends: readStringArray(pkg.backends),
+        keywords: readStringArray(pkg.keywords),
+    };
+}
+
+function countPluginStates(plugins: Record<string, unknown>[]) {
+    return {
+        enabled: plugins.filter((pkg) => pkg.enabled === true).length,
+        disabled: plugins.filter((pkg) => pkg.enabled !== true).length,
+        incompatible: plugins.filter((pkg) => pkg.installedIncompatible === true).length,
+        outdated: plugins.filter((pkg) => pkg.outdated === true).length,
+    };
+}
+
 const handleWorkspaceInfo: ToolActionHandler = async ({ client, rawArgs }) => {
     SystemWorkspaceInfoSchema.parse(rawArgs);
     return createJsonResult(await systemApi.getWorkspaceInfo(client));
@@ -205,6 +259,66 @@ const handleGetCurrentTime: ToolActionHandler = async ({ client, rawArgs }) => {
     return createJsonResult({ currentTime, iso: new Date(currentTime).toISOString() });
 };
 
+const handleAuditEnvironment: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemAuditEnvironmentSchema.parse(rawArgs);
+    const frontend = parsed.frontend ?? 'desktop';
+    const [version, rawConf, packageLists] = await Promise.all([
+        systemApi.getVersion(client),
+        systemApi.getConf(client),
+        Promise.all(packagesApi.INSTALLED_PACKAGE_KINDS.map((kind) => (
+            packagesApi.getInstalledPackages(client, kind, '', frontend)
+        ))),
+    ]);
+    const packagesByKind = Object.fromEntries(packagesApi.INSTALLED_PACKAGE_KINDS.map((kind, index) => [
+        kind,
+        packageLists[index],
+    ])) as Record<packagesApi.InstalledPackageKind, Record<string, unknown>[]>;
+
+    return createJsonResult({
+        readonly: true,
+        version,
+        frontend,
+        configuration: buildConfResponse(rawConf, 'summary', undefined, 0, 20),
+        packages: {
+            totals: Object.fromEntries(packagesApi.INSTALLED_PACKAGE_KINDS.map((kind) => [
+                kind,
+                packagesByKind[kind].length,
+            ])),
+            plugins: countPluginStates(packagesByKind.plugin),
+        },
+        hints: [
+            'Use system(action="conf", mode="get", keyPath="<path>") to inspect one masked configuration subtree.',
+            'Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") for package details.',
+            'This audit never reads third-party plugin storage and never changes package state.',
+        ],
+    });
+};
+
+const handleListPackages: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemListPackagesSchema.parse(rawArgs);
+    const frontend = parsed.frontend ?? 'desktop';
+    const page = parsed.page ?? 1;
+    const pageSize = parsed.pageSize ?? DEFAULT_PACKAGE_PAGE_SIZE;
+    const packages = await packagesApi.getInstalledPackages(client, parsed.kind, parsed.keyword?.trim() ?? '', frontend);
+    const start = (page - 1) * pageSize;
+
+    return createJsonResult({
+        readonly: true,
+        kind: parsed.kind,
+        frontend,
+        keyword: parsed.keyword?.trim() ?? '',
+        total: packages.length,
+        page,
+        pageSize,
+        pageCount: packages.length === 0 ? 0 : Math.ceil(packages.length / pageSize),
+        items: packages.slice(start, start + pageSize).map((pkg) => normalizeInstalledPackage(pkg, parsed.kind)),
+        hints: [
+            'Results contain compact package metadata only; README and plugin configuration content are excluded.',
+            'Use keyword to narrow the installed-package list when searching for one extension.',
+        ],
+    });
+};
+
 export const SYSTEM_ACTION_HANDLERS: Record<SystemAction, ToolActionHandler> = {
     workspace_info: handleWorkspaceInfo,
     network: handleNetwork,
@@ -214,4 +328,6 @@ export const SYSTEM_ACTION_HANDLERS: Record<SystemAction, ToolActionHandler> = {
     perform_sync: handlePerformSync,
     get_version: handleGetVersion,
     get_current_time: handleGetCurrentTime,
+    audit_environment: handleAuditEnvironment,
+    list_packages: handleListPackages,
 };

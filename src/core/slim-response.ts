@@ -97,6 +97,11 @@ const ITEM_DROP_KEYS = new Set([
     'flashcardCount',
 ]);
 
+const CONTENT_VALUE_ARRAY_KEYS = new Set([
+    'mSelect',
+    'mAsset',
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -133,7 +138,7 @@ function slimError(error: Record<string, unknown>): Record<string, unknown> {
     return Object.fromEntries(Object.entries(error).filter(([key]) => allowed.has(key)));
 }
 
-function slimSearchLikeItem(item: Record<string, unknown>): Record<string, unknown> {
+function slimSearchLikeItem(item: Record<string, unknown>, ctx?: SlimContext): Record<string, unknown> {
     const slimmed: Record<string, unknown> = {};
     for (const key of ['id', 'type', 'subtype', 'hPath', 'path', 'notebookName']) {
         if (item[key] !== undefined) slimmed[key] = item[key];
@@ -147,14 +152,18 @@ function slimSearchLikeItem(item: Record<string, unknown>): Record<string, unkno
         slimmed.content = item.content;
     }
 
-    return Object.keys(slimmed).length > 0 ? slimmed : slimGenericItem(item);
+    return Object.keys(slimmed).length > 0 ? slimmed : slimGenericItem(item, undefined, ctx);
 }
 
-function slimGenericItem(item: Record<string, unknown>): Record<string, unknown> {
+function slimGenericItem(item: Record<string, unknown>, parentKey?: string, ctx?: SlimContext): Record<string, unknown> {
     const next: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(item)) {
-        if (ITEM_DROP_KEYS.has(key)) continue;
-        next[key] = slimValue(value);
+        const preservesDatabaseValue = key === 'content'
+            && ctx?.category === 'av'
+            && parentKey !== undefined
+            && CONTENT_VALUE_ARRAY_KEYS.has(parentKey);
+        if (ITEM_DROP_KEYS.has(key) && !preservesDatabaseValue) continue;
+        next[key] = slimValue(value, key, ctx);
     }
     return next;
 }
@@ -167,15 +176,15 @@ function looksLikeSearchItem(item: Record<string, unknown>): boolean {
         || item.blockPath !== undefined;
 }
 
-function slimValue(value: unknown): unknown {
+function slimValue(value: unknown, parentKey?: string, ctx?: SlimContext): unknown {
     if (Array.isArray(value)) {
         return value.map((item) => {
-            if (!isRecord(item)) return slimValue(item);
-            return looksLikeSearchItem(item) ? slimSearchLikeItem(item) : slimGenericItem(item);
+            if (!isRecord(item)) return slimValue(item, parentKey, ctx);
+            return looksLikeSearchItem(item) ? slimSearchLikeItem(item, ctx) : slimGenericItem(item, parentKey, ctx);
         });
     }
     if (!isRecord(value)) return value;
-    return slimObject(value, { category: 'system', action: 'unknown' });
+    return slimObject(value, ctx ?? { category: 'system', action: 'unknown' });
 }
 
 function slimUiRefresh(value: unknown): unknown {
@@ -219,7 +228,7 @@ function slimObject(payload: Record<string, unknown>, ctx: SlimContext): Record<
             continue;
         }
         if (TOP_LEVEL_DROP_KEYS.has(key)) continue;
-        next[key] = slimValue(value);
+        next[key] = slimValue(value, key, ctx);
     }
 
     return next;
@@ -239,7 +248,7 @@ export function slimToolResult(result: ToolResult, ctx: SlimContext): ToolResult
     }
 
     const slimmed = Array.isArray(parsed)
-        ? parsed.map((item) => (isRecord(item) ? slimGenericItem(item) : slimValue(item)))
+        ? parsed.map((item) => (isRecord(item) ? slimGenericItem(item, undefined, ctx) : slimValue(item, undefined, ctx)))
         : (isRecord(parsed) ? slimObject(parsed, ctx) : parsed);
 
     return createTextResult(result, slimmed);

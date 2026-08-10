@@ -219,6 +219,8 @@
 | `changelog` | 内置 `CHANGELOG.md` | `src/core/changelog.ts` / `src/tools/system/index.ts` | 读取插件更新日志，并返回可能影响个性化设置的结构化提示 |
 | `get_version` | `POST /api/system/version` | `src/api/system.ts` / `src/tools/system/index.ts` | 只读 |
 | `get_current_time` | `POST /api/system/currentTime` | `src/api/system.ts` / `src/tools/system/index.ts` | 只读 |
+| `audit_environment` | `POST /api/system/version` + `POST /api/system/getConf` + 五类 `getInstalled*` 接口 | `src/api/system.ts` + `src/api/packages.ts` / `src/tools/system/handlers.ts` | 只读环境概览，不读取第三方插件配置 |
+| `list_packages` | `POST /api/bazaar/getInstalledPlugin` / `getInstalledWidget` / `getInstalledTheme` / `getInstalledIcon` / `getInstalledTemplate` | `src/api/packages.ts` / `src/tools/system/handlers.ts` | 只读、分页、裁剪大字段 |
 
 ## `flashcard`
 

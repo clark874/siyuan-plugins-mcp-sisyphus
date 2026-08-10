@@ -337,6 +337,7 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `get_attribute_view_keys` | 返回属性视图的列信息 |
 | `get_attribute_view_filter_sort` | 返回视图的筛选与排序配置 |
 | `search` | 按关键词搜索属性视图 |
+| `rename` | 重命名属性视图（数据库） |
 | `add_rows` | 添加绑定块行，或添加纯文本主键的 detached 行 |
 | `remove_rows` | 从属性视图中移除已绑定的行 |
 | `add_column` | 新增数据库列 |

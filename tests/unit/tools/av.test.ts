@@ -39,6 +39,7 @@ vi.mock('@/api/av', () => ({
 vi.mock('@/api/block', () => ({
     appendBlock: vi.fn(),
     checkBlockExist: vi.fn(),
+    getBlockAttrs: vi.fn(),
     getBlockDOM: vi.fn(),
 }));
 
@@ -85,6 +86,7 @@ describe('av tool', () => {
         vi.mocked(context.resolveResultItemContext).mockReset();
         vi.mocked(blockApi.appendBlock).mockReset();
         vi.mocked(blockApi.checkBlockExist).mockReset();
+        vi.mocked(blockApi.getBlockAttrs).mockReset();
         vi.mocked(blockApi.getBlockDOM).mockReset();
         vi.mocked(searchApi.querySQL).mockReset();
         vi.mocked(transactionApi.performTransactions).mockReset();
@@ -98,6 +100,7 @@ describe('av tool', () => {
             undoOperations: [{ action: 'delete', id: 'av-block-new' }],
         } as never);
         vi.mocked(blockApi.checkBlockExist).mockResolvedValue(true);
+        vi.mocked(blockApi.getBlockAttrs).mockResolvedValue({ updated: '20260810180000' });
         vi.mocked(searchApi.querySQL).mockResolvedValue([]);
         vi.mocked(avApi.spinBlockDOM).mockImplementation(async (_clientArg, dom) => ({ dom: `<div data-spun="1">${dom}</div>` }));
         vi.mocked(blockApi.getBlockDOM).mockImplementation(async (_clientArg, id) => ({
@@ -161,6 +164,151 @@ describe('av tool', () => {
         expect(tool.inputSchema.properties.createIfNotExist.type).toBe('boolean');
         expect(tool.inputSchema.properties.groupPaging.type).toBe('object');
         expect(tool.inputSchema.properties.page.type).toBe('integer');
+    });
+
+    it('renames a database through a reversible SiYuan transaction', async () => {
+        const avApi = await import('@/api/av');
+        const transactionApi = await import('@/api/transaction');
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({
+            av: {
+                id: 'av-1',
+                name: '旧名称',
+                keyValues: [{ key: { type: 'block' }, values: [] }],
+            },
+        });
+
+        const result = await callAvTool(client, {
+            action: 'rename',
+            avID: 'av-1',
+            blockID: 'db-block-1',
+            name: '新名称',
+        }, enabledActions('rename'), permMgr);
+
+        const transaction = vi.mocked(transactionApi.performTransactions).mock.calls[0][1][0];
+        expect(transaction.doOperations[0]).toEqual({
+            action: 'setAttrViewName',
+            id: 'av-1',
+            data: '新名称',
+        });
+        expect(transaction.doOperations[1]).toMatchObject({
+            action: 'doUpdateUpdated',
+            id: 'db-block-1',
+        });
+        expect(transaction.undoOperations[0]).toEqual({
+            action: 'setAttrViewName',
+            id: 'av-1',
+            data: '旧名称',
+        });
+        expect(transaction.undoOperations[1]).toEqual({
+            action: 'doUpdateUpdated',
+            id: 'db-block-1',
+            data: '20260810180000',
+        });
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            success: true,
+            action: 'rename',
+            avID: 'av-1',
+            name: '新名称',
+        });
+    });
+
+    it('uses a verified mirror database block instead of a bound source block when rename omits blockID', async () => {
+        const avApi = await import('@/api/av');
+        const blockApi = await import('@/api/block');
+        const context = await import('@/tools/internal/context');
+        const transactionApi = await import('@/api/transaction');
+        vi.mocked(avApi.getMirrorDatabaseBlocks).mockResolvedValue({ refDefs: [{ refID: 'db-block-1' }] });
+
+        await callAvTool(client, {
+            action: 'rename',
+            avID: 'av-1',
+            name: '新名称',
+        }, enabledActions('rename'), permMgr);
+
+        expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'db-block-1', 'write');
+        expect(vi.mocked(context.ensurePermissionForDocumentId)).not.toHaveBeenCalledWith(client, permMgr, 'block-1', 'write');
+        expect(vi.mocked(blockApi.getBlockAttrs)).toHaveBeenCalledWith(client, 'db-block-1');
+        expect(vi.mocked(transactionApi.performTransactions).mock.calls[0][1][0].doOperations[1]).toMatchObject({
+            action: 'doUpdateUpdated',
+            id: 'db-block-1',
+        });
+    });
+
+    it('rejects a bound source block as the explicit database context for rename', async () => {
+        const blockApi = await import('@/api/block');
+        const transactionApi = await import('@/api/transaction');
+        vi.mocked(blockApi.getBlockDOM).mockResolvedValue({ id: 'block-1', dom: '<div class="p"></div>' });
+
+        const result = await callAvTool(client, {
+            action: 'rename',
+            avID: 'av-1',
+            blockID: 'block-1',
+            name: '不应生效',
+        }, enabledActions('rename'), permMgr);
+
+        expect(vi.mocked(transactionApi.performTransactions)).not.toHaveBeenCalled();
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: {
+                type: 'validation_error',
+                action: 'rename',
+            },
+        });
+    });
+
+    it('rejects a fuzzy SQL database candidate whose DOM belongs to another AV', async () => {
+        const avApi = await import('@/api/av');
+        const blockApi = await import('@/api/block');
+        const searchApi = await import('@/api/search');
+        const transactionApi = await import('@/api/transaction');
+        vi.mocked(avApi.getMirrorDatabaseBlocks).mockResolvedValue({ refDefs: [] });
+        vi.mocked(searchApi.querySQL).mockResolvedValue([{ id: 'db-block-unrelated' }]);
+        vi.mocked(blockApi.getBlockDOM).mockResolvedValue({
+            id: 'db-block-unrelated',
+            dom: '<div data-type="NodeAttributeView" data-av-id="av-other" class="av"></div>',
+        });
+
+        await callAvTool(client, {
+            action: 'rename',
+            avID: 'av-1',
+            name: '不应生效',
+        }, enabledActions('rename'), permMgr);
+
+        expect(vi.mocked(transactionApi.performTransactions)).not.toHaveBeenCalled();
+    });
+
+    it('reuses the exact database block that passed rename permission checks', async () => {
+        const avApi = await import('@/api/av');
+        const transactionApi = await import('@/api/transaction');
+        vi.mocked(avApi.getMirrorDatabaseBlocks)
+            .mockResolvedValueOnce({ refDefs: [{ refID: 'db-block-1' }] })
+            .mockResolvedValueOnce({ refDefs: [{ refID: 'db-block-2' }] });
+
+        await callAvTool(client, {
+            action: 'rename',
+            avID: 'av-1',
+            name: '新名称',
+        }, enabledActions('rename'), permMgr);
+
+        const transaction = vi.mocked(transactionApi.performTransactions).mock.calls[0][1][0];
+        expect(transaction.doOperations[1]).toMatchObject({
+            action: 'doUpdateUpdated',
+            id: 'db-block-1',
+        });
+    });
+
+    it('does not rename when the database block has no restorable updated value', async () => {
+        const blockApi = await import('@/api/block');
+        const transactionApi = await import('@/api/transaction');
+        vi.mocked(blockApi.getBlockAttrs).mockResolvedValue({});
+
+        await callAvTool(client, {
+            action: 'rename',
+            avID: 'av-1',
+            blockID: 'db-block-1',
+            name: '不应生效',
+        }, enabledActions('rename'), permMgr);
+
+        expect(vi.mocked(transactionApi.performTransactions)).not.toHaveBeenCalled();
     });
 
     it('maps typed set_cells input into the kernel value payload', async () => {

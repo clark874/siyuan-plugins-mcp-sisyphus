@@ -76,6 +76,7 @@ export const AV_GUIDANCE: string[] = [
     'To initialize a new AV definition, call av(action="render", blockID, createIfNotExist=true). MCP can generate the AV ID automatically and materialize a SiYuan-style NodeAttributeView block in the target document through a transaction.',
     'Most follow-up AV reads and writes only need avID. MCP resolves the owning database block from row bindings, mirror database blocks, or the blocks-table AV block record; pass blockID when you need an exact database-block view context or fallback.',
     'Use strong typed fields such as valueType=text/number/date/checkbox/select when calling av(action="set_cells").',
+    'Use av(action="rename", avID, name) to rename the database definition; pass blockID when an exact database-block context is required.',
     'For cell writes, rowID must be the database row item ID stored in each AV value\'s blockID field. The value id field is only the cell value ID, and block.id is the original bound source block ID.',
     'AV permission checks resolve from registered database blocks. For createIfNotExist=true, provide blockID as the creation target; after materialization, MCP can usually rediscover that owning database block automatically.',
     'av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.',
@@ -114,6 +115,8 @@ export const TIMELINE_GUIDANCE: string[] = [
 
 export const SYSTEM_GUIDANCE: string[] = [
     'Most system actions in this tool are read-only; perform_sync is the mutating exception and requires explicit user confirmation before execution.',
+    'Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.',
+    'Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.',
     'system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.',
     'system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.',
     'system(action="conf") returns masked configuration, not raw secrets.',
@@ -220,6 +223,7 @@ export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
     get_attribute_view_keys: 'Use id to return database keys/columns for a block-bound attribute view.',
     get_attribute_view_filter_sort: 'Use id + blockID to return the filters and sorts applied to that database block view.',
     search: 'Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.',
+    rename: 'Use avID + name to rename the database definition through a SiYuan transaction. Optional blockID pins the permission and refresh context to a registered database block for this AV.',
     add_rows: 'Use avID + blockIDs to add existing blocks as bound rows, or avID + primaryKeyTexts to add detached rows whose primary key is plain text. Optional blockID/viewID/groupID/previousID refine the insertion target and preserve the intended database-block view/group defaults. MCP polls briefly after insertion and only reports success when each new row resolves to a writable rowID. To add initial non-primary-key cell values, follow add_rows with av(action="set_cells", avID, cells=[{rowID, columnID, valueType, ...}, ...]); reuse the rowID returned by add_rows.',
     remove_rows: 'Use avID + srcIDs to remove rows from the AV. Optional blockID pins a specific registered database block when you need explicit block-view context.',
     add_column: 'Use avID + keyName + keyType, and optionally keyID or blockID. MCP generates keyID automatically when omitted. Supported keyType values match the 16 SiYuan addable column types, including keyType="mSelect", keyType="mAsset", and keyType="lineNumber". Optional blockID must be a registered database block for this AV if you need to pin a specific block view.',
@@ -290,6 +294,8 @@ export const SYSTEM_ACTION_HINTS: Partial<Record<SystemAction, string>> = {
     perform_sync: 'Triggers SiYuan sync immediately through /api/sync/performSync. This action can change local and remote sync state and requires explicit user confirmation.',
     get_version: 'Returns the current SiYuan version as {version}.',
     get_current_time: 'Returns the current system time as {currentTime} epoch milliseconds and {iso} ISO 8601 text.',
+    audit_environment: 'Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.',
+    list_packages: 'Lists compact installed-package metadata with kind, optional keyword/frontend, and page/pageSize. README and plugin configuration content are excluded.',
 };
 
 export const FLASHCARD_ACTION_HINTS: Partial<Record<FlashcardAction, string>> = {
@@ -523,6 +529,25 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
     tag: {},
     timeline: {},
     system: {
+        audit_environment: [
+            {
+                title: 'Audit the current SiYuan environment without reading plugin configuration',
+                mcp: {
+                    action: 'audit_environment',
+                },
+            },
+        ],
+        list_packages: [
+            {
+                title: 'List installed plugins with compact metadata',
+                mcp: {
+                    action: 'list_packages',
+                    kind: 'plugin',
+                    page: 1,
+                    pageSize: 50,
+                },
+            },
+        ],
         changelog: [
             {
                 title: 'Review changes after a known previous plugin version',
