@@ -14,6 +14,7 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 | Browse notebooks, documents, paths, IDs, and blocks | `siyuan-sisyphus-browse-read` |
 | Create documents or edit blocks | `siyuan-sisyphus-create-edit` |
 | Fulltext, SQL, backlinks, references, and replacement | `siyuan-sisyphus-search-query` |
+| Capture web sources, deduplicate them, and merge knowledge with provenance | `siyuan-sisyphus-knowledge-ingest` |
 | Attribute views, columns, rows, and cells | `siyuan-sisyphus-database` |
 | Assets, extraction, and exports | `siyuan-sisyphus-file-export` |
 | Tags, decks, cards, and review | `siyuan-sisyphus-tag-flashcard` |

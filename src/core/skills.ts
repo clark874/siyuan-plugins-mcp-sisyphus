@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import indexSkill from '../../skills/siyuan-mcp/siyuan-mcp-sisyphus/SKILL.md?raw';
 import browseReadSkill from '../../skills/siyuan-mcp/siyuan-mcp-browse-read/SKILL.md?raw';
 import createEditSkill from '../../skills/siyuan-mcp/siyuan-mcp-create-edit/SKILL.md?raw';
+import knowledgeIngestSkill from '../../skills/siyuan-mcp/siyuan-mcp-knowledge-ingest/SKILL.md?raw';
+import knowledgeIngestNormalizeScript from '../../skills/siyuan-mcp/siyuan-mcp-knowledge-ingest/scripts/normalize-source.mjs?raw';
 import searchQuerySkill from '../../skills/siyuan-mcp/siyuan-mcp-search-query/SKILL.md?raw';
 import databaseSkill from '../../skills/siyuan-mcp/siyuan-mcp-database/SKILL.md?raw';
 import fileExportSkill from '../../skills/siyuan-mcp/siyuan-mcp-file-export/SKILL.md?raw';
@@ -62,17 +64,22 @@ function createMcpSkill(
 }
 
 export const MCP_SKILLS: readonly McpSkillDefinition[] = [
-    indexSkill,
-    browseReadSkill,
-    createEditSkill,
-    searchQuerySkill,
-    databaseSkill,
-    fileExportSkill,
-    tagFlashcardSkill,
-    timelineSkill,
-    systemSafetySkill,
-    markupGuideSkill,
-].map((text) => createMcpSkill(text));
+    createMcpSkill(indexSkill),
+    createMcpSkill(browseReadSkill),
+    createMcpSkill(createEditSkill),
+    createMcpSkill(knowledgeIngestSkill, [{
+        path: 'scripts/normalize-source.mjs',
+        text: knowledgeIngestNormalizeScript,
+        mimeType: 'text/javascript',
+    }]),
+    createMcpSkill(searchQuerySkill),
+    createMcpSkill(databaseSkill),
+    createMcpSkill(fileExportSkill),
+    createMcpSkill(tagFlashcardSkill),
+    createMcpSkill(timelineSkill),
+    createMcpSkill(systemSafetySkill),
+    createMcpSkill(markupGuideSkill),
+];
 
 const SEP_LISTED_SKILLS: readonly McpSkillDefinition[] = [
     createMcpSkill(sepIndexSkill, [{ path: 'agents/openai.yaml', text: sepIndexAgent, mimeType: 'application/yaml' }]),

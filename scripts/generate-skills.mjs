@@ -6,6 +6,7 @@ import path from 'node:path';
 import { scenarios } from '../skills/source/scenarios.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const knowledgeIngestScript = await readFile(path.join(root, 'skills/source/normalize-source.mjs'), 'utf8');
 const check = process.argv.includes('--check');
 const validArgs = new Set(['--check']);
 const unknownArgs = process.argv.slice(2).filter((arg) => !validArgs.has(arg));
@@ -114,9 +115,12 @@ for (const scenario of scenarios) {
         }
         await syncFile(`${base}/SKILL.md`, skill);
         await syncFile(`${base}/agents/openai.yaml`, renderOpenAiYaml(scenario, runtime));
+        if (scenario.id === 'knowledge-ingest') {
+            await syncFile(`${base}/scripts/normalize-source.mjs`, knowledgeIngestScript);
+        }
     }
 }
 
 console.log(check
-    ? `Verified ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, and ${scenarios.length * 2} metadata files.`
-    : `Generated ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, and ${scenarios.length * 2} metadata files.`);
+    ? `Verified ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, and 2 runtime assets.`
+    : `Generated ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, and 2 runtime assets.`);

@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.6.2-local.6` 在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录与可用于聚合、分组和递归 CTE 审计的安全 SQL 分析通道。裸 SQL 会实时检查全局笔记本权限，任一笔记本不可读时即失败关闭；账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [system 工具文档](docs/reference/tools/system.md)、[search 工具文档](docs/reference/tools/search.md) 与 [SQL 修复设计](docs/plans/2026-08-11-sql-analysis-channel-fix-design.md)。
+> **本地维护分支：** 当前 Fork 的 `v0.6.3-local.7`（CLI `v0.2.4-local.1`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道与知识摄取 Skill。知识摄取 Skill 把网页剪藏和 Agent 检索统一为“来源规范化—既有知识盘点—差量决策—可恢复写入—SQL/AV 回读—幂等复跑”流程；账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [知识摄取设计](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -92,7 +92,7 @@ For complete installation and connection instructions, see [Getting Started](./d
 - **MCP and CLI entry points**: use MCP for multi-step agent workflows and CLI for scripts, automation, and small one-shot tasks.
 - **Notebook-level safety**: assign each notebook `none`, `r`, `rw`, or `rwd` access.
 - **Low-context tool design**: group 100+ SiYuan capabilities into 14 action-routed tools and load detailed guidance only when needed.
-- **Scenario Skills for agents**: provide guidance for browsing, editing, search, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup.
+- **Scenario Skills for agents**: provide guidance for browsing, editing, search, knowledge ingestion, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup.
 - **MCP Apps views**: dedicated launch tools open flashcard review, document timeline, and mascot shop exactly once; ordinary aggregate tools never render duplicate Apps, and human actions are managed on a separate MCP Apps settings page.
 - **Git-like document timeline**: create named timeline nodes, compare snapshots, and roll back a document when needed.
 - **Practical connection setup**: generate connection snippets for common AI clients and local, remote, and Docker deployments.
@@ -182,7 +182,7 @@ Modern dangerous calls use MCP multi-round-trip input: the operation is not disp
 
 ## Scenario Skills For Agents
 
-The MCP server includes scenario-oriented guidance for browsing, editing, search, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. For timeline work, load `siyuan://skills/siyuan-mcp-timeline` or invoke the `siyuan_timeline` prompt. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
+The MCP server includes scenario-oriented guidance for browsing, editing, search, knowledge ingestion, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. For web-source ingestion, load `siyuan://skills/siyuan-mcp-knowledge-ingest` or invoke the `siyuan_knowledge_ingest` prompt. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
 
 Agents that support installable `SKILL.md` packages can install the same guidance locally:
 

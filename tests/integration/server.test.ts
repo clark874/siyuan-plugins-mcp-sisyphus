@@ -124,6 +124,22 @@ describe('MCP Server Integration', () => {
                 z.object({ skill: z.any() }),
             );
             expect(unlisted.skill.frontmatter.name).toBe('siyuan-mcp-timeline');
+            const ingest = await skillsClient.request(
+                { method: 'skills/get', params: { uri: 'skill://siyuan-mcp-knowledge-ingest/SKILL.md' } },
+                z.object({ skill: z.any() }),
+            );
+            expect(ingest.skill.frontmatter.name).toBe('siyuan-mcp-knowledge-ingest');
+            const normalizeResource = ingest.skill.resources.find(
+                (item: any) => item.uri === 'skill://siyuan-mcp-knowledge-ingest/scripts/normalize-source.mjs',
+            );
+            if (!normalizeResource) throw new Error('Missing knowledge-ingest normalization resource.');
+            expect(normalizeResource?.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
+            const normalize = await skillsClient.readResource({ uri: normalizeResource.uri });
+            const normalizeText = (normalize.contents[0] as { text: string }).text;
+            expect(normalizeText).toContain('canonicalizeUrl');
+            expect(`sha256:${createHash('sha256').update(normalizeText, 'utf8').digest('hex')}`).toBe(
+                normalizeResource.digest,
+            );
             await skillsClient.close();
         });
 
@@ -783,13 +799,17 @@ describe('MCP Server Integration', () => {
     describe('Scenario prompts', () => {
         it('lists prompts and returns embedded skill guidance with an optional task', async () => {
             const { prompts } = await client.listPrompts();
-            expect(prompts).toHaveLength(10);
+            expect(prompts).toHaveLength(11);
             expect(prompts).toContainEqual(expect.objectContaining({
                 name: 'siyuan_create_edit',
                 arguments: [expect.objectContaining({ name: 'task', required: false })],
             }));
             expect(prompts).toContainEqual(expect.objectContaining({
                 name: 'siyuan_timeline',
+                arguments: [expect.objectContaining({ name: 'task', required: false })],
+            }));
+            expect(prompts).toContainEqual(expect.objectContaining({
+                name: 'siyuan_knowledge_ingest',
                 arguments: [expect.objectContaining({ name: 'task', required: false })],
             }));
 

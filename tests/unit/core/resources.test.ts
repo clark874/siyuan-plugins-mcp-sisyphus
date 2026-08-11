@@ -33,11 +33,14 @@ describe('core/resources', () => {
     it('lists and reads embedded scenario skills', () => {
         const index = readHelpResource('siyuan://skills/index');
         const skill = readHelpResource('siyuan://skills/siyuan-mcp-create-edit');
+        const ingest = readHelpResource('siyuan://skills/siyuan-mcp-knowledge-ingest');
 
         expect(index?.text).toContain('# SiYuan MCP Skill Index');
         expect(index?.text).toContain('siyuan-mcp-create-edit');
         expect(skill?.text).toContain('name: siyuan-mcp-create-edit');
         expect(skill?.text).not.toContain('siyuan-sisyphus block');
+        expect(ingest?.text).toContain('custom-source-url');
+        expect(ingest?.text).toContain('幂等复跑');
         expect(readHelpResource('siyuan://skills/unknown')).toBeNull();
     });
 

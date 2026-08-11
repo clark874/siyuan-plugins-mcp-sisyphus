@@ -14,6 +14,7 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 | Browse notebooks, documents, paths, IDs, and blocks | `siyuan-mcp-browse-read` |
 | Create documents or edit blocks | `siyuan-mcp-create-edit` |
 | Fulltext, SQL, backlinks, references, and replacement | `siyuan-mcp-search-query` |
+| Capture web sources, deduplicate them, and merge knowledge with provenance | `siyuan-mcp-knowledge-ingest` |
 | Attribute views, columns, rows, and cells | `siyuan-mcp-database` |
 | Assets, extraction, and exports | `siyuan-mcp-file-export` |
 | Tags, decks, cards, and review | `siyuan-mcp-tag-flashcard` |

@@ -36,15 +36,26 @@ const variantsByTool: Record<string, Array<{ action: string; schema: Record<stri
 };
 
 describe('core/skills', () => {
-    it('embeds ten valid MCP skills without CLI invocation examples', () => {
-        expect(MCP_SKILLS).toHaveLength(10);
-        expect(new Set(MCP_SKILLS.map((skill) => skill.name)).size).toBe(10);
-        expect(new Set(MCP_SKILLS.map((skill) => skill.promptName)).size).toBe(10);
+    it('embeds eleven valid MCP skills without CLI invocation examples', () => {
+        expect(MCP_SKILLS).toHaveLength(11);
+        expect(new Set(MCP_SKILLS.map((skill) => skill.name)).size).toBe(11);
+        expect(new Set(MCP_SKILLS.map((skill) => skill.promptName)).size).toBe(11);
 
         for (const skill of MCP_SKILLS) {
             expect(skill.text).toContain(`name: ${skill.name}`);
             expect(skill.text).not.toMatch(/\bsiyuan-sisyphus\s+(fs|notebook|document|block|av|file|search|tag|timeline|system|flashcard|mascot|feedback)\b/);
         }
+
+        const ingest = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-knowledge-ingest');
+        expect(ingest?.files).toEqual(expect.arrayContaining([
+            expect.objectContaining({ path: 'scripts/normalize-source.mjs', mimeType: 'text/javascript' }),
+        ]));
+        expect(ingest?.files.find((file) => file.path === 'scripts/normalize-source.mjs')?.text).toContain(
+            'canonicalizeUrl',
+        );
+        expect(ingest?.text).toContain('来源页面自称“官方”不构成身份核验');
+        expect(ingest?.text).toContain('若 `set_attrs` 失败');
+        expect(ingest?.text).toContain('- 正文哈希：<sha256>');
     });
 
     it('renders a discoverable index and scenario prompts', () => {
@@ -53,9 +64,11 @@ describe('core/skills', () => {
         const prompt = getMcpPrompt('siyuan_create_edit', 'Append a summary.');
 
         expect(index).toContain('siyuan://help/action/{tool}/{action}');
-        expect(prompts).toHaveLength(10);
+        expect(prompts).toHaveLength(11);
         expect(index).toContain('siyuan-mcp-timeline');
+        expect(index).toContain('siyuan-mcp-knowledge-ingest');
         expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_timeline' }));
+        expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_knowledge_ingest' }));
         expect(prompts.find((item) => item.name === 'siyuan_create_edit')?.arguments).toEqual([
             expect.objectContaining({ name: 'task', required: false }),
         ]);

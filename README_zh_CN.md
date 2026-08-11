@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.6.2-local.6` 在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录与可用于聚合、分组和递归 CTE 审计的安全 SQL 分析通道。裸 SQL 会实时检查全局笔记本权限，任一笔记本不可读时即失败关闭；账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [system 工具文档](docs/reference/tools/system.md)、[search 工具文档](docs/reference/tools/search.md) 与 [SQL 修复设计](docs/plans/2026-08-11-sql-analysis-channel-fix-design.md)。
+> **本地维护分支：** 当前 Fork 的 `v0.6.3-local.7`（CLI `v0.2.4-local.1`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道与知识摄取 Skill。知识摄取 Skill 把网页剪藏和 Agent 检索统一为“来源规范化—既有知识盘点—差量决策—可恢复写入—SQL/AV 回读—幂等复跑”流程；账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [知识摄取设计](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前本地维护版本：**`v0.6.2-local.6` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改与安全 SQL 分析通道；CLI 仍为 `v0.2.3`。
+> **当前本地维护版本：**`v0.6.3-local.7` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改、安全 SQL 分析通道与知识摄取 Skill；本地 CLI 为 `v0.2.4-local.1`。
 
 ## 项目方向调整
 
@@ -96,7 +96,7 @@ sisyphus notebook list
 - **MCP 与 CLI 双入口**：MCP 适合多步 Agent 工作流，CLI 适合脚本、自动化和小型单次任务。
 - **笔记本级安全边界**：每个笔记本可独立设置 `none`、`r`、`rw`、`rwd` 权限。
 - **低上下文工具设计**：把 100+ 个思源能力收敛为 14 个按 action 路由的聚合工具，详细说明按需读取。
-- **面向 Agent 的场景 Skill**：内置浏览、编辑、搜索、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版指南。
+- **面向 Agent 的场景 Skill**：内置浏览、编辑、搜索、知识摄取、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版指南。
 - **MCP Apps 交互界面**：闪卡复习、文档时间线和猫猫商店分别由专用启动 Tool 打开一次；普通聚合 Tool 不再重复生成 App，人工 action 在独立“App 软件”设置页管理。
 - **类 Git 文档时间线**：为单篇文档创建命名时间线节点，比较历史快照并按需回退。
 - **实用连接配置**：设置页提供常见 AI 客户端、本地、远程和 Docker 场景的连接片段。
@@ -186,7 +186,7 @@ modern 协议下的高危调用使用 MCP 多轮输入确认：支持 elicitatio
 
 ## 面向 Agent 的场景 Skill
 
-MCP Server 内置了浏览、编辑、搜索、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版等场景指南。普通 MCP 客户端无需安装任何 Skill：先读取 `siyuan://skills/index`，再加载匹配的 `siyuan://skills/{name}` 资源即可。时间线任务可直接加载 `siyuan://skills/siyuan-mcp-timeline`，或调用 `siyuan_timeline` Prompt。对应的 MCP Prompts 是由用户显式调用的工作流入口，不会自动生效。
+MCP Server 内置了浏览、编辑、搜索、知识摄取、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版等场景指南。普通 MCP 客户端无需安装任何 Skill：先读取 `siyuan://skills/index`，再加载匹配的 `siyuan://skills/{name}` 资源即可。网页整理任务可加载 `siyuan://skills/siyuan-mcp-knowledge-ingest` 或调用 `siyuan_knowledge_ingest` Prompt；该流程会对来源执行规范化、查重、差量写入、来源登记和幂等验证。对应的 MCP Prompts 是由用户显式调用的工作流入口，不会自动生效。
 
 支持安装 `SKILL.md` 包的 Agent 可以把同一套指南安装到本地：
 

@@ -1,6 +1,6 @@
 # SiYuan API 完整映射表
 
-> 本表的 459 端点扫描与 119 端点统计来自上游 `v0.6.0` 基线，尚未重新生成全量计数。本地维护版 `v0.6.2-local.6` 另行接入插件清单与状态、在线集市目录与 README、在线更新元数据、代码片段、受限插件存储、允许的系统设置、归档与回滚接口，并修复安全 SQL 分析通道；准确能力边界以 [system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md) 为准。避免在未重新运行全量映射生成器前手工改写总覆盖率。
+> 本表的 459 端点扫描与 119 端点统计来自上游 `v0.6.0` 基线，尚未重新生成全量计数。本地维护版 `v0.6.3-local.7` 另行接入插件清单与状态、在线集市目录与 README、在线更新元数据、代码片段、受限插件存储、允许的系统设置、归档与回滚接口，并修复安全 SQL 分析通道、增加知识摄取 Skill；准确能力边界以 [system 工具文档](docs/reference/tools/system.md)、[search 工具文档](docs/reference/tools/search.md) 与 [知识摄取设计](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md) 为准。避免在未重新运行全量映射生成器前手工改写总覆盖率。
 
 ## 统计信息
 - **SiYuan API 总数**: 459 个端点

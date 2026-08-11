@@ -1,0 +1,4 @@
+interface:
+  display_name: "思源知识摄取 CLI"
+  short_description: "将网页差量编译为可追溯思源知识"
+  default_prompt: "使用 $siyuan-sisyphus-knowledge-ingest 将指定网页或检索结果差量整理进既有思源知识库，并完成来源登记与幂等验证。"
