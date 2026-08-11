@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    attachBlockSectionPaths,
     buildChangedFiles,
     diffBlocks,
     diffSnapshotBlocks,
@@ -15,6 +16,26 @@ import {
 } from '@/ui/version-control/block-diff';
 
 describe('snapshot block diff', () => {
+    it('attaches heading breadcrumbs to changed blocks from the relevant side', () => {
+        const entries = diffSnapshotBlocks(
+            [
+                '<div data-node-id="h1" data-type="NodeHeading" data-subtype="h1"><div>方法</div></div>',
+                '<div data-node-id="h2" data-type="NodeHeading" data-subtype="h2"><div>参数</div></div>',
+                '<div data-node-id="p1" data-type="NodeParagraph"><div>旧值</div></div>',
+                '<div data-node-id="removed" data-type="NodeParagraph"><div>删除内容</div></div>',
+            ].join(''),
+            [
+                '<div data-node-id="h1" data-type="NodeHeading" data-subtype="h1"><div>方法</div></div>',
+                '<div data-node-id="h2" data-type="NodeHeading" data-subtype="h2"><div>参数</div></div>',
+                '<div data-node-id="p1" data-type="NodeParagraph"><div>新值</div></div>',
+            ].join(''),
+        );
+
+        const located = attachBlockSectionPaths(entries);
+        expect(located.find((entry) => entry.newBlock?.id === 'p1')?.sectionPath).toEqual(['方法', '参数']);
+        expect(located.find((entry) => entry.oldBlock?.id === 'removed')?.sectionPath).toEqual(['方法', '参数']);
+    });
+
     it('parses JSON snapshot blocks recursively', () => {
         const blocks = parseSnapshotBlocks(JSON.stringify({
             id: '20260514120000-aaaaaaa',

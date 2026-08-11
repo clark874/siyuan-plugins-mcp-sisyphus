@@ -1,6 +1,6 @@
 # SiYuan API 完整映射表
 
-> 本表的 459 端点扫描与 119 端点统计来自上游 `v0.6.0` 基线，尚未重新生成全量计数。本地维护版 `v0.6.4-local.8` 另行接入插件清单与状态、在线集市目录与 README、在线更新元数据、代码片段、受限插件存储、允许的系统设置、归档与回滚接口，并修复安全 SQL 分析通道、增加知识摄取 Skill 与最近修改侧边栏；准确能力边界以 [system 工具文档](docs/reference/tools/system.md)、[search 工具文档](docs/reference/tools/search.md) 与 [知识摄取设计](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md) 为准。避免在未重新运行全量映射生成器前手工改写总覆盖率。
+> 本表的 459 端点扫描与 119 端点统计来自上游 `v0.6.0` 基线，尚未重新生成全量计数。本地维护版 `v0.7.0-local.9` 另行接入插件清单与状态、在线集市目录与 README、在线更新元数据、代码片段、受限插件存储、允许的系统设置、归档与回滚接口，并修复安全 SQL 分析通道、增加知识摄取 Skill、最近修改分组及原生文档历史 Diff；准确能力边界以各工具文档和本地维护设计文档为准。避免在未重新运行全量映射生成器前手工改写总覆盖率。
 
 ## 统计信息
 - **SiYuan API 总数**: 459 个端点
@@ -508,7 +508,7 @@
 
 ## history 模块
 
-**统计**: 共 10 个 API，已覆盖 0 个，覆盖率 0.0%
+**统计**: 共 10 个 API，本地维护版通过 `timeline.compare_recent` 只读覆盖 3 个；全表总计仍沿用未重新生成的上游基线
 
 | 序号 | 方法 | API 路径 | 处理函数 | 功能描述 | MCP 映射 | 状态 |
 |------|------|----------|----------|----------|----------|------|
@@ -516,12 +516,12 @@
 | 2 | POST | `/api/history/getNotebookHistory` | getNotebookHistory | 历史获取Notebook历史 | - | ❌ 未覆盖 |
 | 3 | POST | `/api/history/rollbackNotebookHistory` | rollbackNotebookHistory | 历史回滚Notebook历史 | - | ❌ 未覆盖 |
 | 4 | POST | `/api/history/rollbackAssetsHistory` | rollbackAssetsHistory | 历史回滚资源历史 | - | ❌ 未覆盖 |
-| 5 | POST | `/api/history/getDocHistoryContent` | getDocHistoryContent | 历史获取Doc历史Content | - | ❌ 未覆盖 |
+| 5 | POST | `/api/history/getDocHistoryContent` | getDocHistoryContent | 历史获取Doc历史Content | timeline.compare_recent | ✅ 已覆盖 |
 | 6 | POST | `/api/history/rollbackDocHistory` | rollbackDocHistory | 历史回滚Doc历史 | - | ❌ 未覆盖 |
 | 7 | POST | `/api/history/clearWorkspaceHistory` | clearWorkspaceHistory | 历史清空工作区历史 | - | ❌ 未覆盖 |
 | 8 | POST | `/api/history/reindexHistory` | reindexHistory | 历史reindex历史 | - | ❌ 未覆盖 |
-| 9 | POST | `/api/history/searchHistory` | searchHistory | 历史搜索历史 | - | ❌ 未覆盖 |
-| 10 | POST | `/api/history/getHistoryItems` | getHistoryItems | 历史获取历史Items | - | ❌ 未覆盖 |
+| 9 | POST | `/api/history/searchHistory` | searchHistory | 历史搜索历史 | timeline.compare_recent | ✅ 已覆盖 |
+| 10 | POST | `/api/history/getHistoryItems` | getHistoryItems | 历史获取历史Items | timeline.compare_recent | ✅ 已覆盖 |
 
 ---
 

@@ -1175,6 +1175,13 @@ export const TimelineCompareNodeSchema = z.object({
     includeUnchanged: z.boolean().optional().describe("Include unchanged blocks in the paginated result (default false)"),
 });
 
+export const TimelineCompareRecentSchema = z.object({
+    action: z.literal("compare_recent"),
+    documentId: z.string().describe("Document ID to compare with its newest different SiYuan document-history checkpoint"),
+    page: z.number().int().min(1).optional().describe("Changed-block page number (default 1)"),
+    pageSize: z.number().int().min(1).max(100).optional().describe("Blocks per page (default 20)"),
+});
+
 export const TimelineDeleteNodeSchema = z.object({
     action: z.literal("delete_node"),
     tag: z.string().min(1).describe("Timeline tag to remove"),

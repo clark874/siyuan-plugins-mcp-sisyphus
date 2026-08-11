@@ -17,7 +17,11 @@ describe('recent documents dock source contract', () => {
     it('provides search, manual refresh, and document opening', () => {
         expect(panelSource).toContain('recent_documents_search_placeholder');
         expect(panelSource).toContain('recent_documents_action_refresh');
-        expect(panelSource).toContain('onOpenDocument(document.id)');
+        expect(panelSource).toContain('onOpenDocument(document)');
+        expect(panelSource).toContain('groupRecentDocuments');
+        expect(panelSource).toContain('comparisonSummaries');
+        expect(pluginSource).toContain('selection: this.recentHistorySelection');
+        expect(pluginSource).toContain('this.showDiffDock()');
     });
 
     it('registers a distinct left-bottom dock and icon', () => {

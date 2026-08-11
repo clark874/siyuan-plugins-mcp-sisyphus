@@ -109,6 +109,7 @@ export const TAG_GUIDANCE: string[] = [
 export const TIMELINE_GUIDANCE: string[] = [
     'timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.',
     'compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.',
+    'compare_recent is read-only and compares a document with the newest different native SiYuan document-history checkpoint; it never creates a repository snapshot or enables rollback.',
     'delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.',
     'Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.',
 ];
@@ -282,6 +283,7 @@ export const TIMELINE_ACTION_HINTS: Partial<Record<TimelineAction, string>> = {
     list_nodes: 'Use scope="global" without documentId, or scope="document"|"all" with documentId. Results are newest first and paginated.',
     create_node: 'Use scope="document" with documentId for a document node, or scope="global" for a node visible to every document. The returned tag is the stable identifier for later actions.',
     compare_node: 'Compares the tagged historical node with a newly created current-state snapshot for one document. Changed blocks are paginated; includeUnchanged defaults to false.',
+    compare_recent: 'Read-only. Scans at most five recent native document-history checkpoints and returns the newest one whose block content differs from the current document, with section breadcrumbs and pagination.',
     delete_node: 'Removes the node tag but retains the underlying snapshot. Document tags require their matching documentId. This action is dangerous and disabled by default.',
     rollback_document: 'Restores only the selected document file from the historical node, not the whole repository. Requires rwd and explicit confirmation; disabled by default.',
     rollback_block: 'Pass a changeKey from compare_node. The diff is recalculated and stale or non-restorable changes are rejected. Requires rwd and explicit confirmation; disabled by default.',

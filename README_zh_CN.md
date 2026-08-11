@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.6.4-local.8`（CLI `v0.2.4-local.1`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill 与独立“最近修改”侧边栏。知识摄取 Skill 把网页剪藏和 Agent 检索统一为“来源规范化—既有知识盘点—差量决策—可恢复写入—SQL/AV 回读—幂等复跑”流程；账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [知识摄取设计](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[最近修改侧边栏设计](docs/plans/2026-08-11-recent-documents-dock-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
+> **本地维护分支：** 当前 Fork 的 `v0.7.0-local.9`（CLI `v0.2.4-local.1`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill，以及按日期分组并联动原生文档历史 Diff 的“最近修改”侧边栏。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[知识摄取设计](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前本地维护版本：**`v0.6.4-local.8` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改、安全 SQL 分析通道、知识摄取 Skill 与独立“最近修改”侧边栏；本地 CLI 为 `v0.2.4-local.1`。
+> **当前本地维护版本：**`v0.7.0-local.9` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改、安全 SQL 分析通道、知识摄取 Skill，以及分组与历史 Diff 联动的“最近修改”侧边栏；本地 CLI 为 `v0.2.4-local.1`。
 
 ## 项目方向调整
 
@@ -151,12 +151,14 @@ v0.6.0 为能够协商 `io.modelcontextprotocol/ui` 的客户端新增了三个�
 “最近修改”是独立于文件树和文档时间线的只读视图。它直接调用思源原生的最近文档接口，按文档根块的实际更新时间降序排列，因此修改深层子文档后，该文档本身会立即进入前列，无需人为改写各级父文档的更新时间。
 
 - 在左侧栏使用独立时钟图标打开，不占用文档时间线入口；
-- 显示文档标题、父级路径和实际修改时间，可按标题或路径检索；
-- 点击条目直接打开文档，支持手动刷新；
+- 按“今天”“昨天”、近 7 日具体日期和较早月份分组；较早月份默认折叠，检索时自动展开命中分组；
+- 显示文档标题、父级路径、实际修改时间及首次比较后的变更块与增删行统计；
+- 点击条目同时打开文档和右侧 Diff，自动选择最近一个与当前块内容不同的思源原生文档历史检查点；
+- Diff 显示修改、新增、删除状态、章节标题路径、修改前后内容与增删行数，并可点击差异定位正文；近期差异模式保持只读，不显示回滚入口；
 - 修改、重命名、移动、新建和删除文档后，在面板可见时自动刷新；
 - 该视图不等同于“按子树最近更新时间重排文件树”：它提供全局近期工作入口，但不会改变文件树结构或排序语义。
 
-可在插件设置的“调试与运行时”区域独立启用或关闭该侧边栏。完整设计与边界见[最近修改侧边栏设计](docs/plans/2026-08-11-recent-documents-dock-design.md)。
+可在插件设置的“调试与运行时”区域独立启用或关闭该侧边栏。完整设计与边界见[最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)。
 
 ## 类 Git 文档时间线
 

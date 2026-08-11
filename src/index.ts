@@ -45,8 +45,14 @@ import ToolPuppy from "@/ui/components/ToolPuppy.svelte";
 import SnapshotPanel from "@/ui/version-control/SnapshotPanel.svelte";
 import VersionDiffPanel from "@/ui/version-control/VersionDiffPanel.svelte";
 import RecentDocumentsPanel from "@/ui/recent-documents/RecentDocumentsPanel.svelte";
+import type {
+    RecentDocumentDiffSummary,
+    RecentDocumentView,
+} from "@/ui/recent-documents/recent-documents";
 import {
+    type DocumentDiffSelection,
     getTimelineNodeSelectionKey,
+    type RecentHistoryDiffSelection,
     type TimelineNodeSelection,
 } from "@/ui/version-control/timeline";
 
@@ -95,6 +101,8 @@ export default class SiyuanMCP extends Plugin {
     private recentDocumentsContainer: HTMLElement | null = null;
     private currentDocument: CurrentDocumentContext = { id: "", title: "" };
     private timelineSelection: TimelineNodeSelection | null = null;
+    private recentHistorySelection: RecentHistoryDiffSelection | null = null;
+    private recentDocumentDiffSummaries: Record<string, RecentDocumentDiffSummary> = {};
     private puppyContainer: HTMLElement | null = null;
     private puppySettings: PuppySettings = buildDefaultPuppySettings();
     private puppySettingsLoaded = false;
@@ -827,19 +835,49 @@ export default class SiyuanMCP extends Plugin {
             props: {
                 i18n: this.i18n ?? {},
                 refreshVersion: this.recentDocumentsRefreshVersion,
-                onOpenDocument: (id: string) => this.openRecentDocument(id),
+                comparisonSummaries: this.recentDocumentDiffSummaries,
+                activeDocumentId: this.recentHistorySelection?.documentId ?? "",
+                onOpenDocument: (document: RecentDocumentView) => this.openRecentDocument(document),
             },
         });
     }
 
-    private openRecentDocument(id: string) {
-        if (!id) return;
+    private openRecentDocument(document: RecentDocumentView) {
+        if (!document.id) return;
+        this.currentDocument = { id: document.id, title: document.title };
+        this.timelineSelection = null;
+        this.recentHistorySelection = {
+            source: "recent_history",
+            documentId: document.id,
+            documentTitle: document.title,
+            updated: document.updated,
+        };
+        this.snapshotPanel?.$set({
+            currentDocumentId: document.id,
+            currentDocumentTitle: document.title,
+            selectedNodeKey: "",
+        });
+        this.diffPanel?.$set({
+            currentDocumentId: document.id,
+            currentDocumentTitle: document.title,
+            selection: this.recentHistorySelection,
+        });
+        this.recentDocumentsPanel?.$set({ activeDocumentId: document.id });
         void (siyuanApi as any).openTab({
             app: (this as any).app,
-            doc: { id },
+            doc: { id: document.id },
             keepCursor: false,
             openNewTab: false,
         });
+        this.showDiffDock();
+    }
+
+    private updateRecentDocumentDiffSummary(documentId: string, summary: RecentDocumentDiffSummary) {
+        this.recentDocumentDiffSummaries = {
+            ...this.recentDocumentDiffSummaries,
+            [documentId]: summary,
+        };
+        this.recentDocumentsPanel?.$set({ comparisonSummaries: this.recentDocumentDiffSummaries });
     }
 
     private invalidateRecentDocuments() {
@@ -1146,12 +1184,19 @@ export default class SiyuanMCP extends Plugin {
             props: {
                 currentDocumentId: this.currentDocument.id,
                 currentDocumentTitle: this.currentDocument.title,
-                selection: this.timelineSelection,
+                selection: this.getActiveDiffSelection(),
                 showDebugMeta: this.versionControlSettings.showDebugMeta,
                 i18n: this.i18n ?? {},
                 onOpenSnapshot: () => this.showSnapshotDock(),
+                onComparisonSummary: (documentId: string, summary: RecentDocumentDiffSummary) => {
+                    this.updateRecentDocumentDiffSummary(documentId, summary);
+                },
             },
         });
+    }
+
+    private getActiveDiffSelection(): DocumentDiffSelection | null {
+        return this.recentHistorySelection ?? this.timelineSelection;
     }
 
     private registerVersionControlEvents() {
@@ -1225,7 +1270,10 @@ export default class SiyuanMCP extends Plugin {
         if (!this.versionControlSettings.enabled) return;
         const documentChanged = this.currentDocument.id !== context.id;
         this.currentDocument = context;
-        if (documentChanged) this.timelineSelection = null;
+        if (documentChanged) {
+            this.timelineSelection = null;
+            this.recentHistorySelection = null;
+        }
         void options;
         this.snapshotPanel?.$set({
             currentDocumentId: context.id,
@@ -1235,13 +1283,16 @@ export default class SiyuanMCP extends Plugin {
         this.diffPanel?.$set({
             currentDocumentId: context.id,
             currentDocumentTitle: context.title,
-            selection: this.timelineSelection,
+            selection: this.getActiveDiffSelection(),
         });
+        this.recentDocumentsPanel?.$set({ activeDocumentId: this.recentHistorySelection?.documentId ?? "" });
     }
 
     private selectTimelineNode(selection: TimelineNodeSelection | null) {
         if (selection && selection.documentId !== this.currentDocument.id) return;
         this.timelineSelection = selection;
+        this.recentHistorySelection = null;
+        this.recentDocumentsPanel?.$set({ activeDocumentId: "" });
         this.snapshotPanel?.$set({
             selectedNodeKey: getTimelineNodeSelectionKey(selection),
         });

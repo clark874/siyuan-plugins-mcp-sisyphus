@@ -404,18 +404,18 @@
 
 ### 中优先级 (扩展功能)
 
-#### History 历史版本 (当前0%覆盖)
+#### History 历史版本（本地维护版只读覆盖 3 个端点）
 
-建议新增 `history` tool：
+`timeline.compare_recent` 已通过以下三个端点提供受笔记本读权限保护的只读近期历史比较；回滚、清空和重建索引仍未开放：
 
 | API 路径 | 说明 |
 |----------|------|
-| `POST /api/history/getDocHistoryContent` | 获取文档历史内容 |
+| `POST /api/history/getDocHistoryContent` | 已接入 `timeline.compare_recent`，读取精确文档历史内容 |
 | `POST /api/history/rollbackDocHistory` | 回滚文档历史 |
 | `POST /api/history/getNotebookHistory` | 获取笔记本历史 |
 | `POST /api/history/rollbackNotebookHistory` | 回滚笔记本历史 |
-| `POST /api/history/searchHistory` | 搜索历史 |
-| `POST /api/history/getHistoryItems` | 获取历史条目 |
+| `POST /api/history/searchHistory` | 已接入 `timeline.compare_recent`，按文档 ID 查找历史时间戳 |
+| `POST /api/history/getHistoryItems` | 已接入 `timeline.compare_recent`，解析精确历史条目 |
 
 #### Export 导出增强 (当前6.5%覆盖)
 

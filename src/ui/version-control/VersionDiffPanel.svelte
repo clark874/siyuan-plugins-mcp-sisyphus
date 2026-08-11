@@ -1,8 +1,11 @@
 <script lang="ts">
     import { onDestroy, onMount, tick } from "svelte";
     import { fetchPost, showMessage } from "siyuan";
+    import { resolveRecentDocumentHistoryDiff } from "@/shared/recent-history-service";
+    import type { RecentDocumentDiffSummary } from "@/ui/recent-documents/recent-documents";
     import {
         buildChangedFiles,
+        attachBlockSectionPaths,
         diffSnapshotBlocks,
         getBlockDiffLineStats,
         getUpdateBlockPayload,
@@ -16,13 +19,15 @@
     import {
         formatSnapshotTime,
         getDocumentKey,
-        getTimelineNodeSelectionKey,
+        getDocumentDiffSelectionKey,
+        isRecentHistoryDiffSelection,
         canReuseLiveDocumentBlock,
         shouldUpdateDiffViewportState,
         snapshotLabel,
         sortSnapshotsNewestFirst,
         type TimelineEntry,
         type TimelineNodeScope,
+        type DocumentDiffSelection,
         type TimelineNodeSelection,
         type TimelineSnapshot,
     } from "./timeline";
@@ -64,10 +69,11 @@
 
     export let currentDocumentId = "";
     export let currentDocumentTitle = "";
-    export let selection: TimelineNodeSelection | null = null;
+    export let selection: DocumentDiffSelection | null = null;
     export let showDebugMeta = false;
     export let i18n: Record<string, string> = {};
     export let onOpenSnapshot: () => void = () => {};
+    export let onComparisonSummary: (documentId: string, summary: RecentDocumentDiffSummary) => void = () => {};
 
     let currentSnapshot: Snapshot | null = null;
     let selectedEntry: TimelineEntry | undefined;
@@ -80,6 +86,7 @@
     let newFileContent: SnapshotFileContent | null = null;
     let blockEntries: BlockDiffEntry[] = [];
     let error = "";
+    let recentHistoryReason: "no_history" | "no_different_history" | "" = "";
     let resolvedDocumentTitle = "";
     let mounted = false;
     let loadedSelectionKey = "";
@@ -99,7 +106,8 @@
     let lastLiveDocumentBlock: HTMLElement | null = null;
     let lastLiveDocumentBlockId = "";
 
-    $: selectionKey = getTimelineNodeSelectionKey(selection);
+    $: selectionKey = getDocumentDiffSelectionKey(selection);
+    $: recentHistoryMode = isRecentHistoryDiffSelection(selection);
     $: displayDocumentTitle = getReadableDocumentTitle(resolvedDocumentTitle)
         || getReadableDocumentTitle(currentDocumentTitle)
         || getReadableDocumentTitle(selection?.documentTitle)
@@ -110,6 +118,9 @@
     $: selectedSnapshotTime = selectedEntry ? formatSnapshotTime(selectedEntry.snapshot) : "";
     $: currentSnapshotTime = currentSnapshot ? formatSnapshotTime(currentSnapshot) : "";
     $: currentVersionTime = currentSnapshotTime || newFileContent?.updated || "";
+    $: diffSourceLabel = recentHistoryMode
+        ? t("recent_history_diff_source", "近期差异")
+        : t("timeline_diff_source", "时间线差异");
     $: diffLineStats = getBlockDiffLineStats(blockEntries);
     $: diffDisplayItems = buildDiffDisplayItems(blockEntries);
     $: hiddenDisplayItems = diffDisplayItems.filter((item): item is DiffHiddenDisplayItem => item.kind === "hidden");
@@ -615,12 +626,21 @@
         return reason;
     }
 
-    async function loadSelection(nextSelection: TimelineNodeSelection) {
+    async function loadSelection(nextSelection: DocumentDiffSelection) {
+        if (isRecentHistoryDiffSelection(nextSelection)) {
+            await loadRecentHistorySelection(nextSelection);
+            return;
+        }
+        await loadTimelineSelection(nextSelection);
+    }
+
+    async function loadTimelineSelection(nextSelection: TimelineNodeSelection) {
         const loadVersion = ++selectionLoadVersion;
         loadingDiff = true;
         error = "";
         selectedEntry = undefined;
         currentSnapshot = null;
+        recentHistoryReason = "";
         expandedHiddenKeys = new Set();
         clearDiff();
         try {
@@ -653,6 +673,88 @@
             }
         } catch (err) {
             if (loadVersion === selectionLoadVersion) error = getErrorMessage(err);
+        } finally {
+            if (loadVersion === selectionLoadVersion) loadingDiff = false;
+        }
+    }
+
+    async function loadRecentHistorySelection(nextSelection: Extract<DocumentDiffSelection, { source: "recent_history" }>) {
+        const loadVersion = ++selectionLoadVersion;
+        loadingDiff = true;
+        error = "";
+        selectedEntry = undefined;
+        currentSnapshot = null;
+        recentHistoryReason = "";
+        expandedHiddenKeys = new Set();
+        clearDiff();
+        try {
+            await refreshDocumentTitle();
+            if (loadVersion !== selectionLoadVersion || nextSelection.documentId !== currentDocumentId) return;
+            const result = await resolveRecentDocumentHistoryDiff({ request: post } as any, {
+                documentId: nextSelection.documentId,
+                currentUpdated: nextSelection.updated,
+                maxCandidates: 5,
+                page: 1,
+                pageSize: 100,
+            });
+            if (loadVersion !== selectionLoadVersion) return;
+            recentHistoryReason = result.reason ?? "";
+            const baselineCreated = result.baseline?.createdAt || result.baseline?.created || "";
+            const entryKey = `recent:${nextSelection.documentId}:${result.baseline?.created ?? "none"}:${nextSelection.updated}`;
+            currentSnapshot = {
+                id: `current:${nextSelection.documentId}`,
+                updated: nextSelection.updated,
+            };
+            selectedEntry = {
+                key: entryKey,
+                documentKey: nextSelection.documentId,
+                title: nextSelection.documentTitle || nextSelection.documentId,
+                kind: "modified",
+                snapshot: {
+                    id: `history:${result.baseline?.created ?? "none"}`,
+                    memo: result.baseline
+                        ? t("recent_history_baseline_title", "最近不同历史检查点")
+                        : t("recent_history_no_baseline", "未找到不同历史检查点"),
+                    created: baselineCreated,
+                },
+                previousSnapshot: currentSnapshot,
+                file: {
+                    key: entryKey,
+                    kind: "modified",
+                    title: nextSelection.documentTitle || nextSelection.documentId,
+                    documentId: nextSelection.documentId,
+                },
+                oldFileId: "",
+                newFileId: "",
+                scope: "document",
+                hasDiff: !result.noChanges,
+                noChanges: result.noChanges,
+                updated: nextSelection.updated,
+            };
+            oldContent = result.oldContent;
+            newContent = result.newContent;
+            blockEntries = result.allEntries;
+            oldFileContent = result.baseline ? { title: result.baseline.title, content: result.oldContent, updated: baselineCreated } : null;
+            newFileContent = { title: nextSelection.documentTitle, content: result.newContent, updated: nextSelection.updated };
+            onComparisonSummary(nextSelection.documentId, {
+                status: result.reason ?? "ready",
+                changedBlocks: result.stats.changedBlocks,
+                addedLines: result.stats.addedLines,
+                removedLines: result.stats.removedLines,
+                baselineCreated,
+            });
+            resetDocumentScrollSync();
+        } catch (err) {
+            if (loadVersion === selectionLoadVersion) {
+                error = getErrorMessage(err);
+                onComparisonSummary(nextSelection.documentId, {
+                    status: "error",
+                    changedBlocks: 0,
+                    addedLines: 0,
+                    removedLines: 0,
+                    baselineCreated: "",
+                });
+            }
         } finally {
             if (loadVersion === selectionLoadVersion) loadingDiff = false;
         }
@@ -785,12 +887,12 @@
             newFileContent = newData;
             oldContent = oldData?.content ?? "";
             newContent = newData?.content ?? "";
-            blockEntries = diffSnapshotBlocks(oldContent, newContent);
+            blockEntries = attachBlockSectionPaths(diffSnapshotBlocks(oldContent, newContent));
             if (blockEntries.length === 0 && (oldContent || newContent)) {
-                blockEntries = diffSnapshotBlocks(
+                blockEntries = attachBlockSectionPaths(diffSnapshotBlocks(
                     createContentFallback(oldContent, t("timeline_old_content_empty_fallback", "左侧版本内容为空或无法解析")),
                     createContentFallback(newContent, t("timeline_new_content_empty_fallback", "右侧版本内容为空或无法解析")),
-                );
+                ));
             }
         } catch (err) {
             if (expectedLoadVersion === selectionLoadVersion) error = getErrorMessage(err);
@@ -803,6 +905,7 @@
     }
 
     async function rollbackBlock(entry: BlockDiffEntry) {
+        if (recentHistoryMode) return;
         if (!entry.canAcceptBlock) {
             showMessage(localizeAcceptReason(entry.acceptReason) || t("timeline_msg_block_restore_unsupported", "该块暂不支持块级回退"));
             return;
@@ -859,6 +962,7 @@
     }
 
     async function rollbackDocument() {
+        if (recentHistoryMode) return;
         const id = selectedEntry?.oldFileId;
         if (!id) {
             showMessage(t("timeline_msg_no_rollback_version", "该时间线节点没有可回退的左侧版本"));
@@ -893,12 +997,26 @@
         loadingDiff = false;
         loadingFile = false;
         error = "";
+        recentHistoryReason = "";
         expandedHiddenKeys = new Set();
         clearDiff();
     }
 
     function blockText(block: BlockDiffEntry["oldBlock"]): string {
         return block?.markdown || block?.text || "";
+    }
+
+    function changeStatusLabel(status: BlockDiffEntry["status"]): string {
+        if (status === "added") return t("recent_history_status_added", "新增");
+        if (status === "removed") return t("recent_history_status_removed", "删除");
+        if (status === "modified") return t("recent_history_status_modified", "修改");
+        return t("recent_history_status_unchanged", "未变");
+    }
+
+    function sectionPathLabel(entry: BlockDiffEntry): string {
+        return entry.sectionPath?.length
+            ? entry.sectionPath.join(" › ")
+            : t("recent_history_document_root", "文档根部");
     }
 
     function createContentFallback(content: string, fallback: string): string {
@@ -940,6 +1058,9 @@
                     </span>
                 {/if}
                 {#if selection}
+                    <span class:recent={recentHistoryMode} class="vc-source-badge">{diffSourceLabel}</span>
+                {/if}
+                {#if selection && !isRecentHistoryDiffSelection(selection)}
                     <span class:global={selection.node.scope === "global"} class="vc-scope-badge">
                         {selection.node.scope === "global"
                             ? t("timeline_scope_global_badge", "全局")
@@ -984,14 +1105,16 @@
                         </svg>
                     {/if}
                 </button>
-                <button type="button" class="vc-icon-button" on:click={rollbackDocument} disabled={!selectedEntry?.oldFileId || applying} title={t("timeline_action_rollback_document", "整篇回退到历史版本")} aria-label={t("timeline_action_rollback_document", "整篇回退到历史版本")}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M10.8 3.5h3.95L19 7.75v10.5A2.25 2.25 0 0 1 16.75 20.5h-8.5A2.25 2.25 0 0 1 6 18.25V9.9" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M14.5 3.75V8h4.25" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M4.8 9.4V8.5A5 5 0 0 1 9.8 3.5h.65" fill="none" stroke="currentColor" stroke-width="2.05" stroke-linecap="round"/>
-                        <path d="M2 6.55 4.8 9.4l2.85-2.85" fill="none" stroke="currentColor" stroke-width="2.05" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
+                {#if !recentHistoryMode}
+                    <button type="button" class="vc-icon-button" on:click={rollbackDocument} disabled={!selectedEntry?.oldFileId || applying} title={t("timeline_action_rollback_document", "整篇回退到历史版本")} aria-label={t("timeline_action_rollback_document", "整篇回退到历史版本")}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M10.8 3.5h3.95L19 7.75v10.5A2.25 2.25 0 0 1 16.75 20.5h-8.5A2.25 2.25 0 0 1 6 18.25V9.9" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M14.5 3.75V8h4.25" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M4.8 9.4V8.5A5 5 0 0 1 9.8 3.5h.65" fill="none" stroke="currentColor" stroke-width="2.05" stroke-linecap="round"/>
+                            <path d="M2 6.55 4.8 9.4l2.85-2.85" fill="none" stroke="currentColor" stroke-width="2.05" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                {/if}
             </div>
         </div>
 
@@ -1002,7 +1125,9 @@
         <div class="vc-content">
             <section bind:this={diffElement} on:scroll={handleDiffScroll} on:click={handleDiffClick} class:unified-mode={compareMode === "unified"} class:split-mode={compareMode === "split"} class="vc-diff">
                 {#if loadingDiff}
-                    <div class="vc-empty">{t("diff_loading_selection", "正在创建当前状态快照并计算所选节点差异...")}</div>
+                    <div class="vc-empty">{recentHistoryMode
+                        ? t("recent_history_loading_diff", "正在查找最近不同历史检查点并计算差异...")
+                        : t("diff_loading_selection", "正在创建当前状态快照并计算所选节点差异...")}</div>
                 {:else if loadingFile}
                     <div class="vc-empty">{t("timeline_loading_snapshot_file", "正在打开快照文件...")}</div>
                 {:else if !selectedEntry}
@@ -1015,7 +1140,7 @@
                         {#if compareMode === "unified"}
                             <div class="vc-diff-head-cell vc-version-line">
                                 <div class="vc-version-card old">
-                                    <span class="vc-version-label">{t("timeline_history_version", "历史版本")}</span>
+                                    <span class="vc-version-label">{recentHistoryMode ? t("recent_history_checkpoint", "最近不同历史检查点") : t("timeline_history_version", "历史版本")}</span>
                                     {#if selectedSnapshotTitle}<strong>{selectedSnapshotTitle}</strong>{/if}
                                     {#if selectedSnapshotTime}<time>{selectedSnapshotTime}</time>{/if}
                                 </div>
@@ -1028,7 +1153,7 @@
                         {:else}
                             <div class="vc-diff-head-cell">
                                 <div class="vc-version-card old">
-                                    <span class="vc-version-label">{t("timeline_history_version", "历史版本")}</span>
+                                    <span class="vc-version-label">{recentHistoryMode ? t("recent_history_checkpoint", "最近不同历史检查点") : t("timeline_history_version", "历史版本")}</span>
                                     {#if selectedSnapshotTitle}<strong>{selectedSnapshotTitle}</strong>{/if}
                                     {#if selectedSnapshotTime}<time>{selectedSnapshotTime}</time>{/if}
                                 </div>
@@ -1043,7 +1168,13 @@
                         {/if}
                     </div>
                     {#if blockEntries.length === 0}
-                        <div class="vc-empty">{selectedEntry.hasDiff === false ? t("timeline_empty_no_diff", "该节点暂无可显示差异。") : t("timeline_empty_unparseable_file", "该文件内容为空，或当前快照内容暂无法解析为可显示块。")}</div>
+                        <div class="vc-empty">{recentHistoryReason === "no_history"
+                            ? t("recent_history_empty_no_history", "该文档暂无可比较的历史检查点。")
+                            : recentHistoryReason === "no_different_history"
+                                ? t("recent_history_empty_no_difference", "最近检查的历史版本与当前内容相同。")
+                                : selectedEntry.hasDiff === false
+                                    ? t("timeline_empty_no_diff", "该节点暂无可显示差异。")
+                                    : t("timeline_empty_unparseable_file", "该文件内容为空，或当前快照内容暂无法解析为可显示块。")}</div>
                     {/if}
                     {#if compareMode === "unified"}
                         <div class="vc-unified-list">
@@ -1076,6 +1207,12 @@
                                     {/if}
                                 {:else}
                                     <article class="vc-unified-block {item.entry.status}" class:first-change={item.changeIndex === 0} data-sync-block-id={getEntrySyncBlockId(item)}>
+                                        {#if item.entry.status !== "unchanged"}
+                                            <div class="vc-change-location">
+                                                <span class="status {item.entry.status}">{changeStatusLabel(item.entry.status)}</span>
+                                                <span>{sectionPathLabel(item.entry)}</span>
+                                            </div>
+                                        {/if}
                                         {#if showDebugMeta}
                                             <div class="vc-block__meta">
                                                 <span>{item.entry.status}</span>
@@ -1083,7 +1220,7 @@
                                                 {#if item.entry.newBlock?.id}<code>{item.entry.newBlock.id}</code>{/if}
                                             </div>
                                         {/if}
-                                        {#if item.entry.status !== "unchanged"}
+                                        {#if item.entry.status !== "unchanged" && !recentHistoryMode}
                                             <div class:first-change={item.changeIndex === 0} class="vc-unified-actions">
                                                 <button type="button" class="vc-restore-button" on:click={() => rollbackBlock(item.entry)} disabled={applying || !item.entry.canAcceptBlock} title={t("timeline_action_restore_block", "还原块")} aria-label={t("timeline_action_restore_block", "还原块")}>
                                                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1178,6 +1315,12 @@
                                 {:else}
                                     <div class="vc-diff-row" class:first-change={item.changeIndex === 0}>
                                         <article class="vc-block old {item.entry.status}">
+                                            {#if item.entry.status !== "unchanged"}
+                                                <div class="vc-change-location">
+                                                    <span class="status {item.entry.status}">{changeStatusLabel(item.entry.status)}</span>
+                                                    <span>{sectionPathLabel(item.entry)}</span>
+                                                </div>
+                                            {/if}
                                             {#if showDebugMeta}
                                                 <div class="vc-block__meta">
                                                     <span>{item.entry.status}</span>
@@ -1195,7 +1338,7 @@
                                             {/if}
                                         </article>
                                         <div class="vc-restore-column {item.entry.status}">
-                                            {#if item.entry.status !== "unchanged"}
+                                            {#if item.entry.status !== "unchanged" && !recentHistoryMode}
                                                 <button type="button" class:first-change={item.changeIndex === 0} class="vc-restore-button" on:click={() => rollbackBlock(item.entry)} disabled={applying || !item.entry.canAcceptBlock} title={t("timeline_action_restore_block", "还原块")} aria-label={t("timeline_action_restore_block", "还原块")}>
                                                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                                                         <path d="M9 7 4 12l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1313,6 +1456,21 @@
         border-color: color-mix(in srgb, #7657e8 48%, var(--b3-border-color));
         color: #7657e8;
         background: color-mix(in srgb, #7657e8 10%, transparent);
+    }
+
+    .vc-source-badge {
+        border: 1px solid var(--b3-border-color);
+        border-radius: 999px;
+        padding: 1px 6px;
+        background: var(--b3-theme-surface);
+        font-size: 10px !important;
+        line-height: 1.5;
+    }
+
+    .vc-source-badge.recent {
+        border-color: color-mix(in srgb, #0b8f71 45%, var(--b3-border-color));
+        color: #0b8f71 !important;
+        background: color-mix(in srgb, #0b8f71 9%, transparent);
     }
 
 
@@ -1577,6 +1735,37 @@
     .vc-unified-block.removed {
         padding-right: 48px;
     }
+
+    .vc-change-location {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-width: 0;
+        padding: 4px 10px;
+        border-bottom: 1px solid color-mix(in srgb, var(--b3-border-color) 72%, transparent);
+        color: var(--b3-theme-on-surface);
+        background: color-mix(in srgb, var(--b3-theme-surface) 72%, transparent);
+        font-size: 11px;
+    }
+
+    .vc-change-location > span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vc-change-location .status {
+        flex: 0 0 auto;
+        border-radius: 999px;
+        padding: 1px 6px;
+        color: var(--b3-theme-on-background);
+        background: var(--b3-theme-surface-lighter);
+        font-weight: 600;
+    }
+
+    .vc-change-location .status.added { color: #0a7d3a; background: rgba(46, 160, 67, 0.14); }
+    .vc-change-location .status.removed { color: #c93d35; background: rgba(248, 81, 73, 0.14); }
+    .vc-change-location .status.modified { color: #8a6410; background: rgba(210, 153, 34, 0.16); }
 
     .vc-unified-row {
         display: grid;

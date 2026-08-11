@@ -772,7 +772,15 @@ describe('HTTP settings sync', () => {
         addDock.mock.calls[2][0].init({ element: new FakeElement() });
 
         const recentProps = (recentDocumentsPanelInstances[0].args as any).props;
-        recentProps.onOpenDocument('20260810183622-w2qieo2');
+        recentProps.onOpenDocument({
+            id: '20260810183622-w2qieo2',
+            title: 'Scattertext 中枢',
+            icon: '',
+            notebook: 'nb-1',
+            hPath: '/Scattertext 中枢',
+            parentPath: '',
+            updated: '20260811150000',
+        });
         expect((siyuanApi as any).openTab).toHaveBeenCalledWith(expect.objectContaining({
             doc: { id: '20260810183622-w2qieo2' },
             openNewTab: false,

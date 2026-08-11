@@ -84,6 +84,29 @@ export interface TimelineNodeSelection {
     node: TimelineNodeRecord;
 }
 
+export interface RecentHistoryDiffSelection {
+    source: 'recent_history';
+    documentId: string;
+    documentTitle: string;
+    updated: string;
+}
+
+export type DocumentDiffSelection = TimelineNodeSelection | RecentHistoryDiffSelection;
+
+export function isRecentHistoryDiffSelection(
+    selection: DocumentDiffSelection | null | undefined,
+): selection is RecentHistoryDiffSelection {
+    return Boolean(selection && 'source' in selection && selection.source === 'recent_history');
+}
+
+export function getDocumentDiffSelectionKey(selection: DocumentDiffSelection | null | undefined): string {
+    if (!selection) return '';
+    if (isRecentHistoryDiffSelection(selection)) {
+        return `recent:${selection.documentId}:${selection.updated}`;
+    }
+    return getTimelineNodeSelectionKey(selection);
+}
+
 export interface TimelineNodeReconciliation {
     documentNodes: TimelineNodeRecord[];
     globalNodes: TimelineNodeRecord[];

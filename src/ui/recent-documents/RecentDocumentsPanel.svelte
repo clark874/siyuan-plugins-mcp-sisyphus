@@ -4,16 +4,20 @@
     import {
         buildRecentDocumentMetadataSql,
         formatRecentDocumentTime,
+        groupRecentDocuments,
         mergeRecentDocumentMetadata,
         recentDocumentMatches,
         type RecentDocumentMetadataRow,
         type RecentDocumentRecord,
+        type RecentDocumentDiffSummary,
         type RecentDocumentView,
     } from "./recent-documents";
 
     export let i18n: Record<string, string> = {};
     export let refreshVersion = 0;
-    export let onOpenDocument: (id: string) => void = () => {};
+    export let comparisonSummaries: Record<string, RecentDocumentDiffSummary> = {};
+    export let activeDocumentId = "";
+    export let onOpenDocument: (document: RecentDocumentView) => void = () => {};
 
     let documents: RecentDocumentView[] = [];
     let query = "";
@@ -25,8 +29,14 @@
     let loadVersion = 0;
     let shellElement: HTMLElement;
     let visibilityObserver: MutationObserver | undefined;
+    let collapsedGroups = new Set<string>();
 
     $: filteredDocuments = documents.filter((document) => recentDocumentMatches(document, query));
+    $: groupedDocuments = groupRecentDocuments(filteredDocuments, {
+        locale: typeof document !== "undefined" ? document.documentElement.lang || undefined : undefined,
+        todayLabel: t("recent_documents_group_today", "今天"),
+        yesterdayLabel: t("recent_documents_group_yesterday", "昨天"),
+    });
     $: if (mounted && panelVisible && refreshVersion !== loadedRefreshVersion && !loading) {
         void loadDocuments();
     }
@@ -108,6 +118,11 @@
             }
             if (requestVersion !== loadVersion) return;
             documents = mergeRecentDocumentMetadata(Array.isArray(records) ? records : [], Array.isArray(rows) ? rows : []);
+            collapsedGroups = new Set(groupRecentDocuments(documents, {
+                locale: document.documentElement.lang || undefined,
+                todayLabel: t("recent_documents_group_today", "今天"),
+                yesterdayLabel: t("recent_documents_group_yesterday", "昨天"),
+            }).filter((group) => group.collapsedByDefault).map((group) => group.key));
             loadedRefreshVersion = refreshVersion;
         } catch (err) {
             if (requestVersion !== loadVersion) return;
@@ -118,7 +133,29 @@
     }
 
     function openDocument(document: RecentDocumentView) {
-        onOpenDocument(document.id);
+        onOpenDocument(document);
+    }
+
+    function groupCollapsed(key: string): boolean {
+        return query.trim() ? false : collapsedGroups.has(key);
+    }
+
+    function toggleGroup(key: string) {
+        const next = new Set(collapsedGroups);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        collapsedGroups = next;
+    }
+
+    function summaryText(summary: RecentDocumentDiffSummary | undefined): string {
+        if (!summary) return "";
+        if (summary.status === "no_history") return t("recent_documents_summary_no_history", "暂无历史检查点");
+        if (summary.status === "no_different_history") return t("recent_documents_summary_no_difference", "最近检查点内容相同");
+        if (summary.status === "error") return t("recent_documents_summary_error", "差异读取失败");
+        return t("recent_documents_summary_changes", "${blocks} 个变更块 · +${added} / -${removed}")
+            .replace("${blocks}", String(summary.changedBlocks))
+            .replace("${added}", String(summary.addedLines))
+            .replace("${removed}", String(summary.removedLines));
     }
 
     function iconText(icon: string): string {
@@ -175,22 +212,36 @@
                 : t("recent_documents_empty", "暂无最近修改文档")}
         </div>
     {:else}
-        <ul class="recent-documents__list">
-            {#each filteredDocuments as document (document.id)}
-                <li>
-                    <button class="recent-document" type="button" on:click={() => openDocument(document)}>
-                        <span class="recent-document__icon" aria-hidden="true">{iconText(document.icon)}</span>
-                        <span class="recent-document__body">
-                            <strong>{document.title}</strong>
-                            {#if document.parentPath}<small class="recent-document__path">{document.parentPath}</small>{/if}
-                        </span>
-                        {#if formattedTime(document.updated)}
-                            <time class="recent-document__time">{formattedTime(document.updated)}</time>
-                        {/if}
+        <div class="recent-documents__list">
+            {#each groupedDocuments as group (group.key)}
+                <section class="recent-group">
+                    <button class="recent-group__header" type="button" on:click={() => toggleGroup(group.key)} aria-expanded={!groupCollapsed(group.key)}>
+                        <span aria-hidden="true">{groupCollapsed(group.key) ? "›" : "⌄"}</span>
+                        <strong>{group.label}</strong>
+                        <small>{group.documents.length}</small>
                     </button>
-                </li>
+                    {#if !groupCollapsed(group.key)}
+                        <ul>
+                            {#each group.documents as document (document.id)}
+                                <li>
+                                    <button class:active={activeDocumentId === document.id} class="recent-document" type="button" on:click={() => openDocument(document)}>
+                                        <span class="recent-document__icon" aria-hidden="true">{iconText(document.icon)}</span>
+                                        <span class="recent-document__body">
+                                            <strong>{document.title}</strong>
+                                            {#if document.parentPath}<small class="recent-document__path">{document.parentPath}</small>{/if}
+                                            {#if summaryText(comparisonSummaries[document.id])}<small class="recent-document__summary">{summaryText(comparisonSummaries[document.id])}</small>{/if}
+                                        </span>
+                                        {#if formattedTime(document.updated)}
+                                            <time class="recent-document__time">{formattedTime(document.updated)}</time>
+                                        {/if}
+                                    </button>
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+                </section>
             {/each}
-        </ul>
+        </div>
     {/if}
 </section>
 
@@ -246,6 +297,53 @@
         margin: 0;
         padding: 0 6px 10px;
         overflow: auto;
+    }
+
+    .recent-group + .recent-group {
+        margin-top: 3px;
+    }
+
+    .recent-group__header {
+        display: grid;
+        width: 100%;
+        grid-template-columns: 16px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 7px;
+        border: 0;
+        border-radius: var(--b3-border-radius);
+        color: var(--b3-theme-on-surface);
+        background: color-mix(in srgb, var(--b3-theme-surface) 70%, transparent);
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .recent-group__header:hover,
+    .recent-group__header:focus-visible {
+        background: var(--b3-list-hover);
+        outline: none;
+    }
+
+    .recent-group__header strong {
+        overflow: hidden;
+        color: var(--b3-theme-on-background);
+        font-size: 12px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .recent-group__header small {
+        min-width: 18px;
+        border-radius: 999px;
+        padding: 0 5px;
+        background: var(--b3-theme-surface-lighter);
+        text-align: center;
+    }
+
+    .recent-group ul {
+        margin: 0;
+        padding: 2px 0 0;
         list-style: none;
     }
 
@@ -268,6 +366,11 @@
     .recent-document:focus-visible {
         background: var(--b3-list-hover);
         outline: none;
+    }
+
+    .recent-document.active {
+        background: color-mix(in srgb, var(--b3-theme-primary) 10%, var(--b3-theme-background));
+        box-shadow: inset 2px 0 0 var(--b3-theme-primary);
     }
 
     .recent-document__icon {
@@ -295,8 +398,16 @@
     }
 
     .recent-document__path,
-    .recent-document__time {
+    .recent-document__time,
+    .recent-document__summary {
         font-size: 11px;
+    }
+
+    .recent-document__summary {
+        overflow: hidden;
+        color: color-mix(in srgb, var(--b3-theme-primary) 72%, var(--b3-theme-on-surface));
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .recent-document__time {

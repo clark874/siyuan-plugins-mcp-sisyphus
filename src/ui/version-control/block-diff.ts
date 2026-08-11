@@ -28,6 +28,7 @@ export interface BlockDiffEntry {
     newParts?: InlineDiffPart[];
     canAcceptBlock: boolean;
     acceptReason?: string;
+    sectionPath?: string[];
 }
 
 export interface BlockDiffLineStats {
@@ -102,6 +103,23 @@ export function parseSnapshotBlocks(content: string): SnapshotBlock[] {
 
 export function diffSnapshotBlocks(oldContent: string, newContent: string): BlockDiffEntry[] {
     return diffBlocks(parseSnapshotBlocks(oldContent), parseSnapshotBlocks(newContent));
+}
+
+export function attachBlockSectionPaths(entries: BlockDiffEntry[]): BlockDiffEntry[] {
+    const oldHeadings: string[] = [];
+    const newHeadings: string[] = [];
+
+    return entries.map((entry) => {
+        updateHeadingPath(oldHeadings, entry.oldBlock);
+        updateHeadingPath(newHeadings, entry.newBlock);
+        const sectionPath = entry.status === 'removed' || !entry.newBlock
+            ? oldHeadings.filter(Boolean)
+            : newHeadings.filter(Boolean);
+        return {
+            ...entry,
+            ...(sectionPath.length > 0 ? { sectionPath: [...sectionPath] } : {}),
+        };
+    });
 }
 
 export function getBlockDiffLineStats(entries: BlockDiffEntry[]): BlockDiffLineStats {
@@ -326,6 +344,25 @@ function createEntry(status: BlockDiffStatus, oldBlock?: SnapshotBlock, newBlock
         canAcceptBlock,
         ...(canAcceptBlock ? {} : { acceptReason: status === 'unchanged' ? '内容未变化' : '复杂块仅支持查看或整篇回档' }),
     };
+}
+
+function updateHeadingPath(path: string[], block: SnapshotBlock | undefined): void {
+    if (block?.type !== 'h') return;
+    const level = getSnapshotHeadingLevel(block);
+    path.length = Math.max(0, level - 1);
+    path[level - 1] = headingTitle(block);
+}
+
+function getSnapshotHeadingLevel(block: SnapshotBlock): number {
+    const subtypeMatch = block.subtype?.match(/[1-6]/);
+    if (subtypeMatch) return Number(subtypeMatch[0]);
+    const markdownMatch = block.markdown.match(/^\s*(#{1,6})\s+/);
+    return markdownMatch?.[1]?.length ?? 1;
+}
+
+function headingTitle(block: SnapshotBlock): string {
+    const title = block.text || block.markdown.replace(/^\s*#{1,6}\s+/, '');
+    return title.trim();
 }
 
 function shouldWriteRawDom(block: SnapshotBlock, targetId: string | undefined, rawDom: string): targetId is string {

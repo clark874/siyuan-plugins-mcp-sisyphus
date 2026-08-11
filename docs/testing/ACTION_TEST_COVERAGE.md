@@ -21,7 +21,7 @@
 | `flashcard` | 6 | `tests/unit/tools/flashcard.test.ts` 对每个 action 有直接调用覆盖 |
 | `extension` | 1 + 动态 | `tests/unit/core/official-mcp-bridge.test.ts` 与 `tests/unit/tools/extension.test.ts` 覆盖发现、schema、屏蔽和转发 |
 | `tag` | 3 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
-| `timeline` | 6 | `tests/unit/tools/timeline.test.ts` 覆盖默认开关、节点创建/删除、diff、块回档与 `rwd` 权限 |
+| `timeline` | 7 | `tests/unit/tools/timeline.test.ts` 覆盖默认开关、节点创建/删除、命名节点 diff、只读近期历史 diff、块回档与权限 |
 | `mascot` | 3 | `tests/unit/tools/mascot.test.ts` 对每个 action 有直接调用覆盖 |
 | `feedback` | 1 | `tests/unit/core/feedback.test.ts` 和 `tests/unit/tools/feedback.test.ts` 覆盖 WPS payload 与工具路由 |
 

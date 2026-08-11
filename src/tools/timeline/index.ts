@@ -3,6 +3,7 @@ import { TIMELINE_ACTION_HINTS, TIMELINE_GUIDANCE } from '../../core/help';
 import {
     TimelineActionSchema,
     TimelineCompareNodeSchema,
+    TimelineCompareRecentSchema,
     TimelineCreateNodeSchema,
     TimelineDeleteNodeSchema,
     TimelineListNodesSchema,
@@ -17,6 +18,7 @@ import {
     rollbackTimelineBlock,
     rollbackTimelineDocument,
 } from '../../shared/timeline-service';
+import { compareRecentDocumentHistory } from '../../shared/recent-history-service';
 import { isGlobalTimelineTag } from '../../ui/version-control/timeline';
 import { ensurePermissionForDocumentId } from '../internal/context';
 import { defineTool } from '../internal/define-tool';
@@ -29,6 +31,7 @@ export const TIMELINE_VARIANTS: ActionVariant<TimelineAction>[] = [
     createZodActionVariant('list_nodes', TimelineListNodesSchema, 'List global or document timeline nodes.'),
     createZodActionVariant('create_node', TimelineCreateNodeSchema, 'Create a named global or document timeline node.'),
     createZodActionVariant('compare_node', TimelineCompareNodeSchema, 'Compare one document with a timeline node.'),
+    createZodActionVariant('compare_recent', TimelineCompareRecentSchema, 'Compare one document with its newest different native history checkpoint.'),
     createZodActionVariant('delete_node', TimelineDeleteNodeSchema, 'Delete a timeline node tag while retaining its snapshot.'),
     createZodActionVariant('rollback_document', TimelineRollbackDocumentSchema, 'Restore one document file from a timeline node.'),
     createZodActionVariant('rollback_block', TimelineRollbackBlockSchema, 'Restore one changed block from a timeline node.'),
@@ -70,6 +73,12 @@ const timelineTool = defineTool<TimelineAction>({
             const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.documentId, 'read');
             if (denied) return denied;
             return createJsonResult(await compareTimelineNode(client, parsed));
+        },
+        compare_recent: async ({ client, permMgr, rawArgs }) => {
+            const parsed = TimelineCompareRecentSchema.parse(rawArgs);
+            const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.documentId, 'read');
+            if (denied) return denied;
+            return createJsonResult(await compareRecentDocumentHistory(client, parsed));
         },
         delete_node: async ({ client, permMgr, rawArgs }) => {
             const parsed = TimelineDeleteNodeSchema.parse(rawArgs);

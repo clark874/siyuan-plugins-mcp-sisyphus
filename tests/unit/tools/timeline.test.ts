@@ -69,17 +69,50 @@ describe('timeline tool', () => {
                 list_nodes: true,
                 create_node: true,
                 compare_node: true,
+                compare_recent: true,
                 delete_node: false,
                 rollback_document: false,
                 rollback_block: false,
             },
         });
         expect(listTimelineTools(config)[0].inputSchema.properties.action.enum).toEqual([
-            'list_nodes', 'create_node', 'compare_node', 'help',
+            'list_nodes', 'create_node', 'compare_node', 'compare_recent', 'help',
         ]);
         expect(isDangerousAction('timeline', 'delete_node')).toBe(true);
         expect(isDangerousAction('timeline', 'rollback_document')).toBe(true);
         expect(isDangerousAction('timeline', 'rollback_block')).toBe(true);
+    });
+
+    it('compares the latest different document history through a read-permission guarded action', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, data?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    return [{ id: DOC_ID, root_id: DOC_ID, box: 'nb-1', path: `/${DOC_ID}.sy`, type: 'd' }];
+                }
+                if (endpoint === '/api/block/getBlockDOM') {
+                    return { id: DOC_ID, dom: '<div data-node-id="p" data-type="NodeParagraph"><div>当前</div></div>' };
+                }
+                if (endpoint === '/api/history/searchHistory') return { histories: ['1786434544'], pageCount: 1, totalCount: 1 };
+                if (endpoint === '/api/history/getHistoryItems') {
+                    return { items: [{ title: 'Doc', path: `history/${DOC_ID}.sy`, op: 'update', notebook: 'nb-1' }] };
+                }
+                if (endpoint === '/api/history/getDocHistoryContent') {
+                    return { id: DOC_ID, rootID: DOC_ID, content: '<div data-node-id="p" data-type="NodeParagraph"><div>历史</div></div>', isLargeDoc: false };
+                }
+                return null;
+            }),
+        });
+        const config = buildDefaultToolConfig().timeline;
+        const result = parseResult(await callTimelineTool(
+            client,
+            { action: 'compare_recent', documentId: DOC_ID, page: 1, pageSize: 20 },
+            config,
+            createMockPermissionManager(),
+        )) as Record<string, any>;
+
+        expect(result.source).toBe('recent_history');
+        expect(result.stats.changedBlocks).toBe(1);
+        expect(result.changes[0]).toMatchObject({ status: 'modified', old: { markdown: '历史' }, current: { markdown: '当前' } });
     });
 
     it('creates a global node and returns its stable tag', async () => {

@@ -224,6 +224,22 @@ describe('setting tool config', () => {
         expect(config.mcpApps.timeline.actions.rollback_document).toBe(true);
     });
 
+    it('does not silently enable compare_recent while migrating an existing timeline config', () => {
+        const config = normalizeToolConfig({
+            timeline: {
+                enabled: true,
+                actions: {
+                    list_nodes: true,
+                    compare_node: true,
+                },
+            },
+        });
+
+        expect(config.timeline.enabled).toBe(true);
+        expect(config.timeline.actions.compare_recent).toBe(false);
+        expect(normalizeToolConfig({}).timeline.actions.compare_recent).toBe(true);
+    });
+
     it('normalizes independent switches for all three MCP Apps', () => {
         const config = normalizeToolConfig({
             mcpApps: {

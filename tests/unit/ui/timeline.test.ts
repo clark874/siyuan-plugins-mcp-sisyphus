@@ -14,6 +14,7 @@ import {
     extractTimelineTagLabel,
     filterChangedUniqueTimelineEntries,
     formatSnapshotTime,
+    getDocumentDiffSelectionKey,
     getTimelineNodeSelectionKey,
     isGlobalTimelineTag,
     isTimelineSnapshot,
@@ -43,6 +44,12 @@ describe('snapshot document timeline', () => {
 
         expect(getTimelineNodeSelectionKey(selection)).toContain('doc-a');
         expect(getTimelineNodeSelectionKey(null)).toBe('');
+        expect(getDocumentDiffSelectionKey({
+            source: 'recent_history',
+            documentId: 'doc-a',
+            documentTitle: 'Doc A',
+            updated: '20260811150000',
+        })).toBe('recent:doc-a:20260811150000');
         expect(sortTimelineNodesNewestFirst([
             { name: 'document', created: 1, snapshotId: 'snapshot-d', scope: 'document' },
             selection.node,

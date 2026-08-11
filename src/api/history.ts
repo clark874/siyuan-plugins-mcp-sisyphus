@@ -8,8 +8,15 @@ export interface HistorySearchResult {
 }
 
 export interface HistoryItemsResult {
-    histories?: unknown[];
+    items?: HistoryItem[];
     [key: string]: unknown;
+}
+
+export interface HistoryItem {
+    title: string;
+    path: string;
+    op: string;
+    notebook: string;
 }
 
 export interface DocHistoryContent {
@@ -25,6 +32,7 @@ export async function searchHistory(
         notebook?: string;
         query?: string;
         op?: string;
+        type?: number;
         page?: number;
     } = {},
 ): Promise<HistorySearchResult> {
@@ -38,6 +46,7 @@ export async function getHistoryItems(
         notebook?: string;
         query?: string;
         op?: string;
+        type?: number;
     },
 ): Promise<HistoryItemsResult> {
     return client.request<HistoryItemsResult>('/api/history/getHistoryItems', params);

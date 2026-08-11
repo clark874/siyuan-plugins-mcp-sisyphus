@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     buildRecentDocumentMetadataSql,
     formatRecentDocumentTime,
+    groupRecentDocuments,
     mergeRecentDocumentMetadata,
 } from '@/ui/recent-documents/recent-documents';
 
@@ -70,4 +71,41 @@ describe('recent documents view model', () => {
         expect(formatRecentDocumentTime('20260811142243', 'zh-CN')).toContain('2026');
         expect(formatRecentDocumentTime('invalid', 'zh-CN')).toBe('');
     });
+
+    it('groups recent documents by useful date buckets and collapses older months', () => {
+        const groups = groupRecentDocuments([
+            recentView('today', '20260811153000'),
+            recentView('yesterday', '20260810120000'),
+            recentView('week', '20260807120000'),
+            recentView('month', '20260801120000'),
+            recentView('older', '20260731120000'),
+        ], {
+            now: new Date(2026, 7, 11, 20, 0, 0),
+            locale: 'zh-CN',
+            todayLabel: '今天',
+            yesterdayLabel: '昨天',
+        });
+
+        expect(groups.map((group) => ({ key: group.key, count: group.documents.length, collapsed: group.collapsedByDefault }))).toEqual([
+            { key: 'day:2026-08-11', count: 1, collapsed: false },
+            { key: 'day:2026-08-10', count: 1, collapsed: false },
+            { key: 'day:2026-08-07', count: 1, collapsed: false },
+            { key: 'month:2026-08', count: 1, collapsed: true },
+            { key: 'month:2026-07', count: 1, collapsed: true },
+        ]);
+        expect(groups[0].label).toBe('今天');
+        expect(groups[1].label).toBe('昨天');
+    });
 });
+
+function recentView(title: string, updated: string) {
+    return {
+        id: `2026081112000${title.length}-abcdefg`,
+        title,
+        icon: '',
+        notebook: 'nb-1',
+        hPath: `/${title}`,
+        parentPath: '',
+        updated,
+    };
+}

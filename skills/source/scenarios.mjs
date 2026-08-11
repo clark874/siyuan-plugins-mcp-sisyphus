@@ -453,6 +453,12 @@ Keep the returned \`tag\` as the stable identifier. After content changes, compa
 
 \`compare_node\` creates an untagged current-state workspace snapshot before calculating the document diff. Paginate changed blocks with \`page\` and \`pageSize\`; request unchanged blocks only when they are required for context.
 
+For a read-only answer to “what changed recently?”, use:
+
+{{call compareRecent}}
+
+\`compare_recent\` creates no workspace snapshot and exposes no rollback. It scans at most five native SiYuan document-history checkpoints, selects the newest one whose parsed block content differs from the current document, and returns section breadcrumbs plus paginated before/current Markdown. Native document history is checkpoint-based rather than a keystroke log.
+
 ## Delete or roll back
 
 \`delete_node\` removes the protective tag but retains the underlying snapshot. \`rollback_document\` restores only the selected document file, not the whole workspace. \`rollback_block\` accepts only a fresh opaque \`changeKey\` from \`compare_node\`; it recalculates the diff and rejects stale or unsafe changes.
@@ -471,6 +477,7 @@ After rollback, read the document again. After node creation or deletion, list n
             list: call('timeline', 'list_nodes', { scope: 'document', documentId: '<doc-id>', page: 1, pageSize: 50 }),
             create: call('timeline', 'create_node', { name: 'Before revision', scope: 'document', documentId: '<doc-id>' }),
             compare: call('timeline', 'compare_node', { documentId: '<doc-id>', tag: '<timeline-tag>', page: 1, pageSize: 20, includeUnchanged: false }),
+            compareRecent: call('timeline', 'compare_recent', { documentId: '<doc-id>', page: 1, pageSize: 20 }),
             rollbackBlock: call('timeline', 'rollback_block', { documentId: '<doc-id>', tag: '<timeline-tag>', changeKey: '<fresh-change-key>' }),
             rollbackDocument: call('timeline', 'rollback_document', { documentId: '<doc-id>', tag: '<timeline-tag>' }),
             delete: call('timeline', 'delete_node', { tag: '<timeline-tag>', documentId: '<doc-id>' }),

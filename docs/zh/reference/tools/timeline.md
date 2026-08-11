@@ -11,6 +11,7 @@
 | `list_nodes` | `scope` | `document` 和 `all` 还需 `documentId`；按时间倒序分页 |
 | `create_node` | `name`, `scope` | 文档节点还需 `documentId`；返回稳定标识 `tag` |
 | `compare_node` | `documentId`, `tag` | 创建一次未标记的当前状态快照，分页返回块级差异 |
+| `compare_recent` | `documentId` | 只读扫描最近 5 个原生文档历史候选，返回最近一个内容不同的块级差异与章节路径 |
 | `delete_node` | `tag` | 文档 tag 还需 `documentId`；高危且默认关闭 |
 | `rollback_document` | `documentId`, `tag` | 只恢复单篇文档文件，不进行整库 checkout；高危且默认关闭 |
 | `rollback_block` | `documentId`, `tag`, `changeKey` | 重新计算 Diff，并恢复仍能匹配的单个块变更；高危且默认关闭 |
@@ -21,10 +22,13 @@
 timeline(action="list_nodes", scope="all", documentId="<文档 ID>")
 timeline(action="create_node", name="改写前", scope="document", documentId="<文档 ID>")
 timeline(action="compare_node", documentId="<文档 ID>", tag="<tag>", page=1, pageSize=20)
+timeline(action="compare_recent", documentId="<文档 ID>", page=1, pageSize=20)
 timeline(action="rollback_block", documentId="<文档 ID>", tag="<tag>", changeKey="<changeKey>")
 ```
 
 `compare_node` 默认只返回发生变化的块；需要上下文时可设置 `includeUnchanged=true`。每个变更包含历史/当前 Markdown、不透明的 `changeKey`，以及是否支持块级回退。
+
+`compare_recent` 不创建工作区快照，也不返回历史文件路径或开放回滚。它使用思源原生文档历史检查点，选择最近一个与当前块内容不同的版本；返回基线时间、增删行数、变更状态、章节标题路径以及修改前后 Markdown。思源历史是周期性检查点，不等同于逐次按键记录。
 
 ## MCP App
 
@@ -38,7 +42,7 @@ timeline(action="rollback_block", documentId="<文档 ID>", tag="<tag>", changeK
 
 ## 安全与权限
 
-- 列出、比较文档节点需要笔记本读权限。
+- 列出、比较文档节点及 `compare_recent` 需要笔记本读权限。
 - 创建文档节点需要写权限。
 - 删除文档节点和所有回退动作统一要求 `rwd`。
 - 全局节点只暴露快照元数据，不绑定具体笔记本权限。
@@ -52,4 +56,5 @@ timeline(action="rollback_block", documentId="<文档 ID>", tag="<tag>", changeK
 ```bash
 siyuan-sisyphus timeline create-node --name "改写前" --scope document --document-id <文档 ID> --json
 siyuan-sisyphus timeline compare-node --document-id <文档 ID> --tag <tag> --page-size 20 --json
+siyuan-sisyphus timeline compare-recent --document-id <文档 ID> --page-size 20 --json
 ```

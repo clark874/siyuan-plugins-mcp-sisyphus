@@ -5607,6 +5607,7 @@ Tag actions operate across the whole workspace rather than a single notebook. Th
         "guidance": [
           "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
           "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "compare_recent is read-only and compares a document with the newest different native SiYuan document-history checkpoint; it never creates a repository snapshot or enables rollback.",
           "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
           "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
         ],
@@ -5621,6 +5622,30 @@ Tag actions operate across the whole workspace rather than a single notebook. Th
         ],
         "tool": "timeline",
       },
+      "compare_recent": {
+        "action": "compare_recent",
+        "example": {
+          "action": "compare_recent",
+          "documentId": "<documentId>",
+        },
+        "fullDocResource": "siyuan://help/action/timeline/compare_recent",
+        "guidance": [
+          "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
+          "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "compare_recent is read-only and compares a document with the newest different native SiYuan document-history checkpoint; it never creates a repository snapshot or enables rollback.",
+          "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
+          "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
+        ],
+        "hint": "Read-only. Scans at most five recent native document-history checkpoints and returns the newest one whose block content differs from the current document, with section breadcrumbs and pagination.",
+        "requiredFields": [
+          "documentId",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "documentId",
+        ],
+        "tool": "timeline",
+      },
       "create_node": {
         "action": "create_node",
         "example": {
@@ -5632,6 +5657,7 @@ Tag actions operate across the whole workspace rather than a single notebook. Th
         "guidance": [
           "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
           "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "compare_recent is read-only and compares a document with the newest different native SiYuan document-history checkpoint; it never creates a repository snapshot or enables rollback.",
           "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
           "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
         ],
@@ -5656,6 +5682,7 @@ Tag actions operate across the whole workspace rather than a single notebook. Th
         "guidance": [
           "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
           "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "compare_recent is read-only and compares a document with the newest different native SiYuan document-history checkpoint; it never creates a repository snapshot or enables rollback.",
           "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
           "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
         ],
@@ -5679,6 +5706,7 @@ Tag actions operate across the whole workspace rather than a single notebook. Th
         "guidance": [
           "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
           "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "compare_recent is read-only and compares a document with the newest different native SiYuan document-history checkpoint; it never creates a repository snapshot or enables rollback.",
           "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
           "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
         ],
@@ -5704,6 +5732,7 @@ Tag actions operate across the whole workspace rather than a single notebook. Th
         "guidance": [
           "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
           "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "compare_recent is read-only and compares a document with the newest different native SiYuan document-history checkpoint; it never creates a repository snapshot or enables rollback.",
           "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
           "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
         ],
@@ -5730,6 +5759,7 @@ Tag actions operate across the whole workspace rather than a single notebook. Th
         "guidance": [
           "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
           "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+          "compare_recent is read-only and compares a document with the newest different native SiYuan document-history checkpoint; it never creates a repository snapshot or enables rollback.",
           "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
           "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
         ],
@@ -5749,12 +5779,13 @@ Tag actions operate across the whole workspace rather than a single notebook. Th
 
 Common actions: list_nodes, create_node, compare_node. Required fields: list_nodes: scope; create_node: name, scope; compare_node: documentId, tag.
 
-Additional actions: delete_node, rollback_document, rollback_block. Read siyuan://help/action/timeline/{action} for details, or call action="help" if resources are unavailable.
+Additional actions: compare_recent, delete_node, rollback_document, rollback_block. Read siyuan://help/action/timeline/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 timeline.list_nodes: required [scope] | optional [documentId, page, pageSize]
 timeline.create_node: required [name, scope] | optional [documentId]
 timeline.compare_node: required [documentId, tag] | optional [page, pageSize, includeUnchanged]
+timeline.compare_recent: required [documentId] | optional [page, pageSize]
 timeline.delete_node: required [tag] | optional [documentId]
 timeline.rollback_document: required [documentId, tag] | optional []
 timeline.rollback_block: required [documentId, tag, changeKey] | optional []
@@ -5763,6 +5794,7 @@ timeline manages named document and global snapshot nodes, compares one document
     "overview": {
       "actionSummaries": {
         "compare_node": "Compares the tagged historical node with a newly created current-state snapshot for one document. Changed blocks are paginated; includeUnchanged defaults to false.",
+        "compare_recent": "Read-only. Scans at most five recent native document-history checkpoints and returns the newest one whose block content differs from the current document, with section breadcrumbs and pagination.",
         "create_node": "Use scope="document" with documentId for a document node, or scope="global" for a node visible to every document. The returned tag is the stable identifier for later actions.",
         "delete_node": "Removes the node tag but retains the underlying snapshot. Document tags require their matching documentId. This action is dangerous and disabled by default.",
         "list_nodes": "Use scope="global" without documentId, or scope="document"|"all" with documentId. Results are newest first and paginated.",
@@ -5772,6 +5804,10 @@ timeline manages named document and global snapshot nodes, compares one document
       "actions": {
         "compare_node": {
           "hint": "Compares the tagged historical node with a newly created current-state snapshot for one document. Changed blocks are paginated; includeUnchanged defaults to false.",
+          "requiresConfirmation": false,
+        },
+        "compare_recent": {
+          "hint": "Read-only. Scans at most five recent native document-history checkpoints and returns the newest one whose block content differs from the current document, with section breadcrumbs and pagination.",
           "requiresConfirmation": false,
         },
         "create_node": {
@@ -5796,6 +5832,7 @@ timeline manages named document and global snapshot nodes, compares one document
         },
       },
       "advancedActions": [
+        "compare_recent",
         "delete_node",
         "rollback_document",
         "rollback_block",
@@ -5809,6 +5846,7 @@ timeline manages named document and global snapshot nodes, compares one document
       "guidance": [
         "timeline manages named document and global snapshot nodes, compares one document against a node, and can restore historical content.",
         "compare_node creates an untagged current-state workspace snapshot before calculating the document diff; use its opaque changeKey for rollback_block.",
+        "compare_recent is read-only and compares a document with the newest different native SiYuan document-history checkpoint; it never creates a repository snapshot or enables rollback.",
         "delete_node removes only the protective tag and retains the underlying snapshot. delete_node, rollback_document, and rollback_block require explicit user confirmation.",
         "Document reads and comparisons respect notebook read permission; document node creation requires write permission; all document node deletion and rollback actions require rwd.",
       ],

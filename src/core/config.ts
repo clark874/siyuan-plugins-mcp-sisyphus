@@ -12,8 +12,8 @@ export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attr
 export const FILE_ACTIONS = ['upload_asset', 'list_templates', 'read_template', 'create_template', 'update_template', 'delete_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
-export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'delete_node', 'rollback_document', 'rollback_block'] as const;
-export const TIMELINE_APP_ACTIONS = TIMELINE_ACTIONS;
+export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'compare_recent', 'delete_node', 'rollback_document', 'rollback_block'] as const;
+export const TIMELINE_APP_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'delete_node', 'rollback_document', 'rollback_block'] as const;
 export const FLASHCARD_REVIEW_APP_ACTIONS = ['review_card'] as const;
 export const MASCOT_SHOP_APP_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'audit_environment', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change'] as const;
@@ -301,7 +301,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         timeline: {
             enabled: true,
-            actions: createActionsRecord(TIMELINE_ACTIONS, ['list_nodes', 'create_node', 'compare_node']),
+            actions: createActionsRecord(TIMELINE_ACTIONS, ['list_nodes', 'create_node', 'compare_node', 'compare_recent']),
         },
         system: {
             enabled: true,
@@ -499,6 +499,12 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
             }
         }
         if (!isRecord(categoryValue.actions)) continue;
+        // Existing persisted configurations predate compare_recent. Do not
+        // silently expand their AI-readable surface during migration; fresh
+        // installations still receive the enabled default above.
+        if (category === 'timeline' && typeof categoryValue.actions.compare_recent !== 'boolean') {
+            config.timeline.actions.compare_recent = false;
+        }
         for (const action of ACTIONS_BY_CATEGORY[category]) {
             const value = categoryValue.actions[action];
             if (typeof value === 'boolean') {
