@@ -4164,7 +4164,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "fullDocResource": "siyuan://help/action/search/find_replace",
         "guidance": [
           "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
-          "search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
           "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
           "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
           "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
@@ -4194,7 +4194,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "fullDocResource": "siyuan://help/action/search/fulltext",
         "guidance": [
           "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
-          "search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
           "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
           "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
           "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
@@ -4221,7 +4221,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "fullDocResource": "siyuan://help/action/search/fulltext_asset_content",
         "guidance": [
           "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
-          "search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
           "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
           "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
           "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
@@ -4247,7 +4247,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "fullDocResource": "siyuan://help/action/search/get_backlinks",
         "guidance": [
           "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
-          "search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
           "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
           "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
           "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
@@ -4274,7 +4274,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "fullDocResource": "siyuan://help/action/search/list_invalid_refs",
         "guidance": [
           "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
-          "search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
           "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
           "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
           "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
@@ -4298,7 +4298,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "fullDocResource": "siyuan://help/action/search/query_sql",
         "guidance": [
           "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
-          "search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
           "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
           "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
           "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
@@ -4307,7 +4307,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
-        "hint": "Execute a SELECT statement. Common tables: blocks, spans, assets. Prefer sql over stmt when prompting an AI. Always use LIMIT to control result size. MCP returns data plus truncation and permission-filtering metadata when applicable.",
+        "hint": "Execute a SELECT statement. Common tables include blocks, spans, assets, attributes, and refs. Prefer sql over stmt when prompting an AI. Always use LIMIT to control kernel work; maxRows controls the returned window (default 200, maximum 1000). Unattributed aggregate rows are returned only when every notebook is readable; otherwise MCP fails closed and reports the omission.",
         "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
@@ -4323,7 +4323,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "fullDocResource": "siyuan://help/action/search/search_assets",
         "guidance": [
           "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
-          "search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
           "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
           "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
           "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
@@ -4349,7 +4349,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "fullDocResource": "siyuan://help/action/search/search_refs",
         "guidance": [
           "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
-          "search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
           "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
           "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
           "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
@@ -4377,7 +4377,7 @@ Additional actions: search_refs, find_replace, search_assets, fulltext_asset_con
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 search.fulltext: required [query] | optional [method, methodName, types, typeShortcodes, paths, groupBy, orderBy, sortBy, page, pageSize, parentId, hasTags, stripHtml]
-search.query_sql: required [] | optional [stmt, sql]
+search.query_sql: required [] | optional [stmt, sql, maxRows]
 search.get_backlinks: required [id] | optional [keyword, refTreeID, scopeRootId, mode]
 search.search_refs: required [id] | optional [rootID, k, beforeLen, isSquareBrackets, isDatabase, reqId]
 search.find_replace: required [k, r, ids] | optional [paths, types, method, methodName, orderBy, sortBy, groupBy, replaceTypes]
@@ -4385,7 +4385,7 @@ search.search_assets: required [] | optional [k, query, exts]
 search.fulltext_asset_content: required [] | optional [query, assetId, queryMethod, types, method, methodName, orderBy, sortBy, page, pageSize]
 search.list_invalid_refs: required [] | optional [page, pageSize]
 
-All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation. search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission. When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query. The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated. In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget. Requires user confirmation before: find_replace.",
+All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation. search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable. When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query. The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated. In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget. Requires user confirmation before: find_replace.",
     "overview": {
       "actionSummaries": {
         "find_replace": "This is the mutating exception inside the search tool. It performs content replacement after write-permission checks and still requires explicit user confirmation.",
@@ -4393,7 +4393,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fulltext_asset_content": "Searches indexed asset/OCR text. Prefer methodName and sortBy over numeric method/orderBy. Provide assetId for an exact asset-content lookup.",
         "get_backlinks": "Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". Partial permission-filtered results include machine-readable metadata.",
         "list_invalid_refs": "no extra fields",
-        "query_sql": "Execute a SELECT statement. Common tables: blocks, spans, assets. Prefer sql over stmt when prompting an AI. Always use LIMIT to control result size. MCP returns data plus truncation and permission-filtering metadata when applicable.",
+        "query_sql": "Execute a SELECT statement. Common tables include blocks, spans, assets, attributes, and refs. Prefer sql over stmt when prompting an AI. Always use LIMIT to control kernel work; maxRows controls the returned window (default 200, maximum 1000). Unattributed aggregate rows are returned only when every notebook is readable; otherwise MCP fails closed and reports the omission.",
         "search_assets": "Searches asset filenames. Prefer query over k when prompting an AI. If you need OCR or indexed inner-text matches, use fulltext_asset_content instead.",
         "search_refs": "Returns block-level reference contexts for the target id. Use this when you need the surrounding block content, not just the document-level backlink list. beforeLen controls how much leading context is included in each hit.",
       },
@@ -4418,7 +4418,7 @@ All search actions are read-only except find_replace, which modifies content and
           "requiresConfirmation": false,
         },
         "query_sql": {
-          "hint": "Execute a SELECT statement. Common tables: blocks, spans, assets. Prefer sql over stmt when prompting an AI. Always use LIMIT to control result size. MCP returns data plus truncation and permission-filtering metadata when applicable.",
+          "hint": "Execute a SELECT statement. Common tables include blocks, spans, assets, attributes, and refs. Prefer sql over stmt when prompting an AI. Always use LIMIT to control kernel work; maxRows controls the returned window (default 200, maximum 1000). Unattributed aggregate rows are returned only when every notebook is readable; otherwise MCP fails closed and reports the omission.",
           "requiresConfirmation": false,
         },
         "search_assets": {
@@ -4445,7 +4445,7 @@ All search actions are read-only except find_replace, which modifies content and
       "detailsHint": "Call search(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
         "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
-        "search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.",
+        "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
         "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
         "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
         "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",

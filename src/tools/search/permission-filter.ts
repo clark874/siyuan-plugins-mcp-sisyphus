@@ -1,6 +1,21 @@
 import type { SiYuanClient } from '../../api/client';
 import type { PermissionManager } from '../../core/permissions';
+import PromiseLimitPool from '../../shared/promise-pool';
 import { createResultResolutionCache, resolveResultItemContext } from '../internal/context';
+
+export interface PermissionFilterResult {
+    items: unknown[];
+    removedCount: number;
+    permissionDeniedCount: number;
+    unresolvedContextFilteredCount: number;
+    unattributedRowsIncluded: number;
+}
+
+export function hasRestrictedNotebookPermissions(permMgr: PermissionManager): boolean {
+    const getAll = (permMgr as PermissionManager & { getAll?: () => Record<string, string> }).getAll;
+    if (typeof getAll !== 'function') return true;
+    return Object.values(getAll.call(permMgr)).some((permission) => permission === 'none');
+}
 
 function getNotebookIdFromItem(item: unknown): string | undefined {
     if (!item || typeof item !== 'object') return undefined;
@@ -53,21 +68,70 @@ export async function filterItemsByPermission(
     client: SiYuanClient,
     items: unknown[],
     permMgr: PermissionManager,
-): Promise<{ items: unknown[]; removedCount: number }> {
-    const cache = createResultResolutionCache();
-    const filteredItems: unknown[] = [];
-    let removedCount = 0;
-
-    for (const item of items) {
-        const context = await resolveResultItemContext(client, item, cache);
-        if (!context?.notebook || !permMgr.canRead(context.notebook)) {
-            removedCount += 1;
-            continue;
-        }
-        filteredItems.push(item);
+): Promise<PermissionFilterResult> {
+    const hasRestrictedNotebook = hasRestrictedNotebookPermissions(permMgr);
+    if (!hasRestrictedNotebook) {
+        return {
+            items: [...items],
+            removedCount: 0,
+            permissionDeniedCount: 0,
+            unresolvedContextFilteredCount: 0,
+            unattributedRowsIncluded: items.filter((item) => !getNotebookIdFromItem(item)).length,
+        };
     }
 
-    return { items: filteredItems, removedCount };
+    const cache = createResultResolutionCache();
+    const keep = new Array<boolean>(items.length).fill(false);
+    const unresolvedIndexes: number[] = [];
+    let removedCount = 0;
+    let permissionDeniedCount = 0;
+    let unresolvedContextFilteredCount = 0;
+
+    for (let index = 0; index < items.length; index += 1) {
+        const notebookId = getNotebookIdFromItem(items[index]);
+        if (notebookId) {
+            if (permMgr.canRead(notebookId)) {
+                keep[index] = true;
+            } else {
+                permissionDeniedCount += 1;
+                removedCount += 1;
+            }
+            continue;
+        }
+        unresolvedIndexes.push(index);
+    }
+
+    const pool = new PromiseLimitPool<{ index: number; notebook?: string }>(8);
+    for (const index of unresolvedIndexes) {
+        pool.add(async () => {
+            const context = await resolveResultItemContext(client, items[index], cache);
+            return { index, notebook: context?.notebook };
+        });
+    }
+
+    const resolved = await pool.awaitAll();
+    for (const entry of resolved) {
+        if (entry.notebook) {
+            if (permMgr.canRead(entry.notebook)) {
+                keep[entry.index] = true;
+            } else {
+                permissionDeniedCount += 1;
+                removedCount += 1;
+            }
+            continue;
+        }
+
+        unresolvedContextFilteredCount += 1;
+        removedCount += 1;
+    }
+
+    return {
+        items: items.filter((_item, index) => keep[index]),
+        removedCount,
+        permissionDeniedCount,
+        unresolvedContextFilteredCount,
+        unattributedRowsIncluded: 0,
+    };
 }
 
 export async function filterItemsByPermissionAndPath(

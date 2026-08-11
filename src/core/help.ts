@@ -252,7 +252,7 @@ export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
 
 export const SEARCH_GUIDANCE: string[] = [
     'All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.',
-    'search(action="query_sql") only accepts SELECT statements; mutation queries will be rejected, and returned rows are filtered by notebook permission.',
+    'search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.',
     'When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.',
     'The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.',
     'In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.',
@@ -264,7 +264,7 @@ export const SEARCH_GUIDANCE: string[] = [
 
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     fulltext: 'Pass a query string. Supports keyword, query syntax, SQL, and regex modes via methodName (preferred) or method. fulltext now returns plainContent/excerpt by default. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.',
-    query_sql: 'Execute a SELECT statement. Common tables: blocks, spans, assets. Prefer sql over stmt when prompting an AI. Always use LIMIT to control result size. MCP returns data plus truncation and permission-filtering metadata when applicable.',
+    query_sql: 'Execute a SELECT statement. Common tables include blocks, spans, assets, attributes, and refs. Prefer sql over stmt when prompting an AI. Always use LIMIT to control kernel work; maxRows controls the returned window (default 200, maximum 1000). Unattributed aggregate rows are returned only when every notebook is readable; otherwise MCP fails closed and reports the omission.',
     get_backlinks: 'Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". Partial permission-filtered results include machine-readable metadata.',
     search_refs: 'Returns block-level reference contexts for the target id. Use this when you need the surrounding block content, not just the document-level backlink list. beforeLen controls how much leading context is included in each hit.',
     find_replace: 'This is the mutating exception inside the search tool. It performs content replacement after write-permission checks and still requires explicit user confirmation.',

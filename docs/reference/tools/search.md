@@ -21,7 +21,8 @@ Related pages:
 ## Safety Rules
 
 - `find_replace` is the mutating exception in this tool and requires explicit confirmation.
-- `query_sql` is read-only and only accepts `SELECT` statements; add `LIMIT` yourself.
+- `query_sql` is read-only and only accepts `SELECT` statements; add `LIMIT` yourself. `maxRows` controls the returned window after permission filtering (default 200, maximum 1000).
+- Raw SQL can forge or hide result provenance, so `query_sql` is available only when every configured notebook is readable. If any notebook has permission `none`, the action fails closed before executing the query; use scope-aware search/database actions instead. When all notebooks are readable, aggregate, grouping, CTE, and row-level results no longer incur per-row ownership lookups.
 - Search results are filtered by notebook permissions where applicable.
 - Full-text search can lag briefly behind recent writes because indexing is eventually consistent.
 

@@ -50,6 +50,7 @@ describe('search SQL read-only guard', () => {
             canRead: () => true,
             canDelete: () => true,
             get: () => 'rwd',
+            getAll: () => ({}),
         };
 
         const result = await callSearchTool(client, {
@@ -59,6 +60,28 @@ describe('search SQL read-only guard', () => {
 
         const parsed = parseResult(result);
         expect(parsed.error.message).toMatch(/Only SELECT statements/);
+        expect(request).not.toHaveBeenCalled();
+    });
+
+    it('rejects query_sql maxRows above the hard output ceiling', async () => {
+        const request = vi.fn();
+        const client = createMockClient({ request });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({}),
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'query_sql',
+            stmt: 'SELECT * FROM blocks LIMIT 1001',
+            maxRows: 1001,
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        expect(result.isError).toBe(true);
         expect(request).not.toHaveBeenCalled();
     });
 });
@@ -404,11 +427,13 @@ describe('search tool filtering', () => {
             canRead: () => true,
             canDelete: () => true,
             get: () => 'rwd',
+            getAll: () => ({}),
         };
 
         const result = await callSearchTool(client, {
             action: 'query_sql',
             sql: 'SELECT * FROM blocks LIMIT 60',
+            maxRows: 50,
         }, buildDefaultToolConfig().search, permMgr as never);
 
         const parsed = parseResult(result);

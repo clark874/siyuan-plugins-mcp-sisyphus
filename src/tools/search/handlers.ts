@@ -30,6 +30,7 @@ import {
     filterBacklinkResultByPermission,
     filterFullTextSearchResultByPermission,
     filterItemsByPermission,
+    hasRestrictedNotebookPermissions,
     isPermissionRelatedApiError,
 } from './permission-filter';
 import { assertReadOnlySql, getBacklinkDocWithFallback, getBackmentionDocWithFallback } from './sql-builder';
@@ -173,15 +174,34 @@ function createFulltextPaginatedResult(
     });
 }
 
-function createSqlQueryResult(rows: unknown[], removedCount: number, resolvedArgs?: Record<string, unknown>): ToolResult {
-    const truncated = applyTruncation(rows, 50, 'Add LIMIT and OFFSET to your SQL for pagination.');
+function createSqlQueryResult(
+    rows: unknown[],
+    permission: {
+        removedCount: number;
+        permissionDeniedCount: number;
+        unresolvedContextFilteredCount: number;
+        unattributedRowsIncluded: number;
+    },
+    maxRows: number,
+    resolvedArgs?: Record<string, unknown>,
+): ToolResult {
+    const truncated = applyTruncation(rows, maxRows, 'Add LIMIT and OFFSET to your SQL for pagination, or increase maxRows up to 1000.');
     const total = rows.length;
     return createJsonResult({
         data: truncated.items,
         total,
         totalRows: total,
         ...buildTruncationSummary(total, truncated.meta),
-        ...createPartialMetadata(removedCount),
+        ...createPartialMetadata(permission.removedCount),
+        ...(permission.permissionDeniedCount > 0 ? { permissionDeniedCount: permission.permissionDeniedCount } : {}),
+        ...(permission.unresolvedContextFilteredCount > 0 ? {
+            unresolvedContextFilteredCount: permission.unresolvedContextFilteredCount,
+            warning: 'Rows without notebook provenance were omitted because one or more notebooks are restricted. Include box/path/root_id in row-level queries, or run a scope-aware aggregate query.',
+        } : {}),
+        ...(permission.unattributedRowsIncluded > 0 ? {
+            unattributedRowsIncluded: permission.unattributedRowsIncluded,
+            permissionScope: 'all_notebooks_readable',
+        } : {}),
         ...(resolvedArgs ? { resolvedArgs } : {}),
     });
 }
@@ -272,13 +292,20 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
                 { tool: SEARCH_TOOL_NAME, action: 'query_sql', rawArgs },
             );
         }
+        await permMgr.reload();
+        if (hasRestrictedNotebookPermissions(permMgr)) {
+            return createErrorResult(
+                new Error('Raw SQL queries are unavailable while any notebook has permission "none" because arbitrary SELECT expressions can hide or forge row provenance. Grant read access to every notebook, or use a scope-aware search/database action.'),
+                { tool: SEARCH_TOOL_NAME, action: 'query_sql', rawArgs },
+            );
+        }
         const result = await searchApi.querySQL(client, stmt ?? '');
         const rows = Array.isArray(result) ? result : [];
         const filtered = await filterItemsByPermission(client, rows, permMgr);
         const resolvedArgs = parsed.sql !== undefined
             ? buildResolvedArgs({ stmt }).resolvedArgs
             : undefined;
-        return createSqlQueryResult(filtered.items, filtered.removedCount, resolvedArgs);
+        return createSqlQueryResult(filtered.items, filtered, parsed.maxRows ?? 200, resolvedArgs);
     },
     get_backlinks: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchGetBacklinksSchema.parse(rawArgs);

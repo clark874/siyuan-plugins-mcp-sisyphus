@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.6.2-local.5` 在上游 `v0.6.0` 基础上增加思源工作区控制面和只读插件集市目录。新增能力包括插件与代码片段盘点、插件配置脱敏读取与解释、集市检索与 README 安全读取，以及带计划、确认、核验、精确快照和回滚的受控修改。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [system 工具文档](docs/reference/tools/system.md) 与 [集市目录设计](docs/plans/2026-08-11-sisyphus-bazaar-catalog-design.md)。
+> **本地维护分支：** 当前 Fork 的 `v0.6.2-local.6` 在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录与可用于聚合、分组和递归 CTE 审计的安全 SQL 分析通道。裸 SQL 会实时检查全局笔记本权限，任一笔记本不可读时即失败关闭；账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [system 工具文档](docs/reference/tools/system.md)、[search 工具文档](docs/reference/tools/search.md) 与 [SQL 修复设计](docs/plans/2026-08-11-sql-analysis-channel-fix-design.md)。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前本地维护版本：**`v0.6.2-local.5` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释和可回滚受控修改；CLI 仍为 `v0.2.3`。
+> **当前本地维护版本：**`v0.6.2-local.6` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改与安全 SQL 分析通道；CLI 仍为 `v0.2.3`。
 
 ## 项目方向调整
 

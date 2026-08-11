@@ -1034,8 +1034,9 @@ export const SearchFulltextSchema = z.object({
 
 export const SearchQuerySqlSchema = z.object({
     action: z.literal("query_sql"),
-    stmt: z.string().optional().describe("SQL SELECT statement to execute against the blocks/spans/assets tables; returned rows are permission-filtered"),
+    stmt: z.string().optional().describe("SQL SELECT statement over SiYuan index tables such as blocks, spans, assets, attributes, and refs. Raw SQL is available only when every configured notebook is readable."),
     sql: z.string().optional().describe("Semantic alias for stmt. Overrides stmt when both are provided."),
+    maxRows: z.number().int().min(1).max(1000).optional().describe("Maximum rows returned, default 200 and maximum 1000. Use SQL LIMIT/OFFSET to control kernel work."),
 }).superRefine((value, ctx) => {
     if (!value.stmt && !value.sql) {
         ctx.addIssue({

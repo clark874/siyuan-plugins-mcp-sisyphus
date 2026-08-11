@@ -44,6 +44,7 @@ function createPermMgr() {
         canWrite: vi.fn(() => true),
         canDelete: vi.fn(() => true),
         get: vi.fn(() => 'rwd'),
+        getAll: vi.fn(() => ({ 'nb-1': 'rwd' })),
         set: vi.fn(async () => undefined),
     };
 }

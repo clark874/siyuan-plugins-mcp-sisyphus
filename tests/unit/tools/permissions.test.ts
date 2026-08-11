@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CategoryToolConfig } from '@/core/config';
 import { callBlockTool } from '@/tools/block';
 import { callDocumentTool } from '@/tools/document';
-import { callSearchTool } from '@/tools/search';
+import { callSearchTool, filterItemsByPermission } from '@/tools/search';
 
 import * as blockApi from '@/api/block';
 import * as documentApi from '@/api/document';
@@ -69,6 +69,7 @@ const permMgr = {
     canWrite: vi.fn(() => true),
     canDelete: vi.fn(() => true),
     get: vi.fn((notebookId: string) => notebookId === 'blocked' ? 'none' : 'rwd'),
+    getAll: vi.fn((): Record<string, 'none' | 'rwd'> => ({ blocked: 'none', allowed: 'rwd' })),
 };
 
 describe('tool permission and filtering behavior', () => {
@@ -79,10 +80,11 @@ describe('tool permission and filtering behavior', () => {
         permMgr.canWrite.mockImplementation(() => true);
         permMgr.canDelete.mockImplementation(() => true);
         permMgr.get.mockImplementation((notebookId: string) => notebookId === 'blocked' ? 'none' : 'rwd');
+        permMgr.getAll.mockImplementation(() => ({ blocked: 'none', allowed: 'rwd' }));
     });
 
-    it('filters SQL rows by notebook permission and reports metadata', async () => {
-        vi.spyOn(searchApi, 'querySQL').mockResolvedValue([
+    it('rejects raw SQL before execution when any notebook is restricted', async () => {
+        const querySpy = vi.spyOn(searchApi, 'querySQL').mockResolvedValue([
             { id: 'doc-1', box: 'allowed', content: 'visible' },
             { id: 'doc-2', box: 'blocked', content: 'secret' },
         ]);
@@ -93,19 +95,32 @@ describe('tool permission and filtering behavior', () => {
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);
 
-        expect(parsed.data).toHaveLength(1);
-        expect(parsed.data[0].content).toBe('visible');
-        expect(parsed.total).toBe(1);
-        expect(parsed.filteredOutCount).toBe(1);
-        expect(parsed.partial).toBe(true);
-        expect(parsed.reason).toBe('permission_filtered');
+        expect(result.isError).toBe(true);
+        expect(parsed.error.message).toMatch(/provenance/i);
+        expect(querySpy).not.toHaveBeenCalled();
     });
 
-    it('uses doc ownership resolution when SQL rows do not expose notebook fields', async () => {
-        vi.spyOn(searchApi, 'querySQL').mockResolvedValue([
-            { id: 'allowed-row', content: 'visible' },
-            { id: 'blocked-row', content: 'secret' },
-        ]);
+    it('reloads notebook permissions before deciding whether raw SQL is safe', async () => {
+        permMgr.getAll.mockReturnValue({ allowed: 'rwd' });
+        permMgr.reload.mockImplementationOnce(async () => {
+            permMgr.getAll.mockReturnValue({ allowed: 'rwd', newlyBlocked: 'none' });
+        });
+        const querySpy = vi.spyOn(searchApi, 'querySQL').mockResolvedValue([{ total: 1 }]);
+
+        const result = await callSearchTool({} as never, {
+            action: 'query_sql',
+            stmt: 'SELECT COUNT(*) AS total FROM blocks LIMIT 1',
+        }, searchConfig, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(permMgr.reload).toHaveBeenCalledTimes(1);
+        expect(result.isError).toBe(true);
+        expect(parsed.error.message).toMatch(/permission "none"/i);
+        expect(querySpy).not.toHaveBeenCalled();
+    });
+
+    it('uses doc ownership resolution for trusted API rows without notebook fields', async () => {
+        vi.spyOn(searchApi, 'querySQL').mockResolvedValue([]);
         vi.spyOn(blockApi, 'getDocInfo').mockImplementation(async (_client, id) => ({
             id,
             rootID: id,
@@ -116,15 +131,91 @@ describe('tool permission and filtering behavior', () => {
             path: `/${id}.sy`,
         }));
 
+        const filtered = await filterItemsByPermission({} as never, [
+            { id: 'allowed-row', content: 'visible' },
+            { id: 'blocked-row', content: 'secret' },
+        ], permMgr as never);
+
+        expect(filtered.items).toHaveLength(1);
+        expect((filtered.items[0] as { id: string }).id).toBe('allowed-row');
+        expect(filtered.removedCount).toBe(1);
+        expect(filtered.permissionDeniedCount).toBe(1);
+    });
+
+    it.each([
+        ['aggregate', 'SELECT COUNT(*) AS total FROM blocks LIMIT 1', [{ total: 139939 }]],
+        ['group by', 'SELECT name, COUNT(*) AS total FROM attributes GROUP BY name LIMIT 20', [
+            { name: 'alias', total: 829 },
+            { name: 'name', total: 321 },
+        ]],
+        ['recursive CTE', 'WITH RECURSIVE walk(id) AS (SELECT 1) SELECT COUNT(*) AS total FROM walk LIMIT 1', [{ total: 1 }]],
+    ])('keeps unattributed %s rows when every notebook is readable', async (_label, stmt, rows) => {
+        permMgr.getAll.mockReturnValue({ allowed: 'rwd' });
+        vi.spyOn(searchApi, 'querySQL').mockResolvedValue(rows);
+
         const result = await callSearchTool({} as never, {
             action: 'query_sql',
-            stmt: 'SELECT id FROM blocks LIMIT 2',
+            stmt,
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);
 
-        expect(parsed.data).toHaveLength(1);
-        expect(parsed.data[0].id).toBe('allowed-row');
-        expect(parsed.filteredOutCount).toBe(1);
+        expect(parsed.data).toEqual(rows);
+        expect(parsed.unattributedRowsIncluded).toBe(rows.length);
+        expect(parsed.filteredOutCount).toBeUndefined();
+    });
+
+    it('explains why SQL is unavailable when unattributed rows could cross a restricted notebook', async () => {
+        const querySpy = vi.spyOn(searchApi, 'querySQL').mockResolvedValue([
+            { content: 'content without notebook provenance' },
+        ]);
+
+        const result = await callSearchTool({} as never, {
+            action: 'query_sql',
+            stmt: 'SELECT content FROM blocks LIMIT 1',
+        }, searchConfig, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error.message).toMatch(/scope-aware/i);
+        expect(querySpy).not.toHaveBeenCalled();
+    });
+
+    it('does not resolve ownership row by row when SQL rows already expose box', async () => {
+        permMgr.getAll.mockReturnValue({ allowed: 'rwd' });
+        const querySpy = vi.spyOn(searchApi, 'querySQL').mockResolvedValue(
+            Array.from({ length: 300 }, (_, index) => ({
+                id: `block-${index}`,
+                box: 'allowed',
+                content: `row-${index}`,
+            })),
+        );
+
+        const result = await callSearchTool({} as never, {
+            action: 'query_sql',
+            stmt: 'SELECT id, box, content FROM blocks LIMIT 300',
+            maxRows: 300,
+        }, searchConfig, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.data).toHaveLength(300);
+        expect(querySpy).toHaveBeenCalledTimes(1);
+        expect(parsed.truncated).toBe(false);
+    });
+
+    it('returns 100 analysis rows by default instead of truncating at 50', async () => {
+        permMgr.getAll.mockReturnValue({ allowed: 'rwd' });
+        vi.spyOn(searchApi, 'querySQL').mockResolvedValue(
+            Array.from({ length: 100 }, (_, index) => ({ box: 'allowed', rank: index + 1 })),
+        );
+
+        const result = await callSearchTool({} as never, {
+            action: 'query_sql',
+            stmt: 'SELECT box, COUNT(*) AS rank FROM refs GROUP BY box LIMIT 100',
+        }, searchConfig, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.data).toHaveLength(100);
+        expect(parsed.truncated).toBe(false);
     });
 
     it('adds partial-result metadata to backlinks when permission filtering happens', async () => {
