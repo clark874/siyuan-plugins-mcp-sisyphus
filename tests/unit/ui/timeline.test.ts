@@ -386,10 +386,23 @@ describe('snapshot document timeline', () => {
         expect(loadSelection).toContain('currentSnapshot = await createCurrentSnapshot()');
         expect(loadSelection.match(/diffRepoSnapshots/g)).toHaveLength(1);
         expect(source).toContain('await refreshSelectedDiff();');
-        expect(source).toContain('diff_empty_select_snapshot');
+        expect(source).toContain('diff_empty_choose_source');
+        expect(source).toContain('diff_action_compare_recent');
         expect(source).toContain('on:click={onOpenSnapshot}');
         expect(source).not.toContain('<aside');
         expect(source).not.toContain('autoTimelineCollapsed');
+    });
+
+    it('distinguishes recent content changes from metadata and insufficient-history states', () => {
+        const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionDiffPanel.svelte'), 'utf8');
+
+        expect(source).toContain('{#if diffOpen && hasContentDiff}');
+        expect(source).toContain('recent_history_empty_same_checkpoint');
+        expect(source).toContain('recent_history_empty_insufficient');
+        expect(source).toContain('recent_history_title_changes');
+        expect(source).toContain('on:click={onCompareRecent}');
+        expect(source).toContain('class="vc-change-location split"');
+        expect(source).toContain('grid-column: 1 / -1');
     });
 
     it('drives the document timeline from per-document attrs and shows no-change nodes as markers', () => {

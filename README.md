@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.7.0-local.9`（CLI `v0.2.4-local.1`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill，以及按日期分组并联动历史 Diff 的“最近修改”侧边栏。完整说明见 [recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[knowledge-ingestion design](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
+> **本地维护分支：** 当前 Fork 的 `v0.7.1-local.10`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill，以及可分页、可分组并联动历史 Diff 的“最近更新”时间轴。完整说明见 [recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[knowledge-ingestion design](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Local maintenance release:** `v0.7.0-local.9` — Adds the workspace control plane, read-only bazaar catalog, secure SQL analytics, knowledge-ingestion Skill, and a date-grouped Recently Modified dock with native document-history diff on top of upstream `v0.6.0`. The local CLI remains `v0.2.4-local.1`.
+> **Local maintenance release:** `v0.7.1-local.10` — Adds the workspace control plane, read-only bazaar catalog, secure SQL analytics, knowledge-ingestion Skill, and a paginated Recent Updates timeline with native document-history diff on top of upstream `v0.6.0`. The local CLI is `v0.2.4-local.2`.
 
 ## Project Direction Update
 
@@ -142,16 +142,18 @@ If `/mcp` is unavailable, only dynamic extension actions are hidden. The remaini
 
 See the [`extension` tool documentation](./docs/reference/tools/extension.md) for full calling conventions.
 
-## Recently Modified Dock
+## Recent Updates Timeline
 
-Recently Modified is a read-only view independent from both the file tree and the document timeline. It calls SiYuan's native recent-document API and orders document root blocks by their actual update time. Editing a deeply nested document therefore brings that document into this list without artificially touching its ancestors.
+Recent Updates is a read-only view independent from both the file tree and named document timeline nodes. It pages document root blocks through SiYuan's SQL API and orders them by actual update time. Editing a deeply nested document therefore brings that document into this list without artificially touching its ancestors.
 
 - opens from its own clock icon in the left dock;
-- groups documents into Today, Yesterday, recent dates, and collapsible older months;
-- shows document title, parent path, actual modified time, and lazy change statistics, with title/path search;
-- opens the document and the right Diff dock together, comparing the newest native document-history checkpoint whose block content differs from the current state;
-- shows block status, heading breadcrumb, before/after content, line statistics, and click-to-scroll navigation; recent-history comparison is read-only and exposes no rollback control;
+- switches among year, month, and day granularity, pages earlier documents, and preserves manual collapse state;
+- renders each document as an independent card with title, parent path, update time, and lazy update classification;
+- shows block and line statistics only for verified content changes; confirmed title changes, matching-checkpoint, no-history, and insufficient-history states never appear as misleading `+0/-0` content changes;
+- opens the document and right Diff dock together; the blank Diff panel and document-tree context menu can also compare any current document without creating a named node;
+- shows block status, heading breadcrumb, before/after content, line statistics, and click-to-scroll navigation; labels occupy their own row and narrow docks use a vertical layout; recent-history comparison is read-only and exposes no rollback control;
 - refreshes when visible after document edits, renames, moves, creation, or deletion;
+- does not infer a previous directory from SiYuan's archive path because the native history API does not expose the original pre-update document path; directory or attribute-only updates therefore remain explicitly unresolved;
 - does not change file-tree order and is not a subtree-recency sort mode.
 
 The dock can be enabled independently under the plugin's Debug and Runtime settings. See the [recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md) for its implementation boundary.

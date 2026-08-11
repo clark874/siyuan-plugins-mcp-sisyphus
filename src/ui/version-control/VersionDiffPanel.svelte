@@ -1,7 +1,11 @@
 <script lang="ts">
     import { onDestroy, onMount, tick } from "svelte";
     import { fetchPost, showMessage } from "siyuan";
-    import { resolveRecentDocumentHistoryDiff } from "@/shared/recent-history-service";
+    import {
+        resolveRecentDocumentHistoryDiff,
+        type RecentHistoryChangeKind,
+        type RecentHistoryReason,
+    } from "@/shared/recent-history-service";
     import type { RecentDocumentDiffSummary } from "@/ui/recent-documents/recent-documents";
     import {
         buildChangedFiles,
@@ -73,6 +77,7 @@
     export let showDebugMeta = false;
     export let i18n: Record<string, string> = {};
     export let onOpenSnapshot: () => void = () => {};
+    export let onCompareRecent: () => void = () => {};
     export let onComparisonSummary: (documentId: string, summary: RecentDocumentDiffSummary) => void = () => {};
 
     let currentSnapshot: Snapshot | null = null;
@@ -86,7 +91,10 @@
     let newFileContent: SnapshotFileContent | null = null;
     let blockEntries: BlockDiffEntry[] = [];
     let error = "";
-    let recentHistoryReason: "no_history" | "no_different_history" | "" = "";
+    let recentHistoryReason: RecentHistoryReason | "" = "";
+    let recentHistoryChangeKinds: RecentHistoryChangeKind[] = [];
+    let recentBaselineTitle = "";
+    let recentCurrentTitle = "";
     let resolvedDocumentTitle = "";
     let mounted = false;
     let loadedSelectionKey = "";
@@ -122,6 +130,8 @@
         ? t("recent_history_diff_source", "近期差异")
         : t("timeline_diff_source", "时间线差异");
     $: diffLineStats = getBlockDiffLineStats(blockEntries);
+    $: hasContentDiff = blockEntries.some((entry) => entry.status !== "unchanged");
+    $: hasRecentTitleDiff = recentHistoryChangeKinds.includes("title");
     $: diffDisplayItems = buildDiffDisplayItems(blockEntries);
     $: hiddenDisplayItems = diffDisplayItems.filter((item): item is DiffHiddenDisplayItem => item.kind === "hidden");
     $: hasHiddenBlocks = hiddenDisplayItems.length > 0;
@@ -641,6 +651,9 @@
         selectedEntry = undefined;
         currentSnapshot = null;
         recentHistoryReason = "";
+        recentHistoryChangeKinds = [];
+        recentBaselineTitle = "";
+        recentCurrentTitle = "";
         expandedHiddenKeys = new Set();
         clearDiff();
         try {
@@ -685,6 +698,9 @@
         selectedEntry = undefined;
         currentSnapshot = null;
         recentHistoryReason = "";
+        recentHistoryChangeKinds = [];
+        recentBaselineTitle = "";
+        recentCurrentTitle = "";
         expandedHiddenKeys = new Set();
         clearDiff();
         try {
@@ -699,6 +715,9 @@
             });
             if (loadVersion !== selectionLoadVersion) return;
             recentHistoryReason = result.reason ?? "";
+            recentHistoryChangeKinds = result.changeKinds;
+            recentBaselineTitle = result.baseline?.title ?? "";
+            recentCurrentTitle = result.current.title;
             const baselineCreated = result.baseline?.createdAt || result.baseline?.created || "";
             const entryKey = `recent:${nextSelection.documentId}:${result.baseline?.created ?? "none"}:${nextSelection.updated}`;
             currentSnapshot = {
@@ -713,7 +732,7 @@
                 snapshot: {
                     id: `history:${result.baseline?.created ?? "none"}`,
                     memo: result.baseline
-                        ? t("recent_history_baseline_title", "最近不同历史检查点")
+                        ? t("recent_history_baseline_title", "最近可比较历史检查点")
                         : t("recent_history_no_baseline", "未找到不同历史检查点"),
                     created: baselineCreated,
                 },
@@ -727,7 +746,7 @@
                 oldFileId: "",
                 newFileId: "",
                 scope: "document",
-                hasDiff: !result.noChanges,
+                hasDiff: result.changeKinds.length > 0,
                 noChanges: result.noChanges,
                 updated: nextSelection.updated,
             };
@@ -737,11 +756,12 @@
             oldFileContent = result.baseline ? { title: result.baseline.title, content: result.oldContent, updated: baselineCreated } : null;
             newFileContent = { title: nextSelection.documentTitle, content: result.newContent, updated: nextSelection.updated };
             onComparisonSummary(nextSelection.documentId, {
-                status: result.reason ?? "ready",
+                status: recentSummaryStatus(result.changeKinds, result.reason),
                 changedBlocks: result.stats.changedBlocks,
                 addedLines: result.stats.addedLines,
                 removedLines: result.stats.removedLines,
                 baselineCreated,
+                documentUpdated: nextSelection.updated,
             });
             resetDocumentScrollSync();
         } catch (err) {
@@ -753,6 +773,7 @@
                     addedLines: 0,
                     removedLines: 0,
                     baselineCreated: "",
+                    documentUpdated: nextSelection.updated,
                 });
             }
         } finally {
@@ -998,6 +1019,9 @@
         loadingFile = false;
         error = "";
         recentHistoryReason = "";
+        recentHistoryChangeKinds = [];
+        recentBaselineTitle = "";
+        recentCurrentTitle = "";
         expandedHiddenKeys = new Set();
         clearDiff();
     }
@@ -1044,6 +1068,17 @@
     function getErrorMessage(err: unknown): string {
         return err instanceof Error ? err.message : String(err);
     }
+
+    function recentSummaryStatus(
+        changeKinds: RecentHistoryChangeKind[],
+        reason?: RecentHistoryReason,
+    ): RecentDocumentDiffSummary["status"] {
+        if (changeKinds.includes("content")) return "content_changed";
+        if (changeKinds.includes("title")) return "title_changed";
+        if (reason === "no_history") return "no_history";
+        if (reason === "same_content_checkpoint") return "same_content_checkpoint";
+        return "history_insufficient";
+    }
 </script>
 
 <div bind:this={shellElement} class="vc-shell">
@@ -1051,7 +1086,7 @@
         <div class="vc-toolbar">
             <div class="vc-toolbar__meta">
                 <strong>{displayDocumentTitle}</strong>
-                {#if diffOpen}
+                {#if diffOpen && hasContentDiff}
                     <span class="vc-change-summary" aria-label={changeSummaryLabel}>
                         <span class="added">+{diffLineStats.added}</span>
                         <span class="removed">-{diffLineStats.removed}</span>
@@ -1126,21 +1161,28 @@
             <section bind:this={diffElement} on:scroll={handleDiffScroll} on:click={handleDiffClick} class:unified-mode={compareMode === "unified"} class:split-mode={compareMode === "split"} class="vc-diff">
                 {#if loadingDiff}
                     <div class="vc-empty">{recentHistoryMode
-                        ? t("recent_history_loading_diff", "正在查找最近不同历史检查点并计算差异...")
+                        ? t("recent_history_loading_diff", "正在查找最近可比较历史检查点并计算差异…")
                         : t("diff_loading_selection", "正在创建当前状态快照并计算所选节点差异...")}</div>
                 {:else if loadingFile}
                     <div class="vc-empty">{t("timeline_loading_snapshot_file", "正在打开快照文件...")}</div>
                 {:else if !selectedEntry}
                     <div class="vc-empty vc-empty-selection">
-                        <p>{t("diff_empty_select_snapshot", "从左侧文档快照页选择一个节点，查看历史版本与当前状态的差异")}</p>
-                        <button type="button" class="vc-open-snapshot" on:click={onOpenSnapshot}>{t("diff_action_open_snapshot", "打开文档快照")}</button>
+                        <p>{currentDocumentId
+                            ? t("diff_empty_choose_source", "比较当前文档的最近历史，或选择一个命名时间线节点")
+                            : t("diff_empty_select_document", "请先打开一篇文档")}</p>
+                        {#if currentDocumentId}
+                            <div class="vc-empty-actions">
+                                <button type="button" class="vc-compare-recent" on:click={onCompareRecent}>{t("diff_action_compare_recent", "比较最近历史")}</button>
+                                <button type="button" class="vc-open-snapshot" on:click={onOpenSnapshot}>{t("diff_action_open_snapshot", "选择命名节点")}</button>
+                            </div>
+                        {/if}
                     </div>
                 {:else}
                     <div class:unified={compareMode === "unified"} class="vc-diff-head">
                         {#if compareMode === "unified"}
                             <div class="vc-diff-head-cell vc-version-line">
                                 <div class="vc-version-card old">
-                                    <span class="vc-version-label">{recentHistoryMode ? t("recent_history_checkpoint", "最近不同历史检查点") : t("timeline_history_version", "历史版本")}</span>
+                                    <span class="vc-version-label">{recentHistoryMode ? t("recent_history_checkpoint", "最近可比较历史检查点") : t("timeline_history_version", "历史版本")}</span>
                                     {#if selectedSnapshotTitle}<strong>{selectedSnapshotTitle}</strong>{/if}
                                     {#if selectedSnapshotTime}<time>{selectedSnapshotTime}</time>{/if}
                                 </div>
@@ -1153,7 +1195,7 @@
                         {:else}
                             <div class="vc-diff-head-cell">
                                 <div class="vc-version-card old">
-                                    <span class="vc-version-label">{recentHistoryMode ? t("recent_history_checkpoint", "最近不同历史检查点") : t("timeline_history_version", "历史版本")}</span>
+                                    <span class="vc-version-label">{recentHistoryMode ? t("recent_history_checkpoint", "最近可比较历史检查点") : t("timeline_history_version", "历史版本")}</span>
                                     {#if selectedSnapshotTitle}<strong>{selectedSnapshotTitle}</strong>{/if}
                                     {#if selectedSnapshotTime}<time>{selectedSnapshotTime}</time>{/if}
                                 </div>
@@ -1167,11 +1209,20 @@
                             </div>
                         {/if}
                     </div>
+                    {#if recentHistoryMode && hasRecentTitleDiff}
+                        <section class="vc-metadata-diff" aria-label={t("recent_history_title_changes", "标题变化")}>
+                            <div><strong>{t("recent_history_title_change", "标题")}</strong><span title={recentBaselineTitle}>{recentBaselineTitle || "—"}</span><b aria-hidden="true">→</b><span title={recentCurrentTitle}>{recentCurrentTitle || "—"}</span></div>
+                        </section>
+                    {/if}
                     {#if blockEntries.length === 0}
                         <div class="vc-empty">{recentHistoryReason === "no_history"
                             ? t("recent_history_empty_no_history", "该文档暂无可比较的历史检查点。")
-                            : recentHistoryReason === "no_different_history"
-                                ? t("recent_history_empty_no_difference", "最近检查的历史版本与当前内容相同。")
+                            : recentHistoryReason === "same_content_checkpoint"
+                                ? t("recent_history_empty_same_checkpoint", "当前正文与现有历史检查点相同；本次更新可能发生在属性、数据库绑定或其他结构信息中。")
+                                : recentHistoryReason === "history_insufficient"
+                                    ? t("recent_history_empty_insufficient", "文档已更新，但没有保留可比较的修改前检查点。")
+                                    : recentHistoryReason === "title_changed"
+                                        ? t("recent_history_empty_title_changed", "正文没有变化；上方列出了可确认的标题变化。")
                                 : selectedEntry.hasDiff === false
                                     ? t("timeline_empty_no_diff", "该节点暂无可显示差异。")
                                     : t("timeline_empty_unparseable_file", "该文件内容为空，或当前快照内容暂无法解析为可显示块。")}</div>
@@ -1210,7 +1261,7 @@
                                         {#if item.entry.status !== "unchanged"}
                                             <div class="vc-change-location">
                                                 <span class="status {item.entry.status}">{changeStatusLabel(item.entry.status)}</span>
-                                                <span>{sectionPathLabel(item.entry)}</span>
+                                                <span title={sectionPathLabel(item.entry)}>{sectionPathLabel(item.entry)}</span>
                                             </div>
                                         {/if}
                                         {#if showDebugMeta}
@@ -1314,13 +1365,13 @@
                                     {/if}
                                 {:else}
                                     <div class="vc-diff-row" class:first-change={item.changeIndex === 0}>
+                                        {#if item.entry.status !== "unchanged"}
+                                            <div class="vc-change-location split">
+                                                <span class="status {item.entry.status}">{changeStatusLabel(item.entry.status)}</span>
+                                                <span title={sectionPathLabel(item.entry)}>{sectionPathLabel(item.entry)}</span>
+                                            </div>
+                                        {/if}
                                         <article class="vc-block old {item.entry.status}">
-                                            {#if item.entry.status !== "unchanged"}
-                                                <div class="vc-change-location">
-                                                    <span class="status {item.entry.status}">{changeStatusLabel(item.entry.status)}</span>
-                                                    <span>{sectionPathLabel(item.entry)}</span>
-                                                </div>
-                                            {/if}
                                             {#if showDebugMeta}
                                                 <div class="vc-block__meta">
                                                     <span>{item.entry.status}</span>
@@ -1767,6 +1818,43 @@
     .vc-change-location .status.removed { color: #c93d35; background: rgba(248, 81, 73, 0.14); }
     .vc-change-location .status.modified { color: #8a6410; background: rgba(210, 153, 34, 0.16); }
 
+    .vc-change-location.split {
+        grid-column: 1 / -1;
+    }
+
+    .vc-metadata-diff {
+        display: grid;
+        gap: 6px;
+        margin: 10px 12px 2px;
+        padding: 9px 10px;
+        border: 1px solid color-mix(in srgb, var(--b3-theme-secondary) 42%, var(--b3-border-color));
+        border-radius: 7px;
+        background: color-mix(in srgb, var(--b3-theme-secondary) 7%, var(--b3-theme-background));
+    }
+
+    .vc-metadata-diff > div {
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) 18px minmax(0, 1fr);
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        font-size: 11px;
+    }
+
+    .vc-metadata-diff span {
+        overflow: hidden;
+        padding: 4px 6px;
+        border-radius: 4px;
+        background: var(--b3-theme-surface);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vc-metadata-diff b {
+        color: var(--b3-theme-primary);
+        text-align: center;
+    }
+
     .vc-unified-row {
         display: grid;
         grid-template-columns: 38px minmax(0, 1fr);
@@ -2121,6 +2209,19 @@
         background: color-mix(in srgb, var(--b3-theme-primary) 8%, var(--b3-theme-surface));
     }
 
+    .vc-empty-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .vc-compare-recent {
+        border-color: var(--b3-theme-primary);
+        color: var(--b3-theme-background);
+        background: var(--b3-theme-primary);
+    }
+
     .vc-empty.compact {
         padding: 8px 0;
     }
@@ -2128,10 +2229,10 @@
     @media (max-width: 520px) {
         .vc-diff-head,
         .vc-diff-grid {
-            grid-template-columns: minmax(0, 1fr) clamp(22px, 9%, 36px);
+            grid-template-columns: minmax(0, 1fr);
         }
 
-        .vc-diff-head div:nth-child(2) {
+        .vc-diff-head > .vc-diff-head-arrow {
             display: none;
         }
 
@@ -2150,14 +2251,23 @@
             gap: 2px;
         }
 
-        .vc-block.old {
+        .vc-block.old,
+        .vc-block.new,
+        .vc-restore-column {
             grid-column: 1 / -1;
         }
 
         .vc-restore-column {
-            grid-column: 2;
-            grid-row: span 1;
-            border-left: 1px solid var(--b3-border-color);
+            min-height: 34px;
+            border-left: 0;
+        }
+
+        .vc-metadata-diff > div {
+            grid-template-columns: 42px minmax(0, 1fr) minmax(0, 1fr);
+        }
+
+        .vc-metadata-diff b {
+            display: none;
         }
     }
 </style>

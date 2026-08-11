@@ -52,18 +52,20 @@ describe('settings i18n', () => {
             const i18n = readI18n(locale);
 
             expect(i18n.toolSettingsChangelogTitle, `${locale} toolSettingsChangelogTitle`).toEqual(expect.any(String));
+            expect(i18n.toolSettingsChangelogLatestText, `${locale} toolSettingsChangelogLatestText`).toEqual(expect.any(String));
             expect(i18n.toolSettingsChangelogText, `${locale} toolSettingsChangelogText`).toEqual(expect.any(String));
             expect(i18n.toolSettingsChangelogExpand, `${locale} toolSettingsChangelogExpand`).toEqual(expect.any(String));
             expect(i18n.toolSettingsChangelogCollapse, `${locale} toolSettingsChangelogCollapse`).toEqual(expect.any(String));
-            expect(i18n.toolSettingsChangelogText, `${locale} toolSettingsChangelogText`).toContain(`v${version}`);
-            for (const line of String(i18n.toolSettingsChangelogText).split('\n')) {
+            const completeChangelog = `${i18n.toolSettingsChangelogLatestText}\n${i18n.toolSettingsChangelogText}`;
+            expect(completeChangelog, `${locale} complete changelog`).toContain(`v${version}`);
+            for (const line of completeChangelog.split('\n')) {
                 expect(line, `${locale} changelog date`).toMatch(/· \d{4}-\d{2}-\d{2} —/);
             }
             for (const milestone of ['v0.5.1', 'v0.5.0', 'v0.4.0', 'v0.3.7', 'v0.3.0', 'v0.2.0', 'v0.1.5', 'v0.1.0']) {
-                expect(i18n.toolSettingsChangelogText, `${locale} ${milestone}`).toContain(milestone);
+                expect(completeChangelog, `${locale} ${milestone}`).toContain(milestone);
             }
             for (const pr of [45, 43, 33, 26, 25, 21, 10, 6]) {
-                expect(i18n.toolSettingsChangelogText, `${locale} PR #${pr} emphasis`).toMatch(
+                expect(completeChangelog, `${locale} PR #${pr} emphasis`).toMatch(
                     new RegExp(`\\*\\*[^\\n]*PR #${pr}[^\\n]*\\*\\*`),
                 );
             }

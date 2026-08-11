@@ -9,7 +9,12 @@ import {
     type SnapshotBlock,
 } from '../ui/version-control/block-diff';
 
-export type RecentHistoryEmptyReason = 'no_history' | 'no_different_history';
+export type RecentHistoryReason =
+    | 'no_history'
+    | 'history_insufficient'
+    | 'same_content_checkpoint'
+    | 'title_changed';
+export type RecentHistoryChangeKind = 'content' | 'title';
 
 export interface RecentHistoryBaseline {
     created: string;
@@ -41,10 +46,11 @@ export interface RecentHistoryComparisonResult {
     source: 'recent_history';
     documentId: string;
     baseline: RecentHistoryBaseline | null;
-    current: { updated: string };
+    current: { updated: string; title: string; path: string };
     scannedCandidates: number;
     noChanges: boolean;
-    reason?: RecentHistoryEmptyReason;
+    reason?: RecentHistoryReason;
+    changeKinds: RecentHistoryChangeKind[];
     stats: {
         addedLines: number;
         removedLines: number;
@@ -80,6 +86,7 @@ export async function resolveRecentDocumentHistoryDiff(
 ): Promise<RecentHistoryDiffResult> {
     const current = await blockApi.getBlockDOM(client, options.documentId);
     const currentContent = current?.dom ?? '';
+    const currentInfo = asCurrentDocumentInfo(await blockApi.getBlockInfo(client, options.documentId));
     const historySearch = await historyApi.searchHistory(client, {
         query: options.documentId,
         type: 3,
@@ -91,6 +98,11 @@ export async function resolveRecentDocumentHistoryDiff(
         : [];
     const maxCandidates = Math.min(20, Math.max(1, Math.floor(options.maxCandidates ?? DEFAULT_MAX_CANDIDATES)));
     let scannedCandidates = 0;
+    let sameCheckpoint: {
+        baseline: RecentHistoryBaseline;
+        oldContent: string;
+        allEntries: BlockDiffEntry[];
+    } | null = null;
 
     for (const created of timestamps) {
         if (scannedCandidates >= maxCandidates) break;
@@ -110,31 +122,62 @@ export async function resolveRecentDocumentHistoryDiff(
             if (historical?.rootID !== options.documentId && historical?.id !== options.documentId) continue;
             const allEntries = attachBlockSectionPaths(diffSnapshotBlocks(historical?.content ?? '', currentContent));
             const changedEntries = allEntries.filter((entry) => entry.status !== 'unchanged');
-            if (changedEntries.length === 0) continue;
+            const baseline = {
+                created,
+                createdAt: epochSecondsToIso(created),
+                title: item.title || options.documentId,
+                op: item.op || '',
+            };
+            const metadataKinds = detectTitleChange(baseline, currentInfo);
+            if (changedEntries.length === 0 && metadataKinds.length === 0) {
+                sameCheckpoint ??= {
+                    baseline,
+                    oldContent: historical?.content ?? '',
+                    allEntries,
+                };
+                continue;
+            }
             return buildResult({
                 options,
-                baseline: {
-                    created,
-                    createdAt: epochSecondsToIso(created),
-                    title: item.title || options.documentId,
-                    op: item.op || '',
-                },
+                currentInfo,
+                baseline,
                 scannedCandidates,
                 oldContent: historical.content ?? '',
                 newContent: currentContent,
                 allEntries,
+                changeKinds: [
+                    ...(changedEntries.length > 0 ? ['content' as const] : []),
+                    ...metadataKinds,
+                ],
+                ...(changedEntries.length === 0 ? { reason: 'title_changed' as const } : {}),
             });
         }
     }
 
+    if (sameCheckpoint) {
+        return buildResult({
+            options,
+            currentInfo,
+            baseline: sameCheckpoint.baseline,
+            scannedCandidates,
+            oldContent: sameCheckpoint.oldContent,
+            newContent: currentContent,
+            allEntries: sameCheckpoint.allEntries,
+            changeKinds: [],
+            reason: 'same_content_checkpoint',
+        });
+    }
+
     return buildResult({
         options,
+        currentInfo,
         baseline: null,
         scannedCandidates,
         oldContent: '',
         newContent: currentContent,
         allEntries: [],
-        reason: timestamps.length === 0 ? 'no_history' : 'no_different_history',
+        changeKinds: [],
+        reason: timestamps.length === 0 ? 'no_history' : 'history_insufficient',
     });
 }
 
@@ -149,12 +192,14 @@ export async function compareRecentDocumentHistory(
 
 function buildResult(input: {
     options: RecentHistoryCompareOptions;
+    currentInfo: { title: string; path: string };
     baseline: RecentHistoryBaseline | null;
     scannedCandidates: number;
     oldContent: string;
     newContent: string;
     allEntries: BlockDiffEntry[];
-    reason?: RecentHistoryEmptyReason;
+    changeKinds: RecentHistoryChangeKind[];
+    reason?: RecentHistoryReason;
 }): RecentHistoryDiffResult {
     const changedEntries = input.allEntries.filter((entry) => entry.status !== 'unchanged');
     const page = paginate(changedEntries, input.options.page, input.options.pageSize);
@@ -163,10 +208,15 @@ function buildResult(input: {
         source: 'recent_history',
         documentId: input.options.documentId,
         baseline: input.baseline,
-        current: { updated: input.options.currentUpdated ?? '' },
+        current: {
+            updated: input.options.currentUpdated ?? '',
+            title: input.currentInfo.title,
+            path: input.currentInfo.path,
+        },
         scannedCandidates: input.scannedCandidates,
-        noChanges: changedEntries.length === 0,
+        noChanges: input.changeKinds.length === 0,
         ...(input.reason ? { reason: input.reason } : {}),
+        changeKinds: input.changeKinds,
         stats: {
             addedLines: lineStats.added,
             removedLines: lineStats.removed,
@@ -182,6 +232,30 @@ function buildResult(input: {
         newContent: input.newContent,
         allEntries: input.allEntries,
     };
+}
+
+function asCurrentDocumentInfo(value: unknown): { title: string; path: string } {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return { title: '', path: '' };
+    const record = value as Record<string, unknown>;
+    return {
+        title: typeof record.rootTitle === 'string' ? record.rootTitle.trim() : '',
+        path: normalizeStoragePath(record.path),
+    };
+}
+
+function detectTitleChange(
+    baseline: RecentHistoryBaseline,
+    current: { title: string; path: string },
+): RecentHistoryChangeKind[] {
+    const changes: RecentHistoryChangeKind[] = [];
+    if (baseline.title && current.title && baseline.title !== current.title) changes.push('title');
+    return changes;
+}
+
+function normalizeStoragePath(value: unknown): string {
+    if (typeof value !== 'string' || !value.trim()) return '';
+    const normalized = value.trim().replace(/\/{2,}/g, '/');
+    return normalized.startsWith('/') ? normalized : `/${normalized}`;
 }
 
 function paginate<T>(items: T[], pageValue = 1, pageSizeValue = 20) {

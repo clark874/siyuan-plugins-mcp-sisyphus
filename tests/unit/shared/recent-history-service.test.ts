@@ -18,6 +18,12 @@ function historyClient() {
     return createMockClient({
         request: vi.fn(async (endpoint: string, data?: Record<string, unknown>) => {
             if (endpoint === '/api/block/getBlockDOM') return { id: DOC_ID, dom: CURRENT_DOM };
+            if (endpoint === '/api/block/getBlockInfo') return {
+                rootID: DOC_ID,
+                rootTitle: '示例文档',
+                box: 'nb-1',
+                path: `/folder/${DOC_ID}.sy`,
+            };
             if (endpoint === '/api/history/searchHistory') {
                 return { histories: ['1786434544', '1786358524'], pageCount: 1, totalCount: 2 };
             }
@@ -25,7 +31,7 @@ function historyClient() {
                 return {
                     items: [{
                         title: '示例文档',
-                        path: `history/${String(data?.created)}/nb-1/${DOC_ID}.sy`,
+                        path: `/history/${String(data?.created)}-update/nb-1/folder/${DOC_ID}.sy`,
                         op: 'update',
                         notebook: 'nb-1',
                     }],
@@ -53,6 +59,7 @@ describe('recent history comparison', () => {
         });
 
         expect(result.baseline).toMatchObject({ created: '1786358524', title: '示例文档', op: 'update' });
+        expect(result.changeKinds).toEqual(['content']);
         expect(result.scannedCandidates).toBe(2);
         expect(result.stats).toMatchObject({ changedBlocks: 1, addedLines: 1, removedLines: 1 });
         expect(result.allEntries.find((entry) => entry.status === 'modified')?.sectionPath).toEqual(['方法']);
@@ -82,6 +89,8 @@ describe('recent history comparison', () => {
         const client = createMockClient({
             request: vi.fn(async (endpoint: string) => endpoint === '/api/block/getBlockDOM'
                 ? { id: DOC_ID, dom: CURRENT_DOM }
+                : endpoint === '/api/block/getBlockInfo'
+                    ? { rootID: DOC_ID, rootTitle: '示例文档', box: 'nb-1', path: `/folder/${DOC_ID}.sy` }
                 : { histories: [], pageCount: 0, totalCount: 0 }),
         });
 
@@ -89,10 +98,54 @@ describe('recent history comparison', () => {
         expect(result).toMatchObject({ baseline: null, noChanges: true, reason: 'no_history', total: 0 });
     });
 
+    it('reports a same-content checkpoint instead of presenting a synthetic +0/-0 diff', async () => {
+        const client = historyClient();
+        (client.request as any).mockImplementation(async (endpoint: string, data?: Record<string, unknown>) => {
+            if (endpoint === '/api/block/getBlockDOM') return { id: DOC_ID, dom: CURRENT_DOM };
+            if (endpoint === '/api/block/getBlockInfo') return { rootID: DOC_ID, rootTitle: '示例文档', box: 'nb-1', path: `/folder/${DOC_ID}.sy` };
+            if (endpoint === '/api/history/searchHistory') return { histories: ['1786434544'], pageCount: 1, totalCount: 1 };
+            if (endpoint === '/api/history/getHistoryItems') return { items: [{ title: '示例文档', path: `/history/${String(data?.created)}-update/nb-1/folder/${DOC_ID}.sy`, op: 'update', notebook: 'nb-1' }] };
+            if (endpoint === '/api/history/getDocHistoryContent') return { id: DOC_ID, rootID: DOC_ID, content: SAME_DOM, isLargeDoc: false };
+            return null;
+        });
+
+        const result = await compareRecentDocumentHistory(client, { documentId: DOC_ID });
+        expect(result).toMatchObject({
+            noChanges: true,
+            reason: 'same_content_checkpoint',
+            changeKinds: [],
+            baseline: { title: '示例文档' },
+            current: { title: '示例文档', path: `/folder/${DOC_ID}.sy` },
+        });
+    });
+
+    it('detects title changes but does not mistake the archive path for the previous document path', async () => {
+        const client = historyClient();
+        (client.request as any).mockImplementation(async (endpoint: string, data?: Record<string, unknown>) => {
+            if (endpoint === '/api/block/getBlockDOM') return { id: DOC_ID, dom: CURRENT_DOM };
+            if (endpoint === '/api/block/getBlockInfo') return { rootID: DOC_ID, rootTitle: '新标题', box: 'nb-1', path: `/new/${DOC_ID}.sy` };
+            if (endpoint === '/api/history/searchHistory') return { histories: ['1786434544'], pageCount: 1, totalCount: 1 };
+            if (endpoint === '/api/history/getHistoryItems') return { items: [{ title: '旧标题', path: `/history/${String(data?.created)}-update/nb-1/old/${DOC_ID}.sy`, op: 'update', notebook: 'nb-1' }] };
+            if (endpoint === '/api/history/getDocHistoryContent') return { id: DOC_ID, rootID: DOC_ID, content: SAME_DOM, isLargeDoc: false };
+            return null;
+        });
+
+        const result = await compareRecentDocumentHistory(client, { documentId: DOC_ID });
+        expect(result).toMatchObject({
+            noChanges: false,
+            reason: 'title_changed',
+            changeKinds: ['title'],
+            baseline: { title: '旧标题' },
+            current: { title: '新标题', path: `/new/${DOC_ID}.sy` },
+        });
+        expect(result.baseline).not.toHaveProperty('path');
+    });
+
     it('validates the returned history root id before comparing content', async () => {
         const client = historyClient();
         (client.request as any).mockImplementation(async (endpoint: string) => {
             if (endpoint === '/api/block/getBlockDOM') return { id: DOC_ID, dom: CURRENT_DOM };
+            if (endpoint === '/api/block/getBlockInfo') return { rootID: DOC_ID, rootTitle: '示例文档', box: 'nb-1', path: `/folder/${DOC_ID}.sy` };
             if (endpoint === '/api/history/searchHistory') return { histories: ['1786434544'], pageCount: 1, totalCount: 1 };
             if (endpoint === '/api/history/getHistoryItems') return { items: [{ title: '错配', path: 'history/wrong.sy', op: 'update', notebook: 'nb-1' }] };
             if (endpoint === '/api/history/getDocHistoryContent') return { id: 'wrong', rootID: 'wrong', content: OLD_DOM, isLargeDoc: false };
@@ -100,6 +153,6 @@ describe('recent history comparison', () => {
         });
 
         const result = await compareRecentDocumentHistory(client, { documentId: DOC_ID });
-        expect(result).toMatchObject({ baseline: null, reason: 'no_different_history', total: 0 });
+        expect(result).toMatchObject({ baseline: null, reason: 'history_insufficient', total: 0 });
     });
 });

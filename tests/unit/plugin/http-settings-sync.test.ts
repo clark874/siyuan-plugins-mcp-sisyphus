@@ -738,8 +738,9 @@ describe('HTTP settings sync', () => {
             show: false,
         }));
         expect(addCommand).toHaveBeenCalledTimes(1);
-        expect(eventBusOn).toHaveBeenCalledTimes(5);
+        expect(eventBusOn).toHaveBeenCalledTimes(6);
         expect(eventBusOn).toHaveBeenCalledWith("ws-main", expect.any(Function));
+        expect(eventBusOn).toHaveBeenCalledWith("open-menu-doctree", expect.any(Function));
     });
 
     it('passes loaded timeline settings into the dock panel when it initializes', async () => {
@@ -929,7 +930,7 @@ describe('HTTP settings sync', () => {
 
         expect(addCommand).toHaveBeenCalledTimes(1);
         expect((plugin as any).commands).toHaveLength(1);
-        expect(eventBusOn).toHaveBeenCalledTimes(4);
+        expect(eventBusOn).toHaveBeenCalledTimes(5);
         expect(snapshotPanelInstances).toHaveLength(1);
         expect(diffPanelInstances).toHaveLength(1);
 
@@ -938,7 +939,7 @@ describe('HTTP settings sync', () => {
         const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
         const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
         expect((plugin as any).commands).toHaveLength(0);
-        expect(eventBusOff).toHaveBeenCalledTimes(3);
+        expect(eventBusOff).toHaveBeenCalledTimes(4);
         expect(snapshotPanelInstances[0].$destroy).toHaveBeenCalledTimes(1);
         expect(diffPanelInstances[0].$destroy).toHaveBeenCalledTimes(1);
         expect(recentDocumentsPanelInstances[0].$destroy).not.toHaveBeenCalled();

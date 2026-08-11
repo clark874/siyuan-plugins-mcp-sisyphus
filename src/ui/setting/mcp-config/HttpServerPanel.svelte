@@ -121,7 +121,10 @@
     let selectedMcpTransport: McpTransportId = "stdio";
     let changelogExpanded = false;
     $: changelogTitle = getLabel("toolSettingsChangelogTitle", "更新日志");
-    $: changelogText = getLabel("toolSettingsChangelogText", "连接设置现按 MCP / CLI 分组，MCP 下再区分 HTTP/HTTPS 与 stdio。");
+    $: changelogText = [
+        getLabel("toolSettingsChangelogLatestText", ""),
+        getLabel("toolSettingsChangelogText", "连接设置现按 MCP / CLI 分组，MCP 下再区分 HTTP/HTTPS 与 stdio。"),
+    ].filter(Boolean).join("\n");
     $: changelogEntries = parseChangelogEntries(changelogText);
     $: visibleChangelogEntries = changelogExpanded ? changelogEntries : changelogEntries.slice(0, 1);
     $: httpSupportReason = plugin?.httpLauncher ? "" : getHttpUnsupportedReason();

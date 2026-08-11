@@ -801,7 +801,7 @@ export default class SiyuanMCP extends Plugin {
                 position: RECENT_DOCUMENTS_DOCK_POSITION,
                 size: { width: 340, height: 0 },
                 icon: RECENT_DOCUMENTS_ICON_ID,
-                title: this.i18n?.recent_documents_dock_title || "最近修改",
+                title: this.i18n?.recent_documents_dock_title || "最近更新",
                 show: this.getInitialDockVisibility(
                     RECENT_DOCUMENTS_DOCK_POSITION,
                     this.getRecentDocumentsDockTypes(),
@@ -838,37 +838,45 @@ export default class SiyuanMCP extends Plugin {
                 comparisonSummaries: this.recentDocumentDiffSummaries,
                 activeDocumentId: this.recentHistorySelection?.documentId ?? "",
                 onOpenDocument: (document: RecentDocumentView) => this.openRecentDocument(document),
+                onComparisonSummary: (documentId: string, summary: RecentDocumentDiffSummary) => {
+                    this.updateRecentDocumentDiffSummary(documentId, summary);
+                },
             },
         });
     }
 
     private openRecentDocument(document: RecentDocumentView) {
         if (!document.id) return;
-        this.currentDocument = { id: document.id, title: document.title };
-        this.timelineSelection = null;
-        this.recentHistorySelection = {
-            source: "recent_history",
-            documentId: document.id,
-            documentTitle: document.title,
-            updated: document.updated,
-        };
-        this.snapshotPanel?.$set({
-            currentDocumentId: document.id,
-            currentDocumentTitle: document.title,
-            selectedNodeKey: "",
-        });
-        this.diffPanel?.$set({
-            currentDocumentId: document.id,
-            currentDocumentTitle: document.title,
-            selection: this.recentHistorySelection,
-        });
-        this.recentDocumentsPanel?.$set({ activeDocumentId: document.id });
+        this.compareRecentForDocument({ id: document.id, title: document.title }, document.updated);
         void (siyuanApi as any).openTab({
             app: (this as any).app,
             doc: { id: document.id },
             keepCursor: false,
             openNewTab: false,
         });
+    }
+
+    private compareRecentForDocument(context: CurrentDocumentContext, updated = "") {
+        if (!context.id) return;
+        this.currentDocument = context;
+        this.timelineSelection = null;
+        this.recentHistorySelection = {
+            source: "recent_history",
+            documentId: context.id,
+            documentTitle: context.title,
+            updated,
+        };
+        this.snapshotPanel?.$set({
+            currentDocumentId: context.id,
+            currentDocumentTitle: context.title,
+            selectedNodeKey: "",
+        });
+        this.diffPanel?.$set({
+            currentDocumentId: context.id,
+            currentDocumentTitle: context.title,
+            selection: this.recentHistorySelection,
+        });
+        this.recentDocumentsPanel?.$set({ activeDocumentId: context.id });
         this.showDiffDock();
     }
 
@@ -1188,6 +1196,7 @@ export default class SiyuanMCP extends Plugin {
                 showDebugMeta: this.versionControlSettings.showDebugMeta,
                 i18n: this.i18n ?? {},
                 onOpenSnapshot: () => this.showSnapshotDock(),
+                onCompareRecent: () => this.compareRecentForDocument(this.currentDocument),
                 onComparisonSummary: (documentId: string, summary: RecentDocumentDiffSummary) => {
                     this.updateRecentDocumentDiffSummary(documentId, summary);
                 },
@@ -1207,6 +1216,7 @@ export default class SiyuanMCP extends Plugin {
         eventBus.on("switch-protyle", this.handleVersionControlProtyleChange as any);
         eventBus.on("loaded-protyle-dynamic", this.handleVersionControlProtyleChange as any);
         eventBus.on("loaded-protyle-static", this.handleVersionControlProtyleChange as any);
+        eventBus.on("open-menu-doctree", this.handleVersionControlDocTreeMenu as any);
         this.versionControlEventsRegistered = true;
     }
 
@@ -1216,6 +1226,7 @@ export default class SiyuanMCP extends Plugin {
         eventBus?.off?.("switch-protyle", this.handleVersionControlProtyleChange as any);
         eventBus?.off?.("loaded-protyle-dynamic", this.handleVersionControlProtyleChange as any);
         eventBus?.off?.("loaded-protyle-static", this.handleVersionControlProtyleChange as any);
+        eventBus?.off?.("open-menu-doctree", this.handleVersionControlDocTreeMenu as any);
         this.versionControlEventsRegistered = false;
     }
 
@@ -1223,6 +1234,43 @@ export default class SiyuanMCP extends Plugin {
         if (!this.versionControlSettings.enabled) return;
         const context = this.getDocumentContextFromProtyle(event?.detail?.protyle);
         if (context) this.updateVersionControlDocument(context);
+    };
+
+    private readonly handleVersionControlDocTreeMenu = (event: CustomEvent<{
+        type?: string;
+        elements?: HTMLElement[];
+        menu?: { addItem?: (item: Record<string, unknown>) => unknown };
+    }>) => {
+        if (!this.versionControlSettings.enabled) return;
+        if (event?.detail?.type !== "doc" && event?.detail?.type !== "docs") return;
+        const elements = Array.isArray(event.detail.elements) ? event.detail.elements : [];
+        if (elements.length !== 1 || typeof event.detail.menu?.addItem !== "function") return;
+        const element = elements[0];
+        const id = firstNonEmptyString([
+            element?.dataset?.nodeId,
+            element?.getAttribute?.("data-node-id"),
+        ]);
+        if (!id) return;
+        const title = firstNonEmptyString([
+            element.querySelector?.(".b3-list-item__text")?.textContent,
+            element.getAttribute?.("aria-label"),
+            id,
+        ]);
+        event.detail.menu.addItem({
+            id: "sisyphusCompareRecentHistory",
+            icon: VERSION_CONTROL_ICON_ID,
+            label: this.i18n?.recent_history_doc_tree_action || "查看最近历史差异",
+            click: () => {
+                const context = { id, title };
+                this.compareRecentForDocument(context);
+                void (siyuanApi as any).openTab({
+                    app: (this as any).app,
+                    doc: { id },
+                    keepCursor: false,
+                    openNewTab: false,
+                });
+            },
+        });
     };
 
     private getDocumentContextFromProtyle(protyle: unknown): CurrentDocumentContext | null {
