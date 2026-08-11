@@ -81,6 +81,7 @@ export interface PuppyAppearanceSettings {
 
 export interface VersionControlSettings {
     enabled: boolean;
+    recentDocumentsEnabled: boolean;
     showDebugMeta: boolean;
 }
 
@@ -110,6 +111,7 @@ export function normalizePermissionDisplaySettings(raw: unknown): PermissionDisp
 export function buildDefaultVersionControlSettings(): VersionControlSettings {
     return {
         enabled: true,
+        recentDocumentsEnabled: true,
         showDebugMeta: false,
     };
 }
@@ -122,6 +124,9 @@ export function normalizeVersionControlSettings(raw: unknown): VersionControlSet
     const record = raw as Record<string, unknown>;
     return {
         enabled: typeof record.enabled === "boolean" ? record.enabled : defaults.enabled,
+        recentDocumentsEnabled: typeof record.recentDocumentsEnabled === "boolean"
+            ? record.recentDocumentsEnabled
+            : defaults.recentDocumentsEnabled,
         showDebugMeta: typeof record.showDebugMeta === "boolean" ? record.showDebugMeta : defaults.showDebugMeta,
     };
 }

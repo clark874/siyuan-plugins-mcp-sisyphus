@@ -18,6 +18,12 @@ const diffPanelInstances: Array<{
     $destroy: ReturnType<typeof vi.fn>;
 }> = [];
 
+const recentDocumentsPanelInstances: Array<{
+    args: unknown;
+    $set: ReturnType<typeof vi.fn>;
+    $destroy: ReturnType<typeof vi.fn>;
+}> = [];
+
 const PLUGIN_NAME = 'siyuan-plugins-mcp-sisyphus';
 const SNAPSHOT_DOCK_TYPE = 'sisyphusSnapshotDock';
 const SNAPSHOT_REGISTERED_DOCK_TYPE = `${PLUGIN_NAME}${SNAPSHOT_DOCK_TYPE}`;
@@ -25,6 +31,9 @@ const SNAPSHOT_ICON_ID = 'iconSisyphusSnapshotDock';
 const TIMELINE_DOCK_TYPE = 'sisyphusTimelineDock';
 const TIMELINE_REGISTERED_DOCK_TYPE = `${PLUGIN_NAME}${TIMELINE_DOCK_TYPE}`;
 const TIMELINE_ICON_ID = 'iconSisyphusTimelineDock';
+const RECENT_DOCUMENTS_DOCK_TYPE = 'sisyphusRecentDocumentsDock';
+const RECENT_DOCUMENTS_REGISTERED_DOCK_TYPE = `${PLUGIN_NAME}${RECENT_DOCUMENTS_DOCK_TYPE}`;
+const RECENT_DOCUMENTS_ICON_ID = 'iconSisyphusRecentDocumentsDock';
 const { getAllEditorMock } = vi.hoisted(() => ({ getAllEditorMock: vi.fn(() => []) }));
 
 vi.mock('siyuan', () => ({
@@ -32,6 +41,7 @@ vi.mock('siyuan', () => ({
     showMessage: vi.fn(),
     Dialog: class {},
     getAllEditor: getAllEditorMock,
+    openTab: vi.fn(),
 }));
 
 vi.mock('@/ui/setting/mcp-config.svelte', () => ({
@@ -109,12 +119,36 @@ vi.mock('@/ui/version-control/VersionDiffPanel.svelte', () => ({
     },
 }));
 
+vi.mock('@/ui/recent-documents/RecentDocumentsPanel.svelte', () => ({
+    default: class {
+        private readonly instance: typeof recentDocumentsPanelInstances[number];
+
+        constructor(args: unknown) {
+            this.instance = {
+                args,
+                $set: vi.fn(),
+                $destroy: vi.fn(),
+            };
+            recentDocumentsPanelInstances.push(this.instance);
+        }
+
+        $set(args: unknown) {
+            this.instance.$set(args);
+        }
+
+        $destroy() {
+            this.instance.$destroy();
+        }
+    },
+}));
+
 import SiyuanMCP from '@/index';
 import { resetToolConfigWarningStateForTests } from '@/core/config';
 import type { HttpServerSettings } from '@/ui/setting/tool-config-storage';
 
 import { HttpServerLauncher } from '@/server-launcher';
 import { showMessage } from 'siyuan';
+import * as siyuanApi from 'siyuan';
 
 class FakeElement {
     id = '';
@@ -257,6 +291,7 @@ describe('HTTP settings sync', () => {
         puppyInstances.length = 0;
         snapshotPanelInstances.length = 0;
         diffPanelInstances.length = 0;
+        recentDocumentsPanelInstances.length = 0;
         installFakeDom();
         document.body.innerHTML = '';
         plugin = new SiyuanMCP();
@@ -282,6 +317,7 @@ describe('HTTP settings sync', () => {
             docks: {
                 [SNAPSHOT_REGISTERED_DOCK_TYPE]: {},
                 [TIMELINE_REGISTERED_DOCK_TYPE]: {},
+                [RECENT_DOCUMENTS_REGISTERED_DOCK_TYPE]: {},
             },
             eventBus: {
                 on: eventBusOn,
@@ -311,6 +347,7 @@ describe('HTTP settings sync', () => {
                         remove: vi.fn(),
                         data: {
                             [SNAPSHOT_REGISTERED_DOCK_TYPE]: {},
+                            [RECENT_DOCUMENTS_REGISTERED_DOCK_TYPE]: {},
                         },
                     },
                     bottomDock: {
@@ -671,6 +708,7 @@ describe('HTTP settings sync', () => {
         expect(addIcons).toHaveBeenCalledTimes(1);
         expect(addIcons).toHaveBeenCalledWith(expect.stringContaining('<symbol id="iconSisyphusSnapshotDock"'));
         expect(addIcons).toHaveBeenCalledWith(expect.stringContaining('<symbol id="iconSisyphusTimelineDock"'));
+        expect(addIcons).toHaveBeenCalledWith(expect.stringContaining('<symbol id="iconSisyphusRecentDocumentsDock"'));
         expect(addDock).not.toHaveBeenCalled();
         expect(addCommand).not.toHaveBeenCalled();
         expect(eventBusOn).not.toHaveBeenCalled();
@@ -680,7 +718,7 @@ describe('HTTP settings sync', () => {
         plugin.onLayoutReady();
         plugin.onLayoutReady();
 
-        expect(addDock).toHaveBeenCalledTimes(2);
+        expect(addDock).toHaveBeenCalledTimes(3);
         expect(addDock.mock.calls[0][0].config).toEqual(expect.objectContaining({
             position: 'LeftTop',
             icon: SNAPSHOT_ICON_ID,
@@ -693,8 +731,14 @@ describe('HTTP settings sync', () => {
             size: { width: 720, height: 0 },
             show: false,
         }));
+        expect(addDock.mock.calls[2][0].config).toEqual(expect.objectContaining({
+            position: 'LeftBottom',
+            icon: RECENT_DOCUMENTS_ICON_ID,
+            size: { width: 340, height: 0 },
+            show: false,
+        }));
         expect(addCommand).toHaveBeenCalledTimes(1);
-        expect(eventBusOn).toHaveBeenCalledTimes(4);
+        expect(eventBusOn).toHaveBeenCalledTimes(5);
         expect(eventBusOn).toHaveBeenCalledWith("ws-main", expect.any(Function));
     });
 
@@ -710,11 +754,68 @@ describe('HTTP settings sync', () => {
         await plugin.onload();
         addDock.mock.calls[0][0].init({ element: new FakeElement() });
         addDock.mock.calls[1][0].init({ element: new FakeElement() });
+        addDock.mock.calls[2][0].init({ element: new FakeElement() });
 
         expect(snapshotPanelInstances).toHaveLength(1);
         expect(diffPanelInstances).toHaveLength(1);
+        expect(recentDocumentsPanelInstances).toHaveLength(1);
         expect((snapshotPanelInstances[0].args as any).props.showDebugMeta).toBe(true);
         expect((diffPanelInstances[0].args as any).props.showDebugMeta).toBe(true);
+    });
+
+    it('keeps the recent-documents dock independent and opens selected documents', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+
+        await plugin.onload();
+        addDock.mock.calls[0][0].init({ element: new FakeElement() });
+        addDock.mock.calls[1][0].init({ element: new FakeElement() });
+        addDock.mock.calls[2][0].init({ element: new FakeElement() });
+
+        const recentProps = (recentDocumentsPanelInstances[0].args as any).props;
+        recentProps.onOpenDocument('20260810183622-w2qieo2');
+        expect((siyuanApi as any).openTab).toHaveBeenCalledWith(expect.objectContaining({
+            doc: { id: '20260810183622-w2qieo2' },
+            openNewTab: false,
+        }));
+
+        await plugin.updateVersionControlSettings({
+            enabled: true,
+            recentDocumentsEnabled: false,
+            showDebugMeta: false,
+        });
+
+        expect(recentDocumentsPanelInstances[0].$destroy).toHaveBeenCalledTimes(1);
+        expect(snapshotPanelInstances[0].$destroy).not.toHaveBeenCalled();
+        expect(diffPanelInstances[0].$destroy).not.toHaveBeenCalled();
+        const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
+        expect(leftDock.remove).toHaveBeenCalledWith(RECENT_DOCUMENTS_REGISTERED_DOCK_TYPE);
+        expect(leftDock.remove).toHaveBeenCalledWith(RECENT_DOCUMENTS_DOCK_TYPE);
+    });
+
+    it('debounces document transactions before refreshing recent documents', async () => {
+        vi.useFakeTimers();
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+
+        await plugin.onload();
+        addDock.mock.calls[2][0].init({ element: new FakeElement() });
+        const recentPanel = recentDocumentsPanelInstances[0];
+        const websocketHandlers = eventBusOn.mock.calls
+            .filter(([eventName]) => eventName === 'ws-main')
+            .map(([, handler]) => handler);
+
+        websocketHandlers.forEach((handler) => handler(new CustomEvent('ws-main', {
+            detail: { cmd: 'transactions' },
+        })));
+        websocketHandlers.forEach((handler) => handler(new CustomEvent('ws-main', {
+            detail: { cmd: 'transactions' },
+        })));
+
+        expect(recentPanel.$set).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(749);
+        expect(recentPanel.$set).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(recentPanel.$set).toHaveBeenCalledTimes(1);
+        expect(recentPanel.$set).toHaveBeenCalledWith({ refreshVersion: 1 });
     });
 
     it('uses dock visibility defaults only when no saved manual state exists', async () => {
@@ -732,6 +833,7 @@ describe('HTTP settings sync', () => {
 
         expect(addDock.mock.calls[0][0].config.show).toBe(false);
         expect(addDock.mock.calls[1][0].config.show).toBe(true);
+        expect(addDock.mock.calls[2][0].config.show).toBe(false);
     });
 
     it('hydrates the initially open snapshot dock from the active editor', async () => {
@@ -759,7 +861,7 @@ describe('HTTP settings sync', () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
 
         await plugin.onload();
-        expect(addDock).toHaveBeenCalledTimes(2);
+        expect(addDock).toHaveBeenCalledTimes(3);
 
         const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
         const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
@@ -770,7 +872,7 @@ describe('HTTP settings sync', () => {
 
         plugin.onLayoutReady();
 
-        expect(addDock).toHaveBeenCalledTimes(4);
+        expect(addDock).toHaveBeenCalledTimes(6);
     });
 
     it('disables the timeline dock, command, events, and panel when persisted setting is off', async () => {
@@ -791,9 +893,10 @@ describe('HTTP settings sync', () => {
 
         const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
         const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
-        expect(addDock).not.toHaveBeenCalled();
+        expect(addDock).toHaveBeenCalledTimes(1);
+        expect(addDock.mock.calls[0][0].type).toBe(RECENT_DOCUMENTS_DOCK_TYPE);
         expect(addCommand).not.toHaveBeenCalled();
-        expect(eventBusOn).not.toHaveBeenCalled();
+        expect(eventBusOn).toHaveBeenCalledTimes(1);
         expect(snapshotPanelInstances).toHaveLength(0);
         expect(diffPanelInstances).toHaveLength(0);
         expect(leftDock.remove).toHaveBeenCalledWith(SNAPSHOT_REGISTERED_DOCK_TYPE);
@@ -814,14 +917,15 @@ describe('HTTP settings sync', () => {
         await plugin.onload();
         addDock.mock.calls[0][0].init({ element: new FakeElement() });
         addDock.mock.calls[1][0].init({ element: new FakeElement() });
+        addDock.mock.calls[2][0].init({ element: new FakeElement() });
 
         expect(addCommand).toHaveBeenCalledTimes(1);
         expect((plugin as any).commands).toHaveLength(1);
-        expect(eventBusOn).toHaveBeenCalledTimes(3);
+        expect(eventBusOn).toHaveBeenCalledTimes(4);
         expect(snapshotPanelInstances).toHaveLength(1);
         expect(diffPanelInstances).toHaveLength(1);
 
-        await plugin.updateVersionControlSettings({ enabled: false, showDebugMeta: true });
+        await plugin.updateVersionControlSettings({ enabled: false, recentDocumentsEnabled: true, showDebugMeta: true });
 
         const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
         const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
@@ -829,6 +933,7 @@ describe('HTTP settings sync', () => {
         expect(eventBusOff).toHaveBeenCalledTimes(3);
         expect(snapshotPanelInstances[0].$destroy).toHaveBeenCalledTimes(1);
         expect(diffPanelInstances[0].$destroy).toHaveBeenCalledTimes(1);
+        expect(recentDocumentsPanelInstances[0].$destroy).not.toHaveBeenCalled();
         expect(leftDock.remove).toHaveBeenCalledWith(SNAPSHOT_REGISTERED_DOCK_TYPE);
         expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE);
         expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_DOCK_TYPE);
@@ -843,7 +948,7 @@ describe('HTTP settings sync', () => {
         } as any;
 
         await plugin.onload();
-        await plugin.updateVersionControlSettings({ enabled: false, showDebugMeta: false });
+        await plugin.updateVersionControlSettings({ enabled: false, recentDocumentsEnabled: true, showDebugMeta: false });
 
         expect(launcherStop).not.toHaveBeenCalled();
         expect(launcherStart).not.toHaveBeenCalled();
@@ -870,7 +975,7 @@ describe('HTTP settings sync', () => {
         ]];
 
         await plugin.onload();
-        await plugin.updateVersionControlSettings({ enabled: false, showDebugMeta: false });
+        await plugin.updateVersionControlSettings({ enabled: false, recentDocumentsEnabled: true, showDebugMeta: false });
 
         const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
         expect(rightDock.toggleModel).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE, false, true, true, true);
@@ -889,7 +994,7 @@ describe('HTTP settings sync', () => {
         document.body.appendChild(iconOnlyButton);
 
         await plugin.onload();
-        await plugin.updateVersionControlSettings({ enabled: false, showDebugMeta: false });
+        await plugin.updateVersionControlSettings({ enabled: false, recentDocumentsEnabled: true, showDebugMeta: false });
 
         expect(document.querySelector(`[data-icon="${TIMELINE_ICON_ID}"]`)).toBeNull();
     });

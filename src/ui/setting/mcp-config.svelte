@@ -372,6 +372,15 @@
             return;
         }
 
+        if (key === "versionControl__recentDocumentsEnabled") {
+            versionControlSettings = {
+                ...versionControlSettings,
+                recentDocumentsEnabled: Boolean(value),
+            };
+            await persistVersionControlSettings();
+            return;
+        }
+
         if (key === "telemetry__enabled") {
             telemetryConfig = { ...telemetryConfig, enabled: Boolean(value) };
             await persistTelemetryConfig();

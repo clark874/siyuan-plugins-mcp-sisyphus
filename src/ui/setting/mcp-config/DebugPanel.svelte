@@ -29,6 +29,13 @@
             },
             {
                 type: "checkbox",
+                key: "versionControl__recentDocumentsEnabled",
+                value: currentVersionControlSettings.recentDocumentsEnabled,
+                title: label("recent_documents_enabled_title", "Enable Recently Modified Dock"),
+                description: label("recent_documents_enabled_desc", "Register an independent dock that lists documents by their actual modified time."),
+            },
+            {
+                type: "checkbox",
                 key: "debug__slimResponses",
                 value: currentConfig.debug.slimResponses,
                 title: label("debug_slimResponses_title", "Slim Responses"),
@@ -66,8 +73,8 @@
     }
 
     $: debugItems = buildDebugItems(config, puppySettings, versionControlSettings, getLabel);
-    $: runtimeItems = debugItems.slice(0, 3);
-    $: testItems = debugItems.slice(3);
+    $: runtimeItems = debugItems.slice(0, 4);
+    $: testItems = debugItems.slice(4);
 </script>
 
 <div class="debug-settings" class:fn__none={!display}>

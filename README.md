@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.6.3-local.7`（CLI `v0.2.4-local.1`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道与知识摄取 Skill。知识摄取 Skill 把网页剪藏和 Agent 检索统一为“来源规范化—既有知识盘点—差量决策—可恢复写入—SQL/AV 回读—幂等复跑”流程；账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [知识摄取设计](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
+> **本地维护分支：** 当前 Fork 的 `v0.6.4-local.8`（CLI `v0.2.4-local.1`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill 与独立“最近修改”侧边栏。完整说明见 [knowledge-ingestion design](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[recent-documents dock design](docs/plans/2026-08-11-recent-documents-dock-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Latest:** `v0.6.0` — Upgrades to MCP SDK v2 with MCP 2026-07-28 negotiation, protocol-level elicitation, structured tool metadata, and default Skills-over-MCP publication over HTTP and stdio; adds MCP Apps for flashcard review, document timelines, and the mascot shop; and refreshes the analytics dashboard and mascot interactions. CLI is now `v0.2.3`.
+> **Local maintenance release:** `v0.6.4-local.8` — Adds the workspace control plane, read-only bazaar catalog, secure SQL analytics, knowledge-ingestion Skill, and an independent Recently Modified dock on top of upstream `v0.6.0`. The local CLI remains `v0.2.4-local.1`.
 
 ## Project Direction Update
 
@@ -141,6 +141,18 @@ If `/mcp` is unavailable, only dynamic extension actions are hidden. The remaini
 > **Security note:** official plugin tools and optional native SiYuan tools do not pass through the notebook permissions or action-level dangerous-operation controls applied to Sisyphus-owned tools. Native tools in particular should only be enabled for local or fully trusted clients.
 
 See the [`extension` tool documentation](./docs/reference/tools/extension.md) for full calling conventions.
+
+## Recently Modified Dock
+
+Recently Modified is a read-only view independent from both the file tree and the document timeline. It calls SiYuan's native recent-document API and orders document root blocks by their actual update time. Editing a deeply nested document therefore brings that document into this list without artificially touching its ancestors.
+
+- opens from its own clock icon in the left dock;
+- shows document title, parent path, and actual modified time, with title/path search;
+- opens a document with one click and supports manual refresh;
+- refreshes when visible after document edits, renames, moves, creation, or deletion;
+- does not change file-tree order and is not a subtree-recency sort mode.
+
+The dock can be enabled independently under the plugin's Debug and Runtime settings. See the [recent-documents dock design](docs/plans/2026-08-11-recent-documents-dock-design.md) for its implementation boundary.
 
 ## Git-Like Document Timeline
 

@@ -4,6 +4,7 @@ import {
     Dialog,
     getAllEditor,
 } from "siyuan";
+import * as siyuanApi from "siyuan";
 import "./index.scss";
 
 import {
@@ -43,6 +44,7 @@ import McpConfig from "@/ui/setting/mcp-config.svelte";
 import ToolPuppy from "@/ui/components/ToolPuppy.svelte";
 import SnapshotPanel from "@/ui/version-control/SnapshotPanel.svelte";
 import VersionDiffPanel from "@/ui/version-control/VersionDiffPanel.svelte";
+import RecentDocumentsPanel from "@/ui/recent-documents/RecentDocumentsPanel.svelte";
 import {
     getTimelineNodeSelectionKey,
     type TimelineNodeSelection,
@@ -59,9 +61,23 @@ const VERSION_CONTROL_DOCK_TYPE = "sisyphusTimelineDock";
 const VERSION_CONTROL_DOCK_POSITION = "RightBottom";
 const VERSION_CONTROL_DOCK_ROOT_ID = "SisyphusTimelineDockPanel";
 const VERSION_CONTROL_ICON_ID = "iconSisyphusTimelineDock";
+const RECENT_DOCUMENTS_DOCK_TYPE = "sisyphusRecentDocumentsDock";
+const RECENT_DOCUMENTS_DOCK_POSITION = "LeftBottom";
+const RECENT_DOCUMENTS_DOCK_ROOT_ID = "SisyphusRecentDocumentsDockPanel";
+const RECENT_DOCUMENTS_ICON_ID = "iconSisyphusRecentDocumentsDock";
+const RECENT_DOCUMENTS_INVALIDATION_COMMANDS = new Set([
+    "transactions",
+    "reloadDocInfo",
+    "reloadFiletree",
+    "rename",
+    "moveDoc",
+    "removeDoc",
+    "create",
+]);
 const VERSION_CONTROL_ICON_SYMBOLS = [
     `<symbol id="${SNAPSHOT_ICON_ID}" viewBox="0 0 24 24"><path fill="currentColor" d="M7 3a3 3 0 0 1 2 5.24v1.27l6 3V8.24A3 3 0 1 1 17 9v5a1 1 0 0 1-1.45.89L9 11.62v4.14A3 3 0 1 1 7 15.76V8.24A3 3 0 0 1 7 3Zm0 2a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm10 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM7 17a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></symbol>`,
     `<symbol id="${VERSION_CONTROL_ICON_ID}" viewBox="0 0 24 24"><path fill="currentColor" d="M4 5h6v14H4V5Zm10 0h6v14h-6V5ZM6 8v2h2V8H6Zm10 0v2h2V8h-2ZM6 13v2h2v-2H6Zm10 0v2h2v-2h-2Z"/></symbol>`,
+    `<symbol id="${RECENT_DOCUMENTS_ICON_ID}" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3a9 9 0 1 1-8.49 6H1l3.5-4L8 9H5.62A7 7 0 1 0 12 5V3Zm-1 4h2v5.17l3.24 1.87-1 1.73L11 13.32V7Z"/></symbol>`,
 ].join("");
 
 type CurrentDocumentContext = {
@@ -73,8 +89,10 @@ export default class SiyuanMCP extends Plugin {
     private puppyComponent: ToolPuppy | null = null;
     private snapshotPanel: SnapshotPanel | null = null;
     private diffPanel: VersionDiffPanel | null = null;
+    private recentDocumentsPanel: RecentDocumentsPanel | null = null;
     private snapshotContainer: HTMLElement | null = null;
     private diffContainer: HTMLElement | null = null;
+    private recentDocumentsContainer: HTMLElement | null = null;
     private currentDocument: CurrentDocumentContext = { id: "", title: "" };
     private timelineSelection: TimelineNodeSelection | null = null;
     private puppyContainer: HTMLElement | null = null;
@@ -84,16 +102,23 @@ export default class SiyuanMCP extends Plugin {
     private versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
     private snapshotDockRegistered = false;
     private diffDockRegistered = false;
+    private recentDocumentsDockRegistered = false;
     private versionControlCommandRegistered = false;
     private versionControlEventsRegistered = false;
+    private recentDocumentsEventsRegistered = false;
     private versionControlIconRegistered = false;
     private versionControlSettingsLoaded = false;
     private snapshotDockElement: HTMLElement | null = null;
     private diffDockElement: HTMLElement | null = null;
+    private recentDocumentsDockElement: HTMLElement | null = null;
     private snapshotDockRegistration: { config?: any; model?: any } | null = null;
     private diffDockRegistration: { config?: any; model?: any } | null = null;
+    private recentDocumentsDockRegistration: { config?: any; model?: any } | null = null;
     private snapshotDockRegisteredType = "";
     private diffDockRegisteredType = "";
+    private recentDocumentsDockRegisteredType = "";
+    private recentDocumentsRefreshVersion = 0;
+    private recentDocumentsInvalidationTimer: ReturnType<typeof setTimeout> | null = null;
     private permissionDisplaySettings: PermissionDisplaySettings = buildDefaultPermissionDisplaySettings();
     private permissionDisplaySettingsLoaded = false;
     private permissionTreePermissions: Record<string, NotebookPermission> = {};
@@ -127,8 +152,9 @@ export default class SiyuanMCP extends Plugin {
         this.versionControlSettingsLoaded = true;
         this.permissionDisplaySettings = await loadPersistedPermissionDisplaySettings(this);
         this.permissionDisplaySettingsLoaded = true;
-        appendHttpLifecycleLog(`[plugin] settings loaded: httpEnabled=${this.httpSettings.enabled} timelineEnabled=${this.versionControlSettings.enabled}`);
+        appendHttpLifecycleLog(`[plugin] settings loaded: httpEnabled=${this.httpSettings.enabled} timelineEnabled=${this.versionControlSettings.enabled} recentDocumentsEnabled=${this.versionControlSettings.recentDocumentsEnabled}`);
         this.syncVersionControlFeature();
+        this.syncRecentDocumentsFeature();
         this.syncPermissionTreeFeature();
 
         const support = HttpServerLauncher.getSupportInfo();
@@ -296,6 +322,7 @@ export default class SiyuanMCP extends Plugin {
             this.mountPuppy();
         }
         if (this.versionControlSettingsLoaded) this.syncVersionControlFeature();
+        if (this.versionControlSettingsLoaded) this.syncRecentDocumentsFeature();
         if (this.permissionDisplaySettingsLoaded) this.syncPermissionTreeFeature();
     }
 
@@ -316,8 +343,9 @@ export default class SiyuanMCP extends Plugin {
 
     async updateVersionControlSettings(settings: VersionControlSettings): Promise<void> {
         this.versionControlSettings = await savePersistedVersionControlSettings(settings, this);
-        appendHttpLifecycleLog(`[timeline] settings updated: enabled=${this.versionControlSettings.enabled} showDebugMeta=${this.versionControlSettings.showDebugMeta}`);
+        appendHttpLifecycleLog(`[timeline] settings updated: enabled=${this.versionControlSettings.enabled} recentDocumentsEnabled=${this.versionControlSettings.recentDocumentsEnabled} showDebugMeta=${this.versionControlSettings.showDebugMeta}`);
         this.syncVersionControlFeature();
+        this.syncRecentDocumentsFeature();
     }
 
     updatePermissionDisplaySettings(settings: PermissionDisplaySettings): void {
@@ -416,6 +444,7 @@ export default class SiyuanMCP extends Plugin {
         this.puppySettingsLoaded = false;
         this.permissionDisplaySettingsLoaded = false;
         this.disablePermissionTreeFeature();
+        this.disableRecentDocumentsFeature();
         this.unregisterVersionControlEvents();
         this.unmountVersionControlDocks();
         this.unmountPuppy();
@@ -534,6 +563,15 @@ export default class SiyuanMCP extends Plugin {
             return;
         }
         this.enableVersionControlFeature();
+    }
+
+    private syncRecentDocumentsFeature() {
+        appendHttpLifecycleLog(`[recent-documents] sync feature: enabled=${this.versionControlSettings.recentDocumentsEnabled}`);
+        if (!this.versionControlSettingsLoaded || !this.versionControlSettings.recentDocumentsEnabled) {
+            this.disableRecentDocumentsFeature();
+            return;
+        }
+        this.enableRecentDocumentsFeature();
     }
 
     private syncPermissionTreeFeature() {
@@ -713,6 +751,160 @@ export default class SiyuanMCP extends Plugin {
             void this.loadPermissionTreePermissions();
         }
     };
+
+    private enableRecentDocumentsFeature() {
+        appendHttpLifecycleLog("[recent-documents] enable feature");
+        this.registerVersionControlIcon();
+        this.registerRecentDocumentsDock();
+        this.registerRecentDocumentsEvents();
+        if (this.recentDocumentsDockElement && !this.recentDocumentsPanel) {
+            this.mountRecentDocumentsPanel(this.recentDocumentsDockElement);
+        }
+    }
+
+    private disableRecentDocumentsFeature() {
+        appendHttpLifecycleLog("[recent-documents] disable feature");
+        this.unregisterRecentDocumentsEvents();
+        this.unmountRecentDocumentsDock();
+        this.removeRecentDocumentsDock();
+    }
+
+    private registerRecentDocumentsDock() {
+        if (!this.versionControlSettingsLoaded || !this.versionControlSettings.recentDocumentsEnabled) return;
+        if (this.recentDocumentsDockRegistered) {
+            if (this.isDockRegistrationAlive(
+                RECENT_DOCUMENTS_DOCK_POSITION,
+                this.getRecentDocumentsDockTypes(),
+                this.recentDocumentsDockElement,
+            )) return;
+            appendHttpLifecycleLog("[recent-documents] dock registration stale; re-register");
+            const dockTypes = this.getRecentDocumentsDockTypes();
+            this.unmountRecentDocumentsDock();
+            this.removeVersionControlDockButtons(dockTypes, RECENT_DOCUMENTS_DOCK_TYPE, RECENT_DOCUMENTS_ICON_ID);
+            this.recentDocumentsDockRegistered = false;
+            this.recentDocumentsDockRegistration = null;
+            this.recentDocumentsDockRegisteredType = "";
+        }
+
+        const addDock = (this as any).addDock;
+        if (typeof addDock !== "function") return;
+        const registration = addDock.call(this, {
+            config: {
+                position: RECENT_DOCUMENTS_DOCK_POSITION,
+                size: { width: 340, height: 0 },
+                icon: RECENT_DOCUMENTS_ICON_ID,
+                title: this.i18n?.recent_documents_dock_title || "最近修改",
+                show: this.getInitialDockVisibility(
+                    RECENT_DOCUMENTS_DOCK_POSITION,
+                    this.getRecentDocumentsDockTypes(),
+                    false,
+                ),
+            },
+            data: {},
+            type: RECENT_DOCUMENTS_DOCK_TYPE,
+            init: (dock: any) => {
+                const element = dock?.element as HTMLElement | undefined;
+                if (!element) return;
+                this.recentDocumentsDockElement = element;
+                this.mountRecentDocumentsPanel(element);
+            },
+            update: () => this.invalidateRecentDocuments(),
+            destroy: () => this.unmountRecentDocumentsDock(),
+        });
+        this.recentDocumentsDockRegistered = true;
+        this.recentDocumentsDockRegistration = registration ?? null;
+        this.recentDocumentsDockRegisteredType = this.getRegisteredDockType(registration, RECENT_DOCUMENTS_DOCK_TYPE);
+    }
+
+    private mountRecentDocumentsPanel(element: HTMLElement) {
+        if (!this.versionControlSettings.recentDocumentsEnabled || !this.versionControlSettingsLoaded) return;
+        this.unmountRecentDocumentsPanel();
+        element.innerHTML = `<div id="${RECENT_DOCUMENTS_DOCK_ROOT_ID}" style="height: 100%;"></div>`;
+        this.recentDocumentsContainer = element.querySelector(`#${RECENT_DOCUMENTS_DOCK_ROOT_ID}`);
+        if (!this.recentDocumentsContainer) return;
+        this.recentDocumentsPanel = new RecentDocumentsPanel({
+            target: this.recentDocumentsContainer,
+            props: {
+                i18n: this.i18n ?? {},
+                refreshVersion: this.recentDocumentsRefreshVersion,
+                onOpenDocument: (id: string) => this.openRecentDocument(id),
+            },
+        });
+    }
+
+    private openRecentDocument(id: string) {
+        if (!id) return;
+        void (siyuanApi as any).openTab({
+            app: (this as any).app,
+            doc: { id },
+            keepCursor: false,
+            openNewTab: false,
+        });
+    }
+
+    private invalidateRecentDocuments() {
+        this.recentDocumentsRefreshVersion += 1;
+        this.recentDocumentsPanel?.$set({ refreshVersion: this.recentDocumentsRefreshVersion });
+    }
+
+    private registerRecentDocumentsEvents() {
+        if (this.recentDocumentsEventsRegistered) return;
+        const eventBus = (this as any).eventBus;
+        if (typeof eventBus?.on !== "function") return;
+        eventBus.on("ws-main", this.handleRecentDocumentsWebSocket as any);
+        this.recentDocumentsEventsRegistered = true;
+    }
+
+    private unregisterRecentDocumentsEvents() {
+        if (this.recentDocumentsInvalidationTimer !== null) {
+            clearTimeout(this.recentDocumentsInvalidationTimer);
+            this.recentDocumentsInvalidationTimer = null;
+        }
+        if (!this.recentDocumentsEventsRegistered) return;
+        const eventBus = (this as any).eventBus;
+        eventBus?.off?.("ws-main", this.handleRecentDocumentsWebSocket as any);
+        this.recentDocumentsEventsRegistered = false;
+    }
+
+    private readonly handleRecentDocumentsWebSocket = (event: CustomEvent<{ cmd?: string }>) => {
+        const cmd = event?.detail?.cmd;
+        if (!cmd || !RECENT_DOCUMENTS_INVALIDATION_COMMANDS.has(cmd)) return;
+        if (cmd !== "transactions") {
+            this.invalidateRecentDocuments();
+            return;
+        }
+        if (this.recentDocumentsInvalidationTimer !== null) {
+            clearTimeout(this.recentDocumentsInvalidationTimer);
+        }
+        this.recentDocumentsInvalidationTimer = setTimeout(() => {
+            this.recentDocumentsInvalidationTimer = null;
+            this.invalidateRecentDocuments();
+        }, 750);
+    };
+
+    private unmountRecentDocumentsPanel() {
+        this.recentDocumentsPanel?.$destroy();
+        this.recentDocumentsPanel = null;
+        if (this.recentDocumentsContainer) this.recentDocumentsContainer.innerHTML = "";
+        this.recentDocumentsContainer = null;
+    }
+
+    private unmountRecentDocumentsDock() {
+        this.unmountRecentDocumentsPanel();
+        this.recentDocumentsDockElement = null;
+    }
+
+    private removeRecentDocumentsDock() {
+        const dockTypes = this.getRecentDocumentsDockTypes();
+        const layout = (window as any)?.siyuan?.layout;
+        this.removeDockFromPosition(layout, RECENT_DOCUMENTS_DOCK_POSITION, dockTypes);
+        this.removeVersionControlDockRegistry(dockTypes, layout);
+        this.removeVersionControlDockLayout(dockTypes);
+        this.removeVersionControlDockButtons(dockTypes, RECENT_DOCUMENTS_DOCK_TYPE, RECENT_DOCUMENTS_ICON_ID);
+        this.recentDocumentsDockRegistered = false;
+        this.recentDocumentsDockRegistration = null;
+        this.recentDocumentsDockRegisteredType = "";
+    }
 
     private enableVersionControlFeature() {
         appendHttpLifecycleLog("[timeline] enable feature");
@@ -1153,6 +1345,14 @@ export default class SiyuanMCP extends Plugin {
 
     private getDiffDockTypes(): string[] {
         return this.getDockTypes(this.diffDockRegistration, this.diffDockRegisteredType, VERSION_CONTROL_DOCK_TYPE);
+    }
+
+    private getRecentDocumentsDockTypes(): string[] {
+        return this.getDockTypes(
+            this.recentDocumentsDockRegistration,
+            this.recentDocumentsDockRegisteredType,
+            RECENT_DOCUMENTS_DOCK_TYPE,
+        );
     }
 
     private getDockTypes(

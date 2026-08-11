@@ -450,15 +450,23 @@ describe('setting and mcp config stay behaviorally aligned', () => {
     it('normalizes document timeline settings while preserving legacy debug-only settings', () => {
         expect(buildDefaultVersionControlSettings()).toEqual({
             enabled: true,
+            recentDocumentsEnabled: true,
             showDebugMeta: false,
         });
         expect(normalizeVersionControlSettings({ showDebugMeta: true })).toEqual({
             enabled: true,
+            recentDocumentsEnabled: true,
             showDebugMeta: true,
         });
         expect(normalizeVersionControlSettings({ enabled: false, showDebugMeta: true })).toEqual({
             enabled: false,
+            recentDocumentsEnabled: true,
             showDebugMeta: true,
+        });
+        expect(normalizeVersionControlSettings({ recentDocumentsEnabled: false })).toEqual({
+            enabled: true,
+            recentDocumentsEnabled: false,
+            showDebugMeta: false,
         });
     });
 });
