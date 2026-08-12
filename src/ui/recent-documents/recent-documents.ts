@@ -15,9 +15,29 @@ export interface RecentDocumentView {
     notebook: string;
     hPath: string;
     parentPath: string;
+    parentDocumentId: string;
     storagePath: string;
     updated: string;
 }
+
+export interface RecentDocumentFolderUnit {
+    kind: 'folder';
+    key: string;
+    label: string;
+    notebook: string;
+    parentDocumentId: string;
+    parentPath: string;
+    latestUpdated: string;
+    documents: RecentDocumentView[];
+}
+
+export interface RecentDocumentItemUnit {
+    kind: 'document';
+    key: string;
+    document: RecentDocumentView;
+}
+
+export type RecentDocumentDisplayUnit = RecentDocumentFolderUnit | RecentDocumentItemUnit;
 
 export type RecentDocumentDiffStatus =
     | 'content_changed'
@@ -77,6 +97,7 @@ export function mapRecentDocumentRows(rows: RecentDocumentMetadataRow[]): Recent
         .filter((row) => isSiYuanDocumentId(row.id))
         .map((row) => {
             const hPath = normalizeHPath(row.hpath);
+            const storagePath = normalizeStoragePath(row.path);
             return {
                 id: row.id,
                 title: normalizeText(row.content) || lastPathSegment(hPath) || row.id,
@@ -84,10 +105,51 @@ export function mapRecentDocumentRows(rows: RecentDocumentMetadataRow[]): Recent
                 notebook: normalizeText(row.box),
                 hPath,
                 parentPath: parentHPath(hPath),
-                storagePath: normalizeStoragePath(row.path),
+                parentDocumentId: parentDocumentIdFromStoragePath(storagePath),
+                storagePath,
                 updated: normalizeSiYuanTimestamp(row.updated),
             };
         });
+}
+
+export function buildRecentDocumentDisplayUnits(
+    documents: RecentDocumentView[],
+    groupByParent: boolean,
+): RecentDocumentDisplayUnit[] {
+    if (!groupByParent) return documents.map(documentUnit);
+
+    const documentsByParent = new Map<string, RecentDocumentView[]>();
+    for (const document of documents) {
+        const key = parentGroupKey(document);
+        if (!key) continue;
+        const siblings = documentsByParent.get(key) ?? [];
+        siblings.push(document);
+        documentsByParent.set(key, siblings);
+    }
+
+    const emittedParents = new Set<string>();
+    const units: RecentDocumentDisplayUnit[] = [];
+    for (const document of documents) {
+        const key = parentGroupKey(document);
+        const siblings = key ? documentsByParent.get(key) : undefined;
+        if (!key || !siblings || siblings.length < 2) {
+            units.push(documentUnit(document));
+            continue;
+        }
+        if (emittedParents.has(key)) continue;
+        emittedParents.add(key);
+        units.push({
+            kind: 'folder',
+            key,
+            label: lastPathSegment(document.parentPath) || document.parentPath,
+            notebook: document.notebook,
+            parentDocumentId: document.parentDocumentId,
+            parentPath: document.parentPath,
+            latestUpdated: siblings[0]?.updated ?? '',
+            documents: siblings,
+        });
+    }
+    return units;
 }
 
 export function formatRecentDocumentTime(value: string, locale?: string): string {
@@ -282,6 +344,22 @@ function normalizeText(value: unknown): string {
 function normalizeSiYuanTimestamp(value: unknown): string {
     const trimmed = normalizeText(value);
     return /^\d{14}$/.test(trimmed) ? trimmed : '';
+}
+
+function documentUnit(document: RecentDocumentView): RecentDocumentItemUnit {
+    return { kind: 'document', key: `document:${document.id}`, document };
+}
+
+function parentGroupKey(document: RecentDocumentView): string {
+    if (!document.notebook || !document.parentDocumentId || !document.parentPath) return '';
+    return `folder:${document.notebook}:${document.parentDocumentId}`;
+}
+
+function parentDocumentIdFromStoragePath(path: string): string {
+    const segments = path.split('/').filter(Boolean);
+    if (segments.length < 2) return '';
+    const candidate = segments[segments.length - 2] ?? '';
+    return isSiYuanDocumentId(candidate) ? candidate : '';
 }
 
 function parseSiYuanTimestamp(value: unknown): Date | undefined {

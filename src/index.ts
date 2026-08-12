@@ -47,6 +47,7 @@ import VersionDiffPanel from "@/ui/version-control/VersionDiffPanel.svelte";
 import RecentDocumentsPanel from "@/ui/recent-documents/RecentDocumentsPanel.svelte";
 import type {
     RecentDocumentDiffSummary,
+    RecentDocumentFolderUnit,
     RecentDocumentView,
 } from "@/ui/recent-documents/recent-documents";
 import {
@@ -838,6 +839,7 @@ export default class SiyuanMCP extends Plugin {
                 comparisonSummaries: this.recentDocumentDiffSummaries,
                 activeDocumentId: this.recentHistorySelection?.documentId ?? "",
                 onOpenDocument: (document: RecentDocumentView) => this.openRecentDocument(document),
+                onOpenParentDocument: (folder: RecentDocumentFolderUnit) => this.openRecentParentDocument(folder),
                 onComparisonSummary: (documentId: string, summary: RecentDocumentDiffSummary) => {
                     this.updateRecentDocumentDiffSummary(documentId, summary);
                 },
@@ -851,6 +853,16 @@ export default class SiyuanMCP extends Plugin {
         void (siyuanApi as any).openTab({
             app: (this as any).app,
             doc: { id: document.id },
+            keepCursor: false,
+            openNewTab: false,
+        });
+    }
+
+    private openRecentParentDocument(folder: RecentDocumentFolderUnit) {
+        if (!folder.parentDocumentId) return;
+        void (siyuanApi as any).openTab({
+            app: (this as any).app,
+            doc: { id: folder.parentDocumentId },
             keepCursor: false,
             openNewTab: false,
         });

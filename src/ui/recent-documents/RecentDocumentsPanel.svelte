@@ -2,7 +2,7 @@
     import { onDestroy, onMount, tick } from "svelte";
     import { fetchPost } from "siyuan";
     import { resolveRecentDocumentHistoryDiff } from "@/shared/recent-history-service";
-    import RecentDocumentCard from "./RecentDocumentCard.svelte";
+    import RecentDocumentItems from "./RecentDocumentItems.svelte";
     import {
         buildRecentDocumentsPageSql,
         collectRecentDocumentGroupKeys,
@@ -14,6 +14,7 @@
         type RecentDocumentDiffStatus,
         type RecentDocumentDiffSummary,
         type RecentDocumentFilter,
+        type RecentDocumentFolderUnit,
         type RecentDocumentGranularity,
         type RecentDocumentGroup,
         type RecentDocumentMetadataRow,
@@ -29,12 +30,14 @@
     export let comparisonSummaries: Record<string, RecentDocumentDiffSummary> = {};
     export let activeDocumentId = "";
     export let onOpenDocument: (document: RecentDocumentView) => void = () => {};
+    export let onOpenParentDocument: (folder: RecentDocumentFolderUnit) => void = () => {};
     export let onComparisonSummary: (documentId: string, summary: RecentDocumentDiffSummary) => void = () => {};
 
     let documents: RecentDocumentView[] = [];
     let query = "";
     let filter: RecentDocumentFilter = "all";
     let granularity: RecentDocumentGranularity = "day";
+    let groupByParent = false;
     let loading = false;
     let error = "";
     let mounted = false;
@@ -302,6 +305,10 @@
             <option value="structure">{t("recent_documents_filter_structure", "标题变更")}</option>
             <option value="insufficient">{t("recent_documents_filter_insufficient", "历史不足")}</option>
         </select>
+        <label class="recent-documents__folder-mode" title={t("recent_documents_group_by_parent_desc", "在当前时间分组内，将同一父文档下的两篇及以上文档临时聚合；重启后恢复纯时间线")}>
+            <input type="checkbox" bind:checked={groupByParent} />
+            <span>{t("recent_documents_group_by_parent", "目录聚合")}</span>
+        </label>
     </div>
 
     {#if error && documents.length === 0}
@@ -324,7 +331,7 @@
                     <div class="recent-group__content" class:collapsed={query.trim() === "" && collapsedGroups.has(year.key)} aria-hidden={query.trim() === "" && collapsedGroups.has(year.key)}>
                         <div class="recent-group__content-inner">
                             {#if year.documents.length > 0}
-                                <ul>{#each year.documents as item (item.id)}<li><RecentDocumentCard {item} summary={validSummary(item)} active={activeDocumentId === item.id} {i18n} onOpen={onOpenDocument} onVisible={requestComparisonSummary} /></li>{/each}</ul>
+                                <RecentDocumentItems documents={year.documents} {groupByParent} searchActive={query.trim() !== ""} {comparisonSummaries} {activeDocumentId} {i18n} {onOpenDocument} {onOpenParentDocument} onVisible={requestComparisonSummary} />
                             {/if}
                             {#each year.children as month (month.key)}
                                 <section class="recent-group level-month">
@@ -332,14 +339,14 @@
                                     <div class="recent-group__content" class:collapsed={query.trim() === "" && collapsedGroups.has(month.key)} aria-hidden={query.trim() === "" && collapsedGroups.has(month.key)}>
                                         <div class="recent-group__content-inner">
                                             {#if month.documents.length > 0}
-                                                <ul>{#each month.documents as item (item.id)}<li><RecentDocumentCard {item} summary={validSummary(item)} active={activeDocumentId === item.id} {i18n} onOpen={onOpenDocument} onVisible={requestComparisonSummary} /></li>{/each}</ul>
+                                                <RecentDocumentItems documents={month.documents} {groupByParent} searchActive={query.trim() !== ""} {comparisonSummaries} {activeDocumentId} {i18n} {onOpenDocument} {onOpenParentDocument} onVisible={requestComparisonSummary} />
                                             {/if}
                                             {#each month.children as day (day.key)}
                                                 <section class="recent-group level-day">
                                                     <button class="recent-group__header" type="button" on:click={() => toggleGroup(day.key)} aria-expanded={query.trim() !== "" || !collapsedGroups.has(day.key)}><span class:expanded={query.trim() !== "" || !collapsedGroups.has(day.key)}>{query.trim() === "" && collapsedGroups.has(day.key) ? "›" : "⌄"}</span><strong>{day.label}</strong><small>{day.documentCount}</small></button>
                                                     <div class="recent-group__content" class:collapsed={query.trim() === "" && collapsedGroups.has(day.key)} aria-hidden={query.trim() === "" && collapsedGroups.has(day.key)}>
                                                         <div class="recent-group__content-inner">
-                                                            <ul>{#each day.documents as item (item.id)}<li><RecentDocumentCard {item} summary={validSummary(item)} active={activeDocumentId === item.id} {i18n} onOpen={onOpenDocument} onVisible={requestComparisonSummary} /></li>{/each}</ul>
+                                                            <RecentDocumentItems documents={day.documents} {groupByParent} searchActive={query.trim() !== ""} {comparisonSummaries} {activeDocumentId} {i18n} {onOpenDocument} {onOpenParentDocument} onVisible={requestComparisonSummary} />
                                                         </div>
                                                     </div>
                                                 </section>
@@ -373,6 +380,9 @@
     .recent-documents__controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; padding: 8px 10px; }
     .recent-documents__controls input { min-width: 0; }
     .recent-documents__controls select { max-width: 94px; }
+    .recent-documents__folder-mode { display: flex; grid-column: 1 / -1; align-items: center; gap: 6px; width: fit-content; min-height: 24px; border-radius: var(--b3-border-radius); padding: 2px 6px; color: var(--b3-theme-on-surface); font-size: 12px; cursor: pointer; }
+    .recent-documents__folder-mode:hover { background: var(--b3-list-hover); }
+    .recent-documents__folder-mode input { width: 14px; height: 14px; margin: 0; accent-color: var(--b3-theme-primary); }
     .recent-documents__list { flex: 1; min-height: 0; padding: 0 7px 12px; overflow: auto; }
     .recent-group { position: relative; }
     .recent-group + .recent-group { margin-top: 4px; }
@@ -387,7 +397,6 @@
     .recent-group__content { display: grid; min-height: 0; grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows 160ms cubic-bezier(.2, .8, .2, 1), opacity 120ms ease, visibility 0s linear 0s; }
     .recent-group__content.collapsed { grid-template-rows: 0fr; opacity: 0; visibility: hidden; pointer-events: none; transition: grid-template-rows 160ms cubic-bezier(.2, .8, .2, 1), opacity 120ms ease, visibility 0s linear 160ms; }
     .recent-group__content-inner { min-height: 0; overflow: hidden; }
-    .recent-group ul { display: grid; gap: 5px; margin: 0; padding: 5px 0 2px; list-style: none; }
     .recent-documents__load-more { display: flex; justify-content: center; padding: 14px 8px 4px; color: var(--b3-theme-on-surface); }
     .recent-documents__state { display: flex; flex: 1; align-items: center; justify-content: center; flex-direction: column; gap: 6px; padding: 24px 16px; color: var(--b3-theme-on-surface); text-align: center; }
     .recent-documents__state--error strong { color: var(--b3-theme-error); }

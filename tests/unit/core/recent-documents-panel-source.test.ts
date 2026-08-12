@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 describe('recent documents dock source contract', () => {
     const panelSource = readFileSync(resolve(process.cwd(), 'src/ui/recent-documents/RecentDocumentsPanel.svelte'), 'utf8');
+    const itemsSource = readFileSync(resolve(process.cwd(), 'src/ui/recent-documents/RecentDocumentItems.svelte'), 'utf8');
     const pluginSource = readFileSync(resolve(process.cwd(), 'src/index.ts'), 'utf8');
 
     it('uses paginated SQL rather than the fixed native recent-documents list', () => {
@@ -18,12 +19,18 @@ describe('recent documents dock source contract', () => {
     it('provides search, manual refresh, and document opening', () => {
         expect(panelSource).toContain('recent_documents_search_placeholder');
         expect(panelSource).toContain('recent_documents_action_refresh');
-        expect(panelSource).toContain('onOpen={onOpenDocument}');
+        expect(itemsSource).toContain('onOpen={onOpenDocument}');
         expect(panelSource).toContain('groupRecentDocuments');
         expect(panelSource).toContain('comparisonSummaries');
         expect(panelSource).toContain('requestComparisonSummary');
         expect(panelSource).toContain('recent_documents_granularity_day');
         expect(panelSource).toContain('recent_documents_filter_content');
+        expect(panelSource).toContain('recent_documents_group_by_parent');
+        expect(panelSource).toContain('bind:checked={groupByParent}');
+        expect(panelSource).toContain('onOpenParentDocument');
+        expect(itemsSource).toContain('on:click={() => onOpenParentDocument(unit)}');
+        expect(itemsSource).toContain('recent-folder__toggle');
+        expect(pluginSource).toContain('openRecentParentDocument');
         expect(pluginSource).toContain('selection: this.recentHistorySelection');
         expect(pluginSource).toContain('this.showDiffDock()');
         expect(pluginSource).toContain('open-menu-doctree');
