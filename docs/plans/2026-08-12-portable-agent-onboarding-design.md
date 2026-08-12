@@ -6,6 +6,8 @@
 
 ## 交付结构
 
+本设计的连接边界已由[单一 Sisyphus 网关交付设计](./2026-08-12-single-gateway-agent-delivery-design.md)进一步收敛：外部客户端只注册 Sisyphus `36806/mcp`，思源内置 `6806/mcp` 仅作为内部扩展总线。`START-HERE.md`、`delivery.json` 与本地安装器共同构成当前正式入口。
+
 1. `system.bootstrap` 返回版本、实时权限、当前启用能力、路径规则和可执行的后续调用。响应明确区分“本次动作只读”和“连接可能具有写权限”。
 2. `agent-kit/AGENT.md` 是可以直接粘贴给任意模型的客户端无关启动指令。
 3. `agent-kit/skills/siyuan-mcp-sisyphus/SKILL.md` 是支持 Agent Skills 的宿主可以安装的标准 Skill。
@@ -36,5 +38,5 @@
 - `operation.readOnly=true` 不再被表述为会话只读。
 - 能力随实时工具配置变化。
 - Skill 中的 action 名称与源码契约测试一致。
-- 便携包不含 token、固定版本号或易漂移的知识库统计。
+- 便携包不含 token 或易漂移的知识库统计；发布清单保留固定版本号，以便 Agent 使用不可变地址并实现可追踪安装。
 - 全量测试、生产构建、真实 MCP 调用和部署版本一致。

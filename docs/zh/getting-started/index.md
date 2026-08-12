@@ -17,6 +17,10 @@
 2. 如果需要 TLS，再看 [HTTPS 配置](./https.md)
 3. 如果连接失败，再看 [故障排查](./troubleshooting.md)
 
+## 唯一外部入口
+
+外部 Agent 只注册 `http://127.0.0.1:36806/mcp`。思源内置的 `http://127.0.0.1:6806/mcp` 是官方 MCP 扩展总线，由 Sisyphus `extension` 按需使用；不要并列注册。给另一台本地 Agent 交接时，提供固定版本的 `agent-kit/START-HERE.md`，由其安装 Skill 和客户端配置，然后通过 `system(action="bootstrap")` 验收。
+
 ## 本节覆盖内容
 
 - 从集市或源码安装
@@ -59,7 +63,7 @@ siyuan-sisyphus skill install --bundle all
 
 SEP-2640 仍是草案扩展，但在 HTTP 与 stdio 传输中均默认开启，并发布全部内置工作流 Skill。插件内置 HTTP 服务可在“连接配置 → HTTP/HTTPS 连接 → Skills over MCP”中开关。独立启动时可设置 `SIYUAN_MCP_SKILLS_EXTENSION=false` 显式关闭。服务端会声明 `io.modelcontextprotocol/skills`，并开放 `skills/list`、`skills/get` 与全部内置 `skill://` 资源。无论是否启用该扩展，既有 `siyuan://skills/*` Resource 都继续工作。
 
-仓库内通过校验的 Codex 包装位于 `agent-plugin/siyuan-sisyphus`。其中 MCP 配置指向 `http://127.0.0.1:36806/mcp`；若服务端要求 `SIYUAN_MCP_TOKEN`，需在客户端侧补充 Bearer 认证。
+仓库内通过校验的 Codex 包装位于 `agent-plugin/siyuan-sisyphus`。其中 MCP 配置只指向 `http://127.0.0.1:36806/mcp`；若服务端要求 `SIYUAN_MCP_TOKEN`，需在客户端侧补充 Bearer 认证。通用本地安装从 `agent-kit/START-HERE.md` 开始。
 
 ## 下一步
 

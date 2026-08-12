@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "packageVersion": "0.7.5-local.16",
+  "distribution": {
+    "startHere": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.7.5-local.16/agent-kit/START-HERE.md",
+    "archive": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.7.5-local.16/siyuan-agent-kit.zip"
+  },
+  "externalGateway": {
+    "name": "siyuan",
+    "implementation": "Sisyphus MCP",
+    "url": "http://127.0.0.1:36806/mcp",
+    "transport": "http",
+    "authentication": "bearer-token-from-local-client",
+    "clientRegistration": "required"
+  },
+  "officialMcp": {
+    "implementation": "SiYuan built-in MCP",
+    "url": "http://127.0.0.1:6806/mcp",
+    "installation": "included-with-siyuan",
+    "role": "internal-extension-bus",
+    "clientRegistration": "forbidden"
+  },
+  "firstCall": {
+    "tool": "system",
+    "action": "bootstrap",
+    "expectedSchemaVersion": 2
+  },
+  "installers": {
+    "kimiCode": "node scripts/install-agent-kit.mjs --client kimi",
+    "zcode": "node scripts/install-agent-kit.mjs --client zcode"
+  },
+  "security": {
+    "containsCredential": false,
+    "printsCredential": false,
+    "removesExistingOfficialMcp": false
+  }
+}

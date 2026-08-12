@@ -5,6 +5,8 @@ description: Top-level skill for operating SiYuan Note through Sisyphus MCP. Use
 
 # Operate SiYuan with Sisyphus MCP
 
+Register only the Sisyphus gateway at `http://127.0.0.1:36806/mcp`. SiYuan's built-in `http://127.0.0.1:6806/mcp` is an internal extension bus; do not add it as a second external SiYuan server. Start each new connection with `system(action="bootstrap")`.
+
 Select the narrowest workflow bundle:
 
 - Read, browse, search, SQL, backlinks, or references: `siyuan-mcp-read-discover`.

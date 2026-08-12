@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.7.5-local.16 - 2026-08-12
+
+- 将全部 Agent 交付入口统一为单一外部网关：客户端只注册 Sisyphus `http://127.0.0.1:36806/mcp`；思源内置 `http://127.0.0.1:6806/mcp` 仅作为 Sisyphus 可选转发的内部扩展总线，不再要求客户端重复注册
+- 新增固定入口 `agent-kit/START-HERE.md` 与机器可读契约 `agent-kit/delivery.json`，明确本地运行前提、首次 `system.bootstrap` 验收标准、Kimi Code/Kimi Work 边界和秘密值规则
+- 新增无依赖本地安装器，支持 Kimi Code 与 ZCode；安装器只从本机环境变量或既有受支持配置读取 Bearer token，原子写入 `0600` 配置，保留无关 MCP、生成变更前备份，并支持幂等复跑
+- 便携资产统一命名为 `siyuan-agent-kit.zip`，同时保留无密钥 Skill、插件清单和人工配置模板；公开源码、文档与 ZIP 均不包含真实 token
+- 增加 Kimi/ZCode 安装、秘密缺失失败关闭、既有配置保留、重复安装和双层 MCP 边界回归测试
+
 ## v0.7.5-local.15 - 2026-08-12
 
 - 将 `system.bootstrap` 升级为 schema v2：调用时刷新笔记本权限，隐藏 `none` 笔记本身份，并明确区分“本动作只读”和“连接可能具有写权限”

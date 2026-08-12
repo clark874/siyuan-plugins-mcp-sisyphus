@@ -4,10 +4,13 @@
 
 ## 一、接入边界
 
-- Sisyphus 通过 Streamable HTTP MCP 向宿主客户端提供思源工具。
+- 外部 Agent 只注册 Sisyphus：`http://127.0.0.1:36806/mcp`。
+- 思源内置的 `http://127.0.0.1:6806/mcp` 是官方扩展总线，由 Sisyphus 的 `extension` 按需桥接；不要作为第二个思源 MCP 并列注册。
+- Sisyphus 通过 Streamable HTTP MCP 向宿主客户端提供思源工具，其核心聚合能力直接调用思源 `/api/*`，不依赖官方 MCP。
 - MCP endpoint 与 Bearer token 由宿主客户端持有，不进入模型提示词、Skill 或交接文档。
 - 模型不是 MCP 宿主。切换模型但不切换客户端时，沿用客户端已有连接；切换客户端时，需要在新客户端重新注册 MCP。
 - 支持 Agent Skills 的客户端加载 `siyuan-mcp-sisyphus`；不支持时直接提供 `agent-kit/AGENT.md`。
+- 具备本机执行能力的 Agent 从 `agent-kit/START-HERE.md` 开始，可运行本地安装器；网页聊天不能安装本机 MCP。
 
 ## 二、首次调用
 

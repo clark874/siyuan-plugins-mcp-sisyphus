@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.15`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill、实时 Agent bootstrap、Kimi 便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动历史 Diff 的“最近更新”时间轴。完整说明见 [portable onboarding design](docs/plans/2026-08-12-portable-agent-onboarding-design.md)、[recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
+> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.16`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill、实时 Agent bootstrap、单一 Sisyphus 网关便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动历史 Diff 的“最近更新”时间轴。完整说明见 [single-gateway delivery design](docs/plans/2026-08-12-single-gateway-agent-delivery-design.md)、[recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Local maintenance release:** `v0.7.5-local.15` — Adds the workspace control plane, read-only bazaar catalog, secure SQL analytics, knowledge-ingestion Skill, live Agent bootstrap, portable Kimi onboarding kit, and a paginated Recent Updates timeline with optional parent-document grouping and native document-history diff on top of upstream `v0.6.0`. The local CLI is `v0.2.4-local.2`.
+> **Local maintenance release:** `v0.7.5-local.16` — Adds the workspace control plane, read-only bazaar catalog, secure SQL analytics, knowledge-ingestion Skill, live Agent bootstrap, a portable single-Sisyphus-gateway onboarding kit, and a paginated Recent Updates timeline with optional parent-document grouping and native document-history diff on top of upstream `v0.6.0`. The local CLI is `v0.2.4-local.2`.
 
 ## Project Direction Update
 
@@ -45,6 +45,8 @@ This does not replace the existing project:
 The boundary is deliberate: Sisyphus-owned capabilities—including `fs`, the document timeline, permission management, CLI, document tools, and the other aggregate workflows—always use SiYuan's `/api/*` endpoints and never depend on official MCP. `/mcp` belongs exclusively to `extension`, where it discovers and forwards tools registered by other plugins and native SiYuan tools explicitly enabled by the user.
 
 ## One Connection, Two Compatible Tool Ecosystems
+
+> **Register one external MCP only:** `http://127.0.0.1:36806/mcp`. The built-in `http://127.0.0.1:6806/mcp` ships with SiYuan and serves as the internal extension bus for Sisyphus `extension`; do not add it as a second external SiYuan server.
 
 | Tool source | Default | Best suited for | Compatibility and security boundary |
 |---|---|---|---|
@@ -215,7 +217,7 @@ Draft SEP-2640 Skills-over-MCP support is enabled by default for both HTTP and s
 
 A standalone Codex Agent Plugin wrapper is available in [`agent-plugin/siyuan-sisyphus`](./agent-plugin/siyuan-sisyphus). It connects to the default local HTTP endpoint and packages the same five entry skills; configure HTTP authentication separately when the endpoint requires a bearer token.
 
-Kimi Code and similar clients can use the [`agent-kit`](./agent-kit), which contains a secret-free MCP template, paste-ready startup instructions, the canonical `SKILL.md`, and a Kimi plugin manifest. Credentials must remain in the client configuration rather than the Skill or model context.
+Kimi Code, ZCode, and similar local clients should start from [`agent-kit/START-HERE.md`](./agent-kit/START-HERE.md). The kit contains a machine-readable delivery contract, secret-free MCP template, canonical `SKILL.md`, Kimi manifest, and a local installer. Credentials are read only from a local environment variable or an existing supported client configuration; they never belong in a Skill, URL, or model context. A web-only chat or an Agent without local configuration access cannot install the MCP from a link alone.
 
 ## Safety Model
 

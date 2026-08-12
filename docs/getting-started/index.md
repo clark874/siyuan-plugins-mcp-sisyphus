@@ -17,6 +17,10 @@ Related pages:
 2. [HTTPS](./https.md) if you need TLS
 3. [Troubleshooting](./troubleshooting.md) if the client cannot connect
 
+## Single External Gateway
+
+Register only `http://127.0.0.1:36806/mcp` in an external Agent. SiYuan's built-in `http://127.0.0.1:6806/mcp` is the official extension bus used on demand by Sisyphus `extension`; do not register both endpoints side by side. Hand another local Agent the pinned `agent-kit/START-HERE.md`, then require a successful `system(action="bootstrap")` call before treating installation as complete.
+
 ## What This Section Covers
 
 - Installation from marketplace or source
@@ -59,7 +63,7 @@ siyuan-sisyphus skill install --bundle all
 
 SEP-2640 is a draft extension and is enabled by default for both HTTP and stdio transports, publishing all bundled workflow skills. For the built-in HTTP server, it can be toggled under Connection Config → HTTP/HTTPS Connection → Skills over MCP. Standalone servers can set `SIYUAN_MCP_SKILLS_EXTENSION=false` to disable it. This advertises `io.modelcontextprotocol/skills` and enables `skills/list`, `skills/get`, and all bundled `skill://` resources. The regular `siyuan://skills/*` resources continue to work whether the extension is enabled or not.
 
-The repository's validated Codex wrapper lives at `agent-plugin/siyuan-sisyphus`. Its MCP config points to `http://127.0.0.1:36806/mcp`; add client-side bearer authentication if your server requires `SIYUAN_MCP_TOKEN`.
+The repository's validated Codex wrapper lives at `agent-plugin/siyuan-sisyphus`. Its MCP config points only to `http://127.0.0.1:36806/mcp`; add client-side bearer authentication if your server requires `SIYUAN_MCP_TOKEN`. Generic local installation starts at `agent-kit/START-HERE.md`.
 
 ## Next Steps
 

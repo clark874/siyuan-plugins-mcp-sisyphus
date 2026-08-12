@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.15`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill、实时 Agent bootstrap、Kimi 便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动原生文档历史 Diff 的“最近更新”时间轴。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [便携接入设计](docs/plans/2026-08-12-portable-agent-onboarding-design.md)、[最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
+> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.16`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill、实时 Agent bootstrap、单一 Sisyphus 网关便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动原生文档历史 Diff 的“最近更新”时间轴。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [单一网关交付设计](docs/plans/2026-08-12-single-gateway-agent-delivery-design.md)、[最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前本地维护版本：**`v0.7.5-local.15` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改、安全 SQL 分析通道、知识摄取 Skill、实时 Agent bootstrap 与 Kimi 便携接入包，以及支持临时父文档聚合与历史 Diff 联动的“最近更新”时间轴；本地 CLI 为 `v0.2.4-local.2`。
+> **当前本地维护版本：**`v0.7.5-local.16` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改、安全 SQL 分析通道、知识摄取 Skill、实时 Agent bootstrap 与单一 Sisyphus 网关便携接入包，以及支持临时父文档聚合与历史 Diff 联动的“最近更新”时间轴；本地 CLI 为 `v0.2.4-local.2`。
 
 ## 项目方向调整
 
@@ -49,6 +49,8 @@ SiYuan Sisyphus 最初诞生于一个朴素的愿望：让思源笔记能够连�
 架构边界保持明确：Sisyphus 自带的 `fs`、时间线、权限管理、CLI、文档工具及其他聚合能力始终只调用思源 `/api/*`，不依赖官方 MCP。`/mcp` 只属于 `extension`，用于发现和转发其他插件注册的 Tool，以及用户主动开启的思源原生 Tool。
 
 ## 一次连接，两套兼容工具生态
+
+> **外部客户端只连接一台 MCP：**`http://127.0.0.1:36806/mcp`。`http://127.0.0.1:6806/mcp` 随思源内核提供，是 Sisyphus `extension` 的内部扩展总线，不需要另装插件，也不要并列注册给外部 Agent。
 
 | 工具来源 | 默认状态 | 适合场景 | 兼容与安全边界 |
 |---|---|---|---|
@@ -219,7 +221,7 @@ siyuan-sisyphus skill install --bundle all # 同时安装 MCP 与 CLI 两套
 
 仓库还提供独立的 Codex Agent Plugin 包装：[`agent-plugin/siyuan-sisyphus`](./agent-plugin/siyuan-sisyphus)。它连接默认本机 HTTP 端点并打包同一组 5 个入口 Skill；若端点启用了 Bearer Token，请在客户端侧单独配置认证。
 
-Kimi Code 等客户端可使用 [`agent-kit`](./agent-kit)：其中包含无密钥 MCP 配置模板、可直接粘贴的启动指令、标准 `SKILL.md` 和 Kimi 插件清单。凭据必须由用户在客户端侧配置，不能写入 Skill 或交给模型。
+Kimi Code、ZCode 等本地客户端可从 [`agent-kit/START-HERE.md`](./agent-kit/START-HERE.md) 开始：其中包含机器可读交付契约、无密钥 MCP 配置模板、标准 `SKILL.md`、Kimi 插件清单和本地安装器。凭据只从本地环境变量或客户端既有安全配置读取，不能写入 Skill、网址或模型上下文。网页聊天或不允许修改本机配置的 Agent 不能仅凭链接完成安装。
 
 ## 安全边界
 

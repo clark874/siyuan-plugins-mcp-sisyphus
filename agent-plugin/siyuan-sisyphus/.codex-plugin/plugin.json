@@ -1,13 +1,13 @@
 {
   "name": "siyuan-sisyphus",
-  "version": "0.6.0",
-  "description": "Operate SiYuan Note through the Sisyphus MCP server with bundled workflow skills.",
+  "version": "0.7.5-local.16",
+  "description": "Operate SiYuan Note through the single external Sisyphus MCP gateway with bundled workflow skills.",
   "author": {
     "name": "Taihong Yang",
     "url": "https://github.com/yangtaihong59"
   },
-  "homepage": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
-  "repository": "https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus",
+  "homepage": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus",
+  "repository": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus",
   "license": "MIT",
   "keywords": ["siyuan", "mcp", "notes", "skills"],
   "skills": "./skills/",

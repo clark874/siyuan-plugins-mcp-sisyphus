@@ -79,6 +79,8 @@ Official discovery requires SiYuan 3.7.0 or newer, an administrator session, and
 
 Sisyphus-owned `fs`, timeline, permission management, CLI, document tools, and other aggregate capabilities always use `/api/*`. Official `/mcp` is an isolated side path owned by `extension`, not an implementation dependency of built-in capabilities.
 
+External clients should register only the Sisyphus endpoint at `http://127.0.0.1:36806/mcp`. The official `http://127.0.0.1:6806/mcp` ships with SiYuan and is only the internal extension bus described here. Registering both produces duplicate tools and lets native official tools bypass Sisyphus permission boundaries.
+
 | Concern | Official SiYuan MCP | Sisyphus |
 |---|---|---|
 | Registration | Native tools and plugins register independent tools | Tools are grouped by category and action |

@@ -11,7 +11,9 @@ export const scenarios = [
         displayName: 'SiYuan Sisyphus',
         shortDescription: 'Route safe SiYuan note workflows',
         defaultPrompt: 'Use $NAME to choose and follow the safest SiYuan workflow for this task.',
-        body: `Start every newly connected session with one read-only bootstrap call:
+        body: `Use Sisyphus as the only MCP gateway registered in the external client: \`http://127.0.0.1:36806/mcp\`. SiYuan's built-in \`http://127.0.0.1:6806/mcp\` is an internal extension bus that Sisyphus may bridge through \`extension\`; do not register it as a second SiYuan MCP in the same client.
+
+Start every newly connected session with one read-only bootstrap call:
 
 {{call bootstrap}}
 
