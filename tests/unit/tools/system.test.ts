@@ -327,42 +327,116 @@ describe('system tool schemas', () => {
         expect(JSON.stringify(parsed)).not.toContain('configContent');
     });
 
-    it('returns a one-call agent onboarding payload with notebooks, capabilities, and next calls', async () => {
+    it('returns a live one-call onboarding payload without mislabeling the whole connection as read-only', async () => {
+        const toolConfig = buildDefaultToolConfig();
+        toolConfig.fs.enabled = false;
+        toolConfig.search.actions.query_sql = false;
         const request = vi.fn(async (endpoint: string) => {
             if (endpoint === '/api/system/version') return '3.7.3';
             if (endpoint === '/api/notebook/lsNotebooks') {
                 return {
                     notebooks: [
                         { id: 'nb-open', name: '工作日志', closed: false, icon: '', sort: 0 },
-                        { id: 'nb-closed', name: '归档', closed: true, icon: '', sort: 1 },
+                        { id: 'nb-private', name: '私密库', closed: false, icon: '', sort: 1 },
                     ],
                 };
             }
             return {};
         });
+        const readFile = vi.fn().mockResolvedValue(JSON.stringify(toolConfig));
         const config = buildDefaultToolConfig().system;
-        const permMgr = { get: (id: string) => (id === 'nb-open' ? 'rwd' : 'r') } as never;
-        const result = await callSystemTool(createMockClient({ request }), {
+        const reload = vi.fn().mockResolvedValue(undefined);
+        const permMgr = {
+            reload,
+            get: (id: string) => (id === 'nb-open' ? 'rwd' : 'none'),
+        } as never;
+        const result = await callSystemTool(createMockClient({ request, readFile }), {
             action: 'bootstrap',
         }, config, permMgr);
         const parsed = parseResult(result);
 
         expect(parsed).toEqual(expect.objectContaining({
-            readonly: true,
+            schemaVersion: 2,
             bootstrap: true,
             version: '3.7.3',
+            operation: {
+                action: 'system.bootstrap',
+                readOnly: true,
+            },
+            connection: {
+                access: 'permission-controlled',
+                readableNotebookCount: 1,
+                writableNotebookCount: 1,
+                deletableNotebookCount: 1,
+            },
         }));
+        expect(parsed).not.toHaveProperty('readonly');
+        expect(reload).toHaveBeenCalledOnce();
         expect(parsed.notebooks).toEqual([
-            expect.objectContaining({ id: 'nb-open', name: '工作日志', closed: false, permission: 'rwd' }),
-            expect.objectContaining({ id: 'nb-closed', name: '归档', closed: true, permission: 'r' }),
+            expect.objectContaining({
+                id: 'nb-open',
+                name: '工作日志',
+                closed: false,
+                permission: 'rwd',
+                readable: true,
+                writable: true,
+                deletable: true,
+            }),
         ]);
+        expect(parsed.restrictedNotebookCount).toBe(1);
+        expect(JSON.stringify(parsed)).not.toContain('私密库');
         expect(parsed.capabilities).toEqual(expect.objectContaining({
-            fs: 'available',
-            av: 'available',
-            timeline: 'available',
+            fs: expect.objectContaining({ enabled: false }),
+            search: expect.objectContaining({
+                enabled: true,
+                actions: expect.objectContaining({ fulltext: true, query_sql: false }),
+            }),
+            av: expect.objectContaining({ enabled: true }),
+            timeline: expect.objectContaining({ enabled: true }),
+            pluginStorage: expect.objectContaining({
+                mode: 'controlled-redacted-read',
+                actions: expect.objectContaining({
+                    list_plugin_storage: true,
+                    read_plugin_storage: true,
+                    inspect_plugin: true,
+                }),
+            }),
         }));
+        expect(parsed.toolConfiguration).toEqual({ current: true, source: 'api_file' });
+        expect(parsed.nextCalls).not.toEqual(expect.arrayContaining([
+            expect.objectContaining({ tool: 'notebook', action: 'list' }),
+            expect.objectContaining({ tool: 'fs' }),
+            expect.objectContaining({ tool: 'search', action: 'query_sql' }),
+        ]));
+        expect(parsed.nextCalls).toEqual(expect.arrayContaining([
+            expect.objectContaining({ tool: 'search', action: 'fulltext' }),
+            expect.objectContaining({ tool: 'timeline', action: 'list_nodes' }),
+        ]));
         expect(parsed.nextCalls.length).toBeGreaterThan(0);
         expect(parsed.skills.length).toBeGreaterThan(0);
         expect(parsed.hints.length).toBeGreaterThan(0);
+    });
+
+    it('marks bootstrap capability data as fallback when the live tool config cannot be read', async () => {
+        const request = vi.fn(async (endpoint: string) => {
+            if (endpoint === '/api/system/version') return '3.7.3';
+            if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [] };
+            return {};
+        });
+        const readFile = vi.fn().mockRejectedValue(new Error('offline'));
+        const permMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            get: vi.fn(),
+        } as never;
+
+        const result = await callSystemTool(createMockClient({ request, readFile }), {
+            action: 'bootstrap',
+        }, buildDefaultToolConfig().system, permMgr);
+        const parsed = parseResult(result);
+
+        expect(parsed.toolConfiguration).toEqual({ current: false, source: 'default_fallback' });
+        expect(parsed.hints).toEqual(expect.arrayContaining([
+            expect.stringContaining('fallback'),
+        ]));
     });
 });

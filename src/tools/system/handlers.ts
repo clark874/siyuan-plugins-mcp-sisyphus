@@ -9,7 +9,15 @@ import * as controlPlane from '../../control-plane/operations';
 import * as pluginStorage from '../../control-plane/plugin-storage';
 import { redactText, sha256, truncateContent } from '../../control-plane/security';
 import { buildChangelogResponse } from '../../core/changelog';
-import type { SystemAction } from '../../core/config';
+import {
+    AV_ACTIONS,
+    FS_ACTIONS,
+    SEARCH_ACTIONS,
+    TIMELINE_ACTIONS,
+    loadToolConfigFromApiFileWithStatus,
+    type CategoryToolConfig,
+    type SystemAction,
+} from '../../core/config';
 import { stripHtmlTags, stripZeroWidthChars } from '../../core/normalize';
 import {
     SystemChangelogSchema,
@@ -48,6 +56,86 @@ const DEFAULT_PACKAGE_PAGE_SIZE = 50;
 const DEFAULT_BAZAAR_PAGE_SIZE = 20;
 const DEFAULT_BAZAAR_README_MAX_CHARS = 12000;
 const PACKAGE_DESCRIPTION_MAX_LENGTH = 300;
+
+function summarizeCapability<Action extends string>(
+    config: CategoryToolConfig<Action>,
+    actions: readonly Action[],
+) {
+    const availability = Object.fromEntries(actions.map((action) => [
+        action,
+        config.enabled && config.actions[action] === true,
+    ]));
+    return {
+        enabled: config.enabled && Object.values(availability).some(Boolean),
+        actions: availability,
+    };
+}
+
+function buildBootstrapCapabilities(config: Awaited<ReturnType<typeof loadToolConfigFromApiFileWithStatus>>['config']) {
+    const pluginStorageActions = {
+        list_plugin_storage: config.system.enabled && config.system.actions.list_plugin_storage === true,
+        read_plugin_storage: config.system.enabled && config.system.actions.read_plugin_storage === true,
+        inspect_plugin: config.system.enabled && config.system.actions.inspect_plugin === true,
+    };
+    const pluginStorageEnabled = Object.values(pluginStorageActions).some(Boolean);
+    const pluginStorageMode = pluginStorageActions.read_plugin_storage || pluginStorageActions.inspect_plugin
+        ? 'controlled-redacted-read'
+        : pluginStorageActions.list_plugin_storage
+            ? 'metadata-only'
+            : 'not-exposed';
+
+    return {
+        fs: summarizeCapability(config.fs, FS_ACTIONS),
+        search: summarizeCapability(config.search, SEARCH_ACTIONS),
+        av: summarizeCapability(config.av, AV_ACTIONS),
+        timeline: summarizeCapability(config.timeline, TIMELINE_ACTIONS),
+        virtualReference: {
+            mode: 'indirect-only',
+            directRead: false,
+        },
+        pluginStorage: {
+            enabled: pluginStorageEnabled,
+            mode: pluginStorageMode,
+            actions: pluginStorageActions,
+        },
+    };
+}
+
+function buildBootstrapNextCalls(
+    capabilities: ReturnType<typeof buildBootstrapCapabilities>,
+    notebookName: string | undefined,
+) {
+    const nextCalls: Array<Record<string, unknown>> = [];
+    if (notebookName && capabilities.fs.actions.tree) {
+        nextCalls.push({
+            tool: 'fs',
+            action: 'tree',
+            args: { path: `/${notebookName}`, maxDepth: 2 },
+            purpose: 'Browse the primary readable notebook',
+        });
+    }
+    if (notebookName && capabilities.fs.actions.read) {
+        nextCalls.push({
+            tool: 'fs',
+            action: 'read',
+            args: { path: `/${notebookName}/<doc>` },
+            purpose: 'Read one document',
+        });
+    }
+    if (capabilities.search.actions.fulltext) {
+        nextCalls.push({ tool: 'search', action: 'fulltext', purpose: 'Full-text search' });
+    }
+    if (capabilities.search.actions.query_sql) {
+        nextCalls.push({ tool: 'search', action: 'query_sql', purpose: 'Read-only structured query' });
+    }
+    if (capabilities.av.actions.render) {
+        nextCalls.push({ tool: 'av', action: 'render', purpose: 'Database render' });
+    }
+    if (capabilities.timeline.actions.list_nodes) {
+        nextCalls.push({ tool: 'timeline', action: 'list_nodes', purpose: 'Timeline/snapshot discovery' });
+    }
+    return nextCalls;
+}
 
 type SummaryNode =
     | { type: 'null'; value: null; truncated: false }
@@ -435,44 +523,58 @@ const handleAuditEnvironment: ToolActionHandler = async ({ client, rawArgs }) =>
 
 const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) => {
     SystemBootstrapSchema.parse(rawArgs);
-    const [version, notebooksResult] = await Promise.all([
+    const [version, notebooksResult, toolConfigResult] = await Promise.all([
         systemApi.getVersion(client),
         notebookApi.listNotebooks(client),
+        loadToolConfigFromApiFileWithStatus(client),
+        permMgr.reload(),
     ]);
-    const notebooks = (notebooksResult?.notebooks ?? []).map((nb) => ({
-        id: nb.id,
-        name: nb.name,
-        closed: nb.closed,
-        permission: permMgr.get(nb.id),
-    }));
+    const allNotebooks = notebooksResult?.notebooks ?? [];
+    const notebooks = allNotebooks.flatMap((nb) => {
+        const permission = permMgr.get(nb.id);
+        if (permission === 'none') return [];
+        return [{
+            id: nb.id,
+            name: nb.name,
+            closed: nb.closed,
+            permission,
+            readable: true,
+            writable: permission === 'rw' || permission === 'rwd',
+            deletable: permission === 'rwd',
+        }];
+    });
+    const capabilities = buildBootstrapCapabilities(toolConfigResult.config);
+    const primaryOpenNotebook = notebooks.find((notebook) => !notebook.closed);
+    const nextCalls = buildBootstrapNextCalls(capabilities, primaryOpenNotebook?.name);
     return createJsonResult({
-        readonly: true,
+        schemaVersion: 2,
         bootstrap: true,
+        operation: {
+            action: 'system.bootstrap',
+            readOnly: true,
+        },
+        connection: {
+            access: 'permission-controlled',
+            readableNotebookCount: notebooks.length,
+            writableNotebookCount: notebooks.filter((notebook) => notebook.writable).length,
+            deletableNotebookCount: notebooks.filter((notebook) => notebook.deletable).length,
+        },
         version,
         notebooks,
-        capabilities: {
-            fs: 'available',
-            search: { fulltext: 'available', sql: 'available' },
-            av: 'available',
-            timeline: 'available',
-            virtualReference: 'indirect-only',
-            pluginConfig: 'not-exposed',
+        restrictedNotebookCount: allNotebooks.length - notebooks.length,
+        toolConfiguration: {
+            current: toolConfigResult.ok,
+            source: toolConfigResult.source,
         },
+        capabilities,
         pathGuide: {
             workspacePath: '/Notebook/Folder/Doc (human-readable, used by fs)',
             rootPath: '/ lists all readable notebooks',
             note: 'hPath != .sy storage path != block ID',
         },
-        nextCalls: [
-            { tool: 'notebook', action: 'list', purpose: 'List notebooks' },
-            { tool: 'fs', action: 'tree', args: { path: '/<notebook>', maxDepth: 2 }, purpose: 'Directory tree' },
-            { tool: 'fs', action: 'read', args: { path: '/<notebook>/<doc>' }, purpose: 'Read document' },
-            { tool: 'search', action: 'fulltext', purpose: 'Full-text search' },
-            { tool: 'av', action: 'render', purpose: 'Database render' },
-            { tool: 'timeline', action: 'list_nodes', purpose: 'Timeline/snapshot' },
-        ],
+        nextCalls,
         skills: [
-            'siyuan-quick-start (local entry skill, load first)',
+            'siyuan-mcp-sisyphus',
             'siyuan-mcp-browse-read',
             'siyuan-mcp-search-query',
             'siyuan-mcp-database',
@@ -480,6 +582,10 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
         ],
         hints: [
             'This response contains no token, configuration body, or plugin secrets.',
+            'operation.readOnly describes this bootstrap call only; the connection may expose mutations according to notebook permissions and enabled actions.',
+            ...(!toolConfigResult.ok
+                ? ['Capability data uses the default fallback because the live tool configuration could not be read; do not treat it as a current health check.']
+                : []),
             'Prefer fs with human-readable paths for ordinary document operations.',
             'Read before write, re-read after write; rm/mv require user confirmation.',
         ],

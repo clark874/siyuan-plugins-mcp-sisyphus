@@ -11,7 +11,13 @@ export const scenarios = [
         displayName: 'SiYuan Sisyphus',
         shortDescription: 'Route safe SiYuan note workflows',
         defaultPrompt: 'Use $NAME to choose and follow the safest SiYuan workflow for this task.',
-        body: `Use the narrowest scenario skill that matches the task. For unfamiliar fields, inspect {{help * *}} before calling an action; live action help is the parameter-level source of truth.
+        body: `Start every newly connected session with one read-only bootstrap call:
+
+{{call bootstrap}}
+
+Use the returned notebooks, capability flags, path guide, and \`nextCalls\` as the live source of truth. \`operation.readOnly=true\` describes only the bootstrap action; the connection may still expose mutations according to notebook permissions and enabled actions. If \`toolConfiguration.current=false\`, treat capability data as fallback metadata rather than a health check.
+
+Use the narrowest scenario skill that matches the task. For unfamiliar fields, inspect {{help * *}} before calling an action; live action help is the parameter-level source of truth.
 
 ## Scenario routing
 
@@ -32,8 +38,6 @@ export const scenarios = [
 
 Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \`block\` for IDs, storage paths, metadata, or block-granular changes. Use \`av\` for real databases rather than Markdown tables. Use \`timeline\` for named snapshots, document diffs, and rollback. Low-complexity \`feedback\` and \`mascot\` actions need no separate scenario skill.
 
-{{call version}}
-{{call notebooks}}
 {{call tree}}
 {{call read}}
 
@@ -47,8 +51,7 @@ Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \
 - Obtain explicit approval before deletes, moves, bulk replacement, permission changes, local upload/export, or sensitive workspace disclosure.
 `,
         calls: {
-            version: call('system', 'get_version'),
-            notebooks: call('notebook', 'list'),
+            bootstrap: call('system', 'bootstrap'),
             tree: call('fs', 'tree', { path: '/Notebook', maxDepth: 3 }),
             read: call('fs', 'read', { path: '/Notebook/Folder/Doc', blockStart: 0, blockLimit: 50, tokenBudget: 2000 }),
         },

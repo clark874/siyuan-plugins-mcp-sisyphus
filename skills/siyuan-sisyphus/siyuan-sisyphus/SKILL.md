@@ -5,6 +5,14 @@ description: CLI-only top-level skill for operating SiYuan Note through siyuan-s
 
 # SiYuan Sisyphus with the CLI
 
+Start every newly connected session with one read-only bootstrap call:
+
+```bash
+siyuan-sisyphus system bootstrap --json
+```
+
+Use the returned notebooks, capability flags, path guide, and `nextCalls` as the live source of truth. `operation.readOnly=true` describes only the bootstrap action; the connection may still expose mutations according to notebook permissions and enabled actions. If `toolConfiguration.current=false`, treat capability data as fallback metadata rather than a health check.
+
 Use the narrowest scenario skill that matches the task. For unfamiliar fields, inspect `siyuan-sisyphus list` and `siyuan-sisyphus help <tool> <action>` before calling an action; live action help is the parameter-level source of truth.
 
 ## Scenario routing
@@ -26,12 +34,6 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 
 Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `av` for real databases rather than Markdown tables. Use `timeline` for named snapshots, document diffs, and rollback. Low-complexity `feedback` and `mascot` actions need no separate scenario skill.
 
-```bash
-siyuan-sisyphus system get-version --json
-```
-```bash
-siyuan-sisyphus notebook list --json
-```
 ```bash
 siyuan-sisyphus fs tree --path '/Notebook' --max-depth '3' --json
 ```

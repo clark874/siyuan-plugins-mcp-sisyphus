@@ -46,7 +46,7 @@ export const SYSTEM_VARIANTS: ActionVariant<SystemAction>[] = [
     createZodActionVariant('perform_sync', SystemPerformSyncSchema, 'Trigger SiYuan sync immediately. High-risk: affects local and remote sync state.'),
     createZodActionVariant('get_version', SystemGetVersionSchema, 'Get the SiYuan system version.'),
     createZodActionVariant('get_current_time', SystemGetCurrentTimeSchema, 'Get the current system time.'),
-    createZodActionVariant('bootstrap', SystemBootstrapSchema, 'One-call agent onboarding: version, notebooks with permissions, capabilities, path guide, and recommended next calls.'),
+    createZodActionVariant('bootstrap', SystemBootstrapSchema, 'One-call agent onboarding with refreshed permissions, current configured capabilities, path guide, and enabled next calls. This action is read-only; the connection may not be.'),
     createZodActionVariant('audit_environment', SystemAuditEnvironmentSchema, 'Get a compact read-only summary of masked system configuration and installed package counts.'),
     createZodActionVariant('list_packages', SystemListPackagesSchema, 'List installed plugins, widgets, themes, icons, or templates with compact metadata and pagination.'),
     createZodActionVariant('search_bazaar', SystemSearchBazaarSchema, 'Search downloadable SiYuan bazaar packages with installation and compatibility filters, stable sorting, and pagination.'),

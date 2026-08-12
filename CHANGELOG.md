@@ -2,6 +2,15 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.7.5-local.15 - 2026-08-12
+
+- 将 `system.bootstrap` 升级为 schema v2：调用时刷新笔记本权限，隐藏 `none` 笔记本身份，并明确区分“本动作只读”和“连接可能具有写权限”
+- 能力摘要改为读取当前 MCP 工具配置；配置读取失败时显式标记 `toolConfiguration.current=false`，不再把默认值误报为实时健康状态
+- 根据真实启用 action 生成 `nextCalls`，移除重复的 `notebook.list`，并将插件存储能力正确表述为受控、脱敏读取
+- 新增无密钥 `agent-kit`：包含客户端无关启动指令、标准 Agent Skill、Kimi Code 插件清单、MCP 配置模板和 Kimi 安装说明
+- 修正本地 ZCode Skill 的 SQL 与时间线 action 名称，移除固定版本和知识库统计，将 token 同步明确限定为用户维护动作
+- 增加受限笔记本、实时配置、退化配置、Skill 同步、Kimi 清单与秘密扫描回归测试
+
 ## v0.7.5-local.14 - 2026-08-12
 
 - 新增 system(action="bootstrap")一键接入:一次只读调用返回思源版本、可读笔记本与 MCP 权限、能力状态(fs/search/av/timeline)、路径类型指南、推荐后续调用和 Skill 入口

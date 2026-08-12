@@ -47,6 +47,11 @@ describe('core/skills', () => {
         }
 
         const ingest = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-knowledge-ingest');
+        const index = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-sisyphus');
+        expect(index?.text).toContain('system(action="bootstrap")');
+        expect(index?.text).toContain('operation.readOnly');
+        expect(index?.text).not.toContain('system(action="get_version")');
+        expect(index?.text).not.toContain('notebook(action="list")');
         expect(ingest?.files).toEqual(expect.arrayContaining([
             expect.objectContaining({ path: 'scripts/normalize-source.mjs', mimeType: 'text/javascript' }),
         ]));

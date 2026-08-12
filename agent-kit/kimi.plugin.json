@@ -1,0 +1,16 @@
+{
+  "name": "siyuan-sisyphus-agent-kit",
+  "version": "0.7.5-local.15",
+  "description": "为 Kimi Code 提供思源 Sisyphus MCP 的启动规则和安全工作流。",
+  "author": "clark874",
+  "homepage": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus",
+  "license": "MIT",
+  "skills": "./skills/",
+  "sessionStart": {
+    "skill": "siyuan-mcp-sisyphus"
+  },
+  "interface": {
+    "displayName": "思源 Sisyphus Agent Kit",
+    "shortDescription": "连接 Kimi Code 与本地思源知识库"
+  }
+}

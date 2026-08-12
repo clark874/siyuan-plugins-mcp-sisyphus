@@ -12,7 +12,7 @@
 
 | 分组 | 动作 |
 |------|------|
-| 基础信息 | `get_version`、`get_current_time`、`changelog` |
+| 基础信息 | `bootstrap`、`get_version`、`get_current_time`、`changelog` |
 | 环境与扩展包 | `conf`、`network`、`workspace_info`、`audit_environment`、`list_packages`、`search_bazaar`、`get_bazaar_package`、`read_bazaar_readme`、`get_plugin`、`list_plugin_updates` |
 | 代码片段 | `list_snippets` |
 | 插件存储与解释 | `list_plugin_storage`、`read_plugin_storage`、`inspect_plugin` |
@@ -21,6 +21,7 @@
 
 ## 读取规则
 
+- `bootstrap` 是新 Agent 的首选调用。它会刷新笔记本权限，隐藏权限为 `none` 的笔记本身份，并从当前 MCP 工具配置生成能力和后续调用。`operation.readOnly=true` 只表示本动作不写入；连接仍可能依据权限和 action 配置开放写入。若 `toolConfiguration.current=false`，能力摘要来自默认退化配置，不应视为实时健康检查。
 - `workspace_info` 会暴露工作区绝对路径，属于需要确认的高风险读取。
 - `conf` 只返回思源官方接口提供的脱敏配置；优先使用 `mode="summary"`，再用 `mode="get"` 读取单个路径。
 - `list_packages` 返回已安装扩展包的精简元数据，不返回 README 或配置正文。
@@ -81,6 +82,7 @@
 - `perform_sync`
 - `get_version`
 - `get_current_time`
+- `bootstrap`
 - `audit_environment`
 - `list_packages`
 - `search_bazaar`

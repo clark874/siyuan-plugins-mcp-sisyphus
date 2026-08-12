@@ -116,7 +116,7 @@ export const TIMELINE_GUIDANCE: string[] = [
 
 export const SYSTEM_GUIDANCE: string[] = [
     'Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.',
-    'Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.',
+    'Use system(action="bootstrap") as the first call when a new agent connects: it refreshes notebook permissions and returns version, readable notebooks, current configured capabilities, path guidance, and enabled next calls. operation.readOnly describes this call only, not the whole connection.',
     'Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.',
     'Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.',
     'Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.',
@@ -299,7 +299,7 @@ export const SYSTEM_ACTION_HINTS: Partial<Record<SystemAction, string>> = {
     perform_sync: 'Triggers SiYuan sync immediately through /api/sync/performSync. This action can change local and remote sync state and requires explicit user confirmation.',
     get_version: 'Returns the current SiYuan version as {version}.',
     get_current_time: 'Returns the current system time as {currentTime} epoch milliseconds and {iso} ISO 8601 text.',
-    bootstrap: 'One-call agent onboarding: returns SiYuan version, readable notebooks with MCP permissions, capability availability (fs/search/av/timeline), path-type guide, recommended next calls, and skill entry points. Read-only; contains no token or plugin secrets.',
+    bootstrap: 'One-call agent onboarding: refreshes permissions, omits none-permission notebook identities, and returns SiYuan version, current configured capabilities, path guidance, enabled next calls, and skill entry points. operation.readOnly applies only to this action; contains no token or plugin secrets.',
     audit_environment: 'Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.',
     list_packages: 'Lists compact installed-package metadata with kind, optional keyword/frontend, and page/pageSize. README and plugin configuration content are excluded.',
     search_bazaar: 'Searches downloadable SiYuan bazaar packages with installation/compatibility filters, stable sorting, and pagination. It never installs packages.',

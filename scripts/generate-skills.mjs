@@ -115,6 +115,9 @@ for (const scenario of scenarios) {
         }
         await syncFile(`${base}/SKILL.md`, skill);
         await syncFile(`${base}/agents/openai.yaml`, renderOpenAiYaml(scenario, runtime));
+        if (runtime === 'mcp' && scenario.id === 'sisyphus') {
+            await syncFile('agent-kit/skills/siyuan-mcp-sisyphus/SKILL.md', skill);
+        }
         if (scenario.id === 'knowledge-ingest') {
             await syncFile(`${base}/scripts/normalize-source.mjs`, knowledgeIngestScript);
         }
@@ -122,5 +125,5 @@ for (const scenario of scenarios) {
 }
 
 console.log(check
-    ? `Verified ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, and 2 runtime assets.`
-    : `Generated ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, and 2 runtime assets.`);
+    ? `Verified ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 2 runtime assets, and 1 portable entry skill.`
+    : `Generated ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 2 runtime assets, and 1 portable entry skill.`);

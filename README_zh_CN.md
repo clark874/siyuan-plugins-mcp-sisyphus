@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.14`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill，以及可分页、可按年月日展开、可临时按父文档聚合并联动原生文档历史 Diff 的“最近更新”时间轴。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[知识摄取设计](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
+> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.15`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill、实时 Agent bootstrap、Kimi 便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动原生文档历史 Diff 的“最近更新”时间轴。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [便携接入设计](docs/plans/2026-08-12-portable-agent-onboarding-design.md)、[最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前本地维护版本：**`v0.7.5-local.14` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改、安全 SQL 分析通道、知识摄取 Skill，以及支持临时父文档聚合与历史 Diff 联动的“最近更新”时间轴；本地 CLI 为 `v0.2.4-local.2`。
+> **当前本地维护版本：**`v0.7.5-local.15` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改、安全 SQL 分析通道、知识摄取 Skill、实时 Agent bootstrap 与 Kimi 便携接入包，以及支持临时父文档聚合与历史 Diff 联动的“最近更新”时间轴；本地 CLI 为 `v0.2.4-local.2`。
 
 ## 项目方向调整
 
@@ -202,6 +202,8 @@ modern 协议下的高危调用使用 MCP 多轮输入确认：支持 elicitatio
 
 ## 面向 Agent 的场景 Skill
 
+新 Agent 连接后首先调用 `system(action="bootstrap")`。该动作会刷新笔记本权限，返回当前工具配置和可执行的后续调用；其中 `operation.readOnly=true` 只表示本动作不写入，不表示整个连接只读。
+
 MCP Server 内置了浏览、编辑、搜索、知识摄取、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版等场景指南。普通 MCP 客户端无需安装任何 Skill：先读取 `siyuan://skills/index`，再加载匹配的 `siyuan://skills/{name}` 资源即可。网页整理任务可加载 `siyuan://skills/siyuan-mcp-knowledge-ingest` 或调用 `siyuan_knowledge_ingest` Prompt；该流程会对来源执行规范化、查重、差量写入、来源登记和幂等验证。对应的 MCP Prompts 是由用户显式调用的工作流入口，不会自动生效。
 
 支持安装 `SKILL.md` 包的 Agent 可以把同一套指南安装到本地：
@@ -216,6 +218,8 @@ siyuan-sisyphus skill install --bundle all # 同时安装 MCP 与 CLI 两套
 草案 SEP-2640 Skills-over-MCP 在 HTTP 与 stdio 传输中均默认开启，并会发布全部内置工作流 Skill。插件内置 HTTP 服务可在“连接配置 → HTTP/HTTPS 连接 → Skills over MCP”中开关，保存后会重启服务。独立启动服务端时可通过 `SIYUAN_MCP_SKILLS_EXTENSION=false` 显式关闭。启用后服务端声明 `io.modelcontextprotocol/skills`，实现 `skills/list`、`skills/get`，并提供带 SHA-256 完整性清单的 `skill://.../SKILL.md` 资源。由于 SEP-2640 仍是草案，既有 `siyuan://skills/*` Resource 与 Prompt 继续作为稳定回退。
 
 仓库还提供独立的 Codex Agent Plugin 包装：[`agent-plugin/siyuan-sisyphus`](./agent-plugin/siyuan-sisyphus)。它连接默认本机 HTTP 端点并打包同一组 5 个入口 Skill；若端点启用了 Bearer Token，请在客户端侧单独配置认证。
+
+Kimi Code 等客户端可使用 [`agent-kit`](./agent-kit)：其中包含无密钥 MCP 配置模板、可直接粘贴的启动指令、标准 `SKILL.md` 和 Kimi 插件清单。凭据必须由用户在客户端侧配置，不能写入 Skill 或交给模型。
 
 ## 安全边界
 
