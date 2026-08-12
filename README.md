@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.7.1-local.10`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill，以及可分页、可分组并联动历史 Diff 的“最近更新”时间轴。完整说明见 [recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[knowledge-ingestion design](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
+> **本地维护分支：** 当前 Fork 的 `v0.7.2-local.11`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill，以及可分页、可分组并联动历史 Diff 的“最近更新”时间轴。完整说明见 [recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[knowledge-ingestion design](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Local maintenance release:** `v0.7.1-local.10` — Adds the workspace control plane, read-only bazaar catalog, secure SQL analytics, knowledge-ingestion Skill, and a paginated Recent Updates timeline with native document-history diff on top of upstream `v0.6.0`. The local CLI is `v0.2.4-local.2`.
+> **Local maintenance release:** `v0.7.2-local.11` — Adds the workspace control plane, read-only bazaar catalog, secure SQL analytics, knowledge-ingestion Skill, and a paginated Recent Updates timeline with native document-history diff on top of upstream `v0.6.0`. The local CLI is `v0.2.4-local.2`.
 
 ## Project Direction Update
 

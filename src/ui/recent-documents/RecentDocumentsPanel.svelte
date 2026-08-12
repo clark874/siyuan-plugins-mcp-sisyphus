@@ -75,7 +75,6 @@
         observePagination();
         await tick();
         updateVisibility();
-        if (panelVisible) await refreshDocuments();
     });
 
     onDestroy(() => {
@@ -145,6 +144,7 @@
     }
 
     async function refreshDocuments() {
+        if (loading) return;
         loadVersion += 1;
         currentPage = 0;
         hasMore = true;
@@ -156,6 +156,7 @@
     async function loadNextPage() {
         if (loading || !hasMore) return;
         const requestVersion = loadVersion;
+        const targetRefreshVersion = refreshVersion;
         const nextPage = currentPage + 1;
         loading = true;
         error = "";
@@ -170,7 +171,7 @@
             documents = [...byId.values()];
             currentPage = nextPage;
             hasMore = pageDocuments.length === PAGE_SIZE;
-            loadedRefreshVersion = refreshVersion;
+            loadedRefreshVersion = targetRefreshVersion;
             await tick();
             observePagination();
         } catch (err) {

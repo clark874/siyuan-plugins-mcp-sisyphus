@@ -30,6 +30,14 @@ describe('recent documents dock source contract', () => {
         expect(pluginSource).toContain('onCompareRecent');
     });
 
+    it('starts the initial refresh once and rejects overlapping refreshes', () => {
+        const onMountBody = panelSource.match(/onMount\(async \(\) => \{([\s\S]*?)\n    \}\);/)?.[1] ?? '';
+
+        expect(onMountBody).toContain('updateVisibility();');
+        expect(onMountBody).not.toContain('refreshDocuments()');
+        expect(panelSource).toMatch(/async function refreshDocuments\(\) \{\s*if \(loading\) return;/);
+    });
+
     it('registers a distinct left-bottom dock and icon', () => {
         expect(pluginSource).toContain('sisyphusRecentDocumentsDock');
         expect(pluginSource).toContain('iconSisyphusRecentDocumentsDock');
