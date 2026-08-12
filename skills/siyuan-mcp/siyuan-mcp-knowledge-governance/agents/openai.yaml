@@ -1,0 +1,4 @@
+interface:
+  display_name: "思源知识治理 MCP"
+  short_description: "编译并治理思源知识原子与锚点"
+  default_prompt: "使用 $siyuan-mcp-knowledge-governance 审计并治理指定专题的知识原子、别名、引用和中枢入口。"

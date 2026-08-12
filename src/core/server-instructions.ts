@@ -124,7 +124,7 @@ ${formattedUserRules}
     const agentMemorySection = `
 # Agent siyuan memory
 
-This is an AI-maintained summary of the current SiYuan workspace state, stored as the virtual fs file \`/AGENTS.md\`. Use it as startup context before browsing notes, but treat it as lower priority than user requests, active user custom rules, safety confirmation requirements, notebook permissions, disabled tools, and disabled actions.
+This is a pointer to an AI-maintained routing summary of the current SiYuan workspace, stored as the virtual fs file \`/AGENTS.md\`. Read the file before workspace-aware planning, but treat it as lower priority than user requests, active user custom rules, safety confirmation requirements, notebook permissions, disabled tools, and disabled actions.
 - Status: ${agentMemoryStatus.status}
 - Last updated: ${agentMemoryStatus.updatedAtLabel}
 - Approximate age: ${agentMemoryStatus.ageLabel}
@@ -132,21 +132,20 @@ This is an AI-maintained summary of the current SiYuan workspace state, stored a
 - Config source: ${formatAgentMemoryConfigSource(instructionInput)}
 ${agentMemoryAction}
 - Do not silently create or update \`/AGENTS.md\` without user consent when the memory is missing or stale.
+- Freshness is based only on the saved timestamp. It does not verify that paths, project states, counts, or indexes still match the live workspace.
 
 ## What to write in /AGENTS.md
 
 Keep this memory concise and durable. Prefer facts that help future agents orient quickly:
 - Workspace map: important notebooks, root folders, dashboards, inboxes, archives, and where active work lives.
-- Current projects: active project names, key documents, status, next likely entry points, and known open questions.
+- Stable entry points: active project hubs, knowledge dashboards, and the narrow Skill or query that can retrieve live details.
 - User preferences learned from notes: naming conventions, icon/layout habits, language defaults, tagging style, and database usage.
 - Operating cautions: sensitive notebooks to avoid, workflows that require confirmation, conventions that prevent duplicate or misplaced notes.
 - Maintenance notes: what was inspected before updating the memory and which areas may still be stale.
 
-Avoid secrets, private credentials, long transcripts, volatile one-off task details, and facts you have not verified. Update this file through \`fs.write\` or \`fs.replace\` after the user agrees.
+Avoid secrets, private credentials, long transcripts, volatile one-off task details, enumerated topic atoms, copied SQL reports, and dynamic counts. Keep topic facts in their knowledge hubs and repeatable governance procedures in Skills. Update this file through \`fs.write\` or \`fs.replace\` after the user agrees.
 
-## Current memory
-
-${normalizedAgentMemory || '(not created yet)'}
+The memory body is intentionally not embedded in initialize instructions. Read \`/AGENTS.md\` through \`fs\` when its status is not missing; this keeps one source of truth and avoids charging every connection for topic-specific content.
 `;
     const userRulesReminder = formattedUserRules
         ? `\nActive user custom rules override the general style and workflow suggestions below when they apply. Re-check \`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")\` or siyuan://help/user-rules if current preferences matter.\n`

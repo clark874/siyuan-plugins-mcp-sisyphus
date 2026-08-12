@@ -43,8 +43,8 @@ describe('portable agent kit', () => {
         }));
         expect(delivery).toEqual(expect.objectContaining({
             distribution: {
-                startHere: expect.stringContaining('/v0.7.5-local.16/agent-kit/START-HERE.md'),
-                archive: expect.stringContaining('/v0.7.5-local.16/siyuan-agent-kit.zip'),
+                startHere: expect.stringContaining('/v0.7.5-local.17/agent-kit/START-HERE.md'),
+                archive: expect.stringContaining('/v0.7.5-local.17/siyuan-agent-kit.zip'),
             },
             externalGateway: expect.objectContaining({
                 url: 'http://127.0.0.1:36806/mcp',

@@ -598,11 +598,14 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
             status: agentMemory.status,
             updatedAt: agentMemory.updatedAtLabel,
             age: agentMemory.ageLabel,
+            freshnessBasis: 'saved timestamp only',
+            contentVerified: false,
         },
         skills: [
             'siyuan-mcp-sisyphus',
             'siyuan-mcp-browse-read',
             'siyuan-mcp-search-query',
+            'siyuan-mcp-knowledge-governance',
             'siyuan-mcp-database',
             'siyuan-mcp-timeline',
         ],
@@ -614,7 +617,8 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
                 : []),
             ...(agentMemory.status === 'missing'
                 ? [`No workspace memory exists at ${AGENT_MEMORY_VIRTUAL_PATH}; ask the user before creating one, and do not assume notebook structure until then.`]
-                : [`Read ${AGENT_MEMORY_VIRTUAL_PATH} before planning or browsing notes; it carries retrieval protocol, naming rules, and known-pollution warnings that prevent redundant work.${agentMemory.status === 'stale' ? ' It is stale, so verify current state before relying on it.' : ''}`]),
+                : [`Read ${AGENT_MEMORY_VIRTUAL_PATH} before planning or browsing notes; it is a concise routing index, not a topic database.${agentMemory.status === 'stale' ? ' It is stale, so verify current state before relying on it.' : ''}`]),
+            'Memory freshness is timestamp-based only; verify paths, counts, project states, and indexes against live data before relying on them.',
             'Prefer fs with human-readable paths for ordinary document operations.',
             'Read before write, re-read after write; rm/mv require user confirmation.',
         ],

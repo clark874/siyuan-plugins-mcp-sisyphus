@@ -222,7 +222,7 @@ function createServerConfig() {
                         ]
                         : [
                             cleanupDistFiles({
-                                patterns: ["i18n/*.yaml", "i18n/*.md", "mcp-server.js"],
+                                patterns: ["i18n/*.yaml", "i18n/*.md", "mcp-server.js", ".DS_Store", "**/.DS_Store"],
                                 distDir: outputDir,
                             }),
                             zipPack({

@@ -44,8 +44,8 @@
     $: description = getLabel("user_rules_desc", "Additional instructions appended to the MCP server prompt at startup. Use this for personal preferences like icon behavior, naming, language, or formatting defaults. Avoid secrets and keep it concise.");
     $: placeholder = getLabel("user_rules_placeholder", "创建文档/日记后主动设图标");
     $: agentMemoryTitle = getLabel("agent_memory_title", "Agent siyuan Memory");
-    $: agentMemoryDescription = getLabel("agent_memory_desc", "AI-maintained summary of the SiYuan workspace state. This memory is injected into MCP startup instructions and exposed as /AGENTS.md through the fs tool. Avoid secrets and sensitive personal data.");
-    $: agentMemoryPlaceholder = getLabel("agent_memory_placeholder", "Summarize durable workspace facts, important notebooks, naming conventions, and current project context.");
+    $: agentMemoryDescription = getLabel("agent_memory_desc", "AI-maintained routing summary exposed as /AGENTS.md. Startup instructions publish only its path and freshness status; agents read the body on demand. Avoid secrets and topic inventories.");
+    $: agentMemoryPlaceholder = getLabel("agent_memory_placeholder", "Summarize durable workspace routes, important hubs, naming conventions, and operating cautions.");
     $: autoSaveLabel = getLabel("user_rules_auto_save", "Auto-saved on blur");
     $: reconnectLabel = getLabel("user_rules_reconnect_hint", "Reconnect MCP clients to apply changes");
 

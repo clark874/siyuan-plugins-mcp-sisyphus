@@ -66,8 +66,10 @@ describe('cli/skill-command', () => {
         const mcpSkills = listBundledSkills(mcpRoot, 'mcp');
         expect(mcpSkills.map((skill) => skill.name)).toContain('siyuan-mcp-sisyphus');
         expect(mcpSkills.map((skill) => skill.name)).toContain('siyuan-mcp-knowledge-ingest');
+        expect(mcpSkills.map((skill) => skill.name)).toContain('siyuan-mcp-knowledge-governance');
         expect(readBundledSkill('siyuan-mcp-create-edit', 'mcp')).toContain('name: siyuan-mcp-create-edit');
         expect(readBundledSkill('siyuan-mcp-knowledge-ingest', 'mcp')).toContain('custom-source-url');
+        expect(readBundledSkill('siyuan-mcp-knowledge-governance', 'mcp')).toContain('知识原子');
     });
 
     it('normalizes target names and rejects unsafe paths', () => {
@@ -87,6 +89,7 @@ describe('cli/skill-command', () => {
         const mcp = installSkills({ target: '.codex', local: true, cwd: dir, bundle: 'mcp' });
         expect(mcp.bundle).toBe('mcp');
         expect(mcp.skills).toContain('siyuan-mcp-create-edit');
+        expect(mcp.skills).toContain('siyuan-mcp-knowledge-governance');
         expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-mcp-create-edit', 'SKILL.md'))).toBe(true);
         expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-mcp-knowledge-ingest', 'scripts', 'normalize-source.mjs'))).toBe(true);
         expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-mcp-knowledge-ingest', 'evals', 'evals.json'))).toBe(true);

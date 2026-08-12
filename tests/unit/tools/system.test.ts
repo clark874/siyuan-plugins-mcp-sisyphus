@@ -442,12 +442,17 @@ describe('system tool schemas', () => {
         const parsed = parseResult(result);
 
         expect(parsed.memory).toEqual(expect.objectContaining({ path: '/AGENTS.md', status: 'fresh' }));
+        expect(parsed.memory).toEqual(expect.objectContaining({
+            freshnessBasis: 'saved timestamp only',
+            contentVerified: false,
+        }));
         expect(parsed.nextCalls[0]).toEqual(expect.objectContaining({
             tool: 'fs',
             action: 'read',
             args: { path: '/AGENTS.md' },
         }));
         expect(parsed.hints).toEqual(expect.arrayContaining([expect.stringContaining('/AGENTS.md')]));
+        expect(parsed.hints).toEqual(expect.arrayContaining([expect.stringContaining('timestamp-based only')]));
     });
 
     it('does not send bootstrap to read a workspace memory that was never created', async () => {

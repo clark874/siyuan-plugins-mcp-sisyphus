@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.16`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill、实时 Agent bootstrap、单一 Sisyphus 网关便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动历史 Diff 的“最近更新”时间轴。完整说明见 [single-gateway delivery design](docs/plans/2026-08-12-single-gateway-agent-delivery-design.md)、[recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
+> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.17`（CLI `v0.2.4-local.3`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取与知识治理 Skill、按需工作区记忆、实时 Agent bootstrap、单一 Sisyphus 网关便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动历史 Diff 的“最近更新”时间轴。完整说明见 [layered Agent memory design](docs/plans/2026-08-12-layered-agent-memory-and-knowledge-governance-design.md)、[single-gateway delivery design](docs/plans/2026-08-12-single-gateway-agent-delivery-design.md)、[recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Local maintenance release:** `v0.7.5-local.16` — Adds the workspace control plane, read-only bazaar catalog, secure SQL analytics, knowledge-ingestion Skill, live Agent bootstrap, a portable single-Sisyphus-gateway onboarding kit, and a paginated Recent Updates timeline with optional parent-document grouping and native document-history diff on top of upstream `v0.6.0`. The local CLI is `v0.2.4-local.2`.
+> **Local maintenance release:** `v0.7.5-local.17` — Adds the workspace control plane, read-only bazaar catalog, secure SQL analytics, knowledge-ingestion and knowledge-governance Skills, on-demand workspace memory, live Agent bootstrap, a portable single-Sisyphus-gateway onboarding kit, and a paginated Recent Updates timeline with optional parent-document grouping and native document-history diff on top of upstream `v0.6.0`. The local CLI is `v0.2.4-local.3`.
 
 ## Project Direction Update
 
@@ -94,7 +94,7 @@ For complete installation and connection instructions, see [Getting Started](./d
 - **MCP and CLI entry points**: use MCP for multi-step agent workflows and CLI for scripts, automation, and small one-shot tasks.
 - **Notebook-level safety**: assign each notebook `none`, `r`, `rw`, or `rwd` access.
 - **Low-context tool design**: group 100+ SiYuan capabilities into 14 action-routed tools and load detailed guidance only when needed.
-- **Scenario Skills for agents**: provide guidance for browsing, editing, search, knowledge ingestion, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup.
+- **Scenario Skills for agents**: provide guidance for browsing, editing, search, knowledge ingestion, knowledge-atom governance, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup.
 - **MCP Apps views**: dedicated launch tools open flashcard review, document timeline, and mascot shop exactly once; ordinary aggregate tools never render duplicate Apps, and human actions are managed on a separate MCP Apps settings page.
 - **Git-like document timeline**: create named timeline nodes, compare snapshots, and roll back a document when needed.
 - **Practical connection setup**: generate connection snippets for common AI clients and local, remote, and Docker deployments.
@@ -202,7 +202,7 @@ Modern dangerous calls use MCP multi-round-trip input: the operation is not disp
 
 New agents should first call `system(action="bootstrap")`. It refreshes notebook permissions and returns the current configured capabilities and enabled next calls. `operation.readOnly=true` applies only to bootstrap, not necessarily to the whole connection.
 
-The MCP server includes scenario-oriented guidance for browsing, editing, search, knowledge ingestion, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. For web-source ingestion, load `siyuan://skills/siyuan-mcp-knowledge-ingest` or invoke the `siyuan_knowledge_ingest` prompt. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
+The MCP server includes scenario-oriented guidance for browsing, editing, search, knowledge ingestion, knowledge-atom governance, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. For web-source ingestion, load `siyuan://skills/siyuan-mcp-knowledge-ingest`; for named-block compilation, alias audits, and safe renames, load `siyuan://skills/siyuan-mcp-knowledge-governance`. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
 
 Agents that support installable `SKILL.md` packages can install the same guidance locally:
 

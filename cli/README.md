@@ -6,7 +6,7 @@
 
 Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (fs, block, document, notebook, av, search, tag, file, timeline, system, flashcard, extension, mascot, feedback) is exposed as a subcommand you can call directly from a shell.
 
-> **Local maintenance version:** `v0.2.4-local.2` adds the knowledge-ingestion Skill and the refined recent-history comparison states shared with the plugin. The latest upstream npm release remains `v0.2.3`; this local prerelease must be published explicitly before npm installation can provide these updates.
+> **Local maintenance version:** `v0.2.4-local.3` adds the knowledge-ingestion and knowledge-governance Skills, plus the refined recent-history comparison states shared with the plugin. The latest upstream npm release remains `v0.2.3`; this local prerelease must be published explicitly before npm installation can provide these updates.
 
 > **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, timeline, and system workflows.
 
@@ -51,7 +51,7 @@ siyuan-sisyphus help block append
 
 ## Agent skill bundles
 
-The npm package carries two related skill bundles:
+The npm package carries two related skill bundles, including dedicated knowledge-ingestion and knowledge-governance workflows:
 
 - `cli` uses terminal command examples and is still the default for `skill list`, `skill read`, and `skill install`.
 - `mcp` uses MCP tool-call examples for agents that connect through the plugin server.

@@ -36,10 +36,10 @@ const variantsByTool: Record<string, Array<{ action: string; schema: Record<stri
 };
 
 describe('core/skills', () => {
-    it('embeds eleven valid MCP skills without CLI invocation examples', () => {
-        expect(MCP_SKILLS).toHaveLength(11);
-        expect(new Set(MCP_SKILLS.map((skill) => skill.name)).size).toBe(11);
-        expect(new Set(MCP_SKILLS.map((skill) => skill.promptName)).size).toBe(11);
+    it('embeds twelve valid MCP skills without CLI invocation examples', () => {
+        expect(MCP_SKILLS).toHaveLength(12);
+        expect(new Set(MCP_SKILLS.map((skill) => skill.name)).size).toBe(12);
+        expect(new Set(MCP_SKILLS.map((skill) => skill.promptName)).size).toBe(12);
 
         for (const skill of MCP_SKILLS) {
             expect(skill.text).toContain(`name: ${skill.name}`);
@@ -47,6 +47,7 @@ describe('core/skills', () => {
         }
 
         const ingest = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-knowledge-ingest');
+        const governance = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-knowledge-governance');
         const index = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-sisyphus');
         expect(index?.text).toContain('system(action="bootstrap")');
         expect(index?.text).toContain('operation.readOnly');
@@ -61,6 +62,29 @@ describe('core/skills', () => {
         expect(ingest?.text).toContain('来源页面自称“官方”不构成身份核验');
         expect(ingest?.text).toContain('若 `set_attrs` 失败');
         expect(ingest?.text).toContain('- 正文哈希：<sha256>');
+        expect(governance?.text).toContain('四层影响');
+        expect(governance?.text).toContain('数量和冲突以实时 SQL 为准');
+        expect(governance?.text).toContain('拆成单个词元');
+        expect(governance?.text).toContain('每一个**受影响文档');
+        expect(governance?.text).toContain('任一文档无法建立恢复点时停止整批写入');
+        expect(governance?.text).toContain('逐个稳定块 ID 读取完整 Kramdown');
+        expect(governance?.text).toContain('block(action="update"');
+
+        const governanceScenario = scenarios.find((scenario) => scenario.id === 'knowledge-governance');
+        const duplicateAliasSql = governanceScenario?.calls.duplicateAliases.args.stmt ?? '';
+        const conflictSql = governanceScenario?.calls.conflict.args.stmt ?? '';
+        const verifySql = governanceScenario?.calls.verify.args.stmt ?? '';
+        expect(duplicateAliasSql).toContain('WITH RECURSIVE alias_parts');
+        expect(duplicateAliasSql).toContain("replace(COALESCE(alias, ''), '，', ',')");
+        expect(duplicateAliasSql).toContain('trim(substr(');
+        expect(duplicateAliasSql).toContain('GROUP BY lower(alias_token)');
+        expect(conflictSql).toContain('WITH RECURSIVE candidates');
+        expect(conflictSql).toContain('lower(a.alias_token) IN');
+        expect(conflictSql).not.toContain('alias LIKE');
+        expect(verifySql).toContain("b.id = '<block-id>'");
+        expect(verifySql).toContain("lower(b.name) = lower('stable-topic-step')");
+        expect(verifySql).toContain("lower(a.alias_token) = lower('中文同义词')");
+        expect(verifySql).not.toContain('alias LIKE');
     });
 
     it('renders a discoverable index and scenario prompts', () => {
@@ -69,11 +93,13 @@ describe('core/skills', () => {
         const prompt = getMcpPrompt('siyuan_create_edit', 'Append a summary.');
 
         expect(index).toContain('siyuan://help/action/{tool}/{action}');
-        expect(prompts).toHaveLength(11);
+        expect(prompts).toHaveLength(12);
         expect(index).toContain('siyuan-mcp-timeline');
         expect(index).toContain('siyuan-mcp-knowledge-ingest');
+        expect(index).toContain('siyuan-mcp-knowledge-governance');
         expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_timeline' }));
         expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_knowledge_ingest' }));
+        expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_knowledge_governance' }));
         expect(prompts.find((item) => item.name === 'siyuan_create_edit')?.arguments).toEqual([
             expect.objectContaining({ name: 'task', required: false }),
         ]);

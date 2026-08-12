@@ -476,7 +476,7 @@ describe('MCP Server Integration', () => {
             expect(instructions).not.toContain('User custom rules override the general style and workflow suggestions below when they apply.');
         });
 
-        it('injects agent siyuan memory as a lower-priority independent section', () => {
+        it('publishes an agent memory pointer without embedding the memory body', () => {
             const instructions = buildServerInstructions({
                 userRulesText: 'Prefer Chinese titles.',
                 agentSiyuanMemoryText: 'Workspace has Inbox and Projects notebooks.',
@@ -490,7 +490,9 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('Stale threshold: 7 days');
             expect(instructions).toContain('Config source: api file');
             expect(instructions).toContain('## What to write in /AGENTS.md');
-            expect(instructions).toContain('Workspace has Inbox and Projects notebooks.');
+            expect(instructions).not.toContain('Workspace has Inbox and Projects notebooks.');
+            expect(instructions).toContain('memory body is intentionally not embedded');
+            expect(instructions).toContain('Freshness is based only on the saved timestamp');
             expect(instructions).toContain('lower priority than user requests, active user custom rules, safety confirmation requirements');
             expect(instructions.indexOf('# Active user custom rules')).toBeLessThan(instructions.indexOf('# Agent siyuan memory'));
             expect(instructions.indexOf('# Agent siyuan memory')).toBeLessThan(instructions.indexOf('## Help and progressive disclosure'));
@@ -507,7 +509,7 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('Status: missing');
             expect(instructions).toContain('Last updated: not created');
             expect(instructions).toContain('ask the user whether to create `/AGENTS.md`');
-            expect(instructions).toContain('(not created yet)');
+            expect(instructions).not.toContain('(not created yet)');
         });
 
         it('prompts agents to ask before relying on stale agent siyuan memory', () => {
@@ -519,7 +521,7 @@ describe('MCP Server Integration', () => {
 
             expect(instructions).toContain('Status: stale');
             expect(instructions).toContain('ask the user whether to refresh `/AGENTS.md`');
-            expect(instructions).toContain('Old workspace state.');
+            expect(instructions).not.toContain('Old workspace state.');
         });
 
         it('marks agent memory with missing timestamp as stale while preserving content', () => {
@@ -534,7 +536,7 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('Status: stale');
             expect(instructions).toContain('Last updated: unknown');
             expect(instructions).toContain('Config source: api file');
-            expect(instructions).toContain('Workspace state without timestamp.');
+            expect(instructions).not.toContain('Workspace state without timestamp.');
             expect(instructions).not.toContain('(not created yet)');
         });
 
@@ -557,7 +559,7 @@ describe('MCP Server Integration', () => {
             await fallbackClient.close();
         });
 
-        it('injects configured agent memory into the MCP initialize result', async () => {
+        it('publishes configured agent memory status without duplicating its body', async () => {
             storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig'] = JSON.stringify({
                 userRulesText: '',
                 agentSiyuanMemoryText: 'Workspace has Inbox and Projects notebooks.',
@@ -575,7 +577,8 @@ describe('MCP Server Integration', () => {
             expect(instructions).toContain('# Agent siyuan memory');
             expect(instructions).toContain('Status: fresh');
             expect(instructions).toContain('Config source: api file');
-            expect(instructions).toContain('Workspace has Inbox and Projects notebooks.');
+            expect(instructions).not.toContain('Workspace has Inbox and Projects notebooks.');
+            expect(instructions).toContain('Read `/AGENTS.md` through `fs`');
 
             await memoryClient.close();
         });
@@ -799,7 +802,7 @@ describe('MCP Server Integration', () => {
     describe('Scenario prompts', () => {
         it('lists prompts and returns embedded skill guidance with an optional task', async () => {
             const { prompts } = await client.listPrompts();
-            expect(prompts).toHaveLength(11);
+            expect(prompts).toHaveLength(12);
             expect(prompts).toContainEqual(expect.objectContaining({
                 name: 'siyuan_create_edit',
                 arguments: [expect.objectContaining({ name: 'task', required: false })],
