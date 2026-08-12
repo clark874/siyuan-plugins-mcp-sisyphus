@@ -1046,6 +1046,104 @@ describe('fs tool', () => {
         expect(client.request).not.toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
     });
 
+    it('hard-rejects overwrite when descendant blocks carry naming anchors or custom attributes', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body?.stmt ?? '');
+                    if (stmt.includes('FROM attributes')) {
+                        return [
+                            { block_id: 'block-1', name: 'name' },
+                            { block_id: 'block-1', name: 'custom-verification-status' },
+                        ];
+                    }
+                    if (stmt.includes('FROM refs')) return [];
+                }
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error).toMatchObject({
+            type: 'structured_assets_overwrite_rejected',
+            path: '/Notebook/Doc 1',
+            id: 'doc-1',
+            protectedBlockCount: 1,
+            truncated: false,
+        });
+        expect(parsed.error.protectedBlocks).toEqual([
+            { id: 'block-1', assetKinds: ['custom-attrs', 'name'] },
+        ]);
+        expect(parsed.error.recommendedTools).toContain('block.update');
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/deleteBlock', expect.anything());
+    });
+
+    it('hard-rejects overwrite when descendant blocks are inbound reference targets', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body?.stmt ?? '');
+                    if (stmt.includes('FROM attributes')) return [];
+                    if (stmt.includes('FROM refs')) return [{ def_block_id: 'block-2' }];
+                }
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error).toMatchObject({
+            type: 'structured_assets_overwrite_rejected',
+            protectedBlockCount: 1,
+        });
+        expect(parsed.error.protectedBlocks).toEqual([
+            { id: 'block-2', assetKinds: ['inbound-ref'] },
+        ]);
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
+    });
+
+    it('allows overwrite when no descendant block carries structured assets', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body?.stmt ?? '');
+                    if (stmt.includes('FROM attributes') || stmt.includes('FROM refs')) return [];
+                }
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, overwritten: true });
+        expect(client.request).toHaveBeenCalledWith('/api/block/appendBlock', { dataType: 'markdown', data: 'replacement', parentID: 'doc-1' });
+    });
+
     it('denies overwrites when notebook permission is read-only', async () => {
         const client = createFsClient();
         const result = await callFsTool(client, { action: 'write', path: '/Notebook/Doc 1', markdown: 'replacement', overwrite: true }, fsConfig(), createPermMgr('r'));

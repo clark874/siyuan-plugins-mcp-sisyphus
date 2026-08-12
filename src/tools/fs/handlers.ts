@@ -2,6 +2,7 @@ import * as blockApi from '../../api/block';
 import * as documentApi from '../../api/document';
 import * as fileApi from '../../api/file';
 import * as notebookApi from '../../api/notebook';
+import { querySQL } from '../../api/search';
 import { AGENT_MEMORY_VIRTUAL_PATH, USER_RULES_VIRTUAL_PATH, loadToolConfigFromApiFile, writeAgentSiyuanMemory, type FsAction } from '../../core/config';
 import { normalizeMarkdownContent } from '../../core/normalize';
 import {
@@ -108,6 +109,95 @@ function createComplexBlocksNotSupportedResult(
                     complexBlocks,
                     recommendedTools: ['file.export_md', 'block.dom', 'block.update', 'block.append', 'av'],
                     hint: 'Use fs for pure Markdown content only. For database blocks, super blocks, embeds, widgets, HTML/media, or precise native structure changes, inspect with block.dom and edit with the matching advanced tool.',
+                },
+            }, null, 2),
+        }],
+        isError: true,
+    };
+}
+
+/**
+ * Structured knowledge assets that a full-body overwrite would silently destroy:
+ * block `name` / `alias` naming anchors, `custom-*` governance attributes, and
+ * inbound reference targets. These live outside the Markdown body, so unlike
+ * complex blocks they are invisible to a pure type scan. A document made only of
+ * ordinary headings, paragraphs, and code blocks can still be a knowledge base
+ * asset carrier and must never be overwritten wholesale.
+ */
+interface StructuredAssetBlock {
+    id: string;
+    assetKinds: string[];
+}
+
+const STRUCTURED_ASSET_SCAN_CHUNK_SIZE = 200;
+const STRUCTURED_ASSET_MAX_REPORTED = 50;
+
+async function findStructuredAssetBlocks(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    blocks: Array<{ id?: string }>,
+): Promise<StructuredAssetBlock[]> {
+    const ids = blocks
+        .map((block) => block.id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0);
+    if (ids.length === 0) return [];
+
+    const assetKindsById = new Map<string, Set<string>>();
+    const addAssetKind = (blockId: unknown, kind: string) => {
+        if (typeof blockId !== 'string' || blockId.length === 0) return;
+        const existing = assetKindsById.get(blockId) ?? new Set<string>();
+        existing.add(kind);
+        assetKindsById.set(blockId, existing);
+    };
+
+    for (let start = 0; start < ids.length; start += STRUCTURED_ASSET_SCAN_CHUNK_SIZE) {
+        const chunk = ids.slice(start, start + STRUCTURED_ASSET_SCAN_CHUNK_SIZE);
+        const inList = chunk.map((id) => `'${id.replace(/'/g, "''")}'`).join(',');
+        const [attributeRows, inboundRefRows] = await Promise.all([
+            querySQL(client,
+                `SELECT block_id, name FROM attributes WHERE block_id IN (${inList}) AND (name = 'name' OR name = 'alias' OR name LIKE 'custom-%') LIMIT 1000`),
+            querySQL(client,
+                `SELECT DISTINCT def_block_id FROM refs WHERE def_block_id IN (${inList}) LIMIT 1000`),
+        ]);
+        for (const row of attributeRows) {
+            const record = row as { block_id?: unknown; name?: unknown } | null;
+            if (!record || typeof record.name !== 'string') continue;
+            if (record.name === 'name' || record.name === 'alias') {
+                addAssetKind(record.block_id, record.name);
+            } else if (record.name.startsWith('custom-')) {
+                addAssetKind(record.block_id, 'custom-attrs');
+            }
+        }
+        for (const row of inboundRefRows) {
+            const record = row as { def_block_id?: unknown } | null;
+            if (record) addAssetKind(record.def_block_id, 'inbound-ref');
+        }
+    }
+
+    return Array.from(assetKindsById.entries()).map(([id, kinds]) => ({
+        id,
+        assetKinds: Array.from(kinds).sort(),
+    }));
+}
+
+function createStructuredAssetsOverwriteRejectedResult(
+    path: string,
+    documentId: string,
+    assetBlocks: StructuredAssetBlock[],
+): ToolResult {
+    return {
+        content: [{
+            type: 'text',
+            text: JSON.stringify({
+                error: {
+                    type: 'structured_assets_overwrite_rejected',
+                    message: 'fs.write overwrite would destroy knowledge-base assets (named anchors, aliases, custom attributes, or inbound reference targets) that live outside the Markdown body. Whole-document overwrite is hard-rejected for this document.',
+                    path,
+                    id: documentId,
+                    protectedBlockCount: assetBlocks.length,
+                    protectedBlocks: assetBlocks.slice(0, STRUCTURED_ASSET_MAX_REPORTED),
+                    truncated: assetBlocks.length > STRUCTURED_ASSET_MAX_REPORTED,
+                    recommendedTools: ['block.update', 'block.append', 'block.prepend', 'block.insert', 'fs.replace', 'timeline'],
+                    recommendedFlow: 'Use block-level incremental edits on stable block IDs. If a full structural rebuild is genuinely required, follow plan → snapshot (timeline) → confirm → apply → verify, and export the block/attribute/AV binding manifest first.',
                 },
             }, null, 2),
         }],
@@ -662,6 +752,10 @@ const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const complexBlocks = findComplexFsBlocks(existingBlocks);
     if (complexBlocks.length > 0) {
         return createComplexBlocksNotSupportedResult('write', existing.canonicalPath, existing.id, complexBlocks);
+    }
+    const structuredAssetBlocks = await findStructuredAssetBlocks(client, existingBlocks);
+    if (structuredAssetBlocks.length > 0) {
+        return createStructuredAssetsOverwriteRejectedResult(existing.canonicalPath, existing.id, structuredAssetBlocks);
     }
     const attributeViews = await listDocumentAttributeViews(client, existing.id);
     await overwriteDocumentBody(client, existing.id, markdown);
