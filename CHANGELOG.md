@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.7.5-local.14 - 2026-08-12
+
+- 新增 system(action="bootstrap")一键接入:一次只读调用返回思源版本、可读笔记本与 MCP 权限、能力状态(fs/search/av/timeline)、路径类型指南、推荐后续调用和 Skill 入口
+- bootstrap 面向跨客户端快速接入场景,不含 token、配置正文或插件秘密;新 Agent 接入时可作为首个调用,替代多次环境探测
+- 配套交付:ZCode HTTP MCP 注册(token 由客户端 headers 承载)、本地入口 Skill siyuan-quick-start、思源 Agent 交接卡状态胶囊
+- 补充 action 契约、单元测试与帮助快照;i18n 增加中英文动作标签
+
 ## v0.7.4-local.13 - 2026-08-12
 
 - 保持最近更新默认按时间严格排列，新增不持久化的“目录聚合”辅助模式；重新加载插件或重启思源后自动恢复纯时间线

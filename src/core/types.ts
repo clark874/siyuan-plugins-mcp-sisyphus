@@ -1253,6 +1253,10 @@ export const SystemAuditEnvironmentSchema = z.object({
     frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
 });
 
+export const SystemBootstrapSchema = z.object({
+    action: z.literal("bootstrap"),
+});
+
 export const SystemListPackagesSchema = z.object({
     action: z.literal("list_packages"),
     kind: z.enum(["plugin", "widget", "theme", "icon", "template"]).describe("Installed package type to list"),

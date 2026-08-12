@@ -311,6 +311,7 @@ describe('tool action contract coverage', () => {
             { action: 'perform_sync', args: { action: 'perform_sync' }, expectedEndpoint: '/api/sync/performSync' },
             { action: 'get_version', args: { action: 'get_version' }, expectedEndpoint: '/api/system/version' },
             { action: 'get_current_time', args: { action: 'get_current_time' }, expectedEndpoint: '/api/system/currentTime' },
+            { action: 'bootstrap', args: { action: 'bootstrap' }, expectedEndpoint: '/api/system/version' },
             { action: 'audit_environment', args: { action: 'audit_environment' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin' },
             { action: 'list_packages', args: { action: 'list_packages', kind: 'plugin' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin' },
             { action: 'search_bazaar', args: { action: 'search_bazaar', kind: 'plugin' }, expectedEndpoint: '/api/bazaar/getBazaarPlugin' },

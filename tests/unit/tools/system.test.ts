@@ -326,4 +326,43 @@ describe('system tool schemas', () => {
         expect(JSON.stringify(parsed)).not.toContain('pluginStorage');
         expect(JSON.stringify(parsed)).not.toContain('configContent');
     });
+
+    it('returns a one-call agent onboarding payload with notebooks, capabilities, and next calls', async () => {
+        const request = vi.fn(async (endpoint: string) => {
+            if (endpoint === '/api/system/version') return '3.7.3';
+            if (endpoint === '/api/notebook/lsNotebooks') {
+                return {
+                    notebooks: [
+                        { id: 'nb-open', name: '工作日志', closed: false, icon: '', sort: 0 },
+                        { id: 'nb-closed', name: '归档', closed: true, icon: '', sort: 1 },
+                    ],
+                };
+            }
+            return {};
+        });
+        const config = buildDefaultToolConfig().system;
+        const permMgr = { get: (id: string) => (id === 'nb-open' ? 'rwd' : 'r') } as never;
+        const result = await callSystemTool(createMockClient({ request }), {
+            action: 'bootstrap',
+        }, config, permMgr);
+        const parsed = parseResult(result);
+
+        expect(parsed).toEqual(expect.objectContaining({
+            readonly: true,
+            bootstrap: true,
+            version: '3.7.3',
+        }));
+        expect(parsed.notebooks).toEqual([
+            expect.objectContaining({ id: 'nb-open', name: '工作日志', closed: false, permission: 'rwd' }),
+            expect.objectContaining({ id: 'nb-closed', name: '归档', closed: true, permission: 'r' }),
+        ]);
+        expect(parsed.capabilities).toEqual(expect.objectContaining({
+            fs: 'available',
+            av: 'available',
+            timeline: 'available',
+        }));
+        expect(parsed.nextCalls.length).toBeGreaterThan(0);
+        expect(parsed.skills.length).toBeGreaterThan(0);
+        expect(parsed.hints.length).toBeGreaterThan(0);
+    });
 });

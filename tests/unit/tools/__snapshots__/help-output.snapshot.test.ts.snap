@@ -4477,6 +4477,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/apply_change",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4513,6 +4514,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/audit_environment",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4524,6 +4526,41 @@ All search actions are read-only except find_replace, which modifies content and
           "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
         ],
         "hint": "Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.",
+        "requiredFields": [],
+        "requiresConfirmation": false,
+        "shapes": [
+          "action only",
+        ],
+        "tool": "system",
+      },
+      "bootstrap": {
+        "action": "bootstrap",
+        "example": {
+          "action": "bootstrap",
+        },
+        "examples": [
+          {
+            "mcp": {
+              "action": "bootstrap",
+            },
+            "title": "Onboard a new agent with one compact status call",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/system/bootstrap",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "hint": "One-call agent onboarding: returns SiYuan version, readable notebooks with MCP permissions, capability availability (fs/search/av/timeline), path-type guide, recommended next calls, and skill entry points. Read-only; contains no token or plugin secrets.",
         "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
@@ -4557,6 +4594,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/changelog",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4583,6 +4621,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/conf",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4610,6 +4649,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/discard_change_plan",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4650,6 +4690,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/get_bazaar_package",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4681,6 +4722,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/get_control_change",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4710,6 +4752,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/get_current_time",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4737,6 +4780,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/get_plugin",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4765,6 +4809,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/get_version",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4792,6 +4837,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/inspect_plugin",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4820,6 +4866,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/list_control_changes",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4858,6 +4905,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/list_packages",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4887,6 +4935,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/list_plugin_storage",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4915,6 +4964,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/list_plugin_updates",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4941,6 +4991,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/list_snippets",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4967,6 +5018,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/network",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -4995,6 +5047,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/notify",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -5024,6 +5077,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/perform_sync",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -5051,6 +5105,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/plan_change",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -5092,6 +5147,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/read_bazaar_readme",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -5123,6 +5179,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/read_plugin_storage",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -5153,6 +5210,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/rollback_change",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -5197,6 +5255,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/search_bazaar",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -5225,6 +5284,7 @@ All search actions are read-only except find_replace, which modifies content and
         "fullDocResource": "siyuan://help/action/system/workspace_info",
         "guidance": [
           "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
           "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
           "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
           "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
@@ -5246,7 +5306,7 @@ All search actions are read-only except find_replace, which modifies content and
     },
     "description": "🖥️ Grouped system and notification operations. Use the "action" field to select the operation.
 
-Common actions: conf, changelog, get_version, get_current_time, audit_environment, list_packages, search_bazaar, get_bazaar_package, read_bazaar_readme, get_plugin, list_plugin_updates, list_snippets, list_plugin_storage. Required fields: conf: no additional fields; changelog: no additional fields; get_version: no additional fields; get_current_time: no additional fields; audit_environment: no additional fields; list_packages: kind; search_bazaar: kind; get_bazaar_package: kind, packageName; read_bazaar_readme: kind, packageName; get_plugin: pluginName; list_plugin_updates: no additional fields; list_snippets: no additional fields; list_plugin_storage: pluginName.
+Common actions: conf, changelog, get_version, get_current_time, bootstrap, audit_environment, list_packages, search_bazaar, get_bazaar_package, read_bazaar_readme, get_plugin, list_plugin_updates, list_snippets, list_plugin_storage. Required fields: conf: no additional fields; changelog: no additional fields; get_version: no additional fields; get_current_time: no additional fields; bootstrap: no additional fields; audit_environment: no additional fields; list_packages: kind; search_bazaar: kind; get_bazaar_package: kind, packageName; read_bazaar_readme: kind, packageName; get_plugin: pluginName; list_plugin_updates: no additional fields; list_snippets: no additional fields; list_plugin_storage: pluginName.
 
 Additional actions: workspace_info, network, notify, perform_sync, read_plugin_storage, inspect_plugin, plan_change, apply_change, rollback_change, discard_change_plan, list_control_changes, get_control_change. Read siyuan://help/action/system/{action} for details, or call action="help" if resources are unavailable.
 
@@ -5259,6 +5319,7 @@ system.changelog: required [] | optional [version, fromVersion, limit, includeRa
 system.perform_sync: required [] | optional []
 system.get_version: required [] | optional []
 system.get_current_time: required [] | optional []
+system.bootstrap: required [] | optional []
 system.audit_environment: required [] | optional [frontend]
 system.list_packages: required [kind] | optional [keyword, frontend, page, pageSize]
 system.search_bazaar: required [kind] | optional [keyword, installation, compatibility, sortBy, sortOrder, frontend, page, pageSize]
@@ -5277,11 +5338,12 @@ system.discard_change_plan: required [planID] | optional []
 system.list_control_changes: required [] | optional [kind, page, pageSize]
 system.get_control_change: required [kind, id] | optional []
 
-Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution. Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts. Requires user confirmation before: workspace_info, perform_sync, apply_change, rollback_change.",
+Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution. Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response. Requires user confirmation before: workspace_info, perform_sync, apply_change, rollback_change.",
     "overview": {
       "actionSummaries": {
         "apply_change": "Requires explicit confirmation. Rechecks the target hash, rejects stale plans, applies one operation, verifies by rereading, and attempts automatic recovery on failure.",
         "audit_environment": "Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.",
+        "bootstrap": "One-call agent onboarding: returns SiYuan version, readable notebooks with MCP permissions, capability availability (fs/search/av/timeline), path-type guide, recommended next calls, and skill entry points. Read-only; contains no token or plugin secrets.",
         "changelog": "Reads the bundled plugin CHANGELOG with structured personalizationReview hints. Pass fromVersion after upgrades, version for one exact entry, or includeRaw=true for Markdown.",
         "conf": "Defaults to a navigable summary. Use mode="get" with keyPath to read one config field or subtree at a time, e.g. conf.appearance.mode or conf.langs[0].",
         "discard_change_plan": "Marks an unapplied or expired plan discarded without changing its target.",
@@ -5313,6 +5375,10 @@ Most system actions in this tool are read-only; perform_sync and control-plane a
         },
         "audit_environment": {
           "hint": "Returns the SiYuan version, a shallow masked-configuration summary, installed package counts, and plugin enabled/disabled/incompatible/outdated counts. It never reads third-party plugin storage.",
+          "requiresConfirmation": false,
+        },
+        "bootstrap": {
+          "hint": "One-call agent onboarding: returns SiYuan version, readable notebooks with MCP permissions, capability availability (fs/search/av/timeline), path-type guide, recommended next calls, and skill entry points. Read-only; contains no token or plugin secrets.",
           "requiresConfirmation": false,
         },
         "changelog": {
@@ -5427,6 +5493,7 @@ Most system actions in this tool are read-only; perform_sync and control-plane a
         "changelog",
         "get_version",
         "get_current_time",
+        "bootstrap",
         "audit_environment",
         "list_packages",
         "search_bazaar",
@@ -5440,6 +5507,7 @@ Most system actions in this tool are read-only; perform_sync and control-plane a
       "detailsHint": "Call system(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
         "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+        "Use system(action="bootstrap") as the first call when a new agent connects: it returns version, readable notebooks with permissions, capability status, path guide, and recommended next calls in one compact read-only response.",
         "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
         "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
         "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",

@@ -3,6 +3,7 @@ import * as notificationApi from '../../api/notification';
 import * as packagesApi from '../../api/packages';
 import * as snippetsApi from '../../api/snippets';
 import * as systemApi from '../../api/system';
+import * as notebookApi from '../../api/notebook';
 import { PLUGIN_ADAPTERS, interpretPluginConfig } from '../../control-plane/adapters';
 import * as controlPlane from '../../control-plane/operations';
 import * as pluginStorage from '../../control-plane/plugin-storage';
@@ -14,6 +15,7 @@ import {
     SystemChangelogSchema,
     SystemConfSchema,
     SystemAuditEnvironmentSchema,
+    SystemBootstrapSchema,
     SystemGetCurrentTimeSchema,
     SystemGetVersionSchema,
     SystemNetworkSchema,
@@ -431,6 +433,59 @@ const handleAuditEnvironment: ToolActionHandler = async ({ client, rawArgs }) =>
     });
 };
 
+const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) => {
+    SystemBootstrapSchema.parse(rawArgs);
+    const [version, notebooksResult] = await Promise.all([
+        systemApi.getVersion(client),
+        notebookApi.listNotebooks(client),
+    ]);
+    const notebooks = (notebooksResult?.notebooks ?? []).map((nb) => ({
+        id: nb.id,
+        name: nb.name,
+        closed: nb.closed,
+        permission: permMgr.get(nb.id),
+    }));
+    return createJsonResult({
+        readonly: true,
+        bootstrap: true,
+        version,
+        notebooks,
+        capabilities: {
+            fs: 'available',
+            search: { fulltext: 'available', sql: 'available' },
+            av: 'available',
+            timeline: 'available',
+            virtualReference: 'indirect-only',
+            pluginConfig: 'not-exposed',
+        },
+        pathGuide: {
+            workspacePath: '/Notebook/Folder/Doc (human-readable, used by fs)',
+            rootPath: '/ lists all readable notebooks',
+            note: 'hPath != .sy storage path != block ID',
+        },
+        nextCalls: [
+            { tool: 'notebook', action: 'list', purpose: 'List notebooks' },
+            { tool: 'fs', action: 'tree', args: { path: '/<notebook>', maxDepth: 2 }, purpose: 'Directory tree' },
+            { tool: 'fs', action: 'read', args: { path: '/<notebook>/<doc>' }, purpose: 'Read document' },
+            { tool: 'search', action: 'fulltext', purpose: 'Full-text search' },
+            { tool: 'av', action: 'render', purpose: 'Database render' },
+            { tool: 'timeline', action: 'list_nodes', purpose: 'Timeline/snapshot' },
+        ],
+        skills: [
+            'siyuan-quick-start (local entry skill, load first)',
+            'siyuan-mcp-browse-read',
+            'siyuan-mcp-search-query',
+            'siyuan-mcp-database',
+            'siyuan-mcp-timeline',
+        ],
+        hints: [
+            'This response contains no token, configuration body, or plugin secrets.',
+            'Prefer fs with human-readable paths for ordinary document operations.',
+            'Read before write, re-read after write; rm/mv require user confirmation.',
+        ],
+    });
+};
+
 const handleListPackages: ToolActionHandler = async ({ client, rawArgs }) => {
     const parsed = SystemListPackagesSchema.parse(rawArgs);
     const frontend = parsed.frontend ?? 'desktop';
@@ -790,6 +845,7 @@ export const SYSTEM_ACTION_HANDLERS: Record<SystemAction, ToolActionHandler> = {
     perform_sync: handlePerformSync,
     get_version: handleGetVersion,
     get_current_time: handleGetCurrentTime,
+    bootstrap: handleBootstrap,
     audit_environment: handleAuditEnvironment,
     list_packages: handleListPackages,
     search_bazaar: handleSearchBazaar,

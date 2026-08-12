@@ -16,7 +16,7 @@ export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'c
 export const TIMELINE_APP_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'delete_node', 'rollback_document', 'rollback_block'] as const;
 export const FLASHCARD_REVIEW_APP_ACTIONS = ['review_card'] as const;
 export const MASCOT_SHOP_APP_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
-export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'audit_environment', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change'] as const;
+export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'audit_environment', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const EXTENSION_ACTIONS = ['list'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
@@ -209,7 +209,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     },
     system: {
         get_version: 'basic', get_current_time: 'basic', conf: 'basic', changelog: 'basic',
-        audit_environment: 'basic', list_packages: 'basic', search_bazaar: 'basic',
+        bootstrap: 'basic', audit_environment: 'basic', list_packages: 'basic', search_bazaar: 'basic',
         get_bazaar_package: 'basic', read_bazaar_readme: 'basic', get_plugin: 'basic',
         list_plugin_updates: 'basic', list_snippets: 'basic', list_plugin_storage: 'basic',
         read_plugin_storage: 'advanced', inspect_plugin: 'advanced',
@@ -305,7 +305,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         system: {
             enabled: true,
-            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'audit_environment', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change']),
+            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'audit_environment', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change']),
         },
         flashcard: {
             enabled: true,
