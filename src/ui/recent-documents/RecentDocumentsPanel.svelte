@@ -21,6 +21,7 @@
     } from "./recent-documents";
 
     const PAGE_SIZE = 100;
+    const AUTO_PAGE_LIMIT = 2;
     const SUMMARY_CONCURRENCY = 2;
 
     export let i18n: Record<string, string> = {};
@@ -112,10 +113,9 @@
     }
 
     function observePagination() {
-        paginationObserver?.disconnect();
-        if (typeof IntersectionObserver === "undefined" || !loadMoreElement) return;
+        if (paginationObserver || typeof IntersectionObserver === "undefined" || !loadMoreElement) return;
         paginationObserver = new IntersectionObserver((entries) => {
-            if (entries.some((entry) => entry.isIntersecting) && panelVisible && hasMore && !loading) {
+            if (entries.some((entry) => entry.isIntersecting) && panelVisible && hasMore && !loading && currentPage < AUTO_PAGE_LIMIT) {
                 void loadNextPage();
             }
         }, { root: listElement, rootMargin: "240px 0px" });
@@ -145,6 +145,8 @@
 
     async function refreshDocuments() {
         if (loading) return;
+        paginationObserver?.disconnect();
+        paginationObserver = undefined;
         loadVersion += 1;
         currentPage = 0;
         hasMore = true;
@@ -270,10 +272,6 @@
         collapsedGroups = new Set();
     }
 
-    function groupCollapsed(key: string): boolean {
-        return query.trim() ? false : collapsedGroups.has(key);
-    }
-
     function toggleGroup(key: string) {
         const next = new Set(collapsedGroups);
         if (next.has(key)) next.delete(key);
@@ -322,30 +320,36 @@
         <div class="recent-documents__list" bind:this={listElement}>
             {#each groupedDocuments as year (year.key)}
                 <section class="recent-group level-year">
-                    <button class="recent-group__header" type="button" on:click={() => toggleGroup(year.key)} aria-expanded={!groupCollapsed(year.key)}><span>{groupCollapsed(year.key) ? "›" : "⌄"}</span><strong>{year.label}</strong><small>{year.documentCount}</small></button>
-                    {#if !groupCollapsed(year.key)}
-                        {#if year.documents.length > 0}
-                            <ul>{#each year.documents as item (item.id)}<li><RecentDocumentCard {item} summary={validSummary(item)} active={activeDocumentId === item.id} {i18n} onOpen={onOpenDocument} onVisible={requestComparisonSummary} /></li>{/each}</ul>
-                        {/if}
-                        {#each year.children as month (month.key)}
-                            <section class="recent-group level-month">
-                                <button class="recent-group__header" type="button" on:click={() => toggleGroup(month.key)} aria-expanded={!groupCollapsed(month.key)}><span>{groupCollapsed(month.key) ? "›" : "⌄"}</span><strong>{month.label}</strong><small>{month.documentCount}</small></button>
-                                {#if !groupCollapsed(month.key)}
-                                    {#if month.documents.length > 0}
-                                        <ul>{#each month.documents as item (item.id)}<li><RecentDocumentCard {item} summary={validSummary(item)} active={activeDocumentId === item.id} {i18n} onOpen={onOpenDocument} onVisible={requestComparisonSummary} /></li>{/each}</ul>
-                                    {/if}
-                                    {#each month.children as day (day.key)}
-                                        <section class="recent-group level-day">
-                                            <button class="recent-group__header" type="button" on:click={() => toggleGroup(day.key)} aria-expanded={!groupCollapsed(day.key)}><span>{groupCollapsed(day.key) ? "›" : "⌄"}</span><strong>{day.label}</strong><small>{day.documentCount}</small></button>
-                                            {#if !groupCollapsed(day.key)}
-                                                <ul>{#each day.documents as item (item.id)}<li><RecentDocumentCard {item} summary={validSummary(item)} active={activeDocumentId === item.id} {i18n} onOpen={onOpenDocument} onVisible={requestComparisonSummary} /></li>{/each}</ul>
+                    <button class="recent-group__header" type="button" on:click={() => toggleGroup(year.key)} aria-expanded={query.trim() !== "" || !collapsedGroups.has(year.key)}><span class:expanded={query.trim() !== "" || !collapsedGroups.has(year.key)}>{query.trim() === "" && collapsedGroups.has(year.key) ? "›" : "⌄"}</span><strong>{year.label}</strong><small>{year.documentCount}</small></button>
+                    <div class="recent-group__content" class:collapsed={query.trim() === "" && collapsedGroups.has(year.key)} aria-hidden={query.trim() === "" && collapsedGroups.has(year.key)}>
+                        <div class="recent-group__content-inner">
+                            {#if year.documents.length > 0}
+                                <ul>{#each year.documents as item (item.id)}<li><RecentDocumentCard {item} summary={validSummary(item)} active={activeDocumentId === item.id} {i18n} onOpen={onOpenDocument} onVisible={requestComparisonSummary} /></li>{/each}</ul>
+                            {/if}
+                            {#each year.children as month (month.key)}
+                                <section class="recent-group level-month">
+                                    <button class="recent-group__header" type="button" on:click={() => toggleGroup(month.key)} aria-expanded={query.trim() !== "" || !collapsedGroups.has(month.key)}><span class:expanded={query.trim() !== "" || !collapsedGroups.has(month.key)}>{query.trim() === "" && collapsedGroups.has(month.key) ? "›" : "⌄"}</span><strong>{month.label}</strong><small>{month.documentCount}</small></button>
+                                    <div class="recent-group__content" class:collapsed={query.trim() === "" && collapsedGroups.has(month.key)} aria-hidden={query.trim() === "" && collapsedGroups.has(month.key)}>
+                                        <div class="recent-group__content-inner">
+                                            {#if month.documents.length > 0}
+                                                <ul>{#each month.documents as item (item.id)}<li><RecentDocumentCard {item} summary={validSummary(item)} active={activeDocumentId === item.id} {i18n} onOpen={onOpenDocument} onVisible={requestComparisonSummary} /></li>{/each}</ul>
                                             {/if}
-                                        </section>
-                                    {/each}
-                                {/if}
-                            </section>
-                        {/each}
-                    {/if}
+                                            {#each month.children as day (day.key)}
+                                                <section class="recent-group level-day">
+                                                    <button class="recent-group__header" type="button" on:click={() => toggleGroup(day.key)} aria-expanded={query.trim() !== "" || !collapsedGroups.has(day.key)}><span class:expanded={query.trim() !== "" || !collapsedGroups.has(day.key)}>{query.trim() === "" && collapsedGroups.has(day.key) ? "›" : "⌄"}</span><strong>{day.label}</strong><small>{day.documentCount}</small></button>
+                                                    <div class="recent-group__content" class:collapsed={query.trim() === "" && collapsedGroups.has(day.key)} aria-hidden={query.trim() === "" && collapsedGroups.has(day.key)}>
+                                                        <div class="recent-group__content-inner">
+                                                            <ul>{#each day.documents as item (item.id)}<li><RecentDocumentCard {item} summary={validSummary(item)} active={activeDocumentId === item.id} {i18n} onOpen={onOpenDocument} onVisible={requestComparisonSummary} /></li>{/each}</ul>
+                                                        </div>
+                                                    </div>
+                                                </section>
+                                            {/each}
+                                        </div>
+                                    </div>
+                                </section>
+                            {/each}
+                        </div>
+                    </div>
                 </section>
             {/each}
 
@@ -378,6 +382,11 @@
     .recent-group__header:hover, .recent-group__header:focus-visible { background: var(--b3-list-hover); outline: none; }
     .recent-group__header strong { overflow: hidden; color: var(--b3-theme-on-background); font-size: 12px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
     .recent-group__header small { min-width: 20px; border-radius: 999px; padding: 0 5px; background: var(--b3-theme-surface-lighter); text-align: center; }
+    .recent-group__header > span { display: inline-block; transform-origin: center; transition: transform 160ms ease; }
+    .recent-group__header > span.expanded { transform: translateY(1px); }
+    .recent-group__content { display: grid; min-height: 0; grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows 160ms cubic-bezier(.2, .8, .2, 1), opacity 120ms ease, visibility 0s linear 0s; }
+    .recent-group__content.collapsed { grid-template-rows: 0fr; opacity: 0; visibility: hidden; pointer-events: none; transition: grid-template-rows 160ms cubic-bezier(.2, .8, .2, 1), opacity 120ms ease, visibility 0s linear 160ms; }
+    .recent-group__content-inner { min-height: 0; overflow: hidden; }
     .recent-group ul { display: grid; gap: 5px; margin: 0; padding: 5px 0 2px; list-style: none; }
     .recent-documents__load-more { display: flex; justify-content: center; padding: 14px 8px 4px; color: var(--b3-theme-on-surface); }
     .recent-documents__state { display: flex; flex: 1; align-items: center; justify-content: center; flex-direction: column; gap: 6px; padding: 24px 16px; color: var(--b3-theme-on-surface); text-align: center; }

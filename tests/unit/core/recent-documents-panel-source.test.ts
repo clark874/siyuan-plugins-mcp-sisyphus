@@ -38,6 +38,23 @@ describe('recent documents dock source contract', () => {
         expect(panelSource).toMatch(/async function refreshDocuments\(\) \{\s*if \(loading\) return;/);
     });
 
+    it('tracks collapse state directly and keeps group content mounted during animation', () => {
+        expect(panelSource).not.toContain('function groupCollapsed(');
+        expect(panelSource).toContain('collapsedGroups.has(year.key)');
+        expect(panelSource).toContain('collapsedGroups.has(month.key)');
+        expect(panelSource).toContain('collapsedGroups.has(day.key)');
+        expect(panelSource).toContain('class:collapsed={query.trim() === "" && collapsedGroups.has(year.key)}');
+        expect(panelSource).toContain('class="recent-group__content-inner"');
+        expect(panelSource).toContain('.recent-group__content.collapsed');
+        expect(panelSource).not.toContain('transition:slide');
+    });
+
+    it('does not recreate the pagination observer after every page', () => {
+        expect(panelSource).toContain('if (paginationObserver || typeof IntersectionObserver === "undefined" || !loadMoreElement) return;');
+        expect(panelSource).toContain('currentPage < AUTO_PAGE_LIMIT');
+        expect(panelSource).toMatch(/async function refreshDocuments\(\)[\s\S]*?paginationObserver\?\.disconnect\(\);\s*paginationObserver = undefined;/);
+    });
+
     it('registers a distinct left-bottom dock and icon', () => {
         expect(pluginSource).toContain('sisyphusRecentDocumentsDock');
         expect(pluginSource).toContain('iconSisyphusRecentDocumentsDock');

@@ -85,6 +85,8 @@ describe('recent documents view model', () => {
             'day:2026-08-01',
         ]);
         expect(groups[0].children[0].children[0].label).toBe('今天');
+        expect(groups[0].children[0].children[0].collapsedByDefault).toBe(false);
+        expect(groups[0].children[0].children[1].collapsedByDefault).toBe(true);
         expect(groupRecentDocuments([recentView('today', '20260811153000')], {
             now: new Date(2026, 7, 11),
             granularity: 'year',

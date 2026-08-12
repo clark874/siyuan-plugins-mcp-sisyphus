@@ -179,7 +179,7 @@ export function groupRecentDocuments(
                 key: dayKey,
                 label: formatDayLabel(date, now, options),
                 level: 'day',
-                collapsedByDefault: dayDistance(date, now) > 6,
+                collapsedByDefault: dayDistance(date, now) > 0,
             });
             month.children.push(day);
         }

@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.7.2-local.11`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill，以及可分页、可分组并联动原生文档历史 Diff 的“最近更新”时间轴。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[知识摄取设计](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
+> **本地维护分支：** 当前 Fork 的 `v0.7.3-local.12`（CLI `v0.2.4-local.2`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取 Skill，以及可分页、可分组并联动原生文档历史 Diff 的“最近更新”时间轴。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[知识摄取设计](docs/plans/2026-08-11-siyuan-knowledge-ingest-skill-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前本地维护版本：**`v0.7.2-local.11` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改、安全 SQL 分析通道、知识摄取 Skill，以及分组与历史 Diff 联动的“最近更新”时间轴；本地 CLI 为 `v0.2.4-local.2`。
+> **当前本地维护版本：**`v0.7.3-local.12` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改、安全 SQL 分析通道、知识摄取 Skill，以及分组与历史 Diff 联动的“最近更新”时间轴；本地 CLI 为 `v0.2.4-local.2`。
 
 ## 项目方向调整
 
