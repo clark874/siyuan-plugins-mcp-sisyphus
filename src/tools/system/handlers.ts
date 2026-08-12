@@ -10,6 +10,7 @@ import * as pluginStorage from '../../control-plane/plugin-storage';
 import { redactText, sha256, truncateContent } from '../../control-plane/security';
 import { buildChangelogResponse } from '../../core/changelog';
 import {
+    AGENT_MEMORY_VIRTUAL_PATH,
     AV_ACTIONS,
     FS_ACTIONS,
     SEARCH_ACTIONS,
@@ -18,6 +19,7 @@ import {
     type CategoryToolConfig,
     type SystemAction,
 } from '../../core/config';
+import { getAgentMemoryStatus } from '../../core/server-instructions';
 import { stripHtmlTags, stripZeroWidthChars } from '../../core/normalize';
 import {
     SystemChangelogSchema,
@@ -104,8 +106,22 @@ function buildBootstrapCapabilities(config: Awaited<ReturnType<typeof loadToolCo
 function buildBootstrapNextCalls(
     capabilities: ReturnType<typeof buildBootstrapCapabilities>,
     notebookName: string | undefined,
+    memoryStatus: 'missing' | 'fresh' | 'stale',
 ) {
     const nextCalls: Array<Record<string, unknown>> = [];
+    // The memory pointer also lives in initialize-time instructions, but hosts that
+    // spill large tool catalogs to disk may never surface those to the model. Keeping
+    // it here makes the entry point reachable from the mandated first call.
+    if (memoryStatus !== 'missing' && capabilities.fs.actions.read) {
+        nextCalls.push({
+            tool: 'fs',
+            action: 'read',
+            args: { path: AGENT_MEMORY_VIRTUAL_PATH },
+            purpose: memoryStatus === 'stale'
+                ? 'Read the workspace memory before planning; it is stale, so verify before relying on it'
+                : 'Read the workspace memory before planning or browsing notes',
+        });
+    }
     if (notebookName && capabilities.fs.actions.tree) {
         nextCalls.push({
             tool: 'fs',
@@ -545,7 +561,11 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
     });
     const capabilities = buildBootstrapCapabilities(toolConfigResult.config);
     const primaryOpenNotebook = notebooks.find((notebook) => !notebook.closed);
-    const nextCalls = buildBootstrapNextCalls(capabilities, primaryOpenNotebook?.name);
+    const agentMemory = getAgentMemoryStatus(
+        toolConfigResult.config.agentSiyuanMemoryText ?? '',
+        toolConfigResult.config.agentSiyuanMemoryUpdatedAt ?? '',
+    );
+    const nextCalls = buildBootstrapNextCalls(capabilities, primaryOpenNotebook?.name, agentMemory.status);
     return createJsonResult({
         schemaVersion: 2,
         bootstrap: true,
@@ -573,6 +593,12 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
             note: 'hPath != .sy storage path != block ID',
         },
         nextCalls,
+        memory: {
+            path: AGENT_MEMORY_VIRTUAL_PATH,
+            status: agentMemory.status,
+            updatedAt: agentMemory.updatedAtLabel,
+            age: agentMemory.ageLabel,
+        },
         skills: [
             'siyuan-mcp-sisyphus',
             'siyuan-mcp-browse-read',
@@ -586,6 +612,9 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
             ...(!toolConfigResult.ok
                 ? ['Capability data uses the default fallback because the live tool configuration could not be read; do not treat it as a current health check.']
                 : []),
+            ...(agentMemory.status === 'missing'
+                ? [`No workspace memory exists at ${AGENT_MEMORY_VIRTUAL_PATH}; ask the user before creating one, and do not assume notebook structure until then.`]
+                : [`Read ${AGENT_MEMORY_VIRTUAL_PATH} before planning or browsing notes; it carries retrieval protocol, naming rules, and known-pollution warnings that prevent redundant work.${agentMemory.status === 'stale' ? ' It is stale, so verify current state before relying on it.' : ''}`]),
             'Prefer fs with human-readable paths for ordinary document operations.',
             'Read before write, re-read after write; rm/mv require user confirmation.',
         ],

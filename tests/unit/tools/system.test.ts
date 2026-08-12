@@ -417,6 +417,67 @@ describe('system tool schemas', () => {
         expect(parsed.hints.length).toBeGreaterThan(0);
     });
 
+    it('points bootstrap at the workspace memory before any browsing call when the memory exists', async () => {
+        const toolConfig = buildDefaultToolConfig();
+        toolConfig.agentSiyuanMemoryText = '# 工作区记忆\n\n开工先查库。';
+        toolConfig.agentSiyuanMemoryUpdatedAt = new Date().toISOString();
+        const request = vi.fn(async (endpoint: string) => {
+            if (endpoint === '/api/system/version') return '3.7.3';
+            if (endpoint === '/api/notebook/lsNotebooks') {
+                return { notebooks: [{ id: 'nb-open', name: '工作日志', closed: false, icon: '', sort: 0 }] };
+            }
+            return {};
+        });
+        const permMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            get: () => 'rwd',
+        } as never;
+
+        const result = await callSystemTool(
+            createMockClient({ request, readFile: vi.fn().mockResolvedValue(JSON.stringify(toolConfig)) }),
+            { action: 'bootstrap' },
+            buildDefaultToolConfig().system,
+            permMgr,
+        );
+        const parsed = parseResult(result);
+
+        expect(parsed.memory).toEqual(expect.objectContaining({ path: '/AGENTS.md', status: 'fresh' }));
+        expect(parsed.nextCalls[0]).toEqual(expect.objectContaining({
+            tool: 'fs',
+            action: 'read',
+            args: { path: '/AGENTS.md' },
+        }));
+        expect(parsed.hints).toEqual(expect.arrayContaining([expect.stringContaining('/AGENTS.md')]));
+    });
+
+    it('does not send bootstrap to read a workspace memory that was never created', async () => {
+        const request = vi.fn(async (endpoint: string) => {
+            if (endpoint === '/api/system/version') return '3.7.3';
+            if (endpoint === '/api/notebook/lsNotebooks') {
+                return { notebooks: [{ id: 'nb-open', name: '工作日志', closed: false, icon: '', sort: 0 }] };
+            }
+            return {};
+        });
+        const permMgr = {
+            reload: vi.fn().mockResolvedValue(undefined),
+            get: () => 'rwd',
+        } as never;
+
+        const result = await callSystemTool(
+            createMockClient({ request, readFile: vi.fn().mockResolvedValue(JSON.stringify(buildDefaultToolConfig())) }),
+            { action: 'bootstrap' },
+            buildDefaultToolConfig().system,
+            permMgr,
+        );
+        const parsed = parseResult(result);
+
+        expect(parsed.memory.status).toBe('missing');
+        expect(parsed.nextCalls).not.toEqual(expect.arrayContaining([
+            expect.objectContaining({ args: { path: '/AGENTS.md' } }),
+        ]));
+        expect(parsed.hints).toEqual(expect.arrayContaining([expect.stringContaining('No workspace memory')]));
+    });
+
     it('marks bootstrap capability data as fallback when the live tool config cannot be read', async () => {
         const request = vi.fn(async (endpoint: string) => {
             if (endpoint === '/api/system/version') return '3.7.3';

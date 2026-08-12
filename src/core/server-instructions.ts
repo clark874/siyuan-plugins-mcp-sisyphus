@@ -48,7 +48,7 @@ function normalizeInstructionInput(input: string | ServerInstructionInput = '', 
     };
 }
 
-function getAgentMemoryStatus(memoryText: string, updatedAt: string): {
+export function getAgentMemoryStatus(memoryText: string, updatedAt: string): {
     status: 'missing' | 'fresh' | 'stale';
     updatedAtLabel: string;
     ageLabel: string;
