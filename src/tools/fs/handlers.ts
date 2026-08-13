@@ -123,23 +123,32 @@ function createComplexBlocksNotSupportedResult(
  * complex blocks they are invisible to a pure type scan. A document made only of
  * ordinary headings, paragraphs, and code blocks can still be a knowledge base
  * asset carrier and must never be overwritten wholesale.
+ *
+ * Scan source is every block with `root_id = documentId`, not the Markdown
+ * tree-order walker. The walker stops at self-contained containers (lists,
+ * quotes, tables, …) and would miss nested list-item anchors.
+ *
+ * Inbound refs only: outbound `((id))` links are visible in the Markdown body
+ * the caller supplies, so omitting them is ordinary edit intent, not silent
+ * destruction of third-party links.
  */
 interface StructuredAssetBlock {
     id: string;
     assetKinds: string[];
 }
 
-const STRUCTURED_ASSET_SCAN_CHUNK_SIZE = 200;
 const STRUCTURED_ASSET_MAX_REPORTED = 50;
+
+function escapeSqlLiteral(value: string): string {
+    return value.replace(/'/g, "''");
+}
 
 async function findStructuredAssetBlocks(
     client: Parameters<ToolActionHandler>[0]['client'],
-    blocks: Array<{ id?: string }>,
+    documentId: string,
 ): Promise<StructuredAssetBlock[]> {
-    const ids = blocks
-        .map((block) => block.id)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0);
-    if (ids.length === 0) return [];
+    if (!documentId) return [];
+    const safeDocumentId = escapeSqlLiteral(documentId);
 
     const assetKindsById = new Map<string, Set<string>>();
     const addAssetKind = (blockId: unknown, kind: string) => {
@@ -149,28 +158,36 @@ async function findStructuredAssetBlocks(
         assetKindsById.set(blockId, existing);
     };
 
-    for (let start = 0; start < ids.length; start += STRUCTURED_ASSET_SCAN_CHUNK_SIZE) {
-        const chunk = ids.slice(start, start + STRUCTURED_ASSET_SCAN_CHUNK_SIZE);
-        const inList = chunk.map((id) => `'${id.replace(/'/g, "''")}'`).join(',');
-        const [attributeRows, inboundRefRows] = await Promise.all([
-            querySQL(client,
-                `SELECT block_id, name FROM attributes WHERE block_id IN (${inList}) AND (name = 'name' OR name = 'alias' OR name LIKE 'custom-%') LIMIT 1000`),
-            querySQL(client,
-                `SELECT DISTINCT def_block_id FROM refs WHERE def_block_id IN (${inList}) LIMIT 1000`),
-        ]);
-        for (const row of attributeRows) {
-            const record = row as { block_id?: unknown; name?: unknown } | null;
-            if (!record || typeof record.name !== 'string') continue;
-            if (record.name === 'name' || record.name === 'alias') {
-                addAssetKind(record.block_id, record.name);
-            } else if (record.name.startsWith('custom-')) {
-                addAssetKind(record.block_id, 'custom-attrs');
-            }
+    // Join through blocks.root_id so nested list items / table cells / quote
+    // children are included even when getChildBlocks tree-order stops early.
+    const [attributeRows, inboundRefRows] = await Promise.all([
+        querySQL(client,
+            `SELECT a.block_id AS block_id, a.name AS name
+             FROM attributes a
+             INNER JOIN blocks b ON a.block_id = b.id
+             WHERE b.root_id = '${safeDocumentId}'
+               AND (a.name = 'name' OR a.name = 'alias' OR a.name LIKE 'custom-%')
+             LIMIT 1000`),
+        querySQL(client,
+            `SELECT DISTINCT r.def_block_id AS def_block_id
+             FROM refs r
+             INNER JOIN blocks b ON r.def_block_id = b.id
+             WHERE b.root_id = '${safeDocumentId}'
+             LIMIT 1000`),
+    ]);
+
+    for (const row of attributeRows) {
+        const record = row as { block_id?: unknown; name?: unknown } | null;
+        if (!record || typeof record.name !== 'string') continue;
+        if (record.name === 'name' || record.name === 'alias') {
+            addAssetKind(record.block_id, record.name);
+        } else if (record.name.startsWith('custom-')) {
+            addAssetKind(record.block_id, 'custom-attrs');
         }
-        for (const row of inboundRefRows) {
-            const record = row as { def_block_id?: unknown } | null;
-            if (record) addAssetKind(record.def_block_id, 'inbound-ref');
-        }
+    }
+    for (const row of inboundRefRows) {
+        const record = row as { def_block_id?: unknown } | null;
+        if (record) addAssetKind(record.def_block_id, 'inbound-ref');
     }
 
     return Array.from(assetKindsById.entries()).map(([id, kinds]) => ({
@@ -753,7 +770,8 @@ const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     if (complexBlocks.length > 0) {
         return createComplexBlocksNotSupportedResult('write', existing.canonicalPath, existing.id, complexBlocks);
     }
-    const structuredAssetBlocks = await findStructuredAssetBlocks(client, existingBlocks);
+    // Asset scan is independent of tree-order (which stops inside lists/tables).
+    const structuredAssetBlocks = await findStructuredAssetBlocks(client, existing.id);
     if (structuredAssetBlocks.length > 0) {
         return createStructuredAssetsOverwriteRejectedResult(existing.canonicalPath, existing.id, structuredAssetBlocks);
     }

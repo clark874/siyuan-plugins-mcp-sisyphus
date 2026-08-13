@@ -1144,6 +1144,91 @@ describe('fs tool', () => {
         expect(client.request).toHaveBeenCalledWith('/api/block/appendBlock', { dataType: 'markdown', data: 'replacement', parentID: 'doc-1' });
     });
 
+    it('hard-rejects overwrite when nested list-item anchors exist even if tree-order stops at the list container', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/block/getChildBlocks') {
+                    // Tree-order walker returns only the list container and does not recurse into items.
+                    if (body?.id === 'doc-1') return [{ id: 'list-1', type: 'l' }];
+                    return [];
+                }
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body?.stmt ?? '');
+                    if (stmt.includes('FROM attributes') && stmt.includes('root_id')) {
+                        return [{ block_id: 'list-item-legacy', name: 'name' }];
+                    }
+                    if (stmt.includes('FROM refs') && stmt.includes('root_id')) return [];
+                    if (stmt.includes("type = 'd'")) return [];
+                    return [];
+                }
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement that would drop nested anchors',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error).toMatchObject({
+            type: 'structured_assets_overwrite_rejected',
+            protectedBlockCount: 1,
+        });
+        expect(parsed.error.protectedBlocks).toEqual([
+            { id: 'list-item-legacy', assetKinds: ['name'] },
+        ]);
+        // Proof the scan did not rely on tree-order child expansion.
+        expect(client.request).toHaveBeenCalledWith('/api/query/sql', expect.objectContaining({
+            stmt: expect.stringContaining("root_id = 'doc-1'"),
+        }));
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/deleteBlock', expect.anything());
+    });
+
+    it('hard-rejects overwrite when nested quote children carry inbound refs outside tree-order visibility', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/block/getChildBlocks') {
+                    if (body?.id === 'doc-1') return [{ id: 'quote-1', type: 'b' }];
+                    return [];
+                }
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body?.stmt ?? '');
+                    if (stmt.includes('FROM attributes') && stmt.includes('root_id')) return [];
+                    if (stmt.includes('FROM refs') && stmt.includes('root_id')) {
+                        return [{ def_block_id: 'quote-child-named' }];
+                    }
+                    if (stmt.includes("type = 'd'")) return [];
+                    return [];
+                }
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error).toMatchObject({
+            type: 'structured_assets_overwrite_rejected',
+            protectedBlockCount: 1,
+        });
+        expect(parsed.error.protectedBlocks).toEqual([
+            { id: 'quote-child-named', assetKinds: ['inbound-ref'] },
+        ]);
+    });
+
     it('denies overwrites when notebook permission is read-only', async () => {
         const client = createFsClient();
         const result = await callFsTool(client, { action: 'write', path: '/Notebook/Doc 1', markdown: 'replacement', overwrite: true }, fsConfig(), createPermMgr('r'));
