@@ -89,6 +89,10 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[];
                 if (body?.id === 'doc-1') return [{ id: 'block-1', type: 'p' }, { id: 'block-2', type: 'p' }];
                 return [];
             }
+            if (endpoint === '/api/attr/batchGetBlockAttrs') {
+                const ids = Array.isArray(body?.ids) ? body.ids.filter((id): id is string => typeof id === 'string') : [];
+                return Object.fromEntries(ids.map((id) => [id, {}]));
+            }
             if (endpoint === '/api/block/getBlockKramdown') {
                 if (body?.id === 'block-1') return { id: 'block-1', kramdown: 'alpha\n{: id="block-1"}' };
                 if (body?.id === 'block-2') return { id: 'block-2', kramdown: 'budget line\nBeta\n{: id="block-2"}' };
@@ -1088,6 +1092,149 @@ describe('fs tool', () => {
         expect(client.request).not.toHaveBeenCalledWith('/api/block/deleteBlock', expect.anything());
     });
 
+    it('hard-rejects an immediately written anchor even before SQL indexes expose it', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') return [];
+                if (endpoint === '/api/attr/batchGetBlockAttrs') {
+                    expect(body?.ids).toEqual(['block-1', 'block-2']);
+                    return {
+                        'block-1': { name: 'fresh-anchor', 'custom-verification-status': 'source-checked' },
+                        'block-2': {},
+                    };
+                }
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error).toMatchObject({
+            type: 'structured_assets_overwrite_rejected',
+            protectedBlocks: [{ id: 'block-1', assetKinds: ['custom-attrs', 'name'] }],
+        });
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/deleteBlock', expect.anything());
+    });
+
+    it('protects non-empty memo bookmark and style metadata that Markdown cannot preserve', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') return [];
+                if (endpoint === '/api/attr/batchGetBlockAttrs') {
+                    return {
+                        'block-1': { memo: '审计备注', bookmark: '重点', style: 'color: var(--b3-theme-primary);' },
+                        'block-2': {},
+                    };
+                }
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error.protectedBlocks).toEqual([
+            { id: 'block-1', assetKinds: ['bookmark', 'memo', 'style'] },
+        ]);
+    });
+
+    it('falls back to bounded per-block reads when the batch attribute endpoint is unavailable', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') return [];
+                if (endpoint === '/api/attr/batchGetBlockAttrs') {
+                    throw new Error('batch endpoint unavailable');
+                }
+                if (endpoint === '/api/attr/getBlockAttrs') {
+                    return body?.id === 'block-1' ? { name: 'fallback-anchor' } : {};
+                }
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+
+        const parsed = parseResult(result);
+        expect(result.isError).toBe(true);
+        expect(parsed.error.protectedBlocks).toEqual([{ id: 'block-1', assetKinds: ['name'] }]);
+        expect(client.request).toHaveBeenCalledWith('/api/attr/getBlockAttrs', { id: 'block-1' });
+        expect(client.request).toHaveBeenCalledWith('/api/attr/getBlockAttrs', { id: 'block-2' });
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/deleteBlock', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
+    });
+
+    it('fails closed when both batch and per-block live attribute scans are unavailable', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') return [];
+                if (endpoint === '/api/attr/batchGetBlockAttrs') throw new Error('batch endpoint unavailable');
+                if (endpoint === '/api/attr/getBlockAttrs') throw new Error('live attribute scan unavailable');
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('live attribute scan unavailable');
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/deleteBlock', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
+    });
+
+    it('allows pure Markdown blocks whose live attributes contain only system metadata', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') return [];
+                if (endpoint === '/api/attr/batchGetBlockAttrs') {
+                    return {
+                        'block-1': { id: 'block-1', type: 'NodeParagraph', updated: '20260813112000' },
+                        'block-2': { id: 'block-2', type: 'NodeParagraph' },
+                    };
+                }
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, overwritten: true });
+        expect(client.request).toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
+    });
+
     it('hard-rejects overwrite when descendant blocks are inbound reference targets', async () => {
         const baseClient = createFsClient();
         const client = createMockClient({
@@ -1188,6 +1335,62 @@ describe('fs tool', () => {
         }));
         expect(client.request).not.toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
         expect(client.request).not.toHaveBeenCalledWith('/api/block/deleteBlock', expect.anything());
+    });
+
+    it('hard-rejects a native complex block nested inside a list container', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/block/getChildBlocks') {
+                    if (body?.id === 'doc-1') return [{ id: 'list-1', type: 'l' }];
+                    if (body?.id === 'list-1') return [{ id: 'list-item-1', type: 'i' }];
+                    if (body?.id === 'list-item-1') return [{ id: 'nested-av-1', type: 'av' }];
+                    return [];
+                }
+                if (endpoint === '/api/query/sql') return [];
+                if (endpoint === '/api/attr/batchGetBlockAttrs') return {};
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error).toMatchObject({
+            type: 'complex_blocks_not_supported_by_fs',
+            complexBlocks: [{ id: 'nested-av-1', type: 'av' }],
+        });
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/deleteBlock', expect.anything());
+    });
+
+    it('does not reject overwrite for metadata on the retained document root alone', async () => {
+        const baseClient = createFsClient();
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') return [];
+                if (endpoint === '/api/attr/batchGetBlockAttrs') {
+                    expect(body?.ids).not.toContain('doc-1');
+                    return { 'block-1': {}, 'block-2': {} };
+                }
+                return await baseClient.request(endpoint, body);
+            }),
+        });
+
+        const result = await callFsTool(client, {
+            action: 'write',
+            path: '/Notebook/Doc 1',
+            markdown: 'replacement',
+            overwrite: true,
+        }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(parsed).toMatchObject({ success: true, overwritten: true });
     });
 
     it('hard-rejects overwrite when nested quote children carry inbound refs outside tree-order visibility', async () => {

@@ -298,3 +298,17 @@ export async function getBlockAttrs(client: SiYuanClient, id: string): Promise<R
     const request: IReqGetBlockAttrs = { id };
     return client.request<Record<string, string>>('/api/attr/getBlockAttrs', request);
 }
+
+/**
+ * 从实时块树/缓存中批量读取块属性。
+ *
+ * 与 SQL `attributes` 投影不同，此接口无需等待异步 SQL 索引追平，
+ * 因此可用于写入后的即时安全核验。
+ */
+export async function batchGetBlockAttrs(
+    client: SiYuanClient,
+    ids: string[],
+): Promise<Record<string, Record<string, string>>> {
+    if (ids.length === 0) return {};
+    return client.request<Record<string, Record<string, string>>>('/api/attr/batchGetBlockAttrs', { ids });
+}

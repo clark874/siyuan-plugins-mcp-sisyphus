@@ -36,6 +36,7 @@ import {
     type OrderedDocumentBlock,
 } from '../internal/document-kramdown';
 import { normalizeMarkdownInputRefs, normalizeReplaceEditsRefs } from '../internal/markdown-input';
+import PromiseLimitPool from '../../shared/promise-pool';
 
 type FsActionHandler = ToolActionHandler;
 
@@ -117,20 +118,14 @@ function createComplexBlocksNotSupportedResult(
 }
 
 /**
- * Structured knowledge assets that a full-body overwrite would silently destroy:
- * block `name` / `alias` naming anchors, `custom-*` governance attributes, and
- * inbound reference targets. These live outside the Markdown body, so unlike
- * complex blocks they are invisible to a pure type scan. A document made only of
- * ordinary headings, paragraphs, and code blocks can still be a knowledge base
- * asset carrier and must never be overwritten wholesale.
+ * 整篇覆写会静默删除的结构化资产包括：块命名锚点、治理属性、备注、
+ * 书签、样式和外部入链目标。这些数据不属于普通 Markdown 正文，
+ * 因此仅扫描块类型无法识别；即使文档只含标题、段落和代码块，
+ * 也可能是必须保留稳定块 ID 的知识资产载体。
  *
- * Scan source is every block with `root_id = documentId`, not the Markdown
- * tree-order walker. The walker stops at self-contained containers (lists,
- * quotes, tables, …) and would miss nested list-item anchors.
- *
- * Inbound refs only: outbound `((id))` links are visible in the Markdown body
- * the caller supplies, so omitting them is ordinary edit intent, not silent
- * destruction of third-party links.
+ * 实时块树与直接属性接口是写入前的事实源，用于消除 SQL 索引延迟窗口；
+ * SQL 仅补充历史属性投影和引用关系。文档根块不会被正文覆写删除，
+ * 因而明确排除，避免文档级属性造成无意义拒绝。
  */
 interface StructuredAssetBlock {
     id: string;
@@ -138,14 +133,96 @@ interface StructuredAssetBlock {
 }
 
 const STRUCTURED_ASSET_MAX_REPORTED = 50;
+const OVERWRITE_SCAN_MAX_BLOCKS = 10_000;
+const OVERWRITE_SCAN_BATCH_SIZE = 128;
+const OVERWRITE_CHILD_SCAN_CONCURRENCY = 16;
+const OVERWRITE_ATTR_FALLBACK_CONCURRENCY = 8;
+const CHILD_CONTAINER_BLOCK_TYPES = new Set(['l', 'i', 'b', 'callout', 's', 't', 'table']);
+const PRESERVED_METADATA_ATTRS = new Set(['name', 'alias', 'memo', 'bookmark', 'style']);
 
 function escapeSqlLiteral(value: string): string {
     return value.replace(/'/g, "''");
 }
 
+interface LiveDocumentBlock {
+    id: string;
+    type?: string;
+}
+
+function normalizeLiveBlock(value: unknown): LiveDocumentBlock | null {
+    if (!value || typeof value !== 'object') return null;
+    const record = value as Record<string, unknown>;
+    if (typeof record.id !== 'string' || record.id.length === 0) return null;
+    return {
+        id: record.id,
+        ...(typeof record.type === 'string' && record.type.length > 0 ? { type: record.type } : {}),
+    };
+}
+
+/**
+ * 枚举整篇覆写即将删除的实时后代块。
+ *
+ * 此处不能复用面向展示的树序遍历器：后者把列表、引述和表格视为
+ * 自包含 Markdown，因而不会暴露其内部嵌套的思源原生块。
+ */
+async function listLiveDocumentDescendantsForOverwrite(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    documentId: string,
+): Promise<LiveDocumentBlock[]> {
+    const result: LiveDocumentBlock[] = [];
+    const visited = new Set<string>([documentId]);
+    const pendingParents = [documentId];
+
+    while (pendingParents.length > 0) {
+        const parents = pendingParents.splice(0, OVERWRITE_CHILD_SCAN_CONCURRENCY);
+        const childGroups = await Promise.all(parents.map((parentId) => blockApi.getChildBlocks(client, parentId)));
+        for (const children of childGroups) {
+            for (const value of children) {
+                const block = normalizeLiveBlock(value);
+                if (!block || visited.has(block.id)) continue;
+                visited.add(block.id);
+                result.push(block);
+                if (result.length > OVERWRITE_SCAN_MAX_BLOCKS) {
+                    throw new Error(`fs.write overwrite safety scan exceeded ${OVERWRITE_SCAN_MAX_BLOCKS} descendant blocks; refusing to continue.`);
+                }
+                if (block.type && CHILD_CONTAINER_BLOCK_TYPES.has(block.type)) {
+                    pendingParents.push(block.id);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+function metadataAssetKind(name: string, value: unknown): string | null {
+    if (typeof value !== 'string' || value.trim().length === 0) return null;
+    if (PRESERVED_METADATA_ATTRS.has(name)) return name;
+    if (name.startsWith('custom-')) return 'custom-attrs';
+    return null;
+}
+
+async function readLiveBlockAttrs(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    ids: string[],
+): Promise<Record<string, Record<string, string>>> {
+    try {
+        return await blockApi.batchGetBlockAttrs(client, ids);
+    } catch {
+        // 思源 3.1.0 以前没有批量接口；保留逐块实时回读以兼容插件声明的最低版本。
+        const pool = new PromiseLimitPool<{ id: string; attrs: Record<string, string> }>(OVERWRITE_ATTR_FALLBACK_CONCURRENCY);
+        for (const id of ids) {
+            pool.add(async () => ({ id, attrs: await blockApi.getBlockAttrs(client, id) }));
+        }
+        const entries = await pool.awaitAll();
+        return Object.fromEntries(entries.map(({ id, attrs }) => [id, attrs]));
+    }
+}
+
 async function findStructuredAssetBlocks(
     client: Parameters<ToolActionHandler>[0]['client'],
     documentId: string,
+    liveBlocks: LiveDocumentBlock[],
 ): Promise<StructuredAssetBlock[]> {
     if (!documentId) return [];
     const safeDocumentId = escapeSqlLiteral(documentId);
@@ -158,28 +235,48 @@ async function findStructuredAssetBlocks(
         assetKindsById.set(blockId, existing);
     };
 
-    // Join through blocks.root_id so nested list items / table cells / quote
-    // children are included even when getChildBlocks tree-order stops early.
+    // 通过 blocks.root_id 补充历史索引，覆盖列表项、表格单元格与引述内部块。
+    const liveAttrsById: Record<string, Record<string, string>> = {};
+    for (let start = 0; start < liveBlocks.length; start += OVERWRITE_SCAN_BATCH_SIZE) {
+        const ids = liveBlocks.slice(start, start + OVERWRITE_SCAN_BATCH_SIZE).map((block) => block.id);
+        const batch = await readLiveBlockAttrs(client, ids);
+        for (const id of ids) {
+            if (!batch || !Object.prototype.hasOwnProperty.call(batch, id)) {
+                throw new Error(`fs.write overwrite safety scan could not read live attributes for block ${id}; refusing to continue.`);
+            }
+        }
+        Object.assign(liveAttrsById, batch ?? {});
+    }
+    for (const block of liveBlocks) {
+        const attrs = liveAttrsById[block.id] ?? {};
+        for (const [name, value] of Object.entries(attrs)) {
+            const kind = metadataAssetKind(name, value);
+            if (kind) addAssetKind(block.id, kind);
+        }
+    }
+
     const [attributeRows, inboundRefRows] = await Promise.all([
         querySQL(client,
             `SELECT a.block_id AS block_id, a.name AS name
              FROM attributes a
              INNER JOIN blocks b ON a.block_id = b.id
              WHERE b.root_id = '${safeDocumentId}'
-               AND (a.name = 'name' OR a.name = 'alias' OR a.name LIKE 'custom-%')
+               AND a.block_id <> '${safeDocumentId}'
+               AND (a.name IN ('name', 'alias', 'memo', 'bookmark', 'style') OR a.name LIKE 'custom-%')
              LIMIT 1000`),
         querySQL(client,
             `SELECT DISTINCT r.def_block_id AS def_block_id
              FROM refs r
              INNER JOIN blocks b ON r.def_block_id = b.id
              WHERE b.root_id = '${safeDocumentId}'
+               AND r.def_block_id <> '${safeDocumentId}'
              LIMIT 1000`),
     ]);
 
     for (const row of attributeRows) {
         const record = row as { block_id?: unknown; name?: unknown } | null;
         if (!record || typeof record.name !== 'string') continue;
-        if (record.name === 'name' || record.name === 'alias') {
+        if (PRESERVED_METADATA_ATTRS.has(record.name)) {
             addAssetKind(record.block_id, record.name);
         } else if (record.name.startsWith('custom-')) {
             addAssetKind(record.block_id, 'custom-attrs');
@@ -207,7 +304,7 @@ function createStructuredAssetsOverwriteRejectedResult(
             text: JSON.stringify({
                 error: {
                     type: 'structured_assets_overwrite_rejected',
-                    message: 'fs.write overwrite would destroy knowledge-base assets (named anchors, aliases, custom attributes, or inbound reference targets) that live outside the Markdown body. Whole-document overwrite is hard-rejected for this document.',
+                    message: 'fs.write overwrite would destroy block metadata or reference targets that live outside the Markdown body. Whole-document overwrite is hard-rejected for this document.',
                     path,
                     id: documentId,
                     protectedBlockCount: assetBlocks.length,
@@ -765,13 +862,13 @@ const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     }
 
     const markdown = await normalizeMarkdownInputRefs(client, parsed.markdown, 'fs.write');
-    const existingBlocks = await listDocumentBlocksInTreeOrder(client, existing.id);
-    const complexBlocks = findComplexFsBlocks(existingBlocks);
+    const liveBlocks = await listLiveDocumentDescendantsForOverwrite(client, existing.id);
+    const complexBlocks = findComplexFsBlocks(liveBlocks);
     if (complexBlocks.length > 0) {
         return createComplexBlocksNotSupportedResult('write', existing.canonicalPath, existing.id, complexBlocks);
     }
-    // Asset scan is independent of tree-order (which stops inside lists/tables).
-    const structuredAssetBlocks = await findStructuredAssetBlocks(client, existing.id);
+    // 结构化资产扫描独立于会在列表/表格处停止的展示树序遍历。
+    const structuredAssetBlocks = await findStructuredAssetBlocks(client, existing.id, liveBlocks);
     if (structuredAssetBlocks.length > 0) {
         return createStructuredAssetsOverwriteRejectedResult(existing.canonicalPath, existing.id, structuredAssetBlocks);
     }
