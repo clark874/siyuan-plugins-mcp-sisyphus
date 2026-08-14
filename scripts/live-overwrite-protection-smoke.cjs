@@ -87,6 +87,20 @@ async function main() {
     try {
         const bootstrap = await call(client, 'system', { action: 'bootstrap' });
         assert.equal(bootstrap.result.isError, undefined, `bootstrap 失败：${JSON.stringify(bootstrap.json)}`);
+        assert.equal(bootstrap.json.writeSafety?.protocol, 'preflight-lease-v1', `bootstrap 未返回严格写入协议：${JSON.stringify(bootstrap.json)}`);
+
+        const semantic = await call(client, 'extension', {
+            action: 'search',
+            arguments: { action: 'semantic', query: '中文文本网络分析 分词', page: 1, pageSize: 5 },
+        });
+        assert.equal(semantic.result.isError, undefined, `原生语义搜索桥接失败：${JSON.stringify(semantic.json)}`);
+        assert.equal(
+            semantic.json && typeof semantic.json === 'object' && !Array.isArray(semantic.json)
+                ? Object.prototype.hasOwnProperty.call(semantic.json, 'safety')
+                : false,
+            false,
+            `只读语义结果被安全元数据替换：${JSON.stringify(semantic.json)}`,
+        );
 
         const pureCreated = await strictCall(client, 'fs', { action: 'write', path: purePath, markdown: '初始正文' });
         assert.equal(pureCreated.result.isError, undefined, `纯文档创建失败：${JSON.stringify(pureCreated.json)}`);
@@ -144,7 +158,7 @@ async function main() {
 
         console.log(JSON.stringify({
             success: true,
-            checks: ['bootstrap', 'pure_markdown_allowed', 'fresh_attrs_rejected', 'nested_query_embed_rejected'],
+            checks: ['bootstrap_write_protocol', 'bridged_semantic_read', 'pure_markdown_allowed', 'fresh_attrs_rejected', 'nested_query_embed_rejected'],
         }, null, 2));
     } catch (error) {
         primaryError = error;

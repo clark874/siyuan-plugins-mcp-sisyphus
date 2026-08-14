@@ -620,6 +620,18 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
             current: toolConfigResult.ok,
             source: toolConfigResult.source,
         },
+        writeSafety: {
+            strictMode: toolConfigResult.config.writeSafety.strictMode,
+            protocol: toolConfigResult.config.writeSafety.strictMode ? 'preflight-lease-v1' : 'legacy-direct-write',
+            mutationSteps: toolConfigResult.config.writeSafety.strictMode
+                ? [
+                    'Generate one UUIDv7 requestId and call the exact mutation with validateOnly=true.',
+                    'Repeat the exact same mutation with the same requestId and the returned expectedStateHash (or the action-specific expected hash field).',
+                ]
+                : ['Read the target before writing and re-read it after writing.'],
+            invariant: 'Preflight and execution arguments must remain byte-for-byte equivalent except for validateOnly and the returned expected hash field.',
+            helpResource: 'siyuan://help/write-safety',
+        },
         capabilities,
         pathGuide: {
             workspacePath: '/Notebook/Folder/Doc (human-readable, used by fs)',

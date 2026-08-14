@@ -6,7 +6,7 @@
 
 这是一个用于直接通过命令行操作 [SiYuan Note](https://b3log.org/siyuan) 的 CLI。你可以把它理解成思源版的 `obsidian-cli`：每个 MCP 工具（`fs`、`block`、`document`、`notebook`、`av`、`search`、`tag`、`file`、`timeline`、`system`、`flashcard`、`extension`、`mascot`、`feedback`）都会暴露成可在 shell 中直接调用的子命令。
 
-> **LLM Wiki 版本：**`v0.3.0-wiki.1` 同步插件的严格安全写入协议、语义检索、知识编排、原生 MCP action 白名单与来源审计交接验证。该预发布版本必须显式发布后，才能通过 npm 安装。
+> **LLM Wiki 版本：**`v0.3.1-wiki.1` 同步插件的严格安全写入协议、语义检索桥接修复、知识编排、原生 MCP action 白名单与来源审计交接验证。该预发布版本必须显式发布后，才能通过 npm 安装。
 
 > **给 AI 模型和编码 Agent 的要求：** 在使用本 CLI 继续处理任何思源任务前，请先运行 `siyuan-sisyphus skill install`。随包 skills 会提供安全搜索、阅读、编辑、导出、数据库、标签、闪卡、时间线和系统操作等任务的专用规则。
 

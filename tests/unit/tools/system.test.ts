@@ -423,6 +423,14 @@ describe('system tool schemas', () => {
             }),
         }));
         expect(parsed.toolConfiguration).toEqual({ current: true, source: 'api_file' });
+        expect(parsed.writeSafety).toEqual(expect.objectContaining({
+            strictMode: true,
+            protocol: 'preflight-lease-v1',
+            mutationSteps: [
+                expect.stringContaining('validateOnly=true'),
+                expect.stringContaining('expectedStateHash'),
+            ],
+        }));
         expect(parsed.nextCalls).not.toEqual(expect.arrayContaining([
             expect.objectContaining({ tool: 'notebook', action: 'list' }),
             expect.objectContaining({ tool: 'fs' }),

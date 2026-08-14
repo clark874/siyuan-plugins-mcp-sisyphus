@@ -671,6 +671,7 @@ export const TOOL_OVERVIEW_RESOURCE_URI = 'siyuan://help/tool-overview';
 export const DOCUMENT_PATH_RESOURCE_URI = 'siyuan://help/document-path-semantics';
 export const EXAMPLES_RESOURCE_URI = 'siyuan://help/examples';
 export const AI_LAYOUT_GUIDE_RESOURCE_URI = 'siyuan://help/ai-layout-guide';
+export const WRITE_SAFETY_RESOURCE_URI = 'siyuan://help/write-safety';
 export const USER_RULES_RESOURCE_URI = 'siyuan://help/user-rules';
 export const ACTION_RESOURCE_TEMPLATE_URI = 'siyuan://help/action/{tool}/{action}';
 export { CHANGELOG_RESOURCE_URI };

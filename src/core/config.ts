@@ -46,6 +46,32 @@ const LEGACY_DEFAULT_BLOCKED_NATIVE_EXTENSION_TOOLS = [
     'template', 'todo_write', 'unzip', 'workspace',
 ] as const;
 
+export function getNativeExtensionActionPolicy(
+    toolName: string,
+): readonly string[] | null | undefined {
+    return (NATIVE_EXTENSION_ACTION_ALLOWLIST as Record<string, readonly string[] | null>)[toolName];
+}
+
+/**
+ * 判断一次原生 MCP 转发是否落在 Sisyphus 的只读白名单内。
+ *
+ * 聚合工具的顶层 readOnlyHint 可能因同时包含读写子动作而保守地为 false，
+ * 因此必须以实际转发的子动作作为安全分类依据。无子动作工具仅在调用方
+ * 没有伪造 action 选择器时通过；运行时仍会核验官方 registry 的只读声明。
+ */
+export function isAllowlistedNativeExtensionRead(
+    toolName: string,
+    forwardedArgs: Record<string, unknown> = {},
+): boolean {
+    const policy = getNativeExtensionActionPolicy(toolName);
+    if (policy === undefined) return false;
+    const downstreamAction = typeof forwardedArgs.action === 'string'
+        ? forwardedArgs.action
+        : undefined;
+    if (policy === null) return downstreamAction === undefined;
+    return downstreamAction !== undefined && policy.includes(downstreamAction);
+}
+
 export type FsAction = typeof FS_ACTIONS[number];
 export type NotebookAction = typeof NOTEBOOK_ACTIONS[number];
 export type DocumentAction = typeof DOCUMENT_ACTIONS[number];

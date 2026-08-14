@@ -1,9 +1,10 @@
 {
   "schemaVersion": 1,
-  "packageVersion": "0.8.0-wiki.1",
+  "packageVersion": "0.8.1-wiki.1",
   "distribution": {
-    "startHere": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.8.0-wiki.1/agent-kit/START-HERE.md",
-    "archive": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.8.0-wiki.1/siyuan-agent-kit.zip"
+    "startHere": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.8.1-wiki.1/agent-kit/START-HERE.md",
+    "archive": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.8.1-wiki.1/siyuan-agent-kit.zip",
+    "stableChannel": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/release-channel.json"
   },
   "externalGateway": {
     "name": "siyuan",
@@ -27,7 +28,9 @@
   },
   "installers": {
     "kimiCode": "node scripts/install-agent-kit.mjs --client kimi",
-    "zcode": "node scripts/install-agent-kit.mjs --client zcode"
+    "zcode": "node scripts/install-agent-kit.mjs --client zcode",
+    "pluginUpdateCheck": "node scripts/update-sisyphus.mjs",
+    "pluginUpdateApply": "node scripts/update-sisyphus.mjs --apply"
   },
   "security": {
     "containsCredential": false,

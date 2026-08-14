@@ -25,6 +25,7 @@ describe('portable agent kit', () => {
         const config = JSON.parse(configText);
         const manifest = JSON.parse(read('agent-kit/kimi.plugin.json'));
         const delivery = JSON.parse(read('agent-kit/delivery.json'));
+        const releaseChannel = JSON.parse(read('release-channel.json'));
         const agent = read('agent-kit/AGENT.md');
         const kimi = read('agent-kit/KIMI.md');
         const start = read('agent-kit/START-HERE.md');
@@ -43,8 +44,9 @@ describe('portable agent kit', () => {
         }));
         expect(delivery).toEqual(expect.objectContaining({
             distribution: {
-                startHere: expect.stringContaining('/v0.8.0-wiki.1/agent-kit/START-HERE.md'),
-                archive: expect.stringContaining('/v0.8.0-wiki.1/siyuan-agent-kit.zip'),
+                startHere: expect.stringContaining('/v0.8.1-wiki.1/agent-kit/START-HERE.md'),
+                archive: expect.stringContaining('/v0.8.1-wiki.1/siyuan-agent-kit.zip'),
+                stableChannel: expect.stringContaining('/codex/local-maintenance/release-channel.json'),
             },
             externalGateway: expect.objectContaining({
                 url: 'http://127.0.0.1:36806/mcp',
@@ -55,12 +57,26 @@ describe('portable agent kit', () => {
                 clientRegistration: 'forbidden',
             }),
         }));
+        expect(releaseChannel).toEqual(expect.objectContaining({
+            schemaVersion: 1,
+            channel: 'stable',
+            version: '0.8.1-wiki.1',
+            package: expect.objectContaining({
+                url: expect.stringContaining('/v0.8.1-wiki.1/package.zip'),
+                sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+            }),
+            agentKit: expect.objectContaining({
+                url: expect.stringContaining('/v0.8.1-wiki.1/siyuan-agent-kit.zip'),
+                sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+            }),
+        }));
         expect(`${configText}\n${agent}\n${kimi}\n${start}\n${JSON.stringify(delivery)}`).not.toMatch(/Bearer\s+[a-f0-9]{64}\b/i);
         expect(agent).toContain('system(action="bootstrap")');
         expect(agent).toContain('operation.readOnly');
         expect(agent).toContain('不要把 `http://127.0.0.1:6806/mcp`');
         expect(start).toContain('唯一外部 MCP');
         expect(start).toContain('scripts/install-agent-kit.mjs');
+        expect(start).toContain('scripts/update-sisyphus.mjs --apply');
         expect(kimi).toContain('kimi mcp add --transport http');
         expect(kimi).toContain('kimi mcp test siyuan');
         expect(kimi).toContain('/skill:siyuan-mcp-sisyphus');

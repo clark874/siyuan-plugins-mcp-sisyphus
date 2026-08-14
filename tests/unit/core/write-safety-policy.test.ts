@@ -62,4 +62,23 @@ describe('write safety action policy', () => {
         const legacyBlock = listAllTools(strict).find((tool) => tool.name === 'block')!;
         expect(legacyBlock.inputSchema.properties).not.toHaveProperty('requestId');
     });
+
+    it('把原生白名单读取子动作排除在外部副作用协调之外', () => {
+        expect(getActionSafetyPolicy('extension', 'search', {
+            action: 'search',
+            arguments: { action: 'semantic', query: '知识编译契约' },
+        })).toEqual({ mode: 'read' });
+        expect(getActionSafetyPolicy('extension', 'search', {
+            action: 'search',
+            arguments: { action: 'replace', query: '知识编译契约' },
+        })).toEqual({ mode: 'external' });
+        expect(getActionSafetyPolicy('extension', 'web_search', {
+            action: 'web_search',
+            arguments: { query: '思源笔记' },
+        })).toEqual({ mode: 'read' });
+        expect(getActionSafetyPolicy('extension', 'web_search', {
+            action: 'web_search',
+            arguments: { action: 'write', query: '思源笔记' },
+        })).toEqual({ mode: 'external' });
+    });
 });

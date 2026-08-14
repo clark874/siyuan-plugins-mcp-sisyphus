@@ -15,7 +15,7 @@ Sisyphus MCP：http://127.0.0.1:36806/mcp
 1. 下载本版本发布资产并解压：
 
 ```text
-https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.8.0-wiki.1/siyuan-agent-kit.zip
+https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.8.1-wiki.1/siyuan-agent-kit.zip
 ```
 2. 阅读 `delivery.json`，确认唯一外部 endpoint 为 `36806/mcp`。
 3. 在解压目录中按宿主执行：
@@ -39,14 +39,36 @@ system(action="bootstrap")
 
 只有满足以下条件时，才可报告接入完成：`schemaVersion=2`、`toolConfiguration.current=true`，并且返回了当前可读笔记本和能力摘要。
 
+## 后续统一更新
+
+首次接入与后续更新是两件事。各 Agent 只需保存一次 `36806/mcp` 和本地 Bearer token；插件升级时不要反复改写 Kimi、ZCode、Codex、Cursor、Claude 或 Hermes 的客户端配置。
+
+在任意一份本机 Agent Kit 解压目录中执行：
+
+```bash
+# 默认只检查，不修改插件
+node scripts/update-sisyphus.mjs
+
+# 用户确认后，校验 SHA-256、备份并替换思源中的唯一插件实例
+node scripts/update-sisyphus.mjs --apply
+```
+
+更新器只操作 `data/plugins/siyuan-plugins-mcp-sisyphus`，不会读取笔记正文、Bearer token 或客户端配置。完成后重启思源，各 Agent 重新连接并调用 `system(action="bootstrap")`；无需逐个重新安装 MCP。
+
+稳定通道清单：
+
+```text
+https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/release-channel.json
+```
+
 固定版本发布页：
 
 ```text
-https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/tag/v0.8.0-wiki.1
+https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/tag/v0.8.1-wiki.1
 ```
 
 后续交给其他本地 Agent 时，优先提供本文件的固定版本地址：
 
 ```text
-https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.8.0-wiki.1/agent-kit/START-HERE.md
+https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.8.1-wiki.1/agent-kit/START-HERE.md
 ```

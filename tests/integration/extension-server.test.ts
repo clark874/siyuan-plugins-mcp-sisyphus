@@ -70,7 +70,8 @@ function officialFetch(): typeof fetch {
                                 required: ['action'],
                             },
                             source: 'native',
-                            readOnlyHint: true,
+                            // 原生聚合工具同时含读写子动作，顶层提示可能保守地为 false。
+                            readOnlyHint: false,
                             effectScope: 'external-network',
                         },
                     ],
@@ -197,9 +198,11 @@ describe('extension server integration', () => {
                     arguments: { action: 'semantic', query: 'knowledge' },
                 },
             });
-            expect(JSON.parse((result.content[0] as { text: string }).text)).toMatchObject({
+            const payload = JSON.parse((result.content[0] as { text: string }).text);
+            expect(payload).toMatchObject({
                 forwarded: { action: 'semantic', query: 'knowledge' },
             });
+            expect(payload).not.toHaveProperty('safety');
         } finally {
             await client.close();
         }

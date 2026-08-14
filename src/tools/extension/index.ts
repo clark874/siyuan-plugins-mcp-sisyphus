@@ -1,6 +1,7 @@
 import type { SiYuanClient } from '../../api/client';
 import {
-    NATIVE_EXTENSION_ACTION_ALLOWLIST,
+    getNativeExtensionActionPolicy,
+    isAllowlistedNativeExtensionRead,
     SAFE_NATIVE_EXTENSION_TOOLS,
     type ExtensionCategoryToolConfig,
 } from '../../core/config';
@@ -24,17 +25,13 @@ const RESERVED_EXTENSION_ACTIONS = new Set(['help', 'list']);
 const SAFE_NATIVE_TOOL_NAMES = new Set<string>(SAFE_NATIVE_EXTENSION_TOOLS);
 const WORKSPACE_NATIVE_TOOLS = new Set(['search', 'ref', 'outline', 'history', 'repo', 'image']);
 
-function nativeActionPolicy(toolName: string): readonly string[] | null | undefined {
-    return (NATIVE_EXTENSION_ACTION_ALLOWLIST as Record<string, readonly string[] | null>)[toolName];
-}
-
 function validateNativeCall(
     tool: OfficialMcpTool,
     args: Record<string, unknown>,
     permMgr: PermissionManager,
 ): ToolResult | undefined {
     if (tool.source !== 'native') return undefined;
-    const policy = nativeActionPolicy(tool.name);
+    const policy = getNativeExtensionActionPolicy(tool.name);
     if (policy === undefined) {
         return textResult({
             error: { code: 'native_tool_not_allowed', message: `Native tool "${tool.name}" is not allowlisted.` },
@@ -53,9 +50,8 @@ function validateNativeCall(
         }
     }
 
-    const downstreamAction = typeof args.action === 'string' ? args.action : undefined;
     if (policy === null) {
-        if (downstreamAction !== undefined) {
+        if (!isAllowlistedNativeExtensionRead(tool.name, args)) {
             return textResult({
                 error: {
                     code: 'native_action_not_allowed',
@@ -74,7 +70,8 @@ function validateNativeCall(
         return undefined;
     }
 
-    if (!downstreamAction || !policy.includes(downstreamAction)) {
+    const downstreamAction = typeof args.action === 'string' ? args.action : undefined;
+    if (!isAllowlistedNativeExtensionRead(tool.name, args)) {
         return textResult({
             error: {
                 code: 'native_action_not_allowed',
@@ -340,10 +337,10 @@ function formatDiscovery(
                     effectScope: tool.effectScope,
                     schemaDegraded: tool.schemaDegraded,
                     actionPolicy: tool.source === 'native'
-                        ? nativeActionPolicy(tool.name) === null
+                        ? getNativeExtensionActionPolicy(tool.name) === null
                             ? { mode: 'actionless-readonly' }
-                            : nativeActionPolicy(tool.name)
-                                ? { mode: 'allowlist', allowedActions: [...nativeActionPolicy(tool.name)!] }
+                            : getNativeExtensionActionPolicy(tool.name)
+                                ? { mode: 'allowlist', allowedActions: [...getNativeExtensionActionPolicy(tool.name)!] }
                                 : { mode: 'blocked' }
                         : { mode: 'plugin-owned' },
                     blocked: blocked.has(tool.name),
@@ -390,10 +387,10 @@ function helpResult(
                 && !config.blockedTools.includes(tool.name),
             schemaDegraded: tool.schemaDegraded,
             actionPolicy: tool.source === 'native'
-                ? nativeActionPolicy(tool.name) === null
+                ? getNativeExtensionActionPolicy(tool.name) === null
                     ? { mode: 'actionless-readonly' }
-                    : nativeActionPolicy(tool.name)
-                        ? { mode: 'allowlist', allowedActions: [...nativeActionPolicy(tool.name)!] }
+                    : getNativeExtensionActionPolicy(tool.name)
+                        ? { mode: 'allowlist', allowedActions: [...getNativeExtensionActionPolicy(tool.name)!] }
                         : { mode: 'blocked' }
                 : { mode: 'plugin-owned' },
             inputSchema: tool.inputSchema,

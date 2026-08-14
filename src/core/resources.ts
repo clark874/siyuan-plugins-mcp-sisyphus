@@ -10,6 +10,7 @@ import {
     TOOL_GUIDANCE_BY_CATEGORY,
     TOOL_OVERVIEW_RESOURCE_URI,
     USER_RULES_RESOURCE_URI,
+    WRITE_SAFETY_RESOURCE_URI,
     isKnownAction,
     isKnownToolCategory,
 } from './help';
@@ -274,6 +275,22 @@ function renderExamples(): string {
     ].join('\n');
 }
 
+function renderWriteSafety(): string {
+    return [
+        '# Strict Write Safety',
+        '',
+        'When strict mode is enabled, every mutation uses a two-stage preflight lease.',
+        '',
+        '1. Generate one fresh UUIDv7 `requestId`.',
+        '2. Call the exact mutation with `validateOnly=true`.',
+        '3. Read the returned expected hash field, such as `expectedStateHash`.',
+        '4. Repeat the exact same mutation with the same `requestId` and returned hash.',
+        '5. Re-read the affected target and verify the result.',
+        '',
+        'Except for removing `validateOnly` and adding the returned expected hash field, preflight and execution arguments must remain byte-for-byte equivalent. Do not automatically replay a failed mutation with a new request ID.',
+    ].join('\n');
+}
+
 function renderAiLayoutGuide(): string {
     return [
         '# AI Layout Guide for SiYuan',
@@ -493,6 +510,14 @@ function buildStaticHelpResources(): HelpResourceDefinition[] {
             description: 'Explains how SiYuan layout features map to native blocks, Kramdown, attributes, renderer code blocks, media blocks, embeds, and databases.',
             mimeType: MIME_TYPE,
             text: renderAiLayoutGuide(),
+        },
+        {
+            uri: WRITE_SAFETY_RESOURCE_URI,
+            name: 'write-safety',
+            title: 'Strict Write Safety',
+            description: 'Explains the UUIDv7 and preflight-lease protocol required for strict mutations.',
+            mimeType: MIME_TYPE,
+            text: renderWriteSafety(),
         },
         {
             uri: CHANGELOG_RESOURCE_URI,

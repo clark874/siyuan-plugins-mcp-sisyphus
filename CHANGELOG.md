@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.1-wiki.1 - 2026-08-14
+
+- 修复原生 MCP 聚合工具仅按顶层 `readOnlyHint` 分类的问题；`extension → search.semantic/fulltext` 现在依据实际子动作白名单直接返回结果，不再触发不必要的交互确认，也不再被严格写入协调器替换成单独的安全元数据
+- 新增稳定发布通道 `release-channel.json` 和中央插件更新器；默认只检查，`--apply` 才会下载或读取安装包、核对 SHA-256、拒绝路径穿越与符号链接、备份当前插件并原子替换，失败时恢复旧版本
+- 明确“首次接入”和“后续更新”边界：Kimi、ZCode、Codex、Cursor、Claude、Hermes 等客户端只保存一次 `36806/mcp` 与本地 token，后续仅更新思源中的唯一插件实例并重连
+- `system.bootstrap` 新增机器可读的严格写入协议、两阶段调用顺序、不变量和帮助资源，减少不同 Agent 因未加载本地 Skill 而误用写入租约
+- CLI 同步提升至 `v0.3.1-wiki.1`
+
 ## v0.8.0-wiki.1 - 2026-08-14
 
 - 将定制版正式定位为 LLM Wiki 分支；选择性吸收上游 `v0.6.3` 的原生 `search.semantic`、`fs.reorder` / `document.reorder` 与严格安全写入，不引入重复的嵌入模型设置界面

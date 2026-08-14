@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.0-wiki.1`（CLI `v0.3.0-wiki.1`）选择性吸收上游 `v0.6.3` 的原生语义搜索、手动文档排序和严格安全写入，并加入原生 MCP action 白名单、低层语义候选与高层知识编排分层、冻结源码审计交接验证，以及完整知识 Skill。外部 Agent 只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.1-wiki.1`（CLI `v0.3.1-wiki.1`）在 `v0.8.0` 知识化工具层上修复原生语义搜索桥接的只读子动作误判，并新增带 SHA-256、备份与失败恢复的中央插件更新通道。外部 Agent 仍只注册 Sisyphus 单一入口，插件升级无需逐个重装客户端。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.8.0-wiki.1` — 插件侧工具链覆盖语义发现、稳定锚点、引用关系、来源审计与严格写入；CLI 为 `v0.3.0-wiki.1`。
+> **当前 LLM Wiki 版本：**`v0.8.1-wiki.1` — 语义发现桥接、知识化工具层、严格写入和中央更新通道已统一；CLI 为 `v0.3.1-wiki.1`。
 
 ## Project Direction Update
 

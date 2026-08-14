@@ -5,7 +5,16 @@ import { startHttpMcpServer, type TlsOptions } from './http-transport';
 import { buildServerInstructions } from './server-instructions';
 
 import { SiYuanClient } from '../api/client';
-import { buildDefaultToolConfig, isDangerousAction, loadToolConfigFromApiFileWithStatus, type ToolCategory, type ToolConfig, type ToolConfigLoadResult } from './config';
+import {
+    buildDefaultToolConfig,
+    getNativeExtensionActionPolicy,
+    isAllowlistedNativeExtensionRead,
+    isDangerousAction,
+    loadToolConfigFromApiFileWithStatus,
+    type ToolCategory,
+    type ToolConfig,
+    type ToolConfigLoadResult,
+} from './config';
 import { WriteSafetyCoordinator } from './write-safety-coordinator';
 import { getActionSafetyPolicy } from './write-safety-policy';
 import { callCliWriteCoordinator } from '../cli/write-coordinator';
@@ -407,9 +416,18 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         const extensionTool = category === 'extension'
             ? officialMcpBridge.getTools().find((tool) => tool.name === action)
             : undefined;
+        const forwardedExtensionArgs = args?.arguments !== null
+            && typeof args?.arguments === 'object'
+            && !Array.isArray(args.arguments)
+            ? args.arguments as Record<string, unknown>
+            : {};
+        const extensionInvocationReadOnly = extensionTool?.source === 'native'
+            ? isAllowlistedNativeExtensionRead(action, forwardedExtensionArgs)
+                && (getNativeExtensionActionPolicy(action) !== null || extensionTool.readOnlyHint === true)
+            : extensionTool?.readOnlyHint === true;
         const requiresConfirmation = actionEnabled && args?.validateOnly !== true && (
             isDangerousAction(category as ToolCategory, action)
-            || (category === 'extension' && action !== 'list' && action !== 'help' && extensionTool?.readOnlyHint !== true)
+            || (category === 'extension' && action !== 'list' && action !== 'help' && !extensionInvocationReadOnly)
         );
 
         // 2026-07-28 carries confirmation in-band through MRTR. Legacy

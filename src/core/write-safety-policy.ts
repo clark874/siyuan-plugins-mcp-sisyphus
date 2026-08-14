@@ -1,5 +1,6 @@
 import {
     ACTIONS_BY_CATEGORY,
+    isAllowlistedNativeExtensionRead,
     type ToolActionMap,
     type ToolCategory,
 } from './config';
@@ -107,7 +108,14 @@ export function getActionSafetyPolicy(
     action: string,
     args: Record<string, unknown> = {},
 ): ActionSafetyPolicy {
-    if (category === 'extension' && action !== 'list' && action !== 'help') return external();
+    if (category === 'extension' && action !== 'list' && action !== 'help') {
+        const forwardedArgs = args.arguments !== null
+            && typeof args.arguments === 'object'
+            && !Array.isArray(args.arguments)
+            ? args.arguments as Record<string, unknown>
+            : {};
+        return isAllowlistedNativeExtensionRead(action, forwardedArgs) ? read() : external();
+    }
     const policy = (ACTION_SAFETY_POLICIES[category] as Record<string, ActionSafetyPolicy>)[action];
     if (!policy) return read();
 
