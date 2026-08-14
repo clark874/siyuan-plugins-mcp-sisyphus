@@ -34,10 +34,20 @@ function pluginTool(overrides: Partial<OfficialMcpTool> = {}): OfficialMcpTool {
 
 function nativeTool(overrides: Partial<OfficialMcpTool> = {}): OfficialMcpTool {
     return pluginTool({
+        name: 'search',
+        title: 'Native search',
+        description: 'The native SiYuan search tool.',
+        source: 'native',
+        readOnlyHint: true,
+        ...overrides,
+    });
+}
+
+function unsafeNativeTool(overrides: Partial<OfficialMcpTool> = {}): OfficialMcpTool {
+    return nativeTool({
         name: 'document',
         title: 'Native document',
         description: 'The native SiYuan document tool.',
-        source: 'native',
         readOnlyHint: false,
         ...overrides,
     });
@@ -124,20 +134,22 @@ describe('extension tool', () => {
     it('removes blocked plugin and native tools from the exposed action schema', () => {
         const config = buildDefaultToolConfig().extension;
         config.includeNativeTools = true;
-        config.blockedTools = ['plugin__alpha__aggregate', 'document'];
+        config.blockedTools = ['plugin__alpha__aggregate', 'search'];
         const { runtime } = fakeRuntime([pluginTool(), nativeTool()]);
 
         const descriptor = listExtensionTools(config, runtime)[0];
 
         expect((descriptor.inputSchema as any).properties.action.enum).not.toContain('plugin__alpha__aggregate');
-        expect((descriptor.inputSchema as any).properties.action.enum).not.toContain('document');
+        expect((descriptor.inputSchema as any).properties.action.enum).not.toContain('search');
     });
 
-    it('keeps native tools hidden by default and exposes their official names when enabled', () => {
+    it('keeps native tools hidden when disabled and exposes only allowlisted names when enabled', () => {
         const config = buildDefaultToolConfig().extension;
         const native = nativeTool();
-        const { runtime } = fakeRuntime([pluginTool(), native]);
+        const unsafe = unsafeNativeTool();
+        const { runtime } = fakeRuntime([pluginTool(), native, unsafe]);
 
+        config.includeNativeTools = false;
         let descriptor = listExtensionTools(config, runtime)[0];
         expect((descriptor.inputSchema as any).properties.action.enum).not.toContain(native.name);
 
@@ -145,12 +157,14 @@ describe('extension tool', () => {
         descriptor = listExtensionTools(config, runtime)[0];
         const branch = (descriptor.inputSchema as any).oneOf
             .find((item: any) => item.properties?.action?.const === native.name);
-        expect((descriptor.inputSchema as any).properties.action.enum).toContain('document');
+        expect((descriptor.inputSchema as any).properties.action.enum).toContain('search');
+        expect((descriptor.inputSchema as any).properties.action.enum).not.toContain('document');
         expect(branch.source).toBe('native');
     });
 
     it('returns discovery counts without tool details while native tools are disabled', async () => {
         const config = buildDefaultToolConfig().extension;
+        config.includeNativeTools = false;
         const tools = [pluginTool(), nativeTool()];
         const { runtime } = fakeRuntime(tools);
 
@@ -176,6 +190,7 @@ describe('extension tool', () => {
 
     it('omits the discovered tool-name list from general help while native tools are disabled', async () => {
         const config = buildDefaultToolConfig().extension;
+        config.includeNativeTools = false;
         const { runtime } = fakeRuntime([pluginTool(), nativeTool()]);
 
         const result = await callExtensionTool(
@@ -246,6 +261,7 @@ describe('extension tool', () => {
         const native = nativeTool();
         const { runtime, callTool } = fakeRuntime([native]);
 
+        config.includeNativeTools = false;
         const disabledResult = await callExtensionTool(
             createMockClient(),
             { action: native.name, arguments: { action: 'read' } },
@@ -331,6 +347,7 @@ describe('extension tool', () => {
 
     it('notifies when includeNativeTools changes the exposed action set', async () => {
         const config = buildDefaultToolConfig().extension;
+        config.includeNativeTools = false;
         const tools = [pluginTool(), nativeTool()];
         const runtime = {
             bridge: {

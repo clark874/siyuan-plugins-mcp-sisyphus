@@ -23,7 +23,7 @@
 
 - `bootstrap` 是新 Agent 的首选调用。它会刷新笔记本权限，隐藏权限为 `none` 的笔记本身份，并从当前 MCP 工具配置生成能力和后续调用。存在 `/AGENTS.md` 且 `fs.read` 已启用时，读取该路由记忆位于 `nextCalls` 首位；若 `fs.read` 被禁用，只返回记忆状态与提示，不生成不可执行调用。`memory.status` 仅按保存时间判断，`contentVerified=false` 明确表示路径、数量和项目状态仍需实时核验。`operation.readOnly=true` 只表示本动作不写入；连接仍可能依据权限和 action 配置开放写入。若 `toolConfiguration.current=false`，能力摘要来自默认退化配置，不应视为实时健康检查。
 - `workspace_info` 会暴露工作区绝对路径，属于需要确认的高风险读取。
-- `conf` 只返回思源官方接口提供的脱敏配置；优先使用 `mode="summary"`，再用 `mode="get"` 读取单个路径。
+- `conf` 是兼容保留的精确配置读取动作，默认关闭；通常使用 `audit_environment` 即可。只有明确需要某个非敏感字段时才单独启用，所有密钥、令牌、密码、Cookie、凭据和私钥字段都会按字段名强制遮蔽。
 - `list_packages` 返回已安装扩展包的精简元数据，不返回 README 或配置正文。
 - `search_bazaar` 搜索在线集市中的插件、挂件、主题、图标和模板，支持安装状态、兼容性、下载量、星标、更新时间和名称排序，并强制分页。
 - `get_bazaar_package` 使用精确包名返回在线版本、仓库修订、兼容性、统计信息与本地安装状态。

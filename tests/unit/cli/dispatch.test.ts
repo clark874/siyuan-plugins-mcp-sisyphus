@@ -114,15 +114,15 @@ describe('cli/dispatch', () => {
         config.extension.includeNativeTools = true;
         vi.mocked(SiYuanClient.prototype.readFile).mockResolvedValue(JSON.stringify(config));
         const tool: OfficialMcpTool = {
-            name: 'document',
-            description: 'Native document tool',
+            name: 'search',
+            description: 'Native search tool',
             inputSchema: {
                 type: 'object',
                 properties: { action: { type: 'string' } },
             },
             source: 'native',
-            readOnlyHint: false,
-            effectScope: 'local',
+            readOnlyHint: true,
+            effectScope: 'external-network',
             schemaDegraded: false,
         };
         vi.spyOn(OfficialMcpBridge.prototype, 'refresh').mockResolvedValue({
@@ -137,7 +137,7 @@ describe('cli/dispatch', () => {
             command: 'dispatch',
             tool: 'extension',
             action: tool.name,
-            rest: ['--arguments-json', '{"action":"read","id":"doc-id"}'],
+            rest: ['--arguments-json', '{"action":"semantic","query":"knowledge"}'],
             json: true,
             debug: false,
         } as ParsedArgs);
@@ -146,8 +146,8 @@ describe('cli/dispatch', () => {
         expect(callToolSpy).toHaveBeenCalledWith(
             expect.anything(),
             {
-                action: 'document',
-                arguments: { action: 'read', id: 'doc-id' },
+                action: 'search',
+                arguments: { action: 'semantic', query: 'knowledge' },
             },
             expect.objectContaining({ includeNativeTools: true }),
             expect.anything(),

@@ -23,8 +23,21 @@ describe('setting tool config', () => {
         expect(config.flashcard.actions.remove_card).toBe(true);
         expect(config.extension.enabled).toBe(true);
         expect(config.extension.actions.list).toBe(true);
-        expect(config.extension.includeNativeTools).toBe(false);
-        expect(config.extension.blockedTools).toEqual([]);
+        expect(config.extension.includeNativeTools).toBe(true);
+        expect(config.extension.blockedTools).toEqual(expect.arrayContaining([
+            'block',
+            'database',
+            'document',
+            'file',
+            'history',
+            'repo',
+            'system',
+        ]));
+        expect(config.extension.blockedTools).not.toContain('search');
+        expect(config.extension.blockedTools).not.toContain('ref');
+        expect(config.extension.blockedTools).not.toContain('outline');
+        expect(config.extension.blockedTools).not.toContain('web_fetch');
+        expect(config.extension.blockedTools).not.toContain('web_search');
         expect(config.mascot.actions.get_balance).toBe(true);
         expect(config.mascot.actions.shop).toBe(true);
         expect(config.mascot.actions.buy).toBe(true);
@@ -52,6 +65,8 @@ describe('setting tool config', () => {
         expect(config.system.actions.search_bazaar).toBe(true);
         expect(config.system.actions.get_bazaar_package).toBe(true);
         expect(config.system.actions.read_bazaar_readme).toBe(true);
+        expect(config.system.actions.conf).toBe(false);
+        expect(config.search.actions.knowledge).toBe(true);
     });
 
     it('enables newly added bazaar read actions when an older nested config omits them', () => {
@@ -138,7 +153,7 @@ describe('setting tool config', () => {
         ]);
     });
 
-    it('keeps native official tools disabled when old extension config omits the switch', () => {
+    it('enables the native bridge when old extension config omits the switch without rewriting its explicit block list', () => {
         const config = normalizeToolConfig({
             extension: {
                 enabled: true,
@@ -147,7 +162,8 @@ describe('setting tool config', () => {
             },
         });
 
-        expect(config.extension.includeNativeTools).toBe(false);
+        expect(config.extension.includeNativeTools).toBe(true);
+        expect(config.extension.blockedTools).toEqual([]);
     });
 
     it('keeps flashcard nested action toggles', () => {

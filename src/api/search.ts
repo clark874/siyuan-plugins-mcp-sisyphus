@@ -18,6 +18,21 @@ export async function fullTextSearchBlock(
     return client.request<IResFullTextSearchBlock>('/api/search/fullTextSearchBlock', params);
 }
 
+export async function semanticSearchBlock(
+    client: SiYuanClient,
+    params: {
+        query: string;
+        page?: number;
+        pageSize?: number;
+        boxes?: string[];
+        paths?: string[];
+        types?: Record<string, boolean>;
+        subTypes?: Record<string, boolean>;
+    },
+): Promise<IResFullTextSearchBlock> {
+    return client.request<IResFullTextSearchBlock>('/api/search/semanticSearchBlock', params);
+}
+
 export async function querySQL(client: SiYuanClient, stmt: string): Promise<unknown[]> {
     const request: IReqQuerySQL = { stmt };
     const result = await client.request<unknown[] | null>('/api/query/sql', request);

@@ -138,6 +138,9 @@ function buildBootstrapNextCalls(
             purpose: 'Read one document',
         });
     }
+    if (capabilities.search.actions.knowledge) {
+        nextCalls.push({ tool: 'search', action: 'knowledge', purpose: 'Semantic knowledge discovery with reference collapse' });
+    }
     if (capabilities.search.actions.fulltext) {
         nextCalls.push({ tool: 'search', action: 'fulltext', purpose: 'Full-text search' });
     }
@@ -205,7 +208,27 @@ function getValueByPath(root: unknown, keyPath: string): unknown {
     return current;
 }
 
-function summarizeValue(value: unknown, depth: number, maxDepth: number, maxItems: number): SummaryNode {
+function isSensitiveConfigKey(key: string | number | undefined): boolean {
+    if (typeof key !== 'string') return false;
+    const compact = key.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    return [
+        'apikey', 'accesstoken', 'refreshtoken', 'sessiontoken', 'bearertoken',
+        'token', 'secret', 'clientsecret', 'password', 'passwd', 'cookie',
+        'authorization', 'credential', 'credentials', 'privatekey', 'jwt',
+        'ticket', 'assertion', 'samlresponse', 'oauthverifier',
+    ].some((suffix) => compact === suffix || compact.endsWith(suffix));
+}
+
+function summarizeValue(
+    value: unknown,
+    depth: number,
+    maxDepth: number,
+    maxItems: number,
+    keyHint?: string | number,
+): SummaryNode {
+    if (isSensitiveConfigKey(keyHint)) {
+        return { type: 'primitive', value: '[REDACTED]', truncated: false };
+    }
     if (value === null) return { type: 'null', value: null, truncated: false };
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
         return { type: 'primitive', value, truncated: false };
@@ -224,7 +247,7 @@ function summarizeValue(value: unknown, depth: number, maxDepth: number, maxItem
         return {
             type: 'array',
             length: value.length,
-            items: value.slice(0, maxItems).map((item) => summarizeValue(item, depth + 1, maxDepth, maxItems)),
+            items: value.slice(0, maxItems).map((item, index) => summarizeValue(item, depth + 1, maxDepth, maxItems, index)),
             truncated: value.length > maxItems,
             omittedItems: Math.max(0, value.length - maxItems),
         };
@@ -246,7 +269,7 @@ function summarizeValue(value: unknown, depth: number, maxDepth: number, maxItem
             keyCount: entries.length,
             entries: Object.fromEntries(entries.slice(0, maxItems).map(([key, entryValue]) => [
                 key,
-                summarizeValue(entryValue, depth + 1, maxDepth, maxItems),
+                summarizeValue(entryValue, depth + 1, maxDepth, maxItems, key),
             ])),
             truncated: entries.length > maxItems,
             omittedKeys: Math.max(0, entries.length - maxItems),
@@ -260,10 +283,11 @@ function buildConfResponse(raw: unknown, mode: 'summary' | 'get', keyPath: strin
     if (mode === 'get') {
         if (!keyPath) throw new Error('keyPath is required when mode="get".');
         const target = getValueByPath(raw, keyPath);
+        const keySegments = parseKeyPath(keyPath);
         return {
             mode,
             keyPath,
-            value: summarizeValue(target, 0, maxDepth, maxItems),
+            value: summarizeValue(target, 0, maxDepth, maxItems, keySegments.at(-1)),
             hints: [
                 'Increase maxDepth or maxItems if you need a larger subtree.',
                 'Use system(action="conf", mode="summary") to inspect sibling keys first.',
@@ -530,9 +554,8 @@ const handleAuditEnvironment: ToolActionHandler = async ({ client, rawArgs }) =>
             plugins: countPluginStates(packagesByKind.plugin),
         },
         hints: [
-            'Use system(action="conf", mode="get", keyPath="<path>") to inspect one masked configuration subtree.',
             'Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") for package details.',
-            'This audit never reads third-party plugin storage and never changes package state.',
+            'This audit returns only a shallow configuration structure, never reads third-party plugin storage, and never changes package state.',
         ],
     });
 };

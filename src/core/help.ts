@@ -258,7 +258,7 @@ export const SEARCH_GUIDANCE: string[] = [
     'When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.',
     'The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.',
     'In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.',
-    'Use search(action="fulltext") for natural language searches; use search(action="query_sql") for structured queries.',
+    'Use search(action="knowledge") for natural-language discovery over the 3.8 embedding index with reference collapse; use fulltext for lexical search and query_sql for structured queries.',
     'search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.',
     'search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.',
     'Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.',
@@ -266,6 +266,7 @@ export const SEARCH_GUIDANCE: string[] = [
 
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     fulltext: 'Pass a query string. Supports keyword, query syntax, SQL, and regex modes via methodName (preferred) or method. fulltext now returns plainContent/excerpt by default. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.',
+    knowledge: 'Uses the configured SiYuan 3.8 embedding model for semantic discovery, then collapses reference-only hits to their target blocks, deduplicates candidates, prefers named content atoms, and attaches related documents. This sends the query to the configured embedding provider and may incur external cost.',
     query_sql: 'Execute a SELECT statement. Common tables include blocks, spans, assets, attributes, and refs. Prefer sql over stmt when prompting an AI. Always use LIMIT to control kernel work; maxRows controls the returned window (default 200, maximum 1000). Unattributed aggregate rows are returned only when every notebook is readable; otherwise MCP fails closed and reports the omission.',
     get_backlinks: 'Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". Partial permission-filtered results include machine-readable metadata.',
     search_refs: 'Returns block-level reference contexts for the target id. Use this when you need the surrounding block content, not just the document-level backlink list. beforeLen controls how much leading context is included in each hit.',

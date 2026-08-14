@@ -1,5 +1,5 @@
 import type { SiYuanClient } from '../../api/client';
-import type { ExtensionCategoryToolConfig } from '../../core/config';
+import { SAFE_NATIVE_EXTENSION_TOOLS, type ExtensionCategoryToolConfig } from '../../core/config';
 import type {
     OfficialMcpDiscoverySnapshot,
     OfficialMcpRuntime,
@@ -11,12 +11,13 @@ import type { ActionVariant, ToolResult } from '../internal/shared';
 
 const EXTENSION_DESCRIPTION = [
     'Bridge tools exposed through the official SiYuan /mcp endpoint.',
-    'Plugin tools are included by default; native SiYuan tools are included only when includeNativeTools is enabled.',
+    'Plugin tools are included by default; when includeNativeTools is enabled, native SiYuan tools are additionally restricted to a fixed read-oriented allowlist.',
     'Use action="list" to inspect discovery status; while native tools are disabled, it returns counts only and omits tool details.',
     'Every exposed tool keeps its official name as the action.',
     'Pass downstream parameters inside arguments={...}. Tools without readOnlyHint=true may mutate data and require explicit user confirmation.',
 ].join(' ');
 const RESERVED_EXTENSION_ACTIONS = new Set(['help', 'list']);
+const SAFE_NATIVE_TOOL_NAMES = new Set<string>(SAFE_NATIVE_EXTENSION_TOOLS);
 
 export const EXTENSION_VARIANTS: ActionVariant<'list'>[] = [{
     action: 'list',
@@ -63,6 +64,7 @@ function filterExposedTools(
     const blocked = new Set(config.blockedTools);
     return tools.filter((tool) =>
         isSourceEnabled(tool, config)
+        && (tool.source !== 'native' || SAFE_NATIVE_TOOL_NAMES.has(tool.name))
         && !blocked.has(tool.name)
         && !RESERVED_EXTENSION_ACTIONS.has(tool.name),
     );
@@ -295,6 +297,7 @@ function helpResult(
     if (topic && tool) {
         const sourceEnabled = isSourceEnabled(tool, config);
         const reservedActionConflict = RESERVED_EXTENSION_ACTIONS.has(tool.name);
+        const policyBlocked = tool.source === 'native' && !SAFE_NATIVE_TOOL_NAMES.has(tool.name);
         return textResult({
             tool: tool.name,
             title: tool.title,
@@ -304,9 +307,11 @@ function helpResult(
             requiresConfirmation: !tool.readOnlyHint,
             effectScope: tool.effectScope,
             blocked: config.blockedTools.includes(tool.name),
+            policyBlocked,
             sourceEnabled,
             reservedActionConflict,
             exposed: sourceEnabled
+                && !policyBlocked
                 && !reservedActionConflict
                 && !config.blockedTools.includes(tool.name),
             schemaDegraded: tool.schemaDegraded,

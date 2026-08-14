@@ -15,9 +15,9 @@ While `extension.includeNativeTools=false`, the response is intentionally compac
 
 After native tools are enabled, `detailsIncluded=true` and the response also reports individual tool names, descriptions, read-only declarations, effect scopes, degraded schemas, and tools blocked in Sisyphus settings. General `extension` help follows the same rule; targeted `help(topic="<tool>")` can still inspect one explicitly requested tool.
 
-Tools with `source="plugin"` are included by default. Set `extension.includeNativeTools=true` in the plugin settings to include `source="native"` tools. Missing source metadata is treated as native for compatibility. Tools imported from external MCP servers (`source="mcp"`) and this plugin's own namespace remain excluded.
+Tools with `source="plugin"` are included by default. When `extension.includeNativeTools=true`, Sisyphus exposes only the fixed native allowlist `search`, `ref`, `outline`, `web_fetch`, and `web_search`. Native `document`, `block`, `file`, `database`, `system`, and every other broad or mutating tool remain blocked by policy even if a persisted block list is empty. Missing source metadata is treated as native for compatibility. Tools imported from external MCP servers (`source="mcp"`) and this plugin's own namespace remain excluded.
 
-Native tools are disabled by default because they overlap with several Sisyphus action families and materially increase the `extension` schema.
+Fresh installations enable this narrow read-oriented bridge by default. It complements Sisyphus with official discovery and web retrieval without creating a second write path.
 An official tool named `help` or `list` is reported as a reserved-action conflict and is not exposed.
 
 ## Calling an official tool
@@ -45,17 +45,17 @@ With native tools enabled, their official unprefixed name is used directly:
 
 ```json
 {
-  "action": "document",
+  "action": "search",
   "arguments": {
-    "action": "read",
-    "id": "20240318112233-abc123"
+    "action": "semantic",
+    "query": "knowledge graph"
   }
 }
 ```
 
 ```bash
-siyuan extension document \
-  --arguments-json '{"action":"read","id":"20240318112233-abc123"}'
+siyuan extension search \
+  --arguments-json '{"action":"semantic","query":"knowledge graph"}'
 ```
 
 ## Safety and lifecycle
@@ -73,7 +73,7 @@ siyuan extension document \
 Official discovery requires SiYuan 3.7.0 or newer, an administrator session, and a valid API token. This requirement applies only to `extension`; the Sisyphus plugin itself keeps `minAppVersion` at 2.9.0.
 
 > [!WARNING]
-> Native-tool forwarding does not pass through Sisyphus notebook permissions, disabled actions, or dangerous-action confirmation. Calls execute directly with the current SiYuan administrator session or API Token. Native aggregate tools also do not currently expose inner action-level risk metadata through `tools/list`, so tool-level `readOnlyHint` cannot distinguish read-only actions from mutating actions. Treat every native forwarded call as potentially side-effecting, enable it only for local or fully trusted clients, and never expose it to untrusted remote clients.
+> Native-tool forwarding does not pass through Sisyphus notebook permissions. The fixed allowlist therefore contains only the five read-oriented tools above; all note, block, database, file, configuration, history, repository, import/export, and other write-capable or broad-control native tools are denied before schema exposure and calls. Web search/fetch still send the requested query or URL to external services, so use this bridge only with trusted local clients.
 
 ## Official MCP and Sisyphus
 

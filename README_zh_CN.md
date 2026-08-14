@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.19`（CLI `v0.2.4-local.3`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取与知识治理 Skill、按需工作区记忆、实时 Agent bootstrap、单一 Sisyphus 网关便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动原生文档历史 Diff 的“最近更新”时间轴。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [分层 Agent 记忆设计](docs/plans/2026-08-12-layered-agent-memory-and-knowledge-governance-design.md)、[单一网关交付设计](docs/plans/2026-08-12-single-gateway-agent-delivery-design.md)、[最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
+> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.20`（CLI `v0.2.4-local.4`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、语义知识检索与项目关系展开、知识摄取与知识治理 Skill、窄化的官方 MCP 只读桥接、按需工作区记忆、实时 Agent bootstrap、单一 Sisyphus 网关便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动原生文档历史 Diff 的“最近更新”时间轴。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [分层 Agent 记忆设计](docs/plans/2026-08-12-layered-agent-memory-and-knowledge-governance-design.md)、[单一网关交付设计](docs/plans/2026-08-12-single-gateway-agent-delivery-design.md)、[最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前本地维护版本：**`v0.7.5-local.19` — 在 `v0.6.0` 基础上增加思源工作区控制面、插件集市只读目录、插件配置安全解释、可回滚受控修改、安全 SQL 分析通道、知识摄取与知识治理 Skill、按需工作区记忆、实时 Agent bootstrap 与单一 Sisyphus 网关便携接入包，以及支持临时父文档聚合与历史 Diff 联动的“最近更新”时间轴；本地 CLI 为 `v0.2.4-local.3`。
+> **当前本地维护版本：**`v0.7.5-local.20` — 在 `v0.6.0` 基础上增加语义知识检索与项目关系展开、窄化的官方 MCP 只读桥接、思源工作区控制面、插件集市只读目录、可回滚受控修改、安全 SQL 分析通道、知识 Skill、按需工作区记忆、实时 Agent bootstrap 与单一 Sisyphus 网关便携接入包，以及支持临时父文档聚合与历史 Diff 联动的“最近更新”时间轴；本地 CLI 为 `v0.2.4-local.4`。
 
 ## 项目方向调整
 

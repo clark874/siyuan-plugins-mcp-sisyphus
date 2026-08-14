@@ -1,12 +1,17 @@
 ---
 name: siyuan-mcp-search-query
-description: MCP playbook for finding and querying SiYuan content. Use for fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.
+description: MCP playbook for finding and querying SiYuan content. Use for semantic knowledge discovery, fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.
 ---
 
 # Search and Query SiYuan with MCP
 
 Search to identify candidates, read the target by ID or path, and only then edit. Use explicit pagination for repeatable results.
 
+For a natural-language knowledge question on SiYuan 3.8.0+, start with the knowledge action. It uses the configured embedding provider, collapses reference-only hits into their target blocks, prefers named content atoms, and attaches documents that reuse each atom. Semantic hits are discovery candidates rather than evidence; always read the returned stable block ID and inspect its source and verification attributes before reuse.
+
+```text
+search(action="knowledge", query="How is textnets projection weighting computed?", pageSize=10, candidateSize=30)
+```
 ```text
 search(action="fulltext", query="keyword", page=1, pageSize=20)
 ```

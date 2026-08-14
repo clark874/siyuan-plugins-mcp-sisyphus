@@ -1,6 +1,6 @@
 # search
 
-This tool covers full-text search, backlinks, SQL reads, asset search, and controlled find-replace operations.
+This tool covers semantic knowledge discovery, full-text search, backlinks, SQL reads, asset search, and controlled find-replace operations.
 
 When to read this page: you need to find content across the workspace or query indexed content.
 
@@ -13,6 +13,7 @@ Related pages:
 
 | Group | Actions |
 |------|---------|
+| Knowledge retrieval | `knowledge` |
 | Text search | `fulltext`, `search_refs` |
 | Graph / relation | `get_backlinks`, `list_invalid_refs` |
 | SQL / asset | `query_sql`, `search_assets`, `fulltext_asset_content` |
@@ -24,11 +25,22 @@ Related pages:
 - `query_sql` is read-only and only accepts `SELECT` statements; add `LIMIT` yourself. `maxRows` controls the returned window after permission filtering (default 200, maximum 1000).
 - Raw SQL can forge or hide result provenance, so `query_sql` is available only when every configured notebook is readable. If any notebook has permission `none`, the action fails closed before executing the query; use scope-aware search/database actions instead. When all notebooks are readable, aggregate, grouping, CTE, and row-level results no longer incur per-row ownership lookups.
 - Search results are filtered by notebook permissions where applicable.
+- `knowledge` requires SiYuan 3.8.0+ with a configured embedding model. The natural-language query leaves the workspace for that provider and may incur cost. It permission-filters semantic hits first, collapses reference-only results into their target blocks, prefers named content atoms, and attaches readable documents that reference each atom.
+- A semantic match is a discovery candidate, not evidence. Read the returned stable block ID and inspect its source and verification attributes before reuse.
 - Full-text search can lag briefly behind recent writes because indexing is eventually consistent.
 
 ## Examples
 
 MCP:
+
+```json
+{
+  "action": "knowledge",
+  "query": "How is textnets projection weighting computed?",
+  "pageSize": 10,
+  "candidateSize": 30
+}
+```
 
 ```json
 {
@@ -49,6 +61,7 @@ MCP:
 CLI:
 
 ```bash
+siyuan search knowledge --query "How is textnets projection weighting computed?" --page-size 10 --candidate-size 30
 siyuan search fulltext --query "meeting notes" --method-name keyword --sort-by relevance
 siyuan search query-sql --sql "SELECT id, content, type FROM blocks LIMIT 10"
 ```
@@ -62,6 +75,7 @@ Notes for AI callers:
 ## Action List
 
 - `fulltext`
+- `knowledge`
 - `query_sql`
 - `get_backlinks`
 - `search_refs`

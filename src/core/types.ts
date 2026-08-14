@@ -1032,6 +1032,18 @@ export const SearchFulltextSchema = z.object({
     stripHtml: z.boolean().optional().describe("Legacy toggle. plainContent is now returned by default; set this when you want to emphasize plain-text-safe downstream parsing while keeping highlighted HTML content."),
 });
 
+export const SearchKnowledgeSchema = z.object({
+    action: z.literal("knowledge"),
+    query: z.string().min(1).describe("Natural-language knowledge question. The configured embedding provider receives this query."),
+    pageSize: z.number().int().min(1).max(50).optional().describe("Maximum deduplicated knowledge candidates returned, default 10."),
+    candidateSize: z.number().int().min(1).max(100).optional().describe("Semantic candidates requested before reference collapse and deduplication, default 30."),
+    notebooks: z.array(z.string()).optional().describe("Optional notebook ID allowlist."),
+    paths: z.array(z.string()).optional().describe("Optional SiYuan storage-path prefixes."),
+    types: z.record(z.string(), z.boolean()).optional().describe("Optional block type filter forwarded to semantic search."),
+    subTypes: z.record(z.string(), z.boolean()).optional().describe("Optional block subtype filter forwarded to semantic search."),
+    includeRelatedDocuments: z.boolean().optional().describe("Attach documents that reference each candidate, default true."),
+});
+
 export const SearchQuerySqlSchema = z.object({
     action: z.literal("query_sql"),
     stmt: z.string().optional().describe("SQL SELECT statement over SiYuan index tables such as blocks, spans, assets, attributes, and refs. Raw SQL is available only when every configured notebook is readable."),

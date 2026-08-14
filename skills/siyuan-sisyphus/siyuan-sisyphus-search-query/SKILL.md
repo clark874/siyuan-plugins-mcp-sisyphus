@@ -1,12 +1,17 @@
 ---
 name: siyuan-sisyphus-search-query
-description: CLI-only playbook for finding and querying SiYuan content with siyuan-sisyphus. Use for fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.
+description: CLI-only playbook for finding and querying SiYuan content with siyuan-sisyphus. Use for semantic knowledge discovery, fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.
 ---
 
 # Search and Query SiYuan with the CLI
 
 Search to identify candidates, read the target by ID or path, and only then edit. Use explicit pagination for repeatable results.
 
+For a natural-language knowledge question on SiYuan 3.8.0+, start with the knowledge action. It uses the configured embedding provider, collapses reference-only hits into their target blocks, prefers named content atoms, and attaches documents that reuse each atom. Semantic hits are discovery candidates rather than evidence; always read the returned stable block ID and inspect its source and verification attributes before reuse.
+
+```bash
+siyuan-sisyphus search knowledge --query 'How is textnets projection weighting computed?' --page-size '10' --candidate-size '30' --json
+```
 ```bash
 siyuan-sisyphus search fulltext --query 'keyword' --page '1' --page-size '20' --json
 ```

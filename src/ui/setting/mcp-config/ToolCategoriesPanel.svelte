@@ -2,6 +2,7 @@
     import SettingPanel from "../../shared/setting-panel.svelte";
     import {
         ACTIONS_BY_CATEGORY,
+        SAFE_NATIVE_EXTENSION_TOOLS,
         TOOL_CATEGORIES,
         buildDefaultToolConfig,
         isDangerousAction,
@@ -40,6 +41,12 @@
     interface ChangeEvent { key: string; value: any; }
     type GroupAction = FsAction | NotebookAction | DocumentAction | BlockAction | AvAction | FileAction | SearchAction | TagAction | TimelineAction | SystemAction | FlashcardAction | ExtensionAction | MascotAction | FeedbackAction;
     const RESERVED_EXTENSION_ACTIONS = new Set(["help", "list"]);
+    const SAFE_NATIVE_TOOL_NAMES = new Set<string>(SAFE_NATIVE_EXTENSION_TOOLS);
+
+    function isExtensionToolPolicyAllowed(tool: UiOfficialMcpDiscovery["tools"][number]): boolean {
+        return tool.source === "plugin"
+            || (config.extension.includeNativeTools && SAFE_NATIVE_TOOL_NAMES.has(tool.name));
+    }
 
     interface GroupDefinition {
         category: ToolCategory;
@@ -405,7 +412,7 @@
         }, { plugin: 0, native: 0 });
         const visibleTools = extensionDiscovery.tools.filter((tool) =>
             !RESERVED_EXTENSION_ACTIONS.has(tool.name)
-            && (tool.source === "plugin" || config.extension.includeNativeTools)
+            && isExtensionToolPolicyAllowed(tool)
         );
         const exposedCount = visibleTools.filter((tool) =>
             !config.extension.blockedTools.includes(tool.name)
@@ -429,7 +436,7 @@
             ...visibleTools.map((tool) => tool.name),
             ...config.extension.blockedTools.filter((name) => {
                 const tool = discoveredByName.get(name);
-                return !tool || tool.source === "plugin" || config.extension.includeNativeTools;
+                return !tool || isExtensionToolPolicyAllowed(tool);
             }),
         ])].sort();
         const dynamicItems: ISettingItem[] = names.map((name) => {
@@ -453,10 +460,10 @@
                 type: "checkbox",
                 key: "extension__include_native_tools",
                 value: config.extension.includeNativeTools,
-                title: getLabel("extension_include_native_title", "Include native SiYuan MCP tools (high risk)"),
+                title: getLabel("extension_include_native_title", "Include safe native SiYuan MCP read tools"),
                 description: getLabel(
                     "extension_include_native_desc",
-                    "<strong>⚠️ Security boundary:</strong> Native tools execute with the current SiYuan administrator session or API Token and bypass Sisyphus notebook permissions, disabled actions, and dangerous-action confirmation, so they may read or modify all workspace data accessible to that identity.",
+                    "Only the fixed read-oriented allowlist search, ref, outline, web_fetch, and web_search is exposed. Native document, block, file, database, system, and other mutating or broad-control tools remain blocked by policy.",
                 ),
             },
             {
@@ -509,7 +516,7 @@
             return (config.extension.actions.list ? 1 : 0)
                 + extensionDiscovery.tools.filter((tool) =>
                     !RESERVED_EXTENSION_ACTIONS.has(tool.name)
-                    && (tool.source === "plugin" || config.extension.includeNativeTools)
+                    && isExtensionToolPolicyAllowed(tool)
                     && !config.extension.blockedTools.includes(tool.name)
                 ).length;
         }
@@ -520,7 +527,7 @@
         if (category === "extension") {
             return extensionDiscovery.tools.filter((tool) =>
                 !RESERVED_EXTENSION_ACTIONS.has(tool.name)
-                && (tool.source === "plugin" || config.extension.includeNativeTools)
+                && isExtensionToolPolicyAllowed(tool)
                 && !tool.readOnlyHint
             ).length;
         }
@@ -556,7 +563,7 @@
             totalActions: definition.category === "extension"
                 ? 1 + extensionDiscovery.tools.filter((tool) =>
                     !RESERVED_EXTENSION_ACTIONS.has(tool.name)
-                    && (tool.source === "plugin" || config.extension.includeNativeTools)
+                    && isExtensionToolPolicyAllowed(tool)
                 ).length
                 : ACTIONS_BY_CATEGORY[definition.category].length,
             dangerousActions: countDangerousActions(definition.category),

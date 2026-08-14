@@ -168,6 +168,34 @@ describe('system and notebook behavior', () => {
         expect(parsed.value.value).toBe(0);
     });
 
+    it('redacts sensitive configuration fields even when they are requested directly', async () => {
+        vi.spyOn(systemApi, 'getConf').mockResolvedValue({
+            conf: {
+                ai: {
+                    providers: [{ apiKey: 'live-secret-value', baseURL: 'https://example.com/v1' }],
+                },
+            },
+        });
+
+        const direct = await callSystemTool({} as never, {
+            action: 'conf',
+            mode: 'get',
+            keyPath: 'conf.ai.providers[0].apiKey',
+        }, systemConfig, permMgr as never);
+        const subtree = await callSystemTool({} as never, {
+            action: 'conf',
+            mode: 'get',
+            keyPath: 'conf.ai.providers[0]',
+            maxDepth: 3,
+        }, systemConfig, permMgr as never);
+
+        expect(direct.content[0].text).not.toContain('live-secret-value');
+        expect(parseResult(direct).value.value).toBe('[REDACTED]');
+        expect(subtree.content[0].text).not.toContain('live-secret-value');
+        expect(parseResult(subtree).value.entries.apiKey.value).toBe('[REDACTED]');
+        expect(parseResult(subtree).value.entries.baseURL.value).toBe('https://example.com/v1');
+    });
+
     it('returns a retryable notebook-state error for get_child_docs right after close', async () => {
         vi.spyOn(contextTools, 'ensurePermissionForNotebook').mockResolvedValue(null);
         vi.spyOn(notebookApi, 'listNotebooks').mockResolvedValue({

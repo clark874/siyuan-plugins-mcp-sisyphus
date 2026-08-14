@@ -10,6 +10,7 @@ import {
     SearchFulltextSchema,
     SearchGetBacklinksSchema,
     SearchListInvalidRefsSchema,
+    SearchKnowledgeSchema,
     SearchQuerySqlSchema,
     SearchRefsSchema,
 } from '../../core/types';
@@ -28,6 +29,7 @@ export const SEARCH_TOOL_NAME = 'search';
 
 export const SEARCH_VARIANTS: ActionVariant<SearchAction>[] = [
     createZodActionVariant('fulltext', SearchFulltextSchema, 'Full-text search across all blocks.'),
+    createZodActionVariant('knowledge', SearchKnowledgeSchema, 'Discover knowledge with semantic search, collapse reference-only hits, prefer named content atoms, and attach related documents.'),
     createZodActionVariant('query_sql', SearchQuerySqlSchema, 'Execute a read-only SQL query against the database.'),
     createZodActionVariant('get_backlinks', SearchGetBacklinksSchema, 'Find documents/blocks that link to or mention the given block.'),
     createZodActionVariant('search_refs', SearchRefsSchema, 'Search blocks that reference a given block or document.'),

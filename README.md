@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.19`（CLI `v0.2.4-local.3`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、知识摄取与知识治理 Skill、按需工作区记忆、实时 Agent bootstrap、单一 Sisyphus 网关便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动历史 Diff 的“最近更新”时间轴。完整说明见 [layered Agent memory design](docs/plans/2026-08-12-layered-agent-memory-and-knowledge-governance-design.md)、[single-gateway delivery design](docs/plans/2026-08-12-single-gateway-agent-delivery-design.md)、[recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
+> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.20`（CLI `v0.2.4-local.4`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、语义知识检索与项目关系展开、知识摄取与知识治理 Skill、窄化的官方 MCP 只读桥接、按需工作区记忆、实时 Agent bootstrap、单一 Sisyphus 网关便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动历史 Diff 的“最近更新”时间轴。完整说明见 [layered Agent memory design](docs/plans/2026-08-12-layered-agent-memory-and-knowledge-governance-design.md)、[single-gateway delivery design](docs/plans/2026-08-12-single-gateway-agent-delivery-design.md)、[recent-history diff design](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system tool](docs/reference/tools/system.md) and [search tool](docs/reference/tools/search.md).
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Local maintenance release:** `v0.7.5-local.19` — Adds the workspace control plane, read-only bazaar catalog, secure SQL analytics, knowledge-ingestion and knowledge-governance Skills, on-demand workspace memory, live Agent bootstrap, a portable single-Sisyphus-gateway onboarding kit, and a paginated Recent Updates timeline with optional parent-document grouping and native document-history diff on top of upstream `v0.6.0`. The local CLI is `v0.2.4-local.3`.
+> **Local maintenance release:** `v0.7.5-local.20` — Adds semantic knowledge retrieval with reference collapse and related-project expansion, a fixed read-oriented native MCP allowlist, the workspace control plane, secure SQL analytics, knowledge Skills, on-demand workspace memory, live Agent bootstrap, a portable single-Sisyphus-gateway onboarding kit, and the Recent Updates timeline on top of upstream `v0.6.0`. The local CLI is `v0.2.4-local.4`.
 
 ## Project Direction Update
 

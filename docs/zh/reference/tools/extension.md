@@ -15,9 +15,9 @@
 
 启用原生工具后，响应中的 `detailsIncluded=true`，并额外返回各工具的名称、描述、只读声明、影响范围、降级 schema，以及在 Sisyphus 设置中被屏蔽的状态。`extension` 总览帮助遵循相同规则；仍可通过 `help(topic="<tool>")` 按需查看一个明确指定的工具。
 
-默认接收 `source="plugin"` 的工具。在插件设置中启用 `extension.includeNativeTools=true` 后，也会包含 `source="native"` 的思源原生工具；缺失 source 时按官方兼容规则视为 native。从外部 MCP Server 导入的 `source="mcp"` 工具和本插件自身命名空间仍会被排除。
+默认接收 `source="plugin"` 的工具。启用 `extension.includeNativeTools=true` 后，Sisyphus 只暴露固定的原生白名单：`search`、`ref`、`outline`、`web_fetch`、`web_search`。原生 `document`、`block`、`file`、`database`、`system` 以及其他宽权限或修改类工具，即使持久化屏蔽列表为空，也会被策略层拒绝。缺失 source 时按官方兼容规则视为 native。从外部 MCP Server 导入的 `source="mcp"` 工具和本插件自身命名空间仍会被排除。
 
-原生工具默认关闭，因为其中多项能力与 Sisyphus 聚合 action 重叠，并会明显增加 `extension` Schema 体积。
+全新安装默认启用这条窄化的只读桥接，用官方发现与网络读取补充 Sisyphus，同时不建立第二条笔记写入路径。
 若官方工具名为 `help` 或 `list`，发现结果会标记保留 action 冲突，但不会暴露该工具。
 
 ## 调用官方工具
@@ -45,17 +45,17 @@ siyuan extension plugin__example_plugin__search \
 
 ```json
 {
-  "action": "document",
+  "action": "search",
   "arguments": {
-    "action": "read",
-    "id": "20240318112233-abc123"
+    "action": "semantic",
+    "query": "知识图谱"
   }
 }
 ```
 
 ```bash
-siyuan extension document \
-  --arguments-json '{"action":"read","id":"20240318112233-abc123"}'
+siyuan extension search \
+  --arguments-json '{"action":"semantic","query":"知识图谱"}'
 ```
 
 ## 安全与生命周期
@@ -73,7 +73,7 @@ siyuan extension document \
 官方发现需要思源 3.7.0 或更高版本、管理员会话和有效 API Token。该要求只属于 `extension`；Sisyphus 插件的 `minAppVersion` 仍为 2.9.0。
 
 > [!WARNING]
-> 原生工具桥接不经过 Sisyphus 的笔记本权限、action 禁用和危险操作确认，而是直接按当前思源管理员会话或 API Token 的权限执行。官方原生聚合工具目前也没有通过 `tools/list` 暴露内层 action 级风险信息，因此工具级 `readOnlyHint` 无法区分只读与写入 action。请将所有原生转发调用视为可能产生副作用，仅对本机或完全可信的客户端启用，不要向不可信远程客户端开放。
+> 原生工具桥接不经过 Sisyphus 的笔记本权限。因此固定白名单只包含上述五个只读导向工具；笔记、块、数据库、文件、配置、历史、仓库、导入导出及其他具有写入能力或宽控制面的原生工具，在 Schema 暴露和调用前都会被拒绝。`web_search` 与 `web_fetch` 仍会把查询或网址发送给外部服务，因此只应向可信本地客户端开放。
 
 ## 官方 MCP 与 Sisyphus 的关系
 

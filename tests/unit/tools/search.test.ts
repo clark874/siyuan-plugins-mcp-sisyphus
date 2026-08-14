@@ -157,6 +157,196 @@ describe('search tool filtering', () => {
         expect(actionDescription).toContain('find_replace');
         expect(actionDescription).toContain('search_assets');
         expect(actionDescription).toContain('list_invalid_refs');
+        expect(actionDescription).toContain('knowledge');
+    });
+
+    it('collapses semantic reference hits into named knowledge atoms and attaches related documents', async () => {
+        const client = createMockClient({
+            request: async (endpoint: string, body: any) => {
+                if (endpoint === '/api/search/semanticSearchBlock') {
+                    expect(body).toMatchObject({
+                        query: 'textnets 投影权重怎么算',
+                        page: 1,
+                        pageSize: 12,
+                    });
+                    return {
+                        blocks: [
+                            { id: '20260814100000-plain01', box: 'allowed', rootID: '20260814100000-plainrt', hPath: '/Plain', type: 'p', content: 'unnamed but highest-ranked result' },
+                            { id: '20260814100000-ref0001', box: 'allowed', rootID: '20260814100000-hub0001', hPath: '/Hub', type: 'p', content: '((atom))' },
+                            { id: '20260814100000-ref0002', box: 'allowed', rootID: '20260814100000-hub0001', hPath: '/Hub', type: 'i', content: '- ((atom))' },
+                            { id: '20260814100000-atom001', box: 'allowed', rootID: '20260814100000-wiki001', hPath: '/Wiki', type: 'p', content: '投影权重正文' },
+                            { id: '20260814100000-noise01', box: 'allowed', rootID: '20260814100000-noised1', hPath: '/Noise', type: 'h', content: '相关标题' },
+                        ],
+                        matchedBlockCount: 5,
+                        matchedRootCount: 4,
+                        pageCount: 1,
+                    };
+                }
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body.stmt);
+                    if (stmt.includes('SELECT block_id, def_block_id FROM refs WHERE block_id IN')) {
+                        return [
+                            { id: '20260814100000-plain01', root_id: '20260814100000-plainrt', box: 'allowed', hpath: '/Plain', type: 'p', name: '', alias: '', content: 'unnamed but highest-ranked result', markdown: 'unnamed but highest-ranked result' },
+                            { block_id: '20260814100000-ref0001', def_block_id: '20260814100000-atom001' },
+                            { block_id: '20260814100000-ref0002', def_block_id: '20260814100000-atom001' },
+                        ];
+                    }
+                    if (stmt.includes('FROM blocks') && stmt.includes('WHERE id IN')) {
+                        return [
+                            { id: '20260814100000-ref0001', root_id: '20260814100000-hub0001', box: 'allowed', hpath: '/Hub', type: 'p', name: '', alias: '', content: '((atom))', markdown: '((atom))' },
+                            { id: '20260814100000-ref0002', root_id: '20260814100000-hub0001', box: 'allowed', hpath: '/Hub', type: 'i', name: '', alias: '', content: '- ((atom))', markdown: '- ((atom))' },
+                            { id: '20260814100000-atom001', root_id: '20260814100000-wiki001', box: 'allowed', hpath: '/Wiki', type: 'p', name: 'textnets-projection-weighting', alias: 'textnets投影权重', content: '投影权重正文', markdown: '投影权重正文' },
+                            { id: '20260814100000-noise01', root_id: '20260814100000-noised1', box: 'allowed', hpath: '/Noise', type: 'h', name: '', alias: '', content: '相关标题', markdown: '## 相关标题' },
+                        ];
+                    }
+                    if (stmt.includes('source_root_id')) {
+                        return [
+                            { target_id: '20260814100000-atom001', source_root_id: '20260814100000-proj001', box: 'allowed', source_hpath: '/Projects/Example', source_title: 'Example Project' },
+                        ];
+                    }
+                }
+                if (endpoint === '/api/notebook/lsNotebooks') {
+                    return { notebooks: [{ id: 'allowed', name: 'Work', icon: '', sort: 0, closed: false }] };
+                }
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            },
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({}),
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'knowledge',
+            query: 'textnets 投影权重怎么算',
+            pageSize: 10,
+            candidateSize: 12,
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.data).toHaveLength(3);
+        expect(parsed.data[0]).toMatchObject({
+            id: '20260814100000-atom001',
+            name: 'textnets-projection-weighting',
+            semanticRank: 2,
+            deduplicatedRank: 1,
+            collapsedReferenceCount: 2,
+            sourceResultIds: [
+                '20260814100000-ref0001',
+                '20260814100000-ref0002',
+                '20260814100000-atom001',
+            ],
+            relatedDocuments: [{
+                id: '20260814100000-proj001',
+                hpath: '/Projects/Example',
+                title: 'Example Project',
+            }],
+        });
+        expect(parsed.data[1]).toMatchObject({
+            id: '20260814100000-plain01',
+            deduplicatedRank: 2,
+        });
+        expect(parsed.data[2]).toMatchObject({
+            id: '20260814100000-noise01',
+            deduplicatedRank: 3,
+        });
+        expect(parsed.semanticCandidateCount).toBe(5);
+        expect(parsed.deduplicatedCount).toBe(3);
+        expect(parsed.dataEgress).toBe(true);
+        expect(parsed.externalCost).toBe(true);
+    });
+
+    it('filters restricted semantic candidates before knowledge expansion', async () => {
+        const request = vi.fn(async (endpoint: string) => {
+            if (endpoint === '/api/search/semanticSearchBlock') {
+                return {
+                    blocks: [
+                        { id: '20260814100000-keep001', box: 'allowed', rootID: '20260814100000-doc0001', hPath: '/Allowed', type: 'p', content: 'allowed' },
+                        { id: '20260814100000-drop001', box: 'blocked', rootID: '20260814100000-doc0002', hPath: '/Blocked', type: 'p', content: 'blocked' },
+                    ],
+                    matchedBlockCount: 2,
+                    matchedRootCount: 2,
+                    pageCount: 1,
+                };
+            }
+            if (endpoint === '/api/query/sql') return [];
+            if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [] };
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const client = createMockClient({ request });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: (id: string) => id !== 'blocked',
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({ allowed: 'rwd', blocked: 'none' }),
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'knowledge',
+            query: 'allowed query',
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.permissionFilteredCount).toBe(1);
+        expect(JSON.stringify(parsed)).not.toContain('drop001');
+        const sqlCalls = request.mock.calls.filter(([endpoint]) => endpoint === '/api/query/sql');
+        expect(JSON.stringify(sqlCalls)).not.toContain('drop001');
+    });
+
+    it('does not reveal a restricted target ID reached from a readable semantic reference', async () => {
+        const request = vi.fn(async (endpoint: string, body: any) => {
+            if (endpoint === '/api/search/semanticSearchBlock') {
+                return {
+                    blocks: [{
+                        id: '20260814100000-refkeep', box: 'allowed', rootID: '20260814100000-doc0001',
+                        hPath: '/Allowed', type: 'p', content: '((restricted target))',
+                    }],
+                    matchedBlockCount: 1,
+                    matchedRootCount: 1,
+                    pageCount: 1,
+                };
+            }
+            if (endpoint === '/api/query/sql') {
+                const stmt = String(body.stmt);
+                if (stmt.includes('SELECT block_id, def_block_id FROM refs WHERE block_id IN')) {
+                    return [{ block_id: '20260814100000-refkeep', def_block_id: '20260814100000-secret1' }];
+                }
+                if (stmt.includes('FROM blocks') && stmt.includes('WHERE id IN')) {
+                    return [
+                        { id: '20260814100000-refkeep', root_id: '20260814100000-doc0001', box: 'allowed', hpath: '/Allowed', type: 'p', name: '', content: '((restricted target))' },
+                        { id: '20260814100000-secret1', root_id: '20260814100000-doc0002', box: 'blocked', hpath: '/Blocked', type: 'p', name: 'secret-atom', content: 'secret' },
+                    ];
+                }
+                return [];
+            }
+            if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [] };
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const client = createMockClient({ request });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: (id: string) => id !== 'blocked',
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({ allowed: 'rwd', blocked: 'none' }),
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'knowledge',
+            query: 'readable reference',
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.data).toEqual([]);
+        expect(JSON.stringify(parsed)).not.toContain('secret1');
+        expect(JSON.stringify(parsed)).not.toContain('secret-atom');
     });
 
     it('publishes fulltext types as a boolean object map', () => {

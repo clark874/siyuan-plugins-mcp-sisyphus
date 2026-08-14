@@ -60,6 +60,19 @@ function officialFetch(): typeof fetch {
                             readOnlyHint: false,
                             effectScope: 'local',
                         },
+                        {
+                            name: 'search',
+                            title: 'Native search',
+                            description: 'The native SiYuan search tool.',
+                            inputSchema: {
+                                type: 'object',
+                                properties: { action: { type: 'string' } },
+                                required: ['action'],
+                            },
+                            source: 'native',
+                            readOnlyHint: true,
+                            effectScope: 'external-network',
+                        },
                     ],
                 },
             }), { headers: { 'Content-Type': 'application/json' } });
@@ -134,7 +147,7 @@ describe('extension server integration', () => {
         }
     });
 
-    it('exposes and forwards native tools when includeNativeTools is enabled', async () => {
+    it('exposes and forwards only safe native tools when includeNativeTools is enabled', async () => {
         process.env.SIYUAN_TOKEN = 'test-token';
         const config = buildDefaultToolConfig();
         config.extension.includeNativeTools = true;
@@ -167,18 +180,19 @@ describe('extension server integration', () => {
             await vi.waitFor(async () => {
                 const listed = await client.listTools();
                 extension = listed.tools.find((tool) => tool.name === 'extension');
-                expect((extension!.inputSchema.properties?.action as any).enum).toContain('document');
+                expect((extension!.inputSchema.properties?.action as any).enum).toContain('search');
             });
-            expect((extension!.inputSchema.properties?.action as any).enum).toContain('document');
+            expect((extension!.inputSchema.properties?.action as any).enum).toContain('search');
+            expect((extension!.inputSchema.properties?.action as any).enum).not.toContain('document');
 
             const result = await client.callTool({
                 name: 'extension',
                 arguments: {
-                    action: 'document',
-                    arguments: { action: 'read', id: 'doc-id' },
+                    action: 'search',
+                    arguments: { action: 'semantic', query: 'knowledge' },
                 },
             });
-            expect((result.content[0] as { text: string }).text).toContain('"id":"doc-id"');
+            expect((result.content[0] as { text: string }).text).toContain('"query":"knowledge"');
         } finally {
             await client.close();
         }

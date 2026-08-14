@@ -24,7 +24,7 @@ Notebook permissions are `rwd`, `rw`, `r`, and `none`. Missing content can mean 
 Obtain explicit approval before notebook/document/block deletion or move, bulk replacement, asset upload or deletion, local-path export, tag/card removal, permission changes, and workspace path disclosure. State the exact target and consequence. A prior request to inspect or diagnose is not approval to mutate.
 
 ```text
-system(action="conf", mode="summary")
+system(action="audit_environment")
 ```
 ```text
 system(action="network")

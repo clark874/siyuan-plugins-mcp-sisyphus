@@ -404,14 +404,17 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
         id: 'search-query',
         cliName: 'siyuan-sisyphus-search-query',
         mcpName: 'siyuan-mcp-search-query',
-        cliDescription: 'CLI-only playbook for finding and querying SiYuan content with siyuan-sisyphus. Use for fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.',
-        mcpDescription: 'MCP playbook for finding and querying SiYuan content. Use for fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.',
+        cliDescription: 'CLI-only playbook for finding and querying SiYuan content with siyuan-sisyphus. Use for semantic knowledge discovery, fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.',
+        mcpDescription: 'MCP playbook for finding and querying SiYuan content. Use for semantic knowledge discovery, fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.',
         title: 'Search and Query SiYuan',
         displayName: 'SiYuan Search & Query',
         shortDescription: 'Search and query SiYuan knowledge',
         defaultPrompt: 'Use $NAME to find and query the requested SiYuan knowledge.',
         body: `Search to identify candidates, read the target by ID or path, and only then edit. Use explicit pagination for repeatable results.
 
+For a natural-language knowledge question on SiYuan 3.8.0+, start with the knowledge action. It uses the configured embedding provider, collapses reference-only hits into their target blocks, prefers named content atoms, and attaches documents that reuse each atom. Semantic hits are discovery candidates rather than evidence; always read the returned stable block ID and inspect its source and verification attributes before reuse.
+
+{{call knowledge}}
 {{call fulltext}}
 {{call scoped}}
 {{call sql}}
@@ -430,6 +433,7 @@ This action mutates content. First search, read each target, show the exact old/
 Read the changed blocks again. Recent writes can take time to enter the search index; verify a fresh mutation by ID or path rather than assuming an empty search means failure. Use {{help search query_sql}} for live SQL action constraints.
 `,
         calls: {
+            knowledge: call('search', 'knowledge', { query: 'How is textnets projection weighting computed?', pageSize: 10, candidateSize: 30 }),
             fulltext: call('search', 'fulltext', { query: 'keyword', page: 1, pageSize: 20 }),
             scoped: call('search', 'fulltext', { query: 'keyword', parentId: '<doc-id>', typeShortcodes: ['h', 'p'] }),
             sql: call('search', 'query_sql', { stmt: "SELECT id, hpath, content FROM blocks WHERE type = 'p' ORDER BY updated DESC LIMIT 10" }),
@@ -620,7 +624,7 @@ Notebook permissions are \`rwd\`, \`rw\`, \`r\`, and \`none\`. Missing content c
 
 Obtain explicit approval before notebook/document/block deletion or move, bulk replacement, asset upload or deletion, local-path export, tag/card removal, permission changes, and workspace path disclosure. State the exact target and consequence. A prior request to inspect or diagnose is not approval to mutate.
 
-{{call conf}}
+{{call audit}}
 {{call network}}
 {{call notify}}
 
@@ -632,7 +636,7 @@ If an action or field is rejected, inspect {{help * *}} instead of guessing. Sea
             version: call('system', 'get_version'),
             time: call('system', 'get_current_time'),
             permissions: call('notebook', 'get_permissions'),
-            conf: call('system', 'conf', { mode: 'summary' }),
+            audit: call('system', 'audit_environment'),
             network: call('system', 'network'),
             notify: call('system', 'notify', { msg: 'Task complete', level: 'info', timeout: 5000 }),
         },

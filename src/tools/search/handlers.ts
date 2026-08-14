@@ -18,10 +18,11 @@ import {
     SearchFulltextSchema,
     SearchGetBacklinksSchema,
     SearchListInvalidRefsSchema,
+    SearchKnowledgeSchema,
     SearchQuerySqlSchema,
     SearchRefsSchema,
 } from '../../core/types';
-import { ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveNotebookForPath } from '../internal/context';
+import { ensurePermissionForDocumentId, ensurePermissionForNotebook, escapeSqlString, resolveNotebookForPath } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
 import { enrichItemsWithNotebookNames } from '../internal/helpers/notebook-names';
 import { applyTruncation, createErrorResult, createJsonResult, createPaginatedResult, type ToolResult, type TruncationMeta } from '../internal/shared';
@@ -40,6 +41,7 @@ const SEARCH_TOOL_NAME = 'search';
 type SearchFulltextArgs = ReturnType<(typeof SearchFulltextSchema)['parse']>;
 type SearchFulltextAssetContentArgs = ReturnType<(typeof SearchFulltextAssetContentSchema)['parse']>;
 type SearchFindReplaceArgs = ReturnType<(typeof SearchFindReplaceSchema)['parse']>;
+type SearchKnowledgeArgs = ReturnType<(typeof SearchKnowledgeSchema)['parse']>;
 type SearchMethodArgs = {
     method?: number;
     methodName?: string;
@@ -90,6 +92,185 @@ function resolveFulltextRequestPageSize(parsed: SearchFulltextArgs): number | un
     return parsed.parentId
         ? Math.min((parsed.pageSize ?? 32) * 3, 128)
         : parsed.pageSize;
+}
+
+function readStringField(row: Record<string, unknown>, ...keys: string[]): string {
+    for (const key of keys) {
+        const value = row[key];
+        if (typeof value === 'string') return value;
+    }
+    return '';
+}
+
+function sqlStringList(values: string[]): string {
+    return values.map((value) => `'${escapeSqlString(value)}'`).join(', ');
+}
+
+async function knowledgeSearch(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    permMgr: Parameters<ToolActionHandler>[0]['permMgr'],
+    parsed: SearchKnowledgeArgs,
+): Promise<ToolResult> {
+    const pageSize = parsed.pageSize ?? 10;
+    const candidateSize = parsed.candidateSize ?? Math.min(Math.max(pageSize * 3, 20), 100);
+    const semantic = await searchApi.semanticSearchBlock(client, {
+        query: parsed.query,
+        page: 1,
+        pageSize: candidateSize,
+        ...(parsed.notebooks ? { boxes: parsed.notebooks } : {}),
+        ...(parsed.paths ? { paths: parsed.paths } : {}),
+        ...(parsed.types ? { types: parsed.types } : {}),
+        ...(parsed.subTypes ? { subTypes: parsed.subTypes } : {}),
+    });
+    const filteredSemantic = filterFullTextSearchResultByPermission(semantic, permMgr) as unknown as Record<string, unknown>;
+    const semanticBlocks = Array.isArray(filteredSemantic.blocks)
+        ? filteredSemantic.blocks.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+        : [];
+    const semanticIds = semanticBlocks.map((item) => readStringField(item, 'id')).filter(Boolean);
+    const permissionFilteredCount = typeof filteredSemantic.filteredOutBlockCount === 'number'
+        ? filteredSemantic.filteredOutBlockCount as number
+        : 0;
+    if (semanticIds.length === 0) {
+        return createJsonResult({
+            query: parsed.query,
+            data: [],
+            semanticCandidateCount: 0,
+            deduplicatedCount: 0,
+            permissionFilteredCount,
+            dataEgress: true,
+            externalCost: true,
+            hint: 'Semantic discovery produced no readable candidates. Verify the embedding index and broaden the query or scope.',
+        });
+    }
+
+    const referenceRows = await searchApi.querySQL(
+        client,
+        `SELECT block_id, def_block_id FROM refs WHERE block_id IN (${sqlStringList(semanticIds)}) LIMIT 500`,
+    ) as Array<Record<string, unknown>>;
+    const referencedTargets = new Map<string, string[]>();
+    for (const row of referenceRows) {
+        const blockId = readStringField(row, 'block_id');
+        const targetId = readStringField(row, 'def_block_id');
+        if (!blockId || !targetId) continue;
+        const targets = referencedTargets.get(blockId) ?? [];
+        if (!targets.includes(targetId)) targets.push(targetId);
+        referencedTargets.set(blockId, targets);
+    }
+
+    const allBlockIds = [...new Set([...semanticIds, ...referenceRows.map((row) => readStringField(row, 'def_block_id')).filter(Boolean)])];
+    const blockRowsRaw = await searchApi.querySQL(
+        client,
+        `SELECT id, root_id, box, path, hpath, type, subtype, name, alias, content, markdown FROM blocks WHERE id IN (${sqlStringList(allBlockIds)}) LIMIT 500`,
+    );
+    const blockRowsPermission = await filterItemsByPermission(client, blockRowsRaw, permMgr);
+    const blockRows = blockRowsPermission.items.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object');
+    const blockById = new Map(blockRows.map((row) => [readStringField(row, 'id'), row]));
+    for (const semanticBlock of semanticBlocks) {
+        const id = readStringField(semanticBlock, 'id');
+        if (!blockById.has(id)) blockById.set(id, semanticBlock);
+    }
+
+    type AccumulatedCandidate = {
+        targetId: string;
+        semanticRank: number;
+        sourceResultIds: string[];
+        collapsedReferenceCount: number;
+    };
+    const accumulated = new Map<string, AccumulatedCandidate>();
+    semanticBlocks.forEach((semanticBlock, index) => {
+        const sourceId = readStringField(semanticBlock, 'id');
+        const sourceMeta = blockById.get(sourceId) ?? semanticBlock;
+        const sourceHasName = readStringField(sourceMeta, 'name').trim().length > 0;
+        const rawTargets = sourceHasName
+            ? [sourceId]
+            : (referencedTargets.get(sourceId)?.length ? referencedTargets.get(sourceId)! : [sourceId]);
+        // A readable reference can point at a block in a restricted notebook.
+        // Only expand targets whose block metadata survived permission filtering;
+        // otherwise the target ID itself would become an ownership side channel.
+        const targets = rawTargets.filter((targetId) => blockById.has(targetId));
+        for (const targetId of targets) {
+            const current = accumulated.get(targetId) ?? {
+                targetId,
+                semanticRank: index + 1,
+                sourceResultIds: [],
+                collapsedReferenceCount: 0,
+            };
+            if (!current.sourceResultIds.includes(sourceId)) current.sourceResultIds.push(sourceId);
+            if (targetId !== sourceId) current.collapsedReferenceCount += 1;
+            current.semanticRank = Math.min(current.semanticRank, index + 1);
+            accumulated.set(targetId, current);
+        }
+    });
+
+    const ordered = [...accumulated.values()].sort((left, right) => {
+        const leftNamed = readStringField(blockById.get(left.targetId) ?? {}, 'name').trim().length > 0;
+        const rightNamed = readStringField(blockById.get(right.targetId) ?? {}, 'name').trim().length > 0;
+        if (leftNamed !== rightNamed) return leftNamed ? -1 : 1;
+        return left.semanticRank - right.semanticRank;
+    });
+    const targetIds = ordered.map((item) => item.targetId);
+    const relatedByTarget = new Map<string, Array<{ id: string; hpath: string; title: string }>>();
+    if ((parsed.includeRelatedDocuments ?? true) && targetIds.length > 0) {
+        const relatedRowsRaw = await searchApi.querySQL(client, [
+            'SELECT r.def_block_id AS target_id, src.root_id AS source_root_id, src.box AS box,',
+            'root.hpath AS source_hpath, root.content AS source_title',
+            'FROM refs r JOIN blocks src ON src.id = r.block_id JOIN blocks root ON root.id = src.root_id',
+            `WHERE r.def_block_id IN (${sqlStringList(targetIds)})`,
+            'GROUP BY r.def_block_id, src.root_id, src.box, root.hpath, root.content LIMIT 500',
+        ].join(' '));
+        const relatedRowsPermission = await filterItemsByPermission(client, relatedRowsRaw, permMgr);
+        for (const rowValue of relatedRowsPermission.items) {
+            if (!rowValue || typeof rowValue !== 'object') continue;
+            const row = rowValue as Record<string, unknown>;
+            const targetId = readStringField(row, 'target_id');
+            const sourceRootId = readStringField(row, 'source_root_id');
+            if (!targetId || !sourceRootId) continue;
+            const items = relatedByTarget.get(targetId) ?? [];
+            if (!items.some((item) => item.id === sourceRootId)) {
+                items.push({
+                    id: sourceRootId,
+                    hpath: readStringField(row, 'source_hpath'),
+                    title: readStringField(row, 'source_title'),
+                });
+            }
+            relatedByTarget.set(targetId, items);
+        }
+    }
+
+    const data = ordered.slice(0, pageSize).map((item, index) => {
+        const row = blockById.get(item.targetId) ?? {};
+        if (!item.sourceResultIds.includes(item.targetId) && semanticIds.includes(item.targetId)) {
+            item.sourceResultIds.push(item.targetId);
+        }
+        return {
+            id: item.targetId,
+            rootId: readStringField(row, 'root_id', 'rootID'),
+            box: readStringField(row, 'box', 'notebook'),
+            hpath: readStringField(row, 'hpath', 'hPath'),
+            type: readStringField(row, 'type'),
+            name: readStringField(row, 'name'),
+            alias: readStringField(row, 'alias'),
+            content: readStringField(row, 'content', 'markdown'),
+            semanticRank: item.semanticRank,
+            deduplicatedRank: index + 1,
+            collapsedReferenceCount: item.collapsedReferenceCount,
+            sourceResultIds: item.sourceResultIds,
+            relatedDocuments: relatedByTarget.get(item.targetId) ?? [],
+        };
+    });
+    return createJsonResult({
+        query: parsed.query,
+        data,
+        semanticCandidateCount: semanticBlocks.length,
+        deduplicatedCount: ordered.length,
+        showing: data.length,
+        truncated: ordered.length > data.length,
+        permissionFilteredCount: permissionFilteredCount + blockRowsPermission.removedCount,
+        dataEgress: true,
+        externalCost: true,
+        retrievalProtocol: ['semantic_discovery', 'reference_collapse', 'named_atom_confirmation', 'related_document_expansion'],
+        hint: 'Semantic results are candidates, not evidence. Read the returned block by stable ID and verify its source/verification attributes before reuse.',
+    });
 }
 
 function applyFulltextParentIdFilter(normalizedObj: Record<string, unknown>, parentId: string): void {
@@ -280,6 +461,10 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
                 ? (result as unknown as Record<string, unknown>).pageCount as number
                 : undefined,
         }, resolvedArgs);
+    },
+    knowledge: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchKnowledgeSchema.parse(rawArgs);
+        return knowledgeSearch(client, permMgr, parsed);
     },
     query_sql: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchQuerySqlSchema.parse(rawArgs);

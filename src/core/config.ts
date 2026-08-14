@@ -10,7 +10,7 @@ export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'remove', 'move',
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'replace', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'batch_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info'] as const;
 export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values'] as const;
 export const FILE_ACTIONS = ['upload_asset', 'list_templates', 'read_template', 'create_template', 'update_template', 'delete_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
-export const SEARCH_ACTIONS = ['fulltext', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
+export const SEARCH_ACTIONS = ['fulltext', 'knowledge', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'compare_recent', 'delete_node', 'rollback_document', 'rollback_block'] as const;
 export const TIMELINE_APP_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'delete_node', 'rollback_document', 'rollback_block'] as const;
@@ -21,6 +21,14 @@ export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'revie
 export const EXTENSION_ACTIONS = ['list'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 export const FEEDBACK_ACTIONS = ['submit'] as const;
+
+export const SAFE_NATIVE_EXTENSION_TOOLS = ['search', 'ref', 'web_fetch', 'web_search', 'outline'] as const;
+export const DEFAULT_BLOCKED_NATIVE_EXTENSION_TOOLS = [
+    'asset', 'attr', 'block', 'bookmark', 'dailynote', 'database', 'document',
+    'export', 'file', 'history', 'http_request', 'image', 'import', 'inbox',
+    'notebook', 'question', 'repo', 'skill', 'sql', 'sync', 'system', 'tag',
+    'template', 'todo_write', 'unzip', 'workspace',
+] as const;
 
 export type FsAction = typeof FS_ACTIONS[number];
 export type NotebookAction = typeof NOTEBOOK_ACTIONS[number];
@@ -194,7 +202,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         delete_asset: 'advanced',
     },
     search: {
-        fulltext: 'basic', query_sql: 'basic',
+        fulltext: 'basic', knowledge: 'basic', query_sql: 'basic',
         get_backlinks: 'basic',
         search_refs: 'advanced', find_replace: 'advanced', search_assets: 'advanced',
         fulltext_asset_content: 'advanced', list_invalid_refs: 'advanced',
@@ -293,7 +301,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         search: {
             enabled: true,
-            actions: createActionsRecord(SEARCH_ACTIONS, ['fulltext', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs']),
+            actions: createActionsRecord(SEARCH_ACTIONS, ['fulltext', 'knowledge', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs']),
         },
         tag: {
             enabled: true,
@@ -305,7 +313,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         system: {
             enabled: true,
-            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'audit_environment', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change']),
+            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'audit_environment', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change']),
         },
         flashcard: {
             enabled: true,
@@ -314,8 +322,8 @@ export function buildDefaultToolConfig(): ToolConfig {
         extension: {
             enabled: true,
             actions: createActionsRecord(EXTENSION_ACTIONS, ['list']),
-            includeNativeTools: false,
-            blockedTools: [],
+            includeNativeTools: true,
+            blockedTools: [...DEFAULT_BLOCKED_NATIVE_EXTENSION_TOOLS],
         },
         mascot: {
             enabled: true,

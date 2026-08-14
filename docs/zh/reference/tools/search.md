@@ -1,6 +1,6 @@
 # search 工具
 
-这个工具覆盖全文搜索、反链、SQL 只读查询、资源搜索，以及受控查找替换。
+这个工具覆盖语义知识发现、全文搜索、反链、SQL 只读查询、资源搜索，以及受控查找替换。
 
 适用场景：你需要跨工作区查找内容，或查询索引内容。
 
@@ -13,6 +13,7 @@
 
 | 分组 | 动作 |
 |------|---------|
+| 知识检索 | `knowledge` |
 | 文本搜索 | `fulltext`, `search_refs` |
 | 图谱 / 引用关系 | `get_backlinks`, `list_invalid_refs` |
 | SQL / 资源 | `query_sql`, `search_assets`, `fulltext_asset_content` |
@@ -24,11 +25,22 @@
 - `query_sql` 是只读操作，只接受 `SELECT` 语句；请自行添加 `LIMIT`。`maxRows` 控制权限过滤后的返回窗口，默认 200、最大 1000。
 - 任意 SQL 都可以伪造或隐藏结果来源，因此 `query_sql` 只在全部笔记本均可读时开放。只要有任一笔记本权限为 `none`，MCP 就会在执行前保守拒绝，并提示改用带范围约束的搜索或数据库动作。全部笔记本可读时，聚合、分组、CTE 和普通结果都不再逐行查询归属。
 - 搜索结果会在适用时按笔记本权限过滤。
+- `knowledge` 需要思源 3.8.0+，并且已经配置嵌入模型。自然语言查询会发送给该模型提供商，可能产生费用。该动作先过滤语义候选的笔记本权限，再把仅含块引用的命中折叠到目标块，优先返回具有 `name` 的内容原子，并附带引用该原子的可读文档。
+- 语义命中只用于发现候选，不等于证据。复用前必须按返回的稳定块 ID 读取原文，并检查来源与验证属性。
 - 全文搜索可能略滞后于刚写入的内容，因为索引是最终一致的。
 
 ## 示例
 
 MCP：
+
+```json
+{
+  "action": "knowledge",
+  "query": "textnets 的投影权重如何计算？",
+  "pageSize": 10,
+  "candidateSize": 30
+}
+```
 
 ```json
 {
@@ -49,6 +61,7 @@ MCP：
 CLI：
 
 ```bash
+siyuan search knowledge --query "textnets 的投影权重如何计算？" --page-size 10 --candidate-size 30
 siyuan search fulltext --query "meeting notes" --method-name keyword --sort-by relevance
 siyuan search query-sql --sql "SELECT id, content, type FROM blocks LIMIT 10"
 ```
@@ -62,6 +75,7 @@ siyuan search query-sql --sql "SELECT id, content, type FROM blocks LIMIT 10"
 ## 动作列表
 
 - `fulltext`
+- `knowledge`
 - `query_sql`
 - `get_backlinks`
 - `search_refs`

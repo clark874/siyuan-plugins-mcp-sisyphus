@@ -237,6 +237,12 @@ Additional rules:
 - To delete a tag globally, use tag(action=”remove”, label=...) only after explicit user confirmation.
 - To modify one occurrence, use fs.replace or block.replace on the exact markdown text, replacing #old# with #new# or with plain text. Verify with tag(action=”list”, query=...) because tag indexing can lag briefly.
 
+## Knowledge retrieval semantics
+
+- On SiYuan 3.8.0+ with embeddings configured, start a natural-language knowledge task with search(action=”knowledge”). It performs semantic discovery, collapses reference-only hits, prefers named content atoms, and attaches readable documents that reuse each atom.
+- Treat semantic hits as candidates rather than evidence. Read the returned stable block ID, verify source and verification attributes, then follow its references or related documents.
+- Use search(action=”fulltext”) for exact lexical recall and search(action=”query_sql”) for structured audits; neither replaces semantic discovery.
+
 ## Double-link / block reference semantics
 
 - To create a real SiYuan block reference in markdown, use ((block-id 'anchor text')) or ((block-id "anchor text")) with a real target block ID and readable anchor text.

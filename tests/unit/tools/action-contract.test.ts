@@ -112,6 +112,7 @@ function createContractClient() {
             if (endpoint === '/api/attr/getBlockAttrs') return { memo: 'note' };
 
             if (endpoint === '/api/search/fullTextSearchBlock') return { blocks: [{ id: 'block-1', box: 'nb-1', path: '/doc-1.sy', content: 'match' }], matchedBlockCount: 1, matchedRootCount: 1, pageCount: 1 };
+            if (endpoint === '/api/search/semanticSearchBlock') return { blocks: [{ id: 'doc-1', rootID: 'doc-1', box: 'nb-1', path: '/doc-1.sy', hPath: '/Doc 1', type: 'd', content: 'Doc 1' }], matchedBlockCount: 1, matchedRootCount: 1, pageCount: 1 };
             if (endpoint === '/api/ref/getBacklinkDoc') return { backlinks: [{ id: 'block-1', box: 'nb-1', path: '/doc-1.sy' }] };
             if (endpoint === '/api/ref/getBackmentionDoc') return { backmentions: [{ id: 'block-2', box: 'nb-1', path: '/doc-1.sy' }] };
             if (endpoint === '/api/search/searchRefBlock') return { blocks: [{ id: 'block-1', box: 'nb-1', path: '/doc-1.sy' }] };
@@ -269,6 +270,7 @@ describe('tool action contract coverage', () => {
     it('covers every search action with a minimal endpoint contract', async () => {
         await runContracts('search', SEARCH_VARIANTS, callSearchTool as ToolCaller, [
             { action: 'fulltext', args: { action: 'fulltext', query: 'Doc' }, expectedEndpoint: '/api/search/fullTextSearchBlock' },
+            { action: 'knowledge', args: { action: 'knowledge', query: 'Doc' }, expectedEndpoint: '/api/search/semanticSearchBlock' },
             { action: 'query_sql', args: { action: 'query_sql', stmt: 'SELECT * FROM blocks LIMIT 1' }, expectedEndpoint: '/api/query/sql' },
             { action: 'get_backlinks', args: { action: 'get_backlinks', id: 'doc-1' }, expectedEndpoint: '/api/ref/getBacklinkDoc' },
             { action: 'search_refs', args: { action: 'search_refs', id: 'doc-1' }, expectedEndpoint: '/api/search/searchRefBlock' },
