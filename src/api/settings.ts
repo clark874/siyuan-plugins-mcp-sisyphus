@@ -18,7 +18,7 @@ export async function getControlledSetting(
     client: SiYuanClient,
     section: ControlledSettingSection,
 ): Promise<Record<string, unknown>> {
-    const response = await client.request<unknown>('/api/system/getConf', {});
+    const response = await client.requestRead<unknown>('/api/system/getConf', {});
     if (response === null || typeof response !== 'object') throw new Error('SiYuan configuration response is malformed.');
     const conf = (response as { conf?: unknown }).conf;
     if (conf === null || typeof conf !== 'object') throw new Error('SiYuan configuration does not contain conf.');
@@ -35,5 +35,5 @@ export async function setControlledSetting(
     value: Record<string, unknown>,
 ): Promise<unknown> {
     const payload = section === 'keymap' ? { data: value } : value;
-    return client.request(ENDPOINTS[section], payload);
+    return client.requestWrite(ENDPOINTS[section], payload);
 }

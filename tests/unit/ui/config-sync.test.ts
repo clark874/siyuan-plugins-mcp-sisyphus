@@ -162,6 +162,8 @@ describe('setting and mcp config stay behaviorally aligned', () => {
         expect(rulesSource).toContain('user_rules_auto_save');
         expect(rulesSource).toContain('user_rules_reconnect_hint');
         expect(debugSource.match(/<section class="debug-section">/g)).toHaveLength(2);
+        expect(debugSource).toContain('key: "writeSafety__strictMode"');
+        expect(debugSource).toContain('write_safety_strict_title');
         expect(debugSource).toContain('debug_runtime_section');
         expect(debugSource).toContain('debug_test_section');
         expect(connectionSource).toContain('class="http-changelog"');

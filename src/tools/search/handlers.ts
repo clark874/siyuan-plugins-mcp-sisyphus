@@ -19,6 +19,7 @@ import {
     SearchGetBacklinksSchema,
     SearchListInvalidRefsSchema,
     SearchKnowledgeSchema,
+    SearchSemanticSchema,
     SearchQuerySqlSchema,
     SearchRefsSchema,
 } from '../../core/types';
@@ -42,6 +43,7 @@ type SearchFulltextArgs = ReturnType<(typeof SearchFulltextSchema)['parse']>;
 type SearchFulltextAssetContentArgs = ReturnType<(typeof SearchFulltextAssetContentSchema)['parse']>;
 type SearchFindReplaceArgs = ReturnType<(typeof SearchFindReplaceSchema)['parse']>;
 type SearchKnowledgeArgs = ReturnType<(typeof SearchKnowledgeSchema)['parse']>;
+type SearchSemanticArgs = ReturnType<(typeof SearchSemanticSchema)['parse']>;
 type SearchMethodArgs = {
     method?: number;
     methodName?: string;
@@ -461,6 +463,45 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
                 ? (result as unknown as Record<string, unknown>).pageCount as number
                 : undefined,
         }, resolvedArgs);
+    },
+    semantic: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchSemanticSchema.parse(rawArgs) as SearchSemanticArgs;
+        const resolvedTypes = resolveFulltextTypes(parsed as unknown as SearchFulltextArgs);
+        const result = await searchApi.semanticSearchBlock(client, {
+            query: parsed.query,
+            paths: parsed.paths,
+            types: resolvedTypes,
+            subTypes: parsed.subTypes,
+            page: parsed.page,
+            pageSize: parsed.pageSize,
+        });
+        const filtered = filterFullTextSearchResultByPermission(result, permMgr) as unknown as Record<string, unknown>;
+        const blocks = normalizeReferencedBlocks(Array.isArray(filtered.blocks) ? filtered.blocks : []);
+        const page = parsed.page ?? 1;
+        const pageSize = parsed.pageSize ?? 32;
+        const pageCount = typeof filtered.pageCount === 'number' ? filtered.pageCount : 1;
+        const permissionFilteredCount = typeof filtered.filteredOutBlockCount === 'number'
+            ? filtered.filteredOutBlockCount
+            : 0;
+        const { blocks: _blocks, ...metadata } = filtered;
+        void _blocks;
+        return createPaginatedResult(blocks, {
+            total: blocks.length,
+            page,
+            pageSize,
+            pageCount,
+            hasNextPage: page < pageCount,
+        }, {
+            ...metadata,
+            ...createPartialMetadata(permissionFilteredCount),
+            kernelMatchedBlockCount: typeof result.matchedBlockCount === 'number' ? result.matchedBlockCount : blocks.length,
+            kernelMatchedRootCount: typeof result.matchedRootCount === 'number' ? result.matchedRootCount : undefined,
+            dataEgress: true,
+            externalCost: true,
+            hint: blocks.length === 0
+                ? 'No semantic candidates were returned. Verify that the SiYuan 3.8 embedding model is enabled and the index has been built.'
+                : 'Semantic hits are candidates rather than evidence. Read the stable block ID and verify its source attributes before reuse.',
+        });
     },
     knowledge: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchKnowledgeSchema.parse(rawArgs);

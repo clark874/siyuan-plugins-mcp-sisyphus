@@ -130,7 +130,7 @@ function createContractClient() {
             if (endpoint === '/api/asset/getImageOCRText') return { text: 'ocr text' };
             if (endpoint === '/api/asset/removeUnusedAssets') return { removed: 1 };
             if (endpoint === '/api/asset/renameAsset') return { newPath: 'assets/new.png' };
-            if (endpoint === '/api/asset/deleteAsset') return { removed: true };
+            if (endpoint === '/api/asset/removeUnusedAsset') return { removed: true };
             if (endpoint === '/api/template/docSaveAsTemplate') return null;
 
             if (endpoint === '/api/system/getWorkspaceInfo') return { workspace: '/workspace' };
@@ -200,6 +200,7 @@ describe('tool action contract coverage', () => {
             { action: 'replace', args: { action: 'replace', path: '/Notebook/Doc 1', edit: { old: 'content', new: 'updated' } }, expectedEndpoint: '/api/block/getBlockKramdown' },
             { action: 'rm', args: { action: 'rm', path: '/Notebook/Doc 1' }, expectedEndpoint: '/api/filetree/removeDocByID' },
             { action: 'mv', args: { action: 'mv', from: '/Notebook/Doc 1', to: '/Notebook/Renamed' }, expectedEndpoint: '/api/filetree/moveDocsByID' },
+            { action: 'reorder', args: { action: 'reorder', path: '/Notebook', orderedPaths: ['/Notebook/Doc 1'] }, expectedEndpoint: '/api/notebook/setNotebookConf' },
             { action: 'search', args: { action: 'search', path: '/Notebook/Doc 1', query: 'markdown' }, expectedEndpoint: '/api/export/exportMdContent' },
         ]);
     });
@@ -227,6 +228,7 @@ describe('tool action contract coverage', () => {
             { action: 'rename', args: { action: 'rename', id: 'doc-1', title: 'Renamed' }, expectedEndpoint: '/api/filetree/renameDocByID' },
             { action: 'remove', args: { action: 'remove', id: 'doc-1' }, expectedEndpoint: '/api/filetree/removeDocByID' },
             { action: 'move', args: { action: 'move', fromIDs: ['doc-1'], toID: 'doc-parent' }, expectedEndpoint: '/api/filetree/moveDocsByID' },
+            { action: 'reorder', args: { action: 'reorder', parentID: 'nb-1', orderedIDs: ['child-1'] }, expectedEndpoint: '/api/notebook/setNotebookConf' },
             { action: 'get_child_blocks', args: { action: 'get_child_blocks', id: 'doc-1' }, expectedEndpoint: '/api/block/getChildBlocks' },
             { action: 'get_child_docs', args: { action: 'get_child_docs', id: 'doc-1' }, expectedEndpoint: '/api/filetree/listDocsByPath' },
             { action: 'set_attr', args: { action: 'set_attr', id: 'doc-1', attrs: { icon: '1f4d4' } }, expectedEndpoint: '/api/transactions' },
@@ -270,6 +272,7 @@ describe('tool action contract coverage', () => {
     it('covers every search action with a minimal endpoint contract', async () => {
         await runContracts('search', SEARCH_VARIANTS, callSearchTool as ToolCaller, [
             { action: 'fulltext', args: { action: 'fulltext', query: 'Doc' }, expectedEndpoint: '/api/search/fullTextSearchBlock' },
+            { action: 'semantic', args: { action: 'semantic', query: 'Doc' }, expectedEndpoint: '/api/search/semanticSearchBlock' },
             { action: 'knowledge', args: { action: 'knowledge', query: 'Doc' }, expectedEndpoint: '/api/search/semanticSearchBlock' },
             { action: 'query_sql', args: { action: 'query_sql', stmt: 'SELECT * FROM blocks LIMIT 1' }, expectedEndpoint: '/api/query/sql' },
             { action: 'get_backlinks', args: { action: 'get_backlinks', id: 'doc-1' }, expectedEndpoint: '/api/ref/getBacklinkDoc' },
@@ -298,7 +301,7 @@ describe('tool action contract coverage', () => {
             { action: 'get_image_ocr_text', args: { action: 'get_image_ocr_text', path: 'assets/demo.png' }, expectedEndpoint: '/api/asset/getImageOCRText' },
             { action: 'remove_unused_assets', args: { action: 'remove_unused_assets' }, expectedEndpoint: '/api/asset/removeUnusedAssets' },
             { action: 'rename_asset', args: { action: 'rename_asset', oldPath: 'assets/old.png', newName: 'new.png' }, expectedEndpoint: '/api/asset/renameAsset' },
-            { action: 'delete_asset', args: { action: 'delete_asset', path: 'assets/old.png' }, expectedEndpoint: '/api/asset/deleteAsset' },
+            { action: 'delete_asset', args: { action: 'delete_asset', path: 'assets/old.png' }, expectedEndpoint: '/api/asset/removeUnusedAsset' },
             { action: 'extract_doc', args: { action: 'extract_doc', id: 'doc-1', outputDir: '/tmp/siyuan-contract-extract' }, expectedEndpoint: '/api/export/exportMdContent' },
         ]);
     });
@@ -315,6 +318,7 @@ describe('tool action contract coverage', () => {
             { action: 'get_current_time', args: { action: 'get_current_time' }, expectedEndpoint: '/api/system/currentTime' },
             { action: 'bootstrap', args: { action: 'bootstrap' }, expectedEndpoint: '/api/system/version' },
             { action: 'audit_environment', args: { action: 'audit_environment' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin' },
+            { action: 'validate_source_audit', args: { action: 'validate_source_audit', inventory: { schemaVersion: 1, items: [] }, usageMap: { schemaVersion: 1, projects: [] }, baselinesMarkdown: `${'a'.repeat(40)}\n${'b'.repeat(64)}` } },
             { action: 'list_packages', args: { action: 'list_packages', kind: 'plugin' }, expectedEndpoint: '/api/bazaar/getInstalledPlugin' },
             { action: 'search_bazaar', args: { action: 'search_bazaar', kind: 'plugin' }, expectedEndpoint: '/api/bazaar/getBazaarPlugin' },
             { action: 'get_bazaar_package', args: { action: 'get_bazaar_package', kind: 'plugin', packageName: 'demo-plugin' }, expectedEndpoint: '/api/bazaar/getBazaarPlugin', expectedError: true },

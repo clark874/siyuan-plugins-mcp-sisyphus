@@ -14,7 +14,7 @@ describe('control-plane persistent locks', () => {
                 if (content === undefined) throw new Error('missing');
                 return { content, byteLength: content.length };
             }),
-            request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+            requestWrite: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
                 if (endpoint === '/api/file/renameFile') {
                     const source = String(body?.path);
                     const destination = String(body?.newPath);

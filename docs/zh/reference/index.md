@@ -8,6 +8,7 @@
 
 - [常见任务](./common-tasks.md)
 - [权限模型](./permissions.md)
+- [严格安全写入](./write-safety.md)
 - [路径语义](./path-semantics.md)
 - [错误类型](./error-types.md)
 - [工具索引](./tools/index.md)

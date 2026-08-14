@@ -32,7 +32,7 @@ export async function getSnippets(
     enabled: 0 | 1 | 2 = 2,
     keyword = '',
 ): Promise<SiYuanSnippet[]> {
-    const response = await client.request<unknown>('/api/snippet/getSnippet', { type, enabled, keyword });
+    const response = await client.requestRead<unknown>('/api/snippet/getSnippet', { type, enabled, keyword });
     if (response === null || typeof response !== 'object') return [];
     const rawSnippets = (response as { snippets?: unknown }).snippets;
     if (!Array.isArray(rawSnippets)) return [];
@@ -40,10 +40,10 @@ export async function getSnippets(
 }
 
 export async function setSnippets(client: SiYuanClient, snippets: SiYuanSnippet[]): Promise<void> {
-    await client.request<null>('/api/snippet/setSnippet', { snippets });
+    await client.requestWrite<null>('/api/snippet/setSnippet', { snippets });
 }
 
 export async function removeSnippet(client: SiYuanClient, id: string): Promise<SiYuanSnippet | null> {
-    const response = await client.request<unknown>('/api/snippet/removeSnippet', { id });
+    const response = await client.requestWrite<unknown>('/api/snippet/removeSnippet', { id });
     return normalizeSnippet(response);
 }

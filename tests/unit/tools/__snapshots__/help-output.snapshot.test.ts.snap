@@ -1844,6 +1844,42 @@ block(action="prepend") or block(action="append") with a document ID targets the
         ],
         "tool": "document",
       },
+      "reorder": {
+        "action": "reorder",
+        "example": {
+          "action": "reorder",
+          "orderedIDs": [
+            "<orderedIDsItem>",
+          ],
+          "parentID": "20240318112233-abc123",
+        },
+        "fullDocResource": "siyuan://help/action/document/reorder",
+        "guidance": [
+          "For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"write"|"search") because it accepts human-readable paths and hides storage paths and IDs.",
+          "document(action="create") creates both non-empty and empty documents. Prefer path for child documents; path is a notebook-local human-readable hpath such as /Folder/Parent/New Child, not /Notebook/Folder/... and not a .sy storage path.",
+          "Do not put # Title at the start of document(action="create") markdown. SiYuan renders the document title as H1 automatically, and MCP strips a matching leading H1 to avoid duplicate titles.",
+          "document(action="create", parentPath=..., title=...) is also supported. parentPath accepts either a notebook-local human-readable parent hpath such as /Folder/Parent, or a storage path ending in .sy returned by document(action="lookup").",
+          "fs(action="write", path="/Notebook/Folder/Doc") uses a workspace path that includes the notebook name; document(action="create", notebook=..., path="/Folder/Doc") uses a notebook-local hpath. Do not mix these two path formats.",
+          "For document(action="lookup"), path means a storage path such as /20240318112233-abc123.sy; use hpath/hPath for human-readable paths such as /Inbox/Weekly Note.",
+          "Other document actions that use notebook + path expect storage paths returned by document(action="lookup").",
+          "If document(action="create") reports a duplicate-name error, verify the intended child with document(action="lookup", notebook=..., hpath="/Folder/Parent/New Child", include=["id","path","hpath"]) or document(action="get_child_docs", id=<parent-doc-id>). New create results may take a short indexing delay before lookup/search sees them.",
+          "A safe path-based workflow is lookup -> rename/remove/move.",
+          "document(action="get_child_blocks") and document(action="get_child_docs") return direct children for a document ID.",
+          "document(action="set_attr") updates document metadata such as icon and cover; use attrs.cover=null or an empty string to clear the cover.",
+          "document(action="search_docs") remains title-based, but MCP now post-filters results by notebook permission and optional storage path scope.",
+          "For recently created documents, document(action="lookup", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
+          "document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
+        ],
+        "requiredFields": [
+          "parentID",
+          "orderedIDs",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "parentID + orderedIDs",
+        ],
+        "tool": "document",
+      },
       "search_docs": {
         "action": "search_docs",
         "example": {
@@ -1921,7 +1957,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
 
 Common actions: create, lookup, rename, get_child_blocks, get_child_docs, search_docs, get_doc, get_outline. Required fields: create: notebook; lookup: no additional fields; rename: title; get_child_blocks: id; get_child_docs: id; search_docs: notebook, query; get_doc: id; get_outline: id.
 
-Additional actions: remove, move, set_attr, list_tree, create_daily_note, duplicate, heading_to_doc, doc_to_heading. Read siyuan://help/action/document/{action} for details, or call action="help" if resources are unavailable.
+Additional actions: remove, move, reorder, set_attr, list_tree, create_daily_note, duplicate, heading_to_doc, doc_to_heading. Read siyuan://help/action/document/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 document.create: required [notebook] | optional [path, parentPath, title, markdown, sorts, icon]
@@ -1929,6 +1965,7 @@ document.lookup: required [] | optional [id, notebook, path, hpath, hPath, inclu
 document.rename: required [title] | optional [id, notebook, path]
 document.remove: required [] | optional [ids, paths, id, notebook, path]
 document.move: required [] | optional [fromPaths, toNotebook, toPath, fromIDs, toID]
+document.reorder: required [parentID, orderedIDs] | optional []
 document.get_child_blocks: required [id] | optional []
 document.get_child_docs: required [id] | optional []
 document.set_attr: required [id, attrs] | optional []
@@ -1958,6 +1995,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "move": "Use either fromIDs + toID or fromPaths + toNotebook + toPath. For path-based moves, toPath must be the storage path of an existing destination document. This action requires explicit user confirmation.",
         "remove": "Use either id or notebook + storage path. This action requires explicit user confirmation. If bulk ids/paths hit SiYuan's short indexing window, retry by deleting one document at a time with notebook + storage path.",
         "rename": "Use either id + title or notebook + path + title.",
+        "reorder": "requires: parentID, orderedIDs",
         "search_docs": "Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.",
         "set_attr": "Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it.",
       },
@@ -2015,6 +2053,9 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
           "hint": "Use either id + title or notebook + path + title.",
           "requiresConfirmation": false,
         },
+        "reorder": {
+          "requiresConfirmation": false,
+        },
         "search_docs": {
           "hint": "Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.",
           "requiresConfirmation": false,
@@ -2027,6 +2068,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
       "advancedActions": [
         "remove",
         "move",
+        "reorder",
         "set_attr",
         "list_tree",
         "create_daily_note",
@@ -3362,6 +3404,41 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
         ],
         "tool": "fs",
       },
+      "reorder": {
+        "action": "reorder",
+        "example": {
+          "action": "reorder",
+          "orderedPaths": [
+            "<orderedPathsItem>",
+          ],
+          "path": "/Inbox/Weekly Note",
+        },
+        "fullDocResource": "siyuan://help/action/fs/reorder",
+        "guidance": [
+          "Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search.",
+          "fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths.",
+          "fs is a pure Markdown convenience layer. If a document contains SiYuan-native structures such as database blocks, super blocks, embeds, media blocks, query embeds, widgets, HTML, or precise block-tree layout, inspect and modify those structures with advanced tools such as block, av, file, document, or search instead.",
+          "fs.read returns an AI-editable Markdown view built from block kramdown, not /api/export/exportMdContent. It preserves SiYuan double-links as ((id 'title')), preserves tags as #tag#, strips SiYuan zero-width tag markers, and hides block/list-item IAL metadata such as {: id="..." updated="..."} from normal list editing.",
+          "fs.read always returns complete display-block windows. Use blockStart/blockLimit/tokenBudget to continue long documents; code, math, tables, lists, quotes, and other container blocks are never split. The response includes a full heading outline and nextWindow when more blocks remain.",
+          "Copy old snippets for fs.replace from fs.read output. fs.replace uses the same AI-editable view for matching, so list items like "- item" can be replaced without including hidden IAL metadata. For inline styled text, use the plain text inside the style markers as old text: replace "hello" inside **hello** or \`hello\`, not "**hello**" or "\`hello\`"; DOM writeback preserves the existing inline style.",
+          "Use document, block, search, or av for advanced SiYuan-specific operations such as block-level layout, metadata, database rows, SQL, backlinks, or assets.",
+          "fs(action="write") creates missing documents. Do not include a leading # Title in markdown; the document title is rendered automatically. Existing documents are protected unless overwrite=true.",
+          "For double-links in fs.write or fs.replace replacement text, use ((block-id 'anchor text')) with a real block ID and human-readable anchor text. Naked ((id)) is resolved before writing; if anchor lookup fails, MCP falls back to ((id 'id')) with a warning.",
+          "For tags in fs.write or fs.replace replacement text, use #tag# or hierarchical tag syntax such as #parent/child#; verify global tag state with tag(action="list", query="tag").",
+          "fs(action="replace") performs exact string replacement only inside non-complex Markdown blocks. If a document also contains complex SiYuan-native blocks, those blocks are skipped; replacements that only exist inside skipped blocks, or cross block boundaries, are rejected without writing.",
+          "If fs.read reports attributeViews or avToolHint, the document contains real database blocks. Use av(action="get"|"render"|"set_cells"|"add_rows"|"remove_rows"|"add_column"|"remove_column") for AV rows, columns, and cells instead of editing the database placeholder as Markdown.",
+          "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
+        ],
+        "requiredFields": [
+          "path",
+          "orderedPaths",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "path + orderedPaths",
+        ],
+        "tool": "fs",
+      },
       "replace": {
         "action": "replace",
         "example": {
@@ -3555,7 +3632,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
     },
     "description": "📂 Simplified filesystem-style document operations. Use the "action" field to select the operation.
 
-Common actions: ls, tree, read, write, replace, search. Required fields: ls: path; tree: path; read: path; write: path, markdown; replace: path, edit; search: path, query.
+Common actions: ls, tree, read, write, replace, reorder, search. Required fields: ls: path; tree: path; read: path; write: path, markdown; replace: path, edit; reorder: path, orderedPaths; search: path, query.
 
 Additional actions: rm, mv. Read siyuan://help/action/fs/{action} for details, or call action="help" if resources are unavailable.
 
@@ -3567,6 +3644,7 @@ fs.write: required [path, markdown] | optional [overwrite]
 fs.replace: required [path, edit] | optional []
 fs.rm: required [path] | optional []
 fs.mv: required [from, to] | optional []
+fs.reorder: required [path, orderedPaths] | optional []
 fs.search: required [path, query] | optional [regex, caseSensitive, page, pageSize]
 
 Use fs first for ordinary document file operations: list, tree, read, write, move, delete, and grep-like search. fs paths are human-readable workspace paths such as /Notebook/Folder/Doc; fs outputs the same human-readable path shape and hides notebook IDs, block IDs, and storage paths. Requires user confirmation before: rm, mv.",
@@ -3575,6 +3653,7 @@ Use fs first for ordinary document file operations: list, tree, read, write, mov
         "ls": "Use a human-readable path. "/" lists readable notebook roots; /Notebook or /Notebook/Folder lists direct child documents.",
         "mv": "Moves or renames a document using human-readable paths. This action requires explicit user confirmation.",
         "read": "Use a human-readable document path. Returns an AI-editable Markdown window made only of complete display blocks. Continue with nextWindow or blockStart/blockLimit/tokenBudget; page/pageSize character pagination was removed. The response includes a full heading outline, and includeBlockIds=true adds a sidecar blockRefs mapping without polluting content. When complex SiYuan blocks are detected, use block.dom, file.export_md, av, or other advanced tools for inspection and editing.",
+        "reorder": "requires: path, orderedPaths",
         "replace": "Edits matched non-complex Markdown blocks by exact old/new matching against the same AI-editable view returned by fs.read. Canonical input is edit={old,new}; shorthand old + new is also accepted. If the document contains complex SiYuan-native blocks, fs.replace skips those blocks and returns skippedComplexBlocks; matches only inside skipped blocks or across block boundaries are rejected without writing. For inline formatting, old should be plain text without Markdown style delimiters such as **, *, \`, or ~~; existing DOM inline styles are preserved. Naked ((id)) refs are normalized, and footnotes/siyuan://blocks links are allowed but do not create backlinks. replace_all=true replaces every exact match across editable blocks. Use ((id 'title')) for new double-links and #tag# for tags.",
         "rm": "Deletes a document by human-readable path. This action requires explicit user confirmation.",
         "search": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.",
@@ -3592,6 +3671,9 @@ Use fs first for ordinary document file operations: list, tree, read, write, mov
         },
         "read": {
           "hint": "Use a human-readable document path. Returns an AI-editable Markdown window made only of complete display blocks. Continue with nextWindow or blockStart/blockLimit/tokenBudget; page/pageSize character pagination was removed. The response includes a full heading outline, and includeBlockIds=true adds a sidecar blockRefs mapping without polluting content. When complex SiYuan blocks are detected, use block.dom, file.export_md, av, or other advanced tools for inspection and editing.",
+          "requiresConfirmation": false,
+        },
+        "reorder": {
           "requiresConfirmation": false,
         },
         "replace": {
@@ -3625,6 +3707,7 @@ Use fs first for ordinary document file operations: list, tree, read, write, mov
         "read",
         "write",
         "replace",
+        "reorder",
         "search",
       ],
       "detailsHint": "Call fs(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
@@ -4396,15 +4479,44 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         ],
         "tool": "search",
       },
+      "semantic": {
+        "action": "semantic",
+        "example": {
+          "action": "semantic",
+          "query": "search keyword",
+        },
+        "fullDocResource": "siyuan://help/action/search/semantic",
+        "guidance": [
+          "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
+          "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
+          "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
+          "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
+          "Use search(action="knowledge") for natural-language discovery over the 3.8 embedding index with reference collapse; use fulltext for lexical search and query_sql for structured queries.",
+          "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
+          "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
+        ],
+        "hint": "Low-level semantic candidates from the SiYuan 3.8 embedding index. The query leaves the workspace for the configured provider; verify source attributes before reuse.",
+        "requiredFields": [
+          "query",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "query",
+        ],
+        "tool": "search",
+      },
     },
     "description": "🔍 Grouped search and query operations. Use the "action" field to select the operation.
 
-Common actions: fulltext, knowledge, query_sql, get_backlinks. Required fields: fulltext: query; knowledge: query; query_sql: no additional fields; get_backlinks: id.
+Common actions: fulltext, semantic, knowledge, query_sql, get_backlinks. Required fields: fulltext: query; semantic: query; knowledge: query; query_sql: no additional fields; get_backlinks: id.
 
 Additional actions: search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs. Read siyuan://help/action/search/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 search.fulltext: required [query] | optional [method, methodName, types, typeShortcodes, paths, groupBy, orderBy, sortBy, page, pageSize, parentId, hasTags, stripHtml]
+search.semantic: required [query] | optional [paths, types, typeShortcodes, subTypes, page, pageSize]
 search.knowledge: required [query] | optional [pageSize, candidateSize, notebooks, paths, types, subTypes, includeRelatedDocuments]
 search.query_sql: required [] | optional [stmt, sql, maxRows]
 search.get_backlinks: required [id] | optional [keyword, refTreeID, scopeRootId, mode]
@@ -4426,6 +4538,7 @@ All search actions are read-only except find_replace, which modifies content and
         "query_sql": "Execute a SELECT statement. Common tables include blocks, spans, assets, attributes, and refs. Prefer sql over stmt when prompting an AI. Always use LIMIT to control kernel work; maxRows controls the returned window (default 200, maximum 1000). Unattributed aggregate rows are returned only when every notebook is readable; otherwise MCP fails closed and reports the omission.",
         "search_assets": "Searches asset filenames. Prefer query over k when prompting an AI. If you need OCR or indexed inner-text matches, use fulltext_asset_content instead.",
         "search_refs": "Returns block-level reference contexts for the target id. Use this when you need the surrounding block content, not just the document-level backlink list. beforeLen controls how much leading context is included in each hit.",
+        "semantic": "Low-level semantic candidates from the SiYuan 3.8 embedding index. The query leaves the workspace for the configured provider; verify source attributes before reuse.",
       },
       "actions": {
         "find_replace": {
@@ -4463,6 +4576,10 @@ All search actions are read-only except find_replace, which modifies content and
           "hint": "Returns block-level reference contexts for the target id. Use this when you need the surrounding block content, not just the document-level backlink list. beforeLen controls how much leading context is included in each hit.",
           "requiresConfirmation": false,
         },
+        "semantic": {
+          "hint": "Low-level semantic candidates from the SiYuan 3.8 embedding index. The query leaves the workspace for the configured provider; verify source attributes before reuse.",
+          "requiresConfirmation": false,
+        },
       },
       "advancedActions": [
         "search_refs",
@@ -4473,6 +4590,7 @@ All search actions are read-only except find_replace, which modifies content and
       ],
       "commonActions": [
         "fulltext",
+        "semantic",
         "knowledge",
         "query_sql",
         "get_backlinks",
@@ -5311,6 +5429,39 @@ All search actions are read-only except find_replace, which modifies content and
         ],
         "tool": "system",
       },
+      "validate_source_audit": {
+        "action": "validate_source_audit",
+        "example": {
+          "action": "validate_source_audit",
+          "baselinesMarkdown": "<baselinesMarkdown>",
+          "inventory": "<inventory>",
+          "usageMap": "<usageMap>",
+        },
+        "fullDocResource": "siyuan://help/action/system/validate_source_audit",
+        "guidance": [
+          "Most system actions in this tool are read-only; perform_sync and control-plane apply/rollback actions require explicit user confirmation before execution.",
+          "Use system(action="bootstrap") as the first call when a new agent connects: it refreshes notebook permissions and returns version, readable notebooks, current configured capabilities, path guidance, and enabled next calls. operation.readOnly describes this call only, not the whole connection.",
+          "Use system(action="audit_environment") for one compact, read-only overview of masked configuration and installed package counts.",
+          "Use system(action="list_packages", kind="plugin"|"widget"|"theme"|"icon"|"template") to inspect installed package metadata without reading third-party plugin storage.",
+          "Use search_bazaar -> get_bazaar_package -> read_bazaar_readme for progressively deeper online marketplace discovery; all three actions are read-only and paginated or size-limited.",
+          "Use get_plugin, list_snippets, list_plugin_storage, read_plugin_storage, and inspect_plugin for progressively deeper workspace inspection; content reads are size-limited and always redact secrets.",
+          "system(action="workspace_info") exposes the workspace path and is high-risk; it is disabled by default.",
+          "system(action="perform_sync") triggers SiYuan sync immediately; it does not modify sync provider settings.",
+          "system(action="conf") returns masked configuration, not raw secrets.",
+          "Use system(action="changelog", fromVersion="<previousVersion>") after plugin upgrades to see whether old personalized settings, rules, memory, or connection snippets need review.",
+          "Use system(action="conf", mode="summary") first, then mode="get" + keyPath such as conf.appearance.mode or conf.langs[0].",
+        ],
+        "requiredFields": [
+          "inventory",
+          "usageMap",
+          "baselinesMarkdown",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "inventory + usageMap + baselinesMarkdown",
+        ],
+        "tool": "system",
+      },
       "workspace_info": {
         "action": "workspace_info",
         "example": {
@@ -5341,7 +5492,7 @@ All search actions are read-only except find_replace, which modifies content and
     },
     "description": "🖥️ Grouped system and notification operations. Use the "action" field to select the operation.
 
-Common actions: conf, changelog, get_version, get_current_time, bootstrap, audit_environment, list_packages, search_bazaar, get_bazaar_package, read_bazaar_readme, get_plugin, list_plugin_updates, list_snippets, list_plugin_storage. Required fields: conf: no additional fields; changelog: no additional fields; get_version: no additional fields; get_current_time: no additional fields; bootstrap: no additional fields; audit_environment: no additional fields; list_packages: kind; search_bazaar: kind; get_bazaar_package: kind, packageName; read_bazaar_readme: kind, packageName; get_plugin: pluginName; list_plugin_updates: no additional fields; list_snippets: no additional fields; list_plugin_storage: pluginName.
+Common actions: conf, changelog, get_version, get_current_time, bootstrap, audit_environment, validate_source_audit, list_packages, search_bazaar, get_bazaar_package, read_bazaar_readme, get_plugin, list_plugin_updates, list_snippets, list_plugin_storage. Required fields: conf: no additional fields; changelog: no additional fields; get_version: no additional fields; get_current_time: no additional fields; bootstrap: no additional fields; audit_environment: no additional fields; validate_source_audit: inventory, usageMap, baselinesMarkdown; list_packages: kind; search_bazaar: kind; get_bazaar_package: kind, packageName; read_bazaar_readme: kind, packageName; get_plugin: pluginName; list_plugin_updates: no additional fields; list_snippets: no additional fields; list_plugin_storage: pluginName.
 
 Additional actions: workspace_info, network, notify, perform_sync, read_plugin_storage, inspect_plugin, plan_change, apply_change, rollback_change, discard_change_plan, list_control_changes, get_control_change. Read siyuan://help/action/system/{action} for details, or call action="help" if resources are unavailable.
 
@@ -5356,6 +5507,7 @@ system.get_version: required [] | optional []
 system.get_current_time: required [] | optional []
 system.bootstrap: required [] | optional []
 system.audit_environment: required [] | optional [frontend]
+system.validate_source_audit: required [inventory, usageMap, baselinesMarkdown] | optional []
 system.list_packages: required [kind] | optional [keyword, frontend, page, pageSize]
 system.search_bazaar: required [kind] | optional [keyword, installation, compatibility, sortBy, sortOrder, frontend, page, pageSize]
 system.get_bazaar_package: required [kind, packageName] | optional [frontend]
@@ -5401,6 +5553,7 @@ Most system actions in this tool are read-only; perform_sync and control-plane a
         "read_plugin_storage": "Reads one allowlisted text configuration under an installed plugin root. Binary, database, archive, credential-like, oversized, traversing, and symlink paths are rejected.",
         "rollback_change": "Requires explicit confirmation. Restores the exact pre-change state from an applied change record and verifies the restored hash.",
         "search_bazaar": "Searches downloadable SiYuan bazaar packages with installation/compatibility filters, stable sorting, and pagination. It never installs packages.",
+        "validate_source_audit": "requires: inventory, usageMap, baselinesMarkdown",
         "workspace_info": "Returns workspace path metadata and current SiYuan version. High-risk: leaks the absolute workspace path; disabled by default and requires explicit user confirmation.",
       },
       "actions": {
@@ -5504,6 +5657,9 @@ Most system actions in this tool are read-only; perform_sync and control-plane a
           "hint": "Searches downloadable SiYuan bazaar packages with installation/compatibility filters, stable sorting, and pagination. It never installs packages.",
           "requiresConfirmation": false,
         },
+        "validate_source_audit": {
+          "requiresConfirmation": false,
+        },
         "workspace_info": {
           "hint": "Returns workspace path metadata and current SiYuan version. High-risk: leaks the absolute workspace path; disabled by default and requires explicit user confirmation.",
           "requiresConfirmation": true,
@@ -5530,6 +5686,7 @@ Most system actions in this tool are read-only; perform_sync and control-plane a
         "get_current_time",
         "bootstrap",
         "audit_environment",
+        "validate_source_audit",
         "list_packages",
         "search_bazaar",
         "get_bazaar_package",

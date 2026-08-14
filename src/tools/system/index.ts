@@ -5,6 +5,7 @@ import type { PermissionManager } from '../../core/permissions';
 import {
     SystemActionSchema,
     SystemAuditEnvironmentSchema,
+    SystemValidateSourceAuditSchema,
     SystemBootstrapSchema,
     SystemChangelogSchema,
     SystemConfSchema,
@@ -48,6 +49,7 @@ export const SYSTEM_VARIANTS: ActionVariant<SystemAction>[] = [
     createZodActionVariant('get_current_time', SystemGetCurrentTimeSchema, 'Get the current system time.'),
     createZodActionVariant('bootstrap', SystemBootstrapSchema, 'One-call agent onboarding with refreshed permissions, current configured capabilities, path guide, and enabled next calls. This action is read-only; the connection may not be.'),
     createZodActionVariant('audit_environment', SystemAuditEnvironmentSchema, 'Get a compact read-only summary of masked system configuration and installed package counts.'),
+    createZodActionVariant('validate_source_audit', SystemValidateSourceAuditSchema, 'Validate a frozen external source-audit handoff without reading or comparing any source tree.'),
     createZodActionVariant('list_packages', SystemListPackagesSchema, 'List installed plugins, widgets, themes, icons, or templates with compact metadata and pagination.'),
     createZodActionVariant('search_bazaar', SystemSearchBazaarSchema, 'Search downloadable SiYuan bazaar packages with installation and compatibility filters, stable sorting, and pagination.'),
     createZodActionVariant('get_bazaar_package', SystemGetBazaarPackageSchema, 'Get exact online bazaar metadata plus local installation state for one package.'),

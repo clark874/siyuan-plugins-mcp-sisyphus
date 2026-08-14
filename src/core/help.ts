@@ -265,6 +265,7 @@ export const SEARCH_GUIDANCE: string[] = [
 ];
 
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
+    semantic: 'Low-level semantic candidates from the SiYuan 3.8 embedding index. The query leaves the workspace for the configured provider; verify source attributes before reuse.',
     fulltext: 'Pass a query string. Supports keyword, query syntax, SQL, and regex modes via methodName (preferred) or method. fulltext now returns plainContent/excerpt by default. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.',
     knowledge: 'Uses the configured SiYuan 3.8 embedding model for semantic discovery, then collapses reference-only hits to their target blocks, deduplicates candidates, prefers named content atoms, and attaches related documents. This sends the query to the configured embedding provider and may incur external cost.',
     query_sql: 'Execute a SELECT statement. Common tables include blocks, spans, assets, attributes, and refs. Prefer sql over stmt when prompting an AI. Always use LIMIT to control kernel work; maxRows controls the returned window (default 200, maximum 1000). Unattributed aggregate rows are returned only when every notebook is readable; otherwise MCP fails closed and reports the omission.',

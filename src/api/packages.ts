@@ -35,7 +35,7 @@ export async function getInstalledPackages(
     keyword = '',
     frontend = 'desktop',
 ): Promise<Record<string, unknown>[]> {
-    const response = await client.request<unknown>(INSTALLED_PACKAGE_ENDPOINTS[kind], {
+    const response = await client.requestRead<unknown>(INSTALLED_PACKAGE_ENDPOINTS[kind], {
         frontend,
         keyword,
     });
@@ -70,7 +70,7 @@ export async function getBazaarPackages(
     frontend = 'desktop',
 ): Promise<Record<string, unknown>[]> {
     const body = kind === 'plugin' ? { frontend, keyword } : { keyword };
-    const response = await client.request<unknown>(BAZAAR_PACKAGE_ENDPOINTS[kind], body);
+    const response = await client.requestRead<unknown>(BAZAAR_PACKAGE_ENDPOINTS[kind], body);
     if (response === null || typeof response !== 'object') return [];
     const packages = (response as { packages?: unknown }).packages;
     return Array.isArray(packages)
@@ -82,7 +82,7 @@ export async function getBazaarPackageReadme(
     client: SiYuanClient,
     input: { kind: BazaarPackageKind; repoURL: string; repoHash: string },
 ): Promise<string> {
-    const response = await client.request<unknown>('/api/bazaar/getBazaarPackageREADME', {
+    const response = await client.requestRead<unknown>('/api/bazaar/getBazaarPackageREADME', {
         repoURL: input.repoURL,
         repoHash: input.repoHash,
         packageType: BAZAAR_PACKAGE_TYPES[input.kind],
@@ -98,14 +98,14 @@ export async function setPluginEnabled(
     enabled: boolean,
     app = '',
 ): Promise<unknown> {
-    return client.request('/api/petal/setPetalEnabled', { packageName, enabled, app });
+    return client.requestWrite('/api/petal/setPetalEnabled', { packageName, enabled, app });
 }
 
 export async function installPlugin(
     client: SiYuanClient,
     input: { frontend: string; repoURL: string; repoHash: string; packageName: string; keyword?: string },
 ): Promise<unknown> {
-    return client.request('/api/bazaar/installBazaarPlugin', {
+    return client.requestWrite('/api/bazaar/installBazaarPlugin', {
         frontend: input.frontend,
         keyword: input.keyword ?? '',
         repoURL: input.repoURL,
@@ -119,7 +119,7 @@ export async function uninstallPlugin(
     packageName: string,
     frontend = '',
 ): Promise<unknown> {
-    return client.request('/api/bazaar/uninstallBazaarPlugin', {
+    return client.requestWrite('/api/bazaar/uninstallBazaarPlugin', {
         packageName,
         frontend,
         keyword: '',

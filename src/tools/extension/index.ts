@@ -1,5 +1,9 @@
 import type { SiYuanClient } from '../../api/client';
-import { SAFE_NATIVE_EXTENSION_TOOLS, type ExtensionCategoryToolConfig } from '../../core/config';
+import {
+    NATIVE_EXTENSION_ACTION_ALLOWLIST,
+    SAFE_NATIVE_EXTENSION_TOOLS,
+    type ExtensionCategoryToolConfig,
+} from '../../core/config';
 import type {
     OfficialMcpDiscoverySnapshot,
     OfficialMcpRuntime,
@@ -18,6 +22,69 @@ const EXTENSION_DESCRIPTION = [
 ].join(' ');
 const RESERVED_EXTENSION_ACTIONS = new Set(['help', 'list']);
 const SAFE_NATIVE_TOOL_NAMES = new Set<string>(SAFE_NATIVE_EXTENSION_TOOLS);
+const WORKSPACE_NATIVE_TOOLS = new Set(['search', 'ref', 'outline', 'history', 'repo', 'image']);
+
+function nativeActionPolicy(toolName: string): readonly string[] | null | undefined {
+    return (NATIVE_EXTENSION_ACTION_ALLOWLIST as Record<string, readonly string[] | null>)[toolName];
+}
+
+function validateNativeCall(
+    tool: OfficialMcpTool,
+    args: Record<string, unknown>,
+    permMgr: PermissionManager,
+): ToolResult | undefined {
+    if (tool.source !== 'native') return undefined;
+    const policy = nativeActionPolicy(tool.name);
+    if (policy === undefined) {
+        return textResult({
+            error: { code: 'native_tool_not_allowed', message: `Native tool "${tool.name}" is not allowlisted.` },
+        }, true);
+    }
+
+    if (WORKSPACE_NATIVE_TOOLS.has(tool.name)) {
+        const getAll = (permMgr as PermissionManager & { getAll?: () => Record<string, string> }).getAll;
+        if (typeof getAll === 'function' && Object.values(getAll.call(permMgr)).some((permission) => permission === 'none')) {
+            return textResult({
+                error: {
+                    code: 'native_permission_boundary',
+                    message: `Native tool "${tool.name}" cannot be forwarded while any notebook is restricted because its result cannot be filtered reliably by Sisyphus.`,
+                },
+            }, true);
+        }
+    }
+
+    const downstreamAction = typeof args.action === 'string' ? args.action : undefined;
+    if (policy === null) {
+        if (downstreamAction !== undefined) {
+            return textResult({
+                error: {
+                    code: 'native_action_not_allowed',
+                    message: `Native tool "${tool.name}" does not accept a forwarded action selector.`,
+                },
+            }, true);
+        }
+        if (!tool.readOnlyHint) {
+            return textResult({
+                error: {
+                    code: 'native_readonly_hint_required',
+                    message: `Actionless native tool "${tool.name}" is not declared read-only by the official registry.`,
+                },
+            }, true);
+        }
+        return undefined;
+    }
+
+    if (!downstreamAction || !policy.includes(downstreamAction)) {
+        return textResult({
+            error: {
+                code: 'native_action_not_allowed',
+                message: `Native action "${tool.name}.${downstreamAction ?? '<missing>'}" is not allowlisted.`,
+                allowedActions: [...policy],
+            },
+        }, true);
+    }
+    return undefined;
+}
 
 export const EXTENSION_VARIANTS: ActionVariant<'list'>[] = [{
     action: 'list',
@@ -272,6 +339,13 @@ function formatDiscovery(
                     readOnlyHint: tool.readOnlyHint,
                     effectScope: tool.effectScope,
                     schemaDegraded: tool.schemaDegraded,
+                    actionPolicy: tool.source === 'native'
+                        ? nativeActionPolicy(tool.name) === null
+                            ? { mode: 'actionless-readonly' }
+                            : nativeActionPolicy(tool.name)
+                                ? { mode: 'allowlist', allowedActions: [...nativeActionPolicy(tool.name)!] }
+                                : { mode: 'blocked' }
+                        : { mode: 'plugin-owned' },
                     blocked: blocked.has(tool.name),
                     sourceEnabled: isSourceEnabled(tool, config),
                     reservedActionConflict: RESERVED_EXTENSION_ACTIONS.has(tool.name),
@@ -315,6 +389,13 @@ function helpResult(
                 && !reservedActionConflict
                 && !config.blockedTools.includes(tool.name),
             schemaDegraded: tool.schemaDegraded,
+            actionPolicy: tool.source === 'native'
+                ? nativeActionPolicy(tool.name) === null
+                    ? { mode: 'actionless-readonly' }
+                    : nativeActionPolicy(tool.name)
+                        ? { mode: 'allowlist', allowedActions: [...nativeActionPolicy(tool.name)!] }
+                        : { mode: 'blocked' }
+                : { mode: 'plugin-owned' },
             inputSchema: tool.inputSchema,
             call: {
                 action: tool.name,
@@ -360,7 +441,7 @@ export async function callExtensionTool(
     _client: SiYuanClient,
     rawArgs: Record<string, unknown> | undefined,
     config: ExtensionCategoryToolConfig,
-    _permMgr: PermissionManager,
+    permMgr: PermissionManager,
     runtime?: OfficialMcpRuntime,
 ): Promise<ToolResult> {
     const action = typeof rawArgs?.action === 'string' ? rawArgs.action : '';
@@ -427,5 +508,8 @@ export async function callExtensionTool(
     if (downstreamArgs === null || typeof downstreamArgs !== 'object' || Array.isArray(downstreamArgs)) {
         return textResult('extension.arguments must be an object.', true);
     }
-    return runtime.bridge.callTool(action, downstreamArgs as Record<string, unknown>);
+    const validatedArgs = downstreamArgs as Record<string, unknown>;
+    const policyFailure = validateNativeCall(tool, validatedArgs, permMgr);
+    if (policyFailure) return policyFailure;
+    return runtime.bridge.callTool(action, validatedArgs);
 }

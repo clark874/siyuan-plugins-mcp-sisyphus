@@ -19,7 +19,7 @@ describe('controlled plugin storage', () => {
             throw new Error(`Unexpected request: ${endpoint} ${String(body?.path)}`);
         });
 
-        const result = await listPluginStorage({ request } as never, { pluginName: 'kmind-plugin', recursive: true });
+        const result = await listPluginStorage({ request, requestRead: request } as never, { pluginName: 'kmind-plugin', recursive: true });
 
         expect(result.storageRootName).toBe('kmind');
         expect(result.entries).toEqual([expect.objectContaining({ path: 'config.json', isSymlink: true })]);
@@ -35,7 +35,7 @@ describe('controlled plugin storage', () => {
             throw new Error(`Unexpected request: ${endpoint}`);
         });
 
-        await expect(readPluginStorage({ request, readFileTextLimited } as never, {
+        await expect(readPluginStorage({ request, requestRead: request, readFileTextLimited } as never, {
             pluginName: 'demo-plugin',
             path: 'config.json',
         })).rejects.toThrow('Symbolic links');
@@ -54,7 +54,7 @@ describe('controlled plugin storage', () => {
             byteLength: 48,
         });
 
-        const result = await readPluginStorage({ request, readFileTextLimited } as never, {
+        const result = await readPluginStorage({ request, requestRead: request, readFileTextLimited } as never, {
             pluginName: 'demo-plugin',
             path: 'config.json',
             maxChars: 100,
@@ -72,7 +72,7 @@ describe('controlled plugin storage', () => {
             throw new Error(`Unexpected request: ${endpoint}`);
         });
 
-        await expect(readPluginStorage({ request } as never, {
+        await expect(readPluginStorage({ request, requestRead: request } as never, {
             pluginName: 'demo-plugin',
             path: '../petals.json',
         })).rejects.toThrow('unsafe');
@@ -88,7 +88,7 @@ describe('controlled plugin storage', () => {
             throw new Error(`Unexpected request: ${endpoint} ${String(body?.path)}`);
         });
 
-        await expect(listPluginStorage({ request } as never, { pluginName: 'demo-plugin' }))
+        await expect(listPluginStorage({ request, requestRead: request } as never, { pluginName: 'demo-plugin' }))
             .rejects.toThrow('storage roots');
         expect(request).not.toHaveBeenCalledWith('/api/file/readDir', { path: '/data/storage/petal/demo-plugin' });
     });

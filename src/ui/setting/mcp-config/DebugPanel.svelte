@@ -22,6 +22,16 @@
         return [
             {
                 type: "checkbox",
+                key: "writeSafety__strictMode",
+                value: currentConfig.writeSafety.strictMode,
+                title: label("write_safety_strict_title", "Strict Safe Writes"),
+                description: label(
+                    "write_safety_strict_desc",
+                    "Require requestId and a current-state preflight credential for protected mutations, then serialize and read back each write. Turn this off only for legacy write clients.",
+                ),
+            },
+            {
+                type: "checkbox",
                 key: "versionControl__enabled",
                 value: currentVersionControlSettings.enabled,
                 title: label("version_control_enabled_title", "Enable Document Snapshots and Diff"),
@@ -73,8 +83,8 @@
     }
 
     $: debugItems = buildDebugItems(config, puppySettings, versionControlSettings, getLabel);
-    $: runtimeItems = debugItems.slice(0, 4);
-    $: testItems = debugItems.slice(4);
+    $: runtimeItems = debugItems.slice(0, 5);
+    $: testItems = debugItems.slice(5);
 </script>
 
 <div class="debug-settings" class:fn__none={!display}>
@@ -86,8 +96,8 @@
                 </svg>
             </span>
             <div>
-                <h3>{getLabel("debug_runtime_section", "Runtime and diagnostics")}</h3>
-                <p>{getLabel("debug_runtime_section_desc", "Control timeline registration, response detail, and developer metadata. Changes are saved immediately.")}</p>
+                <h3>{getLabel("debug_runtime_section", "Safety settings and diagnostics")}</h3>
+                <p>{getLabel("debug_runtime_section_desc", "Control strict safe writes, timeline registration, response detail, and developer metadata. Changes are saved immediately.")}</p>
             </div>
         </div>
         <SettingPanel {group} settingItems={runtimeItems} display={true} on:changed={onChanged} />

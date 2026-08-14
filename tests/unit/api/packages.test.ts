@@ -16,7 +16,7 @@ describe('packages api wrappers', () => {
         ['template', '/api/bazaar/getInstalledTemplate'],
     ] as const)('maps %s to the installed-package endpoint', async (kind, endpoint) => {
         const request = vi.fn().mockResolvedValueOnce({ packages: [{ name: `${kind}-demo` }] });
-        const client = { request } as never;
+        const client = { request, requestRead: request } as never;
 
         await expect(getInstalledPackages(client, kind, 'demo', 'desktop')).resolves.toEqual([
             { name: `${kind}-demo` },
@@ -28,14 +28,15 @@ describe('packages api wrappers', () => {
     });
 
     it('returns an empty list for a malformed SiYuan response', async () => {
-        const client = { request: vi.fn().mockResolvedValueOnce({ packages: null }) } as never;
+        const request = vi.fn().mockResolvedValueOnce({ packages: null });
+        const client = { request, requestRead: request } as never;
 
         await expect(getInstalledPackages(client, 'plugin')).resolves.toEqual([]);
     });
 
     it('reads online plugin revisions for explicit update planning', async () => {
         const request = vi.fn().mockResolvedValueOnce({ packages: [{ name: 'demo', version: '2.0.0', repoHash: 'abcdef1' }] });
-        const client = { request } as never;
+        const client = { request, requestRead: request } as never;
 
         await expect(getBazaarPlugins(client, '', 'desktop')).resolves.toEqual([{ name: 'demo', version: '2.0.0', repoHash: 'abcdef1' }]);
         expect(request).toHaveBeenCalledWith('/api/bazaar/getBazaarPlugin', { frontend: 'desktop', keyword: '' });
@@ -49,7 +50,7 @@ describe('packages api wrappers', () => {
         ['template', '/api/bazaar/getBazaarTemplate', { keyword: 'graph' }],
     ] as const)('maps %s to the online bazaar endpoint', async (kind, endpoint, body) => {
         const request = vi.fn().mockResolvedValueOnce({ packages: [{ name: `${kind}-demo` }] });
-        const client = { request } as never;
+        const client = { request, requestRead: request } as never;
 
         await expect(getBazaarPackages(client, kind, 'graph', 'desktop')).resolves.toEqual([
             { name: `${kind}-demo` },
@@ -59,7 +60,7 @@ describe('packages api wrappers', () => {
 
     it('reads one bazaar README using a server-resolved repository revision', async () => {
         const request = vi.fn().mockResolvedValueOnce({ html: '<h1>Demo</h1>' });
-        const client = { request } as never;
+        const client = { request, requestRead: request } as never;
 
         await expect(getBazaarPackageReadme(client, {
             kind: 'plugin',

@@ -4,26 +4,42 @@ export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'fi
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
-export const FS_ACTIONS = ['ls', 'tree', 'read', 'write', 'replace', 'rm', 'mv', 'search'] as const;
+export const FS_ACTIONS = ['ls', 'tree', 'read', 'write', 'replace', 'rm', 'mv', 'reorder', 'search'] as const;
 export const NOTEBOOK_ACTIONS = ['list', 'create', 'set_open_state', 'remove', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'set_permission', 'get_child_docs'] as const;
-export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'remove', 'move', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'get_outline', 'create_daily_note', 'duplicate', 'heading_to_doc', 'doc_to_heading'] as const;
+export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'remove', 'move', 'reorder', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'get_outline', 'create_daily_note', 'duplicate', 'heading_to_doc', 'doc_to_heading'] as const;
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'replace', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'batch_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info'] as const;
 export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values'] as const;
 export const FILE_ACTIONS = ['upload_asset', 'list_templates', 'read_template', 'create_template', 'update_template', 'delete_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
-export const SEARCH_ACTIONS = ['fulltext', 'knowledge', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
+export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'compare_recent', 'delete_node', 'rollback_document', 'rollback_block'] as const;
 export const TIMELINE_APP_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'delete_node', 'rollback_document', 'rollback_block'] as const;
 export const FLASHCARD_REVIEW_APP_ACTIONS = ['review_card'] as const;
 export const MASCOT_SHOP_APP_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
-export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'audit_environment', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change'] as const;
+export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'audit_environment', 'validate_source_audit', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const EXTENSION_ACTIONS = ['list'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 export const FEEDBACK_ACTIONS = ['submit'] as const;
 
-export const SAFE_NATIVE_EXTENSION_TOOLS = ['search', 'ref', 'web_fetch', 'web_search', 'outline'] as const;
+export const NATIVE_EXTENSION_ACTION_ALLOWLIST = {
+    search: ['semantic', 'fulltext'],
+    ref: ['backlinks', 'forwardlinks'],
+    outline: ['get'],
+    history: ['list', 'search', 'get'],
+    repo: ['list', 'diff', 'search', 'file_get', 'file_open'],
+    image: ['list', 'analyze'],
+    inbox: ['list', 'get'],
+    web_fetch: null,
+    web_search: null,
+} as const;
+export const SAFE_NATIVE_EXTENSION_TOOLS = Object.keys(NATIVE_EXTENSION_ACTION_ALLOWLIST) as Array<keyof typeof NATIVE_EXTENSION_ACTION_ALLOWLIST>;
 export const DEFAULT_BLOCKED_NATIVE_EXTENSION_TOOLS = [
+    'asset', 'attr', 'block', 'bookmark', 'dailynote', 'database', 'document',
+    'export', 'file', 'http_request', 'import', 'notebook', 'question', 'skill', 'sql', 'sync', 'system', 'tag',
+    'template', 'todo_write', 'unzip', 'workspace',
+] as const;
+const LEGACY_DEFAULT_BLOCKED_NATIVE_EXTENSION_TOOLS = [
     'asset', 'attr', 'block', 'bookmark', 'dailynote', 'database', 'document',
     'export', 'file', 'history', 'http_request', 'image', 'import', 'inbox',
     'notebook', 'question', 'repo', 'skill', 'sql', 'sync', 'system', 'tag',
@@ -77,6 +93,7 @@ export interface FileCategoryToolConfig<Action extends string = string> extends 
 export interface ExtensionCategoryToolConfig extends CategoryToolConfig<ExtensionAction> {
     includeNativeTools: boolean;
     blockedTools: string[];
+    nativeActionPolicyVersion: number;
 }
 
 export type TimelineCategoryToolConfig = CategoryToolConfig<TimelineAction>;
@@ -95,6 +112,10 @@ export interface McpAppsConfig {
 export interface DebugToolConfig {
     includeUiRefreshMetadata: boolean;
     slimResponses: boolean;
+}
+
+export interface WriteSafetyConfig {
+    strictMode: boolean;
 }
 
 export type ToolConfig = {
@@ -116,6 +137,7 @@ export type ToolConfig = {
     userRulesText: string;
     agentSiyuanMemoryText: string;
     agentSiyuanMemoryUpdatedAt: string;
+    writeSafety: WriteSafetyConfig;
     debug: DebugToolConfig;
 };
 
@@ -155,7 +177,7 @@ export type ActionTier = 'basic' | 'advanced';
 const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     fs: {
         ls: 'basic', tree: 'basic', read: 'basic', write: 'basic', replace: 'basic',
-        search: 'basic',
+        search: 'basic', reorder: 'basic',
         rm: 'advanced', mv: 'advanced',
     },
     notebook: {
@@ -168,7 +190,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         create: 'basic', lookup: 'basic', get_doc: 'basic', get_outline: 'basic',
         get_child_blocks: 'basic', get_child_docs: 'basic',
         search_docs: 'basic', rename: 'basic',
-        remove: 'advanced', move: 'advanced', set_attr: 'advanced',
+        remove: 'advanced', move: 'advanced', reorder: 'advanced', set_attr: 'advanced',
         list_tree: 'advanced', create_daily_note: 'advanced', duplicate: 'advanced',
         heading_to_doc: 'advanced', doc_to_heading: 'advanced',
     },
@@ -202,7 +224,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         delete_asset: 'advanced',
     },
     search: {
-        fulltext: 'basic', knowledge: 'basic', query_sql: 'basic',
+        fulltext: 'basic', semantic: 'basic', knowledge: 'basic', query_sql: 'basic',
         get_backlinks: 'basic',
         search_refs: 'advanced', find_replace: 'advanced', search_assets: 'advanced',
         fulltext_asset_content: 'advanced', list_invalid_refs: 'advanced',
@@ -217,7 +239,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     },
     system: {
         get_version: 'basic', get_current_time: 'basic', conf: 'basic', changelog: 'basic',
-        bootstrap: 'basic', audit_environment: 'basic', list_packages: 'basic', search_bazaar: 'basic',
+        bootstrap: 'basic', audit_environment: 'basic', validate_source_audit: 'basic', list_packages: 'basic', search_bazaar: 'basic',
         get_bazaar_package: 'basic', read_bazaar_readme: 'basic', get_plugin: 'basic',
         list_plugin_updates: 'basic', list_snippets: 'basic', list_plugin_storage: 'basic',
         read_plugin_storage: 'advanced', inspect_plugin: 'advanced',
@@ -276,7 +298,7 @@ export function buildDefaultToolConfig(): ToolConfig {
     return {
         fs: {
             enabled: true,
-            actions: createActionsRecord(FS_ACTIONS, ['ls', 'tree', 'read', 'write', 'replace', 'rm', 'mv', 'search']),
+            actions: createActionsRecord(FS_ACTIONS, ['ls', 'tree', 'read', 'write', 'replace', 'rm', 'mv', 'reorder', 'search']),
         },
         notebook: {
             enabled: true,
@@ -284,7 +306,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         document: {
             enabled: true,
-            actions: createActionsRecord(DOCUMENT_ACTIONS, ['create', 'lookup', 'rename', 'move', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'get_outline', 'create_daily_note', 'duplicate', 'heading_to_doc', 'doc_to_heading']),
+            actions: createActionsRecord(DOCUMENT_ACTIONS, ['create', 'lookup', 'rename', 'move', 'reorder', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'get_outline', 'create_daily_note', 'duplicate', 'heading_to_doc', 'doc_to_heading']),
         },
         block: {
             enabled: true,
@@ -301,7 +323,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         search: {
             enabled: true,
-            actions: createActionsRecord(SEARCH_ACTIONS, ['fulltext', 'knowledge', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs']),
+            actions: createActionsRecord(SEARCH_ACTIONS, ['fulltext', 'semantic', 'knowledge', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs']),
         },
         tag: {
             enabled: true,
@@ -313,7 +335,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         system: {
             enabled: true,
-            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'audit_environment', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change']),
+            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'audit_environment', 'validate_source_audit', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change']),
         },
         flashcard: {
             enabled: true,
@@ -324,6 +346,7 @@ export function buildDefaultToolConfig(): ToolConfig {
             actions: createActionsRecord(EXTENSION_ACTIONS, ['list']),
             includeNativeTools: true,
             blockedTools: [...DEFAULT_BLOCKED_NATIVE_EXTENSION_TOOLS],
+            nativeActionPolicyVersion: 1,
         },
         mascot: {
             enabled: true,
@@ -350,6 +373,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         userRulesText: '创建文档/日记后主动设图标',
         agentSiyuanMemoryText: '',
         agentSiyuanMemoryUpdatedAt: '',
+        writeSafety: { strictMode: true },
         debug: {
             includeUiRefreshMetadata: false,
             slimResponses: true,
@@ -445,6 +469,9 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
     if (typeof raw.agentSiyuanMemoryUpdatedAt === 'string') {
         config.agentSiyuanMemoryUpdatedAt = raw.agentSiyuanMemoryUpdatedAt;
     }
+    if (isRecord(raw.writeSafety) && typeof raw.writeSafety.strictMode === 'boolean') {
+        config.writeSafety.strictMode = raw.writeSafety.strictMode;
+    }
     if (isRecord(raw.debug)) {
         if (typeof raw.debug.includeUiRefreshMetadata === 'boolean') {
             config.debug.includeUiRefreshMetadata = raw.debug.includeUiRefreshMetadata;
@@ -488,12 +515,22 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
                 config.extension.includeNativeTools = categoryValue.includeNativeTools;
             }
             if (Array.isArray(categoryValue.blockedTools)) {
-                config.extension.blockedTools = Array.from(new Set(
+                const normalizedBlockedTools = Array.from(new Set(
                     categoryValue.blockedTools
                         .filter((name): name is string => typeof name === 'string')
                         .map((name) => name.trim())
                         .filter(Boolean),
                 )).sort();
+                const legacyDefault = [...LEGACY_DEFAULT_BLOCKED_NATIVE_EXTENSION_TOOLS].sort();
+                const isLegacyDefault = categoryValue.nativeActionPolicyVersion === undefined
+                    && normalizedBlockedTools.length === legacyDefault.length
+                    && normalizedBlockedTools.every((name, index) => name === legacyDefault[index]);
+                config.extension.blockedTools = isLegacyDefault
+                    ? [...DEFAULT_BLOCKED_NATIVE_EXTENSION_TOOLS].sort()
+                    : normalizedBlockedTools;
+            }
+            if (typeof categoryValue.nativeActionPolicyVersion === 'number') {
+                config.extension.nativeActionPolicyVersion = Math.max(1, Math.trunc(categoryValue.nativeActionPolicyVersion));
             }
         }
         // Migrate the short-lived timeline.appActions format into the dedicated

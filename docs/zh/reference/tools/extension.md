@@ -15,7 +15,7 @@
 
 启用原生工具后，响应中的 `detailsIncluded=true`，并额外返回各工具的名称、描述、只读声明、影响范围、降级 schema，以及在 Sisyphus 设置中被屏蔽的状态。`extension` 总览帮助遵循相同规则；仍可通过 `help(topic="<tool>")` 按需查看一个明确指定的工具。
 
-默认接收 `source="plugin"` 的工具。启用 `extension.includeNativeTools=true` 后，Sisyphus 只暴露固定的原生白名单：`search`、`ref`、`outline`、`web_fetch`、`web_search`。原生 `document`、`block`、`file`、`database`、`system` 以及其他宽权限或修改类工具，即使持久化屏蔽列表为空，也会被策略层拒绝。缺失 source 时按官方兼容规则视为 native。从外部 MCP Server 导入的 `source="mcp"` 工具和本插件自身命名空间仍会被排除。
+默认接收 `source="plugin"` 的工具。启用 `extension.includeNativeTools=true` 后，Sisyphus 对原生工具同时执行“工具名白名单 + action 白名单”：`search`、`ref`、`outline`、`history`、`repo`、`image`、`inbox` 只允许配置中列明的读取动作，`web_fetch` 与 `web_search` 只允许无 `action` 的读取调用。原生 `document`、`block`、`file`、`database`、`system` 以及未列明动作，即使持久化屏蔽列表为空，也会被策略层拒绝。缺失 source 时按官方兼容规则视为 native。从外部 MCP Server 导入的 `source="mcp"` 工具和本插件自身命名空间仍会被排除。
 
 全新安装默认启用这条窄化的只读桥接，用官方发现与网络读取补充 Sisyphus，同时不建立第二条笔记写入路径。
 若官方工具名为 `help` 或 `list`，发现结果会标记保留 action 冲突，但不会暴露该工具。
@@ -63,6 +63,7 @@ siyuan extension search \
 - 连接 `/mcp` 前会先通过 `/api/system/version` 检查思源版本；低于 3.7.0 时直接标记不支持，不访问官方端点。
 - 只有启用 `extension`、查看扩展工具设置或主动刷新时才建立连接。
 - 未声明 `readOnlyHint=true` 的工具，调用前必须取得用户明确确认。
+- 原生工具的下游 `action` 必须命中固定白名单；未知、缺失或未列明动作在转发前失败关闭。`search`、`ref`、`outline`、`history`、`repo`、`image` 在存在任一 `none` 笔记本时整体拒绝，避免绕开 Sisyphus 的逐笔记本权限边界。
 - 官方 MCP 工具调用只发送一次，绝不自动重试；发送后发生传输错误时会报告“执行状态未知”。
 - 工具发现属于只读操作，会话失效时允许重连并重试一次。
 - 首次发现由外层 MCP Server 在后台执行，不阻塞其余工具列表；发现成功后缓存结果并发送工具列表变更通知。
@@ -73,7 +74,7 @@ siyuan extension search \
 官方发现需要思源 3.7.0 或更高版本、管理员会话和有效 API Token。该要求只属于 `extension`；Sisyphus 插件的 `minAppVersion` 仍为 2.9.0。
 
 > [!WARNING]
-> 原生工具桥接不经过 Sisyphus 的笔记本权限。因此固定白名单只包含上述五个只读导向工具；笔记、块、数据库、文件、配置、历史、仓库、导入导出及其他具有写入能力或宽控制面的原生工具，在 Schema 暴露和调用前都会被拒绝。`web_search` 与 `web_fetch` 仍会把查询或网址发送给外部服务，因此只应向可信本地客户端开放。
+> 原生工具桥接无法对每条结果重新执行 Sisyphus 的笔记本过滤。因此工作区读取类原生工具只有在全部笔记本均可读时才允许转发；笔记、块、数据库、文件、配置、导入导出及其他修改类工具，在 Schema 暴露和调用前都会被拒绝。`web_search` 与 `web_fetch` 仍会把查询或网址发送给外部服务，因此只应向可信本地客户端开放。
 
 ## 官方 MCP 与 Sisyphus 的关系
 

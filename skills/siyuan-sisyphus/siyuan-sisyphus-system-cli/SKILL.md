@@ -35,6 +35,12 @@ siyuan-sisyphus system notify --msg 'Task complete' --level 'info' --timeout '50
 
 If an action or field is rejected, inspect `siyuan-sisyphus list` and `siyuan-sisyphus help <tool> <action>` instead of guessing. Search results can lag recent writes; direct ID/path reads do not depend on indexing.
 
+For a frozen external source-audit handoff, validate its contract without reading the source tree or inferring conclusions:
+
+```bash
+siyuan-sisyphus system validate-source-audit --inventory '<parsed-inventory-json>' --usage-map '<parsed-usage-map-json>' --baselines-markdown '<exact-baselines-markdown>' --json
+```
+
 ## CLI setup
 
-Use `siyuan-sisyphus init` and `siyuan-sisyphus config list|get|set|use` to manage profiles. Configuration precedence is command flags, environment variables, active profile, then defaults. Use `--json` for scripts. The CLI treats execution as confirmation, so the agent must still ask the user before risky commands.
+Use `siyuan-sisyphus init` and `siyuan-sisyphus config list|get|set|use` to manage profiles. Configuration precedence is command flags, environment variables, active profile, then defaults. Use `--json` for scripts. The CLI uses the same strict preflight and fresh request ID for protected writes; executing a command does not replace explicit user approval for risky operations.

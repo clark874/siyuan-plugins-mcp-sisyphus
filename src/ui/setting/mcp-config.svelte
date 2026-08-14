@@ -363,6 +363,38 @@
             return;
         }
 
+        if (key === "writeSafety__strictMode") {
+            const strictMode = Boolean(value);
+            if (!strictMode && !window.confirm(getLabel(
+                "write_safety_disable_confirm",
+                "关闭严格安全写入后，旧写入调用将不再获得 Hash 并发校验、请求幂等和写后验证保护。确定继续吗？",
+            ))) {
+                config = { ...config };
+                return;
+            }
+            config = {
+                ...config,
+                writeSafety: { ...config.writeSafety, strictMode },
+            };
+            await persistConfig();
+            try {
+                const restarted = await plugin?.refreshHttpServerAfterInstructionConfigChange?.();
+                showMessage(getLabel(
+                    restarted ? "write_safety_restarted" : "write_safety_saved_reconnect",
+                    restarted
+                        ? "写入安全模式已保存，MCP HTTP 服务已重启。请刷新或重新连接客户端以获取新 Schema。"
+                        : "写入安全模式已保存。请刷新或重新连接 MCP 客户端以获取新 Schema。",
+                ));
+            } catch (error) {
+                console.error("[MCP] refresh after write safety change failed:", error);
+                showMessage(getLabel(
+                    "write_safety_refresh_failed",
+                    "写入安全模式已保存，但 MCP HTTP 服务重启失败。请手动重启并重新连接客户端。",
+                ));
+            }
+            return;
+        }
+
         if (key === "versionControl__enabled") {
             versionControlSettings = {
                 ...versionControlSettings,

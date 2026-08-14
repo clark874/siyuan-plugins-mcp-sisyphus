@@ -49,6 +49,7 @@ Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \
 - Read \`/AGENTS.md\` through \`fs\` before workspace-aware tasks when it exists.
 - A workspace path such as \`/Notebook/Folder/Doc\`, an hpath such as \`/Folder/Doc\`, and a storage path such as \`/20260712123000-abc123.sy\` are different values.
 - Read before writing; after a mutation, read the affected object again.
+- When strict safe writes are enabled, first call the exact mutation with \`validateOnly=true\`. Use the returned \`preconditionField\` and credential with a fresh UUIDv7 \`requestId\` for the one real write; never invent or reuse a credential after restart.
 - For document reads, continue with \`nextWindow\` or explicit \`blockStart\`/\`blockLimit\`/\`tokenBudget\`; for list and search results, use their page parameters.
 - Missing results may be caused by notebook permissions or indexing delay.
 - Obtain explicit approval before deletes, moves, bulk replacement, permission changes, local upload/export, or sensitive workspace disclosure.
@@ -412,8 +413,9 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
         defaultPrompt: 'Use $NAME to find and query the requested SiYuan knowledge.',
         body: `Search to identify candidates, read the target by ID or path, and only then edit. Use explicit pagination for repeatable results.
 
-For a natural-language knowledge question on SiYuan 3.8.0+, start with the knowledge action. It uses the configured embedding provider, collapses reference-only hits into their target blocks, prefers named content atoms, and attaches documents that reuse each atom. Semantic hits are discovery candidates rather than evidence; always read the returned stable block ID and inspect its source and verification attributes before reuse.
+For a natural-language question on SiYuan 3.8.0+, use \`semantic\` for low-level candidate discovery and \`knowledge\` for the LLM Wiki view that collapses reference-only hits, prefers named content atoms, and attaches readable reusing documents. Semantic hits are discovery candidates rather than evidence; always read the returned stable block ID and inspect its source and verification attributes before reuse.
 
+{{call semantic}}
 {{call knowledge}}
 {{call fulltext}}
 {{call scoped}}
@@ -433,7 +435,8 @@ This action mutates content. First search, read each target, show the exact old/
 Read the changed blocks again. Recent writes can take time to enter the search index; verify a fresh mutation by ID or path rather than assuming an empty search means failure. Use {{help search query_sql}} for live SQL action constraints.
 `,
         calls: {
-            knowledge: call('search', 'knowledge', { query: 'How is textnets projection weighting computed?', pageSize: 10, candidateSize: 30 }),
+            semantic: call('search', 'semantic', { query: 'Which existing notes are relevant to this method?', page: 1, pageSize: 30 }),
+            knowledge: call('search', 'knowledge', { query: 'How have existing projects reused this method?', pageSize: 10, candidateSize: 30 }),
             fulltext: call('search', 'fulltext', { query: 'keyword', page: 1, pageSize: 20 }),
             scoped: call('search', 'fulltext', { query: 'keyword', parentId: '<doc-id>', typeShortcodes: ['h', 'p'] }),
             sql: call('search', 'query_sql', { stmt: "SELECT id, hpath, content FROM blocks WHERE type = 'p' ORDER BY updated DESC LIMIT 10" }),
@@ -630,6 +633,10 @@ Obtain explicit approval before notebook/document/block deletion or move, bulk r
 
 If an action or field is rejected, inspect {{help * *}} instead of guessing. Search results can lag recent writes; direct ID/path reads do not depend on indexing.
 
+For a frozen external source-audit handoff, validate its contract without reading the source tree or inferring conclusions:
+
+{{call sourceAudit}}
+
 {{runtime system}}
 `,
         calls: {
@@ -637,13 +644,14 @@ If an action or field is rejected, inspect {{help * *}} instead of guessing. Sea
             time: call('system', 'get_current_time'),
             permissions: call('notebook', 'get_permissions'),
             audit: call('system', 'audit_environment'),
+            sourceAudit: call('system', 'validate_source_audit', { inventory: '<parsed-inventory-json>', usageMap: '<parsed-usage-map-json>', baselinesMarkdown: '<exact-baselines-markdown>' }),
             network: call('system', 'network'),
             notify: call('system', 'notify', { msg: 'Task complete', level: 'info', timeout: 5000 }),
         },
         runtime: {
             cli: `## CLI setup
 
-Use \`siyuan-sisyphus init\` and \`siyuan-sisyphus config list|get|set|use\` to manage profiles. Configuration precedence is command flags, environment variables, active profile, then defaults. Use \`--json\` for scripts. The CLI treats execution as confirmation, so the agent must still ask the user before risky commands.`,
+Use \`siyuan-sisyphus init\` and \`siyuan-sisyphus config list|get|set|use\` to manage profiles. Configuration precedence is command flags, environment variables, active profile, then defaults. Use \`--json\` for scripts. The CLI uses the same strict preflight and fresh request ID for protected writes; executing a command does not replace explicit user approval for risky operations.`,
             mcp: `## MCP safety
 
 Respect server permission errors and dangerous-action confirmation responses. Never bypass them with another action. The MCP server must not write skill files or configuration into the client machine.`,

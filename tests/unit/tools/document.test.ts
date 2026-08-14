@@ -23,6 +23,58 @@ describe('document tool extended actions', () => {
     });
 });
 
+describe('document.reorder', () => {
+    it('applies a complete sibling order and switches the notebook to custom sort mode', async () => {
+        let orderedPaths: string[] = [];
+        let sortMode = 2;
+        const request = vi.fn(async (endpoint: string, body?: Record<string, any>) => {
+            if (endpoint === '/api/notebook/lsNotebooks') {
+                return { notebooks: [{ id: 'nb-1', name: 'Notebook', closed: false }] };
+            }
+            if (endpoint === '/api/notebook/getNotebookConf') return { box: 'nb-1', name: 'Notebook', conf: { sortMode } };
+            if (endpoint === '/api/filetree/listDocsByPath') {
+                return {
+                    box: 'nb-1',
+                    files: [
+                        { id: 'doc-a', path: '/a.sy', hPath: '/A', name: 'A.sy' },
+                        { id: 'doc-b', path: '/b.sy', hPath: '/B', name: 'B.sy' },
+                    ],
+                };
+            }
+            if (endpoint === '/api/filetree/changeSort') {
+                orderedPaths = body?.paths ?? [];
+                return null;
+            }
+            if (endpoint === '/api/notebook/setNotebookConf') {
+                sortMode = body?.conf?.sortMode;
+                return null;
+            }
+            if (endpoint.startsWith('/api/ui/')) return null;
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+        };
+
+        const result = await callDocumentTool(createMockClient({ request }), {
+            action: 'reorder', parentID: 'nb-1', orderedIDs: ['doc-b', 'doc-a'],
+        }, buildDefaultToolConfig().document, permMgr as never);
+
+        expect(parseResult(result)).toMatchObject({
+            success: true,
+            order: ['doc-b', 'doc-a'],
+            previousOrder: ['doc-a', 'doc-b'],
+            sortModeChanged: true,
+        });
+        expect(orderedPaths).toEqual(['/b.sy', '/a.sy']);
+        expect(sortMode).toBe(6);
+    });
+});
+
 describe('document.get_outline', () => {
     it('returns the native heading tree after resolving document permission context', async () => {
         const outline = [{

@@ -87,6 +87,68 @@ describe('search SQL read-only guard', () => {
 });
 
 describe('search tool filtering', () => {
+    it('routes semantic search through the native embedding endpoint and permission filter', async () => {
+        const request = vi.fn(async (endpoint: string, body: unknown) => {
+            expect(endpoint).toBe('/api/search/semanticSearchBlock');
+            expect(body).toEqual({
+                query: 'knowledge graph',
+                paths: ['allowed'],
+                types: { heading: true, paragraph: true },
+                subTypes: { h2: true },
+                page: 2,
+                pageSize: 16,
+            });
+            return {
+                blocks: [
+                    { id: 'keep', box: 'allowed', rootID: 'doc-1', path: '/doc-1.sy', content: 'relevant' },
+                    { id: 'drop', box: 'blocked', rootID: 'doc-2', path: '/doc-2.sy', content: 'secret' },
+                ],
+                matchedBlockCount: 2,
+                matchedRootCount: 2,
+                pageCount: 3,
+            };
+        });
+        const client = createMockClient({ request });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: (notebook: string) => notebook !== 'blocked',
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({ allowed: 'rwd', blocked: 'none' }),
+        };
+
+        const result = await callSearchTool(client, {
+            action: 'semantic',
+            query: 'knowledge graph',
+            paths: ['allowed'],
+            typeShortcodes: ['h', 'p'],
+            subTypes: { h2: true },
+            page: 2,
+            pageSize: 16,
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.data).toHaveLength(1);
+        expect(parsed.data[0]).toMatchObject({ id: 'keep' });
+        expect(parsed.partial).toBe(true);
+        expect(parsed.filteredOutCount).toBe(1);
+        expect(parsed.kernelMatchedBlockCount).toBe(2);
+        expect(parsed.dataEgress).toBe(true);
+    });
+
+    it('validates semantic pagination before calling the kernel', async () => {
+        const request = vi.fn();
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'semantic',
+            query: 'knowledge',
+            pageSize: 129,
+        }, buildDefaultToolConfig().search, { canRead: () => true } as never);
+
+        expect(parseResult(result).error.message).toContain('Invalid arguments');
+        expect(request).not.toHaveBeenCalled();
+    });
+
     it('filters fulltext search results by notebook permission and preserves plainContent', () => {
         const permMgr = {
             canRead(notebookId: string) {

@@ -29,10 +29,10 @@ describe('setting tool config', () => {
             'database',
             'document',
             'file',
-            'history',
-            'repo',
             'system',
         ]));
+        expect(config.extension.blockedTools).not.toContain('history');
+        expect(config.extension.blockedTools).not.toContain('repo');
         expect(config.extension.blockedTools).not.toContain('search');
         expect(config.extension.blockedTools).not.toContain('ref');
         expect(config.extension.blockedTools).not.toContain('outline');

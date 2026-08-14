@@ -2248,4 +2248,44 @@ describe('fs tool', () => {
         });
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/moveDocsByID', expect.anything());
     });
+
+    it('reorders direct child documents through human-readable paths', async () => {
+        let orderedPaths: string[] = [];
+        const request = vi.fn(async (endpoint: string, body?: Record<string, any>) => {
+            if (endpoint === '/api/notebook/lsNotebooks') {
+                return { notebooks: [{ id: 'nb-1', name: 'Notebook', closed: false }] };
+            }
+            if (endpoint === '/api/notebook/getNotebookConf') {
+                return { box: 'nb-1', name: 'Notebook', conf: { sortMode: 2 } };
+            }
+            if (endpoint === '/api/filetree/listDocsByPath') {
+                return {
+                    box: 'nb-1',
+                    files: [
+                        { id: 'doc-a', path: '/a.sy', hPath: '/A', name: 'A.sy' },
+                        { id: 'doc-b', path: '/b.sy', hPath: '/B', name: 'B.sy' },
+                    ],
+                };
+            }
+            if (endpoint === '/api/filetree/changeSort') {
+                orderedPaths = body?.paths ?? [];
+                return null;
+            }
+            if (endpoint === '/api/notebook/setNotebookConf' || endpoint.startsWith('/api/ui/')) return null;
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+
+        const result = await callFsTool(createMockClient({ request }), {
+            action: 'reorder',
+            path: '/Notebook',
+            orderedPaths: ['/Notebook/B', '/Notebook/A'],
+        }, fsConfig(), createPermMgr('rw'));
+
+        expect(parseResult(result)).toMatchObject({
+            success: true,
+            previousOrder: ['/Notebook/A', '/Notebook/B'],
+            order: ['/Notebook/B', '/Notebook/A'],
+        });
+        expect(orderedPaths).toEqual(['/b.sy', '/a.sy']);
+    });
 });

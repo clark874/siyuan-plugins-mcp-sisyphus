@@ -141,7 +141,9 @@ describe('extension server integration', () => {
                     arguments: { action: 'inner_action' },
                 },
             });
-            expect((result.content[0] as { text: string }).text).toContain('"action":"inner_action"');
+            expect(JSON.parse((result.content[0] as { text: string }).text)).toMatchObject({
+                forwarded: { action: 'inner_action' },
+            });
         } finally {
             await client.close();
         }
@@ -151,12 +153,15 @@ describe('extension server integration', () => {
         process.env.SIYUAN_TOKEN = 'test-token';
         const config = buildDefaultToolConfig();
         config.extension.includeNativeTools = true;
-        global.fetch = vi.fn(async (input) => {
+        global.fetch = vi.fn(async (input, init) => {
             const url = String(input);
             if (url.includes('/api/file/getFile')) {
+                const body = init?.body ? JSON.parse(String(init.body)) as { path?: string } : {};
                 return {
                     ok: true,
-                    text: async () => JSON.stringify(config),
+                    text: async () => body.path?.endsWith('/notebookPermissions')
+                        ? '{}'
+                        : JSON.stringify(config),
                 } as Response;
             }
             if (url.includes('/api/system/version')) {
@@ -192,7 +197,9 @@ describe('extension server integration', () => {
                     arguments: { action: 'semantic', query: 'knowledge' },
                 },
             });
-            expect((result.content[0] as { text: string }).text).toContain('"query":"knowledge"');
+            expect(JSON.parse((result.content[0] as { text: string }).text)).toMatchObject({
+                forwarded: { action: 'semantic', query: 'knowledge' },
+            });
         } finally {
             await client.close();
         }

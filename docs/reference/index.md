@@ -8,6 +8,7 @@ Related pages:
 
 - [Common Tasks](./common-tasks.md)
 - [Permissions](./permissions.md)
+- [Strict Safe Writes](./write-safety.md)
 - [Path Semantics](./path-semantics.md)
 - [Error Types](./error-types.md)
 - [Tools Index](./tools/index.md)

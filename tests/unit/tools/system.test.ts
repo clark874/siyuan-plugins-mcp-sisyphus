@@ -6,6 +6,26 @@ import { parseResult } from '../../helpers/parse-result';
 import { createMockClient } from '../../helpers/mock-client';
 
 describe('system tool schemas', () => {
+    it('validates a frozen source-audit handoff without reading local source trees', async () => {
+        const result = await callSystemTool(createMockClient(), {
+            action: 'validate_source_audit',
+            inventory: {
+                schemaVersion: 1,
+                items: [{
+                    id: 'change-1', file: 'src/example.py', symbol: 'run', lineStart: 1, lineEnd: 4,
+                    beforeBehavior: 'old', afterBehavior: 'new', risk: 'medium', evidenceHash: 'a'.repeat(64),
+                }],
+            },
+            usageMap: {
+                schemaVersion: 1,
+                projects: [{ id: 'project-1', name: 'Project 1', usages: [{ inventoryId: 'change-1', status: 'used', evidence: ['main.py:10'] }] }],
+            },
+            baselinesMarkdown: `commit ${'b'.repeat(40)}\nsha256 ${'c'.repeat(64)}`,
+        }, buildDefaultToolConfig().system, {} as never);
+
+        expect(parseResult(result)).toMatchObject({ valid: true, summary: { inventoryItems: 1, projects: 1 } });
+    });
+
     it('derives constrained config and notification schemas from Zod', () => {
         const conf = SYSTEM_VARIANTS.find((variant) => variant.action === 'conf');
         const notify = SYSTEM_VARIANTS.find((variant) => variant.action === 'notify');

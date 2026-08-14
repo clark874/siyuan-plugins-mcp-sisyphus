@@ -264,7 +264,7 @@ describe('extension tool', () => {
         config.includeNativeTools = false;
         const disabledResult = await callExtensionTool(
             createMockClient(),
-            { action: native.name, arguments: { action: 'read' } },
+            { action: native.name, arguments: { action: 'semantic', query: 'knowledge' } },
             config,
             createMockPermissionManager(),
             runtime,
@@ -276,13 +276,121 @@ describe('extension tool', () => {
         config.includeNativeTools = true;
         const enabledResult = await callExtensionTool(
             createMockClient(),
-            { action: native.name, arguments: { action: 'read' } },
+            { action: native.name, arguments: { action: 'semantic', query: 'knowledge' } },
             config,
             createMockPermissionManager(),
             runtime,
         );
         expect(enabledResult.isError).not.toBe(true);
-        expect(callTool).toHaveBeenCalledWith(native.name, { action: 'read' });
+        expect(callTool).toHaveBeenCalledWith(native.name, { action: 'semantic', query: 'knowledge' });
+    });
+
+    it('allows only explicitly listed actions on mixed native tools', async () => {
+        const config = buildDefaultToolConfig().extension;
+        config.includeNativeTools = true;
+        config.blockedTools = [];
+        const history = nativeTool({ name: 'history', readOnlyHint: false });
+        const { runtime, callTool } = fakeRuntime([history]);
+        const permMgr = {
+            ...createMockPermissionManager(),
+            getAll: () => ({ notebook: 'rwd' }),
+        } as never;
+
+        const allowed = await callExtensionTool(
+            createMockClient(),
+            { action: 'history', arguments: { action: 'list', page: 1 } },
+            config,
+            permMgr,
+            runtime,
+        );
+        expect(allowed.isError).not.toBe(true);
+        expect(callTool).toHaveBeenCalledWith('history', { action: 'list', page: 1 });
+
+        const rejected = await callExtensionTool(
+            createMockClient(),
+            { action: 'history', arguments: { action: 'rollback', id: 'snapshot-1' } },
+            config,
+            permMgr,
+            runtime,
+        );
+        expect(rejected.isError).toBe(true);
+        expect(rejected.content[0].text).toContain('native_action_not_allowed');
+        expect(rejected.content[0].text).toContain('list');
+        expect(callTool).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects unknown native actions instead of trusting a readOnly tool-level hint', async () => {
+        const config = buildDefaultToolConfig().extension;
+        config.includeNativeTools = true;
+        config.blockedTools = [];
+        const search = nativeTool({ name: 'search', readOnlyHint: true });
+        const { runtime, callTool } = fakeRuntime([search]);
+        const permMgr = {
+            ...createMockPermissionManager(),
+            getAll: () => ({ notebook: 'rwd' }),
+        } as never;
+
+        const result = await callExtensionTool(
+            createMockClient(),
+            { action: 'search', arguments: { action: 'replace', query: 'x' } },
+            config,
+            permMgr,
+            runtime,
+        );
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('native_action_not_allowed');
+        expect(callTool).not.toHaveBeenCalled();
+    });
+
+    it('fails closed for workspace-reading native actions when any notebook is restricted', async () => {
+        const config = buildDefaultToolConfig().extension;
+        config.includeNativeTools = true;
+        config.blockedTools = [];
+        const repo = nativeTool({ name: 'repo', readOnlyHint: false });
+        const { runtime, callTool } = fakeRuntime([repo]);
+        const permMgr = {
+            ...createMockPermissionManager(),
+            getAll: () => ({ public: 'rwd', private: 'none' }),
+        } as never;
+
+        const result = await callExtensionTool(
+            createMockClient(),
+            { action: 'repo', arguments: { action: 'list' } },
+            config,
+            permMgr,
+            runtime,
+        );
+
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('native_permission_boundary');
+        expect(callTool).not.toHaveBeenCalled();
+    });
+
+    it('keeps actionless open-web tools callable but rejects unexpected inner actions', async () => {
+        const config = buildDefaultToolConfig().extension;
+        config.includeNativeTools = true;
+        const webFetch = nativeTool({ name: 'web_fetch', readOnlyHint: true });
+        const { runtime, callTool } = fakeRuntime([webFetch]);
+
+        const allowed = await callExtensionTool(
+            createMockClient(),
+            { action: 'web_fetch', arguments: { url: 'https://example.org/' } },
+            config,
+            createMockPermissionManager(),
+            runtime,
+        );
+        expect(allowed.isError).not.toBe(true);
+
+        const rejected = await callExtensionTool(
+            createMockClient(),
+            { action: 'web_fetch', arguments: { action: 'write', url: 'https://example.org/' } },
+            config,
+            createMockPermissionManager(),
+            runtime,
+        );
+        expect(rejected.isError).toBe(true);
+        expect(callTool).toHaveBeenCalledTimes(1);
     });
 
     it('refreshes once when a requested action is not cached', async () => {

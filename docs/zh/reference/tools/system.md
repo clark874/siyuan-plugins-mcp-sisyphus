@@ -13,7 +13,7 @@
 | 分组 | 动作 |
 |------|---------|
 | 基础信息 | `bootstrap`, `get_version`, `get_current_time`, `changelog` |
-| 配置 / 环境 | `conf`, `network`, `workspace_info`, `audit_environment`, `list_packages` |
+| 配置 / 环境 | `conf`, `network`, `workspace_info`, `audit_environment`, `validate_source_audit`, `list_packages` |
 | 通知 | `notify` |
 | 同步 | `perform_sync` |
 
@@ -24,6 +24,7 @@
 - `conf` 是兼容保留的精确配置读取动作，默认关闭；通常使用 `audit_environment` 即可。只有明确需要某个非敏感字段时才单独启用，所有密钥、令牌、密码、Cookie、凭据和私钥字段都会按字段名强制遮蔽。
 - `changelog` 是只读操作。插件升级后可传 `fromVersion` 查看更新内容，并识别可能影响用户规则、`/AGENTS.md` 记忆、权限、外观、连接片段、时间线设置或工具配置的变更。
 - `audit_environment` 是只读操作，返回脱敏配置概览、各类已安装扩展包数量及插件状态统计。
+- `validate_source_audit` 只验证外部冻结交接包的结构、引用完整性与摘要，不读取源码、不重新执行差异分析，也不据此推断项目结论。它接受解析后的 `inventory.json`、`usage-map.json` 与原始 `baselines.md`。
 - `list_packages` 是只读操作，分页返回已安装扩展包的精简元数据，不读取第三方插件配置文件。
 - `notify` 通过 `msg`、`level` 和可选 `timeout` 显示思源通知。
 - `perform_sync` 会通过 `/api/sync/performSync` 立即触发思源同步。该动作需要确认后执行。
@@ -40,4 +41,5 @@
 - `get_current_time`
 - `bootstrap`
 - `audit_environment`
+- `validate_source_audit`
 - `list_packages`

@@ -35,6 +35,12 @@ system(action="notify", msg="Task complete", level="info", timeout=5000)
 
 If an action or field is rejected, inspect `siyuan://help/tool-overview` and the relevant `siyuan://help/action/{tool}/{action}` resource instead of guessing. Search results can lag recent writes; direct ID/path reads do not depend on indexing.
 
+For a frozen external source-audit handoff, validate its contract without reading the source tree or inferring conclusions:
+
+```text
+system(action="validate_source_audit", inventory="<parsed-inventory-json>", usageMap="<parsed-usage-map-json>", baselinesMarkdown="<exact-baselines-markdown>")
+```
+
 ## MCP safety
 
 Respect server permission errors and dangerous-action confirmation responses. Never bypass them with another action. The MCP server must not write skill files or configuration into the client machine.

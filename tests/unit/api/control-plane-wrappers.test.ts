@@ -9,7 +9,7 @@ describe('control-plane API wrappers', () => {
         const request = vi.fn()
             .mockResolvedValueOnce({ snippets: [{ id: 's1', name: 'Demo', type: 'css', enabled: true, content: 'body{}' }, { bad: true }] })
             .mockResolvedValueOnce(null);
-        const client = { request } as never;
+        const client = { request, requestRead: request, requestWrite: request } as never;
         const snippets = await getSnippets(client);
 
         expect(snippets).toEqual([{ id: 's1', name: 'Demo', type: 'css', enabled: true, disabledInPublish: false, content: 'body{}' }]);
@@ -18,7 +18,8 @@ describe('control-plane API wrappers', () => {
     });
 
     it('normalizes workspace directory entries and retains symlink metadata', async () => {
-        const client = { request: vi.fn().mockResolvedValue([{ name: 'config.json', isDir: false, isSymlink: true, updated: 7 }, null]) } as never;
+        const request = vi.fn().mockResolvedValue([{ name: 'config.json', isDir: false, isSymlink: true, updated: 7 }, null]);
+        const client = { request, requestRead: request } as never;
 
         await expect(readDir(client, '/data/storage/petal/demo')).resolves.toEqual([
             { name: 'config.json', isDir: false, isSymlink: true, updated: 7 },
@@ -29,7 +30,7 @@ describe('control-plane API wrappers', () => {
         const request = vi.fn()
             .mockResolvedValueOnce({ conf: { keymap: { general: { open: '⌘O' } }, account: { token: 'hidden' } } })
             .mockResolvedValueOnce(null);
-        const client = { request } as never;
+        const client = { request, requestRead: request, requestWrite: request } as never;
         const keymap = await getControlledSetting(client, 'keymap');
 
         expect(keymap).toEqual({ general: { open: '⌘O' } });

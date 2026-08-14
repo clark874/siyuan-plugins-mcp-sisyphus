@@ -31,6 +31,8 @@ function createStatefulClient() {
     });
     return {
         request,
+        requestRead: request,
+        requestWrite: request,
         createDirectory: vi.fn(async () => undefined),
         writeFile: vi.fn(async (path: string, content: string) => { files.set(path, content); }),
         readFile: vi.fn(async (path: string) => {
@@ -169,6 +171,8 @@ describe('control-plane operations', () => {
         let failRestoreUnzip = false;
         const client = {
             request,
+            requestRead: request,
+            requestWrite: request,
             createDirectory: vi.fn(async () => undefined),
             writeFile: vi.fn(async (path: string, content: string) => { files.set(path, content); }),
             readFile: vi.fn(async (path: string) => {
@@ -237,6 +241,8 @@ describe('control-plane operations', () => {
         });
         const client = {
             request,
+            requestRead: request,
+            requestWrite: request,
             createDirectory: vi.fn(async () => undefined),
             writeFile: vi.fn(async (path: string, content: string) => { files.set(path, content); }),
             readFile: vi.fn(async (path: string) => files.get(path) ?? Promise.reject(new Error('missing'))),
@@ -261,6 +267,8 @@ describe('control-plane operations', () => {
         });
         const client = {
             request,
+            requestRead: request,
+            requestWrite: request,
             createDirectory: vi.fn(async () => undefined),
             writeFile: vi.fn(async (path: string, content: string) => { files.set(path, content); }),
             readFile: vi.fn(async (path: string) => files.get(path) ?? Promise.reject(new Error('missing'))),
@@ -288,6 +296,8 @@ describe('control-plane operations', () => {
         });
         const client = {
             request,
+            requestRead: request,
+            requestWrite: request,
             createDirectory: vi.fn(async () => undefined),
             writeFile: vi.fn(async (path: string, content: string) => { files.set(path, content); }),
             readFile: vi.fn(async (path: string) => files.get(path) ?? Promise.reject(new Error('missing'))),
@@ -314,6 +324,8 @@ describe('control-plane operations', () => {
         });
         const client = {
             request,
+            requestRead: request,
+            requestWrite: request,
             createDirectory: vi.fn(async () => undefined),
             writeFile: vi.fn(async (path: string, content: string) => { files.set(path, content); }),
             readFile: vi.fn(async (path: string) => files.get(path) ?? Promise.reject(new Error('missing'))),
@@ -343,6 +355,8 @@ describe('control-plane operations', () => {
         });
         const client = {
             request,
+            requestRead: request,
+            requestWrite: request,
             createDirectory: vi.fn(async () => undefined),
             writeFile: vi.fn(async (path: string, content: string) => {
                 if (path === '/data/storage/petal/demo-plugin/config.json') configContent = content;

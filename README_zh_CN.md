@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **本地维护分支：** 当前 Fork 的 `v0.7.5-local.20`（CLI `v0.2.4-local.4`）在上游 `v0.6.0` 基础上增加思源工作区控制面、只读插件集市目录、安全 SQL 分析通道、语义知识检索与项目关系展开、知识摄取与知识治理 Skill、窄化的官方 MCP 只读桥接、按需工作区记忆、实时 Agent bootstrap、单一 Sisyphus 网关便携接入包，以及可分页、可按年月日展开、可临时按父文档聚合并联动原生文档历史 Diff 的“最近更新”时间轴。账户、鉴权、同步、仓库、加密和秘密值仍永久排除。完整说明见 [分层 Agent 记忆设计](docs/plans/2026-08-12-layered-agent-memory-and-knowledge-governance-design.md)、[单一网关交付设计](docs/plans/2026-08-12-single-gateway-agent-delivery-design.md)、[最近历史差异设计](docs/plans/2026-08-11-recent-history-diff-workflow-design.md)、[system 工具文档](docs/reference/tools/system.md) 与 [search 工具文档](docs/reference/tools/search.md)。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.0-wiki.1`（CLI `v0.3.0-wiki.1`）在既有本地维护能力上选择性吸收上游 `v0.6.3` 的原生语义搜索、手动文档排序和严格安全写入，并进一步加入原生 MCP action 白名单、低层语义候选与高层知识编排分层、冻结源码审计交接验证，以及完整的知识摄取与治理 Skill。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。完整说明见 [本版设计](docs/plans/2026-08-14-wiki-0.8.0-design.md)、[严格安全写入](docs/zh/reference/write-safety.md)、[system 工具文档](docs/zh/reference/tools/system.md) 与 [search 工具文档](docs/zh/reference/tools/search.md)。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前本地维护版本：**`v0.7.5-local.20` — 在 `v0.6.0` 基础上增加语义知识检索与项目关系展开、窄化的官方 MCP 只读桥接、思源工作区控制面、插件集市只读目录、可回滚受控修改、安全 SQL 分析通道、知识 Skill、按需工作区记忆、实时 Agent bootstrap 与单一 Sisyphus 网关便携接入包，以及支持临时父文档聚合与历史 Diff 联动的“最近更新”时间轴；本地 CLI 为 `v0.2.4-local.4`。
+> **当前 LLM Wiki 版本：**`v0.8.0-wiki.1` — 形成“语义发现 → 稳定锚点 → 引用关系 → 来源审计 → 严格写入”的完整插件侧工具链；本地 CLI 为 `v0.3.0-wiki.1`。
 
 ## 项目方向调整
 

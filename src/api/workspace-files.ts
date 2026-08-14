@@ -8,7 +8,7 @@ export interface WorkspaceDirEntry {
 }
 
 export async function readDir(client: SiYuanClient, path: string): Promise<WorkspaceDirEntry[]> {
-    const response = await client.request<unknown>('/api/file/readDir', { path });
+    const response = await client.requestRead<unknown>('/api/file/readDir', { path });
     if (!Array.isArray(response)) return [];
     return response.flatMap((value) => {
         if (value === null || typeof value !== 'object') return [];
@@ -24,9 +24,9 @@ export async function readDir(client: SiYuanClient, path: string): Promise<Works
 }
 
 export async function removeFile(client: SiYuanClient, path: string): Promise<void> {
-    await client.request<null>('/api/file/removeFile', { path });
+    await client.requestWrite<null>('/api/file/removeFile', { path });
 }
 
 export async function renameFile(client: SiYuanClient, path: string, newPath: string): Promise<void> {
-    await client.request<null>('/api/file/renameFile', { path, newPath });
+    await client.requestWrite<null>('/api/file/renameFile', { path, newPath });
 }

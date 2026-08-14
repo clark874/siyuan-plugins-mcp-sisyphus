@@ -49,6 +49,7 @@ fs(action="read", path="/Notebook/Folder/Doc", blockStart=0, blockLimit=50, toke
 - Read `/AGENTS.md` through `fs` before workspace-aware tasks when it exists.
 - A workspace path such as `/Notebook/Folder/Doc`, an hpath such as `/Folder/Doc`, and a storage path such as `/20260712123000-abc123.sy` are different values.
 - Read before writing; after a mutation, read the affected object again.
+- When strict safe writes are enabled, first call the exact mutation with `validateOnly=true`. Use the returned `preconditionField` and credential with a fresh UUIDv7 `requestId` for the one real write; never invent or reuse a credential after restart.
 - For document reads, continue with `nextWindow` or explicit `blockStart`/`blockLimit`/`tokenBudget`; for list and search results, use their page parameters.
 - Missing results may be caused by notebook permissions or indexing delay.
 - Obtain explicit approval before deletes, moves, bulk replacement, permission changes, local upload/export, or sensitive workspace disclosure.

@@ -5,7 +5,7 @@ import {
     type ToolConfig,
 } from '../core/config';
 import { normalizeActionAlias } from '../core/action-aliases';
-import { prepareTool, TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
+import { listConfiguredToolsForCategory, prepareTool, TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
 import { runToolCall } from '../core/tool-lifecycle';
 import { PRIMARY_CLI_COMMAND } from '../shared/constants';
 import { getExposedExtensionTools } from '../tools/extension';
@@ -15,6 +15,9 @@ import type { ParsedArgs } from './args';
 import { mapFlagsToArgs } from './flag-mapper';
 import { extractPaginationInfo, renderCliError, renderToolResult } from './render';
 import { loadCliRuntimeState } from './runtime';
+import { callCliWriteCoordinator } from './write-coordinator';
+import { getActionSafetyPolicy } from '../core/write-safety-policy';
+import { WriteSafetyCoordinator } from '../core/write-safety-coordinator';
 
 import type { ToolResult } from '../tools/internal/shared';
 
@@ -41,7 +44,7 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
     process.env.SIYUAN_MCP_TRANSPORT = 'cli';
 
     try {
-        const { client, toolConfig, permMgr, officialMcpRuntime } = await loadCliRuntimeState(cli);
+        const { client, toolConfig, permMgr, officialMcpRuntime, writeCoordinator } = await loadCliRuntimeState(cli);
         if (!toolConfig[category].enabled) {
             return renderToolResult({
                 content: [{ type: 'text', text: `Tool "${tool}" is disabled.` }],
@@ -75,6 +78,30 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         const requestText = [PRIMARY_CLI_COMMAND, tool, action, ...rest].join(' ').trim();
         const runPage = async (page?: number): Promise<ToolResult> => {
             const payload = page === undefined ? basePayload : { ...basePayload, page };
+            const policy = getActionSafetyPolicy(category, normalizedAction, payload);
+            const actionEnabled = category === 'extension'
+                || normalizedAction === 'help'
+                || Boolean((toolConfig[category].actions as Record<string, boolean>)[normalizedAction]);
+            const executeDirect = (safeArgs = payload) => module.callTool(
+                client,
+                safeArgs,
+                toolConfig[category],
+                permMgr,
+                officialMcpRuntime,
+            );
+            const invoke = actionEnabled && toolConfig.writeSafety.strictMode && policy.mode === 'mutation'
+                ? () => callCliWriteCoordinator(writeCoordinator, tool, payload)
+                : actionEnabled && toolConfig.writeSafety.strictMode && policy.mode === 'external'
+                    ? () => new WriteSafetyCoordinator(client).run({
+                        client,
+                        permMgr,
+                        category,
+                        action: normalizedAction,
+                        args: payload,
+                        strictMode: true,
+                        execute: executeDirect,
+                    })
+                    : () => executeDirect();
             return runToolCall(
                 {
                     client,
@@ -87,7 +114,7 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
                         : requestText,
                     slimResponses: toolConfig.debug.slimResponses && !cli.debug,
                 },
-                () => module.callTool(client, payload, toolConfig[category], permMgr, officialMcpRuntime),
+                invoke,
             );
         };
 
@@ -225,7 +252,7 @@ function resolveInputSchema(
     config: ToolConfig,
     officialMcpRuntime?: import('../core/official-mcp-bridge').OfficialMcpRuntime,
 ): Record<string, unknown> {
-    const descriptors = TOOL_REGISTRY[category].listTools(config[category], officialMcpRuntime);
+    const descriptors = listConfiguredToolsForCategory(category, config, officialMcpRuntime);
     const descriptor = descriptors[0];
     if (!descriptor) {
         throw new Error(`Tool "${category}" has no aggregated descriptor — this is a bug.`);
