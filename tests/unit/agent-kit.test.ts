@@ -44,8 +44,8 @@ describe('portable agent kit', () => {
         }));
         expect(delivery).toEqual(expect.objectContaining({
             distribution: {
-                startHere: expect.stringContaining('/v0.8.1-wiki.1/agent-kit/START-HERE.md'),
-                archive: expect.stringContaining('/v0.8.1-wiki.1/siyuan-agent-kit.zip'),
+                startHere: expect.stringContaining('/v0.8.1-wiki.2/agent-kit/START-HERE.md'),
+                archive: expect.stringContaining('/v0.8.1-wiki.2/siyuan-agent-kit.zip'),
                 stableChannel: expect.stringContaining('/codex/local-maintenance/release-channel.json'),
             },
             externalGateway: expect.objectContaining({
@@ -60,13 +60,13 @@ describe('portable agent kit', () => {
         expect(releaseChannel).toEqual(expect.objectContaining({
             schemaVersion: 1,
             channel: 'stable',
-            version: '0.8.1-wiki.1',
+            version: '0.8.1-wiki.2',
             package: expect.objectContaining({
-                url: expect.stringContaining('/v0.8.1-wiki.1/package.zip'),
+                url: expect.stringContaining('/v0.8.1-wiki.2/package.zip'),
                 sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
             }),
             agentKit: expect.objectContaining({
-                url: expect.stringContaining('/v0.8.1-wiki.1/siyuan-agent-kit.zip'),
+                url: expect.stringContaining('/v0.8.1-wiki.2/siyuan-agent-kit.zip'),
                 sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
             }),
         }));

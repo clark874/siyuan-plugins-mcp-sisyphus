@@ -220,7 +220,7 @@
 
     async function compareDocument(item: RecentDocumentView) {
         try {
-            const result = await resolveRecentDocumentHistoryDiff({ request: post } as any, {
+            const result = await resolveRecentDocumentHistoryDiff({ requestRead: post } as any, {
                 documentId: item.id,
                 currentUpdated: item.updated,
                 maxCandidates: 5,

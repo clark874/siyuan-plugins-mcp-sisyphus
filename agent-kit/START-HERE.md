@@ -15,7 +15,7 @@ Sisyphus MCP：http://127.0.0.1:36806/mcp
 1. 下载本版本发布资产并解压：
 
 ```text
-https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.8.1-wiki.1/siyuan-agent-kit.zip
+https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.8.1-wiki.2/siyuan-agent-kit.zip
 ```
 2. 阅读 `delivery.json`，确认唯一外部 endpoint 为 `36806/mcp`。
 3. 在解压目录中按宿主执行：
@@ -64,11 +64,11 @@ https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/loc
 固定版本发布页：
 
 ```text
-https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/tag/v0.8.1-wiki.1
+https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/tag/v0.8.1-wiki.2
 ```
 
 后续交给其他本地 Agent 时，优先提供本文件的固定版本地址：
 
 ```text
-https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.8.1-wiki.1/agent-kit/START-HERE.md
+https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.8.1-wiki.2/agent-kit/START-HERE.md
 ```

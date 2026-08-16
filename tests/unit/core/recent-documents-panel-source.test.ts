@@ -37,6 +37,16 @@ describe('recent documents dock source contract', () => {
         expect(pluginSource).toContain('onCompareRecent');
     });
 
+    it('adapts the SiYuan frontend request helper to the read-only client contract', () => {
+        const compareDocument = panelSource.slice(
+            panelSource.indexOf('async function compareDocument('),
+            panelSource.indexOf('function isCurrentDocumentVersion'),
+        );
+
+        expect(compareDocument).toContain('resolveRecentDocumentHistoryDiff({ requestRead: post } as any');
+        expect(compareDocument).not.toContain('resolveRecentDocumentHistoryDiff({ request: post } as any');
+    });
+
     it('starts the initial refresh once and rejects overlapping refreshes', () => {
         const onMountBody = panelSource.match(/onMount\(async \(\) => \{([\s\S]*?)\n    \}\);/)?.[1] ?? '';
 

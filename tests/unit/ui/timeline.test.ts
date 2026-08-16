@@ -395,6 +395,10 @@ describe('snapshot document timeline', () => {
 
     it('distinguishes recent content changes from metadata and insufficient-history states', () => {
         const source = readFileSync(resolve(process.cwd(), 'src/ui/version-control/VersionDiffPanel.svelte'), 'utf8');
+        const loadRecentHistory = source.slice(
+            source.indexOf('async function loadRecentHistorySelection('),
+            source.indexOf('function snapshotFromSelection'),
+        );
 
         expect(source).toContain('{#if diffOpen && hasContentDiff}');
         expect(source).toContain('recent_history_empty_same_checkpoint');
@@ -403,6 +407,8 @@ describe('snapshot document timeline', () => {
         expect(source).toContain('on:click={onCompareRecent}');
         expect(source).toContain('class="vc-change-location split"');
         expect(source).toContain('grid-column: 1 / -1');
+        expect(loadRecentHistory).toContain('resolveRecentDocumentHistoryDiff({ requestRead: post } as any');
+        expect(loadRecentHistory).not.toContain('resolveRecentDocumentHistoryDiff({ request: post } as any');
     });
 
     it('drives the document timeline from per-document attrs and shows no-change nodes as markers', () => {

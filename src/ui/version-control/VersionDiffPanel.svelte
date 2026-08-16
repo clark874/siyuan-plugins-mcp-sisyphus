@@ -706,7 +706,7 @@
         try {
             await refreshDocumentTitle();
             if (loadVersion !== selectionLoadVersion || nextSelection.documentId !== currentDocumentId) return;
-            const result = await resolveRecentDocumentHistoryDiff({ request: post } as any, {
+            const result = await resolveRecentDocumentHistoryDiff({ requestRead: post } as any, {
                 documentId: nextSelection.documentId,
                 currentUpdated: nextSelection.updated,
                 maxCandidates: 5,

@@ -2,6 +2,12 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.1-wiki.2 - 2026-08-16
+
+- 修复 `v0.8.0` 引入读写语义分流后，最近更新侧栏和右侧“近期差异”仍向共享历史服务传递旧版 `request` 客户端，导致界面报错 `requestRead is not a function`
+- 两个前端入口现统一提供只读 `requestRead` 适配器；MCP/CLI `timeline.compare_recent` 的既有只读路径保持不变
+- 增加最近更新摘要和右侧 Diff 两条界面调用链的契约回归测试，防止客户端请求接口再次漂移
+
 ## v0.8.1-wiki.1 - 2026-08-14
 
 - 修复原生 MCP 聚合工具仅按顶层 `readOnlyHint` 分类的问题；`extension → search.semantic/fulltext` 现在依据实际子动作白名单直接返回结果，不再触发不必要的交互确认，也不再被严格写入协调器替换成单独的安全元数据
