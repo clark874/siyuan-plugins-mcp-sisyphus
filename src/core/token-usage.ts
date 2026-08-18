@@ -25,6 +25,7 @@ export function calculateMcpInitialTokenCost(config: ToolConfig): McpInitialToke
         userRulesText: config.userRulesText,
         agentSiyuanMemoryText: config.agentSiyuanMemoryText,
         agentSiyuanMemoryUpdatedAt: config.agentSiyuanMemoryUpdatedAt,
+        softRecoverableErrors: config.errorReporting.softRecoverableErrors,
     }).trim();
     const toolsPayload = JSON.stringify({ tools: listAllTools(config) });
     const totalChars = instructions.length + toolsPayload.length;

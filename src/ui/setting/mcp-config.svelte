@@ -516,6 +516,18 @@
             return;
         }
 
+        if (key === "errorReporting__softRecoverableErrors") {
+            config = {
+                ...config,
+                errorReporting: {
+                    ...config.errorReporting,
+                    softRecoverableErrors: Boolean(value),
+                },
+            };
+            await persistConfig();
+            return;
+        }
+
         if (key === "debug__slimResponses") {
             config = {
                 ...config,

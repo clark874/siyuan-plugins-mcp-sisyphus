@@ -71,6 +71,23 @@ export function isApiError(error: Error): boolean {
         || error.message.startsWith('Request timeout');
 }
 
+/**
+ * Path resolution helpers throw plain `Error` objects carrying a `code` such as
+ * `not_found`. Without this lookup the generic catch in `defineTool` reports
+ * every one of them as `internal_error`, which hides an agent-correctable
+ * mistake behind a backend-failure label.
+ */
+const SEMANTIC_ERROR_CODES: ReadonlySet<string> = new Set([
+    'not_found',
+    'ambiguous_path',
+    'invalid_path',
+]);
+
+export function readSemanticErrorCode(error: Error): string | null {
+    const code = (error as Error & { code?: unknown }).code;
+    return typeof code === 'string' && SEMANTIC_ERROR_CODES.has(code) ? code : null;
+}
+
 export function includeDebugDetails(): boolean {
     return process.env.SIYUAN_MCP_DEBUG_ERRORS === '1';
 }

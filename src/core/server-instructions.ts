@@ -22,12 +22,13 @@ export interface ServerInstructionInput {
     agentSiyuanMemoryConfigSource?: 'api_file' | 'default_fallback';
     agentSiyuanMemoryConfigOk?: boolean;
     agentSiyuanMemoryConfigError?: string;
+    softRecoverableErrors?: boolean;
 }
 
 type NormalizedServerInstructionInput = Required<Pick<ServerInstructionInput,
     'userRulesText' | 'agentSiyuanMemoryText' | 'agentSiyuanMemoryUpdatedAt'
 >> & Pick<ServerInstructionInput,
-    'agentSiyuanMemoryConfigSource' | 'agentSiyuanMemoryConfigOk' | 'agentSiyuanMemoryConfigError'
+    'agentSiyuanMemoryConfigSource' | 'agentSiyuanMemoryConfigOk' | 'agentSiyuanMemoryConfigError' | 'softRecoverableErrors'
 >;
 
 function normalizeInstructionInput(input: string | ServerInstructionInput = '', agentSiyuanMemoryText = ''): NormalizedServerInstructionInput {
@@ -45,6 +46,7 @@ function normalizeInstructionInput(input: string | ServerInstructionInput = '', 
         agentSiyuanMemoryConfigSource: input.agentSiyuanMemoryConfigSource,
         agentSiyuanMemoryConfigOk: input.agentSiyuanMemoryConfigOk,
         agentSiyuanMemoryConfigError: typeof input.agentSiyuanMemoryConfigError === 'string' ? input.agentSiyuanMemoryConfigError : undefined,
+        softRecoverableErrors: input.softRecoverableErrors === true,
     };
 }
 
@@ -150,9 +152,22 @@ The memory body is intentionally not embedded in initialize instructions. Read \
     const userRulesReminder = formattedUserRules
         ? `\nActive user custom rules override the general style and workflow suggestions below when they apply. Re-check \`fs(action="read", path="${USER_RULES_VIRTUAL_PATH}")\` or siyuan://help/user-rules if current preferences matter.\n`
         : '';
+    const softErrorSection = instructionInput.softRecoverableErrors
+        ? `
+## Soft error reporting (enabled)
+
+Recoverable tool failures are returned WITHOUT the MCP \`isError\` flag. Such a result is NOT a success:
+- Nothing was executed or written. The structured \`error\` payload is preserved and marked with \`softened: true\`.
+- Downgraded types: validation_error, invalid_arguments, not_found, ambiguous_path, invalid_path, action_disabled.
+- Read \`structuredContent.error.message\` and its \`hint\`, fix the arguments, and retry the same call.
+- Do not report these calls to the user as completed work, and never treat the absence of \`isError\` as confirmation that a write was applied.
+- Genuine failures (permission_denied, api_error, internal_error, write-safety state races) still return \`isError: true\` and must stop the workflow until resolved.
+`
+        : '';
     return `
 ${userRulesPrioritySection}
 ${agentMemorySection}
+${softErrorSection}
 
 ## Help and progressive disclosure
 

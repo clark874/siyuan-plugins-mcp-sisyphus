@@ -144,6 +144,18 @@ export interface WriteSafetyConfig {
     strictMode: boolean;
 }
 
+/**
+ * Some MCP clients react to `isError: true` by re-sending the full tools/list
+ * payload as a self-correction hint. With 14 aggregated tools that payload is
+ * around 118 KB, so a single mistyped argument can burn tens of thousands of
+ * tokens of client context. Opting in downgrades only agent-correctable
+ * failures to a non-error result; the structured `error` payload is preserved
+ * and genuine failures such as permission_denied still report `isError: true`.
+ */
+export interface ErrorReportingConfig {
+    softRecoverableErrors: boolean;
+}
+
 export type ToolConfig = {
     fs: CategoryToolConfig<FsAction>;
     notebook: CategoryToolConfig<NotebookAction>;
@@ -164,6 +176,7 @@ export type ToolConfig = {
     agentSiyuanMemoryText: string;
     agentSiyuanMemoryUpdatedAt: string;
     writeSafety: WriteSafetyConfig;
+    errorReporting: ErrorReportingConfig;
     debug: DebugToolConfig;
 };
 
@@ -400,6 +413,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         agentSiyuanMemoryText: '',
         agentSiyuanMemoryUpdatedAt: '',
         writeSafety: { strictMode: true },
+        errorReporting: { softRecoverableErrors: false },
         debug: {
             includeUiRefreshMetadata: false,
             slimResponses: true,
@@ -497,6 +511,9 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
     }
     if (isRecord(raw.writeSafety) && typeof raw.writeSafety.strictMode === 'boolean') {
         config.writeSafety.strictMode = raw.writeSafety.strictMode;
+    }
+    if (isRecord(raw.errorReporting) && typeof raw.errorReporting.softRecoverableErrors === 'boolean') {
+        config.errorReporting.softRecoverableErrors = raw.errorReporting.softRecoverableErrors;
     }
     if (isRecord(raw.debug)) {
         if (typeof raw.debug.includeUiRefreshMetadata === 'boolean') {

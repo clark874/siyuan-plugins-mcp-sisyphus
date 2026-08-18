@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.2-wiki.1 - 2026-08-18
+
+- 新增可选的“软化可恢复错误”上报模式（设置面板默认关闭）：`validation_error`、`invalid_arguments`、`not_found`、`ambiguous_path`、`invalid_path`、`action_disabled` 六类 Agent 可自行修正的失败，在最外层 MCP 响应边界去除 `isError` 标记，结构化 `error` 载荷原样保留并标记 `softened: true`
+- 动因：部分客户端（如 Devin CLI）在任一工具返回 `isError` 时会把整份 `tools/list`（本插件约 118KB / 3.3 万 token）重新注入对话作为纠错提示；软化后此类 dump 触发率趋近于零，而 `permission_denied`、`api_error`、`internal_error` 与写入安全竞态仍保持 `isError`，写入安全协调器与 MCP App 桥接基于原始 `isError` 的内部判断不受影响
+- 路径解析类错误恢复语义类型：`not_found` / `ambiguous_path` / `invalid_path` 不再被通用捕获统一误标为 `internal_error`
+- 开关开启后 server instructions 追加专门声明，明确无 `isError` 的软化结果不代表执行成功、不得当作写入已应用；新增 24 项单元与集成测试覆盖降级边界、语义码还原和声明文案
+
 ## v0.8.1-wiki.2 - 2026-08-16
 
 - 修复 `v0.8.0` 引入读写语义分流后，最近更新侧栏和右侧“近期差异”仍向共享历史服务传递旧版 `request` 客户端，导致界面报错 `requestRead is not a function`

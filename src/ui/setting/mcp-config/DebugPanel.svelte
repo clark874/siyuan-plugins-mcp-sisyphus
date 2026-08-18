@@ -32,6 +32,16 @@
             },
             {
                 type: "checkbox",
+                key: "errorReporting__softRecoverableErrors",
+                value: currentConfig.errorReporting.softRecoverableErrors,
+                title: label("error_reporting_soft_title", "Soft Recoverable Errors"),
+                description: label(
+                    "error_reporting_soft_desc",
+                    "Report agent-correctable failures (validation_error, not_found, ambiguous_path, invalid_path, invalid_arguments, action_disabled) without the MCP isError flag, keeping the structured error payload and marking it softened:true. Turn this on for clients that resend their whole tool catalogue after every tool error. Permission denials, backend failures, and write conflicts still report isError.",
+                ),
+            },
+            {
+                type: "checkbox",
                 key: "versionControl__enabled",
                 value: currentVersionControlSettings.enabled,
                 title: label("version_control_enabled_title", "Enable Document Snapshots and Diff"),

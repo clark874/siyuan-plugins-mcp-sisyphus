@@ -476,6 +476,24 @@ describe('MCP Server Integration', () => {
             expect(instructions).not.toContain('User custom rules override the general style and workflow suggestions below when they apply.');
         });
 
+        it('declares soft error reporting in instructions only when enabled', () => {
+            const enabled = buildServerInstructions({
+                userRulesText: '',
+                agentSiyuanMemoryText: '',
+                agentSiyuanMemoryUpdatedAt: '',
+                softRecoverableErrors: true,
+            });
+            const disabled = buildServerInstructions('');
+
+            expect(enabled).toContain('## Soft error reporting (enabled)');
+            expect(enabled).toContain('`softened: true`');
+            expect(enabled).toContain('validation_error');
+            expect(enabled).toContain('permission_denied');
+            expect(enabled.indexOf('## Soft error reporting (enabled)')).toBeLessThan(enabled.indexOf('## Help and progressive disclosure'));
+            expect(disabled).not.toContain('## Soft error reporting (enabled)');
+            expect(disabled).not.toContain('`softened: true`');
+        });
+
         it('publishes an agent memory pointer without embedding the memory body', () => {
             const instructions = buildServerInstructions({
                 userRulesText: 'Prefer Chinese titles.',

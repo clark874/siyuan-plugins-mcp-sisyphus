@@ -17,6 +17,7 @@ import {
 } from './config';
 import { WriteSafetyCoordinator } from './write-safety-coordinator';
 import { getActionSafetyPolicy } from './write-safety-policy';
+import { softenRecoverableToolError } from './soft-error';
 import { callCliWriteCoordinator } from '../cli/write-coordinator';
 import type { CliWriteCoordinatorSettings } from '../cli/runtime';
 import { noopSchemaValidator } from './noops/noop-schema-validator';
@@ -229,6 +230,7 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
                 agentSiyuanMemoryConfigSource: initialConfigLoad.source,
                 agentSiyuanMemoryConfigOk: initialConfigLoad.ok,
                 agentSiyuanMemoryConfigError: initialConfigLoad.errorMessage,
+                softRecoverableErrors: initialConfig.errorReporting.softRecoverableErrors,
             }).trim(),
             jsonSchemaValidator: noopSchemaValidator,
         },
@@ -533,8 +535,14 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         // outputSchema, but projecting here keeps modern and legacy shapes in
         // sync when structured output is introduced later.
         const projectedResult = withStructuredContent(result);
+        // Softening happens only here, at the outermost response boundary, so
+        // the write-safety coordinator and the MCP App bridge keep branching on
+        // the untouched `isError` flag produced by the handlers.
         return server.projectCallToolResult(
-            compactMcpAppToolResult(name, action, projectedResult, appsEnabled, config.mcpApps),
+            softenRecoverableToolError(
+                compactMcpAppToolResult(name, action, projectedResult, appsEnabled, config.mcpApps),
+                config.errorReporting.softRecoverableErrors,
+            ),
             GENERIC_TOOL_OUTPUT_SCHEMA,
         );
     });
