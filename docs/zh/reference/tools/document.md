@@ -14,8 +14,8 @@
 | 分组 | 动作 |
 |------|---------|
 | 创建与读取 | `create`, `lookup`, `get_doc`, `get_outline` |
-| 树结构查询 | `get_child_blocks`, `get_child_docs`, `list_tree`, `search_docs` |
-| 元数据与修改 | `rename`, `move`, `reorder`, `remove`, `set_attr`, `duplicate` |
+| 树结构查询 | `get_child_blocks`, `get_child_docs`, `get_child_sort_mode`, `list_tree`, `search_docs` |
+| 元数据与修改 | `rename`, `move`, `reorder`, `set_child_sort_mode`, `remove`, `set_attr`, `duplicate` |
 | 日记 / 转换 | `create_daily_note`, `heading_to_doc`, `doc_to_heading` |
 
 ## 参数与语义
@@ -24,7 +24,10 @@
 - `lookup` 可按 `id`、存储 `path`、人类可读 `hpath` / `hPath` 查找；用 `include` 请求 `id`、`ids`、`path`、`hpath` 或 `docInfo`。
 - `lookup` 返回的 `idPath` 会包含可用的 `id` / `ids`。当同一 hpath 有多个同名文档时，`include: ["ids"]` 会返回全部匹配 ID；内部已包含 SQL 兜底。
 - `rename`、`remove`、`move` 在非 ID 模式下通常需要存储路径。
-- `reorder` 接受笔记本或父文档 `parentID`，以及包含全部可见直属子文档且无重复的 `orderedIDs`；执行后切换为手动排序模式。
+- 思源 3.8.1 及以上版本中，`get_child_sort_mode` 会同时返回文档本地声明与继承后实际生效的子文档排序模式。`set_child_sort_mode` 接受 `0`–`14`；传 `null` 会删除本地声明并恢复继承。
+- `reorder` 接受笔记本或父文档 `parentID`，以及包含全部可见直属子文档且无重复的 `orderedIDs`。思源 3.8.1 及以上版本中，父文档重排只会把该父文档切换为手动排序模式 `6`，不再改动整个笔记本；笔记本根重排仍修改笔记本排序，旧内核保留笔记本级兼容回退。
+
+排序模式取值：`0/1` 名称升/降序，`2/3` 更新时间，`4/5` 自然字母数字，`6` 手动排序，`7/8` 引用数，`9/10` 创建时间，`11/12` 大小，`13/14` 子文档数。
 - `get_child_docs` 必须传文档 `id`，不接受 `notebook + path`。
 - `list_tree` 使用 `notebook + path`，其中 `path` 是 `/` 或 `/20240318112233-abc123.sy` 这类存储路径，不是人类可读路径。
 - `list_tree` 查询 `/` 时，一级文档子树读取的并发上限为 8。响应会返回 `partial`、`errors`、`topLevelDocumentCount` 和 `failedTopLevelDocumentCount`；当 `partial` 为 `true` 时，不得把空 `children` 直接判定为真实叶节点。该底层工具会在错误项中返回文档 ID 与存储路径，便于精确追查。
@@ -82,6 +85,8 @@ siyuan document lookup --id <doc-id> --include path
 - `remove`
 - `move`
 - `reorder`
+- `get_child_sort_mode`
+- `set_child_sort_mode`
 - `get_child_blocks`
 - `get_child_docs`
 - `set_attr`

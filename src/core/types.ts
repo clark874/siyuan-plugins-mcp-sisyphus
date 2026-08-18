@@ -318,6 +318,20 @@ export const DocumentReorderSchema = z.object({
     orderedIDs: z.array(z.string()).min(1).describe("Complete ordered list of all visible direct child document IDs"),
 });
 
+export const DocumentGetChildSortModeSchema = z.object({
+    action: z.literal("get_child_sort_mode"),
+    id: z.string().describe("Parent document ID"),
+});
+
+export const DocumentSetChildSortModeSchema = z.object({
+    action: z.literal("set_child_sort_mode"),
+    id: z.string().describe("Parent document ID"),
+    sortMode: z.union([
+        z.number().int().min(0).max(14),
+        z.null(),
+    ]).describe("Child-document sort mode 0-14, or null to restore inheritance"),
+});
+
 export const DocumentGetChildBlocksSchema = z.object({
     action: z.literal("get_child_blocks"),
     id: z.string().describe("Document ID"),
@@ -774,6 +788,7 @@ export const AvRenderSchema = z.object({
     query: z.string().optional().describe("Optional row query filter"),
     groupPaging: z.record(z.string(), z.unknown()).optional().describe("Optional group paging map passed through to SiYuan"),
     createIfNotExist: z.boolean().optional().describe("Create the default view only when explicitly true; provide blockID when creating a new AV"),
+    ignoreRows: z.boolean().optional().describe("Return view/schema metadata without row values to reduce output size"),
 });
 
 export const AvGetAttributeViewKeysSchema = z.object({

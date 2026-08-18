@@ -212,12 +212,14 @@ interface IResListDoc {
     sort?: number;
     count?: number;
     subFileCount?: number;
+    childrenSortMode?: number;
 }
 
 interface IResListDocsByPath {
     box: string;
     path: string;
     files: IResListDoc[];
+    effectiveSortMode?: number;
 }
 
 interface IReqUpload {

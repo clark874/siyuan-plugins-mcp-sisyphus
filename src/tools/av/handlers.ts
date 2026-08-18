@@ -1177,6 +1177,7 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
         query: parsed.query,
         groupPaging: parsed.groupPaging,
         createIfNotExist: parsed.createIfNotExist,
+        ignoreRows: parsed.ignoreRows,
     });
 
     let materializedBlockID: string | undefined;
@@ -1223,20 +1224,31 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
     const responseObj = (response && typeof response === 'object' && !Array.isArray(response))
         ? response as Record<string, unknown>
         : {};
-    const rows = Array.isArray(responseObj.rows) ? responseObj.rows as unknown[] : [];
+    const nestedView = responseObj.view && typeof responseObj.view === 'object' && !Array.isArray(responseObj.view)
+        ? responseObj.view as Record<string, unknown>
+        : undefined;
+    const renderedView = nestedView ?? responseObj;
+    const rows = Array.isArray(renderedView.rows) ? renderedView.rows as unknown[] : [];
     const page = parsed.page ?? 1;
-    const pageSize = parsed.pageSize ?? (rows.length || 1);
+    const pageSize = parsed.pageSize
+        ?? (typeof renderedView.pageSize === 'number' ? renderedView.pageSize : undefined)
+        ?? (rows.length || 1);
+    const total = typeof renderedView.rowCount === 'number'
+        ? renderedView.rowCount as number
+        : rows.length;
     const kernelPageCount = typeof responseObj.pageCount === 'number'
         ? responseObj.pageCount as number
-        : 1;
-    const total = typeof responseObj.rowCount === 'number'
-        ? responseObj.rowCount as number
-        : rows.length;
-    const table = buildAvTableView(responseObj, rows, total);
-    const { rows: _ignoredRows, pageCount: _ignoredPageCount, rowCount: _ignoredRowCount, ...restResponse } = responseObj;
+        : typeof renderedView.pageCount === 'number'
+            ? renderedView.pageCount as number
+            : Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
+    const table = buildAvTableView(renderedView, rows, total);
+    const { rows: _ignoredRows, pageCount: _ignoredPageCount, rowCount: _ignoredRowCount, ...restRenderedView } = renderedView;
     void _ignoredRows;
     void _ignoredPageCount;
     void _ignoredRowCount;
+    const restResponse = nestedView
+        ? { ...responseObj, view: { ...restRenderedView, rowCount: total } }
+        : restRenderedView;
     const result = createPaginatedResult(rows, {
         total,
         page,

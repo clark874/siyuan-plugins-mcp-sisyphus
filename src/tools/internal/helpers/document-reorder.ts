@@ -4,6 +4,29 @@ import * as notebookApi from '../../../api/notebook';
 import type { NotebookConf } from '../../../types/shared';
 
 export const CUSTOM_FILE_TREE_SORT_MODE = 6;
+export const DOCUMENT_SORT_MODE_ATTR = 'custom-sy-subdoc-sort-mode';
+
+export const DOCUMENT_SORT_MODE_NAMES: Record<number, string> = {
+    0: 'name_ascending',
+    1: 'name_descending',
+    2: 'updated_ascending',
+    3: 'updated_descending',
+    4: 'alphanumeric_ascending',
+    5: 'alphanumeric_descending',
+    6: 'custom',
+    7: 'reference_count_ascending',
+    8: 'reference_count_descending',
+    9: 'created_ascending',
+    10: 'created_descending',
+    11: 'size_ascending',
+    12: 'size_descending',
+    13: 'child_count_ascending',
+    14: 'child_count_descending',
+};
+
+export function getDocumentSortModeName(sortMode: number | null | undefined): string | null {
+    return typeof sortMode === 'number' ? DOCUMENT_SORT_MODE_NAMES[sortMode] ?? `unknown_${sortMode}` : null;
+}
 
 export interface ReorderChild {
     id: string;
@@ -19,11 +42,48 @@ export interface DocumentReorderState {
     parentPath: string;
     notebookConf: NotebookConf;
     sortMode?: number;
+    declaredSortMode: number | null;
+    effectiveSortMode?: number;
+    supportsDocumentSortMode: boolean;
+    parentScope: 'notebook' | 'document';
     children: ReorderChild[];
+}
+
+export interface DocumentChildSortModeState {
+    declaredSortMode: number | null;
+    effectiveSortMode?: number;
+    supportsDocumentSortMode: boolean;
 }
 
 function extractDocumentId(path: string): string | undefined {
     return path.split('/').filter(Boolean).at(-1)?.replace(/\.sy$/i, '');
+}
+
+function parseDeclaredSortMode(value: unknown): number | null {
+    if (typeof value !== 'string' || value.trim() === '') return null;
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed >= 0 && parsed <= 14 ? parsed : null;
+}
+
+export async function readDocumentChildSortMode(
+    client: SiYuanClient,
+    notebook: string,
+    documentID: string,
+    documentPath: string,
+): Promise<DocumentChildSortModeState> {
+    const [listed, attrs] = await Promise.all([
+        documentApi.listDocsByPath(client, notebook, documentPath, {
+            maxListCount: 1,
+            showHidden: false,
+            ignoreMaxListHint: true,
+        }),
+        client.requestRead<Record<string, string>>('/api/attr/getBlockAttrs', { id: documentID }),
+    ]);
+    return {
+        declaredSortMode: parseDeclaredSortMode(attrs[DOCUMENT_SORT_MODE_ATTR]),
+        effectiveSortMode: typeof listed.effectiveSortMode === 'number' ? listed.effectiveSortMode : undefined,
+        supportsDocumentSortMode: typeof listed.effectiveSortMode === 'number',
+    };
 }
 
 export async function readDocumentReorderState(
@@ -32,7 +92,8 @@ export async function readDocumentReorderState(
     parentID: string,
     parentPath: string,
 ): Promise<DocumentReorderState> {
-    const [conf, listed] = await Promise.all([
+    const parentScope = parentID === notebook && parentPath === '/' ? 'notebook' : 'document';
+    const [conf, listed, documentSort] = await Promise.all([
         notebookApi.getNotebookConf(client, notebook),
         documentApi.listDocsByPath(client, notebook, parentPath, {
             sort: CUSTOM_FILE_TREE_SORT_MODE,
@@ -40,6 +101,13 @@ export async function readDocumentReorderState(
             showHidden: false,
             ignoreMaxListHint: true,
         }),
+        parentScope === 'document'
+            ? readDocumentChildSortMode(client, notebook, parentID, parentPath)
+            : Promise.resolve<DocumentChildSortModeState>({
+                declaredSortMode: null,
+                effectiveSortMode: undefined,
+                supportsDocumentSortMode: false,
+            }),
     ]);
     const children = await Promise.all(listed.files.map(async (file): Promise<ReorderChild> => {
         const id = file.id || extractDocumentId(file.path);
@@ -47,12 +115,20 @@ export async function readDocumentReorderState(
         const hPath = file.hPath || await documentApi.getHPathByID(client, id);
         return { id, path: file.path, hPath, name: file.name?.replace(/\.sy$/i, ''), sort: file.sort };
     }));
+    const notebookSortMode = typeof conf.conf.sortMode === 'number' ? conf.conf.sortMode : undefined;
+    const effectiveSortMode = parentScope === 'document'
+        ? documentSort.effectiveSortMode ?? notebookSortMode
+        : notebookSortMode;
     return {
         notebook,
         parentID,
         parentPath,
         notebookConf: conf.conf,
-        sortMode: conf.conf.sortMode,
+        sortMode: effectiveSortMode,
+        declaredSortMode: parentScope === 'document' ? documentSort.declaredSortMode : notebookSortMode ?? null,
+        effectiveSortMode,
+        supportsDocumentSortMode: documentSort.supportsDocumentSortMode,
+        parentScope,
         children,
     };
 }
@@ -91,17 +167,22 @@ export async function applyDocumentReorder(
     client: SiYuanClient,
     state: DocumentReorderState,
     orderedIDs: string[],
-): Promise<{ changed: boolean; orderChanged: boolean; sortModeChanged: boolean; previousOrder: string[]; order: string[] }> {
+): Promise<{ changed: boolean; orderChanged: boolean; sortModeChanged: boolean; sortModeScope: 'notebook' | 'document'; previousOrder: string[]; order: string[] }> {
     const previousOrder = state.children.map((child) => child.id);
     assertExactOrder(previousOrder, orderedIDs, 'orderedIDs');
     const orderChanged = previousOrder.some((id, index) => id !== orderedIDs[index]);
-    const sortModeChanged = state.sortMode !== CUSTOM_FILE_TREE_SORT_MODE;
+    const sortModeChanged = state.effectiveSortMode !== CUSTOM_FILE_TREE_SORT_MODE;
+    const sortModeScope = state.parentScope === 'document' && state.supportsDocumentSortMode ? 'document' : 'notebook';
     if (orderChanged) {
         const childByID = new Map(state.children.map((child) => [child.id, child]));
         await documentApi.changeFileTreeSort(client, state.notebook, orderedIDs.map((id) => childByID.get(id)!.path));
     }
     if (sortModeChanged) {
-        await notebookApi.setNotebookConf(client, state.notebook, { sortMode: CUSTOM_FILE_TREE_SORT_MODE });
+        if (sortModeScope === 'document') {
+            await documentApi.setDocSortMode(client, state.parentID, CUSTOM_FILE_TREE_SORT_MODE);
+        } else {
+            await notebookApi.setNotebookConf(client, state.notebook, { sortMode: CUSTOM_FILE_TREE_SORT_MODE });
+        }
     }
-    return { changed: orderChanged || sortModeChanged, orderChanged, sortModeChanged, previousOrder, order: orderedIDs };
+    return { changed: orderChanged || sortModeChanged, orderChanged, sortModeChanged, sortModeScope, previousOrder, order: orderedIDs };
 }

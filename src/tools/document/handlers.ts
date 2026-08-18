@@ -13,6 +13,7 @@ import {
     DocumentDuplicateSchema,
     DocumentGetChildBlocksSchema,
     DocumentGetChildDocsSchema,
+    DocumentGetChildSortModeSchema,
     DocumentGetDocSchema,
     DocumentGetOutlineSchema,
     DocumentHeadingToDocSchema,
@@ -24,6 +25,7 @@ import {
     DocumentRenameSchema,
     DocumentSearchDocsSchema,
     DocumentSetAttrSchema,
+    DocumentSetChildSortModeSchema,
 } from '../../core/types';
 import {
     ensurePermissionForDocumentId,
@@ -43,7 +45,12 @@ import { stripRedundantTitleHeading } from '../internal/kramdown-safe';
 import { readDocumentBlockWindow } from '../internal/document-kramdown';
 import { createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks } from '../internal/kramdown-safe';
 import { normalizeMarkdownInputRefs } from '../internal/markdown-input';
-import { applyDocumentReorder, readDocumentReorderState } from '../internal/helpers/document-reorder';
+import {
+    applyDocumentReorder,
+    getDocumentSortModeName,
+    readDocumentChildSortMode,
+    readDocumentReorderState,
+} from '../internal/helpers/document-reorder';
 import { isNotebookRootPath, listNotebookRootTreeNodes } from '../internal/helpers/doc-tree';
 
 type DocumentActionHandler = ToolActionHandler;
@@ -610,6 +617,52 @@ const handleReorder: DocumentActionHandler = async ({ client, permMgr, rawArgs }
     }), [{ type: 'reloadFiletree' }]);
 };
 
+const handleGetChildSortMode: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentGetChildSortModeSchema.parse(rawArgs);
+    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
+    if (denied) return denied;
+    if (context.documentId !== parsed.id) {
+        throw new Error(`id must identify a document root, got content block "${parsed.id}".`);
+    }
+    const state = await readDocumentChildSortMode(client, context.notebook, parsed.id, context.path);
+    return createJsonResult({
+        id: parsed.id,
+        notebook: context.notebook,
+        path: context.path,
+        declaredSortMode: state.declaredSortMode,
+        declaredSortModeName: getDocumentSortModeName(state.declaredSortMode),
+        effectiveSortMode: state.effectiveSortMode,
+        effectiveSortModeName: getDocumentSortModeName(state.effectiveSortMode),
+        inherited: state.declaredSortMode === null,
+        supported: state.supportsDocumentSortMode,
+    });
+};
+
+const handleSetChildSortMode: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = DocumentSetChildSortModeSchema.parse(rawArgs);
+    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
+    if (denied) return denied;
+    if (context.documentId !== parsed.id) {
+        throw new Error(`id must identify a document root, got content block "${parsed.id}".`);
+    }
+    await documentApi.setDocSortMode(client, parsed.id, parsed.sortMode);
+    const state = await readDocumentChildSortMode(client, context.notebook, parsed.id, context.path);
+    if (state.declaredSortMode !== parsed.sortMode) {
+        throw new Error(`SiYuan did not retain the requested document child sort mode. Expected ${String(parsed.sortMode)}, got ${String(state.declaredSortMode)}.`);
+    }
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        id: parsed.id,
+        notebook: context.notebook,
+        path: context.path,
+        declaredSortMode: state.declaredSortMode,
+        declaredSortModeName: getDocumentSortModeName(state.declaredSortMode),
+        effectiveSortMode: state.effectiveSortMode,
+        effectiveSortModeName: getDocumentSortModeName(state.effectiveSortMode),
+        inherited: state.declaredSortMode === null,
+    }), [{ type: 'reloadFiletree' }]);
+};
+
 const handleGetChildBlocks: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentGetChildBlocksSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
@@ -874,6 +927,8 @@ export const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHand
     remove: handleRemove,
     move: handleMove,
     reorder: handleReorder,
+    get_child_sort_mode: handleGetChildSortMode,
+    set_child_sort_mode: handleSetChildSortMode,
     get_child_blocks: handleGetChildBlocks,
     get_child_docs: handleGetChildDocs,
     set_attr: handleSetAttr,

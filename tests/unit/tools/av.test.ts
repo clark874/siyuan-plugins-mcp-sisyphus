@@ -162,6 +162,7 @@ describe('av tool', () => {
         const [tool] = listAvTools(enabledActions('render'));
 
         expect(tool.inputSchema.properties.createIfNotExist.type).toBe('boolean');
+        expect(tool.inputSchema.properties.ignoreRows.type).toBe('boolean');
         expect(tool.inputSchema.properties.groupPaging.type).toBe('object');
         expect(tool.inputSchema.properties.page.type).toBe('integer');
     });
@@ -2400,7 +2401,14 @@ describe('av tool', () => {
             id: 'av-1',
             viewID: 'view-1',
             page: 2,
+            ignoreRows: true,
         }, enabledActions('render'), permMgr);
+
+        const avApi = await import('@/api/av');
+        expect(vi.mocked(avApi.renderAttributeView)).toHaveBeenCalledWith(client, expect.objectContaining({
+            id: 'av-1',
+            ignoreRows: true,
+        }));
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             data: [],
@@ -2453,6 +2461,45 @@ describe('av tool', () => {
                 rowCount: 1,
             },
         });
+    });
+
+    it('normalizes SiYuan 3.8.1 nested view rows without duplicating them in metadata', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-1',
+            viewID: 'view-1',
+            viewType: 'table',
+            view: {
+                id: 'view-1',
+                columns: [{ id: 'col-title', name: 'Title', type: 'text' }],
+                rows: [{ id: 'row-1', values: [{ key: { id: 'col-title' }, content: 'Paper A' }] }],
+                rowCount: 33,
+                pageSize: 50,
+            },
+        });
+
+        const result = await callAvTool(client, {
+            action: 'render',
+            id: 'av-1',
+            page: 1,
+            pageSize: 1,
+        }, enabledActions('render'), permMgr);
+
+        const parsed = JSON.parse(result.content[0].text);
+        expect(parsed).toMatchObject({
+            data: [{ id: 'row-1' }],
+            total: 33,
+            table: {
+                columns: [{ id: 'col-title', name: 'Title', type: 'text' }],
+                rows: [{ id: 'row-1', cells: { 'col-title': 'Paper A' } }],
+                rowCount: 33,
+            },
+            view: {
+                id: 'view-1',
+                rowCount: 33,
+            },
+        });
+        expect(parsed.view).not.toHaveProperty('rows');
     });
 
     it('requires id when createIfNotExist is not enabled', async () => {
@@ -2518,6 +2565,7 @@ describe('av tool', () => {
             query: undefined,
             groupPaging: undefined,
             createIfNotExist: true,
+            ignoreRows: undefined,
         });
         expect(vi.mocked(blockApi.appendBlock)).not.toHaveBeenCalled();
         const insertedBlockID = vi.mocked(transactionApi.performTransactions).mock.calls[0][1][0].doOperations[0].id;

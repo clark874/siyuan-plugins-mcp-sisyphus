@@ -192,6 +192,14 @@ export async function changeFileTreeSort(client: SiYuanClient, notebook: string,
     return client.requestWrite<null>('/api/filetree/changeSort', { notebook, paths });
 }
 
+/**
+ * Set a document's direct-child sort mode. Pass null to restore inheritance.
+ * Available in SiYuan 3.8.1 and later.
+ */
+export async function setDocSortMode(client: SiYuanClient, id: string, sortMode: number | null): Promise<null> {
+    return client.requestWrite<null>('/api/filetree/setDocSortMode', { id, sortMode });
+}
+
 export async function listDocTree(
     client: SiYuanClient,
     notebook: string,

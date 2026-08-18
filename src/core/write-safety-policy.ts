@@ -41,10 +41,10 @@ export const ACTION_SAFETY_POLICIES: {
         set_conf: mutation('state'), set_icon: mutation('state'), set_permission: mutation('state'),
     },
     document: {
-        lookup: read(), get_child_blocks: read(), get_child_docs: read(), list_tree: read(), search_docs: read(),
+        lookup: read(), get_child_blocks: read(), get_child_docs: read(), get_child_sort_mode: read(), list_tree: read(), search_docs: read(),
         get_doc: read(), get_outline: read(),
         create: mutation(), create_daily_note: mutation(), duplicate: mutation('state'), rename: mutation('state'),
-        remove: mutation('state'), move: mutation('structure'), reorder: mutation('structure'), set_attr: mutation('state'),
+        remove: mutation('state'), move: mutation('structure'), reorder: mutation('structure'), set_child_sort_mode: mutation('state'), set_attr: mutation('state'),
         heading_to_doc: mutation('structure'), doc_to_heading: mutation('structure'),
     },
     block: {

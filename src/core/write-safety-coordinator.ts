@@ -861,6 +861,17 @@ async function verifyPostWriteSemanticState(
     action: string,
     args: Record<string, unknown>,
 ): Promise<void> {
+    if (category === 'document' && action === 'set_child_sort_mode') {
+        const id = typeof args.id === 'string' ? args.id : '';
+        const expected = typeof args.sortMode === 'number' ? args.sortMode : null;
+        const attrs = await client.requestRead<Record<string, string>>('/api/attr/getBlockAttrs', { id });
+        const raw = attrs['custom-sy-subdoc-sort-mode'];
+        const actual = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : null;
+        if (actual !== expected) {
+            throw safetyError('readback_mismatch', `The document did not retain the requested child sort mode. Expected ${String(expected)}, got ${String(actual)}.`);
+        }
+        return;
+    }
     if ((category === 'fs' || category === 'document') && action === 'reorder') {
         const { state } = await probeDocumentReorderState(client, permMgr, category, args);
         const currentIDs = Array.isArray(state.children)
@@ -872,7 +883,7 @@ async function verifyPostWriteSemanticState(
         const requestedIDs = Array.isArray(state.requestedIDs)
             ? state.requestedIDs.filter((id): id is string => typeof id === 'string')
             : [];
-        if (state.sortMode !== 6 || currentIDs.length !== requestedIDs.length || currentIDs.some((id, index) => id !== requestedIDs[index])) {
+        if (state.effectiveSortMode !== 6 || currentIDs.length !== requestedIDs.length || currentIDs.some((id, index) => id !== requestedIDs[index])) {
             throw safetyError('readback_mismatch', 'The document tree did not retain the requested complete order in custom sorting mode.');
         }
         return;

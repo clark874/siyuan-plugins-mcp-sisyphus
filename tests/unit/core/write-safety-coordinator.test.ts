@@ -976,4 +976,45 @@ describe('write safety coordinator', () => {
         expect(result.error.code).toBe('readback_mismatch');
         expect(result.error.cause).toContain('requested complete order');
     });
+
+    it('requires exact readback for a document-local child sort mode', async () => {
+        const documentID = '20260819000000-sort001';
+        let sortMode: number | null = null;
+        const client = {
+            readFile: vi.fn(async () => { throw new Error('HTTP error: 404 Not Found'); }),
+            writeFile: vi.fn(async () => undefined),
+            requestRead: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/block/checkBlockExist') return true;
+                if (endpoint === '/api/block/getBlockInfo') return { id: body?.id, box: 'nb-1', rootID: documentID };
+                if (endpoint === '/api/attr/getBlockAttrs') return sortMode === null
+                    ? {}
+                    : { 'custom-sy-subdoc-sort-mode': String(sortMode) };
+                if (endpoint === '/api/block/getBlockKramdown') return { kramdown: '' };
+                if (endpoint === '/api/block/getChildBlocks') return [];
+                if (endpoint === '/api/query/sql') return [];
+                return null;
+            }),
+        } as never;
+        const permMgr = createMockPermissionManager({ canWrite: () => true, canDelete: () => true });
+        permMgr.getAll = vi.fn(() => ({ 'nb-1': 'rwd' }));
+        const coordinator = new WriteSafetyCoordinator(client);
+        const args = { action: 'set_child_sort_mode', id: documentID, sortMode: 6 };
+        const preflight = parseResult(await coordinator.run({
+            client, permMgr, category: 'document', action: 'set_child_sort_mode',
+            args: { ...args, validateOnly: true }, strictMode: true, execute: vi.fn(),
+        }));
+        const result = parseResult(await coordinator.run({
+            client, permMgr, category: 'document', action: 'set_child_sort_mode',
+            args: {
+                ...args,
+                requestId: uuidV7(Date.now(), '000000000044'),
+                expectedStateHash: preflight.stateHash,
+            },
+            strictMode: true,
+            execute: vi.fn(async () => success({ success: true })),
+        }));
+
+        expect(result.error).toMatchObject({ code: 'readback_mismatch' });
+        expect(result.error.cause).toContain('requested child sort mode');
+    });
 });

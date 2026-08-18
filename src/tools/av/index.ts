@@ -26,7 +26,7 @@ export const AV_TOOL_NAME = 'av';
 
 export const AV_VARIANTS: ActionVariant<AvAction>[] = [
     createZodActionVariant('get', AvGetSchema, 'Get the full attribute view payload by AV ID; blockID is an optional exact database-block context.'),
-    createZodActionVariant('render', AvRenderSchema, 'Render an attribute view by id (AV ID, not avID) with optional paging/filtering; with createIfNotExist=true, materialize a SiYuan-style AV block under blockID.'),
+    createZodActionVariant('render', AvRenderSchema, 'Render an attribute view by id (AV ID, not avID) with optional paging/filtering; use ignoreRows=true for schema-only output, or createIfNotExist=true to materialize an AV block under blockID.'),
     createZodActionVariant('get_attribute_view_keys', AvGetAttributeViewKeysSchema, 'Get the column (key) definitions of an attribute view.'),
     createZodActionVariant('get_attribute_view_filter_sort', AvGetAttributeViewFilterSortSchema, 'Get filter and sort settings for an attribute view.'),
     createZodActionVariant('search', AvSearchSchema, 'Search attribute views by name or primary-key values.'),

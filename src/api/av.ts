@@ -23,6 +23,7 @@ export async function renderAttributeView(
         query?: string;
         groupPaging?: Record<string, unknown>;
         createIfNotExist?: boolean;
+        ignoreRows?: boolean;
     },
 ): Promise<Record<string, unknown>> {
     return client.requestWrite<Record<string, unknown>>('/api/av/renderAttributeView', payload);

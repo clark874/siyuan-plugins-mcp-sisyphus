@@ -14,8 +14,8 @@ Related pages:
 | Group | Actions |
 |------|---------|
 | Create and read | `create`, `lookup`, `get_doc`, `get_outline` |
-| Tree navigation | `get_child_blocks`, `get_child_docs`, `list_tree`, `search_docs` |
-| Metadata and mutations | `rename`, `move`, `remove`, `set_attr`, `duplicate` |
+| Tree navigation | `get_child_blocks`, `get_child_docs`, `get_child_sort_mode`, `list_tree`, `search_docs` |
+| Metadata and mutations | `rename`, `move`, `reorder`, `set_child_sort_mode`, `remove`, `set_attr`, `duplicate` |
 | Daily note / conversion | `create_daily_note`, `heading_to_doc`, `doc_to_heading` |
 
 ## Parameters and Semantics
@@ -24,6 +24,10 @@ Related pages:
 - `lookup` resolves by `id`, storage `path`, or human-readable `hpath` / `hPath`; use `include` to request `id`, `ids`, `path`, `hpath`, or `docInfo`.
 - The returned `idPath` includes available `id` / `ids`. When several documents share the same hpath, `include: ["ids"]` returns all matching IDs; the tool includes a SQL fallback.
 - `rename`, `remove`, and `move` often need a storage path if you are not using document IDs.
+- On SiYuan 3.8.1+, `get_child_sort_mode` reports both the document's local declaration and the inherited effective mode. `set_child_sort_mode` accepts modes `0`–`14`; pass `null` to remove the local declaration and restore inheritance.
+- `reorder` accepts a notebook or parent document `parentID` plus a complete, duplicate-free `orderedIDs` list. On SiYuan 3.8.1+, a document-parent reorder switches only that parent to custom mode (`6`) instead of changing the whole notebook. Notebook-root reorder still updates the notebook sort mode; older kernels retain the notebook-level compatibility fallback.
+
+Sort-mode values: `0/1` name ascending/descending, `2/3` updated time, `4/5` natural alphanumeric, `6` custom, `7/8` reference count, `9/10` created time, `11/12` size, and `13/14` child-document count.
 - `get_child_docs` requires a document `id`; it does not accept `notebook + path`.
 - `list_tree` uses `notebook + path`, and `path` is a storage path such as `/` or `/20240318112233-abc123.sy`, not a human-readable path.
 - For `list_tree` at `/`, top-level subtree reads use a concurrency limit of 8. The response includes `partial`, `errors`, `topLevelDocumentCount`, and `failedTopLevelDocumentCount`; an empty `children` array must not be treated as a confirmed leaf when `partial` is `true`. This low-level tool reports document IDs and storage paths in each error for precise follow-up.
@@ -80,6 +84,9 @@ siyuan document lookup --id <doc-id> --include path
 - `rename`
 - `remove`
 - `move`
+- `reorder`
+- `get_child_sort_mode`
+- `set_child_sort_mode`
 - `get_child_blocks`
 - `get_child_docs`
 - `set_attr`

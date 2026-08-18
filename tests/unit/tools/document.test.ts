@@ -20,6 +20,70 @@ describe('document tool extended actions', () => {
         expect(actionDescription).toContain('heading_to_doc');
         expect(actionDescription).toContain('doc_to_heading');
         expect(actionDescription).toContain('get_outline');
+        expect(actionDescription).toContain('get_child_sort_mode');
+        expect(actionDescription).toContain('set_child_sort_mode');
+    });
+});
+
+describe('document child sort mode', () => {
+    it('reads the declared and effective child sort modes', async () => {
+        const request = vi.fn(async (endpoint: string) => {
+            if (endpoint === '/api/query/sql') return [{
+                id: 'doc-parent', root_id: 'doc-parent', box: 'nb-1', path: '/parent.sy', hpath: '/Parent', type: 'd',
+            }];
+            if (endpoint === '/api/filetree/listDocsByPath') return { box: 'nb-1', path: '/parent.sy', effectiveSortMode: 13, files: [] };
+            if (endpoint === '/api/attr/getBlockAttrs') return { 'custom-sy-subdoc-sort-mode': '2' };
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined), canRead: () => true, canWrite: () => true, get: () => 'rw',
+        };
+
+        const result = await callDocumentTool(createMockClient({ request }), {
+            action: 'get_child_sort_mode', id: 'doc-parent',
+        }, buildDefaultToolConfig().document, permMgr as never);
+
+        expect(parseResult(result)).toMatchObject({
+            id: 'doc-parent',
+            notebook: 'nb-1',
+            declaredSortMode: 2,
+            declaredSortModeName: 'updated_ascending',
+            effectiveSortMode: 13,
+            effectiveSortModeName: 'child_count_ascending',
+            inherited: false,
+        });
+    });
+
+    it('sets and exactly reads back a document child sort mode', async () => {
+        let declared: string | undefined;
+        const request = vi.fn(async (endpoint: string, body?: Record<string, any>) => {
+            if (endpoint === '/api/query/sql') return [{
+                id: 'doc-parent', root_id: 'doc-parent', box: 'nb-1', path: '/parent.sy', hpath: '/Parent', type: 'd',
+            }];
+            if (endpoint === '/api/filetree/setDocSortMode') {
+                declared = String(body?.sortMode);
+                return null;
+            }
+            if (endpoint === '/api/filetree/listDocsByPath') return { box: 'nb-1', path: '/parent.sy', effectiveSortMode: Number(declared), files: [] };
+            if (endpoint === '/api/attr/getBlockAttrs') return declared === undefined ? {} : { 'custom-sy-subdoc-sort-mode': declared };
+            if (endpoint.startsWith('/api/ui/')) return null;
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined), canRead: () => true, canWrite: () => true, get: () => 'rw',
+        };
+
+        const result = await callDocumentTool(createMockClient({ request }), {
+            action: 'set_child_sort_mode', id: 'doc-parent', sortMode: 6,
+        }, buildDefaultToolConfig().document, permMgr as never);
+
+        expect(request).toHaveBeenCalledWith('/api/filetree/setDocSortMode', { id: 'doc-parent', sortMode: 6 });
+        expect(parseResult(result)).toMatchObject({
+            success: true,
+            id: 'doc-parent',
+            declaredSortMode: 6,
+            effectiveSortMode: 6,
+        });
     });
 });
 
@@ -72,6 +136,57 @@ describe('document.reorder', () => {
         });
         expect(orderedPaths).toEqual(['/b.sy', '/a.sy']);
         expect(sortMode).toBe(6);
+    });
+
+    it('uses a document-local custom sort mode on SiYuan 3.8.1', async () => {
+        let orderedPaths: string[] = [];
+        let declaredSortMode = 2;
+        const request = vi.fn(async (endpoint: string, body?: Record<string, any>) => {
+            if (endpoint === '/api/notebook/lsNotebooks') {
+                return { notebooks: [{ id: 'nb-1', name: 'Notebook', closed: false }] };
+            }
+            if (endpoint === '/api/query/sql') return [{
+                id: 'doc-parent', root_id: 'doc-parent', box: 'nb-1', path: '/parent.sy', hpath: '/Parent', type: 'd',
+            }];
+            if (endpoint === '/api/notebook/getNotebookConf') return { box: 'nb-1', name: 'Notebook', conf: { sortMode: 2 } };
+            if (endpoint === '/api/attr/getBlockAttrs') return { 'custom-sy-subdoc-sort-mode': String(declaredSortMode) };
+            if (endpoint === '/api/filetree/listDocsByPath') {
+                return {
+                    box: 'nb-1', path: '/parent.sy', effectiveSortMode: declaredSortMode,
+                    files: [
+                        { id: 'doc-a', path: '/parent/a.sy', hPath: '/Parent/A', name: 'A.sy' },
+                        { id: 'doc-b', path: '/parent/b.sy', hPath: '/Parent/B', name: 'B.sy' },
+                    ],
+                };
+            }
+            if (endpoint === '/api/filetree/changeSort') {
+                orderedPaths = body?.paths ?? [];
+                return null;
+            }
+            if (endpoint === '/api/filetree/setDocSortMode') {
+                declaredSortMode = body?.sortMode;
+                return null;
+            }
+            if (endpoint === '/api/notebook/setNotebookConf') throw new Error('must not mutate notebook sort mode');
+            if (endpoint.startsWith('/api/ui/')) return null;
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined), canWrite: () => true, canRead: () => true, canDelete: () => true, get: () => 'rwd',
+        };
+
+        const result = await callDocumentTool(createMockClient({ request }), {
+            action: 'reorder', parentID: 'doc-parent', orderedIDs: ['doc-b', 'doc-a'],
+        }, buildDefaultToolConfig().document, permMgr as never);
+
+        expect(parseResult(result)).toMatchObject({
+            success: true,
+            order: ['doc-b', 'doc-a'],
+            sortModeChanged: true,
+            sortModeScope: 'document',
+        });
+        expect(orderedPaths).toEqual(['/parent/b.sy', '/parent/a.sy']);
+        expect(declaredSortMode).toBe(6);
     });
 });
 

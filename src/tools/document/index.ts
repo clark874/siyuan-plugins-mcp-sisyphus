@@ -10,6 +10,7 @@ import {
     DocumentDuplicateSchema,
     DocumentGetChildBlocksSchema,
     DocumentGetChildDocsSchema,
+    DocumentGetChildSortModeSchema,
     DocumentGetDocSchema,
     DocumentGetOutlineSchema,
     DocumentHeadingToDocSchema,
@@ -21,6 +22,7 @@ import {
     DocumentRenameSchema,
     DocumentSearchDocsSchema,
     DocumentSetAttrSchema,
+    DocumentSetChildSortModeSchema,
 } from '../../core/types';
 import { defineTool } from '../internal/define-tool';
 import { createZodActionVariant, type ActionVariant, type ToolResult } from '../internal/shared';
@@ -35,6 +37,8 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
     createZodActionVariant('remove', DocumentRemoveSchema, 'Delete a document'),
     createZodActionVariant('move', DocumentMoveSchema, 'Move a document to another location'),
     createZodActionVariant('reorder', DocumentReorderSchema, 'Apply a complete manual order to visible direct child documents and enable custom sorting.'),
+    createZodActionVariant('get_child_sort_mode', DocumentGetChildSortModeSchema, 'Read the declared and effective child-document sort modes for a document.'),
+    createZodActionVariant('set_child_sort_mode', DocumentSetChildSortModeSchema, 'Set a document-local child sort mode, or restore inheritance with null.'),
     createZodActionVariant('get_child_blocks', DocumentGetChildBlocksSchema, 'Get top-level blocks of a document'),
     createZodActionVariant('get_child_docs', DocumentGetChildDocsSchema, 'Get child documents'),
     createZodActionVariant('set_attr', DocumentSetAttrSchema, 'Set document metadata such as icon and cover image.'),

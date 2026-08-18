@@ -50,6 +50,7 @@ function createPermMgr() {
 }
 
 function createContractClient() {
+    let documentSortMode: number | null = null;
     return createMockClient({
         getBaseUrl: vi.fn(() => 'http://127.0.0.1:6806'),
         getAuthHeaders: vi.fn(() => ({ Authorization: 'Token test' })),
@@ -79,6 +80,10 @@ function createContractClient() {
             if (endpoint === '/api/filetree/getHPathByPath') return '/Doc 1';
             if (endpoint === '/api/filetree/getIDsByHPath') return body?.path === '/New Doc' ? [] : ['doc-1'];
             if (endpoint === '/api/filetree/listDocsByPath') return { box: 'nb-1', files: [{ id: 'child-1', box: 'nb-1', path: '/child.sy', name: 'Child.sy' }] };
+            if (endpoint === '/api/filetree/setDocSortMode') {
+                documentSortMode = typeof body?.sortMode === 'number' ? body.sortMode : null;
+                return null;
+            }
             if (endpoint === '/api/filetree/listDocTree') return { tree: [{ id: 'doc-1', path: '/doc-1.sy' }] };
             if (endpoint === '/api/filetree/searchDocs') return { docs: [{ id: 'doc-1', box: 'nb-1', path: '/doc-1.sy' }] };
             if (endpoint === '/api/filetree/getDoc') return { content: '<p>Doc</p>' };
@@ -109,7 +114,9 @@ function createContractClient() {
             if (endpoint === '/api/block/appendDailyNoteBlock') return [{ doOperations: [{ id: 'daily-block' }] }];
             if (endpoint === '/api/block/getDocsInfo') return [{ id: 'doc-1', name: 'Doc' }];
             if (endpoint === '/api/transactions') return body?.transactions ?? [];
-            if (endpoint === '/api/attr/getBlockAttrs') return { memo: 'note' };
+            if (endpoint === '/api/attr/getBlockAttrs') return documentSortMode === null
+                ? { memo: 'note' }
+                : { memo: 'note', 'custom-sy-subdoc-sort-mode': String(documentSortMode) };
 
             if (endpoint === '/api/search/fullTextSearchBlock') return { blocks: [{ id: 'block-1', box: 'nb-1', path: '/doc-1.sy', content: 'match' }], matchedBlockCount: 1, matchedRootCount: 1, pageCount: 1 };
             if (endpoint === '/api/search/semanticSearchBlock') return { blocks: [{ id: 'doc-1', rootID: 'doc-1', box: 'nb-1', path: '/doc-1.sy', hPath: '/Doc 1', type: 'd', content: 'Doc 1' }], matchedBlockCount: 1, matchedRootCount: 1, pageCount: 1 };
@@ -229,6 +236,8 @@ describe('tool action contract coverage', () => {
             { action: 'remove', args: { action: 'remove', id: 'doc-1' }, expectedEndpoint: '/api/filetree/removeDocByID' },
             { action: 'move', args: { action: 'move', fromIDs: ['doc-1'], toID: 'doc-parent' }, expectedEndpoint: '/api/filetree/moveDocsByID' },
             { action: 'reorder', args: { action: 'reorder', parentID: 'nb-1', orderedIDs: ['child-1'] }, expectedEndpoint: '/api/notebook/setNotebookConf' },
+            { action: 'get_child_sort_mode', args: { action: 'get_child_sort_mode', id: 'doc-1' }, expectedEndpoint: '/api/attr/getBlockAttrs' },
+            { action: 'set_child_sort_mode', args: { action: 'set_child_sort_mode', id: 'doc-1', sortMode: 6 }, expectedEndpoint: '/api/filetree/setDocSortMode' },
             { action: 'get_child_blocks', args: { action: 'get_child_blocks', id: 'doc-1' }, expectedEndpoint: '/api/block/getChildBlocks' },
             { action: 'get_child_docs', args: { action: 'get_child_docs', id: 'doc-1' }, expectedEndpoint: '/api/filetree/listDocsByPath' },
             { action: 'set_attr', args: { action: 'set_attr', id: 'doc-1', attrs: { icon: '1f4d4' } }, expectedEndpoint: '/api/transactions' },
