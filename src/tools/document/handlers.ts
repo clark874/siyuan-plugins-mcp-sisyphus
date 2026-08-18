@@ -44,6 +44,7 @@ import { readDocumentBlockWindow } from '../internal/document-kramdown';
 import { createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks } from '../internal/kramdown-safe';
 import { normalizeMarkdownInputRefs } from '../internal/markdown-input';
 import { applyDocumentReorder, readDocumentReorderState } from '../internal/helpers/document-reorder';
+import { isNotebookRootPath, listNotebookRootTreeNodes } from '../internal/helpers/doc-tree';
 
 type DocumentActionHandler = ToolActionHandler;
 
@@ -659,8 +660,20 @@ const handleListTree: DocumentActionHandler = async ({ client, permMgr, rawArgs 
     const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
     if (denied) return denied;
     const maxDepth = parsed.maxDepth ?? 3;
-    const result = await documentApi.listDocTree(client, parsed.notebook, parsed.path);
     const depthHint = 'Use maxDepth to control tree depth. Use document(action="list_tree") with a deeper path to expand specific subtrees.';
+    if (isNotebookRootPath(parsed.path)) {
+        // listDocTree rejects the notebook root, so assemble it from the
+        // top-level documents instead of failing with a kernel path error.
+        const nodes = await listNotebookRootTreeNodes(client, parsed.notebook);
+        const enrichedRoot = await enrichTreeNodesWithDocInfo(client, nodes);
+        return createJsonResult({
+            box: parsed.notebook,
+            tree: truncateTreeByDepth(enrichedRoot, maxDepth),
+            maxDepth,
+            depthHint,
+        });
+    }
+    const result = await documentApi.listDocTree(client, parsed.notebook, parsed.path);
     if (result && typeof result === 'object' && Array.isArray((result as Record<string, unknown>).tree)) {
         const enriched = await enrichTreeNodesWithDocInfo(client, (result as Record<string, unknown>).tree);
         return createJsonResult({

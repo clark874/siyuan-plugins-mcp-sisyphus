@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { AGENT_MEMORY_VIRTUAL_PATH, MCP_TOOLS_CONFIG_API_PATH, USER_RULES_VIRTUAL_PATH, buildDefaultToolConfig } from '@/core/config';
+import { SiYuanError } from '@/shared/error';
 import { callFsTool, listFsTools } from '@/tools/fs';
 import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
@@ -67,6 +68,12 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[];
                 };
             }
             if (endpoint === '/api/filetree/listDocTree') {
+                // The kernel rejects the notebook root with this exact message.
+                // Keeping the mock faithful is what makes the root-path
+                // regressions below fail instead of silently passing.
+                if (String(body?.path) === '/') {
+                    throw new SiYuanError(-1, 'path escapes notebook directory');
+                }
                 return {
                     tree: [
                         { id: 'child-1', path: '/child.sy', name: 'Child.sy', children: [{ id: 'grand-1', path: '/grand.sy', name: 'Grand.sy' }] },
@@ -78,7 +85,12 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[];
             }
             if (endpoint === '/api/query/sql') {
                 const stmt = String(body?.stmt ?? '');
-                if (stmt.includes("type = 'd'")) return [];
+                if (stmt.includes("type = 'd'") && stmt.includes('hpath =')) return [];
+                if (stmt.includes("type = 'd'")) {
+                    return stmt.includes("box = 'nb-2'")
+                        ? [{ id: 'doc-2' }, { id: 'child-2' }]
+                        : [{ id: 'doc-1' }, { id: 'child-1' }, { id: 'grand-1' }];
+                }
                 return [
                     { id: 'block-1', type: 'p', sort: 1 },
                     { id: 'block-2', type: 'p', sort: 2 },
@@ -213,6 +225,65 @@ describe('fs tool', () => {
         expect(parsed.tree[1]).toEqual({ name: 'USER_RULES.md', path: USER_RULES_VIRTUAL_PATH, children: [], virtual: true });
         expect(parsed.tree[2].path).toBe('/Notebook');
         expect(JSON.stringify(parsed)).not.toContain('/Archive');
+    });
+
+    it('builds the notebook root tree without asking the kernel for path "/"', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'tree', path: '/Notebook' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.path).toBe('/Notebook');
+        // Top-level nodes come from listDocsByPath, their subtrees from one
+        // listDocTree per top-level document, and display names from hPath.
+        expect(parsed.tree).toEqual([
+            {
+                name: 'Child',
+                path: '/Notebook/Doc 1/Child',
+                children: [
+                    {
+                        name: 'Child',
+                        path: '/Notebook/Doc 1/Child',
+                        children: [
+                            { name: 'Grand', path: '/Notebook/Doc 1/Child/Grand', children: [] },
+                        ],
+                    },
+                ],
+            },
+        ]);
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/listDocsByPath', expect.objectContaining({ notebook: 'nb-1', path: '/' }));
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.objectContaining({ path: '/' }));
+    });
+
+    it('builds the virtual root tree without asking the kernel for path "/"', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'tree', path: '/' }, fsConfig(), createPermMgr());
+
+        expect(result.isError).toBeUndefined();
+        expect(parseResult(result).tree[2].path).toBe('/Notebook');
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.objectContaining({ path: '/' }));
+    });
+
+    it('searches a whole notebook without asking the kernel for path "/"', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'search', path: '/Notebook', query: 'budget' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.data.length).toBeGreaterThan(0);
+        expect(parsed.data[0]).toMatchObject({ text: 'budget line', line: 2 });
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.objectContaining({ path: '/' }));
+    });
+
+    it('searches every readable notebook without asking the kernel for path "/"', async () => {
+        const client = createFsClient({ ambiguous: true });
+        const result = await callFsTool(client, { action: 'search', path: '/', query: 'budget' }, fsConfig(), createPermMgr({ 'nb-1': 'r', 'nb-2': 'none' }));
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.data.length).toBeGreaterThan(0);
+        expect(JSON.stringify(parsed)).not.toContain('/Archive');
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.objectContaining({ path: '/' }));
     });
 
     it('reads markdown in complete block windows with continuation metadata', async () => {

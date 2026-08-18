@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.3-wiki.1 - 2026-08-18
+
+- 修复思源内核拒绝 `listDocTree('/')`（`path escapes notebook directory`）导致的笔记本根路径失败：`fs.tree`、`fs.search` 与 `document.list_tree` 在笔记本根和全库根下均可正常返回。根层级改由 `listDocsByPath` 加每个顶层文档一次 `listDocTree` 组装，`fs.search` 的全笔记本文档集合改用一条只读 SQL，避免逐目录递归
+- 内核路径类拒绝不再归类为 `api_error`，改判为 `invalid_path`：这类失败本质是可自行修正的路径参数错误，归类修正后可被软错误上报覆盖，严格客户端不会再因一次坏路径而重发完整工具清单
+- 补齐回归测试：`fs` 单测 mock 现忠实复现内核对根路径的拒绝，新增 `tree`/`search` × 笔记本根/全库根四组、`document.list_tree` 根路径一组，以及内核路径错误归类与可软化性断言
+- CLI 包同步提升至 `v0.3.2-wiki.1`
+
 ## v0.8.2-wiki.1 - 2026-08-18
 
 - 新增可选的“软化可恢复错误”上报模式（设置面板默认关闭）：`validation_error`、`invalid_arguments`、`not_found`、`ambiguous_path`、`invalid_path`、`action_disabled` 六类 Agent 可自行修正的失败，在最外层 MCP 响应边界去除 `isError` 标记，结构化 `error` 载荷原样保留并标记 `softened: true`

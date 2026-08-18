@@ -16,7 +16,7 @@ import {
     FsTreeSchema,
     FsWriteSchema,
 } from '../../core/types';
-import { ensurePermissionForNotebook, listChildDocumentsByPath } from '../internal/context';
+import { ensurePermissionForNotebook, escapeSqlString, listChildDocumentsByPath } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
 import {
     resolveFsCreateTarget,
@@ -26,6 +26,7 @@ import {
     type FsScopePath,
 } from '../internal/helpers/fs-path';
 import { applyDocumentReorder, readDocumentReorderState, resolveFsReorderOrder } from '../internal/helpers/document-reorder';
+import { extractTreeArray, listNotebookRootTreeNodes } from '../internal/helpers/doc-tree';
 import { applyExactReplaceEdits } from '../internal/replace';
 import { createJsonResult, createPaginatedResult, type ToolResult } from '../internal/shared';
 import { applyUiRefresh } from '../internal/ui-refresh';
@@ -481,12 +482,31 @@ async function normalizeTreeNodes(
     }));
 }
 
-function extractTreeArray(result: unknown): unknown[] {
-    if (Array.isArray(result)) return result;
-    if (result && typeof result === 'object' && Array.isArray((result as Record<string, unknown>).tree)) {
-        return (result as Record<string, unknown>).tree as unknown[];
+/**
+ * Document IDs of a whole notebook in a single read-only query. Walking the
+ * document tree would need one kernel call per directory, and the notebook root
+ * cannot be walked with `listDocTree` at all.
+ */
+async function listNotebookDocumentIds(
+    client: Parameters<FsActionHandler>[0]['client'],
+    notebook: string,
+): Promise<string[]> {
+    const rows = await querySQL(
+        client,
+        [
+            'SELECT id',
+            'FROM blocks',
+            `WHERE type = 'd'`,
+            `AND box = '${escapeSqlString(notebook)}'`,
+        ].join(' '),
+    );
+    const ids: string[] = [];
+    for (const row of rows) {
+        if (row && typeof row === 'object' && typeof (row as Record<string, unknown>).id === 'string') {
+            ids.push((row as Record<string, string>).id);
+        }
     }
-    return [];
+    return [...new Set(ids)];
 }
 
 function collectTreeIds(nodes: unknown): string[] {
@@ -657,14 +677,14 @@ async function collectSearchDocuments(
         return [...new Set([scope.id, ...collectTreeIds(tree)])].map((id) => ({ id, notebookName: scope.notebookName }));
     }
     if (scope.type === 'notebook') {
-        const tree = extractTreeArray(await documentApi.listDocTree(client, scope.notebook, '/'));
-        return [...new Set(collectTreeIds(tree))].map((id) => ({ id, notebookName: scope.notebookName }));
+        const ids = await listNotebookDocumentIds(client, scope.notebook);
+        return ids.map((id) => ({ id, notebookName: scope.notebookName }));
     }
     const notebooks = await listReadableNotebooks(client, permMgr);
     const docs: Array<{ id: string; notebookName: string }> = [];
     for (const notebook of notebooks) {
-        const tree = extractTreeArray(await documentApi.listDocTree(client, notebook.id, '/'));
-        docs.push(...[...new Set(collectTreeIds(tree))].map((id) => ({ id, notebookName: notebook.name })));
+        const ids = await listNotebookDocumentIds(client, notebook.id);
+        docs.push(...ids.map((id) => ({ id, notebookName: notebook.name })));
     }
     return docs;
 }
@@ -753,21 +773,23 @@ const handleTree: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         const notebooks = await listReadableNotebooks(client, permMgr);
         const tree: Array<{ name: string; path: string; children: unknown[]; virtual?: boolean }> = VIRTUAL_ROOT_FILES.map((path) => createVirtualTreeNode(path));
         for (const notebook of notebooks) {
-            const result = await documentApi.listDocTree(client, notebook.id, '/');
+            const nodes = await listNotebookRootTreeNodes(client, notebook.id);
             tree.push({
                 name: notebook.name,
                 path: `/${notebook.name}`,
-                children: await normalizeTreeNodes(client, extractTreeArray(result), `/${notebook.name}`, notebook.name, maxDepth),
+                children: await normalizeTreeNodes(client, nodes, `/${notebook.name}`, notebook.name, maxDepth),
             });
         }
         return createJsonResult({ path: '/', tree, maxDepth });
     }
     const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'read');
     if (denied) return denied;
-    const result = await documentApi.listDocTree(client, scope.notebook, scope.storagePath);
+    const nodes = scope.type === 'notebook'
+        ? await listNotebookRootTreeNodes(client, scope.notebook)
+        : extractTreeArray(await documentApi.listDocTree(client, scope.notebook, scope.storagePath));
     return createJsonResult({
         path: scope.canonicalPath,
-        tree: await normalizeTreeNodes(client, extractTreeArray(result), scope.canonicalPath, scope.notebookName, maxDepth),
+        tree: await normalizeTreeNodes(client, nodes, scope.canonicalPath, scope.notebookName, maxDepth),
         maxDepth,
     });
 };

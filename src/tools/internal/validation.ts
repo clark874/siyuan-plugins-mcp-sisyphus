@@ -83,9 +83,29 @@ const SEMANTIC_ERROR_CODES: ReadonlySet<string> = new Set([
     'invalid_path',
 ]);
 
+/**
+ * Kernel rejections that are really agent-correctable path mistakes.
+ *
+ * The kernel reports them as generic `-1` failures, so without this mapping
+ * they surface as `api_error`: a type that is (correctly) excluded from soft
+ * error reporting, which makes strict clients resend their whole tool
+ * catalogue after what is only a bad path argument.
+ */
+const KERNEL_PATH_REJECTION_PATTERNS: RegExp[] = [
+    /path escapes notebook directory/i,
+    /invalid path/i,
+];
+
+function isKernelPathRejection(error: Error): boolean {
+    const message = error.message ?? '';
+    if (!isApiError(error)) return false;
+    return KERNEL_PATH_REJECTION_PATTERNS.some((pattern) => pattern.test(message));
+}
+
 export function readSemanticErrorCode(error: Error): string | null {
     const code = (error as Error & { code?: unknown }).code;
-    return typeof code === 'string' && SEMANTIC_ERROR_CODES.has(code) ? code : null;
+    if (typeof code === 'string' && SEMANTIC_ERROR_CODES.has(code)) return code;
+    return isKernelPathRejection(error) ? 'invalid_path' : null;
 }
 
 export function includeDebugDetails(): boolean {

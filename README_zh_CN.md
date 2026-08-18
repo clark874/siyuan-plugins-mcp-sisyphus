@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.2-wiki.1`（CLI `v0.3.1-wiki.1`）新增可选的软错误上报开关，避免可恢复的工具报错触发客户端（如 Devin）重发完整工具清单；并保留 `v0.8.1-wiki.2` 的前端只读请求适配与 `v0.8.1` 的原生语义搜索桥接、中央更新通道。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口，插件升级无需逐个重装客户端。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.3-wiki.1`（CLI `v0.3.2-wiki.1`）修复笔记本根路径下 `fs.tree` / `fs.search` / `document.list_tree` 被思源内核拒绝的问题，并把内核路径类拒绝改判为可软化的 `invalid_path`；保留 `v0.8.2` 的软错误上报开关与 `v0.8.1` 的原生语义搜索桥接、中央更新通道。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口，插件升级无需逐个重装客户端。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.8.2-wiki.1` — 软错误上报开关、近期差异界面修复、语义发现桥接、知识化工具层、严格写入和中央更新通道已统一；本地 CLI 为 `v0.3.1-wiki.1`。
+> **当前 LLM Wiki 版本：**`v0.8.3-wiki.1` — 笔记本根路径读取修复、内核路径错误归类修正、软错误上报开关、语义发现桥接、知识化工具层、严格写入和中央更新通道已统一；本地 CLI 为 `v0.3.2-wiki.1`。
 
 ## 项目方向调整
 

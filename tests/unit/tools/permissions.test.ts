@@ -641,12 +641,41 @@ describe('tool permission and filtering behavior', () => {
         const result = await callDocumentTool({} as never, {
             action: 'list_tree',
             notebook: 'allowed',
-            path: '/',
+            path: '/doc-1.sy',
         }, documentConfig, permMgr as never);
         const parsed = parseResult(result);
 
         expect(parsed.tree).toHaveLength(2);
         expect(parsed.tree[0].name).toBe('Doc One');
         expect(getDocInfo).toHaveBeenCalledTimes(1);
+    });
+
+    // The kernel rejects listDocTree at a notebook root, so list_tree has to
+    // assemble that level from its top-level documents instead.
+    it('assembles the notebook root tree without calling listDocTree with "/"', async () => {
+        vi.spyOn(blockApi, 'getDocInfo').mockResolvedValue({
+            id: 'doc-1',
+            rootID: 'doc-1',
+            name: 'Doc One.sy',
+            icon: '1f4d4',
+        } as never);
+        const listDocsByPath = vi.spyOn(documentApi, 'listDocsByPath').mockResolvedValue({
+            box: 'allowed',
+            files: [{ id: 'doc-1', box: 'allowed', path: '/doc-1.sy', name: 'Doc One.sy' }],
+        } as never);
+        const listDocTree = vi.spyOn(documentApi, 'listDocTree').mockResolvedValue({ tree: [] });
+
+        const result = await callDocumentTool({} as never, {
+            action: 'list_tree',
+            notebook: 'allowed',
+            path: '/',
+        }, documentConfig, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.tree).toHaveLength(1);
+        expect(parsed.tree[0].name).toBe('Doc One');
+        expect(listDocsByPath).toHaveBeenCalledWith(expect.anything(), 'allowed', '/');
+        expect(listDocTree).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), '/');
     });
 });
