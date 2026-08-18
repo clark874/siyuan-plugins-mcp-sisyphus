@@ -26,3 +26,15 @@ export class Dialog {
 }
 
 export function showMessage(_message?: string, _timeout?: number, _type?: string): void {}
+
+interface MockEditor {
+    protyle?: {
+        element?: HTMLElement;
+        [key: string]: unknown;
+    };
+    [key: string]: unknown;
+}
+
+export function getAllEditor(): MockEditor[] {
+    return [];
+}

@@ -49,7 +49,7 @@ function createMcpSkill(
     const name = frontmatter[1];
     const promptSuffix = name === 'siyuan-mcp-sisyphus'
         ? 'mcp_sisyphus'
-        : name.replace(/^siyuan-mcp-/, '').replaceAll('-', '_');
+        : name.replace(/^siyuan-mcp-/, '').replace(/-/g, '_');
 
     return {
         name,

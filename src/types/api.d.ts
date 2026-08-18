@@ -548,6 +548,7 @@ export type {
     IReqGetPathByID,
     IReqInsertBlock,
     IReqListDocsByPath,
+    IReqDocSaveAsTemplate,
     IReqMoveBlock,
     IReqMoveDocs,
     IReqMoveDocsByID,

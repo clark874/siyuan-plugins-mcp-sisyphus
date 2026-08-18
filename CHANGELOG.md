@@ -2,6 +2,11 @@
 
 本文件记录项目的主要版本变更。
 
+## Unreleased
+
+- 清零长期存留的 8 项 TypeScript 错误：补齐模板请求类型导出、ES2020 字符串兼容、思源编辑器测试替身、批量块写入异步返回类型与引用提示泛型保持
+- 新增独立 `typecheck` 命令，并将其接入全量测试与标签发布工作流；后续类型错误会在测试和 Release 构建前直接阻断
+
 ## v0.8.3-wiki.1 - 2026-08-18
 
 - 修复思源内核拒绝 `listDocTree('/')`（`path escapes notebook directory`）导致的笔记本根路径失败：`fs.tree`、`fs.search` 与 `document.list_tree` 在笔记本根和全库根下均可正常返回。根层级改由 `listDocsByPath` 加每个顶层文档一次 `listDocTree` 组装，`fs.search` 的全笔记本文档集合改用一条只读 SQL，避免逐目录递归
