@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.3-wiki.1`（CLI `v0.3.2-wiki.1`）修复笔记本根路径下 `fs.tree` / `fs.search` / `document.list_tree` 被思源内核拒绝的问题，并把内核路径类拒绝改判为可软化的 `invalid_path`；保留 `v0.8.2` 的软错误上报开关与 `v0.8.1` 的原生语义搜索桥接、中央更新通道。外部 Agent 仍只注册 Sisyphus 单一入口，插件升级无需逐个重装客户端。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.4-wiki.1`（本地 CLI `v0.3.3-wiki.1`）清零 TypeScript 基线并将类型检查接入测试与发布，同时为笔记本根树增加并发上限和显式部分失败元数据；保留 `v0.8.3` 的根路径读取修复及既有语义桥接、知识治理和中央更新通道。外部 Agent 仍只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.8.3-wiki.1` — 笔记本根路径读取修复、内核路径错误归类修正、软错误上报开关、语义发现桥接、知识化工具层、严格写入和中央更新通道已统一；CLI 为 `v0.3.2-wiki.1`。
+> **当前 LLM Wiki 版本：**`v0.8.4-wiki.1` — TypeScript 零错误发布门、根树有限并发与部分失败诊断、根路径读取修复、语义发现桥接、知识化工具层、严格写入和中央更新通道已统一；本地 CLI 为 `v0.3.3-wiki.1`。
 
 ## Project Direction Update
 
