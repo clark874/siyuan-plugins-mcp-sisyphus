@@ -18,6 +18,8 @@ Path shape:
 | `write` | Create a document, or replace its body with `overwrite=true` |
 | `search` | Search Markdown lines under a document or folder path |
 
+When `tree` expands a notebook root or `/`, top-level document subtrees are read with a concurrency limit of 8. Root responses include `partial`, `errors`, `topLevelDocumentCount`, and `failedTopLevelDocumentCount`. If `partial` is `true`, a node with empty `children` may represent a failed subtree read rather than a real leaf; inspect `errors`, which expose only human-readable names and paths.
+
 ## AI-Editable Markdown View
 
 - `read` returns an AI-editable Markdown view, not Markdown from `/api/export/exportMdContent`. This avoids degrading SiYuan block refs into footnotes or plain links.

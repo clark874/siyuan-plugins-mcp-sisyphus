@@ -664,13 +664,17 @@ const handleListTree: DocumentActionHandler = async ({ client, permMgr, rawArgs 
     if (isNotebookRootPath(parsed.path)) {
         // listDocTree rejects the notebook root, so assemble it from the
         // top-level documents instead of failing with a kernel path error.
-        const nodes = await listNotebookRootTreeNodes(client, parsed.notebook);
-        const enrichedRoot = await enrichTreeNodesWithDocInfo(client, nodes);
+        const rootTree = await listNotebookRootTreeNodes(client, parsed.notebook);
+        const enrichedRoot = await enrichTreeNodesWithDocInfo(client, rootTree.nodes);
         return createJsonResult({
             box: parsed.notebook,
             tree: truncateTreeByDepth(enrichedRoot, maxDepth),
             maxDepth,
             depthHint,
+            partial: rootTree.partial,
+            errors: rootTree.errors,
+            topLevelDocumentCount: rootTree.topLevelDocumentCount,
+            failedTopLevelDocumentCount: rootTree.failedTopLevelDocumentCount,
         });
     }
     const result = await documentApi.listDocTree(client, parsed.notebook, parsed.path);

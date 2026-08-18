@@ -26,7 +26,7 @@ import {
     type FsScopePath,
 } from '../internal/helpers/fs-path';
 import { applyDocumentReorder, readDocumentReorderState, resolveFsReorderOrder } from '../internal/helpers/document-reorder';
-import { extractTreeArray, listNotebookRootTreeNodes } from '../internal/helpers/doc-tree';
+import { extractTreeArray, listNotebookRootTreeNodes, type NotebookRootTreeError } from '../internal/helpers/doc-tree';
 import { applyExactReplaceEdits } from '../internal/replace';
 import { createJsonResult, createPaginatedResult, type ToolResult } from '../internal/shared';
 import { applyUiRefresh } from '../internal/ui-refresh';
@@ -393,6 +393,16 @@ function canonicalNotebookPath(notebookName: string, hPath: string): string {
     return hPath === '/'
         ? `/${notebookName}`
         : `/${notebookName}${hPath}`;
+}
+
+function createFsRootTreeError(notebookName: string, error: NotebookRootTreeError): Record<string, unknown> {
+    const name = error.name ?? 'Unknown document';
+    return {
+        type: error.type,
+        name,
+        path: joinHumanPath(`/${notebookName}`, name),
+        message: 'Failed to read this document subtree.',
+    };
 }
 
 function compactChild(parentPath: string, child: { name?: string; path: string; subFileCount?: number; count?: number }): FsListItem {
@@ -772,21 +782,45 @@ const handleTree: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     if (scope.type === 'root') {
         const notebooks = await listReadableNotebooks(client, permMgr);
         const tree: Array<{ name: string; path: string; children: unknown[]; virtual?: boolean }> = VIRTUAL_ROOT_FILES.map((path) => createVirtualTreeNode(path));
+        const errors: Array<Record<string, unknown>> = [];
+        let topLevelDocumentCount = 0;
+        let failedTopLevelDocumentCount = 0;
         for (const notebook of notebooks) {
-            const nodes = await listNotebookRootTreeNodes(client, notebook.id);
+            const rootTree = await listNotebookRootTreeNodes(client, notebook.id);
+            topLevelDocumentCount += rootTree.topLevelDocumentCount;
+            failedTopLevelDocumentCount += rootTree.failedTopLevelDocumentCount;
+            errors.push(...rootTree.errors.map((error) => createFsRootTreeError(notebook.name, error)));
             tree.push({
                 name: notebook.name,
                 path: `/${notebook.name}`,
-                children: await normalizeTreeNodes(client, nodes, `/${notebook.name}`, notebook.name, maxDepth),
+                children: await normalizeTreeNodes(client, rootTree.nodes, `/${notebook.name}`, notebook.name, maxDepth),
             });
         }
-        return createJsonResult({ path: '/', tree, maxDepth });
+        return createJsonResult({
+            path: '/',
+            tree,
+            maxDepth,
+            partial: errors.length > 0,
+            errors,
+            topLevelDocumentCount,
+            failedTopLevelDocumentCount,
+        });
     }
     const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'read');
     if (denied) return denied;
-    const nodes = scope.type === 'notebook'
-        ? await listNotebookRootTreeNodes(client, scope.notebook)
-        : extractTreeArray(await documentApi.listDocTree(client, scope.notebook, scope.storagePath));
+    if (scope.type === 'notebook') {
+        const rootTree = await listNotebookRootTreeNodes(client, scope.notebook);
+        return createJsonResult({
+            path: scope.canonicalPath,
+            tree: await normalizeTreeNodes(client, rootTree.nodes, scope.canonicalPath, scope.notebookName, maxDepth),
+            maxDepth,
+            partial: rootTree.partial,
+            errors: rootTree.errors.map((error) => createFsRootTreeError(scope.notebookName, error)),
+            topLevelDocumentCount: rootTree.topLevelDocumentCount,
+            failedTopLevelDocumentCount: rootTree.failedTopLevelDocumentCount,
+        });
+    }
+    const nodes = extractTreeArray(await documentApi.listDocTree(client, scope.notebook, scope.storagePath));
     return createJsonResult({
         path: scope.canonicalPath,
         tree: await normalizeTreeNodes(client, nodes, scope.canonicalPath, scope.notebookName, maxDepth),

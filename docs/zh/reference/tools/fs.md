@@ -19,6 +19,8 @@
 | `reorder` | 对某个笔记本或父文档下的全部可见直属子文档应用完整手动顺序 |
 | `search` | 在文档或目录路径下搜索 Markdown 行 |
 
+`tree` 展开笔记本根目录或 `/` 时，一级文档子树读取的并发上限为 8。根树响应会返回 `partial`、`errors`、`topLevelDocumentCount` 和 `failedTopLevelDocumentCount`。当 `partial` 为 `true` 时，`children` 为空的节点可能是子树读取失败，而不是真实叶节点；应检查 `errors`。`fs` 错误元数据只暴露人类可读名称与路径。
+
 ## AI 可编辑 Markdown 视图
 
 - `read` 返回面向 AI 编辑的 Markdown 视图，而不是 `/api/export/exportMdContent` 的导出 Markdown。这样可以避免双链被降级为脚注或普通链接。

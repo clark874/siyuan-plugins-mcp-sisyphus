@@ -26,8 +26,9 @@ function fsConfig() {
     return buildDefaultToolConfig().fs;
 }
 
-function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[]; agentMemory?: string; agentMemoryUpdatedAt?: string; userRulesText?: string } = {}) {
+function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[]; treeFailurePaths?: string[]; agentMemory?: string; agentMemoryUpdatedAt?: string; userRulesText?: string } = {}) {
     const missing = new Set(options.missingPaths ?? []);
+    const treeFailures = new Set(options.treeFailurePaths ?? []);
     let storedConfig = {
         ...buildDefaultToolConfig(),
         userRulesText: options.userRulesText ?? '创建文档/日记后主动设图标',
@@ -73,6 +74,9 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[];
                 // regressions below fail instead of silently passing.
                 if (String(body?.path) === '/') {
                     throw new SiYuanError(-1, 'path escapes notebook directory');
+                }
+                if (treeFailures.has(String(body?.path))) {
+                    throw new SiYuanError(-1, 'subtree unavailable');
                 }
                 return {
                     tree: [
@@ -262,6 +266,41 @@ describe('fs tool', () => {
         expect(result.isError).toBeUndefined();
         expect(parseResult(result).tree[2].path).toBe('/Notebook');
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.objectContaining({ path: '/' }));
+    });
+
+    it('reports notebook root subtree failures without exposing IDs or storage paths', async () => {
+        const client = createFsClient({ treeFailurePaths: ['/child.sy'] });
+        const result = await callFsTool(client, { action: 'tree', path: '/Notebook' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.partial).toBe(true);
+        expect(parsed.topLevelDocumentCount).toBe(1);
+        expect(parsed.failedTopLevelDocumentCount).toBe(1);
+        expect(parsed.errors).toEqual([expect.objectContaining({
+            type: 'subtree_read_failed',
+            name: 'Child',
+            path: '/Notebook/Child',
+            message: 'Failed to read this document subtree.',
+        })]);
+        expect(JSON.stringify(parsed.errors)).not.toContain('child-1');
+        expect(JSON.stringify(parsed.errors)).not.toContain('/child.sy');
+    });
+
+    it('aggregates subtree failures when building the complete readable root', async () => {
+        const client = createFsClient({ treeFailurePaths: ['/child.sy'] });
+        const result = await callFsTool(client, { action: 'tree', path: '/' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.partial).toBe(true);
+        expect(parsed.topLevelDocumentCount).toBe(1);
+        expect(parsed.failedTopLevelDocumentCount).toBe(1);
+        expect(parsed.errors).toEqual([expect.objectContaining({
+            type: 'subtree_read_failed',
+            name: 'Child',
+            path: '/Notebook/Child',
+        })]);
     });
 
     it('searches a whole notebook without asking the kernel for path "/"', async () => {

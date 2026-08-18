@@ -678,4 +678,37 @@ describe('tool permission and filtering behavior', () => {
         expect(listDocsByPath).toHaveBeenCalledWith(expect.anything(), 'allowed', '/');
         expect(listDocTree).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), '/');
     });
+
+    it('marks a partially assembled notebook root and returns failed subtree details', async () => {
+        vi.spyOn(blockApi, 'getDocInfo').mockResolvedValue({
+            id: 'doc-1',
+            rootID: 'doc-1',
+            name: 'Doc One.sy',
+        } as never);
+        vi.spyOn(documentApi, 'listDocsByPath').mockResolvedValue({
+            box: 'allowed',
+            files: [{ id: 'doc-1', box: 'allowed', path: '/doc-1.sy', name: 'Doc One.sy' }],
+        } as never);
+        vi.spyOn(documentApi, 'listDocTree').mockRejectedValue(new Error('subtree unavailable'));
+
+        const result = await callDocumentTool({} as never, {
+            action: 'list_tree',
+            notebook: 'allowed',
+            path: '/',
+        }, documentConfig, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.tree).toHaveLength(1);
+        expect(parsed.partial).toBe(true);
+        expect(parsed.topLevelDocumentCount).toBe(1);
+        expect(parsed.failedTopLevelDocumentCount).toBe(1);
+        expect(parsed.errors).toEqual([expect.objectContaining({
+            type: 'subtree_read_failed',
+            documentId: 'doc-1',
+            name: 'Doc One',
+            storagePath: '/doc-1.sy',
+            message: 'subtree unavailable',
+        })]);
+    });
 });
