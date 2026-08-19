@@ -5,6 +5,23 @@ description: CLI-only playbook for SiYuan assets and exports with siyuan-sisyphu
 
 # Handle SiYuan Files and Exports with the CLI
 
+## Resolve the CLI entry first
+
+Before the first SiYuan CLI call in every new session, verify that the local command is available:
+
+```bash
+command -v siyuan-sisyphus
+siyuan-sisyphus --version
+```
+
+If the command is missing, resolve a locally installed or user-provided maintained CLI entry before continuing. Do not use `npx` as an implicit fallback. A public npm package may lag the locally maintained plugin and silently omit custom actions or safety contracts.
+
+After resolving the entry, start with the read-only live bootstrap:
+
+```bash
+siyuan-sisyphus system bootstrap --json
+```
+
 File actions are the explicit exception to the normal remote-only data path: uploads and local exports may touch the machine running the server. Confirm local paths and scope first.
 
 ```bash

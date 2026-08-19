@@ -5,6 +5,23 @@ description: CLI-only playbook for SiYuan document timelines with siyuan-sisyphu
 
 # Manage SiYuan Document Timelines with the CLI
 
+## Resolve the CLI entry first
+
+Before the first SiYuan CLI call in every new session, verify that the local command is available:
+
+```bash
+command -v siyuan-sisyphus
+siyuan-sisyphus --version
+```
+
+If the command is missing, resolve a locally installed or user-provided maintained CLI entry before continuing. Do not use `npx` as an implicit fallback. A public npm package may lag the locally maintained plugin and silently omit custom actions or safety contracts.
+
+After resolving the entry, start with the read-only live bootstrap:
+
+```bash
+siyuan-sisyphus system bootstrap --json
+```
+
 Resolve and read the document first. Use document-scoped nodes for one document and global nodes only when the same named snapshot should be discoverable across documents.
 
 ## Create and compare nodes

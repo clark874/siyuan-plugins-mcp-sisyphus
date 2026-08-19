@@ -5,6 +5,23 @@ description: CLI-only top-level skill for operating SiYuan Note through siyuan-s
 
 # SiYuan Sisyphus with the CLI
 
+## Resolve the CLI entry first
+
+Before the first SiYuan CLI call in every new session, verify that the local command is available:
+
+```bash
+command -v siyuan-sisyphus
+siyuan-sisyphus --version
+```
+
+If the command is missing, resolve a locally installed or user-provided maintained CLI entry before continuing. Do not use `npx` as an implicit fallback. A public npm package may lag the locally maintained plugin and silently omit custom actions or safety contracts.
+
+After resolving the entry, start with the read-only live bootstrap:
+
+```bash
+siyuan-sisyphus system bootstrap --json
+```
+
 Use Sisyphus as the only MCP gateway registered in the external client: `http://127.0.0.1:36806/mcp`. SiYuan's built-in `http://127.0.0.1:6806/mcp` is an internal extension bus that Sisyphus may bridge through `extension`; do not register it as a second SiYuan MCP in the same client.
 
 Start every newly connected session with one read-only bootstrap call:

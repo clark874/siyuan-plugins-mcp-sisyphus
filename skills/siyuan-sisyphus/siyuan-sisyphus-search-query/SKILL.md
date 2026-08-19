@@ -5,6 +5,23 @@ description: CLI-only playbook for finding and querying SiYuan content with siyu
 
 # Search and Query SiYuan with the CLI
 
+## Resolve the CLI entry first
+
+Before the first SiYuan CLI call in every new session, verify that the local command is available:
+
+```bash
+command -v siyuan-sisyphus
+siyuan-sisyphus --version
+```
+
+If the command is missing, resolve a locally installed or user-provided maintained CLI entry before continuing. Do not use `npx` as an implicit fallback. A public npm package may lag the locally maintained plugin and silently omit custom actions or safety contracts.
+
+After resolving the entry, start with the read-only live bootstrap:
+
+```bash
+siyuan-sisyphus system bootstrap --json
+```
+
 Search to identify candidates, read the target by ID or path, and only then edit. Use explicit pagination for repeatable results.
 
 For a natural-language question on SiYuan 3.8.0+, use `semantic` for low-level candidate discovery and `knowledge` for the LLM Wiki view that collapses reference-only hits, prefers named content atoms, and attaches readable reusing documents. Semantic hits are discovery candidates rather than evidence; always read the returned stable block ID and inspect its source and verification attributes before reuse.
