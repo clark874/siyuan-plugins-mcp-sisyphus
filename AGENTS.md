@@ -11,12 +11,12 @@
 1. **MCP Server 插件**：作为 SiYuan 插件运行，对外暴露 MCP（Model Context Protocol）服务。AI 客户端（Claude Desktop、Cursor、Cherry Studio 等）通过 HTTP 或 stdio 连接。
 2. **独立 CLI `siyuan-sisyphus`**：发布到 npm 的包名 `siyuan-sisyphus`，安装后提供 `siyuan-sisyphus` / `siyuan` 命令。直接通过思源 HTTP API 执行单次操作后退出，无需 MCP 客户端。
 
-两种接口共享同一套底层能力（10 个聚合工具、115+ 个 action），覆盖思源绝大部分功能：笔记本管理、文档操作、块级读写、属性视图（数据库）、搜索、标签、文件资源、闪卡、系统接口等。
+两种接口共享同一套底层能力（14 个聚合工具、149 个注册 action，不含各工具的 `help`；`extension` 另动态桥接官方原生 MCP 工具），覆盖思源绝大部分功能：笔记与文档管理、块级读写、属性视图（数据库）、搜索、标签、时间线快照、文件资源、闪卡、系统接口等。
 
-- 仓库地址：`https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus`
+- 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.3.6`（根 `package.json` 与 `plugin.json` 同步）
+- 当前版本：`0.8.8-wiki.2`（根 `package.json` 与 `plugin.json` 同步；CLI 子包版本独立管理，当前为 `0.3.7-wiki.2`）
 
 ---
 
@@ -240,22 +240,26 @@ pnpm update-version     # 同步版本号到 plugin.json 与 cli/package.json
 
 ### 聚合工具模型（Aggregated Tools）
 
-所有思源能力被收敛为 **10 个聚合工具**，每个工具通过 `action` 字段路由到具体 operation：
+所有思源能力被收敛为 **14 个聚合工具**（`TOOL_CATEGORIES`，权威清单定义于 `src/core/config.ts` 的 `*_ACTIONS` 常量），每个工具通过 `action` 字段路由到具体 operation：
 
 ```
-notebook    → 11 actions（list, create, set_open_state, remove, rename, ...）
-document    → 17 actions（create, resolve, rename, remove, move, list_tree, ...）
-block       → 22 actions（insert, prepend, append, update, delete, move, ...）
-av          → 12 actions（get, render_attribute_view, add_rows, set_cells, ...）
-search      → 11 actions（fulltext, query_sql, get_backlinks, find_replace, ...）
-file        → 13 actions（upload_asset, export_md, list_unused_assets, ...）
+fs          → 9  actions（ls, tree, read, write, replace, rm, mv, reorder, search）
+notebook    → 11 actions（list, create, set_open_state, remove, rename, get_conf, ...）
+document    → 19 actions（create, lookup, rename, remove, move, list_tree, get_doc, ...）
+block       → 21 actions（insert, prepend, append, update, replace, delete, move, ...）
+av          → 13 actions（get, render, get_attribute_view_keys, add_rows, set_cells, ...）
+file        → 17 actions（upload_asset, export_md, list_templates, list_unused_assets, ...）
+search      → 11 actions（fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, ...）
 tag         → 3  actions（list, rename, remove）
-system      → 10 actions（get_version, push_msg, workspace_info, ...）
-flashcard   → 8  actions（list_cards, review_card, create_card, ...）
+timeline    → 7  actions（list_nodes, create_node, compare_node, compare_recent, ...）
+system      → 27 actions（bootstrap, get_version, notify, workspace_info, plan_change, ...）
+flashcard   → 6  actions（list_cards, get_decks, review_card, create_card, ...）
+extension   → 官方原生 MCP 工具桥接（list 动态发现：search, ref, outline, history, image, inbox, repo, web_fetch, web_search）
 mascot      → 3  actions（get_balance, shop, buy）
+feedback    → 1  action（submit）
 ```
 
-**约定**：不要拆散这个模型。每个 action 不是独立工具，而是聚合工具的参数分支。这降低了 MCP 的上下文占用，也保持了 CLI 命令的一致性。
+**约定**：不要拆散这个模型。每个 action 不是独立工具，而是聚合工具的参数分支。这降低了 MCP 的上下文占用，也保持了 CLI 命令的一致性。修改任一工具的 action 清单时，以 `src/core/config.ts` 的 `*_ACTIONS` 为唯一事实源同步本表。
 
 ### 工具定义模式（`defineTool`）
 
