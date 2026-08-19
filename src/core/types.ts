@@ -1084,7 +1084,7 @@ export const SearchKnowledgeSchema = z.object({
 
 export const SearchCheckAnchorSchema = z.object({
     action: z.literal("check_anchor"),
-    candidates: z.array(z.string().min(1)).min(1).max(100).describe("Candidate name or alias tokens to check. Comma-separated alias strings are split into exact tokens."),
+    candidates: z.array(z.string().min(1)).min(1).max(10).describe("Candidate name or alias tokens to check. Comma-separated alias strings are split into exact tokens. Send at most 10 tokens per call to keep adjudication output bounded."),
     candidateKind: z.enum(["name", "alias"]).describe("Whether the candidates will be written as canonical names or retrieval aliases."),
     excludeBlockIds: z.array(z.string()).max(100).optional().describe("Existing block IDs being edited; exclude them from collision results."),
     activeScopes: z.array(z.string().min(1)).max(50).optional().describe("Optional active custom-anchor-scope values used to test deterministic scoped resolution."),

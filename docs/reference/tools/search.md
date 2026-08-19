@@ -27,6 +27,7 @@ Related pages:
 - Search results are filtered by notebook permissions where applicable.
 - `knowledge` requires SiYuan 3.8.0+ with a configured embedding model. The natural-language query leaves the workspace for that provider and may incur cost. It permission-filters semantic hits first, collapses reference-only results into their target blocks, prefers named content atoms, and attaches readable documents that reference each atom.
 - `check_anchor` is a generated, read-only namespace audit. It normalizes exact `name`/`alias` tokens, filters unreadable blocks, and returns every matching target plus `custom-anchor-scope` values. Canonical names are expected to remain unique; alias multi-matches are reported for adjudication and can resolve automatically only when exactly one target intersects `activeScopes`.
+- Send at most 10 candidate tokens per `check_anchor` call. Each candidate returns at most 10 target details while preserving the full `targetCount` and a truncation hint, so large historical collisions fail closed without overflowing client output.
 - A semantic match is a discovery candidate, not evidence. Read the returned stable block ID and inspect its source and verification attributes before reuse.
 - Full-text search can lag briefly behind recent writes because indexing is eventually consistent.
 

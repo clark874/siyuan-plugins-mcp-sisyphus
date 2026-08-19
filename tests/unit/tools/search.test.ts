@@ -272,7 +272,50 @@ describe('search tool filtering', () => {
         ]);
         expect(parsed.permissionFilteredCount).toBe(1);
         expect(parsed.partial).toBe(true);
+        expect(parsed.checks[0].returnedTargetCount).toBe(1);
         expect(parsed.checks[0].targets[0].scopes).toEqual(['textnets', 'network-analysis']);
+    });
+
+    it('bounds anchor audit inputs and target details without hiding the full match count', async () => {
+        const rows = Array.from({ length: 12 }, (_, index) => ({
+            id: `alias-${index}`,
+            root_id: `doc-${index}`,
+            box: 'allowed',
+            path: `/doc-${index}.sy`,
+            hpath: `/候选${index}`,
+            type: 'p',
+            name: '',
+            alias: 'shared-token',
+            content: `候选正文 ${index}`,
+        }));
+        const request = vi.fn(async (endpoint: string, body: { stmt?: string }) => {
+            expect(endpoint).toBe('/api/query/sql');
+            if (body.stmt?.includes('FROM blocks')) return rows;
+            if (body.stmt?.includes("name = 'custom-anchor-scope'")) return [];
+            throw new Error(`unexpected SQL: ${body.stmt}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canRead: () => true,
+            canWrite: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({ allowed: 'rwd' }),
+        };
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'check_anchor',
+            candidates: ['shared-token'],
+            candidateKind: 'alias',
+        }, buildDefaultToolConfig().search, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.checks[0]).toMatchObject({
+            targetCount: 12,
+            returnedTargetCount: 10,
+            targetsTruncated: true,
+        });
+        expect(parsed.checks[0].targets).toHaveLength(10);
     });
 
     it('collapses semantic reference hits into named knowledge atoms and attaches related documents', async () => {

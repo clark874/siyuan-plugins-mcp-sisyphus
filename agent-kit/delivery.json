@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "packageVersion": "0.8.8-wiki.1",
+  "packageVersion": "0.8.8-wiki.2",
   "distribution": {
-    "startHere": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.8.8-wiki.1/agent-kit/START-HERE.md",
-    "archive": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.8.8-wiki.1/siyuan-agent-kit.zip",
+    "startHere": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.8.8-wiki.2/agent-kit/START-HERE.md",
+    "archive": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.8.8-wiki.2/siyuan-agent-kit.zip",
     "stableChannel": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/release-channel.json"
   },
   "externalGateway": {

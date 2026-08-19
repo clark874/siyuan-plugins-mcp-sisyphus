@@ -167,7 +167,7 @@ async function checkAnchors(
     }
 
     const checks = candidates.map((candidate) => {
-        const targets = matchedRows.flatMap((row) => {
+        const allTargets = matchedRows.flatMap((row) => {
             const id = String(row.id);
             const nameMatch = typeof row.name === 'string' && normalizeAnchorToken(row.name) === candidate;
             const aliasMatch = typeof row.alias === 'string' && splitAnchorTokens(row.alias).includes(candidate);
@@ -181,15 +181,15 @@ async function checkAnchors(
                 alias: typeof row.alias === 'string' ? row.alias : '',
                 matchedFields: [nameMatch ? 'name' : null, aliasMatch ? 'alias' : null].filter(Boolean),
                 scopes: scopesByBlock.get(id) ?? [],
-                preview: typeof row.content === 'string' ? row.content.slice(0, 160) : '',
+                preview: typeof row.content === 'string' ? row.content.slice(0, 120) : '',
             }];
         });
         const scopedTargets = activeScopes.size === 0
             ? []
-            : targets.filter((target) => target.scopes.some((scope) => activeScopes.has(scope)));
+            : allTargets.filter((target) => target.scopes.some((scope) => activeScopes.has(scope)));
         const resolvedTargetId = scopedTargets.length === 1 ? scopedTargets[0].id : undefined;
-        const nameCollision = targets.some((target) => target.matchedFields.includes('name'));
-        const status = targets.length === 0
+        const nameCollision = allTargets.some((target) => target.matchedFields.includes('name'));
+        const status = allTargets.length === 0
             ? (namespaceScanComplete ? 'available' : 'scan_incomplete_requires_retry')
             : resolvedTargetId
                 ? 'resolved_by_scope'
@@ -200,9 +200,14 @@ async function checkAnchors(
             candidate,
             candidateKind: parsed.candidateKind,
             status,
-            targetCount: targets.length,
+            targetCount: allTargets.length,
+            returnedTargetCount: Math.min(allTargets.length, 10),
+            ...(allTargets.length > 10 ? {
+                targetsTruncated: true,
+                hint: 'More than 10 targets matched. Re-run this single token with an active scope or use a read-only SQL audit before adjudication.',
+            } : {}),
             ...(resolvedTargetId ? { resolvedTargetId } : {}),
-            targets,
+            targets: allTargets.slice(0, 10),
         };
     });
 
