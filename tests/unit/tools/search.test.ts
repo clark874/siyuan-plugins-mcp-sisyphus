@@ -220,6 +220,59 @@ describe('search tool filtering', () => {
         expect(actionDescription).toContain('search_assets');
         expect(actionDescription).toContain('list_invalid_refs');
         expect(actionDescription).toContain('knowledge');
+        expect(actionDescription).toContain('check_anchor');
+    });
+
+    it('checks normalized name and alias collisions with scoped disambiguation', async () => {
+        const request = vi.fn(async (endpoint: string, body: { stmt?: string }) => {
+            expect(endpoint).toBe('/api/query/sql');
+            if (body.stmt?.includes('FROM blocks')) {
+                return [
+                    { id: 'name-1', root_id: 'doc-1', box: 'allowed', path: '/doc-1.sy', hpath: '/方法甲', type: 'p', name: 'Textnets-Projection', alias: '', content: '规范方法原子' },
+                    { id: 'alias-1', root_id: 'doc-2', box: 'allowed', path: '/doc-2.sy', hpath: '/项目甲', type: 'p', name: 'project-a-network', alias: 'textnets，文本网络', content: '项目上下文原子' },
+                    { id: 'hidden', root_id: 'doc-3', box: 'blocked', path: '/doc-3.sy', hpath: '/隐藏', type: 'p', name: '', alias: 'textnets', content: '不可读内容' },
+                ];
+            }
+            if (body.stmt?.includes("name = 'custom-anchor-scope'")) {
+                return [
+                    { block_id: 'alias-1', value: 'textnets,network-analysis' },
+                ];
+            }
+            throw new Error(`unexpected SQL: ${body.stmt}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canRead: (notebook: string) => notebook !== 'blocked',
+            canWrite: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({ allowed: 'rwd', blocked: 'none' }),
+        };
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'check_anchor',
+            candidates: [' TEXTNETS ', 'Textnets-Projection'],
+            candidateKind: 'alias',
+            activeScopes: ['textnets'],
+        }, buildDefaultToolConfig().search, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.checks).toMatchObject([
+            {
+                candidate: 'textnets',
+                status: 'resolved_by_scope',
+                resolvedTargetId: 'alias-1',
+                targetCount: 1,
+            },
+            {
+                candidate: 'textnets-projection',
+                status: 'collision_requires_adjudication',
+                targetCount: 1,
+            },
+        ]);
+        expect(parsed.permissionFilteredCount).toBe(1);
+        expect(parsed.partial).toBe(true);
+        expect(parsed.checks[0].targets[0].scopes).toEqual(['textnets', 'network-analysis']);
     });
 
     it('collapses semantic reference hits into named knowledge atoms and attaches related documents', async () => {

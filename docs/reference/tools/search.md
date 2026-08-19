@@ -13,7 +13,7 @@ Related pages:
 
 | Group | Actions |
 |------|---------|
-| Knowledge retrieval | `knowledge` |
+| Knowledge retrieval | `knowledge`, `check_anchor` |
 | Text search | `fulltext`, `search_refs` |
 | Graph / relation | `get_backlinks`, `list_invalid_refs` |
 | SQL / asset | `query_sql`, `search_assets`, `fulltext_asset_content` |
@@ -26,6 +26,7 @@ Related pages:
 - Raw SQL can forge or hide result provenance, so `query_sql` is available only when every configured notebook is readable. If any notebook has permission `none`, the action fails closed before executing the query; use scope-aware search/database actions instead. When all notebooks are readable, aggregate, grouping, CTE, and row-level results no longer incur per-row ownership lookups.
 - Search results are filtered by notebook permissions where applicable.
 - `knowledge` requires SiYuan 3.8.0+ with a configured embedding model. The natural-language query leaves the workspace for that provider and may incur cost. It permission-filters semantic hits first, collapses reference-only results into their target blocks, prefers named content atoms, and attaches readable documents that reference each atom.
+- `check_anchor` is a generated, read-only namespace audit. It normalizes exact `name`/`alias` tokens, filters unreadable blocks, and returns every matching target plus `custom-anchor-scope` values. Canonical names are expected to remain unique; alias multi-matches are reported for adjudication and can resolve automatically only when exactly one target intersects `activeScopes`.
 - A semantic match is a discovery candidate, not evidence. Read the returned stable block ID and inspect its source and verification attributes before reuse.
 - Full-text search can lag briefly behind recent writes because indexing is eventually consistent.
 
@@ -58,6 +59,15 @@ MCP:
 }
 ```
 
+```json
+{
+  "action": "check_anchor",
+  "candidates": ["textnets-projection", "文本网络"],
+  "candidateKind": "alias",
+  "activeScopes": ["textnets"]
+}
+```
+
 CLI:
 
 ```bash
@@ -76,6 +86,7 @@ Notes for AI callers:
 
 - `fulltext`
 - `knowledge`
+- `check_anchor`
 - `query_sql`
 - `get_backlinks`
 - `search_refs`

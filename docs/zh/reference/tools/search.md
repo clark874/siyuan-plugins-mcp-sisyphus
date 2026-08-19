@@ -13,7 +13,7 @@
 
 | 分组 | 动作 |
 |------|---------|
-| 语义检索 | `semantic`, `knowledge` |
+| 语义检索与知识锚点 | `semantic`, `knowledge`, `check_anchor` |
 | 文本搜索 | `fulltext`, `search_refs` |
 | 图谱 / 引用关系 | `get_backlinks`, `list_invalid_refs` |
 | SQL / 资源 | `query_sql`, `search_assets`, `fulltext_asset_content` |
@@ -27,6 +27,7 @@
 - 搜索结果会在适用时按笔记本权限过滤。
 - `semantic` 与 `knowledge` 均需要思源 3.8.0+，并且已经配置嵌入模型。自然语言查询会发送给该模型提供商，可能产生费用。
 - `semantic` 是低层候选检索，基本保留思源原生语义命中；`knowledge` 是 LLM Wiki 编排入口，会先过滤权限，再把仅含块引用的命中折叠到目标块，优先返回具有 `name` 的内容原子，并附带引用该原子的可读文档。
+- `check_anchor` 是服务端生成的只读命名空间审计：统一规范化精确 `name`/`alias` 词元、过滤不可读块，并返回全部命中目标及其 `custom-anchor-scope`。规范 `name` 应保持唯一；alias 多命中只报告、不得静默选择，只有 `activeScopes` 与恰好一个候选相交时才自动解析。
 - 语义命中只用于发现候选，不等于证据。复用前必须按返回的稳定块 ID 读取原文，并检查来源与验证属性。
 - 全文搜索可能略滞后于刚写入的内容，因为索引是最终一致的。
 
@@ -59,6 +60,15 @@ MCP：
 }
 ```
 
+```json
+{
+  "action": "check_anchor",
+  "candidates": ["textnets-projection", "文本网络"],
+  "candidateKind": "alias",
+  "activeScopes": ["textnets"]
+}
+```
+
 CLI：
 
 ```bash
@@ -78,6 +88,7 @@ siyuan search query-sql --sql "SELECT id, content, type FROM blocks LIMIT 10"
 - `fulltext`
 - `semantic`
 - `knowledge`
+- `check_anchor`
 - `query_sql`
 - `get_backlinks`
 - `search_refs`

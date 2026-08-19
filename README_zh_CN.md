@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.7-wiki.1`（本地 CLI `v0.3.6-wiki.1`）补齐严格写入前置错误、数据库权限域和参数错误的语义分流：可自行修正且尚未执行写入的失败可按设置软化，竞态、回读不一致和结果未知继续保持硬失败。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.8-wiki.1`（本地 CLI `v0.3.7-wiki.1`）修复失效 HTTP 会话与 AV 持有块错误语义，阻止未知 AV 读取产生持久文件，并新增 `search.check_anchor` 统一治理 name/alias/scope。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.8.7-wiki.1` — 可恢复错误语义、严格写入安全边界、AV 权限域、思源 3.8.1 文档级排序、知识化工具层和中央更新通道已统一；本地 CLI 为 `v0.3.6-wiki.1`。
+> **当前 LLM Wiki 版本：**`v0.8.8-wiki.1` — HTTP 会话恢复、AV 只读无副作用守卫、锚点范围审计与知识治理契约已经统一；本地 CLI 为 `v0.3.7-wiki.1`。
 
 ## 项目方向调整
 

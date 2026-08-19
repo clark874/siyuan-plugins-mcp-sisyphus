@@ -97,6 +97,9 @@ const ALL_ENABLED_CONFIG = {
         enabled: true,
         actions: {
             fulltext: true,
+            semantic: true,
+            knowledge: true,
+            check_anchor: true,
             query_sql: true,
             get_backlinks: true,
             search_refs: true,
@@ -301,7 +304,7 @@ async function assertDefaultToolList() {
         assert.match(descriptions.file, /Additional actions: render, export_resources, list_unused_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset/);
         assert.match(descriptions.file, /confirmLargeFile/);
         assert.match(descriptions.file, /Read siyuan:\/\/help\/action\/file\/\{action\} for details/);
-        assert.match(descriptions.search, /fulltext, semantic, knowledge, query_sql, get_backlinks/);
+        assert.match(descriptions.search, /fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks/);
         assert.match(descriptions.search, /Additional actions: search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs/);
         assert.match(descriptions.search, /read-only/i);
         assert.match(descriptions.tag, /Common actions: list, rename/);
@@ -1213,6 +1216,48 @@ async function readMcpHttpToken() {
     return settings.token;
 }
 
+async function listStoredAttributeViewFiles() {
+    const response = await fetch(`${SIYUAN_URL}/api/file/readDir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: '/data/storage/av' }),
+    });
+    assert.equal(response.ok, true, `读取 AV 存储目录失败：HTTP ${response.status}`);
+    const payload = await response.json();
+    assert.equal(payload.code, 0, `读取 AV 存储目录失败：${JSON.stringify(payload)}`);
+    const entries = Array.isArray(payload.data) ? payload.data : [];
+    return new Set(entries.map((entry) => entry?.name).filter((name) => typeof name === 'string'));
+}
+
+async function assertLiveHttpSessionSemantics(token) {
+    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
+    const commonHeaders = {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        'Mcp-Protocol-Version': '2025-03-26',
+    };
+    const staleSession = await fetch(MCP_URL, {
+        method: 'POST',
+        headers: { ...commonHeaders, 'Mcp-Session-Id': `stale-${Date.now()}` },
+        body,
+    });
+    assert.equal(staleSession.status, 404, '未知显式 MCP 会话必须返回 404');
+    const stalePayload = await staleSession.json();
+    assert.deepEqual(stalePayload, {
+        jsonrpc: '2.0',
+        error: { code: -32001, message: 'Session not found' },
+        id: null,
+    });
+
+    const missingSession = await fetch(MCP_URL, {
+        method: 'POST',
+        headers: commonHeaders,
+        body,
+    });
+    assert.equal(missingSession.status, 400, '缺失 MCP 会话的非初始化请求必须保持 400');
+}
+
 function parseHttpToolPayload(result) {
     const text = result.content?.find((item) => item.type === 'text')?.text ?? '';
     return JSON.parse(text);
@@ -1235,6 +1280,10 @@ async function runLiveHttpErrorSemanticsSmoke() {
         requestInit: { headers: { Authorization: `Bearer ${token}` } },
     });
     const missingID = `20991231235959-${Math.random().toString(36).slice(2, 9).padEnd(7, 'z')}`;
+
+    await assertLiveHttpSessionSemantics(token);
+    const avFilesBefore = await listStoredAttributeViewFiles();
+    assert.equal(avFilesBefore.has(`${missingID}.json`), false, '随机 AV 探针 ID 在测试前已存在');
 
     await client.connect(transport);
     try {
@@ -1262,6 +1311,14 @@ async function runLiveHttpErrorSemanticsSmoke() {
             'validation_error',
             'precondition_required',
         );
+        const anchorPayload = parseHttpToolPayload(await client.callTool({
+            name: 'search',
+            arguments: { action: 'check_anchor', candidates: ['filter'], candidateKind: 'name' },
+        }));
+        assert.ok(Array.isArray(anchorPayload.checks), `check_anchor 缺少 checks：${JSON.stringify(anchorPayload)}`);
+        assert.equal(anchorPayload.checks[0]?.candidate, 'filter');
+        const avFilesAfter = await listStoredAttributeViewFiles();
+        assert.equal(avFilesAfter.has(`${missingID}.json`), false, '未知 av.get 产生了持久 AV 文件');
         console.log('T24 PASS - live HTTP recoverable error semantics');
     } finally {
         await transport.close();

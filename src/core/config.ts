@@ -10,7 +10,7 @@ export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'remove', 'move',
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'replace', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'batch_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info'] as const;
 export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values'] as const;
 export const FILE_ACTIONS = ['upload_asset', 'list_templates', 'read_template', 'create_template', 'update_template', 'delete_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
-export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
+export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'check_anchor', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'compare_recent', 'delete_node', 'rollback_document', 'rollback_block'] as const;
 export const TIMELINE_APP_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'delete_node', 'rollback_document', 'rollback_block'] as const;
@@ -263,7 +263,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         delete_asset: 'advanced',
     },
     search: {
-        fulltext: 'basic', semantic: 'basic', knowledge: 'basic', query_sql: 'basic',
+        fulltext: 'basic', semantic: 'basic', knowledge: 'basic', check_anchor: 'basic', query_sql: 'basic',
         get_backlinks: 'basic',
         search_refs: 'advanced', find_replace: 'advanced', search_assets: 'advanced',
         fulltext_asset_content: 'advanced', list_invalid_refs: 'advanced',
@@ -362,7 +362,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         search: {
             enabled: true,
-            actions: createActionsRecord(SEARCH_ACTIONS, ['fulltext', 'semantic', 'knowledge', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs']),
+            actions: createActionsRecord(SEARCH_ACTIONS, ['fulltext', 'semantic', 'knowledge', 'check_anchor', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs']),
         },
         tag: {
             enabled: true,

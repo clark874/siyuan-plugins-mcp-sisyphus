@@ -10,7 +10,7 @@ import {
     mergePropertySchemas,
     normalizeJsonSchema,
 } from './schema-analyzer';
-import { readSemanticErrorCode } from './validation';
+import { readSemanticErrorCode, readSemanticErrorDetailCode } from './validation';
 
 export interface ToolResult {
     content: Array<{ type: 'text'; text: string }>;
@@ -574,10 +574,11 @@ export function createErrorResult(error: unknown, context?: ToolErrorContext): T
         : (translation?.hint ?? contextHint);
 
     const semanticCode = readSemanticErrorCode(normalizedError);
+    const semanticDetailCode = readSemanticErrorDetailCode(normalizedError);
     const payload: Record<string, unknown> = {
         error: {
             type: semanticCode ?? (isApiError(normalizedError) ? 'api_error' : 'internal_error'),
-            ...(translation ? { code: translation.code } : {}),
+            ...(semanticDetailCode ? { code: semanticDetailCode } : translation ? { code: translation.code } : {}),
             message: normalizedError.message,
             ...(context?.tool ? { tool: context.tool } : {}),
             ...(context?.action ? { action: context.action } : {}),

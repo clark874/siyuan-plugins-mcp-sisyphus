@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.8-wiki.1 - 2026-08-19
+
+- 修复 legacy Streamable HTTP 会话恢复：携带未知 `Mcp-Session-Id` 的请求按规范返回 404 与 `Session not found`，无会话 ID 的非初始化请求继续返回 400，使思源重启后的客户端能够重建会话
+- AV 权限域解析将“无持有块”和“持有块全部失效”分别归为可恢复的 `av_owner_missing` / `av_owner_stale`，真实权限拒绝仍保持硬错误；读取格式正确但不存在的 AV ID 前先通过文件目录守卫，避免思源 3.8.1 的只读接口物化孤儿 JSON
+- 新增只读 `search.check_anchor`：统一执行 NFKC、去空白、大小写折叠和中英文逗号拆词，按权限返回 name/alias 碰撞、`custom-anchor-scope` 多值范围与唯一相交解析结果
+- 知识治理 Skill 和 v1.2 契约明确 name 是唯一逻辑地址、alias 是可多命中召回词；宽泛 alias 的召回与编辑器虚拟引用显示通过 `virtualBlockRefExclude` 分流，不误用 `refsearchignore`
+- 本地 CLI 元数据同步提升至 `v0.3.7-wiki.1`；推荐思源版本保持 `3.8.1`
+
 ## v0.8.7-wiki.1 - 2026-08-19
 
 - 严格写入协调器为所有失败补齐稳定 `type`：缺少或无效 `requestId`、预检凭证缺失或过期、哈希前缀歧义等执行前可修正失败归为 `validation_error`；`state_changed`、`readback_mismatch`、`outcome_unknown`、账本故障与幂等冲突继续保持硬错误

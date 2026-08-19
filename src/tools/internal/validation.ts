@@ -89,8 +89,14 @@ const SEMANTIC_ERROR_CODES: ReadonlySet<string> = new Set([
 export function createSemanticError(
     code: 'not_found' | 'ambiguous_path' | 'invalid_path' | 'invalid_arguments' | 'permission_denied',
     message: string,
-): Error & { code: string } {
-    return Object.assign(new Error(message), { name: 'ToolSemanticError', code });
+    detailCode?: string,
+): Error & { code: string; detailCode?: string } {
+    return Object.assign(new Error(message), { name: 'ToolSemanticError', code, ...(detailCode ? { detailCode } : {}) });
+}
+
+export function readSemanticErrorDetailCode(error: Error): string | null {
+    const detailCode = (error as Error & { detailCode?: unknown }).detailCode;
+    return typeof detailCode === 'string' && detailCode.length > 0 ? detailCode : null;
 }
 
 /**

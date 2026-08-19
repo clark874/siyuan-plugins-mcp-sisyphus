@@ -193,6 +193,7 @@
 |---|---|---|---|
 | `fulltext` | `POST /api/search/fullTextSearchBlock` | `src/api/search.ts` | 全文块搜索 |
 | `query_sql` | `POST /api/query/sql` | `src/api/search.ts` | MCP 侧限制为 `SELECT` |
+| `check_anchor` | `POST /api/query/sql` | `src/tools/search/handlers.ts` | 服务端生成 SQL 并按权限过滤；统一审计 name/alias/scope 冲突 |
 | `get_backlinks` | `POST /api/ref/getBacklinkDoc` | `src/api/search.ts` | 只读 |
 | `search_refs` | `POST /api/search/searchRefBlock` | `src/api/search.ts` | 搜索引用指定块/文档的块 |
 | `find_replace` | `POST /api/search/findReplace` | `src/api/search.ts` | 查找替换，需要确认 |

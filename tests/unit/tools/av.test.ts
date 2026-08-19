@@ -703,6 +703,29 @@ describe('av tool', () => {
         });
     });
 
+    it('rejects an unknown well-formed AV ID before the kernel can materialize it', async () => {
+        const avApi = await import('@/api/av');
+        const guardedClient = {
+            request: vi.fn(async (endpoint: string) => {
+                expect(endpoint).toBe('/api/file/readDir');
+                return [];
+            }),
+            requestRead: vi.fn(),
+            requestWrite: vi.fn(),
+        } as any;
+
+        const result = await callAvTool(guardedClient, {
+            action: 'get',
+            id: '20990101120000-abcdefg',
+        }, enabledActions('get'), permMgr);
+
+        expect(guardedClient.request).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(avApi.getAttributeView)).not.toHaveBeenCalled();
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: { type: 'not_found', code: 'av_not_found' },
+        });
+    });
+
     it('reports a malformed non-null AV sentinel as a recoverable missing database', async () => {
         const avApi = await import('@/api/av');
         const context = await import('@/tools/internal/context');
@@ -1183,7 +1206,7 @@ describe('av tool', () => {
         });
     });
 
-    it('keeps unresolved permission scope errors hard for empty AV writes without blockID', async () => {
+    it('reports an empty AV without an owning block as a recoverable missing owner', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -1208,10 +1231,31 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             error: {
-                type: 'permission_denied',
+                type: 'not_found',
+                code: 'av_owner_missing',
                 tool: 'av',
                 action: 'add_column',
                 message: 'Unable to resolve notebook permission scope for attribute view "av-empty". The database may have no rows yet; AV writes require a resolvable owning block context.',
+            },
+        });
+    });
+
+    it('reports an AV whose known owners are all stale with a distinct recoverable code', async () => {
+        const avApi = await import('@/api/av');
+        const context = await import('@/tools/internal/context');
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({ av: { id: 'av-stale', keyValues: [] } });
+        vi.mocked(avApi.getMirrorDatabaseBlocks).mockResolvedValue({ refDefs: [{ refID: 'missing-owner' }] });
+        vi.mocked(context.ensurePermissionForDocumentId).mockRejectedValue(new Error('block not found'));
+
+        const result = await callAvTool(client, {
+            action: 'get',
+            id: 'av-stale',
+        }, enabledActions('get'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: {
+                type: 'not_found',
+                code: 'av_owner_stale',
             },
         });
     });
@@ -2411,7 +2455,8 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             error: {
-                type: 'permission_denied',
+                type: 'not_found',
+                code: 'av_owner_missing',
                 tool: 'av',
                 action: 'duplicate',
                 message: 'Unable to resolve notebook permission scope for attribute view "av-1". The database may have no rows yet; AV writes require a resolvable owning block context.',

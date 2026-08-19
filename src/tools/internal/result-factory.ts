@@ -3,7 +3,7 @@ import { ZodError } from 'zod';
 import { getActionHint } from '../../core/help';
 import { translateError } from './errorTranslation';
 import type { PaginatedPayload, ToolErrorContext, ToolResult } from './types';
-import { formatZodIssues, getValidationMessage, includeDebugDetails, isApiError, readSemanticErrorCode, resolveHint } from './validation';
+import { formatZodIssues, getValidationMessage, includeDebugDetails, isApiError, readSemanticErrorCode, readSemanticErrorDetailCode, resolveHint } from './validation';
 
 export function toErrorText(payload: Record<string, unknown>, isError = true): ToolResult {
     return {
@@ -90,10 +90,11 @@ export function createErrorResult(error: unknown, context?: ToolErrorContext): T
         : (translation?.hint ?? contextHint);
 
     const semanticCode = readSemanticErrorCode(normalizedError);
+    const semanticDetailCode = readSemanticErrorDetailCode(normalizedError);
     const payload: Record<string, unknown> = {
         error: {
             type: semanticCode ?? (isApiError(normalizedError) ? 'api_error' : 'internal_error'),
-            ...(translation ? { code: translation.code } : {}),
+            ...(semanticDetailCode ? { code: semanticDetailCode } : translation ? { code: translation.code } : {}),
             message: normalizedError.message,
             ...(context?.tool ? { tool: context.tool } : {}),
             ...(context?.action ? { action: context.action } : {}),
@@ -128,4 +129,3 @@ export function createDisabledActionResult(name: string, action: string): ToolRe
         },
     });
 }
-

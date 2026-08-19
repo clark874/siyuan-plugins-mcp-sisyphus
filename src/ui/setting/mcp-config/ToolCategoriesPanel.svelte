@@ -201,6 +201,9 @@
             iconSvg: ICON_SVGS.search,
             actions: [
                 { key: "fulltext", title: "Full-text Search", description: "Search blocks across the workspace." },
+                { key: "semantic", title: "Semantic Search", description: "Search the SiYuan embedding index." },
+                { key: "knowledge", title: "Knowledge Search", description: "Discover named knowledge atoms and related documents." },
+                { key: "check_anchor", title: "Check Knowledge Anchor", description: "Audit exact name and alias collisions with optional scopes." },
                 { key: "query_sql", title: "Query SQL", description: "Run read-only SQL queries against SiYuan data." },
                 { key: "get_backlinks", title: "Get Backlinks", description: "Get backlinks or backmentions for a block or document." },
                 { key: "search_refs", title: "Search References", description: "Search references to a block or document." },

@@ -285,6 +285,7 @@ describe('tool action contract coverage', () => {
             { action: 'fulltext', args: { action: 'fulltext', query: 'Doc' }, expectedEndpoint: '/api/search/fullTextSearchBlock' },
             { action: 'semantic', args: { action: 'semantic', query: 'Doc' }, expectedEndpoint: '/api/search/semanticSearchBlock' },
             { action: 'knowledge', args: { action: 'knowledge', query: 'Doc' }, expectedEndpoint: '/api/search/semanticSearchBlock' },
+            { action: 'check_anchor', args: { action: 'check_anchor', candidates: ['candidate'], candidateKind: 'name' }, expectedEndpoint: '/api/query/sql' },
             { action: 'query_sql', args: { action: 'query_sql', stmt: 'SELECT * FROM blocks LIMIT 1' }, expectedEndpoint: '/api/query/sql' },
             { action: 'get_backlinks', args: { action: 'get_backlinks', id: 'doc-1' }, expectedEndpoint: '/api/ref/getBacklinkDoc' },
             { action: 'search_refs', args: { action: 'search_refs', id: 'doc-1' }, expectedEndpoint: '/api/search/searchRefBlock' },

@@ -1082,6 +1082,14 @@ export const SearchKnowledgeSchema = z.object({
     includeRelatedDocuments: z.boolean().optional().describe("Attach documents that reference each candidate, default true."),
 });
 
+export const SearchCheckAnchorSchema = z.object({
+    action: z.literal("check_anchor"),
+    candidates: z.array(z.string().min(1)).min(1).max(100).describe("Candidate name or alias tokens to check. Comma-separated alias strings are split into exact tokens."),
+    candidateKind: z.enum(["name", "alias"]).describe("Whether the candidates will be written as canonical names or retrieval aliases."),
+    excludeBlockIds: z.array(z.string()).max(100).optional().describe("Existing block IDs being edited; exclude them from collision results."),
+    activeScopes: z.array(z.string().min(1)).max(50).optional().describe("Optional active custom-anchor-scope values used to test deterministic scoped resolution."),
+});
+
 export const SearchQuerySqlSchema = z.object({
     action: z.literal("query_sql"),
     stmt: z.string().optional().describe("SQL SELECT statement over SiYuan index tables such as blocks, spans, assets, attributes, and refs. Raw SQL is available only when every configured notebook is readable."),

@@ -325,9 +325,14 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
 
 读取候选块及必要上下文，确认它满足以下条件：单块自包含、只表达一个可复用主张或操作、边界与适用版本清楚、脱离原文仍可理解。项目过程、来源登记、临时结论和长篇叙述不应强行原子化。
 
-命名采用稳定命名空间和语义后缀；\`name\` 用于确定性解析，\`alias\` 保存逗号分隔的中文同义词。审计时必须先把英文逗号和中文逗号分隔的别名拆成单个词元并去除空白，不能对整串 \`alias\` 做 \`GROUP BY\`，也不能用 \`LIKE '%词%'\` 代替精确词元比较。写入前把建议名称和每个建议别名分别放入 \`candidates\`，同时检查两个字段：
+命名采用稳定命名空间和语义后缀。\`name\` 是全库唯一的确定性逻辑地址；\`alias\` 是自然语言召回词，真实同义、多义或跨专题同形时可以多命中，不得把它误当唯一键。alias 与现有 name 相撞、alias 多命中或 name 重复时必须显示候选并裁决，不得静默选取。
 
-{{call conflict}}
+合法多义可用 \`custom-anchor-scope\` 声明受控解析范围；该属性允许英文逗号或中文逗号分隔多个值。只有当前上下文范围与候选 scope 相交且恰好命中一个候选时，才可自动解析；无命中或多候选相交都保持歧义。宽泛 alias 若有召回价值但污染编辑器虚拟引用，应保留 alias，并通过思源编辑器设置 \`virtualBlockRefExclude\` 抑制显示；\`data/.siyuan/refsearchignore\` 是反链 SQL 条件文件，不是 alias 词元排除清单，不得用于该目的。
+
+审计时必须先把英文逗号和中文逗号分隔的别名拆成单个词元并去除空白，不能对整串 \`alias\` 做 \`GROUP BY\`，也不能用 \`LIKE '%词%'\` 代替精确词元比较。写入前分别检查建议 name 与每个建议 alias：
+
+{{call conflictName}}
+{{call conflictAlias}}
 
 没有冲突后，设置属性并按稳定块 ID 回读：
 
@@ -384,7 +389,8 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
             duplicateNames: call('search', 'query_sql', { stmt: "SELECT name, COUNT(*) AS uses FROM blocks WHERE COALESCE(name, '') != '' GROUP BY name HAVING COUNT(*) > 1 ORDER BY uses DESC, name LIMIT 100", maxRows: 100 }),
             duplicateAliases: call('search', 'query_sql', { stmt: "WITH RECURSIVE alias_parts(id, hpath, rest, alias_token) AS (SELECT id, hpath, replace(COALESCE(alias, ''), '，', ',') || ',', '' FROM blocks WHERE COALESCE(alias, '') != '' UNION ALL SELECT id, hpath, substr(rest, instr(rest, ',') + 1), trim(substr(rest, 1, instr(rest, ',') - 1)) FROM alias_parts WHERE rest != '') SELECT lower(alias_token) AS normalized_alias, COUNT(DISTINCT id) AS uses, GROUP_CONCAT(DISTINCT id) AS block_ids FROM alias_parts WHERE alias_token != '' GROUP BY lower(alias_token) HAVING COUNT(DISTINCT id) > 1 ORDER BY uses DESC, normalized_alias LIMIT 100", maxRows: 100 }),
             hubs: call('search', 'query_sql', { stmt: "SELECT b.id, b.name, b.hpath, COUNT(*) AS indegree FROM refs r JOIN blocks b ON b.id = r.def_block_id GROUP BY b.id, b.name, b.hpath ORDER BY indegree DESC LIMIT 50", maxRows: 50 }),
-            conflict: call('search', 'query_sql', { stmt: "WITH RECURSIVE candidates(value) AS (VALUES ('proposed-name'), ('proposed-alias-1'), ('proposed-alias-2')), alias_parts(id, rest, alias_token) AS (SELECT id, replace(COALESCE(alias, ''), '，', ',') || ',', '' FROM blocks WHERE COALESCE(alias, '') != '' UNION ALL SELECT id, substr(rest, instr(rest, ',') + 1), trim(substr(rest, 1, instr(rest, ',') - 1)) FROM alias_parts WHERE rest != '') SELECT DISTINCT b.id, b.name, b.alias, b.hpath FROM blocks b LEFT JOIN alias_parts a ON a.id = b.id WHERE lower(b.name) IN (SELECT lower(value) FROM candidates) OR lower(a.alias_token) IN (SELECT lower(value) FROM candidates) LIMIT 100", maxRows: 100 }),
+            conflictName: call('search', 'check_anchor', { candidates: ['proposed-name'], candidateKind: 'name', excludeBlockIds: ['<block-id>'] }),
+            conflictAlias: call('search', 'check_anchor', { candidates: ['proposed-alias-1', 'proposed-alias-2'], candidateKind: 'alias', excludeBlockIds: ['<block-id>'], activeScopes: ['<current-topic-scope>'] }),
             attrs: call('block', 'set_attrs', { id: '<block-id>', attrs: { name: 'stable-topic-step', alias: '中文同义词,替代说法' } }),
             block: call('block', 'get_kramdown', { id: '<block-id>' }),
             avGet: call('av', 'get', { id: '<av-id>' }),

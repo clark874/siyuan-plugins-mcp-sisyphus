@@ -13,6 +13,7 @@ import {
 } from '../../core/normalize';
 import {
     SearchAssetsSchema,
+    SearchCheckAnchorSchema,
     SearchFindReplaceSchema,
     SearchFulltextAssetContentSchema,
     SearchFulltextSchema,
@@ -44,6 +45,7 @@ type SearchFulltextAssetContentArgs = ReturnType<(typeof SearchFulltextAssetCont
 type SearchFindReplaceArgs = ReturnType<(typeof SearchFindReplaceSchema)['parse']>;
 type SearchKnowledgeArgs = ReturnType<(typeof SearchKnowledgeSchema)['parse']>;
 type SearchSemanticArgs = ReturnType<(typeof SearchSemanticSchema)['parse']>;
+type SearchCheckAnchorArgs = ReturnType<(typeof SearchCheckAnchorSchema)['parse']>;
 type SearchMethodArgs = {
     method?: number;
     methodName?: string;
@@ -106,6 +108,122 @@ function readStringField(row: Record<string, unknown>, ...keys: string[]): strin
 
 function sqlStringList(values: string[]): string {
     return values.map((value) => `'${escapeSqlString(value)}'`).join(', ');
+}
+
+function normalizeAnchorToken(value: string): string {
+    return value.normalize('NFKC').trim().toLocaleLowerCase('en-US');
+}
+
+function splitAnchorTokens(value: string): string[] {
+    return value
+        .replace(/，/g, ',')
+        .split(',')
+        .map(normalizeAnchorToken)
+        .filter((token) => token.length > 0);
+}
+
+function splitAnchorScopes(value: unknown): string[] {
+    return typeof value === 'string' ? splitAnchorTokens(value) : [];
+}
+
+async function checkAnchors(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    permMgr: Parameters<ToolActionHandler>[0]['permMgr'],
+    parsed: SearchCheckAnchorArgs,
+): Promise<ToolResult> {
+    const candidates = [...new Set(parsed.candidates.flatMap(splitAnchorTokens))];
+    const candidateSet = new Set(candidates);
+    const excluded = new Set(parsed.excludeBlockIds ?? []);
+    const activeScopes = new Set((parsed.activeScopes ?? []).flatMap(splitAnchorTokens));
+
+    await permMgr.reload();
+    const rawRows = await searchApi.querySQL(client, [
+        'SELECT id, root_id, box, path, hpath, type, name, alias, content',
+        'FROM blocks',
+        "WHERE COALESCE(name, '') != '' OR COALESCE(alias, '') != ''",
+        'LIMIT 10000',
+    ].join(' '));
+    const permissionFiltered = await filterItemsByPermission(client, rawRows, permMgr);
+    const namespaceScanComplete = rawRows.length < 10000;
+    const rows = permissionFiltered.items
+        .filter((row): row is Record<string, unknown> => !!row && typeof row === 'object' && !Array.isArray(row))
+        .filter((row) => typeof row.id === 'string' && !excluded.has(row.id));
+
+    const matchedRows = rows.filter((row) => {
+        const name = typeof row.name === 'string' ? normalizeAnchorToken(row.name) : '';
+        const aliases = typeof row.alias === 'string' ? splitAnchorTokens(row.alias) : [];
+        return candidateSet.has(name) || aliases.some((alias) => candidateSet.has(alias));
+    });
+    const matchedIds = matchedRows.map((row) => String(row.id));
+    const scopeRows = matchedIds.length > 0
+        ? await searchApi.querySQL(client, `SELECT block_id, value FROM attributes WHERE name = 'custom-anchor-scope' AND block_id IN (${sqlStringList(matchedIds)}) LIMIT 10000`)
+        : [];
+    const scopesByBlock = new Map<string, string[]>();
+    for (const row of scopeRows) {
+        if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+        const blockId = (row as Record<string, unknown>).block_id;
+        if (typeof blockId !== 'string') continue;
+        scopesByBlock.set(blockId, splitAnchorScopes((row as Record<string, unknown>).value));
+    }
+
+    const checks = candidates.map((candidate) => {
+        const targets = matchedRows.flatMap((row) => {
+            const id = String(row.id);
+            const nameMatch = typeof row.name === 'string' && normalizeAnchorToken(row.name) === candidate;
+            const aliasMatch = typeof row.alias === 'string' && splitAnchorTokens(row.alias).includes(candidate);
+            if (!nameMatch && !aliasMatch) return [];
+            return [{
+                id,
+                rootId: typeof row.root_id === 'string' ? row.root_id : undefined,
+                hpath: typeof row.hpath === 'string' ? row.hpath : undefined,
+                type: typeof row.type === 'string' ? row.type : undefined,
+                name: typeof row.name === 'string' ? row.name : '',
+                alias: typeof row.alias === 'string' ? row.alias : '',
+                matchedFields: [nameMatch ? 'name' : null, aliasMatch ? 'alias' : null].filter(Boolean),
+                scopes: scopesByBlock.get(id) ?? [],
+                preview: typeof row.content === 'string' ? row.content.slice(0, 160) : '',
+            }];
+        });
+        const scopedTargets = activeScopes.size === 0
+            ? []
+            : targets.filter((target) => target.scopes.some((scope) => activeScopes.has(scope)));
+        const resolvedTargetId = scopedTargets.length === 1 ? scopedTargets[0].id : undefined;
+        const nameCollision = targets.some((target) => target.matchedFields.includes('name'));
+        const status = targets.length === 0
+            ? (namespaceScanComplete ? 'available' : 'scan_incomplete_requires_retry')
+            : resolvedTargetId
+                ? 'resolved_by_scope'
+                : parsed.candidateKind === 'name' || nameCollision
+                    ? 'collision_requires_adjudication'
+                    : 'alias_multi_match_requires_context';
+        return {
+            candidate,
+            candidateKind: parsed.candidateKind,
+            status,
+            targetCount: targets.length,
+            ...(resolvedTargetId ? { resolvedTargetId } : {}),
+            targets,
+        };
+    });
+
+    return createJsonResult({
+        normalization: 'NFKC + trim + ASCII case-fold; alias separators: comma or Chinese comma',
+        policy: {
+            name: 'globally_unique_logical_address',
+            alias: 'multi_match_allowed_but_must_be_adjudicated',
+            scopedResolution: 'automatic only when exactly one candidate intersects activeScopes',
+        },
+        checks,
+        availableCount: checks.filter((check) => check.status === 'available').length,
+        collisionCount: checks.filter((check) => check.status !== 'available').length,
+        namespaceScanComplete,
+        namespaceScanLimit: 10000,
+        ...(!namespaceScanComplete ? {
+            warning: 'The readable name/alias namespace reached the 10,000-row safety limit. No unmatched candidate may be treated as available until the audit is narrowed or the action is upgraded for larger workspaces.',
+        } : {}),
+        permissionFilteredCount: permissionFiltered.removedCount,
+        ...(permissionFiltered.removedCount > 0 ? { partial: true, reason: 'permission_filtered' } : {}),
+    });
 }
 
 async function knowledgeSearch(
@@ -506,6 +624,10 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
     knowledge: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchKnowledgeSchema.parse(rawArgs);
         return knowledgeSearch(client, permMgr, parsed);
+    },
+    check_anchor: async ({ client, permMgr, rawArgs }) => {
+        const parsed = SearchCheckAnchorSchema.parse(rawArgs);
+        return checkAnchors(client, permMgr, parsed);
     },
     query_sql: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchQuerySqlSchema.parse(rawArgs);

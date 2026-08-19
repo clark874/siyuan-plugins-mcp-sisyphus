@@ -295,4 +295,43 @@ describe('HTTP MCP concurrency', () => {
 
         expect(response.status).toBe(403);
     });
+
+    it('returns 404 for an unknown legacy session and keeps missing-session requests at 400', async () => {
+        const port = await getAvailablePort();
+        serverHandle = await startHttpMcpServer({
+            host: '127.0.0.1',
+            port,
+            token: 'http-test-token',
+            path: '/mcp',
+            serverFactory: createSiYuanServer,
+        });
+
+        const endpoint = `http://127.0.0.1:${serverHandle.port}${serverHandle.path}`;
+        const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
+        const commonHeaders = {
+            Authorization: 'Bearer http-test-token',
+            'Content-Type': 'application/json',
+            Accept: 'application/json, text/event-stream',
+            'Mcp-Protocol-Version': '2025-03-26',
+        };
+
+        const unknownSession = await originalFetch(endpoint, {
+            method: 'POST',
+            headers: { ...commonHeaders, 'Mcp-Session-Id': 'stale-after-restart' },
+            body,
+        });
+        expect(unknownSession.status).toBe(404);
+        await expect(unknownSession.json()).resolves.toMatchObject({
+            jsonrpc: '2.0',
+            error: { code: -32001, message: 'Session not found' },
+            id: null,
+        });
+
+        const missingSession = await originalFetch(endpoint, {
+            method: 'POST',
+            headers: commonHeaders,
+            body,
+        });
+        expect(missingSession.status).toBe(400);
+    });
 });

@@ -620,6 +620,15 @@ async function ensurePermissionForAvId(
         databaseBlocksOnly?: boolean;
     },
 ): Promise<{ denied: ToolResult | null; avData: unknown; permissionBlockID?: string }> {
+    // SiYuan 3.8.1 materializes a JSON file when getAttributeView receives an
+    // unknown, well-formed AV ID. Check the storage index through the official
+    // file API first so a read typo cannot create persistent workspace state.
+    if (ATTRIBUTE_VIEW_ID_PATTERN.test(avID) && typeof client.request === 'function') {
+        const storedAvIDs = await listAllAttributeViewIDs(client);
+        if (!storedAvIDs.includes(avID)) {
+            throw createSemanticError('not_found', `attribute view "${avID}" not found`, 'av_not_found');
+        }
+    }
     const response = await avApi.getAttributeView(client, avID);
     const avData = response.av;
     // SiYuan 3.8.1 reports an unknown AV ID as a successful response carrying
@@ -665,14 +674,15 @@ async function ensurePermissionForAvId(
     }
 
     if (candidateBlockIDs.length === 0) {
-        throw createSemanticError('permission_denied', `Unable to resolve notebook permission scope for attribute view "${avID}". The database may have no rows yet; AV writes require a resolvable owning block context.`);
+        throw createSemanticError('not_found', `Unable to resolve notebook permission scope for attribute view "${avID}". The database may have no rows yet; AV writes require a resolvable owning block context.`, 'av_owner_missing');
     }
-    throw createSemanticError('permission_denied', `Unable to resolve notebook permission scope for attribute view "${avID}" because all known owning block references are stale or missing.`);
+    throw createSemanticError('not_found', `Unable to resolve notebook permission scope for attribute view "${avID}" because all known owning block references are stale or missing.`, 'av_owner_stale');
 }
 
 function isUnresolvedAvPermissionScopeError(error: unknown): boolean {
-    return error instanceof Error &&
-        error.message.includes('The database may have no rows yet; AV writes require a resolvable owning block context.');
+    if (!(error instanceof Error)) return false;
+    const detailCode = (error as Error & { detailCode?: unknown }).detailCode;
+    return detailCode === 'av_owner_missing' || detailCode === 'av_owner_stale';
 }
 
 function isMissingAttributeViewError(error: unknown): boolean {

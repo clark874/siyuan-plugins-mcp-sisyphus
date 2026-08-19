@@ -72,15 +72,27 @@ describe('core/skills', () => {
 
         const governanceScenario = scenarios.find((scenario) => scenario.id === 'knowledge-governance');
         const duplicateAliasSql = governanceScenario?.calls.duplicateAliases.args.stmt ?? '';
-        const conflictSql = governanceScenario?.calls.conflict.args.stmt ?? '';
+        const conflictName = governanceScenario?.calls.conflictName;
+        const conflictAlias = governanceScenario?.calls.conflictAlias;
         const verifySql = governanceScenario?.calls.verify.args.stmt ?? '';
         expect(duplicateAliasSql).toContain('WITH RECURSIVE alias_parts');
         expect(duplicateAliasSql).toContain("replace(COALESCE(alias, ''), '，', ',')");
         expect(duplicateAliasSql).toContain('trim(substr(');
         expect(duplicateAliasSql).toContain('GROUP BY lower(alias_token)');
-        expect(conflictSql).toContain('WITH RECURSIVE candidates');
-        expect(conflictSql).toContain('lower(a.alias_token) IN');
-        expect(conflictSql).not.toContain('alias LIKE');
+        expect(conflictName).toMatchObject({
+            tool: 'search',
+            action: 'check_anchor',
+            args: { candidates: ['proposed-name'], candidateKind: 'name' },
+        });
+        expect(conflictAlias).toMatchObject({
+            tool: 'search',
+            action: 'check_anchor',
+            args: {
+                candidates: ['proposed-alias-1', 'proposed-alias-2'],
+                candidateKind: 'alias',
+                activeScopes: ['<current-topic-scope>'],
+            },
+        });
         expect(verifySql).toContain("b.id = '<block-id>'");
         expect(verifySql).toContain("lower(b.name) = lower('stable-topic-step')");
         expect(verifySql).toContain("lower(a.alias_token) = lower('中文同义词')");

@@ -147,6 +147,21 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
             const sessionId = Array.isArray(sessionIdHeader) ? sessionIdHeader[0] : sessionIdHeader;
             let entry = sessionId ? sessions.get(sessionId) : undefined;
 
+            // An explicit but unknown session ID is a stale session, most
+            // commonly after SiYuan restarted and the in-memory session map
+            // was rebuilt. Streamable HTTP uses 404 as the recovery signal;
+            // creating a fresh uninitialized transport here turns the same
+            // request into a misleading 400 and leaves clients stuck.
+            if (sessionId && !entry) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    jsonrpc: '2.0',
+                    error: { code: -32001, message: 'Session not found' },
+                    id: null,
+                }));
+                return;
+            }
+
             if (!entry) {
                 // New session
                 const transport = new NodeStreamableHTTPServerTransport({
