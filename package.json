@@ -7,6 +7,9 @@
   "homepage": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus",
   "author": "Taihong Yang",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "npm run build:dev:mcp-app && cross-env NODE_ENV=development VITE_SOURCEMAP=inline sh -c 'cross-env BUILD_TARGET=mcp-app vite build --watch & cross-env BUILD_TARGET=renderer vite build --watch & cross-env BUILD_TARGET=server vite build --watch & wait'",
     "build:dev:mcp-app": "cross-env NODE_ENV=development VITE_SOURCEMAP=inline BUILD_TARGET=mcp-app vite build",
