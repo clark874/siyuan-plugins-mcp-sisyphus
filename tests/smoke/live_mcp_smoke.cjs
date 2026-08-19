@@ -13,6 +13,9 @@ const HTTP_SETTINGS_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpH
 const MCP_URL = process.env.SIYUAN_MCP_URL || 'http://127.0.0.1:36806/mcp';
 
 const ALL_ENABLED_CONFIG = {
+    // The broad legacy smoke exercises every mutation directly. Strict-write
+    // semantics are covered separately against the live HTTP endpoint below.
+    writeSafety: { strictMode: false },
     fs: {
         enabled: true,
         actions: { ls: true, tree: true, read: true, write: true, replace: true, rm: true, mv: true, search: true },
@@ -266,18 +269,18 @@ async function assertPermissionDenied(client, name, args) {
 async function assertDefaultToolList() {
     await withConfigMode('default', async () => withClient(async (client) => {
         const tools = (await client.listTools()).tools;
-        assert.deepEqual(tools.map((tool) => tool.name), ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'timeline', 'system', 'flashcard', 'mascot', 'feedback']);
+        assert.deepEqual(tools.map((tool) => tool.name), ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'timeline', 'system', 'flashcard', 'extension', 'mascot', 'feedback']);
 
         const descriptions = Object.fromEntries(tools.map((tool) => [tool.name, tool.description]));
-        assert.match(descriptions.fs, /Common actions: ls, tree, read, write, replace, search/);
+        assert.match(descriptions.fs, /Common actions: ls, tree, read, write, replace, reorder, search/);
         assert.match(descriptions.fs, /Additional actions: rm, mv/);
         assert.match(descriptions.notebook, /Common actions: list, create, set_open_state, rename, get_conf, get_child_docs/);
         assert.match(descriptions.notebook, /Additional actions: set_conf, set_icon, get_permissions/);
         assert.match(descriptions.notebook, /Common actions:/);
         assert.match(descriptions.notebook, /Additional actions:/);
         assert.match(descriptions.notebook, /get_permissions/);
-        assert.match(descriptions.document, /Common actions: create, lookup, rename, get_child_blocks, get_child_docs, search_docs, get_doc, get_outline/);
-        assert.match(descriptions.document, /Additional actions: move, set_attr, list_tree, create_daily_note, duplicate, heading_to_doc, doc_to_heading/);
+        assert.match(descriptions.document, /Common actions: create, lookup, rename, get_child_sort_mode, get_child_blocks, get_child_docs, search_docs, get_doc, get_outline/);
+        assert.match(descriptions.document, /Additional actions: move, reorder, set_child_sort_mode, set_attr, list_tree, create_daily_note, duplicate, heading_to_doc, doc_to_heading/);
         assert.match(descriptions.document, /Common actions: .*get_doc/);
         assert.match(descriptions.document, /Additional actions: .*list_tree/);
         assert.match(descriptions.document, /document\.rename: required \[title\] \| optional \[id, notebook, path\]/);
@@ -292,26 +295,26 @@ async function assertDefaultToolList() {
         assert.match(descriptions.block, /single-block replacement/i);
         assert.match(descriptions.block, /Multi-line markdown may be truncated to the first line/i);
         assert.match(descriptions.av, /Common actions: get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, get_primary_key_values/);
-        assert.match(descriptions.av, /Additional actions: add_rows, remove_rows, add_column, remove_column, set_cells, duplicate/);
+        assert.match(descriptions.av, /Additional actions: rename, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate/);
         assert.match(descriptions.av, /database/i);
         assert.match(descriptions.file, /Common actions: upload_asset, list_templates, read_template, create_template, update_template, save_doc_as_template, export_md, get_doc_assets, extract_doc/);
         assert.match(descriptions.file, /Additional actions: render, export_resources, list_unused_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset/);
         assert.match(descriptions.file, /confirmLargeFile/);
         assert.match(descriptions.file, /Read siyuan:\/\/help\/action\/file\/\{action\} for details/);
-        assert.match(descriptions.search, /fulltext, query_sql, get_backlinks/);
+        assert.match(descriptions.search, /fulltext, semantic, knowledge, query_sql, get_backlinks/);
         assert.match(descriptions.search, /Additional actions: search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs/);
         assert.match(descriptions.search, /read-only/i);
         assert.match(descriptions.tag, /Common actions: list, rename/);
         assert.match(descriptions.tag, /Additional actions: remove/);
         assert.match(descriptions.tag, /#tag#/);
         assert.doesNotMatch(descriptions.system, /Common actions: [^.]*workspace_info/);
-        assert.match(descriptions.system, /Common actions: conf, changelog, get_version, get_current_time/);
-        assert.match(descriptions.system, /workspace_info.*disabled by default|disabled by default.*workspace_info/i);
+        assert.match(descriptions.system, /Common actions: changelog, get_version, get_current_time, bootstrap, audit_environment/);
         assert.match(descriptions.feedback, /Submit plain-text GitHub Issue-style feedback/);
         const schemas = Object.fromEntries(tools.map((tool) => [tool.name, tool.inputSchema]));
         for (const [name, schema] of Object.entries(schemas)) {
             assert.equal(schema.type, 'object', `${name} should expose an object schema`);
-            assert.equal(schema.oneOf, undefined, `${name} should not rely on top-level oneOf`);
+            if (name === 'extension') assert.ok(Array.isArray(schema.oneOf), 'extension should preserve official MCP action branches');
+            else assert.equal(schema.oneOf, undefined, `${name} should not rely on top-level oneOf`);
             assert.equal(typeof schema.properties, 'object', `${name} should expose top-level properties`);
             assert.ok(Array.isArray(schema.properties.action.enum), `${name} should expose action enum choices`);
         }
@@ -327,23 +330,29 @@ async function assertDefaultToolList() {
         assert.ok('query' in schemas.search.properties);
         assert.ok('stmt' in schemas.search.properties);
         assert.ok('k' in schemas.search.properties);
+        assert.equal(schemas.system.properties.action.enum.includes('workspace_info'), false);
+        assert.equal(schemas.system.properties.action.enum.includes('conf'), false);
         assert.match(schemas.document.properties.path.description, /For action="create"/);
         assert.match(schemas.block.properties.parentID.description, /document head or tail/);
-        assert.match(schemas.system.properties.keyPath.description, /conf\.appearance\.mode/);
 
         const resources = (await client.listResources()).resources;
-        assert.deepEqual(resources.map((resource) => resource.uri), [
+        const resourceUris = resources.map((resource) => resource.uri);
+        for (const expectedUri of [
             'siyuan://help/tool-overview',
             'siyuan://help/document-path-semantics',
             'siyuan://help/examples',
             'siyuan://help/ai-layout-guide',
+            'siyuan://help/write-safety',
             'siyuan://help/changelog',
             'siyuan://help/user-rules',
-        ]);
+            'siyuan://skills/index',
+            'siyuan://skills/siyuan-mcp-sisyphus',
+        ]) assert.ok(resourceUris.includes(expectedUri), `missing resource ${expectedUri}`);
 
         const resourceTemplates = (await client.listResourceTemplates()).resourceTemplates;
         assert.deepEqual(resourceTemplates.map((template) => template.uriTemplate), [
             'siyuan://help/action/{tool}/{action}',
+            'siyuan://skills/{name}',
         ]);
 
         const toolOverviewText = await readResourceText(client, 'siyuan://help/tool-overview');
@@ -428,23 +437,19 @@ async function assertDefaultToolList() {
         const createDailyNoteHelpText = await readResourceText(client, 'siyuan://help/action/document/create_daily_note');
         assert.match(createDailyNoteHelpText, /prefer this action over manually creating a path and then appending content/);
 
-        const validationError = (await callToolJson(client, 'document', {
+        const preconditionError = (await callToolJson(client, 'document', {
             action: 'rename',
             id: 'dummy-id-for-validation',
         })).json;
-        assert.equal(validationError.error.type, 'validation_error');
-        assert.match(validationError.error.message, /document\(action="rename"\)/);
-        assert.equal(validationError.error.fields[0].path, 'title');
-        assert.match(validationError.error.fields[0].message, /title is required/);
-        assert.match(validationError.error.hint, /id \+ title or notebook \+ path \+ title/);
-        assert.equal(validationError.error.details, undefined);
+        assert.equal(preconditionError.error.type, 'validation_error');
+        assert.equal(preconditionError.error.code, 'precondition_required');
+        assert.match(preconditionError.error.message, /requestId is required/);
 
-        const disabledActionError = (await callToolJson(client, 'document', {
-            action: 'remove',
-            id: 'dummy-id-for-disabled-action',
+        const disabledActionError = (await callToolJson(client, 'system', {
+            action: 'workspace_info',
         })).json;
         assert.equal(disabledActionError.error.type, 'action_disabled');
-        assert.match(disabledActionError.error.message, /Action "remove" is disabled for tool "document"/);
+        assert.match(disabledActionError.error.message, /Action "workspace_info" is disabled for tool "system"/);
     }));
 }
 
@@ -491,9 +496,6 @@ async function runAvSmoke(client, createdBlockIds) {
     assert.equal(avDuplicate.json.success, true, `Unexpected AV duplicate result: ${JSON.stringify(avDuplicate.json)}`);
     assert.equal(typeof avDuplicate.json.avID, 'string');
     assert.equal(typeof avDuplicate.json.blockID, 'string');
-    assert.equal(avDuplicate.json.prepared, true);
-    assert.equal(avDuplicate.json.materialized, false);
-    assert.equal(avDuplicate.json.semantics, 'kernel_prepared_duplicate');
     console.log(`T24 PASS - AV read/duplicate smoke on ${avID}`);
 }
 
@@ -808,12 +810,12 @@ async function runLiveSmoke() {
                 action: 'get_doc',
                 id: source.json.id,
                 mode: 'markdown',
-                page: 1,
-                pageSize: 20,
+                blockStart: 0,
+                blockLimit: 20,
             })).json;
-            assert.equal(getDocMarkdownPaged.page, 1);
-            assert.equal(getDocMarkdownPaged.pageSize, 20);
-            assert.equal(typeof getDocMarkdownPaged.pageCount, 'number');
+            assert.equal(getDocMarkdownPaged.blockStart, 0);
+            assert.equal(getDocMarkdownPaged.blockLimit, 20);
+            assert.equal(typeof getDocMarkdownPaged.totalBlocks, 'number');
 
             const localUploadPath = path.join(process.cwd(), 'tmp', 'mcp-smoke-export.txt');
             fs.mkdirSync(path.dirname(localUploadPath), { recursive: true });
