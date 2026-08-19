@@ -9,6 +9,15 @@ describe('translateError', () => {
         expect(translated?.hint).toMatch(/block\(action="info"/);
     });
 
+    it('maps filetree missing-document messages without depending on the kernel numeric code', () => {
+        expect(translateError(new Error('SiYuan API error: 1 - tree not found'))?.code).toBe('document_not_found');
+        expect(translateError(new Error('SiYuan API error: -1 - tree not found'))?.code).toBe('document_not_found');
+    });
+
+    it('does not mistake unrelated invalid-ID failures for a missing block', () => {
+        expect(translateError(new Error('SiYuan API error: -1 - invalid id format for block operation'))).toBeNull();
+    });
+
     it('maps notebook initialization errors to notebook_closed', () => {
         const translated = translateError(new Error('notebook is currently closed'));
         expect(translated?.code).toBe('notebook_closed');
@@ -39,6 +48,7 @@ describe('createErrorResult wires translator', () => {
             action: 'info',
         });
         const parsed = JSON.parse(result.content[0].text);
+        expect(parsed.error.type).toBe('not_found');
         expect(parsed.error.code).toBe('block_not_found');
         expect(parsed.error.hint).toContain('block(action="info"');
     });

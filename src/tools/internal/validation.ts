@@ -1,6 +1,7 @@
 import { ZodError, type ZodIssue } from 'zod';
 
 import { getActionHint } from '../../core/help';
+import { translateError, type ErrorTranslation } from './errorTranslation';
 import type { ToolErrorContext, ToolFieldError } from './types';
 
 export function formatIssuePath(path: PropertyKey[]): string {
@@ -105,7 +106,25 @@ function isKernelPathRejection(error: Error): boolean {
 export function readSemanticErrorCode(error: Error): string | null {
     const code = (error as Error & { code?: unknown }).code;
     if (typeof code === 'string' && SEMANTIC_ERROR_CODES.has(code)) return code;
-    return isKernelPathRejection(error) ? 'invalid_path' : null;
+    if (isKernelPathRejection(error)) return 'invalid_path';
+    if (!isApiError(error)) return null;
+
+    const translation = translateError(error);
+    return readTranslatedErrorType(translation);
+}
+
+const TRANSLATED_NOT_FOUND_CODES: ReadonlySet<ErrorTranslation['code']> = new Set([
+    'block_not_found',
+    'document_not_found',
+    'notebook_not_found',
+    'av_not_found',
+]);
+
+export function readTranslatedErrorType(translation: ErrorTranslation | null): string | null {
+    if (!translation) return null;
+    if (TRANSLATED_NOT_FOUND_CODES.has(translation.code)) return 'not_found';
+    if (translation.code === 'permission_denied') return 'permission_denied';
+    return null;
 }
 
 export function includeDebugDetails(): boolean {

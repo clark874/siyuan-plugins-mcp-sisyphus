@@ -333,11 +333,11 @@ function extractStructuredErrorCode(resultText: string): string | undefined {
         const errorType = typeof type === 'string' && type ? type : undefined;
         const semanticCode = typeof code === 'string' && code ? code : undefined;
 
-        if (semanticCode && (errorType === 'api_error' || errorType === 'internal_error')) {
-            return semanticCode;
-        }
-
-        return errorType ?? semanticCode;
+        // Keep the detailed semantic bucket even when the outer type is a
+        // recoverable family such as `not_found`. Otherwise block, document,
+        // notebook, and AV misses collapse into one analytics category after
+        // correct MCP error classification.
+        return semanticCode ?? errorType;
     } catch {
         return undefined;
     }

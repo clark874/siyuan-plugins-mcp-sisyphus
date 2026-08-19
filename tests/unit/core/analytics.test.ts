@@ -330,6 +330,18 @@ describe('analytics', () => {
             expect(extractErrorCode(resultText)).toBe('block_not_found');
         });
 
+        it('preserves detailed semantic codes after the outer type becomes recoverable', () => {
+            const resultText = JSON.stringify({
+                error: {
+                    type: 'not_found',
+                    code: 'document_not_found',
+                    message: 'tree not found',
+                },
+            });
+
+            expect(extractErrorCode(resultText)).toBe('document_not_found');
+        });
+
         it('returns UnknownError for unrecognized text', () => {
             expect(extractErrorCode('something went wrong')).toBe('UnknownError');
         });

@@ -12,6 +12,7 @@ Related pages:
 | Error Type | Meaning |
 |------------|---------|
 | `validation_error` | Invalid parameters or missing required fields |
+| `not_found` | A block, document, notebook, or attribute view does not exist; inspect `error.code` for the resource kind |
 | `permission_denied` | Notebook permission does not allow the operation |
 | `api_error` | SiYuan API returned an error |
 | `internal_error` | MCP server internal failure |
@@ -19,7 +20,8 @@ Related pages:
 
 ## Triage Order
 
-1. Check required fields and path type
-2. Check notebook permission
-3. Check SiYuan connectivity and token configuration
-4. Check whether the action is disabled or gated
+1. Check required fields, IDs, and path type
+2. For `not_found`, use the detailed `error.code` and hint to resolve the resource again
+3. Check notebook permission
+4. Check SiYuan connectivity and token configuration
+5. Check whether the action is disabled or gated

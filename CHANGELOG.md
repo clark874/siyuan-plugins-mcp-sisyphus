@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.6-wiki.1 - 2026-08-19
+
+- 修复资源缺失的外层错误类型：思源已经识别出的 `block_not_found`、`document_not_found`、`notebook_not_found` 与 `av_not_found` 现在统一返回 `type: not_found`，细分 `code` 与可操作提示继续保留；开启“软化可恢复错误”后可避免严格客户端因一次错误 ID 重新注入完整工具清单
+- 新增 `tree not found` 文档缺失兜底且不依赖内核数值错误码；删除会把普通 `invalid id format` 误判为块缺失的宽泛规则，权限拒绝则改为准确的 `permission_denied` 硬错误，不进入软化白名单
+- 识别思源 3.8.1 对无效数据库 ID 返回的 `{ av: null }` 哨兵：普通 AV 动作返回 `av_not_found/not_found`，显式 `render(createIfNotExist=true)` 仍可按既有流程创建；同时移除帮助中不存在的 `av.list` 动作
+- analytics 继续优先记录 `block_not_found` 等细分语义码，避免外层统一为 `not_found` 后可观测性退化；新增正反向、双结果工厂、软化边界、AV 创建兼容与真实内核消息回归测试
+- 本地 CLI 元数据同步提升至 `v0.3.5-wiki.1`；推荐思源版本保持 `3.8.1`
+
 ## v0.8.5-wiki.1 - 2026-08-19
 
 - 适配思源 3.8.1 文档级子文档排序：新增 `document.get_child_sort_mode` 与 `document.set_child_sort_mode`，可区分文档本地声明和沿父级继承后的实际生效模式，并支持用 `null` 恢复继承

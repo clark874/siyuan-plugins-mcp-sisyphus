@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.5-wiki.1`（本地 CLI `v0.3.4-wiki.1`）适配思源 3.8.1 的文档级子文档排序，避免局部重排误改整个笔记本，并为数据库渲染增加 `ignoreRows` 轻量结构读取；保留类型检查发布门、根树部分失败诊断及既有语义桥接、知识治理和中央更新通道。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.6-wiki.1`（本地 CLI `v0.3.5-wiki.1`）把块、文档、笔记本和数据库缺失从后端故障还原为可恢复的 `not_found`，保留细分诊断与硬权限错误，并修复思源对无效 AV ID 返回 `av:null` 时的误报。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.8.5-wiki.1` — 思源 3.8.1 文档级子文档排序、AV 轻量结构读取、TypeScript 零错误发布门、根树部分失败诊断、语义发现桥接、知识化工具层、严格写入和中央更新通道已统一；本地 CLI 为 `v0.3.4-wiki.1`。
+> **当前 LLM Wiki 版本：**`v0.8.6-wiki.1` — 可恢复资源缺失、细分错误统计、AV 空值哨兵、思源 3.8.1 文档级排序、知识化工具层、严格写入和中央更新通道已统一；本地 CLI 为 `v0.3.5-wiki.1`。
 
 ## 项目方向调整
 

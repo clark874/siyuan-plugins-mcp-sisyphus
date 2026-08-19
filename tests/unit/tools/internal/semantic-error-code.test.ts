@@ -4,7 +4,7 @@ import { createErrorResult } from '@/tools/internal/shared';
 import { createErrorResult as createErrorResultFromFactory } from '@/tools/internal/result-factory';
 import { readSemanticErrorCode } from '@/tools/internal/validation';
 import { SiYuanError } from '@/shared/error';
-import { RECOVERABLE_TOOL_ERROR_TYPES } from '@/core/soft-error';
+import { RECOVERABLE_TOOL_ERROR_TYPES, softenRecoverableToolError } from '@/core/soft-error';
 
 function codedError(code: string, message: string): Error {
     const error = new Error(message);
@@ -37,11 +37,27 @@ describe('readSemanticErrorCode', () => {
         expect(readSemanticErrorCode(new SiYuanError(1, 'Invalid path'))).toBe('invalid_path');
     });
 
+    it.each([
+        ['block_not_found', new SiYuanError(-1, '未找到 ID 为 [missing] 的内容块')],
+        ['document_not_found', new SiYuanError(1, 'tree not found')],
+        ['notebook_not_found', new SiYuanError(-1, 'notebook [missing] not found')],
+        ['av_not_found', new SiYuanError(-1, 'attribute view "missing" not found')],
+    ])('maps translated resource absence %s to the recoverable not_found type', (_code, error) => {
+        expect(readSemanticErrorCode(error)).toBe('not_found');
+    });
+
+    it('maps translated permission failures to their hard semantic type', () => {
+        expect(readSemanticErrorCode(new SiYuanError(-1, 'permission denied'))).toBe('permission_denied');
+        expect(RECOVERABLE_TOOL_ERROR_TYPES.has('permission_denied')).toBe(false);
+    });
+
     it('does not reclassify other kernel failures as path problems', () => {
         expect(readSemanticErrorCode(new SiYuanError(-1, 'kernel busy'))).toBeNull();
         // Only kernel-originated failures may be reclassified; a plain Error
         // carrying similar prose is not an API failure at all.
         expect(readSemanticErrorCode(new Error('path escapes notebook directory'))).toBeNull();
+        expect(readSemanticErrorCode(new Error('block not found in local cache'))).toBeNull();
+        expect(readSemanticErrorCode(new SiYuanError(-1, 'invalid id format for block operation'))).toBeNull();
     });
 });
 
@@ -69,5 +85,37 @@ describe.each([
         const rejection = new SiYuanError(-1, 'path escapes notebook directory');
         expect(errorType(build(rejection) as any)).toBe('invalid_path');
         expect(RECOVERABLE_TOOL_ERROR_TYPES.has(errorType(build(rejection) as any))).toBe(true);
+    });
+
+    it.each([
+        ['block_not_found', new SiYuanError(-1, '未找到 ID 为 [missing] 的内容块')],
+        ['document_not_found', new SiYuanError(1, 'tree not found')],
+        ['notebook_not_found', new SiYuanError(-1, 'notebook [missing] not found')],
+        ['av_not_found', new SiYuanError(-1, 'attribute view "missing" not found')],
+    ])('reports %s as not_found while preserving the detailed code', (code, error) => {
+        const result = build(error) as any;
+        const payload = JSON.parse(result.content[0].text);
+        expect(payload.error.type).toBe('not_found');
+        expect(payload.error.code).toBe(code);
+        expect(RECOVERABLE_TOOL_ERROR_TYPES.has(payload.error.type)).toBe(true);
+    });
+
+    it('keeps translated permission failures loud and correctly typed', () => {
+        const result = build(new SiYuanError(-1, 'permission denied')) as any;
+        const payload = JSON.parse(result.content[0].text);
+        expect(payload.error.type).toBe('permission_denied');
+        expect(payload.error.code).toBe('permission_denied');
+        expect(softenRecoverableToolError(result, true).isError).toBe(true);
+    });
+
+    it('allows translated missing resources through the opt-in soft-error boundary', () => {
+        const result = build(new SiYuanError(-1, '未找到 ID 为 [missing] 的内容块')) as any;
+        const softened = softenRecoverableToolError(result, true) as any;
+        expect('isError' in softened).toBe(false);
+        expect(JSON.parse(softened.content[0].text).error).toMatchObject({
+            type: 'not_found',
+            code: 'block_not_found',
+            softened: true,
+        });
     });
 });

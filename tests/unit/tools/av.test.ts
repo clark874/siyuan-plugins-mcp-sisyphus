@@ -684,6 +684,49 @@ describe('av tool', () => {
         });
     });
 
+    it('reports the kernel av:null response as a recoverable missing database', async () => {
+        const avApi = await import('@/api/av');
+        const context = await import('@/tools/internal/context');
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({ av: null });
+
+        const result = await callAvTool(client, {
+            action: 'get',
+            id: 'av-missing',
+        }, enabledActions('get'), permMgr);
+
+        expect(vi.mocked(context.ensurePermissionForDocumentId)).not.toHaveBeenCalled();
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: {
+                type: 'not_found',
+                code: 'av_not_found',
+            },
+        });
+    });
+
+    it('treats av:null as creatable when render explicitly requests materialization', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({ av: null });
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-missing',
+            viewID: 'view-new',
+            viewType: 'table',
+            rows: [],
+        });
+
+        const result = await callAvTool(client, {
+            action: 'render',
+            id: 'av-missing',
+            blockID: 'target-doc',
+            createIfNotExist: true,
+        }, enabledActions('render'), permMgr);
+
+        expect(result.isError).toBeFalsy();
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            avID: 'av-missing',
+            materialized: true,
+        });
+    });
+
     it('uses explicit blockID to resolve get permissions for an empty AV', async () => {
         const avApi = await import('@/api/av');
         const blockApi = await import('@/api/block');
@@ -2914,6 +2957,76 @@ describe('av tool', () => {
             av: {
                 id: 'av-stale',
                 keyValues: [{ key: { type: 'block' }, values: [] }],
+            },
+        });
+    });
+
+    it('falls back to SQL candidates when mirror discovery points at a deleted block', async () => {
+        const avApi = await import('@/api/av');
+        const searchApi = await import('@/api/search');
+        const context = await import('@/tools/internal/context');
+
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({
+            av: { id: 'av-stale-mirror', keyValues: [] },
+        });
+        vi.mocked(avApi.getMirrorDatabaseBlocks)
+            .mockRejectedValue(new Error('SiYuan API error: -1 - 未找到 ID 为 [deleted-mirror] 的内容块'));
+        vi.mocked(searchApi.querySQL).mockResolvedValue([{ id: 'db-block-live' }]);
+
+        const result = await callAvTool(client, {
+            action: 'get',
+            id: 'av-stale-mirror',
+        }, enabledActions('get'), permMgr);
+
+        expect(result.isError).toBeFalsy();
+        expect(vi.mocked(context.ensurePermissionForDocumentId)).toHaveBeenCalledWith(client, permMgr, 'db-block-live', 'read');
+    });
+
+    it('turns a deleted explicit database block into a validation result for ordinary AV reads', async () => {
+        const avApi = await import('@/api/av');
+        const blockApi = await import('@/api/block');
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({
+            av: { id: 'av-explicit-missing', keyValues: [] },
+        });
+        vi.mocked(blockApi.getBlockDOM)
+            .mockRejectedValue(new Error('SiYuan API error: -1 - 未找到 ID 为 [deleted-db-block] 的内容块'));
+
+        const result = await callAvTool(client, {
+            action: 'get',
+            id: 'av-explicit-missing',
+            blockID: 'deleted-db-block',
+        }, enabledActions('get'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: {
+                type: 'validation_error',
+                action: 'get',
+                fields: [{ path: 'blockID' }],
+            },
+        });
+    });
+
+    it('turns a deleted verified database block into a validation result for rename', async () => {
+        const avApi = await import('@/api/av');
+        const blockApi = await import('@/api/block');
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({
+            av: { id: 'av-rename-missing', name: '旧名称', keyValues: [] },
+        });
+        vi.mocked(blockApi.getBlockDOM)
+            .mockRejectedValue(new Error('SiYuan API error: -1 - 未找到 ID 为 [deleted-db-block] 的内容块'));
+
+        const result = await callAvTool(client, {
+            action: 'rename',
+            avID: 'av-rename-missing',
+            blockID: 'deleted-db-block',
+            name: '新名称',
+        }, enabledActions('rename'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: {
+                type: 'validation_error',
+                action: 'rename',
+                fields: [{ path: 'blockID' }],
             },
         });
     });

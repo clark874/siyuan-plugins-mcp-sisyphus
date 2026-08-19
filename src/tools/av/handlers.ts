@@ -621,6 +621,14 @@ async function ensurePermissionForAvId(
 ): Promise<{ denied: ToolResult | null; avData: unknown; permissionBlockID?: string }> {
     const response = await avApi.getAttributeView(client, avID);
     const avData = response.av;
+    // SiYuan 3.8.1 reports an unknown AV ID as a successful response carrying
+    // `{ av: null }`. Treat that sentinel as resource absence before permission
+    // scope discovery; otherwise it is misreported as an internal ownership
+    // resolution failure. Valid empty databases still return a non-null AV
+    // object with an id and empty keyValues.
+    if (avData == null) {
+        throw Object.assign(new Error(`attribute view "${avID}" not found`), { code: 'not_found' });
+    }
 
     if (options?.blockID) {
         const { denied } = await ensurePermissionForDocumentId(client, permMgr, options.blockID, required);

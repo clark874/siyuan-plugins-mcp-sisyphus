@@ -28,7 +28,6 @@ const ERROR_RULES: ErrorRule[] = [
         code: 'block_not_found',
         patterns: [
             /未找到 ID 为 \[[^\]]+\] 的内容块/,
-            /SiYuan API error:\s*-1\b.*(block|id)/i,
             /block not found/i,
         ],
         hint: 'Verify the block ID with block(action="info", id="...") or locate it via search(action="fulltext", query="...").',
@@ -57,6 +56,7 @@ const ERROR_RULES: ErrorRule[] = [
         patterns: [
             /document .*not found/i,
             /文档不存在/,
+            /tree not found/i,
         ],
         hint: 'Resolve the document via document(action="lookup") or search(action="search_docs").',
     },
@@ -67,7 +67,7 @@ const ERROR_RULES: ErrorRule[] = [
             /数据库不存在/,
             /av .*not found/i,
         ],
-        hint: 'Locate the attribute view via av(action="search", keyword="...") or av(action="list").',
+        hint: 'Locate the attribute view via av(action="search", keyword="...") and retry with a valid AV ID.',
     },
     {
         code: 'permission_denied',
