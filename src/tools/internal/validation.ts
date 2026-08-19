@@ -82,7 +82,16 @@ const SEMANTIC_ERROR_CODES: ReadonlySet<string> = new Set([
     'not_found',
     'ambiguous_path',
     'invalid_path',
+    'invalid_arguments',
+    'permission_denied',
 ]);
+
+export function createSemanticError(
+    code: 'not_found' | 'ambiguous_path' | 'invalid_path' | 'invalid_arguments' | 'permission_denied',
+    message: string,
+): Error & { code: string } {
+    return Object.assign(new Error(message), { name: 'ToolSemanticError', code });
+}
 
 /**
  * Kernel rejections that are really agent-correctable path mistakes.

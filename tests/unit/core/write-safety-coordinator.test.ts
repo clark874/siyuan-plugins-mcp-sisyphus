@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 
 import { WriteSafetyCoordinator } from '@/core/write-safety-coordinator';
+import { softenRecoverableToolError } from '@/core/soft-error';
 import { createMockPermissionManager } from '../../helpers/mock-permissions';
 import { parseResult } from '../../helpers/parse-result';
 
@@ -18,6 +19,43 @@ function success(payload: Record<string, unknown>) {
 }
 
 describe('write safety coordinator', () => {
+    it('types agent-correctable precondition failures', async () => {
+        const client = {
+            readFile: vi.fn(async () => { throw new Error('HTTP error: 404 Not Found'); }),
+            requestRead: vi.fn(),
+        } as never;
+        const coordinator = new WriteSafetyCoordinator(client);
+        const base = {
+            client,
+            permMgr: createMockPermissionManager(),
+            category: 'block' as const,
+            action: 'update',
+            strictMode: true,
+            execute: vi.fn(),
+        };
+
+        const missingRequestIdResult = await coordinator.run({
+            ...base,
+            args: { action: 'update', id: '20260812000000-abcdefg' },
+        });
+        const missingRequestId = parseResult(missingRequestIdResult);
+        expect(missingRequestId.error).toMatchObject({
+            type: 'validation_error',
+            code: 'precondition_required',
+        });
+        const softened = softenRecoverableToolError(missingRequestIdResult, true);
+        expect(softened.isError).toBeUndefined();
+        expect(parseResult(softened).error.softened).toBe(true);
+
+        const malformedRequestId = parseResult(await coordinator.run({
+            ...base,
+            args: { action: 'update', id: '20260812000000-abcdefg', requestId: 'not-a-uuidv7' },
+        }));
+        expect(malformedRequestId.error).toMatchObject({
+            type: 'validation_error',
+            code: 'invalid_request_id',
+        });
+    });
     it('observes timeline rollback changes through live document markdown', async () => {
         const documentID = '20260812000000-timeline';
         const blockID = '20260812000001-timeline';
@@ -321,7 +359,7 @@ describe('write safety coordinator', () => {
             strictMode: true,
             execute: vi.fn(async () => { throw new Error('connection dropped'); }),
         }));
-        expect(failed.error.code).toBe('outcome_unknown');
+        expect(failed.error).toMatchObject({ type: 'outcome_unknown', code: 'outcome_unknown' });
 
         const consumed = parseResult(await coordinator.run({
             client,
@@ -403,7 +441,7 @@ describe('write safety coordinator', () => {
             strictMode: true,
             execute,
         }));
-        expect(failed.error.code).toBe('outcome_unknown');
+        expect(failed.error).toMatchObject({ type: 'outcome_unknown', code: 'outcome_unknown' });
         expect(execute).toHaveBeenCalledTimes(1);
 
         const consumed = parseResult(await coordinator.run({
@@ -921,7 +959,7 @@ describe('write safety coordinator', () => {
             strictMode: true,
             execute: staleExecute,
         }));
-        expect(stale.error).toMatchObject({ code: 'state_changed', revalidateRequired: true });
+        expect(stale.error).toMatchObject({ type: 'state_changed', code: 'state_changed', revalidateRequired: true });
         expect(staleExecute).not.toHaveBeenCalled();
 
         fixture.setOrder(fixture.docs.map((item) => item.id));
@@ -973,7 +1011,7 @@ describe('write safety coordinator', () => {
             }),
         }));
 
-        expect(result.error.code).toBe('readback_mismatch');
+        expect(result.error).toMatchObject({ type: 'readback_mismatch', code: 'readback_mismatch' });
         expect(result.error.cause).toContain('requested complete order');
     });
 
@@ -1014,7 +1052,7 @@ describe('write safety coordinator', () => {
             execute: vi.fn(async () => success({ success: true })),
         }));
 
-        expect(result.error).toMatchObject({ code: 'readback_mismatch' });
+        expect(result.error).toMatchObject({ type: 'readback_mismatch', code: 'readback_mismatch' });
         expect(result.error.cause).toContain('requested child sort mode');
     });
 });

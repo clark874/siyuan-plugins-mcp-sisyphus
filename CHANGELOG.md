@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.7-wiki.1 - 2026-08-19
+
+- 严格写入协调器为所有失败补齐稳定 `type`：缺少或无效 `requestId`、预检凭证缺失或过期、哈希前缀歧义等执行前可修正失败归为 `validation_error`；`state_changed`、`readback_mismatch`、`outcome_unknown`、账本故障与幂等冲突继续保持硬错误
+- AV 权限域解析按真实状态分流：`null`、空对象或 ID 不匹配的内核哨兵归为 `av_not_found/not_found`；确实存在但无法证明归属的 AV 归为硬 `permission_denied`，不再与资源缺失共同落入 `internal_error`
+- `av.render` 缺少 `id`、创建时缺少 `blockID`、无效日期，以及文档封面、根块和存储路径等用户参数错误改为可恢复语义类型；AV、block、document 三类剩余无编码抛错均保留为真实内部或写后故障
+- 实机 smoke 新增 HTTP MCP 错误语义探针，直接覆盖 AV 缺失、`render` 参数缺失和严格写入缺少 `requestId` 三条用户入口，避免只修到模拟分支
+- 本地 CLI 元数据同步提升至 `v0.3.6-wiki.1`；推荐思源版本保持 `3.8.1`
+
 ## v0.8.6-wiki.1 - 2026-08-19
 
 - 修复资源缺失的外层错误类型：思源已经识别出的 `block_not_found`、`document_not_found`、`notebook_not_found` 与 `av_not_found` 现在统一返回 `type: not_found`，细分 `code` 与可操作提示继续保留；开启“软化可恢复错误”后可避免严格客户端因一次错误 ID 重新注入完整工具清单

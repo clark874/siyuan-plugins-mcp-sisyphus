@@ -4,11 +4,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { Client, InMemoryTransport } = require('@modelcontextprotocol/client');
+const { Client, InMemoryTransport, StreamableHTTPClientTransport } = require('@modelcontextprotocol/client');
 const { createSiYuanServer } = require(path.join(__dirname, '..', '..', 'dist', 'mcp-server.cjs'));
 
 const SIYUAN_URL = 'http://127.0.0.1:6806';
 const CONFIG_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
+const HTTP_SETTINGS_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpHttpSettings';
+const MCP_URL = process.env.SIYUAN_MCP_URL || 'http://127.0.0.1:36806/mcp';
 
 const ALL_ENABLED_CONFIG = {
     fs: {
@@ -1196,6 +1198,74 @@ async function runLiveSmoke() {
     }));
 }
 
+async function readMcpHttpToken() {
+    const response = await fetch(`${SIYUAN_URL}/api/file/getFile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: HTTP_SETTINGS_PATH }),
+    });
+    assert.equal(response.ok, true, `读取 MCP HTTP 设置失败：HTTP ${response.status}`);
+    const settings = await response.json();
+    assert.equal(typeof settings.token, 'string', 'MCP HTTP 设置缺少 token');
+    assert.ok(settings.token.length > 0, 'MCP HTTP token 为空');
+    return settings.token;
+}
+
+function parseHttpToolPayload(result) {
+    const text = result.content?.find((item) => item.type === 'text')?.text ?? '';
+    return JSON.parse(text);
+}
+
+function assertSoftError(result, expectedType, expectedCode) {
+    const payload = parseHttpToolPayload(result);
+    assert.equal(result.isError, undefined, `可恢复错误仍是硬失败：${JSON.stringify(payload)}`);
+    assert.equal(payload.error?.type, expectedType, `错误类型不符：${JSON.stringify(payload)}`);
+    if (expectedCode) assert.equal(payload.error?.code, expectedCode, `错误代码不符：${JSON.stringify(payload)}`);
+    assert.equal(payload.error?.softened, true, `缺少 softened 标记：${JSON.stringify(payload)}`);
+}
+
+async function runLiveHttpErrorSemanticsSmoke() {
+    const endpoint = new URL(MCP_URL);
+    assert.ok(['127.0.0.1', 'localhost', '::1', '[::1]'].includes(endpoint.hostname), '错误语义抽检只允许连接回环 MCP 地址');
+    const token = await readMcpHttpToken();
+    const client = new Client({ name: 'sisyphus-live-error-smoke', version: '1.0.0' });
+    const transport = new StreamableHTTPClientTransport(endpoint, {
+        requestInit: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const missingID = `20991231235959-${Math.random().toString(36).slice(2, 9).padEnd(7, 'z')}`;
+
+    await client.connect(transport);
+    try {
+        assertSoftError(
+            await client.callTool({ name: 'av', arguments: { action: 'get', id: missingID } }),
+            'not_found',
+            'av_not_found',
+        );
+        assertSoftError(
+            await client.callTool({ name: 'av', arguments: { action: 'render', blockID: missingID } }),
+            'invalid_arguments',
+        );
+        assertSoftError(
+            await client.callTool({
+                name: 'av',
+                arguments: {
+                    action: 'set_cells',
+                    avID: missingID,
+                    rowID: `${missingID}-row`,
+                    columnID: `${missingID}-column`,
+                    valueType: 'text',
+                    text: 'smoke',
+                },
+            }),
+            'validation_error',
+            'precondition_required',
+        );
+        console.log('T24 PASS - live HTTP recoverable error semantics');
+    } finally {
+        await transport.close();
+    }
+}
+
 async function main() {
     const versionCheck = await fetch(`${SIYUAN_URL}/api/system/version`, {
         method: 'POST',
@@ -1209,6 +1279,7 @@ async function main() {
 
     await assertDefaultToolList();
     await runLiveSmoke();
+    await runLiveHttpErrorSemanticsSmoke();
 }
 
 main().catch((error) => {

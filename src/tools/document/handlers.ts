@@ -52,6 +52,7 @@ import {
     readDocumentReorderState,
 } from '../internal/helpers/document-reorder';
 import { isNotebookRootPath, listNotebookRootTreeNodes } from '../internal/helpers/doc-tree';
+import { createSemanticError } from '../internal/validation';
 
 type DocumentActionHandler = ToolActionHandler;
 
@@ -130,13 +131,13 @@ function createLookupPathResult(fields: {
 function normalizeDocumentCoverSource(source: string): { source: string; titleImg: string } {
     const normalizedSource = source.trim();
     if (!normalizedSource) {
-        throw new Error('Cover source must not be empty.');
+        throw createSemanticError('invalid_arguments', 'Cover source must not be empty.');
     }
 
     const isRemoteUrl = /^https?:\/\//i.test(normalizedSource);
     const isAssetPath = normalizedSource.startsWith('/assets/');
     if (!isRemoteUrl && !isAssetPath) {
-        throw new Error('Cover source must be an http(s) URL or a SiYuan asset path starting with /assets/.');
+        throw createSemanticError('invalid_arguments', 'Cover source must be an http(s) URL or a SiYuan asset path starting with /assets/.');
     }
 
     const escapedSource = normalizedSource
@@ -513,7 +514,7 @@ const handleRemove: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         for (const path of parsed.paths) {
             const notebook = await resolveNotebookForPath(client, path);
             if (!notebook) {
-                throw new Error(`Unable to resolve notebook for storage path "${path}" while checking permissions.`);
+                throw createSemanticError('invalid_path', `Unable to resolve notebook for storage path "${path}" while checking permissions.`);
             }
             const denied = await ensurePermissionForNotebook(permMgr, notebook, 'delete');
             if (denied) return denied;
@@ -573,7 +574,7 @@ const handleMove: DocumentActionHandler = async ({ client, permMgr, rawArgs }) =
     for (const sourcePath of parsed.fromPaths!) {
         const sourceNotebook = await resolveNotebookForPath(client, sourcePath);
         if (!sourceNotebook) {
-            throw new Error(`Unable to resolve source notebook for storage path "${sourcePath}" while checking permissions.`);
+            throw createSemanticError('invalid_path', `Unable to resolve source notebook for storage path "${sourcePath}" while checking permissions.`);
         }
         const denied = await ensurePermissionForNotebook(permMgr, sourceNotebook, 'write');
         if (denied) return denied;
@@ -602,7 +603,7 @@ const handleReorder: DocumentActionHandler = async ({ client, permMgr, rawArgs }
         const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.parentID, 'write');
         if (denied) return denied;
         if (context.documentId !== parsed.parentID) {
-            throw new Error(`parentID must identify a notebook or document root, got content block "${parsed.parentID}".`);
+            throw createSemanticError('invalid_arguments', `parentID must identify a notebook or document root, got content block "${parsed.parentID}".`);
         }
         targetNotebook = context.notebook;
         parentPath = context.path;
@@ -622,7 +623,7 @@ const handleGetChildSortMode: DocumentActionHandler = async ({ client, permMgr, 
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
     if (denied) return denied;
     if (context.documentId !== parsed.id) {
-        throw new Error(`id must identify a document root, got content block "${parsed.id}".`);
+        throw createSemanticError('invalid_arguments', `id must identify a document root, got content block "${parsed.id}".`);
     }
     const state = await readDocumentChildSortMode(client, context.notebook, parsed.id, context.path);
     return createJsonResult({
@@ -643,7 +644,7 @@ const handleSetChildSortMode: DocumentActionHandler = async ({ client, permMgr, 
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
     if (denied) return denied;
     if (context.documentId !== parsed.id) {
-        throw new Error(`id must identify a document root, got content block "${parsed.id}".`);
+        throw createSemanticError('invalid_arguments', `id must identify a document root, got content block "${parsed.id}".`);
     }
     await documentApi.setDocSortMode(client, parsed.id, parsed.sortMode);
     const state = await readDocumentChildSortMode(client, context.notebook, parsed.id, context.path);

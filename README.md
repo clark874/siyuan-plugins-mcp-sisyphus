@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.6-wiki.1`（本地 CLI `v0.3.5-wiki.1`）把块、文档、笔记本和数据库缺失从后端故障还原为可恢复的 `not_found`，保留细分诊断与硬权限错误，并修复思源对无效 AV ID 返回 `av:null` 时的误报。外部 Agent 仍只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.7-wiki.1`（本地 CLI `v0.3.6-wiki.1`）补齐严格写入前置错误、数据库权限域和参数错误的语义分流：可自行修正且尚未执行写入的失败可按设置软化，竞态、回读不一致和结果未知继续保持硬失败。外部 Agent 仍只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.8.6-wiki.1` — 可恢复资源缺失、细分错误统计、AV 空值哨兵、思源 3.8.1 文档级排序、知识化工具层、严格写入和中央更新通道已统一；本地 CLI 为 `v0.3.5-wiki.1`。
+> **当前 LLM Wiki 版本：**`v0.8.7-wiki.1` — 可恢复错误语义、严格写入安全边界、AV 权限域、思源 3.8.1 文档级排序、知识化工具层和中央更新通道已统一；本地 CLI 为 `v0.3.6-wiki.1`。
 
 ## Project Direction Update
 

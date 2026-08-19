@@ -703,6 +703,25 @@ describe('av tool', () => {
         });
     });
 
+    it('reports a malformed non-null AV sentinel as a recoverable missing database', async () => {
+        const avApi = await import('@/api/av');
+        const context = await import('@/tools/internal/context');
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({ av: {} });
+
+        const result = await callAvTool(client, {
+            action: 'get',
+            id: 'av-malformed-missing',
+        }, enabledActions('get'), permMgr);
+
+        expect(vi.mocked(context.ensurePermissionForDocumentId)).not.toHaveBeenCalled();
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: {
+                type: 'not_found',
+                code: 'av_not_found',
+            },
+        });
+    });
+
     it('treats av:null as creatable when render explicitly requests materialization', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({ av: null });
@@ -1164,7 +1183,7 @@ describe('av tool', () => {
         });
     });
 
-    it('keeps unresolved permission scope errors for empty AV writes without blockID', async () => {
+    it('keeps unresolved permission scope errors hard for empty AV writes without blockID', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
             av: {
@@ -1189,7 +1208,7 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             error: {
-                type: 'internal_error',
+                type: 'permission_denied',
                 tool: 'av',
                 action: 'add_column',
                 message: 'Unable to resolve notebook permission scope for attribute view "av-empty". The database may have no rows yet; AV writes require a resolvable owning block context.',
@@ -2392,7 +2411,7 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toEqual({
             error: {
-                type: 'internal_error',
+                type: 'permission_denied',
                 tool: 'av',
                 action: 'duplicate',
                 message: 'Unable to resolve notebook permission scope for attribute view "av-1". The database may have no rows yet; AV writes require a resolvable owning block context.',
@@ -2554,7 +2573,7 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             error: {
-                type: 'internal_error',
+                type: 'invalid_arguments',
                 tool: 'av',
                 action: 'render',
                 message: 'av(action="render") requires id unless createIfNotExist=true is provided.',
@@ -2845,7 +2864,7 @@ describe('av tool', () => {
 
         expect(JSON.parse(result.content[0].text)).toMatchObject({
             error: {
-                type: 'internal_error',
+                type: 'invalid_arguments',
                 tool: 'av',
                 action: 'render',
                 message: 'Unable to create or render attribute view "av-new" because createIfNotExist=true requires blockID to resolve notebook permission scope.',

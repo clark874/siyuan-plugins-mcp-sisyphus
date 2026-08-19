@@ -72,6 +72,13 @@
 | `write_coordinator_unavailable` | CLI/stdio 找不到插件 HTTP 协调器 | 开启插件 HTTP 服务并重试预检 |
 | `preflight_unavailable` | action 是无法读回的外部副作用 | 预检不会执行；如确认调用，只能接受非严格保证 |
 
+每个失败同时携带高层 `error.type` 和上表中的细分错误码。尚未执行写入且
+可以通过修正下一次调用恢复的拒绝使用 `validation_error` 或
+`invalid_arguments`；开启“软化可恢复错误”后，这些结果可以不带 MCP
+`isError`，但仍会保留 `softened: true`、`writeAttempted: false` 和
+`writeExecuted: false`。`state_changed`、`readback_mismatch`、
+`outcome_unknown`、幂等冲突和账本故障继续保持硬错误。
+
 ## 边界
 
 `extension` 转发的第三方或思源原生 Tool 不在 Sisyphus 的控制范围内，因此不会宣称严格写入保证。本地导出、通知、同步和反馈等外部副作用也无法通过思源状态读回验证：`validateOnly` 会拒绝且保证不执行；真实调用仍保持单次传输，但响应会明确给出 `writeSafetyGuaranteed: false`。

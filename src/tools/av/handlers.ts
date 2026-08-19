@@ -26,6 +26,7 @@ import type { ToolActionHandler, ToolHandlerContext } from '../internal/define-t
 import { isMissingBlockError, translateError } from '../internal/errorTranslation';
 import { createJsonResult, createPaginatedResult, createWriteSuccessResult, type ToolResult } from '../internal/shared';
 import { applyUiRefresh, type UiRefreshOperation } from '../internal/ui-refresh';
+import { createSemanticError } from '../internal/validation';
 import { sleep } from '../../shared/async';
 
 const AV_TOOL_NAME = 'av';
@@ -626,8 +627,13 @@ async function ensurePermissionForAvId(
     // scope discovery; otherwise it is misreported as an internal ownership
     // resolution failure. Valid empty databases still return a non-null AV
     // object with an id and empty keyValues.
-    if (avData == null) {
-        throw Object.assign(new Error(`attribute view "${avID}" not found`), { code: 'not_found' });
+    if (
+        avData == null
+        || typeof avData !== 'object'
+        || Array.isArray(avData)
+        || (avData as { id?: unknown }).id !== avID
+    ) {
+        throw createSemanticError('not_found', `attribute view "${avID}" not found`);
     }
 
     if (options?.blockID) {
@@ -659,9 +665,9 @@ async function ensurePermissionForAvId(
     }
 
     if (candidateBlockIDs.length === 0) {
-        throw new Error(`Unable to resolve notebook permission scope for attribute view "${avID}". The database may have no rows yet; AV writes require a resolvable owning block context.`);
+        throw createSemanticError('permission_denied', `Unable to resolve notebook permission scope for attribute view "${avID}". The database may have no rows yet; AV writes require a resolvable owning block context.`);
     }
-    throw new Error(`Unable to resolve notebook permission scope for attribute view "${avID}" because all known owning block references are stale or missing.`);
+    throw createSemanticError('permission_denied', `Unable to resolve notebook permission scope for attribute view "${avID}" because all known owning block references are stale or missing.`);
 }
 
 function isUnresolvedAvPermissionScopeError(error: unknown): boolean {
@@ -690,7 +696,7 @@ async function ensurePermissionForRender(
 }> {
     if (parsed.createIfNotExist === true) {
         if (!parsed.blockID) {
-            throw new Error(`Unable to create or render attribute view "${effectiveAvID}" because createIfNotExist=true requires blockID to resolve notebook permission scope.`);
+            throw createSemanticError('invalid_arguments', `Unable to create or render attribute view "${effectiveAvID}" because createIfNotExist=true requires blockID to resolve notebook permission scope.`);
         }
 
         if (idWasGenerated) {
@@ -712,7 +718,7 @@ async function ensurePermissionForRender(
     }
 
     if (!parsed.id) {
-        throw new Error('av(action="render") requires id unless createIfNotExist=true is provided.');
+        throw createSemanticError('invalid_arguments', 'av(action="render") requires id unless createIfNotExist=true is provided.');
     }
 
     try {
@@ -877,13 +883,13 @@ async function searchAttributeViewPrimaryKeys(
 
 function parseDateMillis(value: string | number, fieldName: string): number {
     if (typeof value === 'number') {
-        if (!Number.isFinite(value)) throw new Error(`${fieldName} must be a finite epoch millisecond value.`);
+        if (!Number.isFinite(value)) throw createSemanticError('invalid_arguments', `${fieldName} must be a finite epoch millisecond value.`);
         return value;
     }
 
     const parsed = Date.parse(value);
     if (Number.isNaN(parsed)) {
-        throw new Error(`${fieldName} must be a valid ISO date string or epoch milliseconds.`);
+        throw createSemanticError('invalid_arguments', `${fieldName} must be a valid ISO date string or epoch milliseconds.`);
     }
     return parsed;
 }
@@ -1088,7 +1094,7 @@ function buildStrongCellValue(
             };
         }
         default:
-            throw new Error(`Unsupported AV valueType: ${(input as { valueType: string }).valueType}`);
+            throw createSemanticError('invalid_arguments', `Unsupported AV valueType: ${(input as { valueType: string }).valueType}`);
     }
 }
 

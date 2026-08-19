@@ -72,6 +72,14 @@ If active hashes in the same operation scope share four digits, a new preflight 
 | `write_coordinator_unavailable` | CLI/stdio cannot reach the plugin coordinator | Enable the plugin HTTP server and preflight again |
 | `preflight_unavailable` | The action is an external side effect that cannot be read back | Preflight does not execute; a real call carries no strict guarantee |
 
+Every failure includes both a high-level `error.type` and the specific code
+above. Rejections that occur before any write and can be fixed by changing the
+next call use `validation_error` or `invalid_arguments`; when recoverable-error
+softening is enabled they may be returned without MCP `isError`, but still carry
+`softened: true`, `writeAttempted: false`, and `writeExecuted: false`.
+`state_changed`, `readback_mismatch`, `outcome_unknown`, idempotency conflicts,
+and ledger failures remain hard errors.
+
 ## Boundaries
 
 Third-party and native SiYuan tools forwarded through `extension` are outside Sisyphus control and do not receive this guarantee. Local exports, notifications, sync, and feedback are also external side effects that cannot be verified through SiYuan state readback: `validateOnly` rejects without executing, while a real call still uses single-attempt transport and returns `writeSafetyGuaranteed: false`.

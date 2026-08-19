@@ -1040,6 +1040,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function writeSafetyErrorType(code: string): string {
+    if ([
+        'precondition_required',
+        'invalid_request_id',
+        'request_id_expired',
+        'preflight_lease_invalid',
+        'ambiguous_hash_prefix',
+    ].includes(code)) return 'validation_error';
+    if (code === 'invalid_arguments') return 'invalid_arguments';
+    if (code === 'permission_denied') return 'permission_denied';
+    if (code === 'state_changed' || code === 'idempotency_conflict') return 'state_changed';
+    if (code === 'readback_mismatch') return 'readback_mismatch';
+    if (code === 'outcome_unknown') return 'outcome_unknown';
+    return 'write_safety_error';
+}
+
 function writeSafetyFailure(code: string, message: string, details: Record<string, unknown> = {}): ToolResult {
     return jsonResult({
         success: false,
@@ -1047,7 +1063,7 @@ function writeSafetyFailure(code: string, message: string, details: Record<strin
         writeAttempted: false,
         writeExecuted: false,
         transactionState: code === 'outcome_unknown' || code === 'readback_mismatch' ? 'unknown' : 'rejected',
-        error: { code, message, ...details },
+        error: { type: writeSafetyErrorType(code), code, message, ...details },
     }, true);
 }
 
@@ -1062,7 +1078,7 @@ function writeSafetyFailureAfterAttempt(
         writeAttempted: true,
         writeExecuted: false,
         transactionState: 'unknown',
-        error: { code, message, ...details },
+        error: { type: writeSafetyErrorType(code), code, message, ...details },
     }, true);
 }
 

@@ -17,10 +17,12 @@ function errorType(result: { content: Array<{ text: string }> }): string {
 }
 
 describe('readSemanticErrorCode', () => {
-    it('recognises the path resolution codes thrown by fs helpers', () => {
+    it('recognises semantic codes thrown by local helpers', () => {
         expect(readSemanticErrorCode(codedError('not_found', 'x'))).toBe('not_found');
         expect(readSemanticErrorCode(codedError('ambiguous_path', 'x'))).toBe('ambiguous_path');
         expect(readSemanticErrorCode(codedError('invalid_path', 'x'))).toBe('invalid_path');
+        expect(readSemanticErrorCode(codedError('invalid_arguments', 'x'))).toBe('invalid_arguments');
+        expect(readSemanticErrorCode(codedError('permission_denied', 'x'))).toBe('permission_denied');
     });
 
     it('ignores unrelated and non-string codes', () => {

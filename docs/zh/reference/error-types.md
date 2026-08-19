@@ -12,11 +12,19 @@
 | 错误类型 | 含义 |
 |----------|------|
 | `validation_error` | 参数无效或缺少必填字段 |
+| `invalid_arguments` | action 有效，但 ID、路径或字段组合不兼容 |
+| `invalid_path` | 工作区路径或存储路径无法安全解析 |
 | `not_found` | 块、文档、笔记本或数据库不存在；具体资源类型见 `error.code` |
 | `permission_denied` | 笔记本权限不允许当前操作 |
 | `api_error` | 思源 API 返回错误 |
 | `internal_error` | MCP 服务内部失败 |
 | `action_disabled` | 工具或 action 在配置中被禁用 |
+
+严格写入拒绝还会保留稳定的 `error.code`。执行前、Agent 可自行修正的
+`precondition_required`、`invalid_request_id`、`request_id_expired`、
+`preflight_lease_invalid` 等错误使用 `type: validation_error`；写入竞态和
+结果不确定分别使用 `state_changed`、`readback_mismatch`、
+`outcome_unknown` 等硬错误类型，绝不进入软化通道。
 
 ## 排查顺序
 

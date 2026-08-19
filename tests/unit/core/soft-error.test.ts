@@ -64,7 +64,7 @@ describe('isRecoverableToolError', () => {
         for (const type of RECOVERABLE_TOOL_ERROR_TYPES) {
             expect(isRecoverableToolError(errorResult(type))).toBe(true);
         }
-        for (const type of ['permission_denied', 'internal_error', 'api_error', 'state_changed']) {
+        for (const type of ['permission_denied', 'internal_error', 'api_error', 'state_changed', 'readback_mismatch', 'outcome_unknown', 'write_safety_error']) {
             expect(isRecoverableToolError(errorResult(type))).toBe(false);
         }
     });
@@ -90,7 +90,7 @@ describe('softenRecoverableToolError', () => {
     });
 
     it('keeps isError for permission, backend, and write-conflict failures', () => {
-        for (const type of ['permission_denied', 'internal_error', 'state_changed']) {
+        for (const type of ['permission_denied', 'internal_error', 'state_changed', 'readback_mismatch', 'outcome_unknown', 'write_safety_error']) {
             expect(softenRecoverableToolError(errorResult(type), true).isError).toBe(true);
         }
     });
