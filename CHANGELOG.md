@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.9-wiki.4 - 2026-08-20
+
+- 修复 `siyuan-agent-kit.zip` 内 `START-HERE.md` 仍指向 `v0.8.1-wiki.2` 的发布漂移；冷启动入口现在先读取稳定通道，再使用机器可读的 `agentKit.url` 下载当前版本
+- 固定发布页改为 `releases/latest`，交接文档改为维护分支常青地址；版本化 URL 与 SHA-256 继续由每个发布包的 `delivery.json` 和 `release-channel.json` 提供
+- Agent Kit 构建新增失败关闭：根包、`delivery.json` 与 Kimi 清单版本不一致，或 `START-HERE.md` 再次写死版本化发布地址时直接中止构建；回归测试改为从根包版本动态核对全部发布 URL
+- 本地 CLI 无代码变化，版本保持 `v0.3.8-wiki.3`；推荐思源版本保持 `3.8.1`
+
 ## v0.8.9-wiki.3 - 2026-08-20
 
 - 知识治理与检索 Skill 新增“命中即读”完成门：`search.knowledge` 去重前 3 名出现带 `name`、路径明确且与任务一致的专题中枢或知识原子时，立即按稳定 ID 读取并停止目录级发现；候选歧义、偏题或未命名时才继续全文、SQL 或目录探索

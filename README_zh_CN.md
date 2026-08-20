@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.3`（本地 CLI `v0.3.8-wiki.3`）收敛知识发现流程：高置信命名命中后立即读取，锚点预检失败不得冒充通过，并为 `check_anchor` 参数错误提供可直接重试的示例。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.4`（本地 CLI `v0.3.8-wiki.3`）将 Agent Kit 接入文档改为常青入口：从稳定通道读取 `agentKit.url`，不再硬编码可能过期的固定版本地址。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.8.9-wiki.3` — 高置信命名候选直接进入稳定 ID 读取，`check_anchor` 明确限定为写前碰撞预检，参数错误会返回正确调用形态；本地 CLI 为 `v0.3.8-wiki.3`。
+> **当前 LLM Wiki 版本：**`v0.8.9-wiki.4` — Agent Kit 冷启动入口从稳定通道解析当前下载地址，构建会拒绝版本漂移和写死的旧发布链接；本地 CLI 保持 `v0.3.8-wiki.3`。
 
 ## 项目方向调整
 

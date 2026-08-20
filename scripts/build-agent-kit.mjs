@@ -10,6 +10,22 @@ const source = path.join(root, 'agent-kit');
 const output = path.join(root, 'siyuan-agent-kit.zip');
 const fixedDate = new Date('2026-08-12T00:00:00.000Z');
 
+const packageManifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+const delivery = JSON.parse(await readFile(path.join(source, 'delivery.json'), 'utf8'));
+const kimiManifest = JSON.parse(await readFile(path.join(source, 'kimi.plugin.json'), 'utf8'));
+const startHere = await readFile(path.join(source, 'START-HERE.md'), 'utf8');
+
+if (delivery.packageVersion !== packageManifest.version || kimiManifest.version !== packageManifest.version) {
+    throw new Error(`agent-kit 版本漂移：package=${packageManifest.version}, delivery=${delivery.packageVersion}, kimi=${kimiManifest.version}。`);
+}
+if (/github\.com\/clark874\/siyuan-plugins-mcp-sisyphus\/(?:releases\/download|releases\/tag)\/v\d/i.test(startHere)
+    || /raw\.githubusercontent\.com\/clark874\/siyuan-plugins-mcp-sisyphus\/v\d/i.test(startHere)) {
+    throw new Error('START-HERE.md 不得写死版本化发布地址；请通过稳定通道解析当前 Agent Kit。');
+}
+if (!startHere.includes('release-channel.json') || !startHere.includes('agentKit.url')) {
+    throw new Error('START-HERE.md 必须从稳定通道读取 agentKit.url。');
+}
+
 async function listFiles(directory, prefix = '') {
     const entries = await readdir(directory, { withFileTypes: true });
     const files = [];

@@ -26,6 +26,7 @@ describe('portable agent kit', () => {
         const manifest = JSON.parse(read('agent-kit/kimi.plugin.json'));
         const delivery = JSON.parse(read('agent-kit/delivery.json'));
         const releaseChannel = JSON.parse(read('release-channel.json'));
+        const packageManifest = JSON.parse(read('package.json'));
         const agent = read('agent-kit/AGENT.md');
         const kimi = read('agent-kit/KIMI.md');
         const start = read('agent-kit/START-HERE.md');
@@ -43,9 +44,10 @@ describe('portable agent kit', () => {
             sessionStart: { skill: 'siyuan-mcp-sisyphus' },
         }));
         expect(delivery).toEqual(expect.objectContaining({
+            packageVersion: packageManifest.version,
             distribution: {
-                startHere: expect.stringContaining('/v0.8.9-wiki.3/agent-kit/START-HERE.md'),
-                archive: expect.stringContaining('/v0.8.9-wiki.3/siyuan-agent-kit.zip'),
+                startHere: expect.stringContaining(`/v${packageManifest.version}/agent-kit/START-HERE.md`),
+                archive: expect.stringContaining(`/v${packageManifest.version}/siyuan-agent-kit.zip`),
                 stableChannel: expect.stringContaining('/codex/local-maintenance/release-channel.json'),
             },
             externalGateway: expect.objectContaining({
@@ -60,13 +62,13 @@ describe('portable agent kit', () => {
         expect(releaseChannel).toEqual(expect.objectContaining({
             schemaVersion: 1,
             channel: 'stable',
-            version: '0.8.9-wiki.3',
+            version: packageManifest.version,
             package: expect.objectContaining({
-                url: expect.stringContaining('/v0.8.9-wiki.3/package.zip'),
+                url: expect.stringContaining(`/v${packageManifest.version}/package.zip`),
                 sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
             }),
             agentKit: expect.objectContaining({
-                url: expect.stringContaining('/v0.8.9-wiki.3/siyuan-agent-kit.zip'),
+                url: expect.stringContaining(`/v${packageManifest.version}/siyuan-agent-kit.zip`),
                 sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
             }),
         }));
@@ -77,6 +79,12 @@ describe('portable agent kit', () => {
         expect(start).toContain('唯一外部 MCP');
         expect(start).toContain('scripts/install-agent-kit.mjs');
         expect(start).toContain('scripts/update-sisyphus.mjs --apply');
+        expect(start).toContain('release-channel.json');
+        expect(start).toContain('agentKit.url');
+        expect(start).toContain('/releases/latest');
+        expect(start).toContain('/codex/local-maintenance/agent-kit/START-HERE.md');
+        expect(start).not.toMatch(/github\.com\/clark874\/siyuan-plugins-mcp-sisyphus\/(?:releases\/download|releases\/tag)\/v\d/i);
+        expect(start).not.toMatch(/raw\.githubusercontent\.com\/clark874\/siyuan-plugins-mcp-sisyphus\/v\d/i);
         expect(kimi).toContain('kimi mcp add --transport http');
         expect(kimi).toContain('kimi mcp test siyuan');
         expect(kimi).toContain('/skill:siyuan-mcp-sisyphus');

@@ -12,13 +12,14 @@ Sisyphus MCP：http://127.0.0.1:36806/mcp
 
 仅当当前 Agent 运行在本机、能够执行命令并修改其宿主客户端配置时，才执行安装。普通网页聊天不能安装本机 MCP，应直接说明宿主不具备本地工具接入能力。
 
-1. 下载本版本发布资产并解压：
+1. 读取稳定通道清单：
 
 ```text
-https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.8.1-wiki.2/siyuan-agent-kit.zip
+https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/release-channel.json
 ```
-2. 阅读 `delivery.json`，确认唯一外部 endpoint 为 `36806/mcp`。
-3. 在解压目录中按宿主执行：
+2. 使用清单中的 `agentKit.url` 下载并解压当前稳定版，不要从本文猜测或拼接版本号。
+3. 阅读解压目录中的 `delivery.json`，确认其 `packageVersion` 与稳定通道一致，且唯一外部 endpoint 为 `36806/mcp`。
+4. 在解压目录中按宿主执行：
 
 ```bash
 # Kimi Code
@@ -30,8 +31,8 @@ SIYUAN_MCP_TOKEN='<由用户在本地提供的 token>' node scripts/install-agen
 
 若目标客户端已经保存了有效的 Sisyphus Bearer token，可省略环境变量，安装器会在受支持的本地客户端配置中复用它。安装器不读取思源工作区正文，不输出 token，也不删除检测到的官方 MCP 配置。
 
-4. 重启或重新加载宿主客户端，确认只出现一组 Sisyphus 聚合工具。
-5. 首次调用：
+5. 重启或重新加载宿主客户端，确认只出现一组 Sisyphus 聚合工具。
+6. 首次调用：
 
 ```text
 system(action="bootstrap")
@@ -61,14 +62,14 @@ node scripts/update-sisyphus.mjs --apply
 https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/release-channel.json
 ```
 
-固定版本发布页：
+当前稳定版发布页：
 
 ```text
-https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/tag/v0.8.1-wiki.2
+https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/latest
 ```
 
-后续交给其他本地 Agent 时，优先提供本文件的固定版本地址：
+后续交给其他本地 Agent 时，优先提供本文件的常青地址；需要审计具体发布物时，再以稳定通道中的版本化地址和 SHA-256 为准：
 
 ```text
-https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.8.1-wiki.2/agent-kit/START-HERE.md
+https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/agent-kit/START-HERE.md
 ```
