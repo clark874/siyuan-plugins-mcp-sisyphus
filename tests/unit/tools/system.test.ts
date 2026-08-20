@@ -427,9 +427,14 @@ describe('system tool schemas', () => {
             strictMode: true,
             protocol: 'preflight-lease-v1',
             mutationSteps: [
+                expect.stringContaining('action schema'),
                 expect.stringContaining('validateOnly=true'),
-                expect.stringContaining('expectedStateHash'),
+                expect.stringContaining('request-id-only'),
             ],
+            protocols: {
+                guarded: expect.stringContaining('preconditionField'),
+                requestIdOnly: expect.stringContaining('no hash credential'),
+            },
         }));
         expect(parsed.nextCalls).not.toEqual(expect.arrayContaining([
             expect.objectContaining({ tool: 'notebook', action: 'list' }),

@@ -19,6 +19,43 @@ function success(payload: Record<string, unknown>) {
 }
 
 describe('write safety coordinator', () => {
+    it('describes validateOnly for request-id-only mutations as an optional protocol check', async () => {
+        const client = {
+            readFile: vi.fn(async () => { throw new Error('HTTP error: 404 Not Found'); }),
+            requestRead: vi.fn(),
+        } as never;
+        const execute = vi.fn();
+
+        const result = parseResult(await new WriteSafetyCoordinator(client).run({
+            client,
+            permMgr: createMockPermissionManager(),
+            category: 'block',
+            action: 'append',
+            args: {
+                action: 'append',
+                parentID: '20260821000000-parent1',
+                dataType: 'markdown',
+                data: '新增正文',
+                validateOnly: true,
+            },
+            strictMode: true,
+            execute,
+        }));
+
+        expect(result).toMatchObject({
+            validateOnly: true,
+            writeAttempted: false,
+            writeExecuted: false,
+            mutationProtocol: 'request-id-only',
+            preflightRequired: false,
+            preconditionRequired: false,
+            requestIdRequired: true,
+        });
+        expect(result.nextStep).toContain('fresh UUIDv7 requestId');
+        expect(result).not.toHaveProperty('preconditionField');
+        expect(execute).not.toHaveBeenCalled();
+    });
+
     it('types agent-correctable precondition failures', async () => {
         const client = {
             readFile: vi.fn(async () => { throw new Error('HTTP error: 404 Not Found'); }),

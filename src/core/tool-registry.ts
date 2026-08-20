@@ -204,7 +204,7 @@ function decorateStrictWriteSchema(category: ToolCategory, descriptor: ToolDescr
     };
     properties.validateOnly = {
         type: 'boolean',
-        description: 'Preflight only. Returns a temporary in-memory hash credential and never executes the write.',
+        description: 'Protocol check only; never writes. Guarded mutations return a temporary hash credential. Request-id-only additive mutations return no credential and should be executed once with a fresh UUIDv7 requestId.',
     };
     for (const field of Object.values(PRECONDITION_FIELD)) {
         properties[field] = {
@@ -247,7 +247,7 @@ function decorateStrictWriteSchema(category: ToolCategory, descriptor: ToolDescr
 
     return {
         ...descriptor,
-        description: `${descriptor.description ?? ''}\n\nStrict safe writes are enabled. Preflight a mutation with validateOnly=true, then execute with a fresh requestId and the returned temporary credential.`,
+        description: `${descriptor.description ?? ''}\n\nStrict safe writes are enabled. Guarded mutations require validateOnly=true followed by one execution with a fresh requestId and the returned credential. Additive request-id-only mutations expose no expected-hash field and execute once with only a fresh requestId; validateOnly is optional and returns no credential.`,
         inputSchema,
     };
 }

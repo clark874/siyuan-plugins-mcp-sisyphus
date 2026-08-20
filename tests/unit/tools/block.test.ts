@@ -20,7 +20,11 @@ describe('block tool', () => {
         return `<div data-node-id="block-1" data-type="NodeParagraph">${content.replace(/\n/g, '<br>')}</div>`;
     }
 
-    function createBlockReplaceClient(kramdown = 'alpha\nbudget line\nbudget tail', dom = createTestDom(kramdown)) {
+    function createBlockReplaceClient(
+        kramdown = 'alpha\nbudget line\nbudget tail',
+        dom = createTestDom(kramdown),
+        attrs: Record<string, string> = {},
+    ) {
         return createMockClient({
             request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
                 if (endpoint === '/api/query/sql') {
@@ -39,6 +43,12 @@ describe('block tool', () => {
                 }
                 if (endpoint === '/api/block/getBlockDOM') {
                     return { id: body?.id, dom };
+                }
+                if (endpoint === '/api/attr/getBlockAttrs') {
+                    return attrs;
+                }
+                if (endpoint === '/api/attr/setBlockAttrs') {
+                    return null;
                 }
                 if (endpoint === '/api/block/updateBlock') {
                     return { updated: true };
@@ -209,6 +219,83 @@ describe('block tool', () => {
             id: 'block-1',
             dataType: 'dom',
             data: '<div data-node-id="block-1" data-type="NodeParagraph">See <span data-type="block-ref" data-subtype="s" data-id="20260508123456-abcdefg">完整标题</span> and <span data-type="tag">测试标签</span></div>',
+        });
+    });
+
+    it('preserves semantic IAL attributes during single block update without restoring id or updated', async () => {
+        const attrs = {
+            id: 'block-1',
+            updated: '20260821090000',
+            name: 'sample-provenance-gap',
+            alias: '样本来源缺口,样本追溯',
+            'custom-topic': 'water-commodification',
+            icon: '1f50d',
+        };
+        const client = createBlockReplaceClient('旧正文\n{: id="block-1"}', undefined, attrs);
+
+        const result = await callBlockTool(client, {
+            action: 'update',
+            id: 'block-1',
+            dataType: 'markdown',
+            data: '新正文',
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(parseResult(result)).toMatchObject({
+            success: true,
+            attributesPreserved: true,
+            preservedAttributeCount: 4,
+        });
+        expect(client.request).toHaveBeenCalledWith('/api/attr/setBlockAttrs', {
+            id: 'block-1',
+            attrs: {
+                name: 'sample-provenance-gap',
+                alias: '样本来源缺口,样本追溯',
+                'custom-topic': 'water-commodification',
+                icon: '1f50d',
+            },
+        });
+    });
+
+    it('preserves semantic IAL attributes during batch block update', async () => {
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, any>) => {
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body?.stmt ?? '');
+                    const id = stmt.includes('block-2') ? 'block-2' : 'block-1';
+                    return [{ id, root_id: 'doc-1', box: 'nb-1', path: '/doc-1.sy', hpath: '/Doc 1', content: id, type: 'p' }];
+                }
+                if (endpoint === '/api/attr/batchGetBlockAttrs') {
+                    return {
+                        'block-1': { id: 'block-1', updated: '1', name: 'atom-one' },
+                        'block-2': { id: 'block-2', updated: '2', alias: '原子二', 'custom-scope': 'test' },
+                    };
+                }
+                if (endpoint === '/api/block/batchUpdateBlock') return [{ doOperations: [] }];
+                if (endpoint === '/api/attr/batchSetBlockAttrs') return null;
+                if (endpoint.startsWith('/api/ui/')) return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+
+        const result = await callBlockTool(client, {
+            action: 'update',
+            items: [
+                { id: 'block-1', dataType: 'markdown', data: '正文一' },
+                { id: 'block-2', dataType: 'markdown', data: '正文二' },
+            ],
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(parseResult(result)).toMatchObject({
+            success: true,
+            count: 2,
+            attributesPreserved: true,
+            preservedAttributeCount: 3,
+        });
+        expect(client.request).toHaveBeenCalledWith('/api/attr/batchSetBlockAttrs', {
+            blockAttrs: [
+                { id: 'block-1', attrs: { name: 'atom-one' } },
+                { id: 'block-2', attrs: { alias: '原子二', 'custom-scope': 'test' } },
+            ],
         });
     });
 
@@ -601,6 +688,25 @@ describe('block tool', () => {
             dataType: 'dom',
             data: '<div data-node-id="block-1" data-type="NodeParagraph">alpha <strong>new</strong> tail</div>',
         });
+    });
+
+    it('explains that inline formatting markers are not DOM logical text during block replace', async () => {
+        const client = createBlockReplaceClient(
+            'alpha `w_natcs` tail\n{: id="block-1"}',
+            '<div data-node-id="block-1" data-type="NodeParagraph">alpha <code>w_natcs</code> tail</div>',
+        );
+
+        const result = await callBlockTool(client, {
+            action: 'replace',
+            id: 'block-1',
+            edit: { old: '`w_natcs`', new: '`w_natcs_new`' },
+        }, buildDefaultToolConfig().block, permMgr as never);
+
+        expect(result.isError).toBe(true);
+        const message = parseResult(result).error.message;
+        expect(message).toContain('Remove Markdown style delimiters');
+        expect(message).toContain('old="w_natcs"');
+        expect(message).toContain('preserves existing IAL attributes');
     });
 
     it('allows footnote-style references during block replace with a hint', async () => {

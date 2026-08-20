@@ -279,15 +279,20 @@ function renderWriteSafety(): string {
     return [
         '# Strict Write Safety',
         '',
-        'When strict mode is enabled, every mutation uses a two-stage preflight lease.',
+        'When strict mode is enabled, mutations use one of two protocols. Inspect the action schema instead of assuming every write returns a hash.',
         '',
-        '1. Generate one fresh UUIDv7 `requestId`.',
-        '2. Call the exact mutation with `validateOnly=true`.',
-        '3. Read the returned expected hash field, such as `expectedStateHash`.',
-        '4. Repeat the exact same mutation with the same `requestId` and returned hash.',
-        '5. Re-read the affected target and verify the result.',
+        '## Guarded mutation',
         '',
-        'Except for removing `validateOnly` and adding the returned expected hash field, preflight and execution arguments must remain byte-for-byte equivalent. Do not automatically replay a failed mutation with a new request ID.',
+        '1. Call the exact mutation with `validateOnly=true`.',
+        '2. Read `preconditionField` and the returned temporary credential.',
+        '3. Execute once with the same business arguments, a fresh UUIDv7 `requestId`, and that credential.',
+        '4. Re-read the affected target and verify the result.',
+        '',
+        '## Request-id-only additive mutation',
+        '',
+        'Actions whose schema has no expected-hash field, such as create or append actions, do not need preflight and do not issue a lease. Execute once with a fresh UUIDv7 `requestId`. If called with `validateOnly=true`, the response says `mutationProtocol="request-id-only"` and gives a `nextStep`; it is not a failed preflight.',
+        '',
+        'For guarded mutations, preflight and execution business arguments must remain byte-for-byte equivalent. Do not automatically replay any failed mutation with a new request ID.',
     ].join('\n');
 }
 

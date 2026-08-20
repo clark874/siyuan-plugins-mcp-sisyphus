@@ -4,6 +4,10 @@
 
 ## 调用流程
 
+严格模式包含两类修改协议。调用方应读取 action Schema 或 `system(action="bootstrap")`，不能假定每次写入都会签发哈希凭据。
+
+### 带状态保护的修改
+
 对于需要前置条件的修改型 action，先用完全相同的业务参数执行预检：
 
 ```json
@@ -42,7 +46,11 @@
 }
 ```
 
-不同 action 可能返回 `expectedStateHash`、`expectedStructureHash`、`expectedManifestHash` 或 `expectedSourceHash`。调用方应读取 `preconditionField`，不要自行猜测字段。纯新增 action 不需要状态哈希，但真实执行仍要求新的 UUIDv7 `requestId`。
+不同 action 可能返回 `expectedStateHash`、`expectedStructureHash`、`expectedManifestHash` 或 `expectedSourceHash`。调用方应读取 `preconditionField`，不要自行猜测字段。
+
+### 仅需 request ID 的新增型修改
+
+创建、追加等新增型 action 没有状态前置条件，不暴露 expected-hash 字段，也不签发租约。此类 action 无需预检，直接携带新的 UUIDv7 `requestId` 执行一次即可。若显式调用 `validateOnly=true`，响应会给出 `mutationProtocol: "request-id-only"`、`preflightRequired: false` 与可执行的 `nextStep`，不会返回 `preconditionField` 或哈希凭据；这不是预检失败。
 
 凭据接受 `sha256:v1:<4～64 位十六进制>` 或裸 `<4～64 位十六进制>`，不区分大小写。4 位只是租约查找键，不是把正确性降低为 16 bit 比较：正式写入会按 `tool + action + 业务参数摘要 + 排序后的目标 ID` 查找唯一活动租约，取出其中的完整 256-bit SHA-256，重新读取实时状态并做完整比较。即使提交 64 位完整值，也必须能解析到活动租约，不能绕过预检。
 
@@ -51,6 +59,7 @@
 ## 它提高了什么正确性
 
 - 哈希使用稳定键序、保留数组顺序的规范化 JSON，再以带版本前缀的 SHA-256 计算；同一状态在不同入口得到同一摘要。
+- `block.update` 与 `block.replace` 在内核重写正文前后自动保留目标块既有的用户 IAL 属性；内核管理的 `id` 和 `updated` 不会回写，元数据变更仍必须显式使用 `block.set_attrs`。
 - `fs.reorder` 与 `document.reorder` 使用结构前置条件，覆盖父级、实际生效的排序模式、笔记本配置，以及每个可见直属子文档的 ID、存储路径、`sort` 值和当前顺序。并发新增、删除、移动或重排都会使租约失效；提交后还必须读回精确目标顺序与自定义排序模式。思源 3.8.1 及以上版本的父文档重排只修改该文档的本地子文档排序；笔记本根和旧内核兼容路径仍使用笔记本配置。
 - Agent 提交短凭据，但安全判断始终比较两份完整 SHA-256；短前缀绝不直接与实时哈希比较。
 - 插件 HTTP 服务持有进程级唯一写协调器，所有严格修改串行通过该入口。CLI 与 stdio 不在本地另开写通道。

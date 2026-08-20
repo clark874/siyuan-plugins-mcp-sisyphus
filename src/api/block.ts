@@ -292,6 +292,17 @@ export async function setBlockAttrs(
 }
 
 /**
+ * 批量设置块属性，避免批量正文更新后逐块发起恢复请求。
+ */
+export async function batchSetBlockAttrs(
+    client: SiYuanClient,
+    blockAttrs: Array<{ id: string; attrs: Record<string, string> }>,
+): Promise<null> {
+    if (blockAttrs.length === 0) return null;
+    return client.requestWrite<null>('/api/attr/batchSetBlockAttrs', { blockAttrs });
+}
+
+/**
  * Get attributes for a block
  */
 export async function getBlockAttrs(client: SiYuanClient, id: string): Promise<Record<string, string>> {

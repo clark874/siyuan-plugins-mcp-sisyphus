@@ -71,7 +71,7 @@ siyuan document create --notebook <notebook-id> --path "/Inbox/Note" --markdown 
 - 把整个 `#标签#` 替换为普通文本
 - `block.replace` 对同类场景同样有效
 
-`block.update` 的 `dataType="markdown"` 和 `dataType="dom"` 也会把 Markdown 里的 `((id '标题'))`、`((id))`、`#标签#` 规范化为真实思源 inline 结构。不要手工拼复杂 DOM。
+`block.update` 的 `dataType="markdown"` 和 `dataType="dom"` 也会把 Markdown 里的 `((id '标题'))`、`((id))`、`#标签#` 规范化为真实思源 inline 结构，并自动保留既有用户 IAL 属性；元数据变更应单独使用 `block.set_attrs`。不要手工拼复杂 DOM。
 
 ## 追加块
 

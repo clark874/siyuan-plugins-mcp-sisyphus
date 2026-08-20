@@ -66,7 +66,7 @@ Current builds can use `fs.replace` or `block.replace` directly on paragraphs co
 
 Verified safe cases include replacing a whole paragraph containing a block ref, replacing a whole paragraph containing a tag, replacing a full `#tag#` token with plain text, and the same operations through `block.replace`.
 
-`block.update` with `dataType="markdown"` or `dataType="dom"` also normalizes Markdown-looking `((id 'title'))`, `((id))`, and `#tag#` into real SiYuan inline structures. Do not hand-build complex DOM.
+`block.update` with `dataType="markdown"` or `dataType="dom"` also normalizes Markdown-looking `((id 'title'))`, `((id))`, and `#tag#` into real SiYuan inline structures. It preserves existing user IAL attributes automatically; change metadata separately with `block.set_attrs`. Do not hand-build complex DOM.
 
 ## Append a block
 

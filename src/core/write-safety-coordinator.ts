@@ -192,7 +192,11 @@ export class WriteSafetyCoordinator {
                 writeSafetyMode: 'strict',
                 writeAttempted: false,
                 writeExecuted: false,
+                mutationProtocol: 'request-id-only',
+                preflightRequired: false,
+                preconditionRequired: false,
                 requestIdRequired: true,
+                nextStep: 'This additive action has no state precondition and issues no hash credential. Submit the exact mutation once with validateOnly omitted and a fresh UUIDv7 requestId; do not add an expected hash field.',
             });
         }
 

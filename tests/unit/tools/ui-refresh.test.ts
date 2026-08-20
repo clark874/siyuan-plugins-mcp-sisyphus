@@ -32,6 +32,10 @@ vi.mock('@/api/block', () => ({
     updateBlock: vi.fn(),
     checkBlockExist: vi.fn(),
     setBlockAttrs: vi.fn(),
+    getBlockAttrs: vi.fn(),
+    batchGetBlockAttrs: vi.fn(),
+    batchSetBlockAttrs: vi.fn(),
+    batchUpdateBlock: vi.fn(),
 }));
 
 vi.mock('@/api/document', () => ({
@@ -139,6 +143,7 @@ describe('UI refresh integration', () => {
 
         vi.mocked(blockApi.appendBlock).mockReset();
         vi.mocked(blockApi.updateBlock).mockReset();
+        vi.mocked(blockApi.getBlockAttrs).mockReset();
         vi.mocked(blockApi.checkBlockExist).mockReset();
         vi.mocked(documentApi.createDoc).mockReset();
         vi.mocked(notebookApi.createNotebook).mockReset();
@@ -155,6 +160,7 @@ describe('UI refresh integration', () => {
 
         vi.mocked(blockApi.appendBlock).mockResolvedValue([{ doOperations: [{ id: 'block-new' }] }] as never);
         vi.mocked(blockApi.updateBlock).mockResolvedValue({ updated: '20260408010101' } as never);
+        vi.mocked(blockApi.getBlockAttrs).mockResolvedValue({});
         vi.mocked(documentApi.createDoc).mockResolvedValue('doc-new');
         vi.mocked(notebookApi.createNotebook).mockResolvedValue({ notebook: { id: 'nb-new', name: 'New Notebook' } } as never);
         vi.mocked(notebookApi.setNotebookIcon).mockResolvedValue(null as never);

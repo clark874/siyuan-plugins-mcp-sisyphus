@@ -659,7 +659,11 @@ function assertDomReplacementMatchesKramdown(
     edit: ExactReplaceEdit,
 ): void {
     if (domReplaced === kramdownReplaced) return;
-    throw new Error(`${actionName} cannot safely map edit #${editIndex + 1} from kramdown to DOM. The match may cross unsupported inline formatting; narrow the old text or use block.update/fs.write for a full block rewrite. Expected ${kramdownReplaced} DOM replacement(s), got ${domReplaced}.${summarizeDomMapping(dom, edit)}`);
+    const logicalOld = edit.old.replace(/\*\*|~~|`|(?<!\*)\*(?!\*)/g, '');
+    const inlineHint = logicalOld !== edit.old
+        ? ` Remove Markdown style delimiters from old and match the rendered logical text instead, for example old=${JSON.stringify(logicalOld)}; existing inline formatting will be preserved.`
+        : ' Narrow old to text inside one rendered inline node.';
+    throw new Error(`${actionName} cannot safely map edit #${editIndex + 1} from kramdown to DOM. The match crosses unsupported inline formatting.${inlineHint} If a full rewrite is necessary, block.update now preserves existing IAL attributes; change attributes separately with block.set_attrs. Expected ${kramdownReplaced} DOM replacement(s), got ${domReplaced}.${summarizeDomMapping(dom, edit)}`);
 }
 
 function assertEditDoesNotTouchIal(edit: ExactReplaceEdit, actionName: string, editIndex: number): void {

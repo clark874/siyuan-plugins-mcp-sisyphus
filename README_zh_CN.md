@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.5`（本地 CLI `v0.3.8-wiki.3`）增加受控 Agent Skills 路由和跨 Agent 安装入口，同步 Codex 包装器版本。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.6`（本地 CLI `v0.3.8-wiki.4`）修复块正文更新丢失 IAL 锚点，并明确区分带状态保护与仅需 request ID 的两类严格写入协议。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.8.9-wiki.5` — Skill-only 安装与 MCP 注册、Bearer 认证已明确分层，Codex 包装器和根版本由构建统一校验；本地 CLI 保持 `v0.3.8-wiki.3`。
+> **当前 LLM Wiki 版本：**`v0.8.9-wiki.6` — `block.update`/`block.replace` 自动保留既有用户 IAL；严格写入帮助不再把新增型 action 误写成必须取得哈希租约。本地 CLI 为 `v0.3.8-wiki.4`。
 
 ## 项目方向调整
 

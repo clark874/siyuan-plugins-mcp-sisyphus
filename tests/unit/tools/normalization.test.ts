@@ -39,7 +39,11 @@ vi.mock('@/api/notebook', () => ({
 
 vi.mock('@/api/block', () => ({
     setBlockAttrs: vi.fn(),
+    batchSetBlockAttrs: vi.fn(),
+    getBlockAttrs: vi.fn(),
+    batchGetBlockAttrs: vi.fn(),
     updateBlock: vi.fn(),
+    batchUpdateBlock: vi.fn(),
     getBlockKramdown: vi.fn(),
     getChildBlocks: vi.fn(),
     getBlocksWordCount: vi.fn(),
@@ -86,6 +90,8 @@ describe('tool result normalization', () => {
             notebooks: [{ id: 'nb-1', name: 'Notebook One', icon: '', sort: 0, closed: false }],
         });
         vi.mocked(attributeApi.setBlockAttrs).mockReset();
+        vi.mocked(attributeApi.getBlockAttrs).mockReset();
+        vi.mocked(attributeApi.getBlockAttrs).mockResolvedValue({});
         vi.mocked(transactionApi.performTransactions).mockReset();
         vi.mocked(blockApi.updateBlock).mockReset();
         vi.mocked(blockApi.getBlockKramdown).mockReset();
@@ -331,6 +337,8 @@ describe('tool result normalization', () => {
             dataType: 'markdown',
             markdown: '# Title\n\n| A | B |\n| - | - |',
             updated: 1,
+            attributesPreserved: true,
+            preservedAttributeCount: 0,
             warning: 'block(update) is best for single-block replacement. Multi-line markdown may be truncated to the first line by SiYuan; use block(append), block(prepend), or block(insert) when you need multiple blocks or tables.',
         });
     });
@@ -352,6 +360,8 @@ describe('tool result normalization', () => {
             dataType: 'markdown',
             markdown: 'hello',
             updated: 1,
+            attributesPreserved: true,
+            preservedAttributeCount: 0,
         });
     });
 
@@ -472,6 +482,8 @@ describe('tool result normalization', () => {
             id: 'block-1',
             dataType: 'markdown',
             markdown: 'updated text',
+            attributesPreserved: true,
+            preservedAttributeCount: 0,
         });
     });
 

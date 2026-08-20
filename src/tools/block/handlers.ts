@@ -336,6 +336,46 @@ async function normalizeBatchUpdateItems(
     })));
 }
 
+const NON_RESTORABLE_UPDATE_ATTRS = new Set(['id', 'updated']);
+
+function selectRestorableUpdateAttrs(value: unknown): Record<string, string> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return Object.fromEntries(Object.entries(value).filter(([name, attrValue]) => (
+        !NON_RESTORABLE_UPDATE_ATTRS.has(name.toLowerCase())
+        && typeof attrValue === 'string'
+        && attrValue.length > 0
+    ))) as Record<string, string>;
+}
+
+async function updateBlockPreservingAttrs(
+    client: SiYuanClient,
+    block: { id: string; dataType: 'markdown' | 'dom'; data: string },
+): Promise<{ result: unknown; preservedAttributeCount: number }> {
+    const attrs = selectRestorableUpdateAttrs(await blockApi.getBlockAttrs(client, block.id));
+    const result = await blockApi.updateBlock(client, block.dataType, block.data, block.id);
+    if (Object.keys(attrs).length > 0) {
+        await blockApi.setBlockAttrs(client, block.id, attrs);
+    }
+    return { result, preservedAttributeCount: Object.keys(attrs).length };
+}
+
+async function batchUpdateBlocksPreservingAttrs(
+    client: SiYuanClient,
+    blocks: Array<{ id: string; dataType: 'markdown' | 'dom'; data: string }>,
+): Promise<{ result: unknown; preservedAttributeCount: number }> {
+    const attrsById = await blockApi.batchGetBlockAttrs(client, blocks.map((block) => block.id));
+    const restorations = blocks.flatMap((block) => {
+        const attrs = selectRestorableUpdateAttrs(attrsById?.[block.id]);
+        return Object.keys(attrs).length > 0 ? [{ id: block.id, attrs }] : [];
+    });
+    const result = await blockApi.batchUpdateBlock(client, blocks);
+    await blockApi.batchSetBlockAttrs(client, restorations);
+    return {
+        result,
+        preservedAttributeCount: restorations.reduce((sum, item) => sum + Object.keys(item.attrs).length, 0),
+    };
+}
+
 function extractBatchInsertCreatedBlockIds(rawResult: unknown): string[] {
     const batches = Array.isArray(rawResult) ? rawResult : [rawResult];
     const ids: string[] = [];
@@ -468,12 +508,14 @@ const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
             }
             reloadIds.add(context.documentId);
         }
-        const result = await blockApi.batchUpdateBlock(client, items);
+        const { result, preservedAttributeCount } = await batchUpdateBlocksPreservingAttrs(client, items);
         return applyUiRefresh(client, createJsonResult({
             success: true,
             action: 'update',
             count: parsed.items.length,
             transactions: result,
+            attributesPreserved: true,
+            preservedAttributeCount,
             ...(items.some((item) => hasReferenceSemanticsHints(item.data)) ? createReferenceSemanticsHints(items.map((item) => item.data).join('\n')) : {}),
             ...(databaseBlockIds.length > 0 ? {
                 databaseBlockIds,
@@ -485,11 +527,17 @@ const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
     if (denied) return denied;
     const isDatabaseBlock = await getBlockType(client, parsed.id!) === 'av';
     const data = await normalizeWriteData(client, parsed.dataType!, parsed.data!, 'block.update');
-    const result = await blockApi.updateBlock(client, parsed.dataType!, data, parsed.id!);
+    const { result, preservedAttributeCount } = await updateBlockPreservingAttrs(client, {
+        id: parsed.id!,
+        dataType: parsed.dataType!,
+        data,
+    });
     return applyUiRefresh(client, createUpdateResult(result, {
         id: parsed.id!,
         dataType: parsed.dataType!,
         data,
+        attributesPreserved: true,
+        preservedAttributeCount,
         ...(isDatabaseBlock ? createDatabaseBlockHint('block.update') : {}),
     }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
@@ -509,12 +557,11 @@ const handleReplace: BlockActionHandler = async ({ client, permMgr, rawArgs }) =
 
     if (changed) {
         const shouldReparseIndexedInline = edits.some(replaceEditTouchesIndexedInline);
-        await blockApi.updateBlock(
-            client,
-            shouldReparseIndexedInline ? 'markdown' : 'dom',
-            shouldReparseIndexedInline ? nextMarkdown : nextDom,
-            parsed.id,
-        );
+        await updateBlockPreservingAttrs(client, {
+            id: parsed.id,
+            dataType: shouldReparseIndexedInline ? 'markdown' : 'dom',
+            data: shouldReparseIndexedInline ? nextMarkdown : nextDom,
+        });
     }
 
     return applyUiRefresh(client, createJsonResult({
@@ -522,6 +569,7 @@ const handleReplace: BlockActionHandler = async ({ client, permMgr, rawArgs }) =
         action: 'replace',
         id: parsed.id,
         changed,
+        attributesPreserved: true,
         editsApplied: summary.length,
         replacements: summary,
         ...(hasReferenceSemanticsHints(nextContent) ? createReferenceSemanticsHints(nextContent) : {}),

@@ -4,6 +4,10 @@ Strict Safe Writes addresses three concrete risks: the target changing after it 
 
 ## Call flow
 
+Strict mode has two mutation protocols. Read the action schema or `system(action="bootstrap")` instead of assuming every write issues a hash credential.
+
+### Guarded mutation
+
 For a mutation with a precondition, first call the same action and business arguments with `validateOnly=true`:
 
 ```json
@@ -42,7 +46,11 @@ Generate a fresh UUIDv7 and submit the real write once with that field:
 }
 ```
 
-Actions may use `expectedStateHash`, `expectedStructureHash`, `expectedManifestHash`, or `expectedSourceHash`. Read `preconditionField` instead of guessing. Additive actions have no state hash but still require a fresh UUIDv7 for execution.
+Actions may use `expectedStateHash`, `expectedStructureHash`, `expectedManifestHash`, or `expectedSourceHash`. Read `preconditionField` instead of guessing.
+
+### Request-id-only additive mutation
+
+Additive actions such as create and append have no state precondition, no expected-hash field, and no lease. Execute them once with a fresh UUIDv7 `requestId`; no preflight is required. An optional `validateOnly=true` call returns `mutationProtocol: "request-id-only"`, `preflightRequired: false`, and an executable `nextStep`. It does not issue `preconditionField` or a hash credential and must not be interpreted as a failed preflight.
 
 Credentials accept either `sha256:v1:<4-64 hex digits>` or bare `<4-64 hex digits>`, case-insensitively. Four digits are only a lease lookup key, not a 16-bit correctness check. The real write resolves the credential within `tool + action + business-argument digest + sorted target IDs`, retrieves the lease's complete 256-bit SHA-256, rereads current state, and compares the complete digests. Even a 64-digit credential must resolve to an active lease and cannot bypass preflight.
 
@@ -51,6 +59,7 @@ If active hashes in the same operation scope share four digits, a new preflight 
 ## Correctness properties
 
 - State is canonicalized with stable object-key ordering and preserved array ordering, then hashed with versioned SHA-256.
+- Content-oriented `block.update` and `block.replace` preserve the target's existing user IAL attributes around the kernel content rewrite. Kernel-managed `id` and `updated` are not restored; metadata changes remain explicit `block.set_attrs` operations.
 - `fs.reorder` and `document.reorder` use a structure precondition covering the parent, effective sort mode, notebook configuration, and every visible direct child's ID, storage path, sort value, and current order. A concurrent create, delete, move, or reorder invalidates the lease; commit readback requires the exact requested order under custom sorting mode. On SiYuan 3.8.1+, document-parent reorder changes only that document's local child sort mode; notebook-root and legacy-kernel flows use notebook configuration.
 - The Agent submits a short credential, but correctness always compares two complete SHA-256 digests; the prefix is never compared directly to live state.
 - The plugin HTTP server owns one process-wide serial write coordinator. CLI and stdio strict writes forward to that coordinator instead of creating independent write paths.

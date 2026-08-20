@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.9-wiki.6 - 2026-08-21
+
+- 修复思源内核 `updateBlock` 以新正文替换原 IAL 的数据完整性缺陷：`block.update` 单条与批量路径、`block.replace` 写回路径均在更新前读取既有属性，并在写回后恢复 `name`、`alias`、`icon`、`bookmark`、`custom-*` 等用户 IAL；内核管理的 `id` 与 `updated` 不回写
+- 严格写入帮助、Schema、bootstrap 与 MCP/CLI Skill 明确区分两类协议：带状态保护的 mutation 继续使用 `validateOnly → preconditionField/租约 → 单次执行`；创建、追加等 request-id-only action 无需预检，直接携带新的 UUIDv7 `requestId` 执行一次
+- request-id-only action 的可选 `validateOnly` 响应新增 `mutationProtocol`、`preflightRequired: false`、`preconditionRequired: false` 与 `nextStep`，不再让“未返回 stateHash”看起来像失败
+- `block.replace` 行内格式映射失败时直接提示去除反引号、粗体等 Markdown 定界符，并给出可复制的逻辑文本示例；完整重写提示同步说明 `block.update` 已保留 IAL
+- 新增单条/批量 IAL 恢复、旧更新时间戳排除、request-id-only 协议与行内格式提示回归测试；本地 CLI 同步提升至 `v0.3.8-wiki.4`，推荐思源版本保持 `3.8.1`
+
 ## v0.8.9-wiki.5 - 2026-08-21
 
 - 为12个标准 MCP Skill 增加 Agent Skills `compatibility` 元数据，明确“安装 Skill 不等于注册 MCP 或配置 Bearer token”；对知识摄取、知识治理、既有内容检索、AV、普通编辑和思源排版补充互斥路由边界
