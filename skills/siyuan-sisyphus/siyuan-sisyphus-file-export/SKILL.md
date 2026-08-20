@@ -1,6 +1,7 @@
 ---
 name: siyuan-sisyphus-file-export
 description: CLI-only playbook for SiYuan assets and exports with siyuan-sisyphus. Use for uploads, Markdown export, document extraction, resource ZIP export, OCR text, templates, and safe asset maintenance.
+compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
 # Handle SiYuan Files and Exports with the CLI

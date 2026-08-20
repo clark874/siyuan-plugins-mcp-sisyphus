@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-timeline
 description: MCP playbook for SiYuan document timelines. Use to list or create named snapshot nodes, compare document versions, remove node tags, and safely roll back a document or one changed block.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
 ---
 
 # Manage SiYuan Document Timelines with MCP

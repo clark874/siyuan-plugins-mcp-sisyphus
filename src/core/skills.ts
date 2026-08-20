@@ -40,7 +40,7 @@ function createMcpSkill(
     text: string,
     additionalFiles: Array<{ path: string; text: string; mimeType: string }> = [],
 ): McpSkillDefinition {
-    const frontmatter = text.match(/^---\nname: ([a-z0-9-]+)\ndescription: ([^\n]+)\n---/);
+    const frontmatter = text.match(/^---\nname: ([a-z0-9-]+)\ndescription: ([^\n]+)\n(?:[a-z][a-z0-9-]*: [^\n]*\n)*---/);
     const heading = text.match(/^# (.+)$/m);
     if (!frontmatter || !heading) {
         throw new Error('Generated MCP skill is missing canonical frontmatter or a title.');

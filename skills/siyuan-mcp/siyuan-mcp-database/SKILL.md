@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-database
-description: MCP playbook for SiYuan attribute views. Use to inspect database metadata, render views, add columns or rows, update cells, and keep AV, view, row, column, and block IDs distinct.
+description: MCP playbook for SiYuan attribute views. Use to inspect AV metadata, render views, add columns or rows, and update cells while keeping AV, view, row, column, and block IDs distinct. Do not use for read-only SQL analytics; use search-query instead.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
 ---
 
 # Operate SiYuan Databases with MCP

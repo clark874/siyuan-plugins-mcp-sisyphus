@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-search-query
-description: MCP playbook for finding and querying SiYuan content. Use for semantic knowledge discovery, fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.
+description: MCP playbook for retrieving existing SiYuan content. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, assets, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
 ---
 
 # Search and Query SiYuan with MCP

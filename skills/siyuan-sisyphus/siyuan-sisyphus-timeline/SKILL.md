@@ -1,6 +1,7 @@
 ---
 name: siyuan-sisyphus-timeline
 description: CLI-only playbook for SiYuan document timelines with siyuan-sisyphus. Use to list or create named snapshot nodes, compare document versions, remove node tags, and safely roll back a document or one changed block.
+compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
 # Manage SiYuan Document Timelines with the CLI

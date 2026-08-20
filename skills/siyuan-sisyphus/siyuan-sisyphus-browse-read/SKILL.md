@@ -1,6 +1,7 @@
 ---
 name: siyuan-sisyphus-browse-read
 description: CLI-only playbook for browsing and reading SiYuan notes with siyuan-sisyphus. Use for notebooks, document trees, human-readable paths, IDs, storage paths, block content, and read-only discovery.
+compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
 # Browse and Read SiYuan with the CLI

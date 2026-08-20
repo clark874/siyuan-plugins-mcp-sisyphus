@@ -1,6 +1,7 @@
 ---
 name: siyuan-sisyphus-create-edit
-description: CLI-only playbook for creating and editing SiYuan documents and blocks with siyuan-sisyphus. Use for path-based document creation, block append/insert/update, metadata, daily notes, and verified edits.
+description: CLI-only playbook for bounded, ordinary SiYuan document and block edits with siyuan-sisyphus. Use for path-based creation, append/insert/update, metadata, daily notes, and verified edits. Use knowledge-governance for name/alias or cross-reference governance, and database for AV cells.
+compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
 # Create and Edit SiYuan Content with the CLI

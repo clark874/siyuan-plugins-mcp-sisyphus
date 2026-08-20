@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-file-export
 description: MCP playbook for SiYuan assets and exports. Use for uploads, Markdown export, document extraction, resource ZIP export, OCR text, templates, and safe asset maintenance.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
 ---
 
 # Handle SiYuan Files and Exports with MCP

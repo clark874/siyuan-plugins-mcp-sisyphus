@@ -1,6 +1,7 @@
 ---
 name: siyuan-markup-guide
-description: CLI-only SiYuan markup guide for rich Markdown written through siyuan-sisyphus. Use for headings, lists, tasks, tables, code, math, diagrams, tags, callouts, super blocks, embeds, and block references.
+description: CLI-only guide for SiYuan-specific rich Markdown written through siyuan-sisyphus. Use for math, diagrams, attributes, super blocks, embeds, block references, and SiYuan rendering constraints; standard Markdown is assumed knowledge. Do not use for plain prose edits without SiYuan-specific formatting.
+compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
 # SiYuan Markup Guide with the CLI

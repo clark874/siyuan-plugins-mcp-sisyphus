@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-sisyphus
 description: Top-level skill for operating SiYuan Note through Sisyphus MCP. Use to select a workflow bundle, choose among the aggregated tools, and apply shared path, pagination, permission, and confirmation rules.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server; installing this Skill alone does not register the endpoint or configure authentication."
 ---
 
 # Operate SiYuan with Sisyphus MCP

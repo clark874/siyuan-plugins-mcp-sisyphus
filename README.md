@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.4`（本地 CLI `v0.3.8-wiki.3`）将 Agent Kit 接入文档改为常青入口：从稳定通道读取 `agentKit.url`，不再硬编码可能过期的固定版本地址。外部 Agent 仍只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.5`（本地 CLI `v0.3.8-wiki.3`）增加受控 Agent Skills 路由和跨 Agent 安装入口，同步 Codex 包装器版本，并继续要求外部 Agent 只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.8.9-wiki.4` — Agent Kit 冷启动入口从稳定通道解析当前下载地址，构建会拒绝版本漂移和写死的旧发布链接；本地 CLI 保持 `v0.3.8-wiki.3`。
+> **当前 LLM Wiki 版本：**`v0.8.9-wiki.5` — Skill-only 安装与 MCP 注册、Bearer 认证已明确分层，Codex 包装器和根版本由构建统一校验；本地 CLI 保持 `v0.3.8-wiki.3`。
 
 ## Project Direction Update
 
@@ -209,9 +209,10 @@ Agents that support installable `SKILL.md` packages can install the same guidanc
 ```bash
 siyuan-sisyphus skill install --bundle mcp # MCP calling conventions
 siyuan-sisyphus skill install --bundle all # MCP and CLI bundles
+npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y
 ```
 
-Plain `siyuan-sisyphus skill install` remains the CLI bundle for backward compatibility. Skills describe workflows and safety decisions; the current parameter source of truth remains `siyuan://help/action/{tool}/{action}` or the corresponding `action="help"` response.
+The `npx skills add` command installs only the 12 curated MCP Skills. It does not register `http://127.0.0.1:36806/mcp`, configure a bearer token, or install the SiYuan plugin. Plain `siyuan-sisyphus skill install` remains the CLI bundle for backward compatibility. Skills describe workflows and safety decisions; the current parameter source of truth remains `siyuan://help/action/{tool}/{action}` or the corresponding `action="help"` response.
 
 Draft SEP-2640 Skills-over-MCP support is enabled by default for both HTTP and stdio transports and publishes all bundled workflow skills. For the plugin's built-in HTTP server, it can be toggled under Connection Config → HTTP/HTTPS Connection → Skills over MCP; saving restarts the server. Standalone servers can disable it with `SIYUAN_MCP_SKILLS_EXTENSION=false`. The extension advertises `io.modelcontextprotocol/skills`, implements `skills/list` and `skills/get`, and serves digest-addressed `skill://.../SKILL.md` resources. Because SEP-2640 is still a draft, the existing `siyuan://skills/*` resources and prompts remain the stable fallback.
 

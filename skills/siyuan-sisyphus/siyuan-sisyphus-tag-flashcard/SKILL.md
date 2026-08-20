@@ -1,6 +1,7 @@
 ---
 name: siyuan-sisyphus-tag-flashcard
 description: CLI-only playbook for SiYuan tags and flashcards with siyuan-sisyphus. Use for inline tags, tag discovery and rename, deck discovery, card creation, due/new review, and safe removal.
+compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
 # Manage SiYuan Tags and Flashcards with the CLI

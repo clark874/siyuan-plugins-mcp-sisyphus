@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-write-format
 description: Writing and formatting workflow for SiYuan MCP. Use for document creation, block append/insert/update/replace, metadata, daily notes, Markdown tables, math, diagrams, super blocks, embeds, and verified edits.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server; installing this Skill alone does not register the endpoint or configure authentication."
 ---
 
 # Write and Format SiYuan Content

@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-create-edit
-description: MCP playbook for creating and editing SiYuan documents and blocks. Use for path-based document creation, block append/insert/update, metadata, daily notes, and verified edits.
+description: MCP playbook for bounded, ordinary SiYuan document and block edits. Use for path-based creation, append/insert/update, metadata, daily notes, and verified edits. Use knowledge-governance for name/alias or cross-reference governance, and database for AV cells.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
 ---
 
 # Create and Edit SiYuan Content with MCP

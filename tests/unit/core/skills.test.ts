@@ -20,6 +20,8 @@ import {
     TIMELINE_VARIANTS,
 } from '@/tools/index';
 import { scenarios } from '../../../skills/source/scenarios.mjs';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 
 const variantsByTool: Record<string, Array<{ action: string; schema: Record<string, any> }>> = {
     av: AV_VARIANTS,
@@ -43,6 +45,8 @@ describe('core/skills', () => {
 
         for (const skill of MCP_SKILLS) {
             expect(skill.text).toContain(`name: ${skill.name}`);
+            expect(skill.text).toContain('compatibility:');
+            expect(skill.text).toContain('Requires a reachable SiYuan Sisyphus MCP server');
             expect(skill.text).not.toMatch(/\bsiyuan-sisyphus\s+(fs|notebook|document|block|av|file|search|tag|timeline|system|flashcard|mascot|feedback)\b/);
         }
 
@@ -78,6 +82,15 @@ describe('core/skills', () => {
         expect(searchQuery?.text).toContain('write-time collision preflight');
         expect(searchQuery?.text).toContain('preflight did not run');
 
+        expect(ingest?.text).toContain('只在外部来源需要写入思源知识库时使用');
+        expect(governance?.text).toContain('普通检索应使用');
+        expect(searchQuery?.text).toContain('Do not use check_anchor to retrieve existing content');
+
+        const database = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-database');
+        const markup = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-markup-guide');
+        expect(database?.text).toContain('Do not use for read-only SQL analytics');
+        expect(markup?.text).toContain('standard Markdown is assumed knowledge');
+
         const governanceScenario = scenarios.find((scenario) => scenario.id === 'knowledge-governance');
         const duplicateAliasSql = governanceScenario?.calls.duplicateAliases.args.stmt ?? '';
         const conflictName = governanceScenario?.calls.conflictName;
@@ -105,6 +118,34 @@ describe('core/skills', () => {
         expect(verifySql).toContain("lower(b.name) = lower('stable-topic-step')");
         expect(verifySql).toContain("lower(a.alias_token) = lower('中文同义词')");
         expect(verifySql).not.toContain('alias LIKE');
+    });
+
+    it('ships a bounded routing evaluation set for the public MCP skill bundle', () => {
+        const root = path.resolve(__dirname, '../../..');
+        const evals = JSON.parse(readFileSync(path.join(root, 'skills/evals/mcp-routing.json'), 'utf8'));
+
+        expect(evals.schemaVersion).toBe(1);
+        expect(evals.cases).toHaveLength(20);
+        expect(new Set(evals.cases.map((item: { id: string }) => item.id)).size).toBe(20);
+        const routedSkills = evals.cases
+            .map((item: { expectedSkill: string | null }) => item.expectedSkill)
+            .filter(Boolean);
+        expect(routedSkills).toEqual(expect.arrayContaining([
+            'siyuan-mcp-search-query',
+            'siyuan-mcp-knowledge-ingest',
+            'siyuan-mcp-knowledge-governance',
+            'siyuan-mcp-database',
+            'siyuan-mcp-create-edit',
+            'siyuan-mcp-markup-guide',
+        ]));
+        expect(evals.cases.filter((item: { expectedSkill: string | null }) => item.expectedSkill === null).length).toBeGreaterThanOrEqual(3);
+        for (const item of evals.cases) {
+            if (item.expectedSkill !== null) {
+                expect(MCP_SKILLS.some((skill) => skill.name === item.expectedSkill), item.id).toBe(true);
+            }
+            expect(item.prompt.length, item.id).toBeGreaterThan(12);
+            expect(item.reason.length, item.id).toBeGreaterThan(8);
+        }
     });
 
     it('renders a discoverable index and scenario prompts', () => {

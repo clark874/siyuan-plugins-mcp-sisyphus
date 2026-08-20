@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-browse-read
 description: MCP playbook for browsing and reading SiYuan notes. Use for notebooks, document trees, human-readable paths, IDs, storage paths, block content, and read-only discovery.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
 ---
 
 # Browse and Read SiYuan with MCP

@@ -8,6 +8,16 @@ Sisyphus MCP：http://127.0.0.1:36806/mcp
 
 思源内核还提供 `http://127.0.0.1:6806/mcp`。它是随思源安装的官方 MCP 总线，由 Sisyphus 的 `extension` 按需桥接；不要把它作为第二个思源 MCP 并列注册到外部客户端。
 
+## 只安装工作流 Skill
+
+支持 Agent Skills 规范的客户端可以单独安装12个 MCP 工作流 Skill：
+
+```bash
+npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y
+```
+
+这条命令只安装 Skill，不会注册 `36806/mcp`，不会配置 Bearer token，也不会安装思源插件。首次接入仍须完成下方的 MCP 注册和本地认证；其他受支持客户端可将 `codex` 替换为对应的 Agent 标识。
+
 ## 自动安装
 
 仅当当前 Agent 运行在本机、能够执行命令并修改其宿主客户端配置时，才执行安装。普通网页聊天不能安装本机 MCP，应直接说明宿主不具备本地工具接入能力。

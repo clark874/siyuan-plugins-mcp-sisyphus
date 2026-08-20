@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.9-wiki.5 - 2026-08-21
+
+- 为12个标准 MCP Skill 增加 Agent Skills `compatibility` 元数据，明确“安装 Skill 不等于注册 MCP 或配置 Bearer token”；对知识摄取、知识治理、既有内容检索、AV、普通编辑和思源排版补充互斥路由边界
+- 新增受控 `npx skills add` 安装入口，固定指向 `skills/siyuan-mcp` 子目录，避免仓库根目录同时暴露 CLI、MCP、开发和发布 Skill；完整冷启动仍由 Agent Kit 完成单一 `36806/mcp` 注册与本地认证
+- Codex Agent Plugin 版本纳入接入包构建校验，并核验 `.mcp.json` 只能注册 Sisyphus 单一 HTTP 入口，修复包装器长期停留在 `0.7.5-local.16` 的发布漂移
+- 知识摄取 Skill 将正文提取器定义为可选客户端能力；不得自动全局安装 Defuddle，也不得向外部提取器提交含认证信息或私密地址的 URL
+- 新增20项 Skill 冷启动路由评估集，覆盖检索与锚点预检、网页阅读与入库、SQL 与 AV、标准 Markdown 与思源排版等相邻边界；本地 CLI 保持 `v0.3.8-wiki.3`
+
 ## v0.8.9-wiki.4 - 2026-08-20
 
 - 修复 `siyuan-agent-kit.zip` 内 `START-HERE.md` 仍指向 `v0.8.1-wiki.2` 的发布漂移；冷启动入口现在先读取稳定通道，再使用机器可读的 `agentKit.url` 下载当前版本

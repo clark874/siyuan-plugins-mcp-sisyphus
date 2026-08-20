@@ -1,6 +1,7 @@
 ---
 name: siyuan-sisyphus-system-cli
 description: CLI-only guide for SiYuan Sisyphus setup, profiles, permissions, system actions, help discovery, JSON output, dangerous operations, and troubleshooting.
+compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
 # SiYuan System and Safety with the CLI

@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-data-files
 description: Database and file workflow for SiYuan MCP. Use for attribute views, columns, rows, cells, assets, uploads, OCR, templates, Markdown export, document extraction, and resource export.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server; installing this Skill alone does not register the endpoint or configure authentication."
 ---
 
 # Work with SiYuan Databases and Files

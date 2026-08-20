@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-tag-flashcard
 description: MCP playbook for SiYuan tags and flashcards. Use for inline tags, tag discovery and rename, deck discovery, card creation, due/new review, and safe removal.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
 ---
 
 # Manage SiYuan Tags and Flashcards with MCP

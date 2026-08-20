@@ -13,10 +13,22 @@ const fixedDate = new Date('2026-08-12T00:00:00.000Z');
 const packageManifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const delivery = JSON.parse(await readFile(path.join(source, 'delivery.json'), 'utf8'));
 const kimiManifest = JSON.parse(await readFile(path.join(source, 'kimi.plugin.json'), 'utf8'));
+const codexManifestPath = path.join(root, 'agent-plugin/siyuan-sisyphus/.codex-plugin/plugin.json');
+const codexManifest = JSON.parse(await readFile(codexManifestPath, 'utf8'));
+const codexMcpConfig = JSON.parse(await readFile(path.join(root, 'agent-plugin/siyuan-sisyphus/.mcp.json'), 'utf8'));
 const startHere = await readFile(path.join(source, 'START-HERE.md'), 'utf8');
 
-if (delivery.packageVersion !== packageManifest.version || kimiManifest.version !== packageManifest.version) {
-    throw new Error(`agent-kit 版本漂移：package=${packageManifest.version}, delivery=${delivery.packageVersion}, kimi=${kimiManifest.version}。`);
+if (delivery.packageVersion !== packageManifest.version
+    || kimiManifest.version !== packageManifest.version
+    || codexManifest.version !== packageManifest.version) {
+    throw new Error(`接入包版本漂移：package=${packageManifest.version}, delivery=${delivery.packageVersion}, kimi=${kimiManifest.version}, codex=${codexManifest.version}。`);
+}
+const codexServers = Object.entries(codexMcpConfig.mcpServers ?? {});
+if (codexServers.length !== 1
+    || codexServers[0][0] !== 'siyuan-sisyphus'
+    || codexServers[0][1]?.type !== 'http'
+    || codexServers[0][1]?.url !== 'http://127.0.0.1:36806/mcp') {
+    throw new Error('Codex Agent Plugin 必须只注册 http://127.0.0.1:36806/mcp。');
 }
 if (/github\.com\/clark874\/siyuan-plugins-mcp-sisyphus\/(?:releases\/download|releases\/tag)\/v\d/i.test(startHere)
     || /raw\.githubusercontent\.com\/clark874\/siyuan-plugins-mcp-sisyphus\/v\d/i.test(startHere)) {

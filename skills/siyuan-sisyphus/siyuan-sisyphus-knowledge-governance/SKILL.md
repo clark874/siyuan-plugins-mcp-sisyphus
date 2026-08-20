@@ -1,6 +1,7 @@
 ---
 name: siyuan-sisyphus-knowledge-governance
-description: CLI-only 思源知识治理工作流。用于把专题材料编译为带 name/alias 的知识原子，审计覆盖缺口与歧义，维护专题中枢，并安全执行跨引用、嵌入查询和正文副本的改名。
+description: CLI-only 思源知识治理工作流。用于把专题材料编译为带 name/alias 的知识原子，审计覆盖缺口与歧义，维护专题中枢，并安全处理跨引用改名。普通检索应使用 search-query，外部来源入库应使用 knowledge-ingest。
+compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
 # 思源知识原子编译与治理 with the CLI

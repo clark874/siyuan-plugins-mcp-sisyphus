@@ -53,6 +53,14 @@ siyuan-sisyphus skill install --bundle all
 
 `skill list` and `skill read` accept the same `--bundle cli|mcp|all` selector. Skills define task flow, path semantics, and safety rules; they do not replace action schemas. For exact current parameters, read `siyuan://help/action/{tool}/{action}` or call the tool's `help` action.
 
+To install only the twelve MCP workflow skills through the public `skills` installer, use the curated subdirectory instead of the repository root:
+
+```bash
+npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y
+```
+
+This command installs workflow instructions only. It does not install the SiYuan plugin, register `http://127.0.0.1:36806/mcp`, or configure bearer authentication. A reachable and authenticated Sisyphus MCP server remains required; validate the connection with `system(action="bootstrap")`.
+
 ## MCP 2026-07-28 And Legacy Clients
 
 - `stdio` accepts both protocol eras automatically.

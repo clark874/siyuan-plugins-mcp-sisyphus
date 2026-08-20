@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.4`（本地 CLI `v0.3.8-wiki.3`）将 Agent Kit 接入文档改为常青入口：从稳定通道读取 `agentKit.url`，不再硬编码可能过期的固定版本地址。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.5`（本地 CLI `v0.3.8-wiki.3`）增加受控 Agent Skills 路由和跨 Agent 安装入口，同步 Codex 包装器版本。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.8.9-wiki.4` — Agent Kit 冷启动入口从稳定通道解析当前下载地址，构建会拒绝版本漂移和写死的旧发布链接；本地 CLI 保持 `v0.3.8-wiki.3`。
+> **当前 LLM Wiki 版本：**`v0.8.9-wiki.5` — Skill-only 安装与 MCP 注册、Bearer 认证已明确分层，Codex 包装器和根版本由构建统一校验；本地 CLI 保持 `v0.3.8-wiki.3`。
 
 ## 项目方向调整
 
@@ -213,9 +213,10 @@ MCP Server 内置了浏览、编辑、搜索、知识摄取、知识原子治理
 ```bash
 siyuan-sisyphus skill install --bundle mcp # MCP 调用约定
 siyuan-sisyphus skill install --bundle all # 同时安装 MCP 与 CLI 两套
+npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y
 ```
 
-为保持兼容，不带 `--bundle` 的 `siyuan-sisyphus skill install` 仍默认安装 CLI Skill。Skill 负责工作流与安全决策；当前参数的真相源仍是 `siyuan://help/action/{tool}/{action}`（或对应的 `action="help"` 响应）。
+`npx skills add` 只安装经过筛选的12个 MCP Skill，不会注册 `http://127.0.0.1:36806/mcp`、配置 Bearer token 或安装思源插件。为保持兼容，不带 `--bundle` 的 `siyuan-sisyphus skill install` 仍默认安装 CLI Skill。Skill 负责工作流与安全决策；当前参数的真相源仍是 `siyuan://help/action/{tool}/{action}`（或对应的 `action="help"` 响应）。
 
 草案 SEP-2640 Skills-over-MCP 在 HTTP 与 stdio 传输中均默认开启，并会发布全部内置工作流 Skill。插件内置 HTTP 服务可在“连接配置 → HTTP/HTTPS 连接 → Skills over MCP”中开关，保存后会重启服务。独立启动服务端时可通过 `SIYUAN_MCP_SKILLS_EXTENSION=false` 显式关闭。启用后服务端声明 `io.modelcontextprotocol/skills`，实现 `skills/list`、`skills/get`，并提供带 SHA-256 完整性清单的 `skill://.../SKILL.md` 资源。由于 SEP-2640 仍是草案，既有 `siyuan://skills/*` Resource 与 Prompt 继续作为稳定回退。
 

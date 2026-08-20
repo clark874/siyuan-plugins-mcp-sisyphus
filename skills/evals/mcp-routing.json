@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "description": "冷启动时用于核对 Sisyphus MCP Skill 路由边界的静态评估集。null 表示不应触发思源 Skill。",
+  "cases": [
+    { "id": "existing-project-status", "prompt": "搜索思源知识库并读取水商品化项目当前进度，不要修改任何笔记。", "expectedSkill": "siyuan-mcp-search-query", "reason": "目标是检索既有知识，不是摄取外部来源。" },
+    { "id": "read-only-sql", "prompt": "用只读 SQL 统计工作日志中带 name 属性的块数量并返回前20个。", "expectedSkill": "siyuan-mcp-search-query", "reason": "只读 SQL 属于检索分析，不属于 AV 操作。" },
+    { "id": "existing-alias-lookup", "prompt": "查找思源里 alias 为投稿水论文的既有知识块并读取正文。", "expectedSkill": "siyuan-mcp-search-query", "reason": "既有锚点定位应检索，不应调用 check_anchor。" },
+    { "id": "anchor-preflight", "prompt": "我要给一个知识原子新增 alias 水论文，写入前检查冲突并给出裁决。", "expectedSkill": "siyuan-mcp-knowledge-governance", "reason": "涉及 alias 写入前碰撞预检和语义裁决。" },
+    { "id": "safe-anchor-rename", "prompt": "把这个方法原子的 name 改名，并同步核对引用、嵌入查询和正文副本。", "expectedSkill": "siyuan-mcp-knowledge-governance", "reason": "跨引用安全改名属于知识治理。" },
+    { "id": "compile-atoms", "prompt": "把 Scattertext 中枢中的差量内容编译成有 name 和 alias 的知识原子。", "expectedSkill": "siyuan-mcp-knowledge-governance", "reason": "目标是知识原子编译而非普通编辑。" },
+    { "id": "ingest-tutorial", "prompt": "把 textnets 官方教程查重后差量整理进现有思源知识中枢并登记来源。", "expectedSkill": "siyuan-mcp-knowledge-ingest", "reason": "外部来源需要进入知识库并形成溯源记录。" },
+    { "id": "ingest-release-notes", "prompt": "读取项目新版发布说明，将新增接口合并进既有方法笔记并验证幂等。", "expectedSkill": "siyuan-mcp-knowledge-ingest", "reason": "外部版本差量需要摄取、合并和复跑验证。" },
+    { "id": "web-read-only", "prompt": "只阅读并总结这个网页，不要写入任何笔记软件。", "expectedSkill": null, "reason": "纯网页阅读不应触发思源知识摄取。" },
+    { "id": "private-web-read", "prompt": "打开公司内网链接帮我概括内容，不要保存到思源。", "expectedSkill": null, "reason": "私密网页阅读不应交给思源摄取或外部正文提取器。" },
+    { "id": "ordinary-edit", "prompt": "在思源现有项目文档末尾追加一段会议摘要并回读确认。", "expectedSkill": "siyuan-mcp-create-edit", "reason": "这是有界普通编辑，不涉及知识锚点或 AV。" },
+    { "id": "daily-note", "prompt": "在今天的思源日记中新增三条待办事项并验证写入结果。", "expectedSkill": "siyuan-mcp-create-edit", "reason": "日记和普通块写入属于创建编辑。" },
+    { "id": "av-cells", "prompt": "在水商品化项目数据库中更新两行状态单元格并重新渲染核对。", "expectedSkill": "siyuan-mcp-database", "reason": "真实 AV 单元格修改必须使用数据库工作流。" },
+    { "id": "av-schema", "prompt": "检查思源属性视图的列类型，并新增一个日期列。", "expectedSkill": "siyuan-mcp-database", "reason": "AV 元数据和列变更属于数据库工作流。" },
+    { "id": "siyuan-markup", "prompt": "在思源中写一个带属性、超级块、块引用和 Mermaid 图的说明页。", "expectedSkill": "siyuan-mcp-markup-guide", "reason": "使用了思源特有富文本和块语法。" },
+    { "id": "plain-markdown", "prompt": "帮我把这段普通 Markdown 的标题加粗，不涉及思源。", "expectedSkill": null, "reason": "标准 Markdown 不应触发思源专用排版指南。" },
+    { "id": "browse-tree", "prompt": "列出工作日志笔记本前三层目录并读取指定子文档。", "expectedSkill": "siyuan-mcp-browse-read", "reason": "路径树和文档读取属于浏览读取。" },
+    { "id": "export-markdown", "prompt": "把这个思源文档导出为 Markdown，并列出生成的资源文件。", "expectedSkill": "siyuan-mcp-file-export", "reason": "文档导出和资源处理属于文件工作流。" },
+    { "id": "timeline-diff", "prompt": "比较这个思源文档最近两个时间线节点，但先不要回滚。", "expectedSkill": "siyuan-mcp-timeline", "reason": "快照比较属于时间线工作流。" },
+    { "id": "permissions", "prompt": "检查当前思源笔记本权限和 MCP 连接状态，不执行任何修改。", "expectedSkill": "siyuan-mcp-system-safety", "reason": "权限与连接诊断属于系统安全。" }
+  ]
+}

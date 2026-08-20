@@ -53,6 +53,14 @@ siyuan-sisyphus skill install --bundle all
 
 `skill list` 和 `skill read` 同样接受 `--bundle cli|mcp|all`。Skill 描述任务流程、路径语义和安全规则，但不替代 action schema。精确且最新的参数应读取 `siyuan://help/action/{tool}/{action}`，或调用对应工具的 `help` action。
 
+如果只希望通过公共 `skills` 安装器安装十二个 MCP 工作流 Skill，应指定经过筛选的子目录，不要指向仓库根目录：
+
+```bash
+npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y
+```
+
+该命令只安装工作流说明，不会安装思源插件、注册 `http://127.0.0.1:36806/mcp` 或配置 Bearer 认证。使用这些 Skill 前仍须保证 Sisyphus MCP 可访问且认证有效，并通过 `system(action="bootstrap")` 验收连接。
+
 ## MCP 2026-07-28 与旧客户端
 
 - `stdio` 自动接受新旧两代协议。

@@ -27,6 +27,7 @@ describe('portable agent kit', () => {
         const delivery = JSON.parse(read('agent-kit/delivery.json'));
         const releaseChannel = JSON.parse(read('release-channel.json'));
         const packageManifest = JSON.parse(read('package.json'));
+        const codexManifest = JSON.parse(read('agent-plugin/siyuan-sisyphus/.codex-plugin/plugin.json'));
         const agent = read('agent-kit/AGENT.md');
         const kimi = read('agent-kit/KIMI.md');
         const start = read('agent-kit/START-HERE.md');
@@ -42,6 +43,12 @@ describe('portable agent kit', () => {
             name: 'siyuan-sisyphus-agent-kit',
             skills: './skills/',
             sessionStart: { skill: 'siyuan-mcp-sisyphus' },
+        }));
+        expect(codexManifest).toEqual(expect.objectContaining({
+            name: 'siyuan-sisyphus',
+            version: packageManifest.version,
+            skills: './skills/',
+            mcpServers: './.mcp.json',
         }));
         expect(delivery).toEqual(expect.objectContaining({
             packageVersion: packageManifest.version,
@@ -83,6 +90,9 @@ describe('portable agent kit', () => {
         expect(start).toContain('agentKit.url');
         expect(start).toContain('/releases/latest');
         expect(start).toContain('/codex/local-maintenance/agent-kit/START-HERE.md');
+        expect(start).toContain('tree/main/skills/siyuan-mcp');
+        expect(start).toContain('只安装 Skill');
+        expect(start).toContain('不会注册');
         expect(start).not.toMatch(/github\.com\/clark874\/siyuan-plugins-mcp-sisyphus\/(?:releases\/download|releases\/tag)\/v\d/i);
         expect(start).not.toMatch(/raw\.githubusercontent\.com\/clark874\/siyuan-plugins-mcp-sisyphus\/v\d/i);
         expect(kimi).toContain('kimi mcp add --transport http');
@@ -90,6 +100,12 @@ describe('portable agent kit', () => {
         expect(kimi).toContain('/skill:siyuan-mcp-sisyphus');
         expect(kimi).not.toContain('action="sql"');
         expect(kimi).not.toContain('action="diff"');
+
+        for (const skillDirectory of readdirSync(path.join(root, 'agent-plugin/siyuan-sisyphus/skills'))) {
+            const skill = read(`agent-plugin/siyuan-sisyphus/skills/${skillDirectory}/SKILL.md`);
+            expect(skill).toContain('compatibility:');
+            expect(skill).toContain('Requires a reachable SiYuan Sisyphus MCP server');
+        }
     });
 
     it('installs the canonical skill and the single Sisyphus gateway without printing the token', () => {
@@ -213,5 +229,6 @@ describe('portable agent kit', () => {
         const builder = read('scripts/build-agent-kit.mjs');
         expect(builder).toContain("entry.name === '.DS_Store'");
         expect(builder).toContain("entry.name === '__MACOSX'");
+        expect(builder).toContain('agent-plugin/siyuan-sisyphus/.codex-plugin/plugin.json');
     });
 });

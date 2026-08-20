@@ -1,6 +1,7 @@
 ---
 name: siyuan-sisyphus-database
-description: CLI-only playbook for SiYuan attribute views with siyuan-sisyphus. Use to inspect database metadata, render views, add columns or rows, update cells, and keep AV, view, row, column, and block IDs distinct.
+description: CLI-only playbook for SiYuan attribute views with siyuan-sisyphus. Use to inspect AV metadata, render views, add columns or rows, and update cells while keeping AV, view, row, column, and block IDs distinct. Do not use for read-only SQL analytics; use search-query instead.
+compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
 # Operate SiYuan Databases with the CLI

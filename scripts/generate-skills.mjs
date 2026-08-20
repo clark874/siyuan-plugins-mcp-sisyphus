@@ -92,9 +92,12 @@ function yamlQuote(value) {
 function renderSkill(scenario, runtime) {
     const name = runtime === 'mcp' ? scenario.mcpName : scenario.cliName;
     const description = runtime === 'mcp' ? scenario.mcpDescription : scenario.cliDescription;
+    const compatibility = runtime === 'mcp'
+        ? 'Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token.'
+        : 'Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace.';
     const runtimeTitle = runtime === 'mcp' ? `${scenario.title} with MCP` : `${scenario.title} with the CLI`;
     const entryGuard = runtime === 'cli' ? `${CLI_ENTRY_GUARD}\n\n` : '';
-    return `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${runtimeTitle}\n\n${entryGuard}${renderBody(scenario, runtime)}\n`;
+    return `---\nname: ${name}\ndescription: ${description}\ncompatibility: ${yamlQuote(compatibility)}\n---\n\n# ${runtimeTitle}\n\n${entryGuard}${renderBody(scenario, runtime)}\n`;
 }
 
 function renderOpenAiYaml(scenario, runtime) {

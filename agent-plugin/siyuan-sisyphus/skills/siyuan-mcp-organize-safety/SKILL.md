@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-organize-safety
 description: Organization and safety workflow for SiYuan MCP. Use for tags, flashcard decks and reviews, timeline snapshots and rollback, notebook permissions, system information, troubleshooting, and dangerous-operation confirmation.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server; installing this Skill alone does not register the endpoint or configure authentication."
 ---
 
 # Organize SiYuan Safely

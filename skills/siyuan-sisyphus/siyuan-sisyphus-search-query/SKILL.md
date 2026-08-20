@@ -1,6 +1,7 @@
 ---
 name: siyuan-sisyphus-search-query
-description: CLI-only playbook for finding and querying SiYuan content with siyuan-sisyphus. Use for semantic knowledge discovery, fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.
+description: CLI-only playbook for retrieving existing SiYuan content with siyuan-sisyphus. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, assets, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.
+compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
 # Search and Query SiYuan with the CLI

@@ -116,8 +116,8 @@ Never derive a storage path from a title. Resolve the document first and reuse t
         id: 'create-edit',
         cliName: 'siyuan-sisyphus-create-edit',
         mcpName: 'siyuan-mcp-create-edit',
-        cliDescription: 'CLI-only playbook for creating and editing SiYuan documents and blocks with siyuan-sisyphus. Use for path-based document creation, block append/insert/update, metadata, daily notes, and verified edits.',
-        mcpDescription: 'MCP playbook for creating and editing SiYuan documents and blocks. Use for path-based document creation, block append/insert/update, metadata, daily notes, and verified edits.',
+        cliDescription: 'CLI-only playbook for bounded, ordinary SiYuan document and block edits with siyuan-sisyphus. Use for path-based creation, append/insert/update, metadata, daily notes, and verified edits. Use knowledge-governance for name/alias or cross-reference governance, and database for AV cells.',
+        mcpDescription: 'MCP playbook for bounded, ordinary SiYuan document and block edits. Use for path-based creation, append/insert/update, metadata, daily notes, and verified edits. Use knowledge-governance for name/alias or cross-reference governance, and database for AV cells.',
         title: 'Create and Edit SiYuan Content',
         displayName: 'SiYuan Create & Edit',
         shortDescription: 'Create and edit SiYuan note content',
@@ -168,8 +168,8 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
         id: 'knowledge-ingest',
         cliName: 'siyuan-sisyphus-knowledge-ingest',
         mcpName: 'siyuan-mcp-knowledge-ingest',
-        cliDescription: '思源知识摄取工作流。用户要求整理网页、导入教程、更新主题知识、编译剪藏、搜索资料并写入知识库时使用；通过 siyuan-sisyphus 执行来源查重、差量合并、属性登记、数据库入表、回读验证和幂等复跑。',
-        mcpDescription: '思源知识摄取工作流。用户要求整理网页、导入教程、更新主题知识、编译剪藏、搜索资料并写入知识库时使用；通过 Sisyphus MCP 执行来源查重、差量合并、属性登记、数据库入表、回读验证和幂等复跑。',
+        cliDescription: '思源知识摄取工作流。只在外部来源需要写入思源知识库时使用，包括整理网页、导入教程、更新专题与编译剪藏；通过 siyuan-sisyphus 完成查重、差量合并、来源登记、AV 入表和幂等复跑。只阅读网页或查询既有笔记时不要使用。',
+        mcpDescription: '思源知识摄取工作流。只在外部来源需要写入思源知识库时使用，包括整理网页、导入教程、更新专题与编译剪藏；通过 Sisyphus MCP 完成查重、差量合并、来源登记、AV 入表和幂等复跑。只阅读网页或查询既有笔记时不要使用。',
         title: '思源知识摄取与差量编译',
         displayName: '思源知识摄取',
         shortDescription: '将网页差量编译为可追溯思源知识',
@@ -190,7 +190,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 ## 一、捕获与规范化
 
-使用客户端可用的浏览器或网页读取能力获取标题、规范网址、作者或机构、发布时间、更新时间、版本、许可证、抓取时间和正文。MCP 本身不负责互联网抓取。规范网址只允许 \`http:\` 和 \`https:\`，不得包含用户名、密码、访问令牌、签名或其他秘密参数。移除片段标识和明确的追踪参数；查询参数采用白名单，只保留经过审计的版本、语言、分页和视图类语义参数，其他字段默认删除。不要把可能代表版本的 \`ref\` 一概删除。
+使用客户端可用的浏览器或网页读取能力获取标题、规范网址、作者或机构、发布时间、更新时间、版本、许可证、抓取时间和正文。MCP 本身不负责互联网抓取。优先使用客户端已经提供并经过用户信任的正文提取能力；Defuddle 只能作为可选客户端工具，不得由 Skill 自动全局安装，也不得用于含认证信息、私密地址或未审计查询参数的 URL。规范网址只允许 \`http:\` 和 \`https:\`，不得包含用户名、密码、访问令牌、签名或其他秘密参数。移除片段标识和明确的追踪参数；查询参数采用白名单，只保留经过审计的版本、语言、分页和视图类语义参数，其他字段默认删除。不要把可能代表版本的 \`ref\` 一概删除。
 
 对去除 YAML frontmatter、导航、页脚和动态噪声后的正文计算 SHA-256，使抓取时间和原始追踪参数变化不会改变正文哈希。可使用随 Skill 发布的 \`scripts/normalize-source.mjs\` 复算规范网址与哈希。不要把大段第三方网页复制进正式知识层；保留来源网址，提炼必要差量，并遵守来源许可证。
 
@@ -296,8 +296,8 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
         id: 'knowledge-governance',
         cliName: 'siyuan-sisyphus-knowledge-governance',
         mcpName: 'siyuan-mcp-knowledge-governance',
-        cliDescription: 'CLI-only 思源知识治理工作流。用于把专题材料编译为带 name/alias 的知识原子，审计覆盖缺口与歧义，维护专题中枢，并安全执行跨引用、嵌入查询和正文副本的改名。',
-        mcpDescription: '思源知识治理工作流。用于把专题材料编译为带 name/alias 的知识原子，审计覆盖缺口与歧义，维护专题中枢，并安全执行跨引用、嵌入查询和正文副本的改名。',
+        cliDescription: 'CLI-only 思源知识治理工作流。用于把专题材料编译为带 name/alias 的知识原子，审计覆盖缺口与歧义，维护专题中枢，并安全处理跨引用改名。普通检索应使用 search-query，外部来源入库应使用 knowledge-ingest。',
+        mcpDescription: '思源知识治理工作流。用于把专题材料编译为带 name/alias 的知识原子，审计覆盖缺口与歧义，维护专题中枢，并安全处理跨引用改名。普通检索应使用 search-query，外部来源入库应使用 knowledge-ingest。',
         title: '思源知识原子编译与治理',
         displayName: '思源知识治理',
         shortDescription: '编译并治理思源知识原子与锚点',
@@ -415,8 +415,8 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
         id: 'search-query',
         cliName: 'siyuan-sisyphus-search-query',
         mcpName: 'siyuan-mcp-search-query',
-        cliDescription: 'CLI-only playbook for finding and querying SiYuan content with siyuan-sisyphus. Use for semantic knowledge discovery, fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.',
-        mcpDescription: 'MCP playbook for finding and querying SiYuan content. Use for semantic knowledge discovery, fulltext, read-only SQL, backlinks, references, assets, dynamic query blocks, and safe find-replace.',
+        cliDescription: 'CLI-only playbook for retrieving existing SiYuan content with siyuan-sisyphus. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, assets, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.',
+        mcpDescription: 'MCP playbook for retrieving existing SiYuan content. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, assets, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.',
         title: 'Search and Query SiYuan',
         displayName: 'SiYuan Search & Query',
         shortDescription: 'Search and query SiYuan knowledge',
@@ -464,8 +464,8 @@ Read the changed blocks again. Recent writes can take time to enter the search i
         id: 'database',
         cliName: 'siyuan-sisyphus-database',
         mcpName: 'siyuan-mcp-database',
-        cliDescription: 'CLI-only playbook for SiYuan attribute views with siyuan-sisyphus. Use to inspect database metadata, render views, add columns or rows, update cells, and keep AV, view, row, column, and block IDs distinct.',
-        mcpDescription: 'MCP playbook for SiYuan attribute views. Use to inspect database metadata, render views, add columns or rows, update cells, and keep AV, view, row, column, and block IDs distinct.',
+        cliDescription: 'CLI-only playbook for SiYuan attribute views with siyuan-sisyphus. Use to inspect AV metadata, render views, add columns or rows, and update cells while keeping AV, view, row, column, and block IDs distinct. Do not use for read-only SQL analytics; use search-query instead.',
+        mcpDescription: 'MCP playbook for SiYuan attribute views. Use to inspect AV metadata, render views, add columns or rows, and update cells while keeping AV, view, row, column, and block IDs distinct. Do not use for read-only SQL analytics; use search-query instead.',
         title: 'Operate SiYuan Databases',
         displayName: 'SiYuan Database',
         shortDescription: 'Operate SiYuan attribute view databases',
@@ -681,8 +681,8 @@ Respect server permission errors and dangerous-action confirmation responses. Ne
         id: 'markup-guide',
         cliName: 'siyuan-markup-guide',
         mcpName: 'siyuan-mcp-markup-guide',
-        cliDescription: 'CLI-only SiYuan markup guide for rich Markdown written through siyuan-sisyphus. Use for headings, lists, tasks, tables, code, math, diagrams, tags, callouts, super blocks, embeds, and block references.',
-        mcpDescription: 'MCP SiYuan markup guide for rich Markdown written through block and document actions. Use for headings, lists, tasks, tables, code, math, diagrams, tags, callouts, super blocks, embeds, and block references.',
+        cliDescription: 'CLI-only guide for SiYuan-specific rich Markdown written through siyuan-sisyphus. Use for math, diagrams, attributes, super blocks, embeds, block references, and SiYuan rendering constraints; standard Markdown is assumed knowledge. Do not use for plain prose edits without SiYuan-specific formatting.',
+        mcpDescription: 'MCP guide for SiYuan-specific rich Markdown written through block and document actions. Use for math, diagrams, attributes, super blocks, embeds, block references, and SiYuan rendering constraints; standard Markdown is assumed knowledge. Do not use for plain prose edits without SiYuan-specific formatting.',
         title: 'SiYuan Markup Guide',
         displayName: 'SiYuan Markup Guide',
         shortDescription: 'Write rich native SiYuan markup',

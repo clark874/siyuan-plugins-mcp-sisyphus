@@ -1,6 +1,7 @@
 ---
 name: siyuan-mcp-read-discover
 description: Read and discovery workflow for SiYuan MCP. Use for notebook trees, paths, blocks, fulltext search, read-only SQL, backlinks, references, assets, and scoped find-replace preparation.
+compatibility: "Requires a reachable SiYuan Sisyphus MCP server; installing this Skill alone does not register the endpoint or configure authentication."
 ---
 
 # Read and Discover SiYuan
