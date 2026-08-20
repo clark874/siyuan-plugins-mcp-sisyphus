@@ -42,6 +42,37 @@ export function extractTreeArray(result: unknown): unknown[] {
 }
 
 /**
+ * 读取某篇文档的后代树，同时把没有子文档的普通叶子识别为空树。
+ *
+ * 思源的 `listDocTree` 会把文档存储路径去掉 `.sy` 后当作子目录打开；
+ * 叶子文档没有该目录，因此内核会返回文件不存在。这里先通过稳定的
+ * `listDocsByPath` 查询确认是否存在直接子文档，避免把正常叶子误报为
+ * API 故障。若预检后子文档恰好被并发删除，则失败后再次查询；只有
+ * 仍存在子文档时才保留原始错误。
+ */
+export async function listDocumentSubtreeNodes(
+    client: SiYuanClient,
+    notebook: string,
+    path: string,
+    knownDirectChildCount?: number,
+): Promise<unknown[]> {
+    if (knownDirectChildCount === 0) return [];
+
+    if (knownDirectChildCount === undefined) {
+        const children = await listChildDocumentsByPath(client, notebook, path);
+        if (children.length === 0) return [];
+    }
+
+    try {
+        return extractTreeArray(await documentApi.listDocTree(client, notebook, path));
+    } catch (error) {
+        const children = await listChildDocumentsByPath(client, notebook, path);
+        if (children.length === 0) return [];
+        throw error;
+    }
+}
+
+/**
  * Tree nodes for a notebook root.
  *
  * `listDocTree` rejects the notebook root with "path escapes notebook
@@ -91,7 +122,7 @@ async function expandNotebookRootChild(
         return {
             node: {
                 id: child.id,
-                children: extractTreeArray(await documentApi.listDocTree(client, notebook, child.path)),
+                children: await listDocumentSubtreeNodes(client, notebook, child.path, child.subFileCount),
             },
         };
     } catch (error) {

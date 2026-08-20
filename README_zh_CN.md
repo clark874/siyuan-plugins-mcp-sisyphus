@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.1`（本地 CLI `v0.3.8-wiki.1`）将模型侧 JSON 改为紧凑传输，消除 `av.render` 原始行与表格行双份返回，并固化数据库窄查询工作流。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.2`（本地 CLI `v0.3.8-wiki.2`）在紧凑 AV 响应基础上修复叶子文档搜索与树读取，并消除笔记本根树的叶子假警报。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.8.9-wiki.1` — MCP 响应紧凑序列化、AV 单份轻量投影、默认 10 行窗口与三步数据库读取纪律已经统一；本地 CLI 为 `v0.3.8-wiki.1`。
+> **当前 LLM Wiki 版本：**`v0.8.9-wiki.2` — MCP 响应保持紧凑，叶子文档可安全搜索并返回空子树，根树健康状态不再出现叶子假警报；本地 CLI 为 `v0.3.8-wiki.2`。
 
 ## 项目方向调整
 

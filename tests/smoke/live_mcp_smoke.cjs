@@ -649,6 +649,40 @@ async function runLiveSmoke() {
             });
             assert.equal(sourceHPathByPath.hPath, sourceHPath.hPath);
 
+            const leafHumanPath = `/${notebookName}${sourceHPath.hPath}`;
+            const leafFsTree = (await callToolJson(client, 'fs', {
+                action: 'tree',
+                path: leafHumanPath,
+                maxDepth: 2,
+            })).json;
+            assert.deepEqual(leafFsTree.tree, [], `叶子 fs.tree 不应失败或返回伪子树：${JSON.stringify(leafFsTree)}`);
+
+            const leafFsSearch = (await callToolJson(client, 'fs', {
+                action: 'search',
+                path: leafHumanPath,
+                query: 'seed',
+                pageSize: 5,
+            })).json;
+            assert.ok(Array.isArray(leafFsSearch.data), `叶子 fs.search 未返回结果数组：${JSON.stringify(leafFsSearch)}`);
+            assert.ok(leafFsSearch.data.some((match) => match.path === leafHumanPath && /seed/.test(match.text)), `叶子 fs.search 未命中自身正文：${JSON.stringify(leafFsSearch)}`);
+
+            const leafDocumentTree = (await callToolJson(client, 'document', {
+                action: 'list_tree',
+                notebook: notebookId,
+                path: sourcePath.path,
+                maxDepth: 2,
+            })).json;
+            assert.deepEqual(leafDocumentTree.tree, [], `叶子 document.list_tree 不应失败或返回伪子树：${JSON.stringify(leafDocumentTree)}`);
+
+            const notebookFsTree = (await callToolJson(client, 'fs', {
+                action: 'tree',
+                path: `/${notebookName}`,
+                maxDepth: 2,
+            })).json;
+            assert.equal(notebookFsTree.partial, false, `顶层叶子被误报为根树部分失败：${JSON.stringify(notebookFsTree)}`);
+            assert.equal(notebookFsTree.failedTopLevelDocumentCount, 0);
+            assert.deepEqual(notebookFsTree.errors, []);
+
             const sourceIdsByHPath = await lookupDoc(client, {
                 notebook: notebookId,
                 hpath: sourceHPath.hPath,

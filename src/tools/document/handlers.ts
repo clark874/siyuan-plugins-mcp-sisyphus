@@ -51,7 +51,7 @@ import {
     readDocumentChildSortMode,
     readDocumentReorderState,
 } from '../internal/helpers/document-reorder';
-import { isNotebookRootPath, listNotebookRootTreeNodes } from '../internal/helpers/doc-tree';
+import { isNotebookRootPath, listDocumentSubtreeNodes, listNotebookRootTreeNodes } from '../internal/helpers/doc-tree';
 import { createSemanticError } from '../internal/validation';
 
 type DocumentActionHandler = ToolActionHandler;
@@ -731,17 +731,8 @@ const handleListTree: DocumentActionHandler = async ({ client, permMgr, rawArgs 
             failedTopLevelDocumentCount: rootTree.failedTopLevelDocumentCount,
         });
     }
-    const result = await documentApi.listDocTree(client, parsed.notebook, parsed.path);
-    if (result && typeof result === 'object' && Array.isArray((result as Record<string, unknown>).tree)) {
-        const enriched = await enrichTreeNodesWithDocInfo(client, (result as Record<string, unknown>).tree);
-        return createJsonResult({
-            ...(result as Record<string, unknown>),
-            tree: truncateTreeByDepth(enriched, maxDepth),
-            maxDepth,
-            depthHint,
-        });
-    }
-    const enriched = await enrichTreeNodesWithDocInfo(client, result);
+    const nodes = await listDocumentSubtreeNodes(client, parsed.notebook, parsed.path);
+    const enriched = await enrichTreeNodesWithDocInfo(client, nodes);
     return createJsonResult({ tree: truncateTreeByDepth(enriched, maxDepth), maxDepth, depthHint });
 };
 

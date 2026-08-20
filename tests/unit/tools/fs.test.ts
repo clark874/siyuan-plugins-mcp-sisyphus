@@ -26,9 +26,10 @@ function fsConfig() {
     return buildDefaultToolConfig().fs;
 }
 
-function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[]; treeFailurePaths?: string[]; agentMemory?: string; agentMemoryUpdatedAt?: string; userRulesText?: string; markdownContent?: string } = {}) {
+function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[]; treeFailurePaths?: string[]; leafStoragePaths?: string[]; agentMemory?: string; agentMemoryUpdatedAt?: string; userRulesText?: string; markdownContent?: string } = {}) {
     const missing = new Set(options.missingPaths ?? []);
     const treeFailures = new Set(options.treeFailurePaths ?? []);
+    const leafStoragePaths = new Set(options.leafStoragePaths ?? []);
     let storedConfig = {
         ...buildDefaultToolConfig(),
         userRulesText: options.userRulesText ?? '创建文档/日记后主动设图标',
@@ -61,6 +62,9 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[];
                 return '/Doc 1';
             }
             if (endpoint === '/api/filetree/listDocsByPath') {
+                if (leafStoragePaths.has(String(body?.path))) {
+                    return { box: body?.notebook ?? 'nb-1', files: [] };
+                }
                 return {
                     box: body?.notebook ?? 'nb-1',
                     files: [
@@ -77,6 +81,9 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[];
                 }
                 if (treeFailures.has(String(body?.path))) {
                     throw new SiYuanError(-1, 'subtree unavailable');
+                }
+                if (leafStoragePaths.has(String(body?.path))) {
+                    throw new SiYuanError(-1, `open /workspace/data/${body?.notebook}/doc-1: no such file or directory`);
                 }
                 return {
                     tree: [
@@ -257,6 +264,30 @@ describe('fs tool', () => {
         ]);
         expect(client.request).toHaveBeenCalledWith('/api/filetree/listDocsByPath', expect.objectContaining({ notebook: 'nb-1', path: '/' }));
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.objectContaining({ path: '/' }));
+    });
+
+    it('returns an empty tree for a leaf document without calling listDocTree', async () => {
+        const client = createFsClient({ leafStoragePaths: ['/doc-1.sy'] });
+        const result = await callFsTool(client, { action: 'tree', path: '/Notebook/Doc 1' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.tree).toEqual([]);
+        expect(client.request).toHaveBeenCalledWith('/api/filetree/listDocsByPath', expect.objectContaining({
+            notebook: 'nb-1',
+            path: '/doc-1.sy',
+        }));
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.objectContaining({ path: '/doc-1.sy' }));
+    });
+
+    it('keeps a genuine document subtree failure as a hard api_error', async () => {
+        const client = createFsClient({ treeFailurePaths: ['/doc-1.sy'] });
+        const result = await callFsTool(client, { action: 'tree', path: '/Notebook/Doc 1' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error).toMatchObject({ type: 'api_error' });
+        expect(parsed.error.message).toContain('subtree unavailable');
     });
 
     it('builds the virtual root tree without asking the kernel for path "/"', async () => {
@@ -2188,6 +2219,16 @@ describe('fs tool', () => {
 
         expect(parsed.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, text: 'budget line' }]);
         expect(parsed.total).toBe(1);
+    });
+
+    it('searches a leaf document without asking the kernel for a missing child directory', async () => {
+        const client = createFsClient({ leafStoragePaths: ['/doc-1.sy'] });
+        const result = await callFsTool(client, { action: 'search', path: '/Notebook/Doc 1', query: 'budget' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, text: 'budget line' }]);
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.objectContaining({ path: '/doc-1.sy' }));
     });
 
     it('bounds long search excerpts and reports that the line was truncated', async () => {

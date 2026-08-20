@@ -26,7 +26,7 @@ import {
     type FsScopePath,
 } from '../internal/helpers/fs-path';
 import { applyDocumentReorder, readDocumentReorderState, resolveFsReorderOrder } from '../internal/helpers/document-reorder';
-import { extractTreeArray, listNotebookRootTreeNodes, type NotebookRootTreeError } from '../internal/helpers/doc-tree';
+import { listDocumentSubtreeNodes, listNotebookRootTreeNodes, type NotebookRootTreeError } from '../internal/helpers/doc-tree';
 import { applyExactReplaceEdits } from '../internal/replace';
 import { createJsonResult, createPaginatedResult, type ToolResult } from '../internal/shared';
 import { applyUiRefresh } from '../internal/ui-refresh';
@@ -683,7 +683,7 @@ async function collectSearchDocuments(
     scope: FsScopePath,
 ): Promise<Array<{ id: string; notebookName: string }>> {
     if (scope.type === 'document') {
-        const tree = extractTreeArray(await documentApi.listDocTree(client, scope.notebook, scope.storagePath));
+        const tree = await listDocumentSubtreeNodes(client, scope.notebook, scope.storagePath);
         return [...new Set([scope.id, ...collectTreeIds(tree)])].map((id) => ({ id, notebookName: scope.notebookName }));
     }
     if (scope.type === 'notebook') {
@@ -835,7 +835,7 @@ const handleTree: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
             failedTopLevelDocumentCount: rootTree.failedTopLevelDocumentCount,
         });
     }
-    const nodes = extractTreeArray(await documentApi.listDocTree(client, scope.notebook, scope.storagePath));
+    const nodes = await listDocumentSubtreeNodes(client, scope.notebook, scope.storagePath);
     return createJsonResult({
         path: scope.canonicalPath,
         tree: await normalizeTreeNodes(client, nodes, scope.canonicalPath, scope.notebookName, maxDepth),

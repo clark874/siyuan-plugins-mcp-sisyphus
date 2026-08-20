@@ -9,6 +9,7 @@ import * as blockApi from '@/api/block';
 import * as documentApi from '@/api/document';
 import * as searchApi from '@/api/search';
 import * as contextTools from '@/tools/internal/context';
+import { SiYuanError } from '@/shared/error';
 
 import { parseResult } from '../../helpers/parse-result';
 
@@ -631,6 +632,10 @@ describe('tool permission and filtering behavior', () => {
             name: 'Doc One.sy',
             icon: '1f4d4',
         } as never);
+        vi.spyOn(documentApi, 'listDocsByPath').mockResolvedValue({
+            box: 'allowed',
+            files: [{ id: 'child-1', box: 'allowed', path: '/doc-1/child-1.sy', name: 'Child.sy' }],
+        } as never);
         vi.spyOn(documentApi, 'listDocTree').mockResolvedValue({
             tree: [
                 { id: 'doc-1' },
@@ -648,6 +653,29 @@ describe('tool permission and filtering behavior', () => {
         expect(parsed.tree).toHaveLength(2);
         expect(parsed.tree[0].name).toBe('Doc One');
         expect(getDocInfo).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns an empty list_tree for a leaf document without calling listDocTree', async () => {
+        const listDocsByPath = vi.spyOn(documentApi, 'listDocsByPath').mockResolvedValue({
+            box: 'allowed',
+            files: [],
+        } as never);
+        const listDocTree = vi.spyOn(documentApi, 'listDocTree').mockRejectedValue(
+            new SiYuanError(-1, 'open /workspace/data/allowed/doc-1: no such file or directory'),
+        );
+
+        const result = await callDocumentTool({} as never, {
+            action: 'list_tree',
+            notebook: 'allowed',
+            path: '/doc-1.sy',
+        }, documentConfig, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBeUndefined();
+        expect(parsed.tree).toEqual([]);
+        expect(parsed.maxDepth).toBe(3);
+        expect(listDocsByPath).toHaveBeenCalledWith(expect.anything(), 'allowed', '/doc-1.sy');
+        expect(listDocTree).not.toHaveBeenCalled();
     });
 
     // The kernel rejects listDocTree at a notebook root, so list_tree has to
