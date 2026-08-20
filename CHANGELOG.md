@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.9-wiki.3 - 2026-08-20
+
+- 知识治理与检索 Skill 新增“命中即读”完成门：`search.knowledge` 去重前 3 名出现带 `name`、路径明确且与任务一致的专题中枢或知识原子时，立即按稳定 ID 读取并停止目录级发现；候选歧义、偏题或未命名时才继续全文、SQL 或目录探索
+- 明确 `search.check_anchor` 仅用于写入或修改 `name`/`alias` 前的碰撞预检，不是既有内容定位器；任何 `validation_error` 都表示预检未执行，不得报告为 `available`、缺失或通过
+- `check_anchor` 参数校验提示新增可直接重试的完整形态：`candidates=["token"]` 与 `candidateKind="name"|"alias"`，并增加错误路径回归测试，防止手写 MCP 客户端绕过 Schema 校验后虚构验证结果
+- MCP 与 CLI Skill 由同一场景源重新生成；本地 CLI 元数据同步提升至 `v0.3.8-wiki.3`，推荐思源版本保持 `3.8.1`
+
 ## v0.8.9-wiki.2 - 2026-08-20
 
 - 修复思源 3.8.1 中叶子文档没有同名子目录时的树读取：`fs.search` 现在只搜索该文档自身，`fs.tree` 与 `document.list_tree` 正确返回空树，不再把正常叶子误报为 `api_error`

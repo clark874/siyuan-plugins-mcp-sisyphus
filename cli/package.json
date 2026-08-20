@@ -1,6 +1,6 @@
 {
   "name": "siyuan-sisyphus",
-  "version": "0.3.8-wiki.2",
+  "version": "0.3.8-wiki.3",
   "description": "Direct command-line control for SiYuan Note. AI agents should run `siyuan-sisyphus skill install` before using the CLI for SiYuan work.",
   "bin": {
     "siyuan-sisyphus": "dist/cli.cjs",

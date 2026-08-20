@@ -26,10 +26,13 @@ siyuan-sisyphus system bootstrap --json
 
 ## 一、发现与候选队列
 
-先读取工作区入口，再用专题词定位知识中枢和候选块。不要先遍历整个笔记本：
+先读取工作区入口，再用专题词定位知识中枢和候选块。自然语言发现优先调用 `search.knowledge`；若去重前 3 名已出现带 `name`、路径明确且与任务一致的专题中枢或知识原子，立即按稳定 ID 读取该目标并停止目录级发现。只有候选歧义、偏题或未命名时，才继续全文或 SQL 定位。不要先遍历整个笔记本、展开上级目录、运行探索性 SQL 或无过滤渲染完整 AV：
 
 ```bash
 siyuan-sisyphus fs read --path '/AGENTS.md' --block-start '0' --block-limit '80' --token-budget '2000' --json
+```
+```bash
+siyuan-sisyphus search knowledge --query 'natural-language topic or project question' --page-size '10' --candidate-size '30' --json
 ```
 ```bash
 siyuan-sisyphus search fulltext --query 'topic keyword' --page '1' --page-size '20' --json
@@ -63,7 +66,9 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
 
 合法多义可用 `custom-anchor-scope` 声明受控解析范围；该属性允许英文逗号或中文逗号分隔多个值。只有当前上下文范围与候选 scope 相交且恰好命中一个候选时，才可自动解析；无命中或多候选相交都保持歧义。宽泛 alias 若有召回价值但污染编辑器虚拟引用，应保留 alias，并通过思源编辑器设置 `virtualBlockRefExclude` 抑制显示；`data/.siyuan/refsearchignore` 是反链 SQL 条件文件，不是 alias 词元排除清单，不得用于该目的。
 
-审计时必须先把英文逗号和中文逗号分隔的别名拆成单个词元并去除空白，不能对整串 `alias` 做 `GROUP BY`，也不能用 `LIKE '%词%'` 代替精确词元比较。写入前分别检查建议 name 与每个建议 alias：
+审计时必须先把英文逗号和中文逗号分隔的别名拆成单个词元并去除空白，不能对整串 `alias` 做 `GROUP BY`，也不能用 `LIKE '%词%'` 代替精确词元比较。
+
+`search.check_anchor` 只用于写入或修改 `name`/`alias` 前的碰撞预检，不是既有内容定位器。调用必须同时提供 `candidates` 数组与 `candidateKind`；任何 `validation_error` 都表示预检没有执行，绝不能报告为 `available`、缺失或通过。写入前分别检查建议 name 与每个建议 alias：
 
 ```bash
 siyuan-sisyphus search check-anchor --candidates-json '["proposed-name"]' --candidate-kind 'name' --exclude-block-ids-json '["<block-id>"]' --json

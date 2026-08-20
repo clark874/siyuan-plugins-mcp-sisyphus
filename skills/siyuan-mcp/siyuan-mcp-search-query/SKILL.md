@@ -9,6 +9,10 @@ Search to identify candidates, read the target by ID or path, and only then edit
 
 For a natural-language question on SiYuan 3.8.0+, use `semantic` for low-level candidate discovery and `knowledge` for the LLM Wiki view that collapses reference-only hits, prefers named content atoms, and attaches readable reusing documents. Semantic hits are discovery candidates rather than evidence; always read the returned stable block ID and inspect its source and verification attributes before reuse.
 
+If one of the first three deduplicated `knowledge` results is a named project hub or knowledge atom with a path that clearly matches the task, read that stable target immediately and stop directory-level discovery. Continue with a parent tree, exploratory SQL, or broader fulltext search only when the top candidates are ambiguous, off-topic, or unnamed. Do not render an unfiltered full AV merely to locate a project status row.
+
+`search.check_anchor` is a write-time collision preflight, not a retrieval action. It requires `candidates=[...]` and `candidateKind="name"|"alias"`. A `validation_error` means the preflight did not run; never reinterpret it as an available or missing anchor.
+
 ```text
 search(action="semantic", query="Which existing notes are relevant to this method?", page=1, pageSize=30)
 ```

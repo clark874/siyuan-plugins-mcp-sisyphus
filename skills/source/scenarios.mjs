@@ -306,9 +306,10 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 ## 一、发现与候选队列
 
-先读取工作区入口，再用专题词定位知识中枢和候选块。不要先遍历整个笔记本：
+先读取工作区入口，再用专题词定位知识中枢和候选块。自然语言发现优先调用 \`search.knowledge\`；若去重前 3 名已出现带 \`name\`、路径明确且与任务一致的专题中枢或知识原子，立即按稳定 ID 读取该目标并停止目录级发现。只有候选歧义、偏题或未命名时，才继续全文或 SQL 定位。不要先遍历整个笔记本、展开上级目录、运行探索性 SQL 或无过滤渲染完整 AV：
 
 {{call memory}}
+{{call knowledgeSearch}}
 {{call topicSearch}}
 {{call namedSearch}}
 
@@ -329,7 +330,9 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
 
 合法多义可用 \`custom-anchor-scope\` 声明受控解析范围；该属性允许英文逗号或中文逗号分隔多个值。只有当前上下文范围与候选 scope 相交且恰好命中一个候选时，才可自动解析；无命中或多候选相交都保持歧义。宽泛 alias 若有召回价值但污染编辑器虚拟引用，应保留 alias，并通过思源编辑器设置 \`virtualBlockRefExclude\` 抑制显示；\`data/.siyuan/refsearchignore\` 是反链 SQL 条件文件，不是 alias 词元排除清单，不得用于该目的。
 
-审计时必须先把英文逗号和中文逗号分隔的别名拆成单个词元并去除空白，不能对整串 \`alias\` 做 \`GROUP BY\`，也不能用 \`LIKE '%词%'\` 代替精确词元比较。写入前分别检查建议 name 与每个建议 alias：
+审计时必须先把英文逗号和中文逗号分隔的别名拆成单个词元并去除空白，不能对整串 \`alias\` 做 \`GROUP BY\`，也不能用 \`LIKE '%词%'\` 代替精确词元比较。
+
+\`search.check_anchor\` 只用于写入或修改 \`name\`/\`alias\` 前的碰撞预检，不是既有内容定位器。调用必须同时提供 \`candidates\` 数组与 \`candidateKind\`；任何 \`validation_error\` 都表示预检没有执行，绝不能报告为 \`available\`、缺失或通过。写入前分别检查建议 name 与每个建议 alias：
 
 {{call conflictName}}
 {{call conflictAlias}}
@@ -383,6 +386,7 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
 `,
         calls: {
             memory: call('fs', 'read', { path: '/AGENTS.md', blockStart: 0, blockLimit: 80, tokenBudget: 2000 }),
+            knowledgeSearch: call('search', 'knowledge', { query: 'natural-language topic or project question', pageSize: 10, candidateSize: 30 }),
             topicSearch: call('search', 'fulltext', { query: 'topic keyword', page: 1, pageSize: 20 }),
             namedSearch: call('search', 'query_sql', { stmt: "SELECT id, name, alias, hpath, substr(content, 1, 80) AS preview FROM blocks WHERE name LIKE '%topic%' OR alias LIKE '%topic%' ORDER BY updated DESC LIMIT 100", maxRows: 100 }),
             referencedUnnamed: call('search', 'query_sql', { stmt: "SELECT b.id, b.hpath, substr(b.content, 1, 80) AS preview, COUNT(*) AS indegree FROM refs r JOIN blocks b ON b.id = r.def_block_id WHERE COALESCE(b.name, '') = '' GROUP BY b.id, b.hpath, b.content ORDER BY indegree DESC LIMIT 100", maxRows: 100 }),
@@ -420,6 +424,10 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
         body: `Search to identify candidates, read the target by ID or path, and only then edit. Use explicit pagination for repeatable results.
 
 For a natural-language question on SiYuan 3.8.0+, use \`semantic\` for low-level candidate discovery and \`knowledge\` for the LLM Wiki view that collapses reference-only hits, prefers named content atoms, and attaches readable reusing documents. Semantic hits are discovery candidates rather than evidence; always read the returned stable block ID and inspect its source and verification attributes before reuse.
+
+If one of the first three deduplicated \`knowledge\` results is a named project hub or knowledge atom with a path that clearly matches the task, read that stable target immediately and stop directory-level discovery. Continue with a parent tree, exploratory SQL, or broader fulltext search only when the top candidates are ambiguous, off-topic, or unnamed. Do not render an unfiltered full AV merely to locate a project status row.
+
+\`search.check_anchor\` is a write-time collision preflight, not a retrieval action. It requires \`candidates=[...]\` and \`candidateKind="name"|"alias"\`. A \`validation_error\` means the preflight did not run; never reinterpret it as an available or missing anchor.
 
 {{call semantic}}
 {{call knowledge}}

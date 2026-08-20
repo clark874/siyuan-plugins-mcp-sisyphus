@@ -4337,7 +4337,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
-        "hint": "Checks exact normalized name/alias tokens before knowledge compilation. name candidates must be globally unique; alias collisions are reported for semantic or custom-anchor-scope adjudication rather than rejected automatically.",
+        "hint": "Use only before writing or changing name/alias, not to locate existing content. Required shape: search(action="check_anchor", candidates=["token"], candidateKind="name"|"alias"). Checks exact normalized tokens before knowledge compilation; name candidates must be globally unique, while alias collisions are reported for semantic or custom-anchor-scope adjudication rather than rejected automatically.",
         "requiredFields": [
           "candidates",
           "candidateKind",
@@ -4644,7 +4644,7 @@ search.list_invalid_refs: required [] | optional [page, pageSize]
 All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation. search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable. When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query. The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated. In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget. Requires user confirmation before: find_replace.",
     "overview": {
       "actionSummaries": {
-        "check_anchor": "Checks exact normalized name/alias tokens before knowledge compilation. name candidates must be globally unique; alias collisions are reported for semantic or custom-anchor-scope adjudication rather than rejected automatically.",
+        "check_anchor": "Use only before writing or changing name/alias, not to locate existing content. Required shape: search(action="check_anchor", candidates=["token"], candidateKind="name"|"alias"). Checks exact normalized tokens before knowledge compilation; name candidates must be globally unique, while alias collisions are reported for semantic or custom-anchor-scope adjudication rather than rejected automatically.",
         "find_replace": "This is the mutating exception inside the search tool. It performs content replacement after write-permission checks and still requires explicit user confirmation.",
         "fulltext": "Pass a query string. Supports keyword, query syntax, SQL, and regex modes via methodName (preferred) or method. fulltext now returns plainContent/excerpt by default. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.",
         "fulltext_asset_content": "Searches indexed asset/OCR text. Prefer methodName and sortBy over numeric method/orderBy. Provide assetId for an exact asset-content lookup.",
@@ -4658,7 +4658,7 @@ All search actions are read-only except find_replace, which modifies content and
       },
       "actions": {
         "check_anchor": {
-          "hint": "Checks exact normalized name/alias tokens before knowledge compilation. name candidates must be globally unique; alias collisions are reported for semantic or custom-anchor-scope adjudication rather than rejected automatically.",
+          "hint": "Use only before writing or changing name/alias, not to locate existing content. Required shape: search(action="check_anchor", candidates=["token"], candidateKind="name"|"alias"). Checks exact normalized tokens before knowledge compilation; name candidates must be globally unique, while alias collisions are reported for semantic or custom-anchor-scope adjudication rather than rejected automatically.",
           "requiresConfirmation": false,
         },
         "find_replace": {

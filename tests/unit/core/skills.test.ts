@@ -69,6 +69,14 @@ describe('core/skills', () => {
         expect(governance?.text).toContain('任一文档无法建立恢复点时停止整批写入');
         expect(governance?.text).toContain('逐个稳定块 ID 读取完整 Kramdown');
         expect(governance?.text).toContain('block(action="update"');
+        expect(governance?.text).toContain('去重前 3 名');
+        expect(governance?.text).toContain('只用于写入或修改');
+        expect(governance?.text).toContain('validation_error');
+
+        const searchQuery = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-search-query');
+        expect(searchQuery?.text).toContain('first three deduplicated');
+        expect(searchQuery?.text).toContain('write-time collision preflight');
+        expect(searchQuery?.text).toContain('preflight did not run');
 
         const governanceScenario = scenarios.find((scenario) => scenario.id === 'knowledge-governance');
         const duplicateAliasSql = governanceScenario?.calls.duplicateAliases.args.stmt ?? '';

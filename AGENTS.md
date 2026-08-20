@@ -16,7 +16,7 @@
 - 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.8.9-wiki.2`（根 `package.json` 与 `plugin.json` 同步；CLI 子包版本独立管理，当前为 `0.3.8-wiki.2`）
+- 当前版本：`0.8.9-wiki.3`（根 `package.json` 与 `plugin.json` 同步；CLI 子包版本独立管理，当前为 `0.3.8-wiki.3`）
 
 ---
 

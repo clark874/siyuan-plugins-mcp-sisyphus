@@ -276,6 +276,23 @@ describe('search tool filtering', () => {
         expect(parsed.checks[0].targets[0].scopes).toEqual(['textnets', 'network-analysis']);
     });
 
+    it('explains the required check_anchor shape when a retrieval-style query is passed', async () => {
+        const request = vi.fn();
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'check_anchor',
+            query: '水论文',
+        }, buildDefaultToolConfig().search, { canRead: () => true } as never);
+        const parsed = parseResult(result);
+
+        expect(result.isError).toBe(true);
+        expect(parsed.error.type).toBe('validation_error');
+        expect(parsed.error.message).toContain('Invalid arguments');
+        expect(parsed.error.hint).toContain('candidates=["token"]');
+        expect(parsed.error.hint).toContain('candidateKind="name"|"alias"');
+        expect(parsed.error.hint).toContain('not to locate existing content');
+        expect(request).not.toHaveBeenCalled();
+    });
+
     it('bounds anchor audit inputs and target details without hiding the full match count', async () => {
         const rows = Array.from({ length: 12 }, (_, index) => ({
             id: `alias-${index}`,
