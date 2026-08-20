@@ -92,13 +92,13 @@ block(action="set_attrs", id="<source-block-id>", attrs={"custom-source-url":"ht
 
 `append` 成功后必须保存返回的稳定块 ID。若 `set_attrs` 失败，立即停止后续数据库写入，使用该块 ID 修复属性；不得重新追加来源块。若客户端在失败后丢失返回值，复跑时先全文检索正文中的规范网址和正文哈希，找到孤儿来源块并补写属性。只有确认正文标识和属性均不存在时，才允许追加新来源块。
 
-如果中枢已有来源或资产 AV，先读取列和视图，再把来源块加入现有数据库；不得猜测 AV、视图、行或列 ID：
+如果中枢已有来源或资产 AV，先用 `ignoreRows=true` 读取结构，再用 `query` 或主键接口定位目标行，最后只渲染窄结果；不得无过滤全量渲染，也不得猜测 AV、视图、行或列 ID：
 
 ```text
 av(action="get", id="<av-id>")
 ```
 ```text
-av(action="render", id="<av-id>", page=1, pageSize=100)
+av(action="render", id="<av-id>", page=1, pageSize=10, query="<source title or primary key>")
 ```
 ```text
 av(action="add_rows", avID="<av-id>", viewID="<view-id>", blockIDs=["<source-block-id>"])

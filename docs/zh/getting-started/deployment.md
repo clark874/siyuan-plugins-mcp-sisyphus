@@ -148,6 +148,7 @@ HTTP 模式：
 | `SIYUAN_MCP_PORT` | `36806` | 绑定端口 |
 | `SIYUAN_MCP_TOKEN` | 无 | Bearer Token |
 | `SIYUAN_MCP_PATH` | `/mcp` | HTTP 路径 |
+| `SIYUAN_MCP_PRETTY_JSON` | 未设置 | 仅本地调试时设为 `1`；面向模型的 JSON 默认紧凑输出 |
 
 ## 部署场景
 

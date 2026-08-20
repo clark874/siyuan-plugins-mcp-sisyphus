@@ -134,7 +134,7 @@ describe('mcp/tool-lifecycle', () => {
         const payload = JSON.parse(result.content[0].text);
         expect(payload).toEqual({ success: true });
         expect(vi.mocked(appendAnalyticsEvent).mock.calls[0][1]).toMatchObject({
-            responseText: JSON.stringify({ success: true }, null, 2),
+            responseText: JSON.stringify({ success: true }),
         });
     });
 
@@ -233,7 +233,7 @@ describe('mcp/tool-lifecycle', () => {
             responseText: JSON.stringify({
                 success: true,
                 id: '20260507000100-abcdefg',
-            }, null, 2),
+            }),
         });
     });
 

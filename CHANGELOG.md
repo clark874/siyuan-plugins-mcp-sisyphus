@@ -2,6 +2,15 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.8.9-wiki.1 - 2026-08-20
+
+- 模型侧 JSON 默认改为紧凑序列化，调试时可用 `SIYUAN_MCP_PRETTY_JSON=1` 恢复两空格缩进；帮助、错误、软错误、严格写入与 UI 刷新等重序列化路径使用同一规则
+- `av.render` 默认只返回一份 `table`：正确解开思源 3.8.1 的 `cell.value` 包装，移除 `createdAt`、`updatedAt`、颜色等显示元数据，同时保留行 ID、列 ID、列类型、块 ID、关系与日期区间语义；`verbose=true` 可显式取回原始 `data[]`，投影不完整时自动回退原始行
+- AV 默认窗口从 50 行降至 10 行，帮助与 MCP/CLI Skill 固化“`ignoreRows` 看结构 → `query`/主键定位 → 窄渲染取值”三步法；CLI 同步识别无 `data[]` 的紧凑表格分页
+- `fs.search` 匹配行摘要上限从 300 调整为 200 字符，并通过 `textTruncated` 与 `originalTextLength` 明示截断，完整上下文继续由 `fs.read` 获取；文档图标验证说明改用 `block.get_attrs`，不再误查 SQL `attributes`
+- 真实目标 AV（33 行）在同一 `pageSize=50` 下由 239,482 字节降至 14,514 字节（约 93.9%）；关键词窄查询由 10,892 字节降至 2,809 字节（约 74.2%）
+- 本地 CLI 元数据同步提升至 `v0.3.8-wiki.1`；推荐思源版本保持 `3.8.1`
+
 ## v0.8.8-wiki.2 - 2026-08-19
 
 - 为 `search.check_anchor` 增加响应预算：每次最多接收 10 个候选，每个候选最多返回 10 个目标详情，同时保留完整 `targetCount`、截断标记和后续审计提示，避免批量命名空间审计使客户端 JSON 输出被截断

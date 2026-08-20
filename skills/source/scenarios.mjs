@@ -247,7 +247,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 \`append\` 成功后必须保存返回的稳定块 ID。若 \`set_attrs\` 失败，立即停止后续数据库写入，使用该块 ID 修复属性；不得重新追加来源块。若客户端在失败后丢失返回值，复跑时先全文检索正文中的规范网址和正文哈希，找到孤儿来源块并补写属性。只有确认正文标识和属性均不存在时，才允许追加新来源块。
 
-如果中枢已有来源或资产 AV，先读取列和视图，再把来源块加入现有数据库；不得猜测 AV、视图、行或列 ID：
+如果中枢已有来源或资产 AV，先用 \`ignoreRows=true\` 读取结构，再用 \`query\` 或主键接口定位目标行，最后只渲染窄结果；不得无过滤全量渲染，也不得猜测 AV、视图、行或列 ID：
 
 {{call avGet}}
 {{call avRender}}
@@ -286,7 +286,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             append: call('block', 'append', { parentID: '<hub-doc-id>', dataType: 'markdown', data: '### 来源：Source title\n\n- 规范网址：https://example.org/canonical-source\n- 正文哈希：<sha256>\n\nDelta summary and provenance.' }),
             attrs: call('block', 'set_attrs', { id: '<source-block-id>', attrs: { 'custom-source-url': 'https://example.org/canonical-source', 'custom-source-hash': '<sha256>', 'custom-source-checked': '2026-08-11', 'custom-ingest-status': 'merge', 'custom-topic': 'Topic' } }),
             avGet: call('av', 'get', { id: '<av-id>' }),
-            avRender: call('av', 'render', { id: '<av-id>', page: 1, pageSize: 100 }),
+            avRender: call('av', 'render', { id: '<av-id>', page: 1, pageSize: 10, query: '<source title or primary key>' }),
             avRows: call('av', 'add_rows', { avID: '<av-id>', viewID: '<view-id>', blockIDs: ['<source-block-id>'] }),
             avCells: call('av', 'set_cells', { avID: '<av-id>', cells: [{ rowID: '<row-id>', columnID: '<column-id>', valueType: 'text', text: 'Official source' }] }),
             verifySql: call('search', 'query_sql', { stmt: "SELECT block_id, name, value FROM attributes WHERE name LIKE 'custom-source-%' AND block_id = '<source-block-id>' ORDER BY name LIMIT 20", maxRows: 20 }),
@@ -348,7 +348,7 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
 - AV 保存来源、成熟度、状态、责任范围和人工审查队列；不要把 Markdown 表格或一段 SQL 代码冒充数据库。
 - \`/AGENTS.md\` 只指向中枢和本 Skill，不复制原子枚举或统计结果。
 
-专题中枢若已有 AV，先读取真实标识和视图，再更新行或单元格：
+专题中枢若已有 AV，先用 \`ignoreRows=true\` 读取字段结构，再以 \`query\` 或主键接口定位目标行并窄化渲染，最后更新行或单元格；禁止无过滤全量渲染：
 
 {{call avGet}}
 {{call avRender}}
@@ -394,7 +394,7 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
             attrs: call('block', 'set_attrs', { id: '<block-id>', attrs: { name: 'stable-topic-step', alias: '中文同义词,替代说法' } }),
             block: call('block', 'get_kramdown', { id: '<block-id>' }),
             avGet: call('av', 'get', { id: '<av-id>' }),
-            avRender: call('av', 'render', { id: '<av-id>', page: 1, pageSize: 100 }),
+            avRender: call('av', 'render', { id: '<av-id>', page: 1, pageSize: 10, query: '<target row keyword>' }),
             snapshot: call('timeline', 'create_node', { name: 'Before knowledge atom rename', scope: 'document', documentId: '<document-id>' }),
             renameAttribute: call('block', 'set_attrs', { id: '<definition-block-id>', attrs: { name: 'new-name' } }),
             readAffected: call('block', 'get_kramdown', { id: '<affected-block-id>' }),
@@ -465,8 +465,12 @@ Read the changed blocks again. Recent writes can take time to enter the search i
         body: `Never guess attribute-view identifiers. Inspect the AV and its views before changing rows or cells.
 
 {{call get}}
+{{call schema}}
+{{call locate}}
 {{call render}}
 {{call search}}
+
+数据库读取固定采用三步法：先以 \`ignoreRows=true\` 查看视图和列，再以 \`query\` 或 \`get_primary_key_values\` 定位行，最后用小页渲染读取所需值。除非明确诊断内核原始字段，不得设置 \`verbose=true\`，也不得无过滤全量渲染。
 
 Keep these identifiers distinct: AV ID identifies the database; view ID identifies a table/board view; row ID identifies a key value; column ID identifies a key; block ID identifies note content.
 
@@ -480,7 +484,9 @@ Before writing cells, render the current view and map column names to column IDs
 `,
         calls: {
             get: call('av', 'get', { id: '<av-id>' }),
-            render: call('av', 'render', { id: '<av-id>', page: 1, pageSize: 50 }),
+            schema: call('av', 'render', { id: '<av-id>', page: 1, pageSize: 10, ignoreRows: true }),
+            locate: call('av', 'get_primary_key_values', { avID: '<av-id>', keyword: '<row keyword>', page: 1, pageSize: 10 }),
+            render: call('av', 'render', { id: '<av-id>', page: 1, pageSize: 10, query: '<row keyword>' }),
             search: call('av', 'search', { keyword: 'project' }),
             column: call('av', 'add_column', { avID: '<av-id>', keyName: 'Status', keyType: 'select' }),
             rows: call('av', 'add_rows', { avID: '<av-id>', viewID: '<view-id>', blockIDs: ['<block-id>'] }),

@@ -784,11 +784,12 @@ export const AvRenderSchema = z.object({
     blockID: z.string().optional().describe("Optional database block ID; required when creating a new AV"),
     viewID: z.string().optional().describe("Optional target view ID"),
     page: z.number().int().min(1).optional().describe("Page number (1-based), default 1"),
-    pageSize: z.number().int().optional().describe("Rows per page; use -1 or omit for kernel default"),
+    pageSize: z.number().int().optional().describe("Rows per page; default 10. Use query to narrow results before increasing it; -1 keeps the kernel all-rows compatibility mode"),
     query: z.string().optional().describe("Optional row query filter"),
     groupPaging: z.record(z.string(), z.unknown()).optional().describe("Optional group paging map passed through to SiYuan"),
     createIfNotExist: z.boolean().optional().describe("Create the default view only when explicitly true; provide blockID when creating a new AV"),
     ignoreRows: z.boolean().optional().describe("Return view/schema metadata without row values to reduce output size"),
+    verbose: z.boolean().optional().describe("Include raw kernel rows in data[] in addition to the compact table; default false"),
 });
 
 export const AvGetAttributeViewKeysSchema = z.object({

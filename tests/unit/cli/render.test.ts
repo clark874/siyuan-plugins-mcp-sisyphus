@@ -140,6 +140,33 @@ describe('cli/render', () => {
         });
     });
 
+    it('treats compact AV table rows as paginated CLI items', () => {
+        const io = captureStdIO();
+        const result: ToolResult = {
+            content: [{
+                type: 'text',
+                text: JSON.stringify({
+                    table: {
+                        columns: [{ id: 'col-title', name: 'Title', type: 'text' }],
+                        rows: [{ id: 'row-1', cells: { 'col-title': 'Paper A' } }],
+                        rowCount: 3,
+                    },
+                    total: 3,
+                    page: 1,
+                    pageCount: 3,
+                    pageSize: 1,
+                    hasNextPage: true,
+                }),
+            }],
+        };
+
+        expect(extractPaginationInfo(result)).toEqual({ page: 1, pageCount: 3, hasNextPage: true });
+        expect(renderToolResult(result, { json: false, debug: false })).toBe(0);
+        expect(io.stdout).toContain('1 of 3 items');
+        expect(io.stdout).toContain('ID: row-1');
+        io.restore();
+    });
+
     it('formats structured help payloads for terminal reading', () => {
         const io = captureStdIO();
         const result: ToolResult = {

@@ -73,13 +73,13 @@ block(action="get_kramdown", id="<block-id>")
 - AV 保存来源、成熟度、状态、责任范围和人工审查队列；不要把 Markdown 表格或一段 SQL 代码冒充数据库。
 - `/AGENTS.md` 只指向中枢和本 Skill，不复制原子枚举或统计结果。
 
-专题中枢若已有 AV，先读取真实标识和视图，再更新行或单元格：
+专题中枢若已有 AV，先用 `ignoreRows=true` 读取字段结构，再以 `query` 或主键接口定位目标行并窄化渲染，最后更新行或单元格；禁止无过滤全量渲染：
 
 ```text
 av(action="get", id="<av-id>")
 ```
 ```text
-av(action="render", id="<av-id>", page=1, pageSize=100)
+av(action="render", id="<av-id>", page=1, pageSize=10, query="<target row keyword>")
 ```
 
 ## 四、安全改名

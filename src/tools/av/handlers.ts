@@ -24,7 +24,7 @@ import {
 import { createResultResolutionCache, ensurePermissionForDocumentId, escapeSqlString, resolveDocumentContextById, resolveResultItemContext } from '../internal/context';
 import type { ToolActionHandler, ToolHandlerContext } from '../internal/define-tool';
 import { isMissingBlockError, translateError } from '../internal/errorTranslation';
-import { createJsonResult, createPaginatedResult, createWriteSuccessResult, type ToolResult } from '../internal/shared';
+import { createJsonResult, createWriteSuccessResult, type ToolResult } from '../internal/shared';
 import { applyUiRefresh, type UiRefreshOperation } from '../internal/ui-refresh';
 import { createSemanticError } from '../internal/validation';
 import { sleep } from '../../shared/async';
@@ -916,13 +916,120 @@ function pickString(record: Record<string, unknown>, keys: string[]): string | u
     return undefined;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function pickContent(value: unknown): unknown {
+    if (!isRecord(value)) return value;
+    return value.content;
+}
+
+function compactDateValue(value: unknown): unknown {
+    if (!isRecord(value)) return value;
+    const start = typeof value.content === 'number' ? value.content : undefined;
+    const end = typeof value.content2 === 'number' && value.hasEndDate === true ? value.content2 : undefined;
+    const formatted = typeof value.formattedContent === 'string' && value.formattedContent.length > 0
+        ? value.formattedContent
+        : undefined;
+    if (start === undefined && end === undefined && formatted === undefined) return null;
+    return {
+        ...(start !== undefined ? { start } : {}),
+        ...(end !== undefined ? { end } : {}),
+        hasTime: value.isNotTime !== true,
+        ...(formatted ? { formatted } : {}),
+    };
+}
+
 function normalizeAvValue(value: unknown): unknown {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
-    const record = value as Record<string, unknown>;
-    for (const key of ['content', 'text', 'number', 'isChecked', 'date', 'mSelect', 'select', 'block']) {
-        if (key in record) return record[key];
+    const outer = value as Record<string, unknown>;
+    const record = isRecord(outer.value) ? outer.value : outer;
+    const type = typeof record.type === 'string'
+        ? record.type
+        : typeof outer.valueType === 'string'
+            ? outer.valueType
+            : undefined;
+
+    if ('content' in record && type === undefined) return record.content;
+    switch (type) {
+        case 'text':
+            return pickContent(record.text) ?? '';
+        case 'number': {
+            if (!isRecord(record.number) || record.number.isNotEmpty === false) return null;
+            return typeof record.number.content === 'number'
+                ? record.number.content
+                : pickContent(record.number) ?? null;
+        }
+        case 'select':
+            if (Array.isArray(record.mSelect)) return pickContent(record.mSelect[0]) ?? null;
+            return pickContent(record.select) ?? null;
+        case 'mSelect':
+            return Array.isArray(record.mSelect)
+                ? record.mSelect.map(pickContent).filter((item): item is string => typeof item === 'string')
+                : [];
+        case 'block': {
+            if (!isRecord(record.block)) return null;
+            const id = pickString(record.block, ['id']);
+            const content = pickString(record.block, ['content']);
+            return { ...(id ? { id } : {}), ...(content ? { content } : {}) };
+        }
+        case 'date':
+            return compactDateValue(record.date);
+        case 'created':
+            return compactDateValue(record.created);
+        case 'updated':
+            return compactDateValue(record.updated);
+        case 'checkbox':
+            return isRecord(record.checkbox)
+                ? record.checkbox.checked === true
+                : record.isChecked === true;
+        case 'url':
+            return pickContent(record.url) ?? '';
+        case 'email':
+            return pickContent(record.email) ?? '';
+        case 'phone':
+            return pickContent(record.phone) ?? '';
+        case 'template':
+            return pickContent(record.template) ?? '';
+        case 'mAsset':
+            return Array.isArray(record.mAsset)
+                ? record.mAsset.flatMap((asset) => {
+                    if (!isRecord(asset)) return [];
+                    const content = pickString(asset, ['content']);
+                    if (!content) return [];
+                    const name = pickString(asset, ['name']);
+                    const assetType = pickString(asset, ['type']);
+                    return [{ content, ...(name ? { name } : {}), ...(assetType ? { type: assetType } : {}) }];
+                })
+                : [];
+        case 'relation': {
+            if (!isRecord(record.relation)) return { blockIDs: [] };
+            const blockIDs = Array.isArray(record.relation.blockIDs)
+                ? record.relation.blockIDs.filter((item): item is string => typeof item === 'string')
+                : [];
+            const contents = Array.isArray(record.relation.contents)
+                ? record.relation.contents.map(normalizeAvValue)
+                : [];
+            return { blockIDs, ...(contents.length > 0 ? { contents } : {}) };
+        }
+        case 'rollup':
+            return isRecord(record.rollup) && Array.isArray(record.rollup.contents)
+                ? record.rollup.contents.map(normalizeAvValue)
+                : [];
+        default: {
+            for (const key of ['text', 'number', 'date', 'mSelect', 'select', 'block', 'checkbox', 'url', 'email', 'phone', 'template']) {
+                if (key in record) return normalizeAvValue({ valueType: key, value: { ...record, type: key } });
+            }
+            const { id: _id, keyID: _keyID, blockID: _blockID, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = record;
+            void _id;
+            void _keyID;
+            void _blockID;
+            void _createdAt;
+            void _updatedAt;
+            return rest;
+        }
     }
-    return value;
 }
 
 function extractAvTableColumns(responseObj: Record<string, unknown>): AvTableView['columns'] {
@@ -962,12 +1069,21 @@ function extractAvTableRows(rows: unknown[]): AvTableView['rows'] {
             const keyObj = cell.key && typeof cell.key === 'object' && !Array.isArray(cell.key)
                 ? cell.key as Record<string, unknown>
                 : {};
-            const columnID = pickString(cell, ['keyID', 'columnID', 'id']) ?? pickString(keyObj, ['id', 'keyID']);
+            const wrappedValue = isRecord(cell.value) ? cell.value : undefined;
+            const columnID = pickString(cell, ['keyID', 'columnID'])
+                ?? (wrappedValue ? pickString(wrappedValue, ['keyID', 'columnID']) : undefined)
+                ?? pickString(keyObj, ['id', 'keyID'])
+                ?? (wrappedValue ? pickString(wrappedValue, ['id']) : undefined)
+                ?? pickString(cell, ['id']);
             if (!columnID) continue;
             cells[columnID] = normalizeAvValue(cell);
         }
         if (Object.keys(cells).length === 0) return [];
-        const id = pickString(record, ['id', 'rowID', 'blockID']);
+        const firstWrappedValue = values
+            .map((item) => isRecord(item) && isRecord(item.value) ? item.value : undefined)
+            .find((item): item is Record<string, unknown> => item !== undefined);
+        const id = pickString(record, ['id', 'rowID', 'blockID'])
+            ?? (firstWrappedValue ? pickString(firstWrappedValue, ['blockID']) : undefined);
         return [{ ...(id ? { id } : {}), cells }];
     });
 }
@@ -977,6 +1093,20 @@ function buildAvTableView(responseObj: Record<string, unknown>, rows: unknown[],
     const tableRows = extractAvTableRows(rows);
     if (columns.length === 0 && tableRows.length === 0) return undefined;
     return { columns, rows: tableRows, rowCount: total };
+}
+
+function avTableProjectionCoversRows(rows: unknown[], table: AvTableView | undefined): boolean {
+    if (!table || table.rows.length !== rows.length) return false;
+    return rows.every((row, index) => {
+        if (!isRecord(row)) return false;
+        const values = Array.isArray(row.values)
+            ? row.values
+            : Array.isArray(row.cells)
+                ? row.cells
+                : [];
+        if (values.some((value) => !isRecord(value))) return false;
+        return Object.keys(table.rows[index]?.cells ?? {}).length === values.length;
+    });
 }
 
 function formatSiYuanUpdatedStamp(date = new Date()): string {
@@ -1186,6 +1316,7 @@ async function handleSearch({ client, permMgr, rawArgs }: ToolHandlerContext): P
 
 async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvRenderSchema.parse(rawArgs);
+    const requestedPageSize = parsed.pageSize ?? 10;
     const creationTime = new Date();
     const idWasGenerated = !parsed.id;
     const effectiveAvID = parsed.id ?? generateSiYuanNodeId(creationTime);
@@ -1197,7 +1328,7 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
         blockID: parsed.blockID,
         viewID: parsed.viewID,
         page: parsed.page,
-        pageSize: parsed.pageSize,
+        pageSize: requestedPageSize,
         query: parsed.query,
         groupPaging: parsed.groupPaging,
         createIfNotExist: parsed.createIfNotExist,
@@ -1254,9 +1385,10 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
     const renderedView = nestedView ?? responseObj;
     const rows = Array.isArray(renderedView.rows) ? renderedView.rows as unknown[] : [];
     const page = parsed.page ?? 1;
-    const pageSize = parsed.pageSize
-        ?? (typeof renderedView.pageSize === 'number' ? renderedView.pageSize : undefined)
-        ?? (rows.length || 1);
+    // SiYuan 3.8.1 may echo the view's persisted page size (for example 50)
+    // even when this request asked for 10 rows. Report the request window so
+    // pagination metadata stays aligned with the actual returned row count.
+    const pageSize = requestedPageSize > 0 ? requestedPageSize : (rows.length || 1);
     const total = typeof renderedView.rowCount === 'number'
         ? renderedView.rowCount as number
         : rows.length;
@@ -1273,17 +1405,25 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
     const restResponse = nestedView
         ? { ...responseObj, view: { ...restRenderedView, rowCount: total } }
         : restRenderedView;
-    const result = createPaginatedResult(rows, {
+    const tableCoversRows = avTableProjectionCoversRows(rows, table);
+    const includeRawRows = parsed.verbose === true || (rows.length > 0 && !tableCoversRows);
+    const payload = {
+        ...(includeRawRows ? { data: rows } : {}),
         total,
         page,
         pageSize,
         pageCount: kernelPageCount,
         hasNextPage: page < kernelPageCount,
-    }, {
         ...restResponse,
         avID: effectiveAvID,
         id: effectiveAvID,
         ...(table ? { table } : {}),
+        ...(table ? { rowFormat: 'compact_table' } : {}),
+        rawRowsIncluded: includeRawRows,
+        ...(!includeRawRows && rows.length > 0 ? { rawRowsHint: 'Set verbose=true only when the compact table omits a kernel field you need.' } : {}),
+        ...(rows.length > 0 && !tableCoversRows ? {
+            warning: 'MCP could not safely project every rendered row, so raw data[] was retained for this response.',
+        } : {}),
         ...(parsed.createIfNotExist === true ? { generatedAvID: idWasGenerated } : {}),
         ...(permission.shouldMaterialize ? {
             materialized: true,
@@ -1294,7 +1434,8 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
                 warning: `Created attribute view "${effectiveAvID}" and materialized database block "${materializedBlockID}", but MCP could not verify mirror registration before the timeout. If the next AV write cannot resolve by avID yet, retry shortly or pass this blockID as explicit database-block context.`,
             } : {}),
         } : {}),
-    });
+    };
+    const result = createJsonResult(payload);
     return permission.shouldMaterialize
         ? applyUiRefresh(client, result, [
             { type: 'reloadAttributeView', id: effectiveAvID },

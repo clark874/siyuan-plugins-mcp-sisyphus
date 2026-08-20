@@ -1,6 +1,7 @@
 import type { SiYuanClient } from '../../api/client';
 import * as systemApi from '../../api/system';
 import type { ToolResult } from './shared';
+import { stringifyToolJson } from './json-serialization';
 
 export type UiRefreshOperation =
     | { type: 'reloadProtyle'; id: string }
@@ -101,6 +102,6 @@ export async function applyUiRefresh(
 
     return {
         ...result,
-        content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+        content: [{ type: 'text', text: stringifyToolJson(payload) }],
     };
 }

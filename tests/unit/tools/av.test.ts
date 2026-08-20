@@ -163,6 +163,7 @@ describe('av tool', () => {
 
         expect(tool.inputSchema.properties.createIfNotExist.type).toBe('boolean');
         expect(tool.inputSchema.properties.ignoreRows.type).toBe('boolean');
+        expect(tool.inputSchema.properties.verbose.type).toBe('boolean');
         expect(tool.inputSchema.properties.groupPaging.type).toBe('object');
         expect(tool.inputSchema.properties.page.type).toBe('integer');
     });
@@ -2518,14 +2519,14 @@ describe('av tool', () => {
         }));
 
         expect(JSON.parse(result.content[0].text)).toEqual({
-            data: [],
             total: 0,
             page: 2,
-            pageSize: 1,
+            pageSize: 10,
             pageCount: 1,
             hasNextPage: false,
             avID: 'av-1',
             id: 'av-1',
+            rawRowsIncluded: false,
             viewID: 'view-1',
             viewType: 'table',
         });
@@ -2567,7 +2568,10 @@ describe('av tool', () => {
                 rows: [{ id: 'row-1', cells: { 'col-title': 'Paper A' } }],
                 rowCount: 1,
             },
+            rowFormat: 'compact_table',
+            rawRowsIncluded: false,
         });
+        expect(parsed).not.toHaveProperty('data');
     });
 
     it('normalizes SiYuan 3.8.1 nested view rows without duplicating them in metadata', async () => {
@@ -2594,7 +2598,6 @@ describe('av tool', () => {
 
         const parsed = JSON.parse(result.content[0].text);
         expect(parsed).toMatchObject({
-            data: [{ id: 'row-1' }],
             total: 33,
             table: {
                 columns: [{ id: 'col-title', name: 'Title', type: 'text' }],
@@ -2606,7 +2609,108 @@ describe('av tool', () => {
                 rowCount: 33,
             },
         });
+        expect(parsed).not.toHaveProperty('data');
         expect(parsed.view).not.toHaveProperty('rows');
+    });
+
+    it('keeps raw render rows only when verbose is explicitly enabled', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-1',
+            viewID: 'view-1',
+            viewType: 'table',
+            columns: [{ id: 'col-title', name: 'Title', type: 'text' }],
+            rows: [{ id: 'row-1', cells: [{ value: { keyID: 'col-title', type: 'text', text: { content: 'Paper A' } } }] }],
+            rowCount: 1,
+        });
+
+        const result = await callAvTool(client, {
+            action: 'render',
+            id: 'av-1',
+            verbose: true,
+        }, enabledActions('render'), permMgr);
+
+        const parsed = JSON.parse(result.content[0].text);
+        expect(parsed.data).toHaveLength(1);
+        expect(parsed.rawRowsIncluded).toBe(true);
+        expect(parsed.table.rows).toEqual([{ id: 'row-1', cells: { 'col-title': 'Paper A' } }]);
+    });
+
+    it('keeps raw rows when a row contains an unprojectable cell', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-1',
+            viewType: 'table',
+            columns: [{ id: 'col-title', name: 'Title', type: 'text' }],
+            rows: [{
+                id: 'row-1',
+                cells: [
+                    { id: 'col-title', valueType: 'text', value: { type: 'text', text: { content: 'kept' } } },
+                    { valueType: 'text', value: { type: 'text', text: { content: 'cannot-address' } } },
+                ],
+            }],
+            rowCount: 1,
+        });
+
+        const result = await callAvTool(client, { action: 'render', id: 'av-1' }, enabledActions('render'), permMgr);
+        const parsed = JSON.parse(result.content[0].text);
+        expect(parsed.rawRowsIncluded).toBe(true);
+        expect(parsed.data).toHaveLength(1);
+        expect(parsed.warning).toMatch(/could not safely project every rendered row/);
+    });
+
+    it('projects SiYuan 3.8.1 wrapped cell values without dropping write-relevant identifiers', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-1',
+            viewType: 'table',
+            columns: [
+                { id: 'col-title', name: 'Title', type: 'text' },
+                { id: 'col-score', name: 'Score', type: 'number' },
+                { id: 'col-tags', name: 'Tags', type: 'mSelect' },
+                { id: 'col-date', name: 'Date', type: 'date' },
+                { id: 'col-ref', name: 'Document', type: 'block' },
+            ],
+            rows: [{
+                id: 'row-1',
+                cells: [
+                    { valueType: 'text', value: { id: 'cell-1', keyID: 'col-title', blockID: 'row-1', type: 'text', createdAt: 1, updatedAt: 2, text: { content: 'Paper A' } } },
+                    { valueType: 'number', value: { id: 'cell-2', keyID: 'col-score', blockID: 'row-1', type: 'number', number: { content: 2, isNotEmpty: true, formattedContent: '2.00' } } },
+                    { valueType: 'mSelect', value: { id: 'cell-3', keyID: 'col-tags', blockID: 'row-1', type: 'mSelect', mSelect: [{ content: 'method', color: '1' }, { content: 'review', color: '2' }] } },
+                    { valueType: 'date', value: { id: 'cell-4', keyID: 'col-date', blockID: 'row-1', type: 'date', date: { content: 1_800_000_000_000, content2: 1_800_086_400_000, hasEndDate: true, isNotTime: true, formattedContent: '2027-01-15 – 2027-01-16' } } },
+                    { valueType: 'block', value: { id: 'cell-5', keyID: 'col-ref', blockID: 'row-1', type: 'block', block: { id: 'doc-1', content: 'Source document', refSubtype: 'd', created: 1, updated: 2 } } },
+                ],
+            }],
+            rowCount: 1,
+        });
+
+        const result = await callAvTool(client, { action: 'render', id: 'av-1' }, enabledActions('render'), permMgr);
+        const parsed = JSON.parse(result.content[0].text);
+
+        expect(parsed.table).toEqual({
+            columns: [
+                { id: 'col-title', name: 'Title', type: 'text' },
+                { id: 'col-score', name: 'Score', type: 'number' },
+                { id: 'col-tags', name: 'Tags', type: 'mSelect' },
+                { id: 'col-date', name: 'Date', type: 'date' },
+                { id: 'col-ref', name: 'Document', type: 'block' },
+            ],
+            rows: [{
+                id: 'row-1',
+                cells: {
+                    'col-title': 'Paper A',
+                    'col-score': 2,
+                    'col-tags': ['method', 'review'],
+                    'col-date': { start: 1_800_000_000_000, end: 1_800_086_400_000, hasTime: false, formatted: '2027-01-15 – 2027-01-16' },
+                    'col-ref': { id: 'doc-1', content: 'Source document' },
+                },
+            }],
+            rowCount: 1,
+        });
+        expect(JSON.stringify(parsed.table)).not.toContain('createdAt');
+        expect(JSON.stringify(parsed.table)).not.toContain('updatedAt');
+        expect(JSON.stringify(parsed.table)).not.toContain('color');
+        expect(parsed).not.toHaveProperty('data');
     });
 
     it('requires id when createIfNotExist is not enabled', async () => {
@@ -2668,7 +2772,7 @@ describe('av tool', () => {
             blockID: 'target-doc',
             viewID: undefined,
             page: undefined,
-            pageSize: undefined,
+            pageSize: 10,
             query: undefined,
             groupPaging: undefined,
             createIfNotExist: true,
@@ -2690,14 +2794,14 @@ describe('av tool', () => {
             }],
         }]);
         expect(JSON.parse(result.content[0].text)).toEqual({
-            data: [],
             total: 0,
             page: 1,
-            pageSize: 1,
+            pageSize: 10,
             pageCount: 1,
             hasNextPage: false,
             avID: 'av-new',
             id: 'av-new',
+            rawRowsIncluded: false,
             viewID: 'view-new',
             viewType: 'table',
             columns: [{ name: '主键' }, { name: '单选' }],

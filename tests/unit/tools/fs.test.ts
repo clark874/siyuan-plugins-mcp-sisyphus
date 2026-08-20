@@ -26,7 +26,7 @@ function fsConfig() {
     return buildDefaultToolConfig().fs;
 }
 
-function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[]; treeFailurePaths?: string[]; agentMemory?: string; agentMemoryUpdatedAt?: string; userRulesText?: string } = {}) {
+function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[]; treeFailurePaths?: string[]; agentMemory?: string; agentMemoryUpdatedAt?: string; userRulesText?: string; markdownContent?: string } = {}) {
     const missing = new Set(options.missingPaths ?? []);
     const treeFailures = new Set(options.treeFailurePaths ?? []);
     let storedConfig = {
@@ -85,7 +85,7 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[];
                 };
             }
             if (endpoint === '/api/export/exportMdContent') {
-                return { hPath: '/Doc 1', content: 'alpha\nbudget line\nBeta' };
+                return { hPath: '/Doc 1', content: options.markdownContent ?? 'alpha\nbudget line\nBeta' };
             }
             if (endpoint === '/api/query/sql') {
                 const stmt = String(body?.stmt ?? '');
@@ -2188,6 +2188,21 @@ describe('fs tool', () => {
 
         expect(parsed.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, text: 'budget line' }]);
         expect(parsed.total).toBe(1);
+    });
+
+    it('bounds long search excerpts and reports that the line was truncated', async () => {
+        const longLine = `budget ${'x'.repeat(400)}`;
+        const client = createFsClient({ markdownContent: longLine });
+        const result = await callFsTool(client, { action: 'search', path: '/Notebook/Doc 1', query: 'budget' }, fsConfig(), createPermMgr());
+        const parsed = parseResult(result);
+
+        expect(parsed.data).toEqual([{
+            path: '/Notebook/Doc 1',
+            line: 1,
+            text: `${longLine.slice(0, 197)}...`,
+            textTruncated: true,
+            originalTextLength: longLine.length,
+        }]);
     });
 
     it('searches only agent memory when scoped to the virtual root file', async () => {

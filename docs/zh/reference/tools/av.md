@@ -23,7 +23,9 @@
 
 - `render` 在 `createIfNotExist=true` 且传入 `blockID` 时，也可创建并实体化 AV。此时 `blockID` 表示目标父级 / 插入上下文，MCP 会通过思源风格的 spun AV block DOM 与 transaction 完成插入。
 - 只需视图与字段结构时使用 `ignoreRows=true`。思源会省略行值，既不修改数据库，也能显著压缩 Agent 盘点数据库结构时的返回量。
-- 思源 3.8.1 将字段和行放在 `view` 内；MCP 会将其规范化为分页 `data` 与轻量 `table`，并在保留视图元数据时移除重复的原始行副本。
+- 读取行时固定采用三步法：先用 `ignoreRows=true` 查看结构，再用 `query` 或 `get_primary_key_values` 定位行，最后渲染窄结果。默认每页 10 行。
+- 思源 3.8.1 将字段和行放在 `view` 内；MCP 会将其规范化为一份紧凑 `table`，并保留不含行副本的视图元数据。默认不返回内核原始行；只有诊断紧凑投影缺失字段时才使用 `verbose=true`。
+- 紧凑单元格保留 `set_cells` 所需的行 ID、列 ID 与列类型；日期保留 epoch 边界和时间语义，不经本地时区做有损转换。
 - 渲染已有 AV 时，规范参数名是 `id`，值为 AV ID。为了减少 Agent 从 `search` 到 `render` 的参数转换，`render` 也接受 `avID` 作为兼容别名，且 `av.search` 结果会包含可复用的 `renderArgs`。
 - 保留 `render(createIfNotExist=true)` 返回的 `blockID`。后续 AV 读写通常只需要 `avID`；MCP 会从行绑定块、镜像数据库块，或 blocks 表中的 AV 块记录自动解析 owning database block。需要固定某个数据库块视图、存在多个镜像候选，或需要为刚创建的空 AV 提供显式兜底时，再传 `blockID`。
 - `set_cells` 由 `valueType` 决定值类型，既支持单格字段，也支持 `cells` / `items` 数组。

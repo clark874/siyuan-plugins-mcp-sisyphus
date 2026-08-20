@@ -7,6 +7,7 @@ import { slimToolResult } from './slim-response';
 import { maybeSendTelemetry } from './telemetry';
 import { APPROX_TOKEN_MODE, measureApproxContent, measureApproxText } from './token-usage';
 import type { ToolResult } from '@/tools/internal/shared';
+import { stringifyToolJson } from '@/tools/internal/json-serialization';
 
 /**
  * Context handed to runToolCall. Enough for the lifecycle wrappers
@@ -104,7 +105,7 @@ function filterUiRefreshMetadata(result: ToolResult, includeUiRefreshMetadata: b
     delete nextPayload.uiRefresh;
     return {
         ...result,
-        content: [{ ...first, text: JSON.stringify(nextPayload, null, 2) }],
+        content: [{ ...first, text: stringifyToolJson(nextPayload) }],
     };
 }
 

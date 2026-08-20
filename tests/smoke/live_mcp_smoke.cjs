@@ -477,6 +477,19 @@ async function runAvSmoke(client, createdBlockIds) {
     assert.equal(avGet.json.id, avID);
     assert.equal(typeof avGet.json.av, 'object');
 
+    const avRender = await callToolJson(client, 'av', {
+        action: 'render',
+        id: avID,
+        page: 1,
+        pageSize: 10,
+    });
+    const avRenderText = avRender.result.content?.find((item) => item.type === 'text')?.text ?? '';
+    assert.equal(avRenderText.includes('\n  '), false, '默认 MCP JSON 响应不应包含两空格缩进');
+    if (avRender.json.table && Array.isArray(avRender.json.table.rows)) {
+        assert.equal(Object.prototype.hasOwnProperty.call(avRender.json, 'data'), false, '紧凑 AV render 不应重复返回原始 data[]');
+        assert.equal(avRender.json.rawRowsIncluded, false);
+    }
+
     const avPrimary = await callToolJson(client, 'av', {
         action: 'get_primary_key_values',
         avID,

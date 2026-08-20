@@ -28,11 +28,19 @@ Never guess attribute-view identifiers. Inspect the AV and its views before chan
 siyuan-sisyphus av get --id '<av-id>' --json
 ```
 ```bash
-siyuan-sisyphus av render --id '<av-id>' --page '1' --page-size '50' --json
+siyuan-sisyphus av render --id '<av-id>' --page '1' --page-size '10' --ignore-rows --json
+```
+```bash
+siyuan-sisyphus av get-primary-key-values --av-id '<av-id>' --keyword '<row keyword>' --page '1' --page-size '10' --json
+```
+```bash
+siyuan-sisyphus av render --id '<av-id>' --page '1' --page-size '10' --query '<row keyword>' --json
 ```
 ```bash
 siyuan-sisyphus av search --keyword 'project' --json
 ```
+
+数据库读取固定采用三步法：先以 `ignoreRows=true` 查看视图和列，再以 `query` 或 `get_primary_key_values` 定位行，最后用小页渲染读取所需值。除非明确诊断内核原始字段，不得设置 `verbose=true`，也不得无过滤全量渲染。
 
 Keep these identifiers distinct: AV ID identifies the database; view ID identifies a table/board view; row ID identifies a key value; column ID identifies a key; block ID identifies note content.
 

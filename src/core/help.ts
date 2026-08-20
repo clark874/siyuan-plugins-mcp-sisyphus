@@ -175,7 +175,7 @@ export const FS_ACTION_HINTS: Partial<Record<FsAction, string>> = {
     replace: 'Edits matched non-complex Markdown blocks by exact old/new matching against the same AI-editable view returned by fs.read. Canonical input is edit={old,new}; shorthand old + new is also accepted. If the document contains complex SiYuan-native blocks, fs.replace skips those blocks and returns skippedComplexBlocks; matches only inside skipped blocks or across block boundaries are rejected without writing. For inline formatting, old should be plain text without Markdown style delimiters such as **, *, `, or ~~; existing DOM inline styles are preserved. Naked ((id)) refs are normalized, and footnotes/siyuan://blocks links are allowed but do not create backlinks. replace_all=true replaces every exact match across editable blocks. Use ((id \'title\')) for new double-links and #tag# for tags.',
     rm: 'Deletes a document by human-readable path. This action requires explicit user confirmation.',
     mv: 'Moves or renames a document using human-readable paths. This action requires explicit user confirmation.',
-    search: 'Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.',
+    search: 'Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions. Matching lines are capped at 200 characters and report textTruncated/originalTextLength; use fs.read on the returned path for full context.',
 };
 
 export const NOTEBOOK_ACTION_HINTS: Partial<Record<NotebookAction, string>> = {
@@ -195,7 +195,7 @@ export const DOCUMENT_ACTION_HINTS: Partial<Record<DocumentAction, string>> = {
     get_child_docs: 'Use a document ID. Returns direct child documents only.',
     get_child_sort_mode: 'Use a parent document ID. Returns its declared local child sort mode and the currently effective mode inherited through the document tree.',
     set_child_sort_mode: 'Use a parent document ID and sortMode 0-14. Use null to remove the local override and restore inherited sorting. Requires SiYuan 3.8.1 or later.',
-    set_attr: 'Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it.',
+    set_attr: 'Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it. Built-in icon is stored in the document root IAL and may not appear in the attributes SQL table; verify it with block(action="get_attrs", id=<document-id>).',
     list_tree: 'Use notebook + path, where path is a storage path such as / or /20240318112233-abc123.sy.',
     search_docs: 'Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.',
     get_doc: 'Use a document ID. mode="markdown" returns clean Markdown in complete display-block windows with outline, token budget, and nextWindow metadata; use blockStart/blockLimit/tokenBudget and optionally includeBlockIds. page/pageSize character pagination was removed. mode="html" uses the current focus view.',
@@ -225,7 +225,7 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
 
 export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
     get: 'Use an attribute view ID. Returns the full AV payload after permission checks. blockID is optional and only needed for an exact database-block context or fallback permission resolution.',
-    render: 'Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. Use ignoreRows=true to read view/schema metadata without row values and reduce token use. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.',
+    render: 'Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. Default pageSize is 10. Use ignoreRows=true for schema-only discovery, then query to narrow rows before increasing pageSize. Default output contains one compact table; verbose=true additionally returns raw kernel rows in data[]. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.',
     get_attribute_view_keys: 'Use id to return database keys/columns for a block-bound attribute view.',
     get_attribute_view_filter_sort: 'Use id + blockID to return the filters and sorts applied to that database block view.',
     search: 'Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.',

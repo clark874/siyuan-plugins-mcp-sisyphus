@@ -187,8 +187,11 @@ export function extractPaginationInfo(result: ToolResult): PaginationInfo | null
     payload = translatePresentationPayload(payload, 'cli');
     if (!isObject(payload)) return null;
 
+    const tableRows = isObject(payload.table) && Array.isArray(payload.table.rows)
+        ? payload.table.rows
+        : undefined;
     if (
-        !Array.isArray(payload.data)
+        (!Array.isArray(payload.data) && !tableRows)
         || typeof payload.total !== 'number'
         || typeof payload.page !== 'number'
         || typeof payload.pageCount !== 'number'
@@ -288,7 +291,8 @@ function renderSuccessPayload(payload: unknown): void {
     }
 
     const maybePaginated = obj as Record<string, any>;
-    if (Array.isArray(maybePaginated.data) && typeof maybePaginated.total === 'number' && typeof maybePaginated.page === 'number') {
+    const hasCompactTableRows = isObject(maybePaginated.table) && Array.isArray(maybePaginated.table.rows);
+    if ((Array.isArray(maybePaginated.data) || hasCompactTableRows) && typeof maybePaginated.total === 'number' && typeof maybePaginated.page === 'number') {
         renderPaginatedResult(obj, out);
         return;
     }
@@ -297,7 +301,11 @@ function renderSuccessPayload(payload: unknown): void {
 }
 
 function renderPaginatedResult(obj: Record<string, unknown>, out: OutputStream): void {
-    const data = Array.isArray(obj.data) ? obj.data : [];
+    const data = Array.isArray(obj.data)
+        ? obj.data
+        : isObject(obj.table) && Array.isArray(obj.table.rows)
+            ? obj.table.rows
+            : [];
     const total = typeof obj.total === 'number' ? obj.total : data.length;
     const page = typeof obj.page === 'number' ? obj.page : 1;
     const pageCount = typeof obj.pageCount === 'number' ? obj.pageCount : '?';

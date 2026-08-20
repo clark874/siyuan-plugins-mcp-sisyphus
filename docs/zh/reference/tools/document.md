@@ -32,7 +32,7 @@
 - `list_tree` 使用 `notebook + path`，其中 `path` 是 `/` 或 `/20240318112233-abc123.sy` 这类存储路径，不是人类可读路径。
 - `list_tree` 查询 `/` 时，一级文档子树读取的并发上限为 8。响应会返回 `partial`、`errors`、`topLevelDocumentCount` 和 `failedTopLevelDocumentCount`；当 `partial` 为 `true` 时，不得把空 `children` 直接判定为真实叶节点。该底层工具会在错误项中返回文档 ID 与存储路径，便于精确追查。
 - 如果批量 `remove` 遇到思源短暂的 `indexing` 窗口，请改用 `notebook + storage path` 逐个删除并重试。
-- `set_attr` 按文档 ID 写入文档元数据属性。
+- `set_attr` 按文档 ID 写入文档元数据属性。内置 `icon` 存在于文档根块 IAL 中，可能不会出现在 SQL `attributes` 表；应使用文档 ID 调用 `block.get_attrs` 验证。
 - `get_outline` 调用思源原生大纲接口，不读取正文即可返回标题树、标题块 ID、嵌套关系和 `headingCount`。如果还需要可编辑 Markdown，请使用 `get_doc`。
 
 ## Markdown 与标题规则

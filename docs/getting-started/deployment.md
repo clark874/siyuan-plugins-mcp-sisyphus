@@ -148,6 +148,7 @@ HTTP mode:
 | `SIYUAN_MCP_PORT` | `36806` | Bind port |
 | `SIYUAN_MCP_TOKEN` | none | Bearer token |
 | `SIYUAN_MCP_PATH` | `/mcp` | HTTP endpoint path |
+| `SIYUAN_MCP_PRETTY_JSON` | unset | Set to `1` only for local debugging; model-facing JSON is compact by default |
 
 ## Deployment Scenarios
 

@@ -117,14 +117,25 @@ describe('getSchemaRequired', () => {
 });
 
 describe('createJsonResult', () => {
-    it('should create result with JSON content', () => {
+    it('should create compact JSON content by default', () => {
         const data = { foo: 'bar', count: 42 };
         const result = createJsonResult(data);
 
         expect(result.content).toHaveLength(1);
         expect(result.content[0].type).toBe('text');
-        expect(result.content[0].text).toBe(JSON.stringify(data, null, 2));
+        expect(result.content[0].text).toBe(JSON.stringify(data));
         expect(result.isError).toBeUndefined();
+    });
+
+    it('supports pretty JSON only through the explicit debug switch', () => {
+        vi.stubEnv('SIYUAN_MCP_PRETTY_JSON', '1');
+        const data = { foo: 'bar', nested: { count: 2 } };
+
+        try {
+            expect(createJsonResult(data).content[0].text).toBe(JSON.stringify(data, null, 2));
+        } finally {
+            vi.unstubAllEnvs();
+        }
     });
 
     it('should handle null value', () => {

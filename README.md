@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.8-wiki.2`（本地 CLI `v0.3.7-wiki.2`）修复失效 HTTP 会话与 AV 持有块错误语义，阻止未知 AV 读取产生持久文件，并新增有界的 `search.check_anchor` 统一治理 name/alias/scope。外部 Agent 仍只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.1`（本地 CLI `v0.3.8-wiki.1`）将模型侧 JSON 改为紧凑传输，消除 `av.render` 原始行与表格行双份返回，并固化数据库窄查询工作流。外部 Agent 仍只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.8.8-wiki.2` — HTTP 会话恢复、AV 只读无副作用守卫、有界锚点范围审计与知识治理契约已经统一；本地 CLI 为 `v0.3.7-wiki.2`。
+> **当前 LLM Wiki 版本：**`v0.8.9-wiki.1` — MCP 响应紧凑序列化、AV 单份轻量投影、默认 10 行窗口与三步数据库读取纪律已经统一；本地 CLI 为 `v0.3.8-wiki.1`。
 
 ## Project Direction Update
 

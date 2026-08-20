@@ -32,7 +32,7 @@ Sort-mode values: `0/1` name ascending/descending, `2/3` updated time, `4/5` nat
 - `list_tree` uses `notebook + path`, and `path` is a storage path such as `/` or `/20240318112233-abc123.sy`, not a human-readable path.
 - For `list_tree` at `/`, top-level subtree reads use a concurrency limit of 8. The response includes `partial`, `errors`, `topLevelDocumentCount`, and `failedTopLevelDocumentCount`; an empty `children` array must not be treated as a confirmed leaf when `partial` is `true`. This low-level tool reports document IDs and storage paths in each error for precise follow-up.
 - If bulk `remove` hits SiYuan's short `indexing` window, retry by deleting one document at a time with `notebook + storage path`.
-- `set_attr` writes document metadata attributes by document ID.
+- `set_attr` writes document metadata attributes by document ID. Built-in `icon` lives in the document root IAL and may not appear in the SQL `attributes` table; verify it with `block.get_attrs` on the document ID.
 - `get_outline` calls SiYuan's native outline endpoint and returns the heading tree, block IDs, nesting, and `headingCount` without reading the document body. Use `get_doc` instead when you also need editable Markdown.
 
 ## Markdown and Title Rules

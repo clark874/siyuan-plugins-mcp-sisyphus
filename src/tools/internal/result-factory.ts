@@ -2,19 +2,20 @@ import { ZodError } from 'zod';
 
 import { getActionHint } from '../../core/help';
 import { translateError } from './errorTranslation';
+import { stringifyToolJson } from './json-serialization';
 import type { PaginatedPayload, ToolErrorContext, ToolResult } from './types';
 import { formatZodIssues, getValidationMessage, includeDebugDetails, isApiError, readSemanticErrorCode, readSemanticErrorDetailCode, resolveHint } from './validation';
 
 export function toErrorText(payload: Record<string, unknown>, isError = true): ToolResult {
     return {
-        content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+        content: [{ type: 'text', text: stringifyToolJson(payload) }],
         isError,
     };
 }
 
 export function createJsonResult(value: unknown): ToolResult {
     return {
-        content: [{ type: 'text', text: JSON.stringify(value, null, 2) }],
+        content: [{ type: 'text', text: stringifyToolJson(value) }],
     };
 }
 

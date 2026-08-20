@@ -1,5 +1,6 @@
 import type { ToolCategory } from './config';
 import type { ToolResult } from '@/tools/internal/shared';
+import { stringifyToolJson } from '@/tools/internal/json-serialization';
 
 interface SlimContext {
     category: ToolCategory;
@@ -110,7 +111,7 @@ function createTextResult(result: ToolResult, value: unknown): ToolResult {
     const first = result.content[0];
     return {
         ...result,
-        content: [{ ...(first ?? { type: 'text' as const }), type: 'text', text: JSON.stringify(value, null, 2) }],
+        content: [{ ...(first ?? { type: 'text' as const }), type: 'text', text: stringifyToolJson(value) }],
     };
 }
 

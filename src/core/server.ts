@@ -20,6 +20,7 @@ import { getActionSafetyPolicy } from './write-safety-policy';
 import { softenRecoverableToolError } from './soft-error';
 import { callCliWriteCoordinator } from '../cli/write-coordinator';
 import type { CliWriteCoordinatorSettings } from '../cli/runtime';
+import { normalizeToolJsonText } from '../tools/internal/json-serialization';
 import { noopSchemaValidator } from './noops/noop-schema-validator';
 import { OfficialMcpBridge, type OfficialMcpRuntime } from './official-mcp-bridge';
 
@@ -69,6 +70,7 @@ export function getMcpServerHelpText(): string {
         '  SIYUAN_MCP_TOKEN=...                  Bearer token for MCP HTTP clients',
         '  SIYUAN_MCP_ALLOWED_ORIGINS=host,...   Browser Origin hostname allowlist',
         '  SIYUAN_MCP_SKILLS_EXTENSION=false    Disable draft SEP-2640 Skills extension (enabled by default)',
+        '  SIYUAN_MCP_PRETTY_JSON=1             Pretty-print model-facing JSON for local debugging',
         '',
         'TLS environment:',
         '  SIYUAN_MCP_TLS_CERT=/path/cert.pem',
@@ -538,11 +540,20 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         // Softening happens only here, at the outermost response boundary, so
         // the write-safety coordinator and the MCP App bridge keep branching on
         // the untouched `isError` flag produced by the handlers.
+        const boundaryResult = softenRecoverableToolError(
+            compactMcpAppToolResult(name, action, projectedResult, appsEnabled, config.mcpApps),
+            config.errorReporting.softRecoverableErrors,
+        );
+        const serializedResult = category === 'extension'
+            ? boundaryResult
+            : {
+                ...boundaryResult,
+                content: boundaryResult.content.map((item) => item.type === 'text'
+                    ? { ...item, text: normalizeToolJsonText(item.text) }
+                    : item),
+            };
         return server.projectCallToolResult(
-            softenRecoverableToolError(
-                compactMcpAppToolResult(name, action, projectedResult, appsEnabled, config.mcpApps),
-                config.errorReporting.softRecoverableErrors,
-            ),
+            serializedResult,
             GENERIC_TOOL_OUTPUT_SCHEMA,
         );
     });

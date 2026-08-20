@@ -1,3 +1,5 @@
+import { stringifyToolJson } from '@/tools/internal/json-serialization';
+
 /**
  * Structural shape shared by the internal handler result and the projected
  * MCP `CallToolResult`. Keeping this local avoids coupling the boundary helper
@@ -87,7 +89,7 @@ export function softenRecoverableToolError<T extends SoftenableResult>(result: T
             ...payload,
             error: { ...(payload.error as Record<string, unknown>), [SOFT_ERROR_MARKER]: true },
         };
-        softened.content = [{ type: 'text', text: JSON.stringify(markedPayload, null, 2) }];
+        softened.content = [{ type: 'text', text: stringifyToolJson(markedPayload) }];
         if (result.structuredContent) {
             softened.structuredContent = markedPayload;
         }

@@ -330,7 +330,7 @@ exports[`tool description and help outputs > matches the locked snapshot for all
           "av(action="search") first queries kernel search results, then MCP post-filters unreadable or unresolvable AVs and reports the filtering metadata.",
           "av(action="search") is best for database names and primary-key matches. Do not assume it will find arbitrary non-primary-key cell text immediately after writes.",
         ],
-        "hint": "Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. Use ignoreRows=true to read view/schema metadata without row values and reduce token use. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
+        "hint": "Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. Default pageSize is 10. Use ignoreRows=true for schema-only discovery, then query to narrow rows before increasing pageSize. Default output contains one compact table; verbose=true additionally returns raw kernel rows in data[]. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
         "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
@@ -403,7 +403,7 @@ Additional actions: rename, add_rows, remove_rows, add_column, remove_column, se
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 av.get: required [id] | optional [blockID]
-av.render: required [] | optional [id, blockID, viewID, page, pageSize, query, groupPaging, createIfNotExist, ignoreRows]
+av.render: required [] | optional [id, blockID, viewID, page, pageSize, query, groupPaging, createIfNotExist, ignoreRows, verbose]
 av.get_attribute_view_keys: required [id] | optional []
 av.get_attribute_view_filter_sort: required [id] | optional [blockID]
 av.search: required [keyword] | optional [excludes]
@@ -429,7 +429,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
         "remove_column": "Use avID + keyID, and optionally blockID to target a specific registered database block. removeRelationDest only matters for relation columns.",
         "remove_rows": "Use avID + srcIDs to remove rows from the AV. Optional blockID pins a specific registered database block when you need explicit block-view context.",
         "rename": "Use avID + name to rename the database definition through a SiYuan transaction. Optional blockID pins the permission and refresh context to a registered database block for this AV.",
-        "render": "Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. Use ignoreRows=true to read view/schema metadata without row values and reduce token use. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
+        "render": "Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. Default pageSize is 10. Use ignoreRows=true for schema-only discovery, then query to narrow rows before increasing pageSize. Default output contains one compact table; verbose=true additionally returns raw kernel rows in data[]. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
         "search": "Searches AV/database definitions by keyword and post-filters unreadable results. Unresolvable matches remain discoverable in unresolvedResults, alongside raw result counts and filtering reasons. Match scope primarily covers AV names plus primary-key fallback results, not arbitrary cell text.",
         "set_cells": "Use avID + cells[]. Each item requires rowID + columnID + valueType and its matching typed field. For a single-cell write, pass rowID + columnID + valueType directly. rowID must be the AV row item ID stored in value.blockID, not value.id or the bound source block ID. Optional blockID must be a registered database block for this AV if you need to pin a specific block view. valueType="mAsset" accepts assets[].",
       },
@@ -475,7 +475,7 @@ AV actions operate on real SiYuan attribute views (database blocks), not Markdow
           "requiresConfirmation": false,
         },
         "render": {
-          "hint": "Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. Use ignoreRows=true to read view/schema metadata without row values and reduce token use. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
+          "hint": "Use id (the AV ID; avID is accepted as a compatibility alias) plus optional blockID/viewID/page/pageSize/query to render database rows with the active view context. Default pageSize is 10. Use ignoreRows=true for schema-only discovery, then query to narrow rows before increasing pageSize. Default output contains one compact table; verbose=true additionally returns raw kernel rows in data[]. With createIfNotExist=true, blockID becomes the creation target; if id is omitted, MCP generates one and materializes the database block automatically via a SiYuan-style transaction.",
           "requiresConfirmation": false,
         },
         "search": {
@@ -1974,7 +1974,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "For recently created documents, document(action="lookup", hpath=...) may briefly lag behind create because it depends on SiYuan indexing; retry if needed.",
           "document(action="lookup", id=...) may hit the same short indexing delay right after create; MCP retries briefly and then returns a timing-specific hint if indexing still has not settled.",
         ],
-        "hint": "Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it.",
+        "hint": "Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it. Built-in icon is stored in the document root IAL and may not appear in the attributes SQL table; verify it with block(action="get_attrs", id=<document-id>).",
         "requiredFields": [
           "id",
           "attrs",
@@ -2068,7 +2068,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
         "rename": "Use either id + title or notebook + path + title.",
         "reorder": "requires: parentID, orderedIDs",
         "search_docs": "Use notebook + query, and optionally path as a storage-path scope. Search is title-based in SiYuan; MCP then filters by notebook permission and optional storage path.",
-        "set_attr": "Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it.",
+        "set_attr": "Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it. Built-in icon is stored in the document root IAL and may not appear in the attributes SQL table; verify it with block(action="get_attrs", id=<document-id>).",
         "set_child_sort_mode": "Use a parent document ID and sortMode 0-14. Use null to remove the local override and restore inherited sorting. Requires SiYuan 3.8.1 or later.",
       },
       "actions": {
@@ -2137,7 +2137,7 @@ For ordinary document file operations, prefer fs(action="ls"|"tree"|"read"|"writ
           "requiresConfirmation": false,
         },
         "set_attr": {
-          "hint": "Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it.",
+          "hint": "Use id + attrs. attrs.icon sets the document icon; attrs.cover sets an http(s) URL or /assets/... cover, and null/empty clears it. Built-in icon is stored in the document root IAL and may not appear in the attributes SQL table; verify it with block(action="get_attrs", id=<document-id>).",
           "requiresConfirmation": false,
         },
         "set_child_sort_mode": {
@@ -3634,7 +3634,7 @@ flashcard actions cover review-first flashcard workflows and deck discovery. lis
           "If fs.read reports attributeViews or avToolHint, the document contains real database blocks. Use av(action="get"|"render"|"set_cells"|"add_rows"|"remove_rows"|"add_column"|"remove_column") for AV rows, columns, and cells instead of editing the database placeholder as Markdown.",
           "fs(action="rm") and fs(action="mv") require explicit user confirmation before execution.",
         ],
-        "hint": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.",
+        "hint": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions. Matching lines are capped at 200 characters and report textTruncated/originalTextLength; use fs.read on the returned path for full context.",
         "requiredFields": [
           "path",
           "query",
@@ -3738,7 +3738,7 @@ Use fs first for ordinary document file operations: list, tree, read, write, mov
         "reorder": "requires: path, orderedPaths",
         "replace": "Edits matched non-complex Markdown blocks by exact old/new matching against the same AI-editable view returned by fs.read. Canonical input is edit={old,new}; shorthand old + new is also accepted. If the document contains complex SiYuan-native blocks, fs.replace skips those blocks and returns skippedComplexBlocks; matches only inside skipped blocks or across block boundaries are rejected without writing. For inline formatting, old should be plain text without Markdown style delimiters such as **, *, \`, or ~~; existing DOM inline styles are preserved. Naked ((id)) refs are normalized, and footnotes/siyuan://blocks links are allowed but do not create backlinks. replace_all=true replaces every exact match across editable blocks. Use ((id 'title')) for new double-links and #tag# for tags.",
         "rm": "Deletes a document by human-readable path. This action requires explicit user confirmation.",
-        "search": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.",
+        "search": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions. Matching lines are capped at 200 characters and report textTruncated/originalTextLength; use fs.read on the returned path for full context.",
         "tree": "Use a human-readable path. maxDepth defaults to 3 and keeps output compact.",
         "write": "Creates a missing document. Do not include a leading # Title in markdown; the document title is automatic. Existing pure Markdown documents are protected unless overwrite=true; overwrite refuses documents containing complex SiYuan-native blocks. Use ((id 'title')) for double-links and #tag# for tags; use advanced tools for database rows, cells, super blocks, embeds, widgets, HTML, and media.",
       },
@@ -3767,7 +3767,7 @@ Use fs first for ordinary document file operations: list, tree, read, write, mov
           "requiresConfirmation": true,
         },
         "search": {
-          "hint": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions.",
+          "hint": "Searches Markdown lines under a human-readable document or folder path. Use regex=true for regular expressions. Matching lines are capped at 200 characters and report textTruncated/originalTextLength; use fs.read on the returned path for full context.",
           "requiresConfirmation": false,
         },
         "tree": {

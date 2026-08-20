@@ -6,6 +6,7 @@ import { normalizeTemplatePath, readTemplateSource } from '../api/template';
 import { readPuppyStats } from './puppy-state';
 import type { PermissionManager } from './permissions';
 import type { ToolResult } from '../tools/internal/shared';
+import { stringifyToolJson } from '../tools/internal/json-serialization';
 import {
     listDocumentBlocksInTreeOrder,
     readDocumentEditableMarkdown,
@@ -1010,7 +1011,7 @@ function addSafetyMetadata(result: ToolResult, safety: Record<string, unknown>):
     const payload = parsed ? { ...parsed, safety } : { safety };
     return {
         ...result,
-        content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+        content: [{ type: 'text', text: stringifyToolJson(payload) }],
         structuredContent: payload,
     };
 }
@@ -1102,7 +1103,7 @@ function fromSafetyError(error: unknown): ToolResult {
 
 function jsonResult(payload: Record<string, unknown>, isError = false): ToolResult {
     return {
-        content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+        content: [{ type: 'text', text: stringifyToolJson(payload) }],
         structuredContent: payload,
         ...(isError ? { isError: true } : {}),
     };

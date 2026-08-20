@@ -709,15 +709,30 @@ function createMatcher(query: string, regex?: boolean, caseSensitive?: boolean):
     return (line) => (caseSensitive ? line : line.toLowerCase()).includes(needle);
 }
 
-function collectVirtualTextMatches(content: string, matcher: (line: string) => boolean, path: VirtualRootFilePath): Array<{ path: string; line: number; text: string }> {
-    const matches: Array<{ path: string; line: number; text: string }> = [];
+type FsSearchMatch = {
+    path: string;
+    line: number;
+    text: string;
+    textTruncated?: true;
+    originalTextLength?: number;
+};
+
+function createFsSearchMatch(path: string, lineNumber: number, line: string): FsSearchMatch {
+    if (line.length <= 200) return { path, line: lineNumber, text: line };
+    return {
+        path,
+        line: lineNumber,
+        text: `${line.slice(0, 197)}...`,
+        textTruncated: true,
+        originalTextLength: line.length,
+    };
+}
+
+function collectVirtualTextMatches(content: string, matcher: (line: string) => boolean, path: VirtualRootFilePath): FsSearchMatch[] {
+    const matches: FsSearchMatch[] = [];
     content.split(/\r?\n/).forEach((line, index) => {
         if (matcher(line)) {
-            matches.push({
-                path,
-                line: index + 1,
-                text: line.length > 300 ? `${line.slice(0, 297)}...` : line,
-            });
+            matches.push(createFsSearchMatch(path, index + 1, line));
         }
     });
     return matches;
@@ -1158,7 +1173,7 @@ const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     }
 
     const docs = await collectSearchDocuments(client, permMgr, scope);
-    const matches: Array<{ path: string; line: number; text: string }> = [];
+    const matches: FsSearchMatch[] = [];
     if (scope.type === 'root') {
         matches.push(...collectVirtualTextMatches((await readAgentMemoryState(client)).content, matcher, AGENT_MEMORY_VIRTUAL_PATH));
         matches.push(...collectVirtualTextMatches((await readUserRulesState(client)).content, matcher, USER_RULES_VIRTUAL_PATH));
@@ -1170,11 +1185,7 @@ const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         const path = `/${doc.notebookName}${hPath}`;
         content.split(/\r?\n/).forEach((line, index) => {
             if (matcher(line)) {
-                matches.push({
-                    path,
-                    line: index + 1,
-                    text: line.length > 300 ? `${line.slice(0, 297)}...` : line,
-                });
+                matches.push(createFsSearchMatch(path, index + 1, line));
             }
         });
     }
