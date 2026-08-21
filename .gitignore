@@ -36,6 +36,7 @@ tmp
 # Project specific
 .claude/
 .sisyphus/
+.worktrees/
 scripts/retrieval-eval/fixtures/local-*.json
 scripts/retrieval-eval/results/local-*.json
 siyuan
