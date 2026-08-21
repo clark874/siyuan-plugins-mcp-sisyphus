@@ -1073,7 +1073,7 @@ export const SearchSemanticSchema = z.object({
 
 export const SearchKnowledgeSchema = z.object({
     action: z.literal("knowledge"),
-    query: z.string().min(1).describe("Natural-language knowledge question. The configured embedding provider receives this query."),
+    query: z.string().min(1).describe("Knowledge query. Exact readable name/alias matches are resolved locally before the configured embedding provider is considered."),
     pageSize: z.number().int().min(1).max(50).optional().describe("Maximum deduplicated knowledge candidates returned, default 10."),
     candidateSize: z.number().int().min(1).max(100).optional().describe("Semantic candidates requested before reference collapse and deduplication, default 30."),
     notebooks: z.array(z.string()).optional().describe("Optional notebook ID allowlist."),
@@ -1081,6 +1081,8 @@ export const SearchKnowledgeSchema = z.object({
     types: z.record(z.string(), z.boolean()).optional().describe("Optional block type filter forwarded to semantic search."),
     subTypes: z.record(z.string(), z.boolean()).optional().describe("Optional block subtype filter forwarded to semantic search."),
     includeRelatedDocuments: z.boolean().optional().describe("Attach documents that reference each candidate, default true."),
+    activeScopes: z.array(z.string().min(1)).max(50).optional().describe("Optional custom-anchor-scope values for deterministic resolution when an exact alias maps to multiple readable blocks."),
+    namespaceMode: z.enum(["auto", "off"]).optional().describe("Namespace resolution mode. auto (default) probes readable name/alias anchors before semantic search; off is a diagnostic baseline for retrieval evaluation."),
 });
 
 export const SearchCheckAnchorSchema = z.object({

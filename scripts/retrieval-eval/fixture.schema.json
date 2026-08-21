@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schemaVersion", "queries"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "description": { "type": "string" },
+    "queries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "query", "type", "expected"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "query": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["exact_name", "exact_alias", "contained_alias", "semantic", "ambiguity", "no_match", "cross_language"] },
+          "expectedResolution": { "enum": ["unique", "ambiguity", "fallback", "no_match"] },
+          "activeScopes": { "type": "array", "items": { "type": "string" } },
+          "expected": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "object",
+              "required": ["id", "relevance"],
+              "properties": {
+                "id": { "type": "string", "minLength": 1 },
+                "relevance": { "type": "integer", "minimum": 1, "maximum": 3 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

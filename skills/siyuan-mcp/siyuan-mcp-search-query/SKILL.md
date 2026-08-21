@@ -8,7 +8,7 @@ compatibility: "Requires a reachable SiYuan Sisyphus MCP server already register
 
 Search to identify candidates, read the target by ID or path, and only then edit. Use explicit pagination for repeatable results.
 
-For a natural-language question on SiYuan 3.8.0+, use `semantic` for low-level candidate discovery and `knowledge` for the LLM Wiki view that collapses reference-only hits, prefers named content atoms, and attaches readable reusing documents. Semantic hits are discovery candidates rather than evidence; always read the returned stable block ID and inspect its source and verification attributes before reuse.
+For a natural-language question, use `knowledge` as the LLM Wiki entry point. It first probes the readable controlled namespace: one exact `name`/`alias` returns locally; multiple exact targets return an explicit ambiguity unless `activeScopes` resolves exactly one; unique contained anchors seed semantic retrieval. Only unresolved queries use the SiYuan 3.8 embedding provider. Use `semantic` only for low-level candidate inspection. Exact namespace matches are deterministic retrieval rather than automatic evidence approval; always read the stable block ID and inspect source and verification attributes before reuse.
 
 If one of the first three deduplicated `knowledge` results is a named project hub or knowledge atom with a path that clearly matches the task, read that stable target immediately and stop directory-level discovery. Continue with a parent tree, exploratory SQL, or broader fulltext search only when the top candidates are ambiguous, off-topic, or unnamed. Do not render an unfiltered full AV merely to locate a project status row.
 
@@ -18,7 +18,7 @@ If one of the first three deduplicated `knowledge` results is a named project hu
 search(action="semantic", query="Which existing notes are relevant to this method?", page=1, pageSize=30)
 ```
 ```text
-search(action="knowledge", query="How have existing projects reused this method?", pageSize=10, candidateSize=30)
+search(action="knowledge", query="How have existing projects reused this method?", pageSize=10, candidateSize=30, activeScopes=["<current-topic-scope>"])
 ```
 ```text
 search(action="fulltext", query="keyword", page=1, pageSize=20)

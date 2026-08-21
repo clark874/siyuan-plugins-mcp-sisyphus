@@ -359,6 +359,7 @@ describe('search tool filtering', () => {
                 }
                 if (endpoint === '/api/query/sql') {
                     const stmt = String(body.stmt);
+                    if (stmt.includes('namespace_probe')) return [];
                     if (stmt.includes('SELECT block_id, def_block_id FROM refs WHERE block_id IN')) {
                         return [
                             { id: '20260814100000-plain01', root_id: '20260814100000-plainrt', box: 'allowed', hpath: '/Plain', type: 'p', name: '', alias: '', content: 'unnamed but highest-ranked result', markdown: 'unnamed but highest-ranked result' },
@@ -431,6 +432,245 @@ describe('search tool filtering', () => {
         });
         expect(parsed.semanticCandidateCount).toBe(5);
         expect(parsed.deduplicatedCount).toBe(3);
+        expect(parsed.dataEgress).toBe(true);
+        expect(parsed.externalCost).toBe(true);
+    });
+
+    it('short-circuits a unique exact alias without semantic data egress and returns trust metadata', async () => {
+        const request = vi.fn(async (endpoint: string, body: any) => {
+            if (endpoint === '/api/query/sql') {
+                const stmt = String(body.stmt);
+                if (stmt.includes('namespace_probe')) {
+                    return [{
+                        id: '20260819072537-zn6fxkd',
+                        root_id: '20260819072537-zn6fxkd',
+                        box: 'allowed',
+                        path: '/project/hub.sy',
+                        hpath: '/Projects/Water/00 Hub',
+                        type: 'd',
+                        name: 'water-commodification-hub',
+                        alias: '水商品化项目知识中枢,水论文,投稿水论文',
+                        content: '项目入口',
+                        updated: '20260821015117',
+                    }];
+                }
+                if (stmt.includes('namespace_trust_metadata')) {
+                    return [
+                        { block_id: '20260819072537-zn6fxkd', name: 'custom-verification-status', value: 'verified' },
+                        { block_id: '20260819072537-zn6fxkd', name: 'custom-source-checked', value: '2026-08-21' },
+                        { block_id: '20260819072537-zn6fxkd', name: 'custom-source-url', value: 'https://example.org/doc?token=SECRET12345678' },
+                    ];
+                }
+            }
+            if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [] };
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({ allowed: 'rwd' }),
+        };
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'knowledge',
+            query: '水论文',
+        }, buildDefaultToolConfig().search, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.retrievalMode).toBe('namespace_exact');
+        expect(parsed.dataEgress).toBe(false);
+        expect(parsed.externalCost).toBe(false);
+        expect(parsed.matchedAnchor).toMatchObject({ token: '水论文', kind: 'alias', status: 'unique' });
+        expect(parsed.data).toHaveLength(1);
+        expect(parsed.data[0]).toMatchObject({
+            id: '20260819072537-zn6fxkd',
+            name: 'water-commodification-hub',
+            updated: '20260821015117',
+            verificationStatus: 'verified',
+            sourceMetadata: {
+                'custom-source-checked': '2026-08-21',
+            },
+        });
+        expect(parsed.data[0].sourceMetadata['custom-source-url']).not.toContain('SECRET12345678');
+        expect(request.mock.calls.some(([endpoint]) => endpoint === '/api/search/semanticSearchBlock')).toBe(false);
+    });
+
+    it('returns exact alias ambiguity without silently selecting or calling semantic search', async () => {
+        const request = vi.fn(async (endpoint: string, body: any) => {
+            if (endpoint === '/api/query/sql' && String(body.stmt).includes('namespace_probe')) {
+                return [
+                    { id: 'a', root_id: 'doc-a', box: 'allowed', path: '/a.sy', hpath: '/A', type: 'p', name: 'a', alias: '共享词', content: 'A', updated: '20260821000000' },
+                    { id: 'b', root_id: 'doc-b', box: 'allowed', path: '/b.sy', hpath: '/B', type: 'p', name: 'b', alias: '共享词', content: 'B', updated: '20260821000001' },
+                ];
+            }
+            if (endpoint === '/api/query/sql' && String(body.stmt).includes('namespace_scope_metadata')) return [];
+            if (endpoint === '/api/query/sql' && String(body.stmt).includes('namespace_trust_metadata')) return [];
+            if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [] };
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({ allowed: 'rwd' }),
+        };
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'knowledge',
+            query: '共享词',
+        }, buildDefaultToolConfig().search, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.retrievalMode).toBe('namespace_ambiguous');
+        expect(parsed.resolutionStatus).toBe('ambiguity_requires_context');
+        expect(parsed.data).toHaveLength(2);
+        expect(parsed.dataEgress).toBe(false);
+        expect(parsed.externalCost).toBe(false);
+        expect(request.mock.calls.some(([endpoint]) => endpoint === '/api/search/semanticSearchBlock')).toBe(false);
+    });
+
+    it('fails closed when the namespace safety limit prevents proving exact-anchor uniqueness', async () => {
+        const request = vi.fn(async (endpoint: string, body: any) => {
+            if (endpoint === '/api/query/sql') {
+                const stmt = String(body.stmt);
+                if (stmt.includes('namespace_probe')) {
+                    return [
+                        { id: 'target', root_id: 'target', box: 'allowed', path: '/target.sy', hpath: '/Target', type: 'd', name: 'target', alias: '受限扫描词', content: 'Target' },
+                        ...Array.from({ length: 9_999 }, (_, index) => ({
+                            id: `filler-${index}`,
+                            root_id: `filler-${index}`,
+                            box: 'allowed',
+                            path: `/filler-${index}.sy`,
+                            hpath: `/Filler/${index}`,
+                            type: 'd',
+                            name: `filler-${index}`,
+                            alias: '',
+                            content: '',
+                        })),
+                    ];
+                }
+                if (stmt.includes('namespace_trust_metadata')) return [];
+            }
+            if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [] };
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({ allowed: 'rwd' }),
+        };
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'knowledge',
+            query: '受限扫描词',
+        }, buildDefaultToolConfig().search, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.retrievalMode).toBe('namespace_ambiguous');
+        expect(parsed.resolutionStatus).toBe('scan_incomplete_requires_retry');
+        expect(parsed.namespaceScanComplete).toBe(false);
+        expect(parsed.data).toHaveLength(1);
+        expect(request.mock.calls.some(([endpoint]) => endpoint === '/api/search/semanticSearchBlock')).toBe(false);
+    });
+
+    it('uses an active scope to resolve an exact multi-match alias deterministically', async () => {
+        const request = vi.fn(async (endpoint: string, body: any) => {
+            if (endpoint === '/api/query/sql') {
+                const stmt = String(body.stmt);
+                if (stmt.includes('namespace_probe')) {
+                    return [
+                        { id: 'a', root_id: 'doc-a', box: 'allowed', path: '/a.sy', hpath: '/A', type: 'p', name: 'a', alias: '共享词', content: 'A', updated: '20260821000000' },
+                        { id: 'b', root_id: 'doc-b', box: 'allowed', path: '/b.sy', hpath: '/B', type: 'p', name: 'b', alias: '共享词', content: 'B', updated: '20260821000001' },
+                    ];
+                }
+                if (stmt.includes('namespace_scope_metadata')) {
+                    return [
+                        { block_id: 'a', value: 'topic-a' },
+                        { block_id: 'b', value: 'topic-b' },
+                    ];
+                }
+                if (stmt.includes('namespace_trust_metadata')) return [];
+            }
+            if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [] };
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({ allowed: 'rwd' }),
+        };
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'knowledge',
+            query: '共享词',
+            activeScopes: ['topic-b'],
+        }, buildDefaultToolConfig().search, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.retrievalMode).toBe('namespace_exact');
+        expect(parsed.matchedAnchor).toMatchObject({ token: '共享词', kind: 'alias', status: 'resolved_by_scope' });
+        expect(parsed.data).toHaveLength(1);
+        expect(parsed.data[0].id).toBe('b');
+    });
+
+    it('keeps a contained anchor as an auditable seed while continuing semantic discovery', async () => {
+        const request = vi.fn(async (endpoint: string, body: any) => {
+            if (endpoint === '/api/query/sql') {
+                const stmt = String(body.stmt);
+                if (stmt.includes('namespace_probe')) {
+                    return [{
+                        id: 'hub', root_id: 'hub', box: 'allowed', path: '/project/hub.sy', hpath: '/Project/Hub',
+                        type: 'd', name: 'water-hub', alias: '水论文', content: '项目入口', updated: '20260821000000',
+                    }];
+                }
+                if (stmt.includes('namespace_trust_metadata')) return [];
+                if (stmt.includes('SELECT block_id, def_block_id FROM refs')) return [];
+                if (stmt.includes('FROM blocks') && stmt.includes('WHERE id IN')) {
+                    return [{
+                        id: 'risk', root_id: 'risk-doc', box: 'allowed', path: '/project/risk.sy', hpath: '/Project/Risk',
+                        type: 'p', name: 'water-panel-risk', alias: '家庭面板风险', content: '风险正文', updated: '20260821000001',
+                    }];
+                }
+                if (stmt.includes('source_root_id')) return [];
+            }
+            if (endpoint === '/api/search/semanticSearchBlock') {
+                return {
+                    blocks: [{ id: 'risk', box: 'allowed', rootID: 'risk-doc', hPath: '/Project/Risk', type: 'p', content: '风险正文' }],
+                    matchedBlockCount: 1, matchedRootCount: 1, pageCount: 1,
+                };
+            }
+            if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [] };
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const permMgr = {
+            reload: vi.fn(async () => undefined),
+            canWrite: () => true,
+            canRead: () => true,
+            canDelete: () => true,
+            get: () => 'rwd',
+            getAll: () => ({ allowed: 'rwd' }),
+        };
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'knowledge',
+            query: '请分析水论文的家庭面板风险',
+        }, buildDefaultToolConfig().search, permMgr as never);
+        const parsed = parseResult(result);
+
+        expect(parsed.retrievalMode).toBe('namespace_seeded_semantic');
+        expect(parsed.namespaceSeeds).toMatchObject([{ id: 'hub', token: '水论文', kind: 'alias' }]);
+        expect(parsed.data.map((item: any) => item.id)).toEqual(['hub', 'risk']);
         expect(parsed.dataEgress).toBe(true);
         expect(parsed.externalCost).toBe(true);
     });

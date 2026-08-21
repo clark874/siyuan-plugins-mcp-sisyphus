@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "description": "Copy this fixture to a local-*.json file and replace the example IDs with stable readable block IDs from the target workspace.",
+  "queries": [
+    {
+      "id": "exact-alias-example",
+      "query": "project nickname",
+      "type": "exact_alias",
+      "expectedResolution": "unique",
+      "expected": [{ "id": "replace-with-real-block-id", "relevance": 3 }]
+    }
+  ]
+}

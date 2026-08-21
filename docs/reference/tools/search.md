@@ -25,7 +25,8 @@ Related pages:
 - `query_sql` is read-only and only accepts `SELECT` statements; add `LIMIT` yourself. `maxRows` controls the returned window after permission filtering (default 200, maximum 1000).
 - Raw SQL can forge or hide result provenance, so `query_sql` is available only when every configured notebook is readable. If any notebook has permission `none`, the action fails closed before executing the query; use scope-aware search/database actions instead. When all notebooks are readable, aggregate, grouping, CTE, and row-level results no longer incur per-row ownership lookups.
 - Search results are filtered by notebook permissions where applicable.
-- `knowledge` requires SiYuan 3.8.0+ with a configured embedding model. The natural-language query leaves the workspace for that provider and may incur cost. It permission-filters semantic hits first, collapses reference-only results into their target blocks, prefers named content atoms, and attaches readable documents that reference each atom.
+- `knowledge` first probes the readable controlled namespace. One exact normalized `name`/`alias` returns locally without embedding cost or data egress. Duplicate exact anchors return an explicit ambiguity and are never silently selected, unless `activeScopes` intersects exactly one target. Unique contained anchors seed semantic retrieval; only unresolved text reaches the configured SiYuan 3.8 embedding provider.
+- Namespace results attach available verification and redacted source metadata. Deterministic resolution is not evidence approval: read the stable block and inspect its evidence boundary before reuse. `namespaceMode="off"` exists only for retrieval evaluation baselines.
 - `check_anchor` is a generated, read-only namespace audit. It normalizes exact `name`/`alias` tokens, filters unreadable blocks, and returns every matching target plus `custom-anchor-scope` values. Canonical names are expected to remain unique; alias multi-matches are reported for adjudication and can resolve automatically only when exactly one target intersects `activeScopes`.
 - Send at most 10 candidate tokens per `check_anchor` call. Each candidate returns at most 10 target details while preserving the full `targetCount` and a truncation hint, so large historical collisions fail closed without overflowing client output.
 - A semantic match is a discovery candidate, not evidence. Read the returned stable block ID and inspect its source and verification attributes before reuse.
@@ -41,6 +42,16 @@ MCP:
   "query": "How is textnets projection weighting computed?",
   "pageSize": 10,
   "candidateSize": 30
+}
+```
+
+Exact aliases can stay fully local:
+
+```json
+{
+  "action": "knowledge",
+  "query": "water paper",
+  "activeScopes": ["water-commodification"]
 }
 ```
 

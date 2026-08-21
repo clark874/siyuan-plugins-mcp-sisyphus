@@ -254,7 +254,8 @@ Additional rules:
 
 ## Knowledge retrieval semantics
 
-- On SiYuan 3.8.0+ with embeddings configured, start a natural-language knowledge task with search(action=”knowledge”). It performs semantic discovery, collapses reference-only hits, prefers named content atoms, and attaches readable documents that reuse each atom.
+- Start a natural-language knowledge task with search(action=”knowledge”). It first resolves the readable controlled namespace: one exact name/alias returns locally without external embedding cost; multiple exact targets are returned as an explicit ambiguity unless exactly one intersects activeScopes; unique contained anchors seed rather than replace semantic discovery. Only the remaining query falls back to the SiYuan 3.8 embedding index.
+- Namespace results include verification/source metadata when present. Exact resolution is deterministic retrieval, not automatic evidence approval; still read the stable block and inspect its stated evidence boundary.
 - Treat semantic hits as candidates rather than evidence. Read the returned stable block ID, verify source and verification attributes, then follow its references or related documents.
 - Use search(action=”fulltext”) for exact lexical recall and search(action=”query_sql”) for structured audits; neither replaces semantic discovery.
 

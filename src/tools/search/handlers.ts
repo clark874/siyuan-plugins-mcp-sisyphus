@@ -1,4 +1,5 @@
 import * as searchApi from '../../api/search';
+import { redactText } from '../../control-plane/security';
 import type { SearchAction } from '../../core/config';
 import {
     expandTypeShortcodes,
@@ -126,6 +127,260 @@ function splitAnchorScopes(value: unknown): string[] {
     return typeof value === 'string' ? splitAnchorTokens(value) : [];
 }
 
+type AnchorNamespaceRow = Record<string, unknown>;
+
+type AnchorMatch = {
+    id: string;
+    rootId: string;
+    box: string;
+    path: string;
+    hpath: string;
+    type: string;
+    name: string;
+    alias: string;
+    content: string;
+    updated: string;
+    token: string;
+    kind: 'name' | 'alias';
+    scopes: string[];
+};
+
+type AnchorTrustMetadata = {
+    verificationStatus?: string;
+    sourceMetadata?: Record<string, string>;
+};
+
+const TRUST_ATTRIBUTE_NAMES = new Set([
+    'custom-verification-status',
+    'custom-source-url',
+    'custom-source-hash',
+    'custom-source-checked',
+]);
+
+function namespaceRowInRequestedScope(row: AnchorNamespaceRow, parsed: SearchKnowledgeArgs): boolean {
+    const box = readStringField(row, 'box');
+    if (parsed.notebooks?.length && !parsed.notebooks.includes(box)) return false;
+    const path = readStringField(row, 'path');
+    if (parsed.paths?.length && !parsed.paths.some((prefix) => path === prefix || path.startsWith(`${prefix.replace(/\/$/, '')}/`))) return false;
+    if (parsed.types && Object.keys(parsed.types).length > 0) {
+        const type = readStringField(row, 'type');
+        const normalizedType = Object.keys(resolveTypeRecord({ [type]: true }))[0] ?? type;
+        if (parsed.types[type] !== true && parsed.types[normalizedType] !== true) return false;
+    }
+    if (parsed.subTypes && Object.keys(parsed.subTypes).length > 0) {
+        const subtype = readStringField(row, 'subtype');
+        if (parsed.subTypes[subtype] !== true) return false;
+    }
+    return true;
+}
+
+async function loadReadableAnchorNamespace(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    permMgr: Parameters<ToolActionHandler>[0]['permMgr'],
+    parsed: SearchKnowledgeArgs,
+): Promise<{ rows: AnchorNamespaceRow[]; permissionFilteredCount: number; complete: boolean }> {
+    await permMgr.reload();
+    const rawRows = await searchApi.querySQL(client, [
+        '/* namespace_probe */ SELECT id, root_id, box, path, hpath, type, subtype, name, alias, updated',
+        'FROM blocks',
+        "WHERE COALESCE(name, '') != '' OR COALESCE(alias, '') != ''",
+        'LIMIT 10000',
+    ].join(' '));
+    const filtered = await filterItemsByPermission(client, rawRows, permMgr);
+    return {
+        rows: filtered.items
+            .filter((row): row is AnchorNamespaceRow => !!row && typeof row === 'object' && !Array.isArray(row))
+            .filter((row) => namespaceRowInRequestedScope(row, parsed)),
+        permissionFilteredCount: filtered.removedCount,
+        complete: rawRows.length < 10000,
+    };
+}
+
+async function hydrateAnchorContents(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    matches: AnchorMatch[],
+): Promise<AnchorMatch[]> {
+    const missingIds = matches.filter((item) => !item.content).map((item) => item.id);
+    if (missingIds.length === 0) return matches;
+    const rows = await searchApi.querySQL(client, [
+        '/* namespace_anchor_content */ SELECT id, content FROM blocks',
+        `WHERE id IN (${sqlStringList(missingIds)}) LIMIT ${missingIds.length}`,
+    ].join(' '));
+    const contentById = new Map<string, string>();
+    for (const row of rows) {
+        if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+        const typed = row as Record<string, unknown>;
+        const id = readStringField(typed, 'id');
+        if (id) contentById.set(id, readStringField(typed, 'content'));
+    }
+    return matches.map((item) => ({ ...item, content: contentById.get(item.id) ?? item.content }));
+}
+
+async function loadAnchorScopes(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    ids: string[],
+): Promise<Map<string, string[]>> {
+    if (ids.length === 0) return new Map();
+    const rows = await searchApi.querySQL(client, [
+        '/* namespace_scope_metadata */ SELECT block_id, value FROM attributes',
+        "WHERE name = 'custom-anchor-scope'",
+        `AND block_id IN (${sqlStringList(ids)}) LIMIT 10000`,
+    ].join(' '));
+    const result = new Map<string, string[]>();
+    for (const row of rows) {
+        if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+        const typed = row as Record<string, unknown>;
+        const id = readStringField(typed, 'block_id');
+        if (id) result.set(id, splitAnchorScopes(typed.value));
+    }
+    return result;
+}
+
+async function loadAnchorTrustMetadata(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    ids: string[],
+): Promise<Map<string, AnchorTrustMetadata>> {
+    if (ids.length === 0) return new Map();
+    const rows = await searchApi.querySQL(client, [
+        '/* namespace_trust_metadata */ SELECT block_id, name, value FROM attributes',
+        `WHERE block_id IN (${sqlStringList(ids)})`,
+        "AND (name = 'custom-verification-status' OR name LIKE 'custom-source-%') LIMIT 10000",
+    ].join(' '));
+    const result = new Map<string, AnchorTrustMetadata>();
+    for (const row of rows) {
+        if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+        const typed = row as Record<string, unknown>;
+        const id = readStringField(typed, 'block_id');
+        const name = readStringField(typed, 'name');
+        const rawValue = readStringField(typed, 'value');
+        if (!id || !TRUST_ATTRIBUTE_NAMES.has(name)) continue;
+        const current = result.get(id) ?? {};
+        if (name === 'custom-verification-status') {
+            current.verificationStatus = rawValue;
+        } else {
+            current.sourceMetadata = { ...current.sourceMetadata, [name]: redactText(rawValue).content };
+        }
+        result.set(id, current);
+    }
+    return result;
+}
+
+function anchorMatchesForToken(rows: AnchorNamespaceRow[], token: string): AnchorMatch[] {
+    const matches = new Map<string, AnchorMatch>();
+    for (const row of rows) {
+        const id = readStringField(row, 'id');
+        if (!id) continue;
+        const name = readStringField(row, 'name');
+        const aliases = splitAnchorTokens(readStringField(row, 'alias'));
+        const normalizedName = normalizeAnchorToken(name);
+        const kind = normalizedName === token ? 'name' : aliases.includes(token) ? 'alias' : undefined;
+        if (!kind) continue;
+        matches.set(id, {
+            id,
+            rootId: readStringField(row, 'root_id'),
+            box: readStringField(row, 'box'),
+            path: readStringField(row, 'path'),
+            hpath: readStringField(row, 'hpath'),
+            type: readStringField(row, 'type'),
+            name,
+            alias: readStringField(row, 'alias'),
+            content: readStringField(row, 'content'),
+            updated: readStringField(row, 'updated'),
+            token,
+            kind,
+            scopes: [],
+        });
+    }
+    return [...matches.values()];
+}
+
+function safeContainedAnchorToken(token: string): boolean {
+    const compact = token.replace(/\s+/g, '');
+    if (/\p{Script=Han}/u.test(compact)) return [...compact].length >= 2;
+    return compact.length >= 4;
+}
+
+function namespaceResultItem(match: AnchorMatch, trust?: AnchorTrustMetadata): Record<string, unknown> {
+    return {
+        id: match.id,
+        rootId: match.rootId,
+        box: match.box,
+        hpath: match.hpath,
+        type: match.type,
+        name: match.name,
+        alias: match.alias,
+        content: match.content,
+        updated: match.updated,
+        anchorMatch: { token: match.token, kind: match.kind, scopes: match.scopes },
+        ...(trust?.verificationStatus ? { verificationStatus: trust.verificationStatus } : {}),
+        ...(trust?.sourceMetadata ? { sourceMetadata: trust.sourceMetadata } : {}),
+    };
+}
+
+async function probeKnowledgeNamespace(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    permMgr: Parameters<ToolActionHandler>[0]['permMgr'],
+    parsed: SearchKnowledgeArgs,
+): Promise<{
+    exact: AnchorMatch[];
+    exactStatus?: 'unique' | 'resolved_by_scope' | 'ambiguity_requires_context' | 'scan_incomplete_requires_retry';
+    seeds: AnchorMatch[];
+    trust: Map<string, AnchorTrustMetadata>;
+    permissionFilteredCount: number;
+    namespaceScanComplete: boolean;
+}> {
+    const namespace = await loadReadableAnchorNamespace(client, permMgr, parsed);
+    const normalizedQuery = normalizeAnchorToken(parsed.query);
+    let exact = anchorMatchesForToken(namespace.rows, normalizedQuery);
+    const activeScopes = new Set((parsed.activeScopes ?? []).flatMap(splitAnchorTokens));
+    let exactStatus: 'unique' | 'resolved_by_scope' | 'ambiguity_requires_context' | 'scan_incomplete_requires_retry' | undefined;
+    if (exact.length > 0 && !namespace.complete) {
+        exactStatus = 'scan_incomplete_requires_retry';
+    } else if (exact.length === 1) {
+        exactStatus = 'unique';
+    } else if (exact.length > 1) {
+        const scopes = await loadAnchorScopes(client, exact.map((item) => item.id));
+        exact = exact.map((item) => ({ ...item, scopes: scopes.get(item.id) ?? [] }));
+        const scoped = activeScopes.size > 0
+            ? exact.filter((item) => item.scopes.some((scope) => activeScopes.has(scope)))
+            : [];
+        if (scoped.length === 1) {
+            exact = scoped;
+            exactStatus = 'resolved_by_scope';
+        } else {
+            exactStatus = 'ambiguity_requires_context';
+        }
+    }
+
+    const seedById = new Map<string, AnchorMatch>();
+    if (exact.length === 0) {
+        const tokens = [...new Set(namespace.rows.flatMap((row) => [
+            normalizeAnchorToken(readStringField(row, 'name')),
+            ...splitAnchorTokens(readStringField(row, 'alias')),
+        ]))]
+            .filter((token) => token && token !== normalizedQuery && safeContainedAnchorToken(token) && normalizedQuery.includes(token))
+            .sort((left, right) => right.length - left.length)
+            .slice(0, 10);
+        for (const token of tokens) {
+            const matches = anchorMatchesForToken(namespace.rows, token);
+            if (matches.length === 1 && !seedById.has(matches[0].id)) seedById.set(matches[0].id, matches[0]);
+        }
+    }
+    let seeds = [...seedById.values()].slice(0, 10);
+    exact = await hydrateAnchorContents(client, exact);
+    seeds = await hydrateAnchorContents(client, seeds);
+    const trustIds = [...new Set([...exact, ...seeds].map((item) => item.id))];
+    const trust = await loadAnchorTrustMetadata(client, trustIds);
+    return {
+        exact,
+        exactStatus,
+        seeds,
+        trust,
+        permissionFilteredCount: namespace.permissionFilteredCount,
+        namespaceScanComplete: namespace.complete,
+    };
+}
+
 async function checkAnchors(
     client: Parameters<ToolActionHandler>[0]['client'],
     permMgr: Parameters<ToolActionHandler>[0]['permMgr'],
@@ -238,6 +493,45 @@ async function knowledgeSearch(
 ): Promise<ToolResult> {
     const pageSize = parsed.pageSize ?? 10;
     const candidateSize = parsed.candidateSize ?? Math.min(Math.max(pageSize * 3, 20), 100);
+    const namespace = parsed.namespaceMode === 'off'
+        ? { exact: [], seeds: [], trust: new Map<string, AnchorTrustMetadata>(), permissionFilteredCount: 0, namespaceScanComplete: true }
+        : await probeKnowledgeNamespace(client, permMgr, parsed);
+    if (namespace.exact.length > 0 && (namespace.exactStatus === 'ambiguity_requires_context' || namespace.exactStatus === 'scan_incomplete_requires_retry')) {
+        const data = namespace.exact.slice(0, pageSize).map((item) => namespaceResultItem(item, namespace.trust.get(item.id)));
+        return createJsonResult({
+            query: parsed.query,
+            retrievalMode: 'namespace_ambiguous',
+            resolutionStatus: namespace.exactStatus,
+            data,
+            showing: data.length,
+            candidateCount: namespace.exact.length,
+            truncated: namespace.exact.length > data.length,
+            namespaceScanComplete: namespace.namespaceScanComplete,
+            permissionFilteredCount: namespace.permissionFilteredCount,
+            dataEgress: false,
+            externalCost: false,
+            hint: namespace.exactStatus === 'scan_incomplete_requires_retry'
+                ? 'The readable namespace reached its safety limit, so uniqueness is unproven. No target was selected and semantic search was intentionally skipped.'
+                : 'The exact anchor maps to multiple readable blocks. Supply activeScopes or inspect the candidates; no target was selected and semantic search was intentionally skipped.',
+        });
+    }
+    if (namespace.exact.length === 1 && namespace.exactStatus) {
+        const match = namespace.exact[0];
+        return createJsonResult({
+            query: parsed.query,
+            retrievalMode: 'namespace_exact',
+            resolutionStatus: namespace.exactStatus,
+            matchedAnchor: { token: match.token, kind: match.kind, status: namespace.exactStatus },
+            data: [namespaceResultItem(match, namespace.trust.get(match.id))],
+            showing: 1,
+            namespaceScanComplete: namespace.namespaceScanComplete,
+            permissionFilteredCount: namespace.permissionFilteredCount,
+            dataEgress: false,
+            externalCost: false,
+            retrievalProtocol: ['namespace_probe', 'deterministic_resolution', 'trust_metadata'],
+            hint: 'A unique readable name/alias resolved locally. Verify updated and trust metadata before treating the block as current evidence.',
+        });
+    }
     const semantic = await searchApi.semanticSearchBlock(client, {
         query: parsed.query,
         page: 1,
@@ -256,15 +550,20 @@ async function knowledgeSearch(
         ? filteredSemantic.filteredOutBlockCount as number
         : 0;
     if (semanticIds.length === 0) {
+        const seedData = namespace.seeds.slice(0, pageSize).map((item) => namespaceResultItem(item, namespace.trust.get(item.id)));
         return createJsonResult({
             query: parsed.query,
-            data: [],
+            retrievalMode: namespace.seeds.length > 0 ? 'namespace_seeded_semantic' : 'semantic_fallback',
+            namespaceSeeds: namespace.seeds.map((item) => ({ id: item.id, token: item.token, kind: item.kind })),
+            data: seedData,
             semanticCandidateCount: 0,
-            deduplicatedCount: 0,
-            permissionFilteredCount,
+            deduplicatedCount: seedData.length,
+            permissionFilteredCount: permissionFilteredCount + namespace.permissionFilteredCount,
             dataEgress: true,
             externalCost: true,
-            hint: 'Semantic discovery produced no readable candidates. Verify the embedding index and broaden the query or scope.',
+            hint: seedData.length > 0
+                ? 'Semantic discovery produced no readable candidates; only deterministic namespace seeds are shown.'
+                : 'Semantic discovery produced no readable candidates. Verify the embedding index and broaden the query or scope.',
         });
     }
 
@@ -362,7 +661,7 @@ async function knowledgeSearch(
         }
     }
 
-    const data = ordered.slice(0, pageSize).map((item, index) => {
+    const semanticData = ordered.map((item) => {
         const row = blockById.get(item.targetId) ?? {};
         if (!item.sourceResultIds.includes(item.targetId) && semanticIds.includes(item.targetId)) {
             item.sourceResultIds.push(item.targetId);
@@ -377,23 +676,37 @@ async function knowledgeSearch(
             alias: readStringField(row, 'alias'),
             content: readStringField(row, 'content', 'markdown'),
             semanticRank: item.semanticRank,
-            deduplicatedRank: index + 1,
             collapsedReferenceCount: item.collapsedReferenceCount,
             sourceResultIds: item.sourceResultIds,
             relatedDocuments: relatedByTarget.get(item.targetId) ?? [],
         };
     });
+    const seedData = namespace.seeds.map((item) => namespaceResultItem(item, namespace.trust.get(item.id)));
+    const seenIds = new Set<string>();
+    const data = [...seedData, ...semanticData]
+        .filter((item) => {
+            const id = readStringField(item, 'id');
+            if (!id || seenIds.has(id)) return false;
+            seenIds.add(id);
+            return true;
+        })
+        .slice(0, pageSize)
+        .map((item, index) => ({ ...item, deduplicatedRank: index + 1 }));
     return createJsonResult({
         query: parsed.query,
+        retrievalMode: namespace.seeds.length > 0 ? 'namespace_seeded_semantic' : 'semantic_fallback',
+        namespaceSeeds: namespace.seeds.map((item) => ({ id: item.id, token: item.token, kind: item.kind })),
         data,
         semanticCandidateCount: semanticBlocks.length,
-        deduplicatedCount: ordered.length,
+        deduplicatedCount: new Set([...namespace.seeds.map((item) => item.id), ...ordered.map((item) => item.targetId)]).size,
         showing: data.length,
-        truncated: ordered.length > data.length,
-        permissionFilteredCount: permissionFilteredCount + blockRowsPermission.removedCount,
+        truncated: ordered.length + namespace.seeds.length > data.length,
+        permissionFilteredCount: permissionFilteredCount + blockRowsPermission.removedCount + namespace.permissionFilteredCount,
         dataEgress: true,
         externalCost: true,
-        retrievalProtocol: ['semantic_discovery', 'reference_collapse', 'named_atom_confirmation', 'related_document_expansion'],
+        retrievalProtocol: namespace.seeds.length > 0
+            ? ['namespace_probe', 'namespace_seed', 'semantic_discovery', 'reference_collapse', 'named_atom_confirmation', 'related_document_expansion']
+            : ['namespace_probe', 'semantic_discovery', 'reference_collapse', 'named_atom_confirmation', 'related_document_expansion'],
         hint: 'Semantic results are candidates, not evidence. Read the returned block by stable ID and verify its source/verification attributes before reuse.',
     });
 }

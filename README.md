@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.9-wiki.6`（本地 CLI `v0.3.8-wiki.4`）修复块正文更新丢失 IAL 锚点，并明确区分带状态保护与仅需 request ID 的两类严格写入协议；外部 Agent 仍只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.10-wiki.1`（本地 CLI `v0.3.9-wiki.1`）将 `search.knowledge` 升级为受控命名空间优先检索：唯一 name/alias 本地直达，歧义保守返回，句中锚点为语义检索提供种子；外部 Agent 仍只注册 Sisyphus 单一入口。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.8.9-wiki.6` — `block.update`/`block.replace` 自动保留既有用户 IAL；严格写入帮助不再把新增型 action 误写成必须取得哈希租约。本地 CLI 为 `v0.3.8-wiki.4`。
+> **当前 LLM Wiki 版本：**`v0.8.10-wiki.1` — `search.knowledge` 先解析可读 name/alias 命名空间，未解决查询才调用思源语义索引；附带零依赖 30 题真实库评测工具。本地 CLI 为 `v0.3.9-wiki.1`。
 
 ## Project Direction Update
 
