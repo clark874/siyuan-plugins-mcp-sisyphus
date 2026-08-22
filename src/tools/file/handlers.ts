@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { SiYuanClient } from '../../api/client';
+import * as blockApi from '../../api/block';
 import * as fileApi from '../../api/file';
 import * as templateApi from '../../api/template';
 import { normalizeMarkdownContent } from '../../core/normalize';
@@ -15,6 +16,7 @@ import {
     FileExtractDocSchema,
     FileGetDocAssetsSchema,
     FileGetImageOCRTextSchema,
+    FileInsertAssetsSchema,
     FileListTemplatesSchema,
     FileListUnusedAssetsSchema,
     FileReadTemplateSchema,
@@ -28,6 +30,8 @@ import {
 import { ensurePermissionForDocumentId } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
 import { createJsonResult, createPaginatedResult, paginate, type ToolResult } from '../internal/shared';
+import { applyUiRefresh } from '../internal/ui-refresh';
+import { preflightLocalAssets, renderInsertedAssetMarkdown } from './asset-ingestion';
 
 export const FILE_TOOL_NAME = 'file';
 export const DEFAULT_LARGE_UPLOAD_THRESHOLD_MB = 10;
@@ -192,6 +196,120 @@ const handleUploadAsset = (thresholdMB: number, largeUploadThresholdBytes: numbe
             ...(stat.size > largeUploadThresholdBytes ? { largeFileConfirmed: true } : {}),
         });
     };
+
+function createPendingVerificationResult(details: Record<string, unknown>): ToolResult {
+    const payload = {
+        success: false,
+        transactionState: 'pending_verification',
+        writeAttempted: true,
+        writeExecuted: true,
+        retryAllowed: false,
+        pendingVerification: details,
+    };
+    return {
+        ...createJsonResult(payload),
+        structuredContent: payload,
+        isError: true,
+    };
+}
+
+const handleInsertAssets = (largeUploadThresholdBytes: number): ToolActionHandler =>
+    async ({ client, permMgr, rawArgs }) => {
+        const parsed = FileInsertAssetsSchema.parse(rawArgs);
+        const document = await ensurePermissionForDocumentId(client, permMgr, parsed.documentId, 'write');
+        if (document.denied) return document.denied;
+        const anchor = await ensurePermissionForDocumentId(client, permMgr, parsed.anchorId, 'write');
+        if (anchor.denied) return anchor.denied;
+        if (anchor.context.documentId !== document.context.documentId) {
+            throw new Error(`anchorId "${parsed.anchorId}" does not belong to documentId "${parsed.documentId}".`);
+        }
+        const preflight = await preflightLocalAssets(parsed.assets, largeUploadThresholdBytes);
+        if (preflight.largeFiles.length > 0 && parsed.confirmLargeFiles !== true) {
+            return createJsonResult({
+                success: false,
+                requiresConfirmation: true,
+                writeAttempted: false,
+                writeExecuted: false,
+                reason: 'file_too_large',
+                largeFiles: preflight.largeFiles,
+                thresholdBytes: largeUploadThresholdBytes,
+                message: 'Stop and obtain explicit approval before retrying with confirmLargeFiles=true.',
+            });
+        }
+        const uploaded = await fileApi.insertLocalAssets(
+            client,
+            parsed.documentId,
+            preflight.items.map((item) => item.localPath),
+        );
+        const resolved = preflight.items.map((item) => ({
+            item,
+            resolvedPath: uploaded.succMap[item.localPath] ?? uploaded.succMap[item.basename],
+        }));
+        const unresolved = resolved.filter((item) => !item.resolvedPath).map((item) => item.item.localPath);
+        if (unresolved.length > 0) {
+            return createPendingVerificationResult({
+                reason: 'asset_resolution_incomplete',
+                documentId: parsed.documentId,
+                anchorId: parsed.anchorId,
+                unresolved,
+                succMap: uploaded.succMap,
+            });
+        }
+        const markdown = resolved
+            .map(({ item, resolvedPath }) => renderInsertedAssetMarkdown(item, resolvedPath!))
+            .join('\n');
+        const insertion = await blockApi.insertBlock(client, 'markdown', markdown, undefined, parsed.anchorId);
+        const insertedBlockId = extractInsertedBlockId(insertion);
+        if (!insertedBlockId) {
+            return createPendingVerificationResult({
+                reason: 'inserted_block_id_missing',
+                documentId: parsed.documentId,
+                anchorId: parsed.anchorId,
+                resolvedPaths: resolved.map((item) => item.resolvedPath),
+            });
+        }
+        const readback = await blockApi.getBlockKramdown(client, insertedBlockId);
+        const kramdown = typeof readback?.kramdown === 'string' ? readback.kramdown : '';
+        const missingPaths = resolved
+            .map((item) => item.resolvedPath!)
+            .filter((resolvedPath) => !kramdown.includes(resolvedPath));
+        if (missingPaths.length > 0) {
+            return createPendingVerificationResult({
+                reason: 'asset_link_readback_mismatch',
+                documentId: parsed.documentId,
+                insertedBlockId,
+                missingPaths,
+            });
+        }
+        return applyUiRefresh(client, createJsonResult({
+            success: true,
+            action: 'insert_assets',
+            documentId: parsed.documentId,
+            anchorId: parsed.anchorId,
+            insertedBlockId,
+            items: resolved.map(({ item, resolvedPath }) => ({
+                localPath: item.localPath,
+                kind: item.kind,
+                resolvedPath,
+                verified: true,
+            })),
+            verification: { status: 'verified', method: 'block-kramdown-readback' },
+        }), [{ type: 'reloadProtyle', id: parsed.documentId }]);
+    };
+
+function extractInsertedBlockId(value: unknown): string | undefined {
+    const batches = Array.isArray(value) ? value : [value];
+    for (const batch of batches) {
+        if (!batch || typeof batch !== 'object') continue;
+        const operations = (batch as { doOperations?: unknown }).doOperations;
+        if (!Array.isArray(operations)) continue;
+        for (const operation of operations) {
+            const id = operation && typeof operation === 'object' ? (operation as { id?: unknown }).id : undefined;
+            if (typeof id === 'string' && id) return id;
+        }
+    }
+    return undefined;
+}
 
 const handleRender: ToolActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FileRenderSchema.parse(rawArgs);
@@ -548,6 +666,7 @@ const handleExtractDoc: ToolActionHandler = async ({ client, rawArgs }) => {
 export function createFileActionHandlers(thresholdMB: number, largeUploadThresholdBytes: number): Record<FileAction, ToolActionHandler> {
     return {
         upload_asset: handleUploadAsset(thresholdMB, largeUploadThresholdBytes),
+        insert_assets: handleInsertAssets(largeUploadThresholdBytes),
         list_templates: handleListTemplates,
         read_template: handleReadTemplate,
         create_template: handleCreateTemplate,

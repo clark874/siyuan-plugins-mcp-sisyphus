@@ -526,6 +526,8 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
                     action,
                     args: args ?? {},
                     strictMode: config.writeSafety.strictMode,
+                    referenceProtection: config.writeSafety.referenceProtection,
+                    autoRecovery: config.writeSafety.autoRecovery,
                     execute: (safeArgs) => appActionConfig
                         ? module.callTool(client, safeArgs, appActionConfig, permMgr, officialMcpRuntime)
                         : module.callTool(client, safeArgs, config[category], permMgr, officialMcpRuntime),

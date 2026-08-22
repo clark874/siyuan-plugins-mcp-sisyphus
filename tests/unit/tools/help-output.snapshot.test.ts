@@ -76,7 +76,11 @@ function createAllEnabledConfig(): ToolConfig {
         userRulesText: '',
         agentSiyuanMemoryText: '',
     agentSiyuanMemoryUpdatedAt: '',
-    writeSafety: { strictMode: true },
+    writeSafety: {
+        strictMode: true,
+        referenceProtection: true,
+        autoRecovery: 'required_for_destructive',
+    },
     errorReporting: { softRecoverableErrors: false },
     debug: {
             includeUiRefreshMetadata: false,
@@ -113,6 +117,55 @@ async function collectHelpOutputs() {
 describe('tool description and help outputs', () => {
     it('matches the locked snapshot for all aggregated tools', async () => {
         await expect(collectHelpOutputs()).resolves.toMatchSnapshot();
+    });
+
+    it('decorates block.replace and av.add_rows help with action safety contracts', async () => {
+        const config = createAllEnabledConfig();
+        const client = createMockClient();
+        const permMgr = createMockPermissionManager();
+        const blockReplace = parseResult(await TOOL_REGISTRY.block.callTool(
+            client,
+            { action: 'help', topic: 'replace' },
+            config.block,
+            permMgr,
+        )) as Record<string, any>;
+        const avAddRows = parseResult(await TOOL_REGISTRY.av.callTool(
+            client,
+            { action: 'help', topic: 'add_rows' },
+            config.av,
+            permMgr,
+        )) as Record<string, any>;
+
+        expect(blockReplace.writeSafety).toMatchObject({
+            protocol: 'guarded',
+            preconditionField: 'expectedStateHash',
+            preconditionFlag: '--expected-state-hash',
+            requestId: 'fresh UUIDv7',
+        });
+        expect(blockReplace.writeSafety.validateOnlySteps).toEqual(expect.arrayContaining([
+            expect.stringContaining('validateOnly=true'),
+            expect.stringContaining('fresh UUIDv7 requestId'),
+        ]));
+        expect(blockReplace.cliExamples).toEqual(expect.arrayContaining([
+            expect.stringContaining('--edit-json'),
+        ]));
+
+        expect(avAddRows.writeSafety).toMatchObject({
+            protocol: 'request-id-only',
+            preconditionField: null,
+            requestId: 'fresh UUIDv7',
+        });
+        expect(avAddRows.cliExamples).toEqual(expect.arrayContaining([
+            expect.stringContaining('--block-ids'),
+            expect.stringContaining('av set-cells'),
+            expect.stringContaining('--cells-json'),
+        ]));
+        expect(avAddRows.arrayContracts).toContainEqual(expect.objectContaining({
+            field: 'blockIDs',
+            flag: '--block-ids',
+            minItems: 1,
+            uniqueItems: true,
+        }));
     });
 
     it('documents child document creation path semantics in document create help', async () => {

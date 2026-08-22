@@ -6,7 +6,7 @@
 
 Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (fs, block, document, notebook, av, search, tag, file, timeline, system, flashcard, extension, mascot, feedback) is exposed as a subcommand you can call directly from a shell.
 
-> **LLM Wiki 版本：**`v0.3.1-wiki.1` 同步严格安全写入、语义检索桥接修复、知识编排、原生 MCP action 白名单与来源审计交接验证；需要显式发布后才能通过 npm 安装。
+> **LLM Wiki release:** `v0.4.0-wiki.1` adds `doctor`, Node.js 20+ startup validation, strict unknown-flag rejection, canonical JSON sidecars, complete write-protocol help, write receipts, and AV semantic readback.
 
 > **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, timeline, and system workflows.
 
@@ -21,7 +21,7 @@ siyuan-sisyphus search fulltext --query "keyword" --page-size 10 --json | jq '.d
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 20+
 - A running SiYuan instance reachable over HTTP (local or remote)
 - The SiYuan API token (`SiYuan > Settings > About > API token`)
 
@@ -42,12 +42,23 @@ siyuan-sisyphus init
 # …answer the prompts (profile name + API URL + token). This writes ~/.siyuan-sisyphus/config.json (0600).
 
 siyuan-sisyphus skill install # agents/models should do this before further work
-siyuan-sisyphus notebook list  # verify connectivity
+siyuan-sisyphus doctor --require-ready # verify kernel, plugin, gateway, tools, and bootstrap
+siyuan-sisyphus notebook list  # verify direct read access
 siyuan-sisyphus config list    # see saved profiles
 siyuan-sisyphus list           # see all available tools
 siyuan-sisyphus list block     # see all actions for a tool
 siyuan-sisyphus help block append
 ```
+
+Simple arrays use repeated flags, while arrays and objects from scripts use explicit JSON sidecars:
+
+```bash
+siyuan-sisyphus av add-rows --av-id <id> --block-ids <block1> --block-ids <block2>
+siyuan-sisyphus av add-rows --av-id <id> --block-ids-json '["<block1>","<block2>"]'
+siyuan-sisyphus block replace --id <id> --edit-json '{"old":"before","new":"after"}'
+```
+
+Unknown flags, extra positionals, JSON text passed to a plain array flag, empty mutations, and duplicate IDs fail before any tool call.
 
 ## Agent skill bundles
 

@@ -11,6 +11,7 @@ import {
     AvGetAttributeViewKeysSchema,
     AvGetPrimaryKeyValuesSchema,
     AvGetSchema,
+    AvInspectSchema,
     AvRemoveColumnSchema,
     AvRemoveRowsSchema,
     AvRenameSchema,
@@ -26,6 +27,7 @@ export const AV_TOOL_NAME = 'av';
 
 export const AV_VARIANTS: ActionVariant<AvAction>[] = [
     createZodActionVariant('get', AvGetSchema, 'Get the full attribute view payload by AV ID; blockID is an optional exact database-block context.'),
+    createZodActionVariant('inspect', AvInspectSchema, 'Read-only AV diagnostics: definition, owning block/document candidates, row/view counts, and orphan-candidate status. Never deletes.'),
     createZodActionVariant('render', AvRenderSchema, 'Render a compact attribute-view table by id (AV ID, not avID) with optional paging/filtering; use ignoreRows=true for schema-only output, verbose=true only for raw kernel rows, or createIfNotExist=true to materialize an AV block under blockID.'),
     createZodActionVariant('get_attribute_view_keys', AvGetAttributeViewKeysSchema, 'Get the column (key) definitions of an attribute view.'),
     createZodActionVariant('get_attribute_view_filter_sort', AvGetAttributeViewFilterSortSchema, 'Get filter and sort settings for an attribute view.'),

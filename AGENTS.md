@@ -11,12 +11,12 @@
 1. **MCP Server 插件**：作为 SiYuan 插件运行，对外暴露 MCP（Model Context Protocol）服务。AI 客户端（Claude Desktop、Cursor、Cherry Studio 等）通过 HTTP 或 stdio 连接。
 2. **独立 CLI `siyuan-sisyphus`**：发布到 npm 的包名 `siyuan-sisyphus`，安装后提供 `siyuan-sisyphus` / `siyuan` 命令。直接通过思源 HTTP API 执行单次操作后退出，无需 MCP 客户端。
 
-两种接口共享同一套底层能力（14 个聚合工具、149 个注册 action，不含各工具的 `help`；`extension` 另动态桥接官方原生 MCP 工具），覆盖思源绝大部分功能：笔记与文档管理、块级读写、属性视图（数据库）、搜索、标签、时间线快照、文件资源、闪卡、系统接口等。
+两种接口共享同一套底层能力（14 个聚合工具、152 个注册 action，不含各工具的 `help`；`extension` 另动态桥接官方原生 MCP 工具），覆盖思源绝大部分功能：笔记与文档管理、块级读写、属性视图（数据库）、搜索、标签、时间线快照、文件资源、闪卡、系统接口等。
 
 - 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.8.10-wiki.1`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.3.9-wiki.1`）
+- 当前版本：`0.9.0-wiki.1`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.4.0-wiki.1`）
 
 ---
 

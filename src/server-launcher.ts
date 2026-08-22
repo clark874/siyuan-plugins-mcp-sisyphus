@@ -17,6 +17,8 @@ type SpawnSyncReturns<T> = import("child_process").SpawnSyncReturns<T>;
 
 type PathModule = typeof import("path");
 
+import { probeMcpGateway } from "./cli/mcp-probe";
+
 const MAX_LOG_LINES = 200;
 const STALE_PROCESS_TERM_TIMEOUT_MS = 1500;
 const STALE_PROCESS_KILL_TIMEOUT_MS = 1500;
@@ -112,13 +114,28 @@ function getPathModule(): PathModule | null {
     }
 }
 
+export type HttpServerState = "stopped" | "starting" | "listening" | "ready" | "degraded" | "failed";
+
 export interface HttpServerStatus {
+    state?: HttpServerState;
     running: boolean;
     pid?: number;
     host: string;
     port: number;
     startedAt?: number;
     lastError?: string;
+}
+
+export interface HttpServerReadinessResult {
+    state: "ready" | "degraded";
+    detail?: string;
+}
+
+export type HttpServerReadinessProbe = (options: HttpServerLaunchOptions) => Promise<HttpServerReadinessResult>;
+
+export interface HttpServerLauncherDependencies {
+    readinessProbe?: HttpServerReadinessProbe;
+    startupDelayMs?: number;
 }
 
 export interface HttpServerLaunchOptions {
@@ -136,6 +153,22 @@ export interface HttpServerLaunchOptions {
 export interface HttpServerSupportInfo {
     supported: boolean;
     reason?: string;
+}
+
+async function defaultReadinessProbe(options: HttpServerLaunchOptions): Promise<HttpServerReadinessResult> {
+    const scheme = options.tlsCertFile && options.tlsKeyFile ? "https" : "http";
+    const host = options.host === "0.0.0.0" || options.host === "::" ? "127.0.0.1" : options.host;
+    const result = await probeMcpGateway({
+        url: `${scheme}://${host}:${options.port}/mcp`,
+        token: options.token,
+        timeoutMs: 3000,
+    });
+    if (!result.initialized) {
+        throw new Error(result.issue ?? "gateway_not_running");
+    }
+    return result.ready
+        ? { state: "ready" }
+        : { state: "degraded", detail: result.issue ?? "MCP readiness probe degraded" };
 }
 
 export class HttpServerLauncher {
@@ -175,9 +208,13 @@ export class HttpServerLauncher {
     private listeners = new Set<(s: HttpServerStatus) => void>();
     private logBuffer: string[] = [];
     private logListeners = new Set<(lines: string[]) => void>();
+    private readonly readinessProbe: HttpServerReadinessProbe;
+    private readonly startupDelayMs: number;
 
-    constructor(serverScriptPath: string) {
+    constructor(serverScriptPath: string, dependencies: HttpServerLauncherDependencies = {}) {
         this.serverScriptPath = serverScriptPath;
+        this.readinessProbe = dependencies.readinessProbe ?? defaultReadinessProbe;
+        this.startupDelayMs = dependencies.startupDelayMs ?? 500;
         const req = getNodeRequire();
         if (req) {
             try {
@@ -186,7 +223,7 @@ export class HttpServerLauncher {
                 console.error("[MCP] failed to require child_process:", err);
             }
         }
-        this.status = { running: false, host: "127.0.0.1", port: 0 };
+        this.status = { state: "stopped", running: false, host: "127.0.0.1", port: 0 };
     }
 
     getStatus(): HttpServerStatus {
@@ -221,6 +258,14 @@ export class HttpServerLauncher {
         this.logBuffer = [];
         this.emitLogs();
         this.appendLifecycleLog(`start requested: ${opts.host}:${opts.port} script=${this.serverScriptPath}`);
+        this.status = {
+            state: "starting",
+            running: false,
+            host: opts.host,
+            port: opts.port,
+            startedAt: Date.now(),
+        };
+        this.emit();
 
         await this.cleanupStaleHttpProcesses(opts.port);
 
@@ -252,13 +297,14 @@ export class HttpServerLauncher {
         } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             this.appendLifecycleLog(`spawn failed: ${msg}`);
-            this.status = { running: false, host: opts.host, port: opts.port, lastError: msg };
+            this.status = { state: "failed", running: false, host: opts.host, port: opts.port, lastError: msg };
             this.emit();
             throw err;
         }
 
         this.child = child;
         this.status = {
+            state: "listening",
             running: true,
             pid: child.pid,
             host: opts.host,
@@ -275,7 +321,7 @@ export class HttpServerLauncher {
         child.on("error", (err) => {
             const msg = err instanceof Error ? err.message : String(err);
             this.appendLog(`[launcher] spawn error: ${msg}\n`);
-            this.status = { ...this.status, running: false, lastError: msg };
+            this.status = { ...this.status, state: "failed", running: false, lastError: msg };
             this.child = null;
             this.appendLifecycleLog(`spawn error: ${msg}`);
             this.emit();
@@ -297,7 +343,12 @@ export class HttpServerLauncher {
                 detail = `exited code=${code ?? "null"} signal=${signal ?? "null"}`;
             }
 
-            this.status = { ...this.status, running: false, lastError: detail };
+            this.status = {
+                ...this.status,
+                state: detail ? "failed" : "stopped",
+                running: false,
+                lastError: detail,
+            };
             this.child = null;
             this.appendLifecycleLog(`closed: code=${code ?? "null"} signal=${signal ?? "null"} lifetime=${Number.isFinite(lifetime) ? `${lifetime}ms` : "unknown"}${detail ? ` detail=${detail}` : ""}`);
             this.emit();
@@ -306,11 +357,31 @@ export class HttpServerLauncher {
         // Wait briefly to catch fast-failures (missing script, syntax error,
         // module resolution failure, watchdog false-positive, etc.).
         // Events must be registered *before* this await.
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, this.startupDelayMs));
         const cp = this.child as unknown as { exitCode: number | null; signalCode: string | null } | null;
         if (!cp || cp.exitCode !== null || cp.signalCode !== null) {
             const reason = this.status.lastError || "HTTP server process exited immediately after spawn";
+            this.status = { ...this.status, state: "failed", running: false, lastError: reason };
             this.appendLifecycleLog(`start failed after spawn: ${reason}`);
+            this.emit();
+            throw new Error(reason);
+        }
+
+        try {
+            const readiness = await this.readinessProbe(opts);
+            this.status = {
+                ...this.status,
+                state: readiness.state,
+                running: true,
+                lastError: readiness.detail,
+            };
+            this.appendLifecycleLog(`readiness: ${readiness.state}${readiness.detail ? ` detail=${readiness.detail}` : ""}`);
+            this.emit();
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : "MCP readiness probe failed";
+            this.status = { ...this.status, state: "failed", running: true, lastError: reason };
+            this.appendLifecycleLog(`readiness failed: ${reason}`);
+            this.emit();
             throw new Error(reason);
         }
     }
@@ -318,7 +389,9 @@ export class HttpServerLauncher {
     async stop(): Promise<void> {
         const c = this.child;
         if (!c) {
+            this.status = { ...this.status, state: "stopped", running: false };
             this.appendLifecycleLog("stop skipped: no child process");
+            this.emit();
             return;
         }
         this.appendLifecycleLog(`stop requested: pid=${c.pid ?? "unknown"}`);
@@ -345,6 +418,8 @@ export class HttpServerLauncher {
             }, 3000);
         });
         this.child = null;
+        this.status = { ...this.status, state: "stopped", running: false };
+        this.emit();
     }
 
     private async cleanupStaleHttpProcesses(port: number): Promise<void> {

@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.10-wiki.1`（本地 CLI `v0.3.9-wiki.1`）将 `search.knowledge` 升级为受控命名空间优先检索：唯一 name/alias 本地直达，歧义保守返回，句中锚点为语义检索提供种子；外部 Agent 仍只注册 Sisyphus 单一入口。
+> **LLM Wiki branch:** `v0.9.0-wiki.1` with CLI `v0.4.0-wiki.1` adds verifiable cold-start diagnostics, strict CLI argument contracts, write receipts, AV semantic readback, reference-safe destructive writes, automatic recovery points, document/subtree permissions, and transactional asset insertion.
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.8.10-wiki.1` — `search.knowledge` 先解析可读 name/alias 命名空间，未解决查询才调用思源语义索引；附带零依赖 30 题真实库评测工具。本地 CLI 为 `v0.3.9-wiki.1`。
+> **Current LLM Wiki release:** `v0.9.0-wiki.1` — connectivity is verified with real MCP initialize/tools/bootstrap calls; strict writes now expose receipts and pending-operation protection; destructive operations protect references and create recovery points. CLI `v0.4.0-wiki.1` requires Node.js 20+.
 
 ## Project Direction Update
 

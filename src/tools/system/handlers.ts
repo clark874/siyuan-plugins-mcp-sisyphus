@@ -20,6 +20,7 @@ import {
     type SystemAction,
 } from '../../core/config';
 import { getAgentMemoryStatus } from '../../core/server-instructions';
+import { WriteSafetyLedger } from '../../core/write-safety-ledger';
 import { validateSourceAuditBundle } from '../../shared/source-audit-contract';
 import { stripHtmlTags, stripZeroWidthChars } from '../../core/normalize';
 import {
@@ -28,6 +29,7 @@ import {
     SystemAuditEnvironmentSchema,
     SystemValidateSourceAuditSchema,
     SystemBootstrapSchema,
+    SystemGetWriteStatusSchema,
     SystemGetCurrentTimeSchema,
     SystemGetVersionSchema,
     SystemNetworkSchema,
@@ -676,6 +678,16 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
     });
 };
 
+const handleGetWriteStatus: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = SystemGetWriteStatusSchema.parse(rawArgs);
+    const receipt = await new WriteSafetyLedger(client).getWriteStatus(parsed.requestId);
+    return createJsonResult({
+        readonly: true,
+        found: receipt !== undefined,
+        ...(receipt ? { receipt } : { requestId: parsed.requestId }),
+    });
+};
+
 const handleListPackages: ToolActionHandler = async ({ client, rawArgs }) => {
     const parsed = SystemListPackagesSchema.parse(rawArgs);
     const frontend = parsed.frontend ?? 'desktop';
@@ -1036,6 +1048,7 @@ export const SYSTEM_ACTION_HANDLERS: Record<SystemAction, ToolActionHandler> = {
     get_version: handleGetVersion,
     get_current_time: handleGetCurrentTime,
     bootstrap: handleBootstrap,
+    get_write_status: handleGetWriteStatus,
     audit_environment: handleAuditEnvironment,
     validate_source_audit: handleValidateSourceAudit,
     list_packages: handleListPackages,

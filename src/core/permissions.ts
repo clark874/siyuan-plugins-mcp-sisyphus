@@ -1,4 +1,5 @@
 import type { SiYuanClient } from '../api/client';
+import { AccessPolicyEngine, type AccessPolicyDocumentContext } from './access-policy';
 
 export type NotebookPermission = 'none' | 'r' | 'rw' | 'rwd';
 const VALID_NOTEBOOK_PERMISSIONS: NotebookPermission[] = ['none', 'r', 'rw', 'rwd'];
@@ -10,6 +11,16 @@ const LEGACY_NOTEBOOK_PERMISSION_MAP = {
 
 export const PERMISSIONS_API_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions';
 const DEBUG_PERMISSIONS = process.env.SIYUAN_MCP_DEBUG_PERMISSIONS === '1';
+const PERMISSION_RANK: Record<NotebookPermission, number> = {
+    none: 0,
+    r: 1,
+    rw: 2,
+    rwd: 3,
+};
+
+function leastPermissive(left: NotebookPermission, right: NotebookPermission): NotebookPermission {
+    return PERMISSION_RANK[left] <= PERMISSION_RANK[right] ? left : right;
+}
 
 function logPermissionDebug(...args: unknown[]) {
     if (DEBUG_PERMISSIONS) {
@@ -47,10 +58,12 @@ function normalizePermissionsRecord(value: unknown): Record<string, NotebookPerm
 export class PermissionManager {
     private permissions: Record<string, NotebookPermission> = {};
     private client: SiYuanClient | null = null;
+    private accessPolicy: AccessPolicyEngine | null = null;
     private loaded = false;
 
     constructor(client?: SiYuanClient) {
         this.client = client ?? null;
+        this.accessPolicy = client ? new AccessPolicyEngine(client) : null;
     }
 
     /**
@@ -75,6 +88,7 @@ export class PermissionManager {
 
         if (!content || !content.trim()) {
             this.permissions = {};
+            await this.accessPolicy?.load();
             this.loaded = true;
             logPermissionDebug('Permissions not found in API, using empty state');
             return;
@@ -91,6 +105,7 @@ export class PermissionManager {
         }
 
         this.permissions = normalizePermissionsRecord(rawPermissions);
+        await this.accessPolicy?.load();
         this.loaded = true;
         logPermissionDebug('Permissions loaded from API:', Object.keys(this.permissions).length, 'entries');
     }
@@ -125,6 +140,33 @@ export class PermissionManager {
 
     getAll(): Record<string, NotebookPermission> {
         return { ...this.permissions };
+    }
+
+    hasDocumentAccessPolicies(): boolean {
+        return this.accessPolicy?.hasPolicies() ?? false;
+    }
+
+    getEffectiveDocumentPermission(
+        notebookId: string,
+        context: AccessPolicyDocumentContext,
+    ): NotebookPermission {
+        const notebookPermission = this.get(notebookId);
+        const documentPermission = this.accessPolicy?.getPermission(context);
+        return documentPermission
+            ? leastPermissive(notebookPermission, documentPermission)
+            : notebookPermission;
+    }
+
+    canReadDocument(notebookId: string, context: AccessPolicyDocumentContext): boolean {
+        return this.getEffectiveDocumentPermission(notebookId, context) !== 'none';
+    }
+
+    canWriteDocument(notebookId: string, context: AccessPolicyDocumentContext): boolean {
+        return ['rw', 'rwd'].includes(this.getEffectiveDocumentPermission(notebookId, context));
+    }
+
+    canDeleteDocument(notebookId: string, context: AccessPolicyDocumentContext): boolean {
+        return this.getEffectiveDocumentPermission(notebookId, context) === 'rwd';
     }
 
     canRead(notebookId: string): boolean {

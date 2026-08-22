@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.0-wiki.1 - 2026-08-22
+
+- 新增 `siyuan-sisyphus doctor` 与 Agent Kit 自包含检查器，以真实 MCP initialize、tools/list 和 `system.bootstrap` 区分思源未运行、认证失败、协议失败、配置过期与宿主需重启；插件 HTTP launcher 仅在完整探针通过后进入 ready
+- CLI 升级至 `v0.4.0-wiki.1` 并要求 Node.js 20+；未知参数、JSON 数组误传、空 mutation 与重复 ID 在调用前失败，action help 由 Schema 与写入安全策略统一生成预检和执行示例
+- 严格写入账本增加 operationKey、待验证收据和 `system.get_write_status`，阻止未知操作换新 requestId 重复执行；AV 加行、改单元格与删行增加 rowID/单元格/缺失状态语义回读，并提供只读 `av.inspect`
+- 破坏性写入在预检中纳入引用集合，默认拒绝破坏外部引用；执行前按配置创建时间线恢复点。权限模型增加文档与子树规则，普通工具通过统一上下文执行有效权限过滤
+- `file.insert_assets` 支持对思源主机上的文件和目录进行批量预检、上传、锚点插入和块级回读；不自动删除可能被去重共享的附件
+
 ## v0.8.10-wiki.1 - 2026-08-21
 
 - 将 `search.knowledge` 从“无条件语义发现”升级为受控命名空间优先检索：在当前笔记本权限与路径/类型范围内统一规范化 `name`/`alias`，唯一精确锚点本地直达，不调用嵌入提供商、不产生数据外发

@@ -112,11 +112,14 @@ export const FsReadSchema = z.object({
     }
 });
 
+const ReferencePolicySchema = z.enum(["reject", "break"]);
+
 export const FsWriteSchema = z.object({
     action: z.literal("write"),
     path: z.string().describe("Human-readable document path"),
     markdown: z.string().describe("Markdown content to create or write. Do not include a leading # Title; a matching create-time H1 is stripped automatically."),
     overwrite: z.boolean().optional().describe("When true, replace an existing document body while keeping the document node and title. This is a full body replacement."),
+    referencePolicy: ReferencePolicySchema.optional().describe("Reference-impact policy for overwrite; defaults to reject"),
 });
 
 export const FsReplaceEditSchema = z.object({
@@ -137,6 +140,7 @@ export const FsReplaceSchema = z.object({
 export const FsRmSchema = z.object({
     action: z.literal("rm"),
     path: z.string().describe("Human-readable document path to delete"),
+    referencePolicy: ReferencePolicySchema.optional().describe("Reference-impact policy; defaults to reject"),
 });
 
 export const FsMvSchema = z.object({
@@ -292,6 +296,7 @@ export const DocumentRemoveSchema = z.object({
     action: z.literal("remove"),
     ids: z.array(z.string()).min(1).optional().describe("One or more document IDs to remove"),
     paths: z.array(z.string()).min(1).optional().describe("One or more storage paths to remove in batch"),
+    referencePolicy: ReferencePolicySchema.optional().describe("Reference-impact policy; defaults to reject"),
 }).and(DocumentReferenceSchema).superRefine((value, ctx) => {
     const modes = [
         typeof value.id === "string",
@@ -423,6 +428,7 @@ export const DocumentHeadingToDocSchema = z.object({
     targetNotebook: z.string().describe("Target notebook ID"),
     targetPath: z.string().optional().describe("Optional target storage path"),
     previousPath: z.string().optional().describe("Optional previous sibling storage path"),
+    referencePolicy: ReferencePolicySchema.optional().describe("Reference-impact policy; defaults to reject"),
 });
 
 export const DocumentDocToHeadingSchema = z.object({
@@ -430,6 +436,7 @@ export const DocumentDocToHeadingSchema = z.object({
     srcID: z.string().describe("Source document ID"),
     targetID: z.string().describe("Target document or heading block ID"),
     after: z.boolean().optional().describe("When true, insert after the target heading instead of before it"),
+    referencePolicy: ReferencePolicySchema.optional().describe("Reference-impact policy; defaults to reject"),
 });
 
 export const MascotGetBalanceSchema = z.object({
@@ -603,6 +610,7 @@ export const BlockReplaceSchema = z.object({
 export const BlockDeleteSchema = z.object({
     action: z.literal("delete"),
     id: z.string().describe("Block ID"),
+    referencePolicy: ReferencePolicySchema.optional().describe("Reference-impact policy; defaults to reject"),
 });
 
 export const BlockMoveSchema = z.object({
@@ -778,6 +786,12 @@ export const AvGetSchema = z.object({
     blockID: z.string().optional().describe("Optional database block ID for exact context or fallback permission resolution"),
 });
 
+export const AvInspectSchema = z.object({
+    action: z.literal("inspect"),
+    avID: z.string().describe("Attribute view ID"),
+    blockID: z.string().optional().describe("Optional exact database block candidate to verify"),
+});
+
 export const AvRenderSchema = z.object({
     action: z.literal("render"),
     id: z.string().optional().describe("Attribute view ID for render/get-style operations; use id here, not avID. Omit only with createIfNotExist=true to let MCP generate one"),
@@ -826,6 +840,14 @@ export const AvAddRowsSchema = z.object({
     groupID: z.string().optional().describe("Optional target group ID"),
     previousID: z.string().optional().describe("Optional previous row item ID"),
     ignoreDefaultFill: z.boolean().optional().describe("When true, skip view/group default value filling"),
+}).superRefine((value, ctx) => {
+    if ((value.blockIDs?.length ?? 0) === 0 && (value.primaryKeyTexts?.length ?? 0) === 0) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide at least one blockID or primaryKeyText.",
+            path: ["blockIDs"],
+        });
+    }
 });
 
 export const AvRemoveRowsSchema = z.object({
@@ -930,6 +952,18 @@ export const FileUploadAssetSchema = z.object({
     assetsDirPath: z.string().describe("Asset directory path (e.g., /assets/)"),
     localFilePath: z.string().describe("Local file path to read and upload into the assets directory"),
     confirmLargeFile: z.boolean().optional().describe("Set to true only after the user explicitly confirms uploading a file larger than the configured safety threshold."),
+});
+
+export const FileInsertAssetsSchema = z.object({
+    action: z.literal("insert_assets"),
+    documentId: z.string().describe("Target document ID on the SiYuan host"),
+    anchorId: z.string().describe("Existing block ID after which the asset links are inserted"),
+    assets: z.array(z.object({
+        localPath: z.string().min(1).describe("File or directory path on the SiYuan host"),
+        name: z.string().optional().describe("Image alt text or file/folder link label"),
+        title: z.string().optional().describe("Optional Markdown title"),
+    })).min(1).describe("Ordered local files or directories to insert"),
+    confirmLargeFiles: z.boolean().optional().describe("Set only after explicit confirmation for files over the configured threshold"),
 });
 
 export const FileListTemplatesSchema = z.object({
@@ -1316,6 +1350,11 @@ export const SystemAuditEnvironmentSchema = z.object({
 
 export const SystemBootstrapSchema = z.object({
     action: z.literal("bootstrap"),
+});
+
+export const SystemGetWriteStatusSchema = z.object({
+    action: z.literal("get_write_status"),
+    requestId: z.string().regex(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/).describe("UUIDv7 request ID of a strict write"),
 });
 
 export const SystemValidateSourceAuditSchema = z.object({

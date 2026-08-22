@@ -5,6 +5,7 @@ import {
     exportResources,
     getDocAssets,
     getDocImageAssets,
+    insertLocalAssets,
     renameAsset,
     uploadAsset,
 } from '@/api/file';
@@ -85,6 +86,20 @@ describe('file api wrappers', () => {
 
         expect(request).toHaveBeenNthCalledWith(1, '/api/asset/getDocAssets', { id: 'doc-1' });
         expect(request).toHaveBeenNthCalledWith(2, '/api/asset/getDocImageAssets', { id: 'doc-1' });
+    });
+
+    it('routes local asset insertion through the document-scoped kernel API', async () => {
+        const request = vi.fn().mockResolvedValueOnce({ succMap: { '/tmp/a.png': 'assets/a.png' } });
+        const client = { requestWrite: request } as never;
+
+        await expect(insertLocalAssets(client, 'doc-1', ['/tmp/a.png'])).resolves.toEqual({
+            succMap: { '/tmp/a.png': 'assets/a.png' },
+        });
+        expect(request).toHaveBeenCalledWith('/api/asset/insertLocalAssets', {
+            id: 'doc-1',
+            assetPaths: ['/tmp/a.png'],
+            isUpload: true,
+        });
     });
 
     it('routes asset mutations through request()', async () => {

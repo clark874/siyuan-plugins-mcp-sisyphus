@@ -55,7 +55,7 @@ export const ACTION_SAFETY_POLICIES: {
         set_fold_state: mutation('state'), transfer_references: mutation('manifest'), set_attrs: mutation('state'),
     },
     av: {
-        get: read(), render: mutation(), get_attribute_view_keys: read(), get_attribute_view_filter_sort: read(),
+        get: read(), inspect: read(), render: mutation(), get_attribute_view_keys: read(), get_attribute_view_filter_sort: read(),
         search: read(), get_primary_key_values: read(),
         rename: mutation('state'), add_rows: mutation(), remove_rows: mutation('manifest'), add_column: mutation('state'),
         remove_column: mutation('state'), set_cells: mutation('manifest'), duplicate: mutation('state'),
@@ -63,7 +63,7 @@ export const ACTION_SAFETY_POLICIES: {
     file: {
         list_templates: read(), read_template: read(), render: read(), export_md: read(), list_unused_assets: read(),
         get_doc_assets: read(), get_image_ocr_text: read(),
-        upload_asset: mutation('source'), create_template: mutation('state'), update_template: mutation('state'),
+        upload_asset: mutation('source'), insert_assets: mutation('state'), create_template: mutation('state'), update_template: mutation('state'),
         delete_template: mutation('state'), save_doc_as_template: mutation('state'), export_resources: external(),
         remove_unused_assets: mutation('manifest'), rename_asset: mutation('state'), delete_asset: mutation('state'),
         extract_doc: external(),
@@ -79,7 +79,7 @@ export const ACTION_SAFETY_POLICIES: {
     },
     system: {
         workspace_info: read(), network: read(), conf: read(), changelog: read(), get_version: read(),
-        get_current_time: read(), bootstrap: read(), audit_environment: read(), validate_source_audit: read(), list_packages: read(),
+        get_current_time: read(), bootstrap: read(), get_write_status: read(), audit_environment: read(), validate_source_audit: read(), list_packages: read(),
         search_bazaar: read(), get_bazaar_package: read(), read_bazaar_readme: read(), get_plugin: read(),
         list_plugin_updates: read(), list_snippets: read(), list_plugin_storage: read(), read_plugin_storage: read(),
         inspect_plugin: read(), list_control_changes: read(), get_control_change: read(),

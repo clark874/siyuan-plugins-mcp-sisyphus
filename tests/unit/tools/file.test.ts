@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import { buildDefaultToolConfig } from '@/core/config';
 import { callFileTool, listFileTools } from '@/tools/file';
@@ -13,6 +16,12 @@ vi.mock('@/api/file', () => ({
     getDocImageAssets: vi.fn(),
     getImageOCRText: vi.fn(),
     deleteAsset: vi.fn(),
+    insertLocalAssets: vi.fn(),
+}));
+
+vi.mock('@/api/block', () => ({
+    insertBlock: vi.fn(),
+    getBlockKramdown: vi.fn(),
 }));
 
 vi.mock('@/api/template', () => ({
@@ -59,6 +68,11 @@ describe('file tool asset actions', () => {
         vi.mocked(fileApi.getDocImageAssets).mockReset();
         vi.mocked(fileApi.getImageOCRText).mockReset();
         vi.mocked(fileApi.deleteAsset).mockReset();
+        vi.mocked(fileApi.insertLocalAssets).mockReset();
+
+        const blockApi = await import('@/api/block');
+        vi.mocked(blockApi.insertBlock).mockReset();
+        vi.mocked(blockApi.getBlockKramdown).mockReset();
 
         const templateApi = await import('@/api/template');
         vi.mocked(templateApi.normalizeTemplatePath).mockClear();
@@ -114,6 +128,7 @@ describe('file tool asset actions', () => {
         schemaConfig.file.actions.delete_template = true;
         const [tool] = listFileTools(schemaConfig.file);
         const actionDescription = tool.inputSchema.properties.action.description;
+        expect(actionDescription).toContain('insert_assets');
         expect(actionDescription).toContain('list_templates');
         expect(actionDescription).toContain('read_template');
         expect(actionDescription).toContain('create_template');
@@ -126,6 +141,31 @@ describe('file tool asset actions', () => {
         expect(actionDescription).toContain('remove_unused_assets');
         expect(actionDescription).toContain('rename_asset');
         expect(actionDescription).toContain('delete_asset');
+    });
+
+    it('inserts and verifies ordered local asset links after one anchor', async () => {
+        const root = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-file-tool-'));
+        const localPath = path.join(root, 'chart.png');
+        writeFileSync(localPath, 'png');
+        const fileApi = await import('@/api/file');
+        const blockApi = await import('@/api/block');
+        vi.mocked(fileApi.insertLocalAssets).mockResolvedValue({ succMap: { [localPath]: 'assets/chart-abc.png' } });
+        vi.mocked(blockApi.insertBlock).mockResolvedValue({ doOperations: [{ id: 'inserted-1' }] } as never);
+        vi.mocked(blockApi.getBlockKramdown).mockResolvedValue({ kramdown: '![图表](assets/chart-abc.png)' } as never);
+
+        const result = await callFileTool(client, {
+            action: 'insert_assets',
+            documentId: 'doc-1',
+            anchorId: 'anchor-1',
+            assets: [{ localPath, name: '图表' }],
+        }, config.file, {} as never);
+
+        expect(parseResult(result)).toMatchObject({
+            success: true,
+            insertedBlockId: 'inserted-1',
+            verification: { status: 'verified' },
+        });
+        expect(fileApi.insertLocalAssets).toHaveBeenCalledWith(client, 'doc-1', [localPath]);
     });
 
     it('lists templates with reusable read and render arguments', async () => {

@@ -56,6 +56,61 @@ describe('write safety coordinator', () => {
         expect(execute).not.toHaveBeenCalled();
     });
 
+    it('records add_rows sync timeout as pending verification and never rewrites it', async () => {
+        const client = {
+            readFile: vi.fn(async () => { throw new Error('HTTP error: 404 Not Found'); }),
+            writeFile: vi.fn(async () => undefined),
+            requestRead: vi.fn(),
+        } as never;
+        const coordinator = new WriteSafetyCoordinator(client);
+        const execute = vi.fn(async () => ({
+            content: [{ type: 'text' as const, text: JSON.stringify({
+                success: false,
+                writeExecuted: true,
+                retryAllowed: false,
+                transactionState: 'pending_verification',
+                pendingVerification: { status: 'pending_verification', avID: 'av-1' },
+                error: { type: 'api_error', reason: 'row_id_sync_timeout' },
+            }) }],
+            isError: true,
+        }));
+        const args = { action: 'add_rows', avID: 'av-1', blockIDs: ['block-1'] };
+        const requestId = uuidV7(Date.now(), '000000000040');
+
+        const pending = parseResult(await coordinator.run({
+            client, permMgr: createMockPermissionManager(), category: 'av', action: 'add_rows',
+            args: { ...args, requestId }, strictMode: true, execute,
+        }));
+        expect(pending.safety).toMatchObject({
+            requestId,
+            writeExecuted: true,
+            retryAllowed: false,
+            transactionState: 'pending_verification',
+        });
+        expect(pending.safety.receipt).toMatchObject({ status: 'pending_verification', operationKey: expect.any(String) });
+
+        const replay = parseResult(await coordinator.run({
+            client, permMgr: createMockPermissionManager(), category: 'av', action: 'add_rows',
+            args: { ...args, requestId }, strictMode: true, execute,
+        }));
+        expect(replay).toMatchObject({ replayed: true, writeExecuted: true, retryAllowed: false });
+        expect(execute).toHaveBeenCalledTimes(1);
+
+        const conflict = parseResult(await coordinator.run({
+            client, permMgr: createMockPermissionManager(), category: 'av', action: 'add_rows',
+            args: { ...args, requestId: uuidV7(Date.now(), '000000000041') }, strictMode: true, execute,
+        }));
+        expect(conflict.error).toMatchObject({ code: 'operation_pending', pendingRequestId: requestId });
+        expect(execute).toHaveBeenCalledTimes(1);
+
+        await expect(coordinator.getWriteStatus(requestId)).resolves.toMatchObject({
+            requestId,
+            state: 'pending_verification',
+            writeExecuted: true,
+            retryAllowed: false,
+        });
+    });
+
     it('types agent-correctable precondition failures', async () => {
         const client = {
             readFile: vi.fn(async () => { throw new Error('HTTP error: 404 Not Found'); }),
@@ -407,7 +462,7 @@ describe('write safety coordinator', () => {
             strictMode: true,
             execute: vi.fn(),
         }));
-        expect(consumed.error).toMatchObject({ code: 'preflight_lease_invalid', revalidateRequired: true });
+        expect(consumed.error).toMatchObject({ code: 'operation_pending' });
     });
 
     it('rejects malformed credentials before probing or executing', async () => {
@@ -490,7 +545,7 @@ describe('write safety coordinator', () => {
             strictMode: true,
             execute,
         }));
-        expect(consumed.error.code).toBe('preflight_lease_invalid');
+        expect(consumed.error.code).toBe('operation_pending');
         expect(execute).toHaveBeenCalledTimes(1);
     });
 
@@ -761,7 +816,7 @@ describe('write safety coordinator', () => {
                 strictMode: true,
                 execute: vi.fn(),
             }));
-            expect(consumed.error.code).toBe('preflight_lease_invalid');
+            expect(consumed.error.code).toBe('operation_pending');
         } finally {
             vi.useRealTimers();
         }

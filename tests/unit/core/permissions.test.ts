@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PermissionManager, type NotebookPermission } from '@/core/permissions';
+import { PermissionManager, PERMISSIONS_API_PATH, type NotebookPermission } from '@/core/permissions';
+import { ACCESS_POLICIES_API_PATH } from '@/core/access-policy';
 import type { SiYuanClient } from '@/api/client';
 
 describe('PermissionManager', () => {
@@ -84,7 +85,9 @@ describe('PermissionManager', () => {
             await manager.load();
             await manager.load(); // Second call should be skipped
 
-            expect(mockClient.readFile).toHaveBeenCalledTimes(1);
+            expect(mockClient.readFile).toHaveBeenCalledTimes(2);
+            expect(mockClient.readFile).toHaveBeenCalledWith(PERMISSIONS_API_PATH);
+            expect(mockClient.readFile).toHaveBeenCalledWith(ACCESS_POLICIES_API_PATH);
         });
     });
 
@@ -93,14 +96,18 @@ describe('PermissionManager', () => {
             const permissions1 = { notebook1: 'rwd' };
             const permissions2 = { notebook1: 'r' };
 
-            vi.mocked(mockClient.readFile)
-                .mockResolvedValueOnce(JSON.stringify(permissions1))
-                .mockResolvedValueOnce(JSON.stringify(permissions2));
+            let notebookReadCount = 0;
+            vi.mocked(mockClient.readFile).mockImplementation(async (path) => {
+                if (path === ACCESS_POLICIES_API_PATH) return '';
+                notebookReadCount += 1;
+                return JSON.stringify(notebookReadCount === 1 ? permissions1 : permissions2);
+            });
 
             await manager.load();
             await manager.reload();
 
-            expect(mockClient.readFile).toHaveBeenCalledTimes(2);
+            expect(mockClient.readFile).toHaveBeenCalledTimes(4);
+            expect(notebookReadCount).toBe(2);
             expect(manager.get('notebook1')).toBe('r');
         });
     });

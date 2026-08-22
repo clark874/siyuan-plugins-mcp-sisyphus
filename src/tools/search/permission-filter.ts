@@ -1,7 +1,11 @@
 import type { SiYuanClient } from '../../api/client';
 import type { PermissionManager } from '../../core/permissions';
 import PromiseLimitPool from '../../shared/promise-pool';
-import { createResultResolutionCache, resolveResultItemContext } from '../internal/context';
+import {
+    createResultResolutionCache,
+    resolveResultItemContext,
+    type ResultItemContext,
+} from '../internal/context';
 
 export interface PermissionFilterResult {
     items: unknown[];
@@ -11,23 +15,64 @@ export interface PermissionFilterResult {
     unattributedRowsIncluded: number;
 }
 
+type DocumentAwarePermissionManager = PermissionManager & {
+    hasDocumentAccessPolicies?: () => boolean;
+    canReadDocument?: PermissionManager['canReadDocument'];
+};
+
+export function hasDocumentAccessPolicies(permMgr: PermissionManager): boolean {
+    const manager = permMgr as DocumentAwarePermissionManager;
+    return typeof manager.hasDocumentAccessPolicies === 'function'
+        ? manager.hasDocumentAccessPolicies()
+        : false;
+}
+
 export function hasRestrictedNotebookPermissions(permMgr: PermissionManager): boolean {
     const getAll = (permMgr as PermissionManager & { getAll?: () => Record<string, string> }).getAll;
     if (typeof getAll !== 'function') return true;
-    return Object.values(getAll.call(permMgr)).some((permission) => permission === 'none');
+    return hasDocumentAccessPolicies(permMgr)
+        || Object.values(getAll.call(permMgr)).some((permission) => permission === 'none');
+}
+
+function getResultItemContext(item: unknown): ResultItemContext | null {
+    if (!item || typeof item !== 'object') return null;
+    const typedItem = item as Record<string, unknown>;
+    const notebook = [typedItem.notebook, typedItem.box, typedItem.boxID, typedItem.notebookId]
+        .find((value): value is string => typeof value === 'string' && value.length > 0);
+    const path = typeof typedItem.path === 'string' && typedItem.path.length > 0
+        ? typedItem.path
+        : undefined;
+    const documentId = [
+        typedItem.rootID,
+        typedItem.rootId,
+        typedItem.root_id,
+        typedItem.docID,
+        typedItem.docId,
+    ].find((value): value is string => typeof value === 'string' && value.length > 0);
+    return notebook || path || documentId ? { notebook, path, documentId } : null;
 }
 
 function getNotebookIdFromItem(item: unknown): string | undefined {
-    if (!item || typeof item !== 'object') return undefined;
-    const typedItem = item as Record<string, unknown>;
-    const candidates = [typedItem.notebook, typedItem.box, typedItem.boxID, typedItem.notebookId];
-    return candidates.find((value): value is string => typeof value === 'string' && value.length > 0);
+    return getResultItemContext(item)?.notebook;
+}
+
+function canReadResultContext(permMgr: PermissionManager, context: ResultItemContext | null): boolean {
+    if (!context?.notebook) return false;
+    const manager = permMgr as DocumentAwarePermissionManager;
+    return typeof manager.canReadDocument === 'function'
+        ? manager.canReadDocument(context.notebook, {
+            documentId: context.documentId,
+            path: context.path,
+        })
+        : permMgr.canRead(context.notebook);
 }
 
 function filterReadableItems(items: unknown[], permMgr: PermissionManager): { items: unknown[]; removedCount: number } {
+    const documentPoliciesPresent = hasDocumentAccessPolicies(permMgr);
     const filteredItems = items.filter((item) => {
-        const notebookId = getNotebookIdFromItem(item);
-        return !notebookId || permMgr.canRead(notebookId);
+        const context = getResultItemContext(item);
+        if (!context?.notebook) return !documentPoliciesPresent;
+        return canReadResultContext(permMgr, context);
     });
     return {
         items: filteredItems,
@@ -53,7 +98,7 @@ export function createPartialMetadata(removedCount: number): {
             permissionSummary: {
                 filteredOutCount: removedCount,
                 reason: 'permission_filtered',
-                suggestion: 'Some results were hidden due to notebook permissions. Use notebook(action="get_permissions") to review access before retrying broader searches.',
+                suggestion: 'Some results were hidden due to notebook or document access policies. Review the configured access scope before retrying broader searches.',
             },
         }
         : {};
@@ -81,6 +126,7 @@ export async function filterItemsByPermission(
     }
 
     const cache = createResultResolutionCache();
+    const documentPoliciesPresent = hasDocumentAccessPolicies(permMgr);
     const keep = new Array<boolean>(items.length).fill(false);
     const unresolvedIndexes: number[] = [];
     let removedCount = 0;
@@ -88,9 +134,9 @@ export async function filterItemsByPermission(
     let unresolvedContextFilteredCount = 0;
 
     for (let index = 0; index < items.length; index += 1) {
-        const notebookId = getNotebookIdFromItem(items[index]);
-        if (notebookId) {
-            if (permMgr.canRead(notebookId)) {
+        const context = getResultItemContext(items[index]);
+        if (context?.notebook && (!documentPoliciesPresent || context.path || context.documentId)) {
+            if (canReadResultContext(permMgr, context)) {
                 keep[index] = true;
             } else {
                 permissionDeniedCount += 1;
@@ -101,18 +147,18 @@ export async function filterItemsByPermission(
         unresolvedIndexes.push(index);
     }
 
-    const pool = new PromiseLimitPool<{ index: number; notebook?: string }>(8);
+    const pool = new PromiseLimitPool<{ index: number; context: ResultItemContext | null }>(8);
     for (const index of unresolvedIndexes) {
-        pool.add(async () => {
-            const context = await resolveResultItemContext(client, items[index], cache);
-            return { index, notebook: context?.notebook };
-        });
+        pool.add(async () => ({
+            index,
+            context: await resolveResultItemContext(client, items[index], cache),
+        }));
     }
 
     const resolved = await pool.awaitAll();
     for (const entry of resolved) {
-        if (entry.notebook) {
-            if (permMgr.canRead(entry.notebook)) {
+        if (entry.context?.notebook) {
+            if (canReadResultContext(permMgr, entry.context)) {
                 keep[entry.index] = true;
             } else {
                 permissionDeniedCount += 1;
@@ -149,7 +195,7 @@ export async function filterItemsByPermissionAndPath(
 
     for (const item of items) {
         const context = await resolveResultItemContext(client, item, cache);
-        if (!context?.notebook || !permMgr.canRead(context.notebook)) {
+        if (!canReadResultContext(permMgr, context)) {
             permissionFilteredOutCount += 1;
             continue;
         }

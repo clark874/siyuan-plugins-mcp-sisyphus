@@ -24,6 +24,9 @@ import {
     type ToolCategory,
 } from './config';
 import { hashWriteBytes, hashWriteState, parseWriteHashCredential } from './write-safety-hash';
+import { toWriteStatusReceipt, writeStatusNextCall, type WriteStatusReceipt } from './write-receipts';
+import { expandDisappearingIds, inspectReferenceImpact, type ReferenceImpact } from './reference-protection';
+import { createDestructiveRecoveryPoint, type DestructiveRecoveryPointResult } from './recovery-point';
 import {
     WritePreflightLeasePool,
     type WritePreflightLease,
@@ -48,6 +51,8 @@ export interface WriteSafetyExecution {
     action: string;
     args: Record<string, unknown>;
     strictMode: boolean;
+    referenceProtection?: boolean;
+    autoRecovery?: 'off' | 'best_effort' | 'required_for_destructive';
     execute(args: Record<string, unknown>): Promise<ToolResult>;
 }
 
@@ -68,6 +73,10 @@ export class WriteSafetyCoordinator {
 
     constructor(client: SiYuanClient) {
         this.ledger = new WriteSafetyLedger(client);
+    }
+
+    async getWriteStatus(requestId: string): Promise<WriteStatusReceipt | undefined> {
+        return this.ledger.getWriteStatus(requestId);
     }
 
     async run(execution: WriteSafetyExecution): Promise<ToolResult> {
@@ -137,6 +146,22 @@ export class WriteSafetyCoordinator {
             }
             try {
                 before = await probeCurrentState(client, permMgr, category, action, args, policy);
+                if (execution.referenceProtection === true && requiresReferenceProtection(category, action, args)) {
+                    const referenceSeeds = collectReferenceTargetIds(before, args);
+                    const disappearingIds = await expandDisappearingIds(client, category, action, referenceSeeds);
+                    const referenceImpact = await inspectReferenceImpact(client, permMgr, disappearingIds);
+                    before = attachReferenceImpact(before, referenceImpact);
+                    if (referenceImpact.externalReferenceCount > 0 && args.referencePolicy !== 'break') {
+                        return writeSafetyFailure(
+                            'reference_conflict',
+                            'The mutation would invalidate existing references. Review the impact and obtain explicit approval before preflighting again with referencePolicy="break".',
+                            {
+                                referenceImpact,
+                                revalidateRequired: true,
+                            },
+                        );
+                    }
+                }
             } catch (error) {
                 return fromSafetyError(error);
             }
@@ -201,12 +226,31 @@ export class WriteSafetyCoordinator {
         }
 
         const targetIds = before?.targetIds ?? collectTargetSelectors(args);
+        let recoveryPoint: DestructiveRecoveryPointResult | undefined;
+        let recoveryWarning: string | undefined;
+        if (requiresRecoveryPoint(category, action) && execution.autoRecovery && execution.autoRecovery !== 'off') {
+            try {
+                recoveryPoint = await createDestructiveRecoveryPoint(client, {
+                    requestId,
+                    tool: category,
+                    action,
+                    targetIds,
+                });
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                if (execution.autoRecovery === 'required_for_destructive') {
+                    return writeSafetyFailure('recovery_point_failed', 'A required recovery point could not be created. No business mutation was attempted.', { cause: message });
+                }
+                recoveryWarning = message;
+            }
+        }
         try {
             await this.ledger.record({
                 requestId,
                 tool: category,
                 action,
                 argsHash: inspected!.argsHash,
+                operationKey: inspected!.operationKey,
                 targetIds,
                 state: 'executing',
             });
@@ -218,12 +262,55 @@ export class WriteSafetyCoordinator {
         try {
             result = await execution.execute(stripSafetyFields(args));
         } catch (error) {
-            await this.recordUnknown(requestId, category, action, inspected!.argsHash, targetIds, error);
+            await this.recordUnknown(requestId, category, action, inspected!.argsHash, inspected!.operationKey, targetIds, error);
             if (activeLease) this.preflightLeases.consume(activeLease);
             return writeSafetyFailureAfterAttempt('outcome_unknown', 'The write transport failed after execution began. Do not retry with a new requestId until the target has been inspected.', {
                 requestId,
                 cause: error instanceof Error ? error.message : String(error),
             });
+        }
+
+        if (result.isError && isPendingVerificationResult(result)) {
+            const payload = parseResultObject(result) ?? {};
+            const receipt = {
+                status: 'pending_verification',
+                requestId,
+                operationKey: inspected!.operationKey,
+                retryAllowed: false,
+                nextCall: writeStatusNextCall(requestId),
+                ...(isRecord(payload.pendingVerification) ? payload.pendingVerification : {}),
+            };
+            const pendingResult = {
+                requestId,
+                operationKey: inspected!.operationKey,
+                writeSafetyMode: 'strict',
+                writeSafetyGuaranteed: false,
+                writeAttempted: true,
+                writeExecuted: true,
+                retryAllowed: false,
+                replayed: false,
+                transactionState: 'pending_verification',
+                receipt,
+                ...(recoveryPoint ? { recoveryPoint } : {}),
+                ...(recoveryWarning ? { recoveryWarning } : {}),
+            };
+            try {
+                await this.ledger.record({
+                    requestId,
+                    tool: category,
+                    action,
+                    argsHash: inspected!.argsHash,
+                    operationKey: inspected!.operationKey,
+                    targetIds,
+                    state: 'pending_verification',
+                    result: pendingResult,
+                });
+            } catch {
+                // The mutation is already known to have executed. Never turn a
+                // receipt persistence failure into permission to retry it.
+            }
+            if (activeLease) this.preflightLeases.consume(activeLease);
+            return addSafetyMetadata(result, pendingResult);
         }
 
         if (result.isError) {
@@ -235,6 +322,7 @@ export class WriteSafetyCoordinator {
                         tool: category,
                         action,
                         argsHash: inspected!.argsHash,
+                        operationKey: inspected!.operationKey,
                         targetIds,
                         state: 'failed_before_execute',
                         result: { error: errorType },
@@ -251,7 +339,7 @@ export class WriteSafetyCoordinator {
                     transactionState: 'rejected',
                 });
             }
-            await this.recordUnknown(requestId, category, action, inspected!.argsHash, targetIds, new Error('handler returned an error after execution began'));
+            await this.recordUnknown(requestId, category, action, inspected!.argsHash, inspected!.operationKey, targetIds, new Error('handler returned an error after execution began'));
             if (activeLease) this.preflightLeases.consume(activeLease);
             return addSafetyMetadata(result, {
                 requestId,
@@ -274,7 +362,7 @@ export class WriteSafetyCoordinator {
                 : await probePostWriteState(client, permMgr, category, action, postWriteArgs, policy, before);
             await verifyPostWriteSemanticState(client, permMgr, category, action, args);
         } catch (error) {
-            await this.recordUnknown(requestId, category, action, inspected!.argsHash, targetIds, error);
+            await this.recordUnknown(requestId, category, action, inspected!.argsHash, inspected!.operationKey, targetIds, error);
             if (activeLease) this.preflightLeases.consume(activeLease);
             return writeSafetyFailureAfterAttempt('readback_mismatch', 'The write returned, but its result could not be read back. Do not retry automatically.', {
                 requestId,
@@ -288,6 +376,7 @@ export class WriteSafetyCoordinator {
                 category,
                 action,
                 inspected!.argsHash,
+                inspected!.operationKey,
                 targetIds,
                 new Error('handler reported a mutation but readback state did not change'),
             );
@@ -309,6 +398,8 @@ export class WriteSafetyCoordinator {
             transactionState: policy.precondition !== 'source' && before && after.hash === before.hash ? 'no_change' : 'committed',
             previousHash: before?.hash,
             resultHash: after.hash,
+            ...(recoveryPoint ? { recoveryPoint } : {}),
+            ...(recoveryWarning ? { recoveryWarning } : {}),
         };
         try {
             await this.ledger.record({
@@ -316,6 +407,7 @@ export class WriteSafetyCoordinator {
                 tool: category,
                 action,
                 argsHash: inspected!.argsHash,
+                operationKey: inspected!.operationKey,
                 targetIds: after.targetIds.length > 0 ? after.targetIds : targetIds,
                 state: 'committed',
                 result: safetyResult,
@@ -336,6 +428,7 @@ export class WriteSafetyCoordinator {
         category: ToolCategory,
         action: string,
         argsHash: string,
+        operationKey: string,
         targetIds: string[],
         error: unknown,
     ): Promise<void> {
@@ -345,6 +438,7 @@ export class WriteSafetyCoordinator {
                 tool: category,
                 action,
                 argsHash,
+                operationKey,
                 targetIds,
                 state: 'unknown',
                 result: {
@@ -577,10 +671,11 @@ async function probeCurrentState(
     if (!managesNotebookPermission) {
         enforceNotebookPermission(permMgr, state, targetIds, isDangerousAction(category, action));
     }
+    const resolvedTargetIds = [...new Set([...targetIds, ...collectResolvedTargetIds(state)])].sort();
     return {
         hash: hashWriteState(state),
-        targetIds,
-        summary: { targetCount: targetIds.length },
+        targetIds: resolvedTargetIds,
+        summary: { targetCount: resolvedTargetIds.length },
     };
 }
 
@@ -952,6 +1047,54 @@ function collectNotebookBoxes(value: unknown, boxes: Set<string>): void {
     }
 }
 
+function requiresReferenceProtection(category: ToolCategory, action: string, args: Record<string, unknown>): boolean {
+    return (category === 'block' && action === 'delete')
+        || (category === 'document' && ['remove', 'heading_to_doc', 'doc_to_heading'].includes(action))
+        || (category === 'fs' && (action === 'rm' || (action === 'write' && args.overwrite === true)));
+}
+
+function requiresRecoveryPoint(category: ToolCategory, action: string): boolean {
+    return isDangerousAction(category, action)
+        || (category === 'fs' && action === 'write')
+        || (category === 'document' && ['heading_to_doc', 'doc_to_heading'].includes(action));
+}
+
+function collectReferenceTargetIds(before: StateProbe, args: Record<string, unknown>): string[] {
+    return [...new Set([
+        ...before.targetIds,
+        ...collectTargetSelectors(args),
+    ].filter((value) => /^\d{14}-[a-z0-9]{7}$/.test(value)))].sort();
+}
+
+function attachReferenceImpact(before: StateProbe, referenceImpact: ReferenceImpact): StateProbe {
+    return {
+        hash: hashWriteState({ stateHash: before.hash, referenceHash: referenceImpact.referenceHash }),
+        targetIds: [...new Set([...before.targetIds, ...referenceImpact.targetIds])].sort(),
+        summary: {
+            ...before.summary,
+            referenceImpact,
+        },
+    };
+}
+
+function collectResolvedTargetIds(state: Record<string, unknown>): string[] {
+    const ids = new Set<string>();
+    const visit = (value: unknown, key = ''): void => {
+        if (typeof value === 'string' && /(?:^id$|ID$|rootID|documentId)/.test(key) && /^\d{14}-[a-z0-9]{7}$/.test(value)) {
+            ids.add(value);
+            return;
+        }
+        if (Array.isArray(value)) {
+            for (const item of value) visit(item, key);
+            return;
+        }
+        if (!value || typeof value !== 'object') return;
+        for (const [nestedKey, nestedValue] of Object.entries(value as Record<string, unknown>)) visit(nestedValue, nestedKey);
+    };
+    visit(state);
+    return [...ids];
+}
+
 function collectTargetSelectors(args: Record<string, unknown>): string[] {
     const values = new Set<string>();
     for (const [key, value] of Object.entries(args)) {
@@ -1004,9 +1147,33 @@ function replayLedgerEntry(entry: WriteLedgerEntry): ToolResult {
             writeExecuted: false,
         });
     }
-    return writeSafetyFailure('outcome_unknown', `requestId ${entry.requestId} is in ${entry.state} state. Inspect the target before retrying.`, {
+    if (entry.state === 'pending_verification') {
+        const status = toWriteStatusReceipt(entry);
+        return jsonResult({
+            ...(entry.result ?? {}),
+            requestId: entry.requestId,
+            operationKey: status.operationKey,
+            replayed: true,
+            writeAttempted: false,
+            writeExecuted: true,
+            retryAllowed: false,
+            transactionState: 'pending_verification',
+            receipt: {
+                status: 'pending_verification',
+                requestId: entry.requestId,
+                operationKey: status.operationKey,
+                retryAllowed: false,
+                nextCall: status.nextCall,
+            },
+        }, true);
+    }
+    const status = toWriteStatusReceipt(entry);
+    return writeSafetyFailure('outcome_unknown', `requestId ${entry.requestId} is in ${entry.state} state. Inspect its receipt before retrying.`, {
         requestId: entry.requestId,
+        operationKey: status.operationKey,
         ledgerState: entry.state,
+        retryAllowed: false,
+        nextCall: status.nextCall,
     });
 }
 
@@ -1041,6 +1208,13 @@ function readHandlerErrorType(result: ToolResult): string {
         : '';
 }
 
+function isPendingVerificationResult(result: ToolResult): boolean {
+    const payload = parseResultObject(result);
+    return payload?.transactionState === 'pending_verification'
+        && payload.writeExecuted === true
+        && payload.retryAllowed === false;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -1055,7 +1229,8 @@ function writeSafetyErrorType(code: string): string {
     ].includes(code)) return 'validation_error';
     if (code === 'invalid_arguments') return 'invalid_arguments';
     if (code === 'permission_denied') return 'permission_denied';
-    if (code === 'state_changed' || code === 'idempotency_conflict') return 'state_changed';
+    if (code === 'state_changed' || code === 'idempotency_conflict' || code === 'operation_pending' || code === 'reference_conflict') return 'state_changed';
+    if (code === 'recovery_point_failed') return 'write_safety_error';
     if (code === 'readback_mismatch') return 'readback_mismatch';
     if (code === 'outcome_unknown') return 'outcome_unknown';
     return 'write_safety_error';
@@ -1102,7 +1277,12 @@ function fromSafetyError(error: unknown): ToolResult {
     const code = error && typeof error === 'object' && typeof (error as { code?: unknown }).code === 'string'
         ? String((error as { code: string }).code)
         : 'write_safety_failed';
-    return writeSafetyFailure(code, error instanceof Error ? error.message : String(error));
+    const details = isRecord(error)
+        ? Object.fromEntries(Object.entries(error).filter(([key]) => [
+            'pendingRequestId', 'operationKey', 'ledgerState', 'retryAllowed',
+        ].includes(key)))
+        : {};
+    return writeSafetyFailure(code, error instanceof Error ? error.message : String(error), details);
 }
 
 function jsonResult(payload: Record<string, unknown>, isError = false): ToolResult {

@@ -8,15 +8,15 @@ export const FS_ACTIONS = ['ls', 'tree', 'read', 'write', 'replace', 'rm', 'mv',
 export const NOTEBOOK_ACTIONS = ['list', 'create', 'set_open_state', 'remove', 'rename', 'get_conf', 'set_conf', 'set_icon', 'get_permissions', 'set_permission', 'get_child_docs'] as const;
 export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'remove', 'move', 'reorder', 'get_child_sort_mode', 'set_child_sort_mode', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'get_outline', 'create_daily_note', 'duplicate', 'heading_to_doc', 'doc_to_heading'] as const;
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'replace', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'batch_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info'] as const;
-export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values'] as const;
-export const FILE_ACTIONS = ['upload_asset', 'list_templates', 'read_template', 'create_template', 'update_template', 'delete_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
+export const AV_ACTIONS = ['get', 'inspect', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values'] as const;
+export const FILE_ACTIONS = ['upload_asset', 'insert_assets', 'list_templates', 'read_template', 'create_template', 'update_template', 'delete_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'check_anchor', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'compare_recent', 'delete_node', 'rollback_document', 'rollback_block'] as const;
 export const TIMELINE_APP_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'delete_node', 'rollback_document', 'rollback_block'] as const;
 export const FLASHCARD_REVIEW_APP_ACTIONS = ['review_card'] as const;
 export const MASCOT_SHOP_APP_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
-export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'audit_environment', 'validate_source_audit', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change'] as const;
+export const SYSTEM_ACTIONS = ['workspace_info', 'network', 'conf', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'get_write_status', 'audit_environment', 'validate_source_audit', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change'] as const;
 export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'review_card', 'create_card', 'remove_card'] as const;
 export const EXTENSION_ACTIONS = ['list'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
@@ -142,6 +142,8 @@ export interface DebugToolConfig {
 
 export interface WriteSafetyConfig {
     strictMode: boolean;
+    referenceProtection: boolean;
+    autoRecovery: 'off' | 'best_effort' | 'required_for_destructive';
 }
 
 /**
@@ -243,7 +245,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         add_to_daily_note: 'advanced', docs_info: 'advanced',
     },
     av: {
-        get: 'basic', render: 'basic',
+        get: 'basic', inspect: 'basic', render: 'basic',
         get_attribute_view_keys: 'basic', get_attribute_view_filter_sort: 'basic',
         search: 'basic', get_primary_key_values: 'basic',
         rename: 'advanced', add_rows: 'advanced', remove_rows: 'advanced', add_column: 'advanced',
@@ -311,7 +313,7 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     document: new Set(['remove', 'move']),
     block: new Set(['delete', 'move']),
     av: new Set(),
-    file: new Set(['upload_asset', 'delete_template', 'remove_unused_assets', 'delete_asset']),
+    file: new Set(['upload_asset', 'insert_assets', 'delete_template', 'remove_unused_assets', 'delete_asset']),
     search: new Set(['find_replace']),
     tag: new Set(['remove']),
     timeline: new Set(['delete_node', 'rollback_document', 'rollback_block']),
@@ -353,11 +355,11 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         av: {
             enabled: true,
-            actions: createActionsRecord(AV_ACTIONS, ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values']),
+            actions: createActionsRecord(AV_ACTIONS, ['get', 'inspect', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values']),
         },
         file: {
             enabled: true,
-            actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'list_templates', 'read_template', 'create_template', 'update_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc']),
+            actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'insert_assets', 'list_templates', 'read_template', 'create_template', 'update_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'get_image_ocr_text', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc']),
             uploadLargeFileThresholdMB: 10,
         },
         search: {
@@ -374,7 +376,7 @@ export function buildDefaultToolConfig(): ToolConfig {
         },
         system: {
             enabled: true,
-            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'audit_environment', 'validate_source_audit', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change']),
+            actions: createActionsRecord(SYSTEM_ACTIONS, ['network', 'notify', 'changelog', 'perform_sync', 'get_version', 'get_current_time', 'bootstrap', 'get_write_status', 'audit_environment', 'validate_source_audit', 'list_packages', 'search_bazaar', 'get_bazaar_package', 'read_bazaar_readme', 'get_plugin', 'list_plugin_updates', 'list_snippets', 'list_plugin_storage', 'read_plugin_storage', 'inspect_plugin', 'plan_change', 'apply_change', 'rollback_change', 'discard_change_plan', 'list_control_changes', 'get_control_change']),
         },
         flashcard: {
             enabled: true,
@@ -412,7 +414,11 @@ export function buildDefaultToolConfig(): ToolConfig {
         userRulesText: '创建文档/日记后主动设图标',
         agentSiyuanMemoryText: '',
         agentSiyuanMemoryUpdatedAt: '',
-        writeSafety: { strictMode: true },
+        writeSafety: {
+            strictMode: true,
+            referenceProtection: true,
+            autoRecovery: 'required_for_destructive',
+        },
         errorReporting: { softRecoverableErrors: false },
         debug: {
             includeUiRefreshMetadata: false,
@@ -509,8 +515,16 @@ function applyNestedConfig(config: ToolConfig, raw: Record<string, unknown>) {
     if (typeof raw.agentSiyuanMemoryUpdatedAt === 'string') {
         config.agentSiyuanMemoryUpdatedAt = raw.agentSiyuanMemoryUpdatedAt;
     }
-    if (isRecord(raw.writeSafety) && typeof raw.writeSafety.strictMode === 'boolean') {
-        config.writeSafety.strictMode = raw.writeSafety.strictMode;
+    if (isRecord(raw.writeSafety)) {
+        if (typeof raw.writeSafety.strictMode === 'boolean') {
+            config.writeSafety.strictMode = raw.writeSafety.strictMode;
+        }
+        if (typeof raw.writeSafety.referenceProtection === 'boolean') {
+            config.writeSafety.referenceProtection = raw.writeSafety.referenceProtection;
+        }
+        if (['off', 'best_effort', 'required_for_destructive'].includes(String(raw.writeSafety.autoRecovery))) {
+            config.writeSafety.autoRecovery = raw.writeSafety.autoRecovery as WriteSafetyConfig['autoRecovery'];
+        }
     }
     if (isRecord(raw.errorReporting) && typeof raw.errorReporting.softRecoverableErrors === 'boolean') {
         config.errorReporting.softRecoverableErrors = raw.errorReporting.softRecoverableErrors;

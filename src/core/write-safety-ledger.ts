@@ -1,6 +1,12 @@
 import type { SiYuanClient } from '../api/client';
 import { hashWriteState } from './write-safety-hash';
 import type { ToolCategory } from './config';
+import {
+    deriveWriteOperationKey,
+    isPendingWriteState,
+    toWriteStatusReceipt,
+    type WriteStatusReceipt,
+} from './write-receipts';
 
 export const WRITE_SAFETY_LEDGER_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/writeSafetyLedger';
 export const WRITE_SAFETY_LEDGER_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -11,6 +17,7 @@ export type WriteLedgerState =
     | 'executing'
     | 'committed'
     | 'unknown'
+    | 'pending_verification'
     | 'failed_before_execute';
 
 export interface WriteLedgerEntry {
@@ -18,6 +25,7 @@ export interface WriteLedgerEntry {
     tool: ToolCategory;
     action: string;
     argsHash: string;
+    operationKey?: string;
     targetIds: string[];
     state: WriteLedgerState;
     createdAt: number;
@@ -45,19 +53,43 @@ export class WriteSafetyLedger {
         tool: ToolCategory,
         action: string,
         args: Record<string, unknown>,
-    ): Promise<{ argsHash: string; entry?: WriteLedgerEntry }> {
+    ): Promise<{ argsHash: string; operationKey: string; entry?: WriteLedgerEntry }> {
         assertFreshUuidV7(requestId);
         await this.ensureLoaded();
         const argsHash = hashWriteState(stripSafetyFields(args));
+        const operationKey = deriveWriteOperationKey(tool, action, argsHash);
         const entry = this.entries.get(requestId);
-        if (!entry) return { argsHash };
-        if (entry.tool !== tool || entry.action !== action || entry.argsHash !== argsHash) {
-            throw safetyError(
-                'idempotency_conflict',
-                `requestId ${requestId} has already been used for a different operation.`,
-            );
+        if (entry) {
+            if (entry.tool !== tool || entry.action !== action || entry.argsHash !== argsHash) {
+                throw safetyError(
+                    'idempotency_conflict',
+                    `requestId ${requestId} has already been used for a different operation.`,
+                );
+            }
+            return {
+                argsHash,
+                operationKey,
+                entry: { ...entry, operationKey: entry.operationKey ?? operationKey, targetIds: [...entry.targetIds] },
+            };
         }
-        return { argsHash, entry: { ...entry, targetIds: [...entry.targetIds] } };
+        for (const pending of this.entries.values()) {
+            const pendingOperationKey = pending.operationKey
+                ?? deriveWriteOperationKey(pending.tool, pending.action, pending.argsHash);
+            if (pendingOperationKey === operationKey && isPendingWriteState(pending.state)) {
+                throw safetyError(
+                    'operation_pending',
+                    `The same business operation is still in ${pending.state} state under requestId ${pending.requestId}. Do not retry it with a new requestId.`,
+                    { pendingRequestId: pending.requestId, operationKey, ledgerState: pending.state },
+                );
+            }
+        }
+        return { argsHash, operationKey };
+    }
+
+    async getWriteStatus(requestId: string): Promise<WriteStatusReceipt | undefined> {
+        await this.ensureLoaded();
+        const entry = this.entries.get(requestId);
+        return entry ? toWriteStatusReceipt(entry) : undefined;
     }
 
     async record(
@@ -76,6 +108,7 @@ export class WriteSafetyLedger {
             }
             const next: WriteLedgerEntry = {
                 ...entry,
+                operationKey: entry.operationKey ?? deriveWriteOperationKey(entry.tool, entry.action, entry.argsHash),
                 targetIds: [...entry.targetIds].sort(),
                 createdAt: entry.createdAt ?? previous?.createdAt ?? now,
                 updatedAt: now,
@@ -113,7 +146,12 @@ export class WriteSafetyLedger {
                     throw new Error('Unsupported or malformed write-safety ledger.');
                 }
                 for (const entry of parsed.entries) {
-                    if (isLedgerEntry(entry)) this.entries.set(entry.requestId, entry);
+                    if (isLedgerEntry(entry)) {
+                        this.entries.set(entry.requestId, {
+                            ...entry,
+                            operationKey: entry.operationKey ?? deriveWriteOperationKey(entry.tool, entry.action, entry.argsHash),
+                        });
+                    }
                 }
             }
         } catch (error) {
@@ -183,8 +221,12 @@ export function stripSafetyFields(args: Record<string, unknown>): Record<string,
     return out;
 }
 
-export function safetyError(code: string, message: string): Error & { code: string } {
-    return Object.assign(new Error(message), { name: 'WriteSafetyError', code });
+export function safetyError(
+    code: string,
+    message: string,
+    details: Record<string, unknown> = {},
+): Error & { code: string } & Record<string, unknown> {
+    return Object.assign(new Error(message), { name: 'WriteSafetyError', code }, details);
 }
 
 function assertFreshUuidV7(requestId: string): void {

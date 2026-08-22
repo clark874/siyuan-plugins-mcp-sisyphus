@@ -17,6 +17,12 @@ const outputDir = isDev ? "dev" : "dist";
 const cliOutputDir = "cli/dist";
 const mcpAppOutputDir = ".mcp-app-dist";
 const mcpAppHtmlPath = resolve(__dirname, mcpAppOutputDir, "index.html");
+const nodeVersionGuardBanner = `#!/usr/bin/env node
+var __sisyphusNodeMajor = Number(process.versions.node.split('.')[0]);
+if (!Number.isFinite(__sisyphusNodeMajor) || __sisyphusNodeMajor < 20) {
+  console.error('siyuan-sisyphus requires Node.js 20 or newer. Current: ' + process.versions.node);
+  process.exit(1);
+}`;
 
 const serverExternals = [
     "siyuan",
@@ -58,7 +64,7 @@ const cliExtraExternals = [
     "node:readline",
 ];
 
-const validTargets = ["renderer", "server", "cli", "mcp-app"] as const;
+const validTargets = ["renderer", "server", "cli", "mcp-app", "agent-doctor"] as const;
 type BuildTarget = typeof validTargets[number];
 const buildTarget: BuildTarget = (validTargets as readonly string[]).includes(env.BUILD_TARGET ?? "")
     ? (env.BUILD_TARGET as BuildTarget)
@@ -75,6 +81,7 @@ export default defineConfig(() => {
         case "server": return createServerConfig();
         case "cli": return createCliConfig();
         case "mcp-app": return createMcpAppConfig();
+        case "agent-doctor": return createAgentDoctorConfig();
         default: return createRendererConfig();
     }
 });
@@ -345,7 +352,34 @@ function createCliConfig() {
                 output: {
                     inlineDynamicImports: true,
                     entryFileNames: "cli.cjs",
-                    banner: "#!/usr/bin/env node",
+                    banner: nodeVersionGuardBanner,
+                },
+            },
+        },
+    };
+}
+
+function createAgentDoctorConfig() {
+    const agentDoctorOutputDir = "agent-kit/bin";
+    return {
+        publicDir: false as const,
+        build: {
+            outDir: agentDoctorOutputDir,
+            emptyOutDir: true,
+            minify: true,
+            sourcemap: false,
+            lib: {
+                entry: resolve(__dirname, "agent-kit/scripts/check-sisyphus.mjs"),
+                fileName: () => "check-sisyphus",
+                formats: ["cjs"] as const,
+            },
+            rollupOptions: {
+                external: (id: string) => id.startsWith("node:") || serverExternals.includes(id) || cliExtraExternals.includes(id),
+                plugins: [shebangAndChmod(`${agentDoctorOutputDir}/check-sisyphus.cjs`)],
+                output: {
+                    inlineDynamicImports: true,
+                    entryFileNames: "check-sisyphus.cjs",
+                    banner: nodeVersionGuardBanner,
                 },
             },
         },

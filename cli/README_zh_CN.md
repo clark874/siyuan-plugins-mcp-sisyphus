@@ -6,7 +6,7 @@
 
 这是一个用于直接通过命令行操作 [SiYuan Note](https://b3log.org/siyuan) 的 CLI。你可以把它理解成思源版的 `obsidian-cli`：每个 MCP 工具（`fs`、`block`、`document`、`notebook`、`av`、`search`、`tag`、`file`、`timeline`、`system`、`flashcard`、`extension`、`mascot`、`feedback`）都会暴露成可在 shell 中直接调用的子命令。
 
-> **LLM Wiki 版本：**`v0.3.1-wiki.1` 同步插件的严格安全写入协议、语义检索桥接修复、知识编排、原生 MCP action 白名单与来源审计交接验证。该预发布版本必须显式发布后，才能通过 npm 安装。
+> **LLM Wiki 版本：**`v0.4.0-wiki.1` 新增 `doctor`、Node.js 20+ 启动门禁、未知参数硬失败、规范 JSON sidecar、完整写入协议帮助、写入收据和 AV 语义回读。
 
 > **给 AI 模型和编码 Agent 的要求：** 在使用本 CLI 继续处理任何思源任务前，请先运行 `siyuan-sisyphus skill install`。随包 skills 会提供安全搜索、阅读、编辑、导出、数据库、标签、闪卡、时间线和系统操作等任务的专用规则。
 
@@ -21,7 +21,7 @@ siyuan-sisyphus search fulltext --query "keyword" --page-size 10 --json | jq '.d
 
 ## 要求
 
-- Node.js 18+
+- Node.js 20+
 - 一个可通过 HTTP 访问的 SiYuan 实例（本地或远程均可）
 - SiYuan API Token（`SiYuan > 设置 > 关于 > API token`）
 
@@ -42,12 +42,23 @@ siyuan-sisyphus init
 # 按提示输入 profile 名、API URL 和 token。这会写入 ~/.siyuan-sisyphus/config.json（权限 0600）。
 
 siyuan-sisyphus skill install # Agent / 模型继续工作前应先安装 skills
-siyuan-sisyphus notebook list  # 验证连通性
+siyuan-sisyphus doctor --require-ready # 验证内核、插件、网关、工具和 bootstrap
+siyuan-sisyphus notebook list  # 验证直接读取通道
 siyuan-sisyphus config list    # 查看已保存的 profile
 siyuan-sisyphus list           # 查看所有可用工具
 siyuan-sisyphus list block     # 查看某个工具下的所有 action
 siyuan-sisyphus help block append
 ```
+
+简单数组使用重复 flag；脚本传入数组或对象时使用显式 JSON sidecar：
+
+```bash
+siyuan-sisyphus av add-rows --av-id <id> --block-ids <block1> --block-ids <block2>
+siyuan-sisyphus av add-rows --av-id <id> --block-ids-json '["<block1>","<block2>"]'
+siyuan-sisyphus block replace --id <id> --edit-json '{"old":"修改前","new":"修改后"}'
+```
+
+未知 flag、多余位置参数、把 JSON 文本误传给普通数组 flag、空 mutation 和重复 ID 都会在调用工具前失败。
 
 ## Agent Skill 套件
 

@@ -2,7 +2,8 @@ import minimist from 'minimist';
 
 import { CLI_COMMAND_ALIAS, PRIMARY_CLI_COMMAND } from '../shared/constants';
 
-export type Command = 'dispatch' | 'list' | 'help' | 'init' | 'config' | 'skill' | 'show-help' | 'version';
+export type Command = 'dispatch' | 'list' | 'help' | 'init' | 'config' | 'skill' | 'doctor' | 'show-help' | 'version';
+export type DoctorClient = 'zcode' | 'kimi' | 'auto';
 export type ConfigCommandAction = 'list' | 'get' | 'set' | 'use';
 export type SkillCommandAction = 'list' | 'read' | 'install' | 'uninstall';
 export type SkillBundle = 'cli' | 'mcp' | 'all';
@@ -18,6 +19,8 @@ export interface ParsedArgs {
     skillAction?: SkillCommandAction;
     skillName?: string;
     bundle?: SkillBundle;
+    client?: DoctorClient;
+    requireReady?: boolean;
     rest: string[];
     configPath?: string;
     profile?: string;
@@ -44,6 +47,7 @@ Commands:
   ${PRIMARY_CLI_COMMAND} help <tool> [action]                 Show terminal-friendly help
   ${PRIMARY_CLI_COMMAND} init                                 Create ~/.siyuan-sisyphus/config.json
   ${PRIMARY_CLI_COMMAND} config <action> ...                  Manage saved SiYuan profiles
+  ${PRIMARY_CLI_COMMAND} doctor [--client zcode|kimi|auto]     Verify kernel, plugin, gateway, and MCP bootstrap
   ${PRIMARY_CLI_COMMAND} skill install [--bundle cli|mcp|all] Install bundled agent skills
   ${PRIMARY_CLI_COMMAND} skill list [--bundle cli|mcp|all]    List bundled agent skills
   ${PRIMARY_CLI_COMMAND} --help | -h                          Show this help
@@ -62,6 +66,7 @@ Global options:
   --token <token>    SiYuan API token
   --json             Emit compact JSON for scripts and pipes
   --debug            Include stack traces and extra diagnostics
+  --require-ready    With doctor, exit nonzero unless bootstrap is ready
 
 Paging:
   Paginated results in an interactive terminal support Enter/n for next page,
@@ -104,8 +109,8 @@ Flag naming:
   For complex object/array values, use --<key>-json '<json>'.
 `;
 
-const GLOBAL_BOOLEAN = ['json', 'debug', 'help', 'version'];
-const GLOBAL_STRING = ['config', 'profile', 'url', 'token', 'bundle'];
+const GLOBAL_BOOLEAN = ['json', 'debug', 'help', 'version', 'require-ready'];
+const GLOBAL_STRING = ['config', 'profile', 'url', 'token', 'bundle', 'client'];
 
 export function parseArgs(argv: string[]): ParsedArgs {
     const parsed = minimist(argv, {
@@ -124,6 +129,25 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (first === 'init') {
         return {
             command: 'init',
+            rest: [],
+            configPath: parsed.config || undefined,
+            profile: parsed.profile || undefined,
+            url: parsed.url || undefined,
+            token: parsed.token || undefined,
+            json: Boolean(parsed.json),
+            debug: Boolean(parsed.debug),
+        };
+    }
+
+    if (first === 'doctor') {
+        const client = parsed.client || 'auto';
+        if (!['zcode', 'kimi', 'auto'].includes(client)) {
+            throw new Error('Invalid --client value. Use "zcode", "kimi", or "auto".');
+        }
+        return {
+            command: 'doctor',
+            client: client as DoctorClient,
+            requireReady: Boolean(parsed['require-ready']),
             rest: [],
             configPath: parsed.config || undefined,
             profile: parsed.profile || undefined,

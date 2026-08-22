@@ -92,3 +92,15 @@ export async function setImageAlpha(
 ): Promise<unknown> {
     return client.requestWrite('/api/asset/setImageAlpha', { path, alpha });
 }
+
+export async function insertLocalAssets(
+    client: SiYuanClient,
+    documentId: string,
+    assetPaths: string[],
+): Promise<{ succMap: Record<string, string>; errFiles?: string[] }> {
+    return client.requestWrite('/api/asset/insertLocalAssets', {
+        id: documentId,
+        assetPaths,
+        isUpload: true,
+    });
+}

@@ -16,6 +16,6 @@ system(action="bootstrap")
 4. 普通文档优先使用 `fs` 和人类可读路径。结构化检索使用 `search(action="query_sql")`；历史节点使用 `timeline(action="list_nodes")`，近期自动差异使用 `timeline(action="compare_recent")`。
 5. 执行知识库任务前，通过 `fs(action="read", path="/AGENTS.md")` 读取当前工作区规则；若文件不存在，再继续任务。
 6. 写入前读取目标，写入后回读复核。删除、移动、批量替换、权限修改和回滚必须取得用户对具体动作的明确授权。
-7. 不探测端口，不读取或输出 token，不直读思源工作区文件，不手写 MCP 握手；若工具不可见，只报告宿主客户端尚未完成 MCP 配置。不要把 `http://127.0.0.1:6806/mcp` 作为替代入口绕过 Sisyphus。
+7. 不自行探测端口，不读取或输出 token，不直读思源工作区文件，不手写 MCP 握手；若工具不可见且具备本地 shell，只运行 Agent Kit 自带的 `node bin/check-sisyphus.cjs --client auto --json`。检查结果 ready 但本会话仍无工具时，明确要求重启宿主会话；不要改走 `http://127.0.0.1:6806/mcp`。
 
 若宿主支持 Agent Skills，优先加载 `siyuan-mcp-sisyphus`，再按任务路由到更具体的思源 Skill。

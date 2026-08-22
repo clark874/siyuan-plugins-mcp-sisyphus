@@ -10,6 +10,7 @@ import {
     rename,
     writeFile,
 } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +20,7 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const kitRoot = path.resolve(scriptDirectory, '..');
 
 function parseArguments(argv) {
-    const options = { client: 'auto', home: os.homedir(), dryRun: false, explicitHome: false };
+    const options = { client: 'auto', home: os.homedir(), dryRun: false, explicitHome: false, requireReady: false };
     for (let index = 0; index < argv.length; index += 1) {
         const value = argv[index];
         if (value === '--client') {
@@ -29,8 +30,10 @@ function parseArguments(argv) {
             options.explicitHome = true;
         } else if (value === '--dry-run') {
             options.dryRun = true;
+        } else if (value === '--require-ready') {
+            options.requireReady = true;
         } else if (value === '--help' || value === '-h') {
-            console.log('用法：node scripts/install-agent-kit.mjs --client kimi|zcode|all|auto [--home <目录>] [--dry-run]');
+            console.log('用法：node scripts/install-agent-kit.mjs --client kimi|zcode|all|auto [--home <目录>] [--dry-run] [--require-ready]');
             process.exit(0);
         } else {
             throw new Error(`未知参数：${value}`);
@@ -218,6 +221,37 @@ async function configureClient(client, target, token, options) {
     await atomicJsonWrite(target, config, options.dryRun);
 }
 
+async function verifyInstallation(options) {
+    if (options.dryRun) return { ready: false, status: 'installed_unverified' };
+    const bundledChecker = path.join(kitRoot, 'bin', 'check-sisyphus.cjs');
+    const checker = await exists(bundledChecker)
+        ? bundledChecker
+        : path.join(scriptDirectory, 'check-sisyphus.mjs');
+    const client = options.client === 'all' ? 'auto' : options.client;
+    return await new Promise((resolve) => {
+        execFile(process.execPath, [
+            checker,
+            '--client', client,
+            '--home', options.home,
+            '--json',
+            '--timeout', '800',
+        ], {
+            encoding: 'utf8',
+            timeout: 5000,
+            env: process.env,
+        }, (_error, stdout) => {
+            try {
+                const result = JSON.parse(stdout.trim());
+                resolve(result?.ready === true
+                    ? { ready: true, status: 'ready' }
+                    : { ready: false, status: 'installed_unverified', issue: result?.issue });
+            } catch {
+                resolve({ ready: false, status: 'installed_unverified' });
+            }
+        });
+    });
+}
+
 async function main() {
     const options = parseArguments(process.argv.slice(2));
     const clients = await resolveClients(options);
@@ -230,9 +264,12 @@ async function main() {
     for (let index = 0; index < clients.length; index += 1) {
         await configureClient(clients[index], paths[index], token, options);
     }
+    const verification = await verifyInstallation(options);
     console.log(`${options.dryRun ? '预检完成' : '安装完成'}：已注册唯一外部 MCP ${SISYPHUS_URL}`);
     console.log(`Skill：${skillPath}`);
+    console.log(`Verification：${verification.status}${verification.issue ? ` (${verification.issue})` : ''}`);
     console.log('重新加载客户端后，首次调用 system(action="bootstrap")。');
+    if (options.requireReady && !verification.ready) process.exitCode = 1;
 }
 
 main().catch((error) => {

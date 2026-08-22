@@ -12,6 +12,7 @@ import {
     FileExtractDocSchema,
     FileGetDocAssetsSchema,
     FileGetImageOCRTextSchema,
+    FileInsertAssetsSchema,
     FileListTemplatesSchema,
     FileListUnusedAssetsSchema,
     FileReadTemplateSchema,
@@ -30,6 +31,7 @@ export { FILE_TOOL_NAME };
 
 export const FILE_VARIANTS: ActionVariant<FileAction>[] = [
     createZodActionVariant('upload_asset', FileUploadAssetSchema, 'Read a local file and upload it to the specified assets directory.'),
+    createZodActionVariant('insert_assets', FileInsertAssetsSchema, 'Upload ordered local files or link directories from the SiYuan host, insert their Markdown after one anchor, and verify the resulting block.'),
     createZodActionVariant('list_templates', FileListTemplatesSchema, 'List or search SiYuan workspace templates available under data/templates.'),
     createZodActionVariant('read_template', FileReadTemplateSchema, 'Read a Markdown template source through SiYuan’s authenticated template route.'),
     createZodActionVariant('create_template', FileCreateTemplateSchema, 'Create a Markdown template under data/templates through SiYuan’s workspace file API.'),

@@ -2,7 +2,7 @@
 
 本指南教你在本机把这个仓库里的 CLI 安装成像 `obsidian-cli` / `kubectl` 一样的全局命令 `siyuan-sisyphus`，并保留别名 `sisyphus`，在终端直接跑命令验证效果，而不用 `npm publish`。
 
-你的环境：Node 18+、pnpm 或 npm 均可、macOS/Linux/WSL。
+你的环境：Node 20+、pnpm 或 npm 均可、macOS/Linux/WSL。
 
 ---
 

@@ -48,6 +48,75 @@ describe('write safety ledger', () => {
             .rejects.toMatchObject({ code: 'write_ledger_unavailable' });
     });
 
+    it('persists pending verification receipts and blocks a fresh requestId for the same operation', async () => {
+        const writes: string[] = [];
+        const client = {
+            readFile: vi.fn(async () => { throw new Error('HTTP error: 404 Not Found'); }),
+            writeFile: vi.fn(async (_path: string, content: string) => { writes.push(content); }),
+        } as never;
+        const ledger = new WriteSafetyLedger(client);
+        const firstRequestId = uuidV7(Date.now(), '000000000010');
+        const secondRequestId = uuidV7(Date.now(), '000000000011');
+        const args = { action: 'add_rows', avID: 'av-1', blockIDs: ['block-1'] };
+        const inspected = await ledger.inspect(firstRequestId, 'av', 'add_rows', args);
+
+        await ledger.record({
+            requestId: firstRequestId,
+            tool: 'av',
+            action: 'add_rows',
+            argsHash: inspected.argsHash,
+            operationKey: inspected.operationKey,
+            targetIds: ['av-1', 'block-1'],
+            state: 'pending_verification',
+            result: { writeExecuted: true, retryAllowed: false },
+        });
+
+        expect(JSON.parse(writes.at(-1)!)).toMatchObject({
+            entries: [{
+                requestId: firstRequestId,
+                operationKey: inspected.operationKey,
+                state: 'pending_verification',
+            }],
+        });
+        await expect(ledger.inspect(secondRequestId, 'av', 'add_rows', args))
+            .rejects.toMatchObject({ code: 'operation_pending' });
+        await expect(ledger.getWriteStatus(firstRequestId)).resolves.toMatchObject({
+            requestId: firstRequestId,
+            operationKey: inspected.operationKey,
+            state: 'pending_verification',
+            writeExecuted: true,
+            retryAllowed: false,
+        });
+    });
+
+    it('loads version 1 entries without operationKey and derives a compatible key', async () => {
+        const requestId = uuidV7(Date.now(), '000000000012');
+        const client = {
+            readFile: vi.fn(async () => JSON.stringify({
+                version: 1,
+                entries: [{
+                    requestId,
+                    tool: 'av',
+                    action: 'add_rows',
+                    argsHash: 'sha256:v1:legacy',
+                    targetIds: ['av-1'],
+                    state: 'unknown',
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                }],
+            })),
+            writeFile: vi.fn(),
+        } as never;
+        const ledger = new WriteSafetyLedger(client);
+
+        await expect(ledger.getWriteStatus(requestId)).resolves.toMatchObject({
+            requestId,
+            state: 'unknown',
+            operationKey: expect.any(String),
+            retryAllowed: false,
+        });
+    });
+
     it('persists metadata hashes without storing note bodies and rejects requestId reuse', async () => {
         const writes: string[] = [];
         const client = {

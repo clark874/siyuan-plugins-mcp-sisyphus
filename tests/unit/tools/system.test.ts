@@ -6,6 +6,38 @@ import { parseResult } from '../../helpers/parse-result';
 import { createMockClient } from '../../helpers/mock-client';
 
 describe('system tool schemas', () => {
+    it('reads a strict-write receipt without retrying the mutation', async () => {
+        const requestId = '019c1234-5678-7abc-8def-0123456789ab';
+        const client = {
+            readFile: vi.fn(async () => JSON.stringify({
+                version: 1,
+                entries: [{
+                    requestId,
+                    tool: 'av',
+                    action: 'add_rows',
+                    argsHash: 'sha256:v1:args',
+                    operationKey: 'sha256:v1:operation',
+                    targetIds: ['av-1'],
+                    state: 'pending_verification',
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                    result: { writeExecuted: true },
+                }],
+            })),
+        };
+
+        const result = await callSystemTool(client as never, {
+            action: 'get_write_status',
+            requestId,
+        }, buildDefaultToolConfig().system, {} as never);
+
+        expect(parseResult(result)).toMatchObject({
+            readonly: true,
+            found: true,
+            receipt: { requestId, state: 'pending_verification', retryAllowed: false },
+        });
+    });
+
     it('validates a frozen source-audit handoff without reading local source trees', async () => {
         const result = await callSystemTool(createMockClient(), {
             action: 'validate_source_audit',

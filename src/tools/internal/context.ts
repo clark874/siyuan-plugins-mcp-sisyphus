@@ -174,13 +174,13 @@ export async function resolveResultItemContext(
     const path = [typedItem.path]
         .find((value): value is string => typeof value === 'string' && value.length > 0);
     const documentId = [
-        typedItem.blockID,
-        typedItem.blockId,
         typedItem.rootID,
         typedItem.rootId,
         typedItem.root_id,
         typedItem.docID,
         typedItem.docId,
+        typedItem.blockID,
+        typedItem.blockId,
         typedItem.id,
     ].find((value): value is string => typeof value === 'string' && value.length > 0);
 
@@ -233,13 +233,29 @@ async function checkPermissionForDocumentContext(
     required: PermissionRequirement,
 ): Promise<ToolResult | null> {
     await permMgr.reload();
+    const documentContext = { documentId: context.documentId, path: context.path };
+    const documentAwareManager = permMgr as PermissionManager & {
+        getEffectiveDocumentPermission?: PermissionManager['getEffectiveDocumentPermission'];
+        canReadDocument?: PermissionManager['canReadDocument'];
+        canWriteDocument?: PermissionManager['canWriteDocument'];
+        canDeleteDocument?: PermissionManager['canDeleteDocument'];
+    };
     const allowed = required === 'delete'
-        ? permMgr.canDelete(context.notebook)
+        ? typeof documentAwareManager.canDeleteDocument === 'function'
+            ? documentAwareManager.canDeleteDocument(context.notebook, documentContext)
+            : permMgr.canDelete(context.notebook)
         : required === 'write'
-            ? permMgr.canWrite(context.notebook)
-            : permMgr.canRead(context.notebook);
+            ? typeof documentAwareManager.canWriteDocument === 'function'
+                ? documentAwareManager.canWriteDocument(context.notebook, documentContext)
+                : permMgr.canWrite(context.notebook)
+            : typeof documentAwareManager.canReadDocument === 'function'
+                ? documentAwareManager.canReadDocument(context.notebook, documentContext)
+                : permMgr.canRead(context.notebook);
     if (!allowed) {
-        return createPermissionDeniedResult(context.notebook, permMgr.get(context.notebook), required);
+        const currentPermission = typeof documentAwareManager.getEffectiveDocumentPermission === 'function'
+            ? documentAwareManager.getEffectiveDocumentPermission(context.notebook, documentContext)
+            : permMgr.get(context.notebook);
+        return createPermissionDeniedResult(context.notebook, currentPermission, required);
     }
     return null;
 }
