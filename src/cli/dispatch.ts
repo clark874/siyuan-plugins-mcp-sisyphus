@@ -63,6 +63,31 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
                 throw formatUnknownActionError(category, normalizedAction, discoveredActions);
             }
         }
+        const actionEnabled = category === 'extension'
+            || normalizedAction === 'help'
+            || Boolean((toolConfig[category].actions as Record<string, boolean>)[normalizedAction]);
+        if (!actionEnabled) {
+            const payload = { action: normalizedAction };
+            const result = await runToolCall(
+                {
+                    client,
+                    category,
+                    name: tool,
+                    action: normalizedAction,
+                    args: payload,
+                    requestText: [PRIMARY_CLI_COMMAND, tool, action, ...rest].join(' ').trim(),
+                    slimResponses: toolConfig.debug.slimResponses && !cli.debug,
+                },
+                () => module.callTool(
+                    client,
+                    payload,
+                    toolConfig[category],
+                    permMgr,
+                    officialMcpRuntime,
+                ),
+            );
+            return renderToolResult(result, { json: cli.json, debug: cli.debug });
+        }
         const inputSchema = resolveInputSchema(category, toolConfig, officialMcpRuntime);
 
         const restWithPositional = applyPositionalActionArgs(category, normalizedAction, rest);
@@ -79,9 +104,6 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         const runPage = async (page?: number): Promise<ToolResult> => {
             const payload = page === undefined ? basePayload : { ...basePayload, page };
             const policy = getActionSafetyPolicy(category, normalizedAction, payload);
-            const actionEnabled = category === 'extension'
-                || normalizedAction === 'help'
-                || Boolean((toolConfig[category].actions as Record<string, boolean>)[normalizedAction]);
             const executeDirect = (safeArgs = payload) => module.callTool(
                 client,
                 safeArgs,

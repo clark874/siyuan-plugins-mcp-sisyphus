@@ -44,6 +44,7 @@ async function listFiles(directory, prefix = '') {
     for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
         if (entry.name === '.DS_Store' || entry.name === '__MACOSX') continue;
         const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (relative === 'scripts/check-sisyphus.mjs') continue;
         const absolute = path.join(directory, entry.name);
         if (entry.isDirectory()) {
             files.push(...await listFiles(absolute, relative));
@@ -60,7 +61,8 @@ if (!files.some((file) => file.relative === 'kimi.plugin.json')) {
 }
 if (!files.some((file) => file.relative === 'START-HERE.md')
     || !files.some((file) => file.relative === 'delivery.json')
-    || !files.some((file) => file.relative === 'scripts/install-agent-kit.mjs')) {
+    || !files.some((file) => file.relative === 'scripts/install-agent-kit.mjs')
+    || !files.some((file) => file.relative === 'bin/check-sisyphus.cjs')) {
     throw new Error('agent-kit 缺少便携安装入口、机器契约或安装器。');
 }
 

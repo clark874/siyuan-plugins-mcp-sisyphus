@@ -826,6 +826,14 @@ export const AvAddRowsSchema = z.object({
     groupID: z.string().optional().describe("Optional target group ID"),
     previousID: z.string().optional().describe("Optional previous row item ID"),
     ignoreDefaultFill: z.boolean().optional().describe("When true, skip view/group default value filling"),
+}).superRefine((value, ctx) => {
+    if ((value.blockIDs?.length ?? 0) === 0 && (value.primaryKeyTexts?.length ?? 0) === 0) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide at least one blockID or primaryKeyText.",
+            path: ["blockIDs"],
+        });
+    }
 });
 
 export const AvRemoveRowsSchema = z.object({

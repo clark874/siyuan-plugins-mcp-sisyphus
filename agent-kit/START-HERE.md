@@ -41,8 +41,18 @@ SIYUAN_MCP_TOKEN='<由用户在本地提供的 token>' node scripts/install-agen
 
 若目标客户端已经保存了有效的 Sisyphus Bearer token，可省略环境变量，安装器会在受支持的本地客户端配置中复用它。安装器不读取思源工作区正文，不输出 token，也不删除检测到的官方 MCP 配置。
 
-5. 重启或重新加载宿主客户端，确认只出现一组 Sisyphus 聚合工具。
-6. 首次调用：
+5. 在启动 Agent 会话前执行真实 MCP 验收：
+
+```bash
+node bin/check-sisyphus.cjs --client zcode --json
+# 或
+node bin/check-sisyphus.cjs --client kimi --json
+```
+
+检查器依次执行 initialize、tools/list 和 `system.bootstrap`。如果思源未运行，先启动思源并等待检查结果为 `ready`；随后必须重启或重新加载宿主客户端。当前会话不会因为端点稍后上线而自动获得 MCP 工具。
+
+6. 重启或重新加载宿主客户端，确认只出现一组 Sisyphus 聚合工具。
+7. 首次调用：
 
 ```text
 system(action="bootstrap")

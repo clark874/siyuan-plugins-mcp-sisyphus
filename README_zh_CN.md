@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前 Fork 的 `v0.8.10-wiki.1`（本地 CLI `v0.3.9-wiki.1`）将 `search.knowledge` 升级为受控命名空间优先检索：唯一 name/alias 本地直达，歧义保守返回，句中锚点为语义检索提供种子。思源内置 MCP 仍只作为内部扩展总线，外部 Agent 只注册 Sisyphus 单一入口。
+> **LLM Wiki 分支：** 当前版本为 `v0.9.0-wiki.1`（CLI `v0.4.0-wiki.1`），新增可验证冷启动诊断、严格 CLI 参数契约、完整严格写入帮助和 AV 语义回读。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.8.10-wiki.1` — `search.knowledge` 先解析可读 name/alias 命名空间，未解决查询才调用思源语义索引；附带零依赖 30 题真实库评测工具。本地 CLI 为 `v0.3.9-wiki.1`。
+> **当前 LLM Wiki 版本：**`v0.9.0-wiki.1` — 通过真实 MCP initialize、tools/list 与 bootstrap 验证连接；CLI 参数错误在调用前失败；AV 单元格与行写入区分已验证结果和待核验状态。CLI `v0.4.0-wiki.1` 要求 Node.js 20+。
 
 ## 项目方向调整
 

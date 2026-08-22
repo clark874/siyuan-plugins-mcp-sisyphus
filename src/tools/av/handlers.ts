@@ -259,6 +259,18 @@ function createAddRowsSyncTimeoutResult(
         content: [{
             type: 'text',
             text: JSON.stringify({
+                success: false,
+                writeAttempted: true,
+                writeExecuted: true,
+                retryAllowed: false,
+                transactionState: 'pending_verification',
+                pendingVerification: {
+                    status: 'pending_verification',
+                    avID,
+                    rows: resolution.rows,
+                    ...(resolution.unresolvedBlockIDs.length > 0 ? { unresolvedBlockIDs: resolution.unresolvedBlockIDs } : {}),
+                    ...(resolution.unresolvedRowIDs && resolution.unresolvedRowIDs.length > 0 ? { unresolvedRowIDs: resolution.unresolvedRowIDs } : {}),
+                },
                 error: {
                     type: 'api_error',
                     tool: AV_TOOL_NAME,
@@ -271,7 +283,7 @@ function createAddRowsSyncTimeoutResult(
                     rows: resolution.rows,
                     ...(resolution.unresolvedBlockIDs.length > 0 ? { unresolvedBlockIDs: resolution.unresolvedBlockIDs } : {}),
                     ...(resolution.unresolvedRowIDs && resolution.unresolvedRowIDs.length > 0 ? { unresolvedRowIDs: resolution.unresolvedRowIDs } : {}),
-                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cells after add_rows returns rows[].rowID.',
+                    hint: 'Do not submit add_rows again. Preserve this receipt and inspect the database until every requested row has a canonical rowID.',
                 },
             }, null, 2),
         }],
@@ -1573,16 +1585,29 @@ async function handleRemoveRows({ client, permMgr, rawArgs }: ToolHandlerContext
         srcIDs: parsed.srcIDs,
         avID: parsed.avID,
     }], transactionBlockID);
+    const rowLookup = extractAvRowLookup(avData);
+    const requestedRowIDs = [...new Set(parsed.srcIDs.flatMap((srcID) => (
+        rowLookup.rowIDs.has(srcID) ? [srcID] : rowLookup.sourceBlockToRowIDs.get(srcID) ?? [srcID]
+    )))];
     await transactionApi.performTransactions(client, [{
         doOperations: updatedOps.doOperations,
         undoOperations: updatedOps.undoOperations,
     }]);
+    const remainingRowIDs = await waitForRowsRemoved(client, parsed.avID, requestedRowIDs);
+    if (remainingRowIDs.length > 0) {
+        return createAvPendingVerificationResult('remove_rows', {
+            avID: parsed.avID,
+            srcIDs: parsed.srcIDs,
+            remainingRowIDs,
+        });
+    }
     const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'remove_rows',
         avID: parsed.avID,
         srcIDs: parsed.srcIDs,
         removed: parsed.srcIDs.length,
+        verification: { status: 'verified', method: 'av-row-absence-readback', rowIDs: requestedRowIDs },
     }), refreshOperations);
 }
 
@@ -1694,13 +1719,100 @@ async function handleRemoveColumn({ client, permMgr, rawArgs }: ToolHandlerConte
     }), refreshOperations);
 }
 
+function normalizedCellValue(value: unknown): unknown {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const cell = value as Record<string, any>;
+    switch (cell.type) {
+        case 'text': return { type: 'text', content: cell.text?.content ?? '' };
+        case 'number': return { type: 'number', content: cell.number?.content, format: cell.number?.format ?? '' };
+        case 'date': return { type: 'date', content: cell.date?.content, content2: cell.date?.content2 ?? 0, hasEndDate: Boolean(cell.date?.hasEndDate), isNotTime: Boolean(cell.date?.isNotTime) };
+        case 'checkbox': return { type: 'checkbox', checked: Boolean(cell.checkbox?.checked) };
+        case 'select': return { type: 'select', values: Array.isArray(cell.mSelect) ? cell.mSelect.map((item: any) => item?.content ?? '') : [] };
+        case 'mSelect': return { type: 'mSelect', values: Array.isArray(cell.mSelect) ? cell.mSelect.map((item: any) => item?.content ?? '').sort() : [] };
+        case 'relation': return { type: 'relation', blockIDs: Array.isArray(cell.relation?.blockIDs) ? [...cell.relation.blockIDs].sort() : [] };
+        case 'url': return { type: 'url', content: cell.url?.content ?? '' };
+        case 'email': return { type: 'email', content: cell.email?.content ?? '' };
+        case 'phone': return { type: 'phone', content: cell.phone?.content ?? '' };
+        case 'mAsset': return {
+            type: 'mAsset',
+            assets: Array.isArray(cell.mAsset)
+                ? cell.mAsset.map((item: any) => ({ type: item?.type, name: item?.name ?? '', content: item?.content })).sort((a: any, b: any) => String(a.content).localeCompare(String(b.content)))
+                : [],
+        };
+        default: return { type: cell.type };
+    }
+}
+
+function findAvCell(avData: unknown, rowID: string, columnID: string): unknown {
+    if (!avData || typeof avData !== 'object' || Array.isArray(avData)) return undefined;
+    const keyValues = (avData as { keyValues?: unknown }).keyValues;
+    if (!Array.isArray(keyValues)) return undefined;
+    const entry = keyValues.find((item) => item && typeof item === 'object' && !Array.isArray(item)
+        && getNestedStringField(item, ['key', 'id']) === columnID) as { values?: unknown } | undefined;
+    if (!Array.isArray(entry?.values)) return undefined;
+    return entry.values.find((value) => extractRowIdFromValue(value) === rowID);
+}
+
+async function waitForCellReadback(
+    client: SiYuanClient,
+    avID: string,
+    items: Array<StrongCellValueInput & { rowID: string; columnID: string }>,
+): Promise<Array<Record<string, unknown>>> {
+    let results: Array<Record<string, unknown>> = [];
+    for (let attempt = 0; attempt < ADD_ROWS_POLL_ATTEMPTS; attempt += 1) {
+        const refreshed = await avApi.getAttributeView(client, avID);
+        results = items.map((item) => {
+            const expected = normalizedCellValue(buildStrongCellValue(item.columnID, item.rowID, item));
+            const observed = normalizedCellValue(findAvCell(refreshed.av, item.rowID, item.columnID));
+            return {
+                rowID: item.rowID,
+                columnID: item.columnID,
+                expected,
+                observed,
+                verified: JSON.stringify(expected) === JSON.stringify(observed),
+            };
+        });
+        if (results.every((item) => item.verified === true)) return results;
+        if (attempt < ADD_ROWS_POLL_ATTEMPTS - 1) await sleep(ADD_ROWS_POLL_DELAY_MS);
+    }
+    return results;
+}
+
+async function waitForRowsRemoved(client: SiYuanClient, avID: string, rowIDs: string[]): Promise<string[]> {
+    let remaining = [...rowIDs];
+    for (let attempt = 0; attempt < ADD_ROWS_POLL_ATTEMPTS; attempt += 1) {
+        const refreshed = await avApi.getAttributeView(client, avID);
+        const lookup = extractAvRowLookup(refreshed.av);
+        remaining = rowIDs.filter((rowID) => lookup.rowIDs.has(rowID));
+        if (remaining.length === 0) return [];
+        if (attempt < ADD_ROWS_POLL_ATTEMPTS - 1) await sleep(ADD_ROWS_POLL_DELAY_MS);
+    }
+    return remaining;
+}
+
+function createAvPendingVerificationResult(action: 'set_cells' | 'remove_rows', details: Record<string, unknown>): ToolResult {
+    const payload = {
+        success: false,
+        writeAttempted: true,
+        writeExecuted: true,
+        retryAllowed: false,
+        transactionState: 'pending_verification',
+        pendingVerification: { status: 'pending_verification', action, ...details },
+    };
+    return {
+        content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+        structuredContent: payload,
+        isError: true,
+    };
+}
+
 async function handleSetCells({ client, permMgr, rawArgs }: ToolHandlerContext): Promise<ToolResult> {
     const parsed = AvSetCellsSchema.parse(rawArgs);
     const { denied, avData } = await ensurePermissionForAvId(client, permMgr, parsed.avID, 'write', { blockID: parsed.blockID, action: 'set_cells' });
     if (denied) return denied;
     const rowLookup = extractAvRowLookup(avData);
     const isSingleCellCall = !parsed.cells && !parsed.items;
-    const items = parsed.cells ?? parsed.items ?? [{
+    const items = (parsed.cells ?? parsed.items ?? [{
         rowID: parsed.rowID!,
         columnID: parsed.columnID!,
         valueType: parsed.valueType!,
@@ -1718,35 +1830,13 @@ async function handleSetCells({ client, permMgr, rawArgs }: ToolHandlerContext):
         email: parsed.email,
         phone: parsed.phone,
         assets: parsed.assets,
-    }];
+    }]) as Array<StrongCellValueInput & { rowID: string; columnID: string }>;
 
     const values: TransactionOperation[] = [];
     for (let index = 0; index < items.length; index += 1) {
         const item = items[index];
         const validatedRowID = validateRowIdForAv(parsed.avID, 'set_cells', rowLookup, item.rowID, isSingleCellCall ? undefined : index);
         if (validatedRowID.ok === false) return validatedRowID.result;
-        if (isSingleCellCall) {
-            const transactionBlockID = await resolveAvTransactionBlockId(client, parsed.avID, avData, parsed.blockID);
-            const updatedOps = withUpdatedOperation([{
-                action: 'updateAttrViewCell',
-                avID: parsed.avID,
-                keyID: item.columnID,
-                rowID: validatedRowID.rowID,
-                data: buildStrongCellValue(item.columnID, validatedRowID.rowID, item),
-            }], transactionBlockID);
-            await transactionApi.performTransactions(client, [{
-                doOperations: updatedOps.doOperations,
-                undoOperations: updatedOps.undoOperations,
-            }]);
-            const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
-            return applyUiRefresh(client, createWriteSuccessResult({
-                action: 'set_cells',
-                avID: parsed.avID,
-                rowID: item.rowID,
-                columnID: item.columnID,
-                valueType: item.valueType,
-            }), refreshOperations);
-        }
         values.push({
             action: 'updateAttrViewCell',
             avID: parsed.avID,
@@ -1761,12 +1851,28 @@ async function handleSetCells({ client, permMgr, rawArgs }: ToolHandlerContext):
         doOperations: updatedOps.doOperations,
         undoOperations: updatedOps.undoOperations,
     }]);
+    const verification = await waitForCellReadback(client, parsed.avID, items);
+    if (verification.some((item) => item.verified !== true)) {
+        return createAvPendingVerificationResult('set_cells', {
+            avID: parsed.avID,
+            cells: verification,
+        });
+    }
 
     const refreshOperations = await resolveAvWriteRefreshOperations(client, parsed.avID, avData, parsed.blockID);
     return applyUiRefresh(client, createWriteSuccessResult({
         action: 'set_cells',
         avID: parsed.avID,
-        updated: items.length,
+        ...(isSingleCellCall ? {
+            rowID: items[0].rowID,
+            columnID: items[0].columnID,
+            valueType: items[0].valueType,
+        } : { updated: items.length }),
+        verification: {
+            status: 'verified',
+            method: 'av-cell-value-readback',
+            cells: verification,
+        },
     }), refreshOperations);
 }
 

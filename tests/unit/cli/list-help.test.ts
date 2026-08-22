@@ -190,6 +190,47 @@ describe('cli/list-help', () => {
         io.restore();
     });
 
+    it('renders guarded strict-write protocol and canonical JSON flags for block.replace', async () => {
+        const io = captureStdIO();
+        const code = await runHelp({
+            command: 'help',
+            tool: 'block',
+            action: 'replace',
+            rest: [],
+            json: false,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code, io.stderr || io.stdout).toBe(0);
+        expect(io.stdout).toContain('guarded');
+        expect(io.stdout).toContain('expected-state-hash');
+        expect(io.stdout).toContain('validateOnly=true');
+        expect(io.stdout).toContain('UUIDv7');
+        expect(io.stdout).toContain('siyuan-sisyphus block replace');
+        expect(io.stdout).toContain('--edit-json');
+        io.restore();
+    });
+
+    it('renders request-id-only protocol and canonical row/cell array flags for av.add_rows', async () => {
+        const io = captureStdIO();
+        const code = await runHelp({
+            command: 'help',
+            tool: 'av',
+            action: 'add_rows',
+            rest: [],
+            json: false,
+            debug: false,
+        } as ParsedArgs);
+
+        expect(code, io.stderr || io.stdout).toBe(0);
+        expect(io.stdout).toContain('request-id-only');
+        expect(io.stdout).toContain('fresh UUIDv7 requestId');
+        expect(io.stdout).toContain('--block-ids');
+        expect(io.stdout).toContain('siyuan-sisyphus av set-cells');
+        expect(io.stdout).toContain('--cells-json');
+        io.restore();
+    });
+
     it('does not show help for a tool disabled by the plugin UI config', async () => {
         const io = captureStdIO();
         const config = buildDefaultToolConfig();

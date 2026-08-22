@@ -1,6 +1,7 @@
 import { getHelpText, parseArgs } from './args';
 import { runConfigCommand } from './config-command';
 import { runDispatch } from './dispatch';
+import { runDoctor } from './doctor';
 import { runInit } from './init';
 import { runHelp, runList } from './list-help';
 import { renderCliError } from './render';
@@ -31,6 +32,8 @@ async function main(): Promise<number> {
             return runConfigCommand(cli);
         case 'skill':
             return runSkillCommand(cli);
+        case 'doctor':
+            return await runDoctor(cli);
         case 'list':
             return await runList(cli);
         case 'help':

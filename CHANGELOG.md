@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.0-wiki.1 - 2026-08-22
+
+- 新增 `siyuan-sisyphus doctor` 与 Agent Kit 自包含检查器，以真实 MCP initialize、tools/list 和 `system.bootstrap` 区分思源未运行、认证失败、协议失败、配置过期与宿主需重启；插件 HTTP launcher 仅在完整探针通过后进入 ready
+- CLI 升级至 `v0.4.0-wiki.1` 并要求 Node.js 20+；未知参数、JSON 数组误传、空 mutation 与重复 ID 在调用前失败，action help 由 Schema 与写入安全策略统一生成预检和执行示例
+- AV `add_rows` 未观察到可写 rowID 时返回 `pending_verification` 并明确禁止立即重试；`set_cells` 逐格比较预期值与回读值，`remove_rows` 仅在目标行确认消失后报告成功
+- Agent Kit 安装后可运行自包含检查器完成端点验收；检查器不输出 Bearer token、不注册 `6806/mcp`，并明确区分端点就绪与当前 Agent 会话已挂载工具
+- 本版本不包含自动恢复点、引用阻断、文档/子树权限、`av.inspect`、`system.get_write_status`、批量附件导入或项目源目录读取；后续增量按 `docs/plans/2026-08-22-v0.9-version-family-and-project-source-channel.md` 独立验收
+
 ## v0.8.10-wiki.1 - 2026-08-21
 
 - 将 `search.knowledge` 从“无条件语义发现”升级为受控命名空间优先检索：在当前笔记本权限与路径/类型范围内统一规范化 `name`/`alias`，唯一精确锚点本地直达，不调用嵌入提供商、不产生数据外发

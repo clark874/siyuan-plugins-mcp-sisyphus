@@ -118,6 +118,44 @@ describe('cli/flag-mapper', () => {
         expect(args).toEqual({ blockIDs: ['block-b', 'block-c'] });
     });
 
+    it('rejects JSON-looking values passed to plain array flags with a targeted sidecar hint', () => {
+        expect(() => mapFlagsToArgs([
+            '--block-ids', '["block-a","block-b"]',
+        ], schema)).toThrow('Use repeated --block-ids flags, a comma-separated value, or --block-ids-json');
+    });
+
+    it('rejects unknown flags instead of silently ignoring them', () => {
+        expect(() => mapFlagsToArgs(['--item-id', 'milk', '--typo', 'value'], schema))
+            .toThrow('Unknown flag --typo');
+    });
+
+    it('rejects extra positional arguments instead of silently ignoring them', () => {
+        expect(() => mapFlagsToArgs(['--item-id', 'milk', 'unexpected'], schema))
+            .toThrow('Unexpected positional argument: unexpected');
+    });
+
+    it('rejects empty and duplicate mutation ID arrays from JSON sidecars', () => {
+        const addRowsSchema = {
+            type: 'object',
+            properties: {
+                action: { type: 'string' },
+                avID: { type: 'string' },
+                blockIDs: { type: 'array', items: { type: 'string' } },
+            },
+        };
+
+        expect(() => mapFlagsToArgs(
+            ['--av-id', 'av-1', '--block-ids-json', '[]'],
+            addRowsSchema,
+            { category: 'av', action: 'add_rows' },
+        )).toThrow('--block-ids must contain at least one item');
+        expect(() => mapFlagsToArgs(
+            ['--av-id', 'av-1', '--block-ids', 'block-a,block-a'],
+            addRowsSchema,
+            { category: 'av', action: 'add_rows' },
+        )).toThrow('--block-ids must not contain duplicate IDs: block-a');
+    });
+
     it('accepts JSON sidecars for complex array payloads', () => {
         const { args } = mapFlagsToArgs([
             '--assets-json',

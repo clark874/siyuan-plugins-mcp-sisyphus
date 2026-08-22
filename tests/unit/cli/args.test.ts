@@ -28,6 +28,16 @@ describe('cli/args', () => {
         });
     });
 
+    it('parses doctor client and readiness options', () => {
+        expect(parseArgs(['doctor', '--json', '--client', 'zcode', '--require-ready'])).toMatchObject({
+            command: 'doctor',
+            client: 'zcode',
+            requireReady: true,
+            json: true,
+        });
+        expect(() => parseArgs(['doctor', '--client', 'claude'])).toThrow('--client');
+    });
+
     it('parses config list', () => {
         expect(parseArgs(['config', 'list'])).toMatchObject({
             command: 'config',

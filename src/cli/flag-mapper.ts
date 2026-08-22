@@ -1,5 +1,10 @@
 import minimist from 'minimist';
 
+import {
+    getActionArrayContract,
+    schemaAcceptsArray,
+    validateActionArrayValue,
+} from '../core/action-array-contracts';
 import { getFlagAliasRules, type ArgumentAliasContext } from '../core/argument-aliases';
 
 type JsonSchema = Record<string, any>;
@@ -81,13 +86,17 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema, context?
             const baseKey = rawKey.slice(0, -'-json'.length);
             const canonical = canonicalByLower.get(baseKey.toLowerCase());
             if (!canonical) {
-                warnings.push(`Unknown flag --${rawKey}.`);
-                continue;
+                throw new Error(`Unknown flag --${rawKey}.`);
             }
             if (typeof rawVal !== 'string' || rawVal.length === 0) continue;
             try {
-                jsonOverrides[canonical] = JSON.parse(rawVal);
+                const parsedJson = JSON.parse(rawVal);
+                if (inferType(props[canonical]) === 'array' && !Array.isArray(parsedJson)) {
+                    throw new Error(`--${rawKey} must contain a JSON array.`);
+                }
+                jsonOverrides[canonical] = parsedJson;
             } catch (error) {
+                if (error instanceof Error && error.message === `--${rawKey} must contain a JSON array.`) throw error;
                 throw new Error(`--${rawKey} must be valid JSON: ${error instanceof Error ? error.message : String(error)}`);
             }
         }
@@ -98,8 +107,7 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema, context?
 
         const canonical = canonicalByLower.get(rawKey.toLowerCase());
         if (!canonical) {
-            warnings.push(`Unknown flag --${rawKey}; ignored.`);
-            continue;
+            throw new Error(`Unknown flag --${rawKey}.`);
         }
 
         if (canonical in jsonOverrides) continue;
@@ -112,10 +120,17 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema, context?
     }
 
     if (parsed._.length > 0) {
-        warnings.push(`Extra positional arguments ignored: ${parsed._.join(' ')}`);
+        const label = parsed._.length === 1 ? 'argument' : 'arguments';
+        throw new Error(`Unexpected positional ${label}: ${parsed._.join(' ')}`);
     }
 
-    return { args: { ...result, ...jsonOverrides }, warnings };
+    const args = { ...result, ...jsonOverrides };
+    for (const [field, value] of Object.entries(args)) {
+        const contract = getActionArrayContract(context?.category, context?.action, field, props[field]);
+        if (contract) validateActionArrayValue(value, contract, `--${toKebab(field)}`);
+    }
+
+    return { args, warnings };
 }
 
 function collectInputProperties(inputSchema: JsonSchema): Record<string, JsonSchema> {
@@ -144,8 +159,20 @@ function collectInputProperties(inputSchema: JsonSchema): Record<string, JsonSch
 function coerce(key: string, value: unknown, schema: JsonSchema): unknown {
     const type = inferType(schema);
 
+    if (schemaAcceptsArray(schema)) {
+        const values = Array.isArray(value) ? value : [value];
+        const jsonLooking = values.find((item) => typeof item === 'string' && /^[\[{]/.test(item.trim()));
+        if (jsonLooking !== undefined) {
+            const flag = `--${toKebab(key)}`;
+            throw new Error(`${flag} does not accept inline JSON. Use repeated ${flag} flags, a comma-separated value, or ${flag}-json '<json-array>'.`);
+        }
+    }
+
     if (type === 'array') {
-        if (Array.isArray(value)) return value.map((v) => coerceItem(v, schema.items));
+        if (Array.isArray(value)) {
+            return value.flatMap((v) => typeof v === 'string' ? v.split(',') : [v])
+                .map((v) => coerceItem(typeof v === 'string' ? v.trim() : v, schema.items));
+        }
         if (typeof value === 'string') {
             return value.split(',').map((s) => coerceItem(s.trim(), schema.items));
         }

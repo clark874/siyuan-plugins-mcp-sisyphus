@@ -355,13 +355,10 @@ describe('av tool', () => {
             },
         });
 
-        expect(JSON.parse(result.content[0].text)).toEqual({
-            success: true,
-            action: 'set_cells',
-            avID: 'av-1',
-            rowID: 'row-1',
-            columnID: 'col-1',
-            valueType: 'number',
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            success: false,
+            transactionState: 'pending_verification',
+            pendingVerification: { action: 'set_cells', avID: 'av-1' },
         });
     });
 
@@ -410,13 +407,10 @@ describe('av tool', () => {
             },
         });
 
-        expect(JSON.parse(result.content[0].text)).toEqual({
-            success: true,
-            action: 'set_cells',
-            avID: 'av-1',
-            rowID: 'row-1',
-            columnID: 'col-cover',
-            valueType: 'mAsset',
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            success: false,
+            transactionState: 'pending_verification',
+            pendingVerification: { action: 'set_cells', avID: 'av-1' },
         });
     });
 
@@ -460,11 +454,10 @@ describe('av tool', () => {
             },
         });
 
-        expect(JSON.parse(result.content[0].text)).toEqual({
-            success: true,
-            action: 'set_cells',
-            avID: 'av-1',
-            updated: 1,
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            success: false,
+            transactionState: 'pending_verification',
+            pendingVerification: { action: 'set_cells', avID: 'av-1' },
         });
     });
 
@@ -599,13 +592,10 @@ describe('av tool', () => {
                 },
             },
         });
-        expect(JSON.parse(result.content[0].text)).toEqual({
-            success: true,
-            action: 'set_cells',
-            avID: 'av-1',
-            rowID: 'row-2',
-            columnID: 'col-note',
-            valueType: 'text',
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            success: false,
+            transactionState: 'pending_verification',
+            pendingVerification: { action: 'set_cells', avID: 'av-1' },
         });
     });
 
@@ -652,13 +642,10 @@ describe('av tool', () => {
                 text: { content: 'hello' },
             },
         });
-        expect(JSON.parse(result.content[0].text)).toEqual({
-            success: true,
-            action: 'set_cells',
-            avID: 'av-1',
-            rowID: 'row-1',
-            columnID: 'col-1',
-            valueType: 'text',
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            success: false,
+            transactionState: 'pending_verification',
+            pendingVerification: { action: 'set_cells', avID: 'av-1' },
         });
     });
 
@@ -1537,26 +1524,23 @@ describe('av tool', () => {
         expect(vi.mocked(avApi.batchSetAttributeViewBlockAttrs)).not.toHaveBeenCalled();
     });
 
-    it('treats add_rows with an empty blockIDs list as a no-op success', async () => {
-        const avApi = await import('@/api/av');
+    it('rejects add_rows when both row input lists are empty', async () => {
+        const transactionApi = await import('@/api/transaction');
 
         const result = await callAvTool(client, {
             action: 'add_rows',
             avID: 'av-1',
             blockIDs: [],
+            primaryKeyTexts: [],
         }, enabledActions('add_rows'), permMgr);
 
-        expect(vi.mocked(avApi.addAttributeViewBlocks)).not.toHaveBeenCalled();
-        expect(JSON.parse(result.content[0].text)).toEqual({
-            success: true,
-            action: 'add_rows',
-            avID: 'av-1',
-            blockIDs: [],
-            primaryKeyTexts: [],
-            rows: [],
-            added: 0,
-            skipped: true,
-            message: 'No blockIDs or primaryKeyTexts were provided, so no rows were added.',
+        expect(vi.mocked(transactionApi.performTransactions)).not.toHaveBeenCalled();
+        expect(result.isError).toBe(true);
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: {
+                type: 'validation_error',
+                action: 'add_rows',
+            },
         });
     });
 
@@ -1790,20 +1774,26 @@ describe('av tool', () => {
             await vi.advanceTimersByTimeAsync(2500);
             const result = await resultPromise;
 
-            expect(JSON.parse(result.content[0].text)).toEqual({
+            expect(JSON.parse(result.content[0].text)).toMatchObject({
+                success: false,
+                writeExecuted: true,
+                retryAllowed: false,
+                transactionState: 'pending_verification',
+                pendingVerification: {
+                    status: 'pending_verification',
+                    avID: 'av-1',
+                    rows: [{ blockID: 'block-missing', status: 'missing' }],
+                },
                 error: {
                     type: 'api_error',
                     tool: 'av',
                     action: 'add_rows',
                     reason: 'row_id_sync_timeout',
-                    message: 'Added rows to attribute view "av-1", but MCP could not observe writable row item IDs before the sync timeout expired.',
                     avID: 'av-1',
-                    blockIDs: ['block-missing'],
-                    rows: [{ blockID: 'block-missing', status: 'missing' }],
                     unresolvedBlockIDs: ['block-missing'],
-                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cells after add_rows returns rows[].rowID.',
                 },
             });
+            expect(result.content[0].text).not.toMatch(/retry av\(action=["']add_rows/i);
         } finally {
             vi.useRealTimers();
         }
@@ -1838,18 +1828,19 @@ describe('av tool', () => {
             await vi.advanceTimersByTimeAsync(2500);
             const result = await resultPromise;
 
-            expect(JSON.parse(result.content[0].text)).toEqual({
+            expect(JSON.parse(result.content[0].text)).toMatchObject({
+                writeExecuted: true,
+                retryAllowed: false,
+                transactionState: 'pending_verification',
+                pendingVerification: {
+                    status: 'pending_verification',
+                    rows: [{ blockID: 'block-dup', rowIDs: ['row-a', 'row-b'], status: 'ambiguous' }],
+                },
                 error: {
                     type: 'api_error',
-                    tool: 'av',
                     action: 'add_rows',
                     reason: 'row_id_sync_timeout',
-                    message: 'Added rows to attribute view "av-1", but MCP could not observe writable row item IDs before the sync timeout expired.',
-                    avID: 'av-1',
-                    blockIDs: ['block-dup'],
-                    rows: [{ blockID: 'block-dup', rowIDs: ['row-a', 'row-b'], status: 'ambiguous' }],
                     unresolvedBlockIDs: ['block-dup'],
-                    hint: 'Retry av(action="add_rows") or wait briefly and re-read the database. Only call set_cells after add_rows returns rows[].rowID.',
                 },
             });
         } finally {
@@ -1871,7 +1862,7 @@ describe('av tool', () => {
             avID: 'av-1',
             srcIDs: ['row-a', 'row-b'],
         });
-        expect(JSON.parse(result.content[0].text)).toEqual({
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
             success: true,
             action: 'remove_rows',
             avID: 'av-1',
@@ -1914,7 +1905,7 @@ describe('av tool', () => {
             avID: 'av-empty',
             srcIDs: ['row-a'],
         });
-        expect(JSON.parse(result.content[0].text)).toEqual({
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
             success: true,
             action: 'remove_rows',
             avID: 'av-empty',
@@ -1977,11 +1968,10 @@ describe('av tool', () => {
                 }),
             ]),
         );
-        expect(JSON.parse(result.content[0].text)).toEqual({
-            success: true,
-            action: 'set_cells',
-            avID: 'av-1',
-            updated: 2,
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            success: false,
+            transactionState: 'pending_verification',
+            pendingVerification: { action: 'set_cells', avID: 'av-1' },
         });
     });
 
@@ -2047,11 +2037,47 @@ describe('av tool', () => {
                 }),
             ]),
         );
-        expect(JSON.parse(result.content[0].text)).toEqual({
-            success: true,
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            success: false,
+            transactionState: 'pending_verification',
+            pendingVerification: { action: 'set_cells', avID: 'av-1' },
+        });
+    });
+
+    it('reports set_cells success only after exact cell readback', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.getAttributeView)
+            .mockResolvedValueOnce({
+                av: {
+                    id: 'av-1',
+                    keyValues: [{ key: { type: 'block' }, values: [{ id: 'val-1', blockID: 'row-1', block: { id: 'block-1' } }] }],
+                },
+            })
+            .mockResolvedValue({
+                av: {
+                    id: 'av-1',
+                    keyValues: [
+                        { key: { type: 'block' }, values: [{ id: 'val-1', blockID: 'row-1', block: { id: 'block-1' } }] },
+                        { key: { id: 'col-text', type: 'text' }, values: [{ id: 'cell-1', blockID: 'row-1', type: 'text', text: { content: 'verified' } }] },
+                    ],
+                },
+            });
+
+        const result = await callAvTool(client, {
             action: 'set_cells',
             avID: 'av-1',
-            updated: 2,
+            rowID: 'row-1',
+            columnID: 'col-text',
+            valueType: 'text',
+            text: 'verified',
+        }, enabledActions('set_cells'), permMgr);
+
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            success: true,
+            verification: {
+                status: 'verified',
+                cells: [{ rowID: 'row-1', columnID: 'col-text', verified: true }],
+            },
         });
     });
 

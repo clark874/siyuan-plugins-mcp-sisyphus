@@ -177,6 +177,10 @@ describe('UI refresh integration', () => {
                         key: { type: 'block' },
                         values: [{ id: 'val-1', blockID: 'row-1', block: { id: 'block-1' } }],
                     },
+                    {
+                        key: { id: 'col-1', type: 'text' },
+                        values: [{ id: 'cell-1', blockID: 'row-1', type: 'text', text: { content: 'hello' } }],
+                    },
                 ],
             },
         });

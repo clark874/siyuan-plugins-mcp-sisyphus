@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -82,7 +82,8 @@ describe('portable agent kit', () => {
         expect(`${configText}\n${agent}\n${kimi}\n${start}\n${JSON.stringify(delivery)}`).not.toMatch(/Bearer\s+[a-f0-9]{64}\b/i);
         expect(agent).toContain('system(action="bootstrap")');
         expect(agent).toContain('operation.readOnly');
-        expect(agent).toContain('不要把 `http://127.0.0.1:6806/mcp`');
+        expect(agent).toContain('`http://127.0.0.1:6806/mcp`');
+        expect(agent).toContain('不要把它注册为第二个外部思源 MCP');
         expect(start).toContain('唯一外部 MCP');
         expect(start).toContain('scripts/install-agent-kit.mjs');
         expect(start).toContain('scripts/update-sisyphus.mjs --apply');
@@ -138,6 +139,40 @@ describe('portable agent kit', () => {
         expect(installedSkill).toBe(read('agent-kit/skills/siyuan-mcp-sisyphus/SKILL.md'));
         expect(output).not.toContain(token);
         expect(output).toContain('system(action="bootstrap")');
+        expect(output).toContain('installed_unverified');
+    });
+
+    it('checks only the configured Sisyphus gateway, reuses its token, and never prints the token', () => {
+        const temporaryHome = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-agent-kit-check-'));
+        const configPath = path.join(temporaryHome, '.kimi-code/mcp.json');
+        const token = 'd'.repeat(64);
+        mkdirSync(path.dirname(configPath), { recursive: true });
+        writeFileSync(configPath, JSON.stringify({
+            mcpServers: {
+                siyuan: {
+                    transport: 'http',
+                    url: 'http://127.0.0.1:36806/mcp',
+                    headers: { Authorization: `Bearer ${token}` },
+                },
+            },
+        }));
+
+        const result = spawnSync(process.execPath, [
+            path.join(root, 'agent-kit/scripts/check-sisyphus.mjs'),
+            '--client', 'kimi',
+            '--home', temporaryHome,
+            '--json',
+            '--timeout', '100',
+        ], {
+            cwd: path.join(root, 'agent-kit'),
+            encoding: 'utf8',
+        });
+        const combined = `${result.stdout}\n${result.stderr}`;
+
+        expect(result.status).not.toBe(0);
+        expect(combined).toMatch(/gateway_(?:not_running|unauthorized)/);
+        expect(combined).not.toContain(token);
+        expect(read('agent-kit/scripts/check-sisyphus.mjs')).not.toMatch(/(?:127\.0\.0\.1|localhost):6806\/mcp/);
     });
 
     it('preserves existing ZCode entries and keeps the built-in official endpoint visible for manual disablement', () => {
