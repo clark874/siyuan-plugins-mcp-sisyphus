@@ -51,11 +51,19 @@ function createPermMgr() {
 
 function createContractClient() {
     let documentSortMode: number | null = null;
+    const storedFiles = new Map<string, string>();
     return createMockClient({
         getBaseUrl: vi.fn(() => 'http://127.0.0.1:6806'),
         getAuthHeaders: vi.fn(() => ({ Authorization: 'Token test' })),
         requestFormData: vi.fn(async () => ({ errFiles: [], succMap: { 'asset.txt': 'assets/asset.txt' } })),
-        writeFile: vi.fn(async () => undefined),
+        writeFile: vi.fn(async (filePath: string, content: string) => {
+            storedFiles.set(filePath, content);
+        }),
+        readFile: vi.fn(async (filePath: string) => {
+            const content = storedFiles.get(filePath);
+            if (content === undefined) throw new Error(`404 not found: ${filePath}`);
+            return content;
+        }),
         readFileBinary: vi.fn(async () => new Uint8Array([1, 2, 3])),
         request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
             if (endpoint.startsWith('/api/ui/')) return null;
@@ -299,6 +307,10 @@ describe('tool action contract coverage', () => {
     it('covers every file action with a minimal endpoint contract', async () => {
         await runContracts('file', FILE_VARIANTS, callFileTool as ToolCaller, [
             { action: 'upload_asset', args: { action: 'upload_asset', assetsDirPath: '/assets/', localFilePath: 'package.json' }, expectedEndpoint: '/api/asset/upload' },
+            { action: 'register_project_source', args: { action: 'register_project_source', projectId: 'contract-project', workspaceRoot: process.cwd(), sourceKind: 'git', coverage: 'tracked' } },
+            { action: 'scan_project_manifest', args: { action: 'scan_project_manifest', projectId: 'missing-project' }, expectedError: true },
+            { action: 'resolve_project_source', args: { action: 'resolve_project_source', projectId: 'missing-project', relativePath: 'README.md' }, expectedError: true },
+            { action: 'list_project_sources', args: { action: 'list_project_sources', page: 1, pageSize: 20 } },
             { action: 'list_templates', args: { action: 'list_templates', query: 'demo' }, expectedEndpoint: '/api/search/searchTemplate' },
             { action: 'read_template', args: { action: 'read_template', path: 'demo.md' }, expectedEndpoint: '/templates/demo.md' },
             { action: 'create_template', args: { action: 'create_template', path: 'new-template.md', markdown: 'template', overwrite: true }, expectedEndpoint: '/api/file/putFile' },

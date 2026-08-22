@@ -15,13 +15,17 @@ import {
     FileExtractDocSchema,
     FileGetDocAssetsSchema,
     FileGetImageOCRTextSchema,
+    FileListProjectSourcesSchema,
     FileListTemplatesSchema,
     FileListUnusedAssetsSchema,
     FileReadTemplateSchema,
+    FileRegisterProjectSourceSchema,
+    FileResolveProjectSourceSchema,
     FileRemoveUnusedAssetsSchema,
     FileRenameAssetSchema,
     FileRenderSchema,
     FileSaveDocAsTemplateSchema,
+    FileScanProjectManifestSchema,
     FileUpdateTemplateSchema,
     FileUploadAssetSchema,
 } from '../../core/types';
@@ -192,6 +196,30 @@ const handleUploadAsset = (thresholdMB: number, largeUploadThresholdBytes: numbe
             ...(stat.size > largeUploadThresholdBytes ? { largeFileConfirmed: true } : {}),
         });
     };
+
+const handleRegisterProjectSource: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileRegisterProjectSourceSchema.parse(rawArgs);
+    const { registerProjectSource } = await import('../../core/project-sources');
+    return createJsonResult(await registerProjectSource(client, parsed));
+};
+
+const handleScanProjectManifest: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileScanProjectManifestSchema.parse(rawArgs);
+    const { scanProjectManifest } = await import('../../core/project-sources');
+    return createJsonResult(await scanProjectManifest(client, parsed));
+};
+
+const handleResolveProjectSource: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileResolveProjectSourceSchema.parse(rawArgs);
+    const { resolveProjectSource } = await import('../../core/project-sources');
+    return createJsonResult(await resolveProjectSource(client, parsed));
+};
+
+const handleListProjectSources: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileListProjectSourcesSchema.parse(rawArgs);
+    const { listProjectSources } = await import('../../core/project-sources');
+    return createJsonResult(await listProjectSources(client, parsed));
+};
 
 const handleRender: ToolActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FileRenderSchema.parse(rawArgs);
@@ -548,6 +576,10 @@ const handleExtractDoc: ToolActionHandler = async ({ client, rawArgs }) => {
 export function createFileActionHandlers(thresholdMB: number, largeUploadThresholdBytes: number): Record<FileAction, ToolActionHandler> {
     return {
         upload_asset: handleUploadAsset(thresholdMB, largeUploadThresholdBytes),
+        register_project_source: handleRegisterProjectSource,
+        scan_project_manifest: handleScanProjectManifest,
+        resolve_project_source: handleResolveProjectSource,
+        list_project_sources: handleListProjectSources,
         list_templates: handleListTemplates,
         read_template: handleReadTemplate,
         create_template: handleCreateTemplate,

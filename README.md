@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki branch:** `v0.9.0-wiki.1` with CLI `v0.4.0-wiki.1` adds verifiable cold-start diagnostics, strict CLI argument contracts, complete strict-write help, and AV semantic readback.
+> **LLM Wiki branch:** `v0.9.1-wiki.1` with CLI `v0.4.1-wiki.1` adds portable project-source registration, tiered manifests, binding diagnostics, and controlled path resolution.
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Current LLM Wiki release:** `v0.9.0-wiki.1` — connectivity is verified with real MCP initialize/tools/bootstrap calls; CLI mistakes fail before dispatch; AV cell and row mutations distinguish verified results from pending verification. CLI `v0.4.0-wiki.1` requires Node.js 20+.
+> **Current LLM Wiki release:** `v0.9.1-wiki.1` — the `file` tool can register project sources, build bounded A/B/C manifests, diagnose host bindings, and resolve one relative path. This release does not read arbitrary project-file content or add directories to an agent workspace. CLI `v0.4.1-wiki.1` requires Node.js 20+.
 
 ## Project Direction Update
 

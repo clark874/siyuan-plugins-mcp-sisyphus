@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import crypto from 'node:crypto';
 
 export const WRITE_STATE_HASH_VERSION = 'sha256:v1' as const;
 export const WRITE_HASH_PREFIX_MIN_LENGTH = 4;
@@ -10,14 +10,14 @@ export function canonicalizeWriteState(value: unknown): string {
 }
 
 export function hashWriteState(value: unknown): string {
-    const digest = createHash('sha256')
+    const digest = crypto.createHash('sha256')
         .update(canonicalizeWriteState(value), 'utf8')
         .digest('hex');
     return `${WRITE_STATE_HASH_VERSION}:${digest}`;
 }
 
 export function hashWriteBytes(value: Uint8Array): string {
-    const digest = createHash('sha256').update(value).digest('hex');
+    const digest = crypto.createHash('sha256').update(value).digest('hex');
     return `${WRITE_STATE_HASH_VERSION}:${digest}`;
 }
 

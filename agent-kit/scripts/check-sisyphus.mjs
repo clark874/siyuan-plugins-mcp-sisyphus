@@ -101,7 +101,7 @@ export async function checkSisyphus(options) {
     const configured = await readConfiguredGateway(options);
     if (configured.issue) return { ready: false, issue: configured.issue, client: configured.client, sessionMount: 'not_observable' };
 
-    const client = new Client({ name: 'siyuan-sisyphus-agent-kit-check', version: '0.9.0' });
+    const client = new Client({ name: 'siyuan-sisyphus-agent-kit-check', version: '0.9.1' });
     const transport = new StreamableHTTPClientTransport(new URL(configured.url), {
         requestInit: { headers: { Authorization: `Bearer ${configured.token}` } },
     });

@@ -3854,6 +3854,10 @@ feedback submits plain-text product feedback to the developer through the config
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
           "Strict-write protocol (request-id-only): validateOnly=true is an optional schema/protocol check; it writes nothing and returns no credential. Execute the mutation once with a fresh UUIDv7 requestId, then read the target back.",
         ],
         "hint": "Use path + markdown to create a Markdown template under data/templates. overwrite=false by default returns template_exists when the path already exists; pass overwrite=true to replace it.",
@@ -3929,6 +3933,10 @@ siyuan-sisyphus file delete-asset --path /20240318112233-abc123.sy --expected-st
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
         "requiredFields": [
@@ -4003,6 +4011,10 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
         "hint": "Deletes an existing Markdown template after resolving it through SiYuan’s template picker. This action is dangerous and disabled by default.",
@@ -4052,6 +4064,10 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
         ],
         "requiredFields": [
           "id",
@@ -4085,6 +4101,10 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
         ],
         "hint": "Provide one or more existing resource paths. Asset paths like assets/foo.txt are normalized to /data/assets/foo.txt before export. Set outputPath to also copy the exported ZIP to a local filesystem path. Using outputPath is high-risk and requires explicit user confirmation. To extract attachments for direct reading without a ZIP archive, prefer extract_doc which produces an uncompressed folder.",
         "requiredFields": [
@@ -4128,6 +4148,10 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
         ],
         "hint": "Use a document ID + optional outputDir. Exports the document markdown and all referenced assets into an uncompressed folder, preserving original filenames. If outputDir is omitted, the default output root is ~/siyuan-extracted/; pass outputDir explicitly for a predictable path such as /private/tmp. Clears the entire output root directory first to prevent accumulation from previous exports. The returned extractedDir is an absolute path ready for direct file access.",
         "requiredFields": [
@@ -4160,6 +4184,10 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
         ],
         "hint": "Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full document content and assets, guide them to file(action="extract_doc") instead. Use assetType="image" to return only direct image assets.",
         "requiredFields": [
@@ -4191,8 +4219,45 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
         ],
         "hint": "Use an asset path to read stored OCR text. If path is omitted, SiYuan returns an empty text payload.",
+        "requiredFields": [],
+        "requiresConfirmation": false,
+        "shapes": [
+          "action only",
+        ],
+        "tool": "file",
+      },
+      "list_project_sources": {
+        "action": "list_project_sources",
+        "example": {
+          "action": "list_project_sources",
+        },
+        "fullDocResource": "siyuan://help/action/file/list_project_sources",
+        "guidance": [
+          "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
+          "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
+          "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
+          "Use file(action="list_templates") before rendering when you need to discover valid workspace template paths under data/templates.",
+          "file(action="read_template") reads Markdown template source through SiYuan’s authenticated /templates/ route; it does not expose arbitrary workspace files.",
+          "file(action="create_template"|"update_template") writes Markdown templates through SiYuan’s /api/file/putFile workspace API; it does not write data/templates through the local filesystem.",
+          "file(action="delete_template") removes an existing Markdown template resolved from SiYuan’s template picker and requires explicit user confirmation before execution.",
+          "file(action="save_doc_as_template") saves an existing document as a root-level template after read-permission checks; use create_template when you need a nested template path.",
+          "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
+          "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
+          "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
+          "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+        ],
+        "hint": "分页列出项目身份、当前主机绑定状态和清单摘要。默认且经 MCP 契约固定不返回 workspaceRoot；需要实际路径时，对单个相对路径调用 resolve_project_source。",
         "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
@@ -4220,6 +4285,10 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
         ],
         "hint": "Searches SiYuan data/templates via the kernel template picker endpoint. Empty query lists all visible Markdown templates. Results include readArgs and renderArgsTemplate for reuse.",
         "requiredFields": [],
@@ -4249,6 +4318,10 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
         ],
         "requiredFields": [],
         "requiresConfirmation": false,
@@ -4278,6 +4351,10 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
         ],
         "hint": "Use a path from list_templates, /data/templates/..., /templates/..., or a path relative to data/templates. Reads only Markdown template source and supports offset/limit pagination.",
         "requiredFields": [
@@ -4288,6 +4365,124 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "path",
         ],
         "tool": "file",
+      },
+      "register_project_source": {
+        "action": "register_project_source",
+        "cliExamples": [
+          "siyuan-sisyphus file register-project-source --project-id <projectId> --workspace-root <workspaceRoot> --source-kind git --validate-only",
+          "siyuan-sisyphus file register-project-source --project-id <projectId> --workspace-root <workspaceRoot> --source-kind git --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+        ],
+        "cliFlags": {
+          "optional": [
+            "--hub-block-id",
+            "--manifest-block-id",
+            "--repository",
+            "--coverage",
+            "--access",
+            "--core-files-json",
+            "--include-paths",
+            "--exclusions-json",
+          ],
+          "protocol": [
+            "--validate-only",
+            "--request-id",
+            "--expected-state-hash",
+          ],
+          "required": [
+            "--project-id",
+            "--workspace-root",
+            "--source-kind",
+          ],
+        },
+        "example": {
+          "action": "register_project_source",
+          "projectId": "<projectId>",
+          "sourceKind": "git",
+          "workspaceRoot": "<workspaceRoot>",
+        },
+        "examples": [
+          {
+            "description": "workspaceRoot 只保存在当前主机绑定中；思源项目中枢使用稳定块 ID 关联。",
+            "mcp": {
+              "action": "register_project_source",
+              "coreFiles": [
+                {
+                  "relativePath": "README.md",
+                  "role": "source",
+                },
+                {
+                  "relativePath": "manuscript/main.docx",
+                  "role": "manuscript",
+                },
+              ],
+              "coverage": "tracked",
+              "hubBlockId": "20260822100000-abc1234",
+              "projectId": "water-paper",
+              "sourceKind": "git",
+              "workspaceRoot": "/absolute/path/to/project",
+            },
+            "title": "登记 Git 项目源与显式核心文件",
+          },
+          {
+            "description": "siyuan-sisyphus file register-project-source --project-id <projectId> --workspace-root <workspaceRoot> --source-kind git --validate-only
+siyuan-sisyphus file register-project-source --project-id <projectId> --workspace-root <workspaceRoot> --source-kind git --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+            "mcp": {
+              "action": "register_project_source",
+              "projectId": "<projectId>",
+              "sourceKind": "git",
+              "workspaceRoot": "<workspaceRoot>",
+            },
+            "title": "Canonical CLI",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/file/register_project_source",
+        "guidance": [
+          "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
+          "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
+          "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
+          "Use file(action="list_templates") before rendering when you need to discover valid workspace template paths under data/templates.",
+          "file(action="read_template") reads Markdown template source through SiYuan’s authenticated /templates/ route; it does not expose arbitrary workspace files.",
+          "file(action="create_template"|"update_template") writes Markdown templates through SiYuan’s /api/file/putFile workspace API; it does not write data/templates through the local filesystem.",
+          "file(action="delete_template") removes an existing Markdown template resolved from SiYuan’s template picker and requires explicit user confirmation before execution.",
+          "file(action="save_doc_as_template") saves an existing document as a root-level template after read-permission checks; use create_template when you need a nested template path.",
+          "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
+          "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
+          "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
+          "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+        ],
+        "hint": "登记可移植 projectId 与当前主机绝对 workspaceRoot 的绑定。Git 项目校验仓库根与提交；directory 项目只登记目录身份。coreFiles 必须由用户或项目契约显式指定，不得用启发式规则代替。此操作写入插件私有登记表并需要确认。",
+        "requiredFields": [
+          "projectId",
+          "workspaceRoot",
+          "sourceKind",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "projectId + workspaceRoot + sourceKind",
+        ],
+        "tool": "file",
+        "writeSafety": {
+          "mode": "mutation",
+          "precondition": "state",
+          "preconditionField": "expectedStateHash",
+          "preconditionFlag": "--expected-state-hash",
+          "protocol": "guarded",
+          "requestId": "fresh UUIDv7",
+          "requestIdFlag": "--request-id",
+          "validateOnly": true,
+          "validateOnlyFlag": "--validate-only",
+          "validateOnlySteps": [
+            "Call the action with validateOnly=true and the complete business arguments; nothing is written.",
+            "Copy the returned expectedStateHash credential without changing any business argument.",
+            "Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+          ],
+        },
       },
       "remove_unused_assets": {
         "action": "remove_unused_assets",
@@ -4332,6 +4527,10 @@ siyuan-sisyphus file remove-unused-assets --expected-manifest-hash <preflight-cr
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedManifestHash credential without changing any business argument. Execute once with expectedManifestHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
         "requiredFields": [],
@@ -4407,6 +4606,10 @@ siyuan-sisyphus file rename-asset --old-path <oldPath> --new-name <newName> --ex
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
         "requiredFields": [
@@ -4456,6 +4659,10 @@ siyuan-sisyphus file rename-asset --old-path <oldPath> --new-name <newName> --ex
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
         ],
         "hint": "Use engine="template" with id + path for a workspace template; that engine uses .action{...} delimiters and exposes limited document fields such as id/title/name/alias. Set preview=true for SiYuan preview DOM. Use engine="sprig" with inline template for {{...}} syntax; Sprig has functions but no document context.",
         "requiredFields": [
@@ -4464,6 +4671,54 @@ siyuan-sisyphus file rename-asset --old-path <oldPath> --new-name <newName> --ex
         "requiresConfirmation": false,
         "shapes": [
           "engine",
+        ],
+        "tool": "file",
+      },
+      "resolve_project_source": {
+        "action": "resolve_project_source",
+        "example": {
+          "action": "resolve_project_source",
+          "projectId": "<projectId>",
+          "relativePath": "<relativePath>",
+        },
+        "examples": [
+          {
+            "mcp": {
+              "action": "resolve_project_source",
+              "projectId": "water-paper",
+              "relativePath": "manuscript/main.docx",
+            },
+            "title": "解析一个项目相对路径但不读取内容",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/file/resolve_project_source",
+        "guidance": [
+          "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
+          "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
+          "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
+          "Use file(action="list_templates") before rendering when you need to discover valid workspace template paths under data/templates.",
+          "file(action="read_template") reads Markdown template source through SiYuan’s authenticated /templates/ route; it does not expose arbitrary workspace files.",
+          "file(action="create_template"|"update_template") writes Markdown templates through SiYuan’s /api/file/putFile workspace API; it does not write data/templates through the local filesystem.",
+          "file(action="delete_template") removes an existing Markdown template resolved from SiYuan’s template picker and requires explicit user confirmation before execution.",
+          "file(action="save_doc_as_template") saves an existing document as a root-level template after read-permission checks; use create_template when you need a nested template path.",
+          "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
+          "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
+          "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
+          "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+        ],
+        "hint": "使用 projectId + relativePath 解析当前主机路径，拒绝绝对路径、父目录穿越和逃逸工作目录的符号链接。只返回存在性、绑定/版本/清单状态与绝对路径，不读取内容；路径披露需要确认。",
+        "requiredFields": [
+          "projectId",
+          "relativePath",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "projectId + relativePath",
         ],
         "tool": "file",
       },
@@ -4527,6 +4782,10 @@ siyuan-sisyphus file save-doc-as-template --id 20240318112233-abc123 --name Rese
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
         "hint": "Use id + name to save a document as a root-level template through SiYuan’s docSaveAsTemplate API. Slashes are rejected; pass overwrite=true to replace an existing root template.",
@@ -4537,6 +4796,97 @@ siyuan-sisyphus file save-doc-as-template --id 20240318112233-abc123 --name Rese
         "requiresConfirmation": false,
         "shapes": [
           "id + name",
+        ],
+        "tool": "file",
+        "writeSafety": {
+          "mode": "mutation",
+          "precondition": "state",
+          "preconditionField": "expectedStateHash",
+          "preconditionFlag": "--expected-state-hash",
+          "protocol": "guarded",
+          "requestId": "fresh UUIDv7",
+          "requestIdFlag": "--request-id",
+          "validateOnly": true,
+          "validateOnlyFlag": "--validate-only",
+          "validateOnlySteps": [
+            "Call the action with validateOnly=true and the complete business arguments; nothing is written.",
+            "Copy the returned expectedStateHash credential without changing any business argument.",
+            "Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+          ],
+        },
+      },
+      "scan_project_manifest": {
+        "action": "scan_project_manifest",
+        "cliExamples": [
+          "siyuan-sisyphus file scan-project-manifest --project-id <projectId> --validate-only",
+          "siyuan-sisyphus file scan-project-manifest --project-id <projectId> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+        ],
+        "cliFlags": {
+          "optional": [
+            "--max-entries",
+            "--max-hash-bytes",
+            "--max-total-hash-bytes",
+          ],
+          "protocol": [
+            "--validate-only",
+            "--request-id",
+            "--expected-state-hash",
+          ],
+          "required": [
+            "--project-id",
+          ],
+        },
+        "example": {
+          "action": "scan_project_manifest",
+          "projectId": "<projectId>",
+        },
+        "examples": [
+          {
+            "mcp": {
+              "action": "scan_project_manifest",
+              "maxEntries": 20000,
+              "projectId": "water-paper",
+            },
+            "title": "生成受限的 A/B/C 项目清单",
+          },
+          {
+            "description": "siyuan-sisyphus file scan-project-manifest --project-id <projectId> --validate-only
+siyuan-sisyphus file scan-project-manifest --project-id <projectId> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+            "mcp": {
+              "action": "scan_project_manifest",
+              "projectId": "<projectId>",
+            },
+            "title": "Canonical CLI",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/file/scan_project_manifest",
+        "guidance": [
+          "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
+          "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
+          "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
+          "Use file(action="list_templates") before rendering when you need to discover valid workspace template paths under data/templates.",
+          "file(action="read_template") reads Markdown template source through SiYuan’s authenticated /templates/ route; it does not expose arbitrary workspace files.",
+          "file(action="create_template"|"update_template") writes Markdown templates through SiYuan’s /api/file/putFile workspace API; it does not write data/templates through the local filesystem.",
+          "file(action="delete_template") removes an existing Markdown template resolved from SiYuan’s template picker and requires explicit user confirmation before execution.",
+          "file(action="save_doc_as_template") saves an existing document as a root-level template after read-permission checks; use create_template when you need a nested template path.",
+          "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
+          "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
+          "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
+          "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+        ],
+        "hint": "扫描已登记项目，生成 A/B/C 分层清单。A 层为 coreFiles 并在单文件与总读取量上限内计算 SHA-256；B 层只保存路径、类型、大小和时间；C 层记录依赖缓存、构建产物、自定义排除项、符号链接或特殊文件。操作不返回文件内容，需要确认，并受 maxEntries/maxHashBytes/maxTotalHashBytes 限制。",
+        "requiredFields": [
+          "projectId",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "projectId",
         ],
         "tool": "file",
         "writeSafety": {
@@ -4617,6 +4967,10 @@ siyuan-sisyphus file update-template --path /20240318112233-abc123.sy --markdown
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
         "hint": "Use path + markdown to replace an existing Markdown template. The template must resolve through list_templates first; otherwise MCP returns template_not_found.",
@@ -4714,6 +5068,10 @@ siyuan-sisyphus file upload-asset --assets-dir-path /assets/ --local-file-path <
           "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
           "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
           "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedSourceHash credential without changing any business argument. Execute once with expectedSourceHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
         "hint": "Use assetsDirPath + localFilePath to read a local file and upload it into SiYuan assets. The file alias is accepted for localFilePath, and omitted assetsDirPath uses /assets/. This action reads the local filesystem and requires explicit user confirmation. Files larger than the configured large-upload threshold (10 MB by default) must be stopped, confirmed by the user, and retried with confirmLargeFile=true.",
@@ -4746,12 +5104,16 @@ siyuan-sisyphus file upload-asset --assets-dir-path /assets/ --local-file-path <
     },
     "description": "📁 Grouped file and asset operations. Use the "action" field to select the operation.
 
-Common actions: upload_asset, list_templates, read_template, create_template, update_template, save_doc_as_template, export_md, get_doc_assets, extract_doc. Required fields: upload_asset: assetsDirPath, localFilePath; list_templates: no additional fields; read_template: path; create_template: path, markdown; update_template: path, markdown; save_doc_as_template: id, name; export_md: id; get_doc_assets: id; extract_doc: id.
+Common actions: upload_asset, resolve_project_source, list_project_sources, list_templates, read_template, create_template, update_template, save_doc_as_template, export_md, get_doc_assets, extract_doc. Required fields: upload_asset: assetsDirPath, localFilePath; resolve_project_source: projectId, relativePath; list_project_sources: no additional fields; list_templates: no additional fields; read_template: path; create_template: path, markdown; update_template: path, markdown; save_doc_as_template: id, name; export_md: id; get_doc_assets: id; extract_doc: id.
 
-Additional actions: delete_template, render, export_resources, list_unused_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset. Read siyuan://help/action/file/{action} for details, or call action="help" if resources are unavailable.
+Additional actions: register_project_source, scan_project_manifest, delete_template, render, export_resources, list_unused_assets, get_image_ocr_text, remove_unused_assets, rename_asset, delete_asset. Read siyuan://help/action/file/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 file.upload_asset: required [assetsDirPath, localFilePath] | optional [confirmLargeFile]
+file.register_project_source: required [projectId, workspaceRoot, sourceKind] | optional [hubBlockId, manifestBlockId, repository, coverage, access, coreFiles, includePaths, exclusions]
+file.scan_project_manifest: required [projectId] | optional [maxEntries, maxHashBytes, maxTotalHashBytes]
+file.resolve_project_source: required [projectId, relativePath] | optional []
+file.list_project_sources: required [] | optional [query, status, page, pageSize]
 file.list_templates: required [] | optional [query, page, pageSize]
 file.read_template: required [path] | optional [offset, limit]
 file.create_template: required [path, markdown] | optional [overwrite]
@@ -4769,7 +5131,7 @@ file.rename_asset: required [oldPath, newName] | optional []
 file.delete_asset: required [path] | optional []
 file.extract_doc: required [id] | optional [outputDir]
 
-file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution. If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true. Requires user confirmation before: upload_asset, delete_template, remove_unused_assets, delete_asset.",
+file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution. If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true. Requires user confirmation before: upload_asset, register_project_source, scan_project_manifest, resolve_project_source, delete_template, remove_unused_assets, delete_asset.",
     "overview": {
       "actionSummaries": {
         "create_template": "Use path + markdown to create a Markdown template under data/templates. overwrite=false by default returns template_exists when the path already exists; pass overwrite=true to replace it.",
@@ -4780,13 +5142,17 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "extract_doc": "Use a document ID + optional outputDir. Exports the document markdown and all referenced assets into an uncompressed folder, preserving original filenames. If outputDir is omitted, the default output root is ~/siyuan-extracted/; pass outputDir explicitly for a predictable path such as /private/tmp. Clears the entire output root directory first to prevent accumulation from previous exports. The returned extractedDir is an absolute path ready for direct file access.",
         "get_doc_assets": "Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full document content and assets, guide them to file(action="extract_doc") instead. Use assetType="image" to return only direct image assets.",
         "get_image_ocr_text": "Use an asset path to read stored OCR text. If path is omitted, SiYuan returns an empty text payload.",
+        "list_project_sources": "分页列出项目身份、当前主机绑定状态和清单摘要。默认且经 MCP 契约固定不返回 workspaceRoot；需要实际路径时，对单个相对路径调用 resolve_project_source。",
         "list_templates": "Searches SiYuan data/templates via the kernel template picker endpoint. Empty query lists all visible Markdown templates. Results include readArgs and renderArgsTemplate for reuse.",
         "list_unused_assets": "no extra fields",
         "read_template": "Use a path from list_templates, /data/templates/..., /templates/..., or a path relative to data/templates. Reads only Markdown template source and supports offset/limit pagination.",
+        "register_project_source": "登记可移植 projectId 与当前主机绝对 workspaceRoot 的绑定。Git 项目校验仓库根与提交；directory 项目只登记目录身份。coreFiles 必须由用户或项目契约显式指定，不得用启发式规则代替。此操作写入插件私有登记表并需要确认。",
         "remove_unused_assets": "no extra fields",
         "rename_asset": "requires: oldPath, newName",
         "render": "Use engine="template" with id + path for a workspace template; that engine uses .action{...} delimiters and exposes limited document fields such as id/title/name/alias. Set preview=true for SiYuan preview DOM. Use engine="sprig" with inline template for {{...}} syntax; Sprig has functions but no document context.",
+        "resolve_project_source": "使用 projectId + relativePath 解析当前主机路径，拒绝绝对路径、父目录穿越和逃逸工作目录的符号链接。只返回存在性、绑定/版本/清单状态与绝对路径，不读取内容；路径披露需要确认。",
         "save_doc_as_template": "Use id + name to save a document as a root-level template through SiYuan’s docSaveAsTemplate API. Slashes are rejected; pass overwrite=true to replace an existing root template.",
+        "scan_project_manifest": "扫描已登记项目，生成 A/B/C 分层清单。A 层为 coreFiles 并在单文件与总读取量上限内计算 SHA-256；B 层只保存路径、类型、大小和时间；C 层记录依赖缓存、构建产物、自定义排除项、符号链接或特殊文件。操作不返回文件内容，需要确认，并受 maxEntries/maxHashBytes/maxTotalHashBytes 限制。",
         "update_template": "Use path + markdown to replace an existing Markdown template. The template must resolve through list_templates first; otherwise MCP returns template_not_found.",
         "upload_asset": "Use assetsDirPath + localFilePath to read a local file and upload it into SiYuan assets. The file alias is accepted for localFilePath, and omitted assetsDirPath uses /assets/. This action reads the local filesystem and requires explicit user confirmation. Files larger than the configured large-upload threshold (10 MB by default) must be stopped, confirmed by the user, and retried with confirmLargeFile=true.",
       },
@@ -4821,6 +5187,10 @@ file(action="upload_asset") reads a local file path and uploads that file into S
           "hint": "Use an asset path to read stored OCR text. If path is omitted, SiYuan returns an empty text payload.",
           "requiresConfirmation": false,
         },
+        "list_project_sources": {
+          "hint": "分页列出项目身份、当前主机绑定状态和清单摘要。默认且经 MCP 契约固定不返回 workspaceRoot；需要实际路径时，对单个相对路径调用 resolve_project_source。",
+          "requiresConfirmation": false,
+        },
         "list_templates": {
           "hint": "Searches SiYuan data/templates via the kernel template picker endpoint. Empty query lists all visible Markdown templates. Results include readArgs and renderArgsTemplate for reuse.",
           "requiresConfirmation": false,
@@ -4832,6 +5202,10 @@ file(action="upload_asset") reads a local file path and uploads that file into S
           "hint": "Use a path from list_templates, /data/templates/..., /templates/..., or a path relative to data/templates. Reads only Markdown template source and supports offset/limit pagination.",
           "requiresConfirmation": false,
         },
+        "register_project_source": {
+          "hint": "登记可移植 projectId 与当前主机绝对 workspaceRoot 的绑定。Git 项目校验仓库根与提交；directory 项目只登记目录身份。coreFiles 必须由用户或项目契约显式指定，不得用启发式规则代替。此操作写入插件私有登记表并需要确认。",
+          "requiresConfirmation": true,
+        },
         "remove_unused_assets": {
           "requiresConfirmation": true,
         },
@@ -4842,9 +5216,17 @@ file(action="upload_asset") reads a local file path and uploads that file into S
           "hint": "Use engine="template" with id + path for a workspace template; that engine uses .action{...} delimiters and exposes limited document fields such as id/title/name/alias. Set preview=true for SiYuan preview DOM. Use engine="sprig" with inline template for {{...}} syntax; Sprig has functions but no document context.",
           "requiresConfirmation": false,
         },
+        "resolve_project_source": {
+          "hint": "使用 projectId + relativePath 解析当前主机路径，拒绝绝对路径、父目录穿越和逃逸工作目录的符号链接。只返回存在性、绑定/版本/清单状态与绝对路径，不读取内容；路径披露需要确认。",
+          "requiresConfirmation": true,
+        },
         "save_doc_as_template": {
           "hint": "Use id + name to save a document as a root-level template through SiYuan’s docSaveAsTemplate API. Slashes are rejected; pass overwrite=true to replace an existing root template.",
           "requiresConfirmation": false,
+        },
+        "scan_project_manifest": {
+          "hint": "扫描已登记项目，生成 A/B/C 分层清单。A 层为 coreFiles 并在单文件与总读取量上限内计算 SHA-256；B 层只保存路径、类型、大小和时间；C 层记录依赖缓存、构建产物、自定义排除项、符号链接或特殊文件。操作不返回文件内容，需要确认，并受 maxEntries/maxHashBytes/maxTotalHashBytes 限制。",
+          "requiresConfirmation": true,
         },
         "update_template": {
           "hint": "Use path + markdown to replace an existing Markdown template. The template must resolve through list_templates first; otherwise MCP returns template_not_found.",
@@ -4856,6 +5238,8 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         },
       },
       "advancedActions": [
+        "register_project_source",
+        "scan_project_manifest",
         "delete_template",
         "render",
         "export_resources",
@@ -4867,6 +5251,8 @@ file(action="upload_asset") reads a local file path and uploads that file into S
       ],
       "commonActions": [
         "upload_asset",
+        "resolve_project_source",
+        "list_project_sources",
         "list_templates",
         "read_template",
         "create_template",
@@ -4891,6 +5277,10 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
         "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
         "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+        "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+        "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+        "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+        "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
       ],
       "helpResources": [
         "siyuan://help/action/file/{action}",
@@ -4900,6 +5290,9 @@ file(action="upload_asset") reads a local file path and uploads that file into S
       ],
       "requiresConfirmation": [
         "upload_asset",
+        "register_project_source",
+        "scan_project_manifest",
+        "resolve_project_source",
         "delete_template",
         "remove_unused_assets",
         "delete_asset",

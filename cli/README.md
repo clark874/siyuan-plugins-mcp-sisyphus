@@ -6,7 +6,7 @@
 
 Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (fs, block, document, notebook, av, search, tag, file, timeline, system, flashcard, extension, mascot, feedback) is exposed as a subcommand you can call directly from a shell.
 
-> **LLM Wiki release:** `v0.4.0-wiki.1` adds `doctor`, Node.js 20+ startup validation, strict unknown-flag rejection, canonical JSON sidecars, complete write-protocol help, and AV semantic readback.
+> **LLM Wiki release:** `v0.4.1-wiki.1` adds project-source registration, bounded A/B/C manifests, host-binding diagnostics, and controlled path resolution without reading arbitrary project-file content.
 
 > **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, timeline, and system workflows.
 

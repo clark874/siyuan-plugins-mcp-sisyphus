@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前版本为 `v0.9.0-wiki.1`（CLI `v0.4.0-wiki.1`），新增可验证冷启动诊断、严格 CLI 参数契约、完整严格写入帮助和 AV 语义回读。
+> **LLM Wiki 分支：** 当前版本为 `v0.9.1-wiki.1`（CLI `v0.4.1-wiki.1`），新增项目知识与本机源文件目录的可移植登记、分层清单和受控路径解析。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.9.0-wiki.1` — 通过真实 MCP initialize、tools/list 与 bootstrap 验证连接；CLI 参数错误在调用前失败；AV 单元格与行写入区分已验证结果和待核验状态。CLI `v0.4.0-wiki.1` 要求 Node.js 20+。
+> **当前 LLM Wiki 版本：**`v0.9.1-wiki.1` — `file` 新增项目源登记、A/B/C 分层清单、绑定状态诊断和单路径解析；本版不读取任意项目文件内容，也不把目录加入 Agent 工作区。CLI `v0.4.1-wiki.1` 要求 Node.js 20+。
 
 ## 项目方向调整
 

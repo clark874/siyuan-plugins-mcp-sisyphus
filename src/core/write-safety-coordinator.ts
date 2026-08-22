@@ -646,6 +646,11 @@ async function appendFileState(
     args: Record<string, unknown>,
     state: Record<string, unknown>,
 ): Promise<void> {
+    if ((action === 'register_project_source' || action === 'scan_project_manifest') && typeof args.projectId === 'string') {
+        const { readProjectSourceState } = await import('./project-sources');
+        state.projectSource = await readProjectSourceState(client, args.projectId);
+        return;
+    }
     const templateActions = new Set(['create_template', 'update_template', 'delete_template']);
     if (templateActions.has(action) && typeof args.path === 'string') {
         try {
@@ -955,7 +960,7 @@ function collectNotebookBoxes(value: unknown, boxes: Set<string>): void {
 function collectTargetSelectors(args: Record<string, unknown>): string[] {
     const values = new Set<string>();
     for (const [key, value] of Object.entries(args)) {
-        if (!/(?:^id$|^ids$|ID$|IDs$|^notebook$|^path$|^from$|^to$|^oldPath$|^tag$|^label$|^oldLabel$)/.test(key)) continue;
+        if (!/(?:^id$|^ids$|ID$|IDs$|^projectId$|^notebook$|^path$|^from$|^to$|^oldPath$|^tag$|^label$|^oldLabel$)/.test(key)) continue;
         if (typeof value === 'string' && value.trim()) values.add(value.trim());
         if (Array.isArray(value)) {
             for (const item of value) if (typeof item === 'string' && item.trim()) values.add(item.trim());

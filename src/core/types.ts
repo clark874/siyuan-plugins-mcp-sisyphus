@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FEEDBACK_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS, TIMELINE_ACTIONS } from "./config";
 import type { NotebookConf } from "../types/shared";
+import { PROJECT_SOURCE_ACCESSES, PROJECT_SOURCE_COVERAGES, PROJECT_SOURCE_KINDS, PROJECT_SOURCE_ROLES, PROJECT_SOURCE_STATUSES } from "./project-source-contract";
 
 const NotebookConfSchema: z.ZodType<Partial<NotebookConf>> = z.object({
     name: z.string().optional(),
@@ -938,6 +939,53 @@ export const FileUploadAssetSchema = z.object({
     assetsDirPath: z.string().describe("Asset directory path (e.g., /assets/)"),
     localFilePath: z.string().describe("Local file path to read and upload into the assets directory"),
     confirmLargeFile: z.boolean().optional().describe("Set to true only after the user explicitly confirms uploading a file larger than the configured safety threshold."),
+});
+
+const ProjectCoreFileSchema = z.object({
+    relativePath: z.string().min(1).describe("Project-relative core file path. Absolute paths and parent traversal are rejected."),
+    role: z.enum(PROJECT_SOURCE_ROLES).describe("Core file role: source, data, output, manuscript, evidence, or config."),
+});
+
+const ProjectExclusionRuleSchema = z.object({
+    relativePath: z.string().min(1).describe("Project-relative file or directory prefix to exclude from the manifest."),
+    reason: z.string().min(1).max(200).describe("Human-readable reason for excluding this path prefix."),
+});
+
+export const FileRegisterProjectSourceSchema = z.object({
+    action: z.literal("register_project_source"),
+    projectId: z.string().min(3).max(128).describe("Stable portable project identifier. Use the same value across machines."),
+    workspaceRoot: z.string().min(1).describe("Absolute local project root. It is stored only in the plugin-controlled host binding."),
+    sourceKind: z.enum(PROJECT_SOURCE_KINDS).describe("Source identity kind: git or directory."),
+    hubBlockId: z.string().regex(/^\d{14}-[a-z0-9]{7}$/).optional().describe("Stable SiYuan block ID of the project knowledge hub."),
+    manifestBlockId: z.string().regex(/^\d{14}-[a-z0-9]{7}$/).optional().describe("Stable SiYuan block ID of the source-manifest note or summary."),
+    repository: z.string().min(1).optional().describe("Portable repository identity. Git registrations verify it against remote.origin.url when both are available."),
+    coverage: z.enum(PROJECT_SOURCE_COVERAGES).optional().describe("Manifest coverage: tracked, complete, curated, or partial. Defaults to tracked for Git and complete for directories."),
+    access: z.enum(PROJECT_SOURCE_ACCESSES).optional().describe("Declared host binding access. 0.9.1 still exposes no project-source content write action."),
+    coreFiles: z.array(ProjectCoreFileSchema).max(1000).optional().describe("Explicit A-tier core files and roles. The scanner does not infer research importance from filenames."),
+    includePaths: z.array(z.string().min(1)).max(1000).optional().describe("Explicit project-relative roots for curated or partial coverage."),
+    exclusions: z.array(ProjectExclusionRuleSchema).max(1000).optional().describe("Additional project-relative exclusions with reasons. Built-in cache and generated directories are excluded separately."),
+});
+
+export const FileScanProjectManifestSchema = z.object({
+    action: z.literal("scan_project_manifest"),
+    projectId: z.string().min(3).max(128).describe("Registered project identifier."),
+    maxEntries: z.number().int().min(1).max(50000).optional().describe("Fail-closed manifest entry ceiling, default 20000."),
+    maxHashBytes: z.number().int().min(1).max(536870912).optional().describe("Maximum size hashed for each A-tier core file, default 64 MiB. Larger files remain listed with hashStatus=skipped_too_large."),
+    maxTotalHashBytes: z.number().int().min(1).max(2147483648).optional().describe("Total A-tier hash-read budget, default 512 MiB. Later files remain listed with hashStatus=skipped_total_budget."),
+});
+
+export const FileResolveProjectSourceSchema = z.object({
+    action: z.literal("resolve_project_source"),
+    projectId: z.string().min(3).max(128).describe("Registered project identifier."),
+    relativePath: z.string().min(1).describe("Project-relative path to resolve without reading file content."),
+});
+
+export const FileListProjectSourcesSchema = z.object({
+    action: z.literal("list_project_sources"),
+    query: z.string().optional().describe("Optional project ID, repository, or hub/manifest block ID filter."),
+    status: z.enum(PROJECT_SOURCE_STATUSES).optional().describe("Optional current-host binding status filter."),
+    page: z.number().int().min(1).optional().describe("Page number, default 1."),
+    pageSize: z.number().int().min(1).max(100).optional().describe("Projects per page, default 20."),
 });
 
 export const FileListTemplatesSchema = z.object({

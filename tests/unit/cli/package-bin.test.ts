@@ -8,7 +8,7 @@ describe('CLI package bin aliases', () => {
         const raw = readFileSync(join(process.cwd(), 'cli', 'package.json'), 'utf8');
         const pkg = JSON.parse(raw) as { version: string; bin: Record<string, string>; engines: { node: string } };
 
-        expect(pkg.version).toBe('0.4.0-wiki.1');
+        expect(pkg.version).toBe('0.4.1-wiki.1');
         expect(pkg.bin).toEqual({
             'siyuan-sisyphus': 'dist/cli.cjs',
             sisyphus: 'dist/cli.cjs',
@@ -26,5 +26,13 @@ describe('CLI package bin aliases', () => {
         expect(cliBannerIndex).toBeGreaterThan(bannerIndex);
         expect(config).toContain('process.versions.node');
         expect(config).toContain('requires Node.js 20 or newer');
+    });
+
+    it('keeps project-source Node dependencies external in server and CLI bundles', () => {
+        const config = readFileSync(join(process.cwd(), 'vite.config.ts'), 'utf8');
+
+        for (const dependency of ['node:child_process', 'node:crypto', 'node:fs', 'node:os', 'node:path', 'node:util']) {
+            expect(config).toContain(`"${dependency}"`);
+        }
     });
 });

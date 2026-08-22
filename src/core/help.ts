@@ -97,6 +97,10 @@ export const FILE_GUIDANCE: string[] = [
     'file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.',
     'file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.',
     'file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.',
+    '项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。',
+    'file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。',
+    'file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。',
+    'file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。',
 ];
 
 export const TAG_GUIDANCE: string[] = [
@@ -252,6 +256,10 @@ export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
     get_doc_assets: 'Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full document content and assets, guide them to file(action="extract_doc") instead. Use assetType="image" to return only direct image assets.',
     get_image_ocr_text: 'Use an asset path to read stored OCR text. If path is omitted, SiYuan returns an empty text payload.',
     extract_doc: 'Use a document ID + optional outputDir. Exports the document markdown and all referenced assets into an uncompressed folder, preserving original filenames. If outputDir is omitted, the default output root is ~/siyuan-extracted/; pass outputDir explicitly for a predictable path such as /private/tmp. Clears the entire output root directory first to prevent accumulation from previous exports. The returned extractedDir is an absolute path ready for direct file access.',
+    register_project_source: '登记可移植 projectId 与当前主机绝对 workspaceRoot 的绑定。Git 项目校验仓库根与提交；directory 项目只登记目录身份。coreFiles 必须由用户或项目契约显式指定，不得用启发式规则代替。此操作写入插件私有登记表并需要确认。',
+    scan_project_manifest: '扫描已登记项目，生成 A/B/C 分层清单。A 层为 coreFiles 并在单文件与总读取量上限内计算 SHA-256；B 层只保存路径、类型、大小和时间；C 层记录依赖缓存、构建产物、自定义排除项、符号链接或特殊文件。操作不返回文件内容，需要确认，并受 maxEntries/maxHashBytes/maxTotalHashBytes 限制。',
+    resolve_project_source: '使用 projectId + relativePath 解析当前主机路径，拒绝绝对路径、父目录穿越和逃逸工作目录的符号链接。只返回存在性、绑定/版本/清单状态与绝对路径，不读取内容；路径披露需要确认。',
+    list_project_sources: '分页列出项目身份、当前主机绑定状态和清单摘要。默认且经 MCP 契约固定不返回 workspaceRoot；需要实际路径时，对单个相对路径调用 resolve_project_source。',
 };
 
 export const SEARCH_GUIDANCE: string[] = [
@@ -547,6 +555,44 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
                     action: 'extract_doc',
                     id: '20240318112233-abc123',
                     outputDir: '/private/tmp/siyuan-extracted',
+                },
+            },
+        ],
+        register_project_source: [
+            {
+                title: '登记 Git 项目源与显式核心文件',
+                description: 'workspaceRoot 只保存在当前主机绑定中；思源项目中枢使用稳定块 ID 关联。',
+                mcp: {
+                    action: 'register_project_source',
+                    projectId: 'water-paper',
+                    workspaceRoot: '/absolute/path/to/project',
+                    sourceKind: 'git',
+                    coverage: 'tracked',
+                    hubBlockId: '20260822100000-abc1234',
+                    coreFiles: [
+                        { relativePath: 'README.md', role: 'source' },
+                        { relativePath: 'manuscript/main.docx', role: 'manuscript' },
+                    ],
+                },
+            },
+        ],
+        scan_project_manifest: [
+            {
+                title: '生成受限的 A/B/C 项目清单',
+                mcp: {
+                    action: 'scan_project_manifest',
+                    projectId: 'water-paper',
+                    maxEntries: 20000,
+                },
+            },
+        ],
+        resolve_project_source: [
+            {
+                title: '解析一个项目相对路径但不读取内容',
+                mcp: {
+                    action: 'resolve_project_source',
+                    projectId: 'water-paper',
+                    relativePath: 'manuscript/main.docx',
                 },
             },
         ],

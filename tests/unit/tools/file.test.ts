@@ -126,6 +126,10 @@ describe('file tool asset actions', () => {
         expect(actionDescription).toContain('remove_unused_assets');
         expect(actionDescription).toContain('rename_asset');
         expect(actionDescription).toContain('delete_asset');
+        expect(actionDescription).toContain('register_project_source');
+        expect(actionDescription).toContain('scan_project_manifest');
+        expect(actionDescription).toContain('resolve_project_source');
+        expect(actionDescription).toContain('list_project_sources');
     });
 
     it('lists templates with reusable read and render arguments', async () => {

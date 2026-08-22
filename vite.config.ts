@@ -55,11 +55,13 @@ const serverExternals = [
     "node:zlib",
     "querystring",
     "node:querystring",
+    "os",
+    "node:os",
+    "util",
+    "node:util",
 ];
 
 const cliExtraExternals = [
-    "os",
-    "node:os",
     "readline",
     "node:readline",
 ];
