@@ -146,6 +146,9 @@ describe('portable agent kit', () => {
         const temporaryHome = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-agent-kit-check-'));
         const configPath = path.join(temporaryHome, '.kimi-code/mcp.json');
         const token = 'd'.repeat(64);
+        const failingFetchModule = `data:text/javascript,${encodeURIComponent(
+            "globalThis.fetch = async () => { throw new TypeError('fetch failed'); };",
+        )}`;
         mkdirSync(path.dirname(configPath), { recursive: true });
         writeFileSync(configPath, JSON.stringify({
             mcpServers: {
@@ -158,6 +161,7 @@ describe('portable agent kit', () => {
         }));
 
         const result = spawnSync(process.execPath, [
+            '--import', failingFetchModule,
             path.join(root, 'agent-kit/scripts/check-sisyphus.mjs'),
             '--client', 'kimi',
             '--home', temporaryHome,
