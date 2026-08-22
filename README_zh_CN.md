@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前版本为 `v0.9.1-wiki.1`（CLI `v0.4.1-wiki.1`），新增项目知识与本机源文件目录的可移植登记、分层清单和受控路径解析。
+> **LLM Wiki 分支：** 当前版本为 `v0.9.2-wiki.1`（CLI `v0.4.2-wiki.1`），在项目源登记与绑定模型上新增清单内文本文件的有界、脱敏读取。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.9.1-wiki.1` — `file` 新增项目源登记、A/B/C 分层清单、绑定状态诊断和单路径解析；本版不读取任意项目文件内容，也不把目录加入 Agent 工作区。CLI `v0.4.1-wiki.1` 要求 Node.js 20+。
+> **当前 LLM Wiki 版本：**`v0.9.2-wiki.1` — `file.read_project_source` 仅允许读取当前登记清单内的安全 UTF-8 文本，并执行根目录约束、返回前脱敏、1 MiB 单文件上限与有界分页。二进制、敏感、超限、未列入清单或绑定陈旧的文件只返回状态，不返回内容，也不把目录加入 Agent 工作区。CLI `v0.4.2-wiki.1` 要求 Node.js 20+。
 
 ## 项目方向调整
 

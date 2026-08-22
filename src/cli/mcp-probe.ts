@@ -95,7 +95,7 @@ function validateBootstrap(value: unknown): { issue?: DiagnosticCode; schemaVers
 }
 
 function defaultCreateSession(options: McpProbeOptions): McpProbeSession {
-    const client = new Client({ name: 'siyuan-sisyphus-doctor', version: '0.9.1' });
+    const client = new Client({ name: 'siyuan-sisyphus-doctor', version: '0.9.2' });
     const headers: Record<string, string> = {};
     if (options.token) headers.Authorization = `Bearer ${options.token}`;
     const transport = new StreamableHTTPClientTransport(new URL(options.url), {

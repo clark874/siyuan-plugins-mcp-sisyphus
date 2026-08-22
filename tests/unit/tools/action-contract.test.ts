@@ -310,6 +310,7 @@ describe('tool action contract coverage', () => {
             { action: 'register_project_source', args: { action: 'register_project_source', projectId: 'contract-project', workspaceRoot: process.cwd(), sourceKind: 'git', coverage: 'tracked' } },
             { action: 'scan_project_manifest', args: { action: 'scan_project_manifest', projectId: 'missing-project' }, expectedError: true },
             { action: 'resolve_project_source', args: { action: 'resolve_project_source', projectId: 'missing-project', relativePath: 'README.md' }, expectedError: true },
+            { action: 'read_project_source', args: { action: 'read_project_source', projectId: 'missing-project', relativePath: 'README.md' }, expectedError: true },
             { action: 'list_project_sources', args: { action: 'list_project_sources', page: 1, pageSize: 20 } },
             { action: 'list_templates', args: { action: 'list_templates', query: 'demo' }, expectedEndpoint: '/api/search/searchTemplate' },
             { action: 'read_template', args: { action: 'read_template', path: 'demo.md' }, expectedEndpoint: '/templates/demo.md' },

@@ -19,6 +19,7 @@ import {
     FileListTemplatesSchema,
     FileListUnusedAssetsSchema,
     FileReadTemplateSchema,
+    FileReadProjectSourceSchema,
     FileRegisterProjectSourceSchema,
     FileResolveProjectSourceSchema,
     FileRemoveUnusedAssetsSchema,
@@ -213,6 +214,12 @@ const handleResolveProjectSource: ToolActionHandler = async ({ client, rawArgs }
     const parsed = FileResolveProjectSourceSchema.parse(rawArgs);
     const { resolveProjectSource } = await import('../../core/project-sources');
     return createJsonResult(await resolveProjectSource(client, parsed));
+};
+
+const handleReadProjectSource: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileReadProjectSourceSchema.parse(rawArgs);
+    const { readProjectSource } = await import('../../core/project-sources');
+    return createJsonResult(await readProjectSource(client, parsed));
 };
 
 const handleListProjectSources: ToolActionHandler = async ({ client, rawArgs }) => {
@@ -579,6 +586,7 @@ export function createFileActionHandlers(thresholdMB: number, largeUploadThresho
         register_project_source: handleRegisterProjectSource,
         scan_project_manifest: handleScanProjectManifest,
         resolve_project_source: handleResolveProjectSource,
+        read_project_source: handleReadProjectSource,
         list_project_sources: handleListProjectSources,
         list_templates: handleListTemplates,
         read_template: handleReadTemplate,

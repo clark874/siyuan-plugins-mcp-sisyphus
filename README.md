@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki branch:** `v0.9.1-wiki.1` with CLI `v0.4.1-wiki.1` adds portable project-source registration, tiered manifests, binding diagnostics, and controlled path resolution.
+> **LLM Wiki branch:** `v0.9.2-wiki.1` with CLI `v0.4.2-wiki.1` adds bounded, redacted reading of manifest-listed project text files while preserving the project-source registration and binding model.
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Current LLM Wiki release:** `v0.9.1-wiki.1` — the `file` tool can register project sources, build bounded A/B/C manifests, diagnose host bindings, and resolve one relative path. This release does not read arbitrary project-file content or add directories to an agent workspace. CLI `v0.4.1-wiki.1` requires Node.js 20+.
+> **Current LLM Wiki release:** `v0.9.2-wiki.1` — `file.read_project_source` can read only safe UTF-8 text already listed in the current registered manifest, with root-containment checks, redaction, a 1 MiB file ceiling, and bounded pagination. Binary, sensitive, oversized, unlisted, or stale-bound files return status without content; no directory is added to an agent workspace. CLI `v0.4.2-wiki.1` requires Node.js 20+.
 
 ## Project Direction Update
 

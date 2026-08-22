@@ -980,6 +980,14 @@ export const FileResolveProjectSourceSchema = z.object({
     relativePath: z.string().min(1).describe("Project-relative path to resolve without reading file content."),
 });
 
+export const FileReadProjectSourceSchema = z.object({
+    action: z.literal("read_project_source"),
+    projectId: z.string().min(3).max(128).describe("Registered project identifier."),
+    relativePath: z.string().min(1).describe("Exact project-relative path already listed in the current manifest."),
+    offset: z.number().int().min(0).optional().describe("UTF-16 character offset after secret redaction, default 0."),
+    limit: z.number().int().min(1).max(20000).optional().describe("Maximum redacted text characters returned, default 8000 and hard maximum 20000."),
+});
+
 export const FileListProjectSourcesSchema = z.object({
     action: z.literal("list_project_sources"),
     query: z.string().optional().describe("Optional project ID, repository, or hub/manifest block ID filter."),

@@ -6,6 +6,7 @@ import path from 'node:path';
 import util from 'node:util';
 
 import type { SiYuanClient } from '../api/client';
+import { redactText } from '../control-plane/security';
 import {
     PROJECT_SOURCE_ACCESSES,
     PROJECT_SOURCE_COVERAGES,
@@ -147,12 +148,38 @@ export interface ListProjectSourcesInput {
     pageSize?: number;
 }
 
+export interface ReadProjectSourceInput {
+    projectId: string;
+    relativePath: string;
+    offset?: number;
+    limit?: number;
+}
+
 const DEFAULT_MAX_ENTRIES = 20_000;
 const MAX_ALLOWED_ENTRIES = 50_000;
 const DEFAULT_MAX_HASH_BYTES = 64 * 1024 * 1024;
 const MAX_ALLOWED_HASH_BYTES = 512 * 1024 * 1024;
 const DEFAULT_MAX_TOTAL_HASH_BYTES = 512 * 1024 * 1024;
 const MAX_ALLOWED_TOTAL_HASH_BYTES = 2 * 1024 * 1024 * 1024;
+const MAX_PROJECT_TEXT_BYTES = 1024 * 1024;
+const MAX_PROJECT_METADATA_HASH_BYTES = 64 * 1024 * 1024;
+const DEFAULT_PROJECT_TEXT_CHARS = 8_000;
+const MAX_PROJECT_TEXT_CHARS = 20_000;
+
+const PROJECT_TEXT_EXTENSIONS = new Set([
+    '.bash', '.bat', '.c', '.cc', '.cfg', '.cmd', '.conf', '.config', '.cpp', '.cs', '.css', '.csv',
+    '.do', '.fish', '.go', '.gradle', '.h', '.hpp', '.htm', '.html', '.ini', '.java', '.js', '.json',
+    '.json5', '.jsonl', '.jsx', '.kt', '.kts', '.less', '.m', '.markdown', '.md', '.mdx', '.mjs',
+    '.php', '.properties', '.ps1', '.py', '.r', '.rb', '.rs', '.sass', '.scala', '.scss', '.sh', '.sql',
+    '.svelte', '.swift', '.tex', '.toml', '.ts', '.tsv', '.tsx', '.txt', '.vue', '.xml', '.yaml', '.yml',
+    '.zsh',
+]);
+const PROJECT_TEXT_BASENAMES = new Set([
+    'agents', 'authors', 'changelog', 'dockerfile', 'gemfile', 'license', 'makefile', 'notice', 'procfile',
+    'rakefile', 'readme', '.babelrc', '.dockerignore', '.editorconfig', '.eslintrc', '.gitattributes',
+    '.gitignore', '.nvmrc', '.prettierignore', '.prettierrc', '.stylelintrc',
+]);
+const SENSITIVE_PROJECT_FILE = /(?:^|[._-])(?:env|credentials?|secrets?|tokens?|cookies?|private[_-]?keys?|id_(?:rsa|dsa|ecdsa|ed25519)|npmrc|pypirc|netrc)(?:$|[._-])/i;
 
 const DEFAULT_EXCLUDED_SEGMENTS: Record<string, string> = {
     '.git': 'version_control_metadata',
@@ -788,6 +815,230 @@ export async function resolveProjectSource(
         withinRoot: true,
         contentRead: false,
         ...(entry ? { entry } : {}),
+    };
+}
+
+function projectSourceReadReason(relativePath: string): 'sensitive_path' | 'binary_file' | undefined {
+    const basename = path.posix.basename(relativePath);
+    if (SENSITIVE_PROJECT_FILE.test(basename)) return 'sensitive_path';
+    const extension = path.posix.extname(basename).toLowerCase();
+    if (extension) return PROJECT_TEXT_EXTENSIONS.has(extension) ? undefined : 'binary_file';
+    return PROJECT_TEXT_BASENAMES.has(basename.toLowerCase()) ? undefined : 'binary_file';
+}
+
+async function hashProjectFileForMetadata(filePath: string, stat: fs.Stats): Promise<{
+    hash?: string;
+    hashSource?: 'current';
+    hashStatus?: 'skipped_too_large';
+}> {
+    if (stat.size > MAX_PROJECT_METADATA_HASH_BYTES) return { hashStatus: 'skipped_too_large' };
+    const hash = await hashFile(filePath);
+    const afterHash = await fs.promises.stat(filePath);
+    if (afterHash.dev !== stat.dev
+        || afterHash.ino !== stat.ino
+        || afterHash.size !== stat.size
+        || afterHash.mtimeMs !== stat.mtimeMs) {
+        throw new Error('Project source changed while hashing metadata.');
+    }
+    return { hash, hashSource: 'current' };
+}
+
+async function verifyProjectPathRevision(
+    record: ProjectSourceRecord,
+    root: string,
+    relativePath: string,
+    projectRevisionVerified: boolean,
+): Promise<boolean> {
+    if (!projectRevisionVerified || record.sourceKind !== 'git') return false;
+    try {
+        return (await runGitRaw(root, [
+            'status', '--porcelain=v1', '--untracked-files=all', '--', relativePath,
+        ])).trim() === '';
+    } catch {
+        return false;
+    }
+}
+
+function validReadWindow(input: ReadProjectSourceInput): { offset: number; limit: number } {
+    const offset = input.offset ?? 0;
+    const limit = input.limit ?? DEFAULT_PROJECT_TEXT_CHARS;
+    if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('offset must be a non-negative integer.');
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_PROJECT_TEXT_CHARS) {
+        throw new Error(`limit must be between 1 and ${MAX_PROJECT_TEXT_CHARS}.`);
+    }
+    return { offset, limit };
+}
+
+export async function readProjectSource(
+    client: SiYuanClient,
+    input: ReadProjectSourceInput,
+    options: ProjectSourceRuntimeOptions = {},
+) {
+    const projectId = normalizeProjectId(input.projectId);
+    const relativePath = normalizeProjectRelativePath(input.relativePath);
+    const { offset, limit } = validReadWindow(input);
+    const hostId = resolveHostId(options);
+    const registry = await readRegistry(client);
+    const record = registry.projects.find((item) => item.projectId === projectId);
+    if (!record) throw new Error(`Project source is not registered: ${projectId}`);
+    const binding = record.bindings[hostId];
+    if (!binding) throw new Error(`Project source has no binding for the current host: ${projectId}`);
+    const entry = record.manifest?.entries.find((item) => item.relativePath === relativePath);
+    const bindingState = await inspectBinding(record, binding);
+    const revisionVerified = bindingState.revisionVerified
+        && Boolean(record.manifest)
+        && bindingState.currentRevision === record.manifest?.revision;
+    const base = {
+        projectId,
+        relativePath,
+        bindingStatus: bindingState.status,
+        currentRevision: bindingState.currentRevision,
+        manifestRevision: record.manifest?.revision,
+        revisionVerified,
+        listed: Boolean(entry),
+        readable: false,
+        contentRead: false,
+        ...(entry ? {
+            entry: {
+                tier: entry.tier,
+                role: entry.role,
+                type: entry.type,
+                size: entry.size,
+                modifiedAt: entry.modifiedAt,
+                sourceRevision: entry.sourceRevision,
+            },
+            ...(entry.hash ? { hash: entry.hash, hashSource: 'manifest' as const } : {}),
+            ...(entry.hashStatus ? { hashStatus: entry.hashStatus } : {}),
+        } : {}),
+    };
+    if (!entry) return { ...base, reason: 'not_listed' as const };
+    if (bindingState.status !== 'available') return { ...base, reason: 'binding_not_available' as const };
+
+    const root = await fs.promises.realpath(binding.workspaceRoot);
+    const candidate = path.join(root, ...relativePath.split('/'));
+    ensureWithinRoot(root, candidate);
+    const nearestReal = await nearestExistingRealPath(candidate);
+    ensureWithinRoot(root, nearestReal);
+    let stat: fs.Stats;
+    try {
+        stat = await fs.promises.lstat(candidate);
+    } catch (error) {
+        if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
+            return { ...base, reason: 'missing' as const };
+        }
+        throw error;
+    }
+    if (stat.isSymbolicLink()) {
+        const real = await fs.promises.realpath(candidate);
+        ensureWithinRoot(root, real);
+        return { ...base, reason: 'symlink_not_readable' as const };
+    }
+    if (!stat.isFile()) return { ...base, reason: 'not_regular_file' as const };
+    const realCandidate = await fs.promises.realpath(candidate);
+    ensureWithinRoot(root, realCandidate);
+    const pathRevisionVerified = await verifyProjectPathRevision(
+        record,
+        root,
+        relativePath,
+        revisionVerified,
+    );
+
+    const metadata = {
+        size: stat.size,
+        modifiedAt: new Date(stat.mtimeMs).toISOString(),
+    };
+    const policyReason = projectSourceReadReason(relativePath);
+    if (policyReason === 'sensitive_path') {
+        return { ...base, ...metadata, revisionVerified: pathRevisionVerified, reason: policyReason };
+    }
+    if (policyReason === 'binary_file') {
+        return {
+            ...base,
+            ...metadata,
+            revisionVerified: pathRevisionVerified,
+            ...await hashProjectFileForMetadata(realCandidate, stat),
+            reason: policyReason,
+        };
+    }
+    if (stat.size > MAX_PROJECT_TEXT_BYTES) {
+        return {
+            ...base,
+            ...metadata,
+            revisionVerified: pathRevisionVerified,
+            ...await hashProjectFileForMetadata(realCandidate, stat),
+            reason: 'file_too_large' as const,
+            maxReadableBytes: MAX_PROJECT_TEXT_BYTES,
+        };
+    }
+
+    const noFollow = typeof fs.constants.O_NOFOLLOW === 'number' ? fs.constants.O_NOFOLLOW : 0;
+    const handle = await fs.promises.open(realCandidate, fs.constants.O_RDONLY | noFollow);
+    let bytes: Buffer;
+    try {
+        const opened = await handle.stat();
+        if (!opened.isFile()) return { ...base, ...metadata, reason: 'not_regular_file' as const };
+        if (opened.dev !== stat.dev
+            || opened.ino !== stat.ino
+            || opened.size !== stat.size
+            || opened.mtimeMs !== stat.mtimeMs) {
+            throw new Error(`Project source changed before reading: ${relativePath}`);
+        }
+        bytes = await handle.readFile();
+        const afterRead = await handle.stat();
+        if (afterRead.dev !== opened.dev
+            || afterRead.ino !== opened.ino
+            || afterRead.size !== opened.size
+            || afterRead.mtimeMs !== opened.mtimeMs) {
+            throw new Error(`Project source changed while reading: ${relativePath}`);
+        }
+        const finalRealCandidate = await fs.promises.realpath(candidate);
+        ensureWithinRoot(root, finalRealCandidate);
+        if (finalRealCandidate !== realCandidate) {
+            throw new Error(`Project source path changed while reading: ${relativePath}`);
+        }
+    } finally {
+        await handle.close();
+    }
+
+    const currentHash = `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+    let decoded: string;
+    try {
+        decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch {
+        return {
+            ...base,
+            ...metadata,
+            revisionVerified: pathRevisionVerified,
+            hash: currentHash,
+            hashSource: 'current' as const,
+            contentHashVerified: Boolean(entry.hash) && entry.hash === currentHash,
+            reason: 'binary_file' as const,
+        };
+    }
+    const redacted = redactText(decoded);
+    const totalChars = redacted.content.length;
+    const content = redacted.content.slice(offset, offset + limit);
+    const nextOffset = offset + content.length;
+    const truncated = nextOffset < totalChars;
+    return {
+        ...base,
+        ...metadata,
+        readable: true,
+        contentRead: true,
+        revisionVerified: pathRevisionVerified && (!entry.hash || entry.hash === currentHash),
+        contentHashVerified: Boolean(entry.hash) && entry.hash === currentHash,
+        hash: currentHash,
+        hashSource: 'current' as const,
+        encoding: 'utf-8' as const,
+        redacted: redacted.redacted,
+        format: redacted.format,
+        offset,
+        limit,
+        returnedChars: content.length,
+        totalChars,
+        truncated,
+        ...(truncated ? { nextOffset } : {}),
+        content,
     };
 }
 

@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
     PROJECT_SOURCE_REGISTRY_PATH,
     listProjectSources,
+    readProjectSource,
     readProjectSourceState,
     registerProjectSource,
     resolveProjectSource,
@@ -238,6 +239,128 @@ describe('project source registry', () => {
         }, { hostId: 'host-test' })).rejects.toThrow(/relativePath/i);
     });
 
+    it('reads one listed UTF-8 text file with bounded character pagination and no absolute path disclosure', async () => {
+        const root = createDirectoryProject();
+        const { client } = createStorageClient();
+        await registerProjectSource(client, {
+            projectId: 'readable-project',
+            workspaceRoot: root,
+            sourceKind: 'directory',
+            coverage: 'complete',
+            coreFiles: [{ relativePath: 'src/index.ts', role: 'source' }],
+        }, { hostId: 'host-test' });
+        await scanProjectManifest(client, { projectId: 'readable-project' }, { hostId: 'host-test' });
+
+        const result = await readProjectSource(client, {
+            projectId: 'readable-project',
+            relativePath: 'src/index.ts',
+            offset: 7,
+            limit: 5,
+        }, { hostId: 'host-test' });
+
+        expect(result).toMatchObject({
+            projectId: 'readable-project',
+            relativePath: 'src/index.ts',
+            bindingStatus: 'available',
+            listed: true,
+            readable: true,
+            contentRead: true,
+            revisionVerified: false,
+            contentHashVerified: true,
+            encoding: 'utf-8',
+            offset: 7,
+            returnedChars: 5,
+            totalChars: 26,
+            truncated: true,
+            nextOffset: 12,
+            content: 'const',
+        });
+        expect(result).not.toHaveProperty('resolvedPath');
+        expect(JSON.stringify(result)).not.toContain(realpathSync(root));
+    });
+
+    it('returns status without content for unlisted, binary, oversized, and sensitive project files', async () => {
+        const root = createDirectoryProject();
+        writeFileSync(path.join(root, 'data/blob.bin'), Buffer.from([0, 1, 2, 3]));
+        writeFileSync(path.join(root, 'data/other.bin'), Buffer.from([4, 5, 6, 7]));
+        writeFileSync(path.join(root, 'large.txt'), 'x'.repeat(1024 * 1024 + 1));
+        writeFileSync(path.join(root, '.env'), 'TOKEN=do-not-return-this-value\n');
+        const { client } = createStorageClient();
+        await registerProjectSource(client, {
+            projectId: 'bounded-read-project',
+            workspaceRoot: root,
+            sourceKind: 'directory',
+            coverage: 'complete',
+            coreFiles: [
+                { relativePath: 'data/blob.bin', role: 'data' },
+                { relativePath: 'large.txt', role: 'data' },
+                { relativePath: '.env', role: 'config' },
+            ],
+        }, { hostId: 'host-test' });
+        await scanProjectManifest(client, {
+            projectId: 'bounded-read-project',
+            maxHashBytes: 2 * 1024 * 1024,
+            maxTotalHashBytes: 4 * 1024 * 1024,
+        }, { hostId: 'host-test' });
+        writeFileSync(path.join(root, 'after-scan.txt'), 'not listed');
+
+        const binary = await readProjectSource(client, {
+            projectId: 'bounded-read-project', relativePath: 'data/blob.bin',
+        }, { hostId: 'host-test' });
+        expect(binary).toMatchObject({ listed: true, readable: false, contentRead: false, reason: 'binary_file', hash: expect.stringMatching(/^sha256:/) });
+        expect(binary).not.toHaveProperty('content');
+
+        const binaryTierB = await readProjectSource(client, {
+            projectId: 'bounded-read-project', relativePath: 'data/other.bin',
+        }, { hostId: 'host-test' });
+        expect(binaryTierB).toMatchObject({
+            listed: true,
+            readable: false,
+            contentRead: false,
+            reason: 'binary_file',
+            hash: expect.stringMatching(/^sha256:/),
+            hashSource: 'current',
+        });
+
+        const oversized = await readProjectSource(client, {
+            projectId: 'bounded-read-project', relativePath: 'large.txt',
+        }, { hostId: 'host-test' });
+        expect(oversized).toMatchObject({ listed: true, readable: false, contentRead: false, reason: 'file_too_large', hash: expect.stringMatching(/^sha256:/) });
+
+        const sensitive = await readProjectSource(client, {
+            projectId: 'bounded-read-project', relativePath: '.env',
+        }, { hostId: 'host-test' });
+        expect(sensitive).toMatchObject({ listed: true, readable: false, contentRead: false, reason: 'sensitive_path' });
+        expect(JSON.stringify(sensitive)).not.toContain('do-not-return-this-value');
+
+        const unlisted = await readProjectSource(client, {
+            projectId: 'bounded-read-project', relativePath: 'after-scan.txt',
+        }, { hostId: 'host-test' });
+        expect(unlisted).toMatchObject({ listed: false, readable: false, contentRead: false, reason: 'not_listed' });
+        expect(JSON.stringify(unlisted)).not.toContain('not listed');
+    });
+
+    it('redacts secret-like values before returning source text', async () => {
+        const root = createDirectoryProject();
+        writeFileSync(path.join(root, 'src/config.json'), JSON.stringify({ enabled: true, apiKey: 'live-secret-value' }));
+        const { client } = createStorageClient();
+        await registerProjectSource(client, {
+            projectId: 'redacted-project',
+            workspaceRoot: root,
+            sourceKind: 'directory',
+            coverage: 'complete',
+            coreFiles: [{ relativePath: 'src/config.json', role: 'config' }],
+        }, { hostId: 'host-test' });
+        await scanProjectManifest(client, { projectId: 'redacted-project' }, { hostId: 'host-test' });
+
+        const result = await readProjectSource(client, {
+            projectId: 'redacted-project', relativePath: 'src/config.json',
+        }, { hostId: 'host-test' });
+        expect(result).toMatchObject({ listed: true, readable: true, contentRead: true, redacted: true });
+        expect((result as any).content).toContain('[REDACTED]');
+        expect((result as any).content).not.toContain('live-secret-value');
+    });
+
     it('rejects a symlink that resolves outside the registered root', async () => {
         const root = createDirectoryProject();
         const outside = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-project-outside-'));
@@ -255,6 +378,16 @@ describe('project source registry', () => {
             projectId: 'demo-project',
             relativePath: 'outside-link',
         }, { hostId: 'host-test' })).rejects.toThrow(/outside|symlink|root/i);
+        await scanProjectManifest(client, { projectId: 'demo-project' }, { hostId: 'host-test' });
+        await expect(readProjectSource(client, {
+            projectId: 'demo-project',
+            relativePath: 'outside-link',
+        }, { hostId: 'host-test' })).resolves.toMatchObject({
+            listed: false,
+            readable: false,
+            contentRead: false,
+            reason: 'not_listed',
+        });
     });
 
     it('detects a stale git binding after the checkout revision changes', async () => {
@@ -292,5 +425,49 @@ describe('project source registry', () => {
         expect(listed.binding.workspaceRoot).toBeUndefined();
         const state = await readProjectSourceState(client, 'git-project', { hostId: 'host-test' });
         expect(state.bindingStatus).toBe('stale');
+
+        const read = await readProjectSource(client, {
+            projectId: 'git-project', relativePath: 'README.md',
+        }, { hostId: 'host-test' });
+        expect(read).toMatchObject({
+            bindingStatus: 'stale',
+            listed: true,
+            readable: false,
+            contentRead: false,
+            revisionVerified: false,
+            reason: 'binding_not_available',
+        });
+        expect(read).not.toHaveProperty('content');
+    });
+
+    it('does not report a dirty Git file as revision verified', async () => {
+        const root = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-project-git-dirty-'));
+        execFileSync('git', ['init', '-q', root]);
+        execFileSync('git', ['-C', root, 'config', 'user.email', 'test@example.com']);
+        execFileSync('git', ['-C', root, 'config', 'user.name', 'Sisyphus Test']);
+        writeFileSync(path.join(root, 'README.md'), '# clean\n');
+        execFileSync('git', ['-C', root, 'add', 'README.md']);
+        execFileSync('git', ['-C', root, 'commit', '-q', '-m', 'clean']);
+        const { client } = createStorageClient();
+        await registerProjectSource(client, {
+            projectId: 'dirty-git-project',
+            workspaceRoot: root,
+            sourceKind: 'git',
+            coverage: 'tracked',
+            coreFiles: [{ relativePath: 'README.md', role: 'source' }],
+        }, { hostId: 'host-test' });
+        await scanProjectManifest(client, { projectId: 'dirty-git-project' }, { hostId: 'host-test' });
+
+        const clean = await readProjectSource(client, {
+            projectId: 'dirty-git-project', relativePath: 'README.md',
+        }, { hostId: 'host-test' });
+        expect(clean).toMatchObject({ bindingStatus: 'available', contentRead: true, revisionVerified: true, contentHashVerified: true });
+
+        writeFileSync(path.join(root, 'README.md'), '# dirty\n');
+        const dirty = await readProjectSource(client, {
+            projectId: 'dirty-git-project', relativePath: 'README.md',
+        }, { hostId: 'host-test' });
+        expect(dirty).toMatchObject({ bindingStatus: 'available', contentRead: true, revisionVerified: false, contentHashVerified: false });
+        expect((dirty as any).content).toContain('dirty');
     });
 });

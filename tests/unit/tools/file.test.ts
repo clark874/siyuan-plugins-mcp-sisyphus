@@ -129,6 +129,7 @@ describe('file tool asset actions', () => {
         expect(actionDescription).toContain('register_project_source');
         expect(actionDescription).toContain('scan_project_manifest');
         expect(actionDescription).toContain('resolve_project_source');
+        expect(actionDescription).toContain('read_project_source');
         expect(actionDescription).toContain('list_project_sources');
     });
 

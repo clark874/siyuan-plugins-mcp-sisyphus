@@ -21,10 +21,29 @@ describe('control-plane security', () => {
     });
 
     it('redacts camelCase JSON secrets recursively without removing safe values', () => {
-        const result = redactText(JSON.stringify({ enabled: true, apiKey: 'sensitive', nested: { access_token: 'sensitive' } }));
+        const result = redactText(JSON.stringify({ enabled: true, apiKey: 'sensitive', nested: { access_token: 'sensitive' }, repeated: 'sensitive' }));
 
-        expect(JSON.parse(result.content)).toEqual({ enabled: true, apiKey: '[REDACTED]', nested: { access_token: '[REDACTED]' } });
+        expect(JSON.parse(result.content)).toEqual({ enabled: true, apiKey: '[REDACTED]', nested: { access_token: '[REDACTED]' }, repeated: '[REDACTED]' });
         expect(result.redacted).toBe(true);
+    });
+
+    it('removes repeated assigned secrets and complete private-key blocks from plain text', () => {
+        const secret = 'live-secret-value';
+        const result = redactText([
+            `apiKey = '${secret}'`,
+            `assert(value !== '${secret}')`,
+            'password = "a long secret value"',
+            'repeat: a long secret value',
+            '-----BEGIN PRIVATE KEY-----',
+            'sensitive-private-key-body',
+            '-----END PRIVATE KEY-----',
+        ].join('\n'));
+
+        expect(result.redacted).toBe(true);
+        expect(result.content).not.toContain(secret);
+        expect(result.content).not.toContain('a long secret value');
+        expect(result.content).not.toContain('sensitive-private-key-body');
+        expect(result.content).not.toContain('BEGIN PRIVATE KEY');
     });
 
     it('rejects secret-like writes and security-weakening setting patches', () => {
