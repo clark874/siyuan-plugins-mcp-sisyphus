@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.2-wiki.2 - 2026-08-23
+
+- 修正项目源诊断分类：未登记的 `projectId` 现在返回结构化 `not_found`，不再误报为 `internal_error`
+- 对误拼的 `projectId` 计算近似登记项并返回至多三个候选；例如将 `water-commodity-dual-transition` 指向已登记的 `water-commodification-dual-transition`，候选只来自原本可列出的可移植项目标识，不披露本机路径
+- 绝对路径、父目录穿越与根目录逃逸统一返回结构化 `invalid_path`；非法项目标识返回 `invalid_arguments`，使可恢复错误软化机制能够避免客户端无谓重发完整工具清单
+- 新增误拼标识与路径穿越回归测试；插件提升至 `v0.9.2-wiki.2`，CLI 提升至 `v0.4.2-wiki.2`，`0.9.3` 的引用影响提示边界保持不变
+
 ## v0.9.2-wiki.1 - 2026-08-23
 
 - 新增只读 `file.read_project_source`：只允许读取当前项目清单中已列出且当前主机绑定可用的相对路径，拒绝绝对路径、父目录穿越、符号链接逃逸、特殊文件和读取期间发生变化的文件

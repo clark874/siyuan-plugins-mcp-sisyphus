@@ -99,6 +99,16 @@ export function readSemanticErrorDetailCode(error: Error): string | null {
     return typeof detailCode === 'string' && detailCode.length > 0 ? detailCode : null;
 }
 
+export function readSemanticErrorSuggestions(error: Error): string[] {
+    if (!readSemanticErrorCode(error)) return [];
+    const suggestions = (error as Error & { suggestions?: unknown }).suggestions;
+    if (!Array.isArray(suggestions)) return [];
+    return [...new Set(suggestions
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+        .map((value) => value.slice(0, 128)))]
+        .slice(0, 3);
+}
+
 /**
  * Kernel rejections that are really agent-correctable path mistakes.
  *

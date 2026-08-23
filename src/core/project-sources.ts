@@ -199,10 +199,79 @@ function now(): string {
     return new Date().toISOString();
 }
 
+type ProjectSourceSemanticErrorCode = 'not_found' | 'invalid_path' | 'invalid_arguments';
+
+function projectSourceSemanticError(
+    code: ProjectSourceSemanticErrorCode,
+    detailCode: string,
+    message: string,
+    suggestions: string[] = [],
+): Error & { code: ProjectSourceSemanticErrorCode; detailCode: string; suggestions?: string[] } {
+    return Object.assign(new Error(message), {
+        name: 'ProjectSourceError',
+        code,
+        detailCode,
+        ...(suggestions.length > 0 ? { suggestions } : {}),
+    });
+}
+
+function editDistance(left: string, right: string): number {
+    const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+    for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
+        const current = [leftIndex];
+        for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
+            const substitution = previous[rightIndex - 1] + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1);
+            current[rightIndex] = Math.min(
+                previous[rightIndex] + 1,
+                current[rightIndex - 1] + 1,
+                substitution,
+            );
+        }
+        previous.splice(0, previous.length, ...current);
+    }
+    return previous[right.length];
+}
+
+function suggestProjectIds(projectId: string, records: ProjectSourceRecord[]): string[] {
+    const requested = projectId.toLowerCase();
+    return records
+        .map((record) => {
+            const candidate = record.projectId.toLowerCase();
+            return {
+                projectId: record.projectId,
+                distance: editDistance(requested, candidate),
+                contained: requested.includes(candidate) || candidate.includes(requested),
+            };
+        })
+        .filter((item) => item.contained || item.distance <= Math.max(2, Math.floor(Math.max(requested.length, item.projectId.length) * 0.3)))
+        .sort((left, right) => left.distance - right.distance || left.projectId.localeCompare(right.projectId))
+        .slice(0, 3)
+        .map((item) => item.projectId);
+}
+
+function projectNotRegisteredError(projectId: string, registry: ProjectSourceRegistry): Error {
+    const suggestions = suggestProjectIds(projectId, registry.projects);
+    const suggestionText = suggestions.length === 1
+        ? ` Did you mean "${suggestions[0]}"?`
+        : suggestions.length > 1
+            ? ` Did you mean one of: ${suggestions.map((item) => `"${item}"`).join(', ')}?`
+            : '';
+    return projectSourceSemanticError(
+        'not_found',
+        'project_source_not_registered',
+        `Project source is not registered: ${projectId}.${suggestionText}`,
+        suggestions,
+    );
+}
+
 function normalizeProjectId(value: string): string {
     const normalized = value.trim();
     if (!/^[a-z0-9][a-z0-9._:-]{2,127}$/i.test(normalized)) {
-        throw new Error('projectId must be 3-128 ASCII letters, digits, dots, underscores, colons, or hyphens.');
+        throw projectSourceSemanticError(
+            'invalid_arguments',
+            'invalid_project_id',
+            'projectId must be 3-128 ASCII letters, digits, dots, underscores, colons, or hyphens.',
+        );
     }
     return normalized;
 }
@@ -216,11 +285,19 @@ export function normalizeProjectRelativePath(value: string): string {
         || path.posix.isAbsolute(normalized)
         || path.win32.isAbsolute(normalized)
         || /^[a-z]:/i.test(normalized)) {
-        throw new Error('relativePath must be a non-empty project-relative path.');
+        throw projectSourceSemanticError(
+            'invalid_path',
+            'invalid_project_relative_path',
+            'relativePath must be a non-empty project-relative path.',
+        );
     }
     const segments = normalized.split('/');
     if (segments.some((segment) => !segment || segment === '.' || segment === '..')) {
-        throw new Error('relativePath must not contain empty, current-directory, or parent-directory segments.');
+        throw projectSourceSemanticError(
+            'invalid_path',
+            'invalid_project_relative_path',
+            'relativePath must not contain empty, current-directory, or parent-directory segments.',
+        );
     }
     return segments.join('/');
 }
@@ -475,7 +552,11 @@ function exclusionFor(relativePath: string, rules: ProjectExclusionRule[]): { re
 function ensureWithinRoot(root: string, candidate: string): void {
     const relative = path.relative(root, candidate);
     if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-        throw new Error('Resolved project path escapes the registered workspace root.');
+        throw projectSourceSemanticError(
+            'invalid_path',
+            'project_path_escape',
+            'Resolved project path escapes the registered workspace root.',
+        );
     }
 }
 
@@ -622,9 +703,15 @@ export async function scanProjectManifest(
     }
     const registry = await readRegistry(client);
     const record = registry.projects.find((item) => item.projectId === projectId);
-    if (!record) throw new Error(`Project source is not registered: ${projectId}`);
+    if (!record) throw projectNotRegisteredError(projectId, registry);
     const binding = record.bindings[hostId];
-    if (!binding) throw new Error(`Project source has no binding for the current host: ${projectId}`);
+    if (!binding) {
+        throw projectSourceSemanticError(
+            'not_found',
+            'project_source_binding_missing',
+            `Project source has no binding for the current host: ${projectId}`,
+        );
+    }
     const root = await fs.promises.realpath(binding.workspaceRoot);
     ensureWithinRoot(root, root);
     const checkout = await inspectCheckout(root, record.sourceKind);
@@ -780,9 +867,15 @@ export async function resolveProjectSource(
     const hostId = resolveHostId(options);
     const registry = await readRegistry(client);
     const record = registry.projects.find((item) => item.projectId === projectId);
-    if (!record) throw new Error(`Project source is not registered: ${projectId}`);
+    if (!record) throw projectNotRegisteredError(projectId, registry);
     const binding = record.bindings[hostId];
-    if (!binding) throw new Error(`Project source has no binding for the current host: ${projectId}`);
+    if (!binding) {
+        throw projectSourceSemanticError(
+            'not_found',
+            'project_source_binding_missing',
+            `Project source has no binding for the current host: ${projectId}`,
+        );
+    }
     const root = await fs.promises.realpath(binding.workspaceRoot);
     const candidate = path.join(root, ...relativePath.split('/'));
     ensureWithinRoot(root, candidate);
@@ -880,9 +973,15 @@ export async function readProjectSource(
     const hostId = resolveHostId(options);
     const registry = await readRegistry(client);
     const record = registry.projects.find((item) => item.projectId === projectId);
-    if (!record) throw new Error(`Project source is not registered: ${projectId}`);
+    if (!record) throw projectNotRegisteredError(projectId, registry);
     const binding = record.bindings[hostId];
-    if (!binding) throw new Error(`Project source has no binding for the current host: ${projectId}`);
+    if (!binding) {
+        throw projectSourceSemanticError(
+            'not_found',
+            'project_source_binding_missing',
+            `Project source has no binding for the current host: ${projectId}`,
+        );
+    }
     const entry = record.manifest?.entries.find((item) => item.relativePath === relativePath);
     const bindingState = await inspectBinding(record, binding);
     const revisionVerified = bindingState.revisionVerified

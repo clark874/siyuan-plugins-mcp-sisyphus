@@ -133,6 +133,62 @@ describe('file tool asset actions', () => {
         expect(actionDescription).toContain('list_project_sources');
     });
 
+    it.each([
+        ['scan_project_manifest', {}],
+        ['resolve_project_source', { relativePath: 'README.md' }],
+        ['read_project_source', { relativePath: 'README.md' }],
+    ])('returns a not_found error with the nearest registered project ID for %s', async (action, extraArgs) => {
+        const projectClient = createMockClient({
+            readFile: vi.fn(async () => JSON.stringify({
+                schemaVersion: 1,
+                updatedAt: '2026-08-23T00:00:00.000Z',
+                projects: [{
+                    projectId: 'water-commodification-dual-transition',
+                    sourceKind: 'directory',
+                    revision: 'directory:test',
+                    coverage: 'complete',
+                    coreFiles: [],
+                    includePaths: [],
+                    exclusions: [],
+                    bindings: {},
+                    updatedAt: '2026-08-23T00:00:00.000Z',
+                }],
+            })),
+        });
+
+        const result = await callFileTool(projectClient, {
+            action,
+            projectId: 'water-commodity-dual-transition',
+            ...extraArgs,
+        }, config.file, {} as never);
+
+        expect(result.isError).toBe(true);
+        expect(parseResult(result)).toMatchObject({
+            error: {
+                type: 'not_found',
+                code: 'project_source_not_registered',
+                suggestions: ['water-commodification-dual-transition'],
+            },
+        });
+        expect(parseResult(result).error.message).toContain('Did you mean "water-commodification-dual-transition"?');
+    });
+
+    it('classifies project path traversal as invalid_path', async () => {
+        const result = await callFileTool(createMockClient(), {
+            action: 'read_project_source',
+            projectId: 'water-commodification-dual-transition',
+            relativePath: '../secret.txt',
+        }, config.file, {} as never);
+
+        expect(result.isError).toBe(true);
+        expect(parseResult(result)).toMatchObject({
+            error: {
+                type: 'invalid_path',
+                code: 'invalid_project_relative_path',
+            },
+        });
+    });
+
     it('lists templates with reusable read and render arguments', async () => {
         const templateApi = await import('@/api/template');
         vi.mocked(templateApi.searchTemplates).mockResolvedValueOnce({

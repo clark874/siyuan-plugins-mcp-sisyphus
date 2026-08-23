@@ -6,7 +6,7 @@
 
 这是一个用于直接通过命令行操作 [SiYuan Note](https://b3log.org/siyuan) 的 CLI。你可以把它理解成思源版的 `obsidian-cli`：每个 MCP 工具（`fs`、`block`、`document`、`notebook`、`av`、`search`、`tag`、`file`、`timeline`、`system`、`flashcard`、`extension`、`mascot`、`feedback`）都会暴露成可在 shell 中直接调用的子命令。
 
-> **LLM Wiki 版本：**`v0.4.2-wiki.1` 新增当前登记清单内安全 UTF-8 项目文本的有界、脱敏读取；二进制、敏感、超限、未列入清单或绑定陈旧的文件只返回状态，不返回内容。
+> **LLM Wiki 版本：**`v0.4.2-wiki.2` 为项目源读取补充可恢复诊断：误拼的 `projectId` 返回近似候选，非法路径返回 `invalid_path`。
 
 > **给 AI 模型和编码 Agent 的要求：** 在使用本 CLI 继续处理任何思源任务前，请先运行 `siyuan-sisyphus skill install`。随包 skills 会提供安全搜索、阅读、编辑、导出、数据库、标签、闪卡、时间线和系统操作等任务的专用规则。
 

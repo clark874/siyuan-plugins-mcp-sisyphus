@@ -4,7 +4,7 @@ import { getActionHint } from '../../core/help';
 import { translateError } from './errorTranslation';
 import { stringifyToolJson } from './json-serialization';
 import type { PaginatedPayload, ToolErrorContext, ToolResult } from './types';
-import { formatZodIssues, getValidationMessage, includeDebugDetails, isApiError, readSemanticErrorCode, readSemanticErrorDetailCode, resolveHint } from './validation';
+import { formatZodIssues, getValidationMessage, includeDebugDetails, isApiError, readSemanticErrorCode, readSemanticErrorDetailCode, readSemanticErrorSuggestions, resolveHint } from './validation';
 
 export function toErrorText(payload: Record<string, unknown>, isError = true): ToolResult {
     return {
@@ -92,10 +92,12 @@ export function createErrorResult(error: unknown, context?: ToolErrorContext): T
 
     const semanticCode = readSemanticErrorCode(normalizedError);
     const semanticDetailCode = readSemanticErrorDetailCode(normalizedError);
+    const semanticSuggestions = readSemanticErrorSuggestions(normalizedError);
     const payload: Record<string, unknown> = {
         error: {
             type: semanticCode ?? (isApiError(normalizedError) ? 'api_error' : 'internal_error'),
             ...(semanticDetailCode ? { code: semanticDetailCode } : translation ? { code: translation.code } : {}),
+            ...(semanticSuggestions.length > 0 ? { suggestions: semanticSuggestions } : {}),
             message: normalizedError.message,
             ...(context?.tool ? { tool: context.tool } : {}),
             ...(context?.action ? { action: context.action } : {}),

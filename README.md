@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki branch:** `v0.9.2-wiki.1` with CLI `v0.4.2-wiki.1` adds bounded, redacted reading of manifest-listed project text files while preserving the project-source registration and binding model.
+> **LLM Wiki branch:** `v0.9.2-wiki.2` with CLI `v0.4.2-wiki.2` adds recoverable project-source diagnostics: mistyped `projectId` values receive close candidates, while unsafe paths return `invalid_path`.
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Current LLM Wiki release:** `v0.9.2-wiki.1` — `file.read_project_source` can read only safe UTF-8 text already listed in the current registered manifest, with root-containment checks, redaction, a 1 MiB file ceiling, and bounded pagination. Binary, sensitive, oversized, unlisted, or stale-bound files return status without content; no directory is added to an agent workspace. CLI `v0.4.2-wiki.1` requires Node.js 20+.
+> **Current LLM Wiki release:** `v0.9.2-wiki.2` — project-source reads remain limited to safe UTF-8 text in the current manifest. This hotfix reports unknown projects as `not_found` with close `projectId` candidates and reports traversal as `invalid_path`, instead of misclassifying either as an internal failure. CLI `v0.4.2-wiki.2` requires Node.js 20+.
 
 ## Project Direction Update
 

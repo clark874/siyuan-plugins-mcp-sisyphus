@@ -119,4 +119,31 @@ describe('slim document-window responses', () => {
             action: 'plugin__example__tool',
         })).toEqual(original);
     });
+
+    it('keeps machine-actionable suggestions in slim error responses', () => {
+        const result = slimToolResult({
+            content: [{
+                type: 'text',
+                text: JSON.stringify({
+                    error: {
+                        type: 'not_found',
+                        code: 'project_source_not_registered',
+                        message: 'Project source is not registered.',
+                        suggestions: ['water-commodification-dual-transition'],
+                        internalDebug: 'drop-me',
+                    },
+                }),
+            }],
+            isError: true,
+        }, { category: 'file', action: 'read_project_source' });
+
+        expect(JSON.parse(result.content[0].text)).toEqual({
+            error: {
+                type: 'not_found',
+                code: 'project_source_not_registered',
+                message: 'Project source is not registered.',
+                suggestions: ['water-commodification-dual-transition'],
+            },
+        });
+    });
 });

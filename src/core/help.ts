@@ -102,6 +102,7 @@ export const FILE_GUIDANCE: string[] = [
     'file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。',
     'file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。',
     'file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。',
+    '项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。',
 ];
 
 export const TAG_GUIDANCE: string[] = [

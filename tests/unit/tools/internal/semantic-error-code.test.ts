@@ -120,4 +120,27 @@ describe.each([
             softened: true,
         });
     });
+
+    it('preserves bounded project suggestions across the normal and softened error boundary', () => {
+        const error = Object.assign(new Error('missing project'), {
+            code: 'not_found',
+            detailCode: 'project_source_not_registered',
+            suggestions: ['water-commodification-dual-transition'],
+        });
+        const result = build(error) as any;
+        expect(JSON.parse(result.content[0].text).error).toMatchObject({
+            type: 'not_found',
+            code: 'project_source_not_registered',
+            suggestions: ['water-commodification-dual-transition'],
+        });
+
+        const softened = softenRecoverableToolError(result, true) as any;
+        expect('isError' in softened).toBe(false);
+        expect(JSON.parse(softened.content[0].text).error).toMatchObject({
+            type: 'not_found',
+            code: 'project_source_not_registered',
+            suggestions: ['water-commodification-dual-transition'],
+            softened: true,
+        });
+    });
 });

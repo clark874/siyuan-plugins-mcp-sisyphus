@@ -128,6 +128,7 @@ function slimError(error: Record<string, unknown>): Record<string, unknown> {
         'code',
         'message',
         'fields',
+        'suggestions',
         'hint',
         'notebook',
         'current_permission',
