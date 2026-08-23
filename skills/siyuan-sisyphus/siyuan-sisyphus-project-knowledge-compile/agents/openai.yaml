@@ -1,0 +1,4 @@
+interface:
+  display_name: "思源项目知识编译 CLI"
+  short_description: "将研究项目全量包编译为可追溯知识网络"
+  default_prompt: "使用 $siyuan-sisyphus-project-knowledge-compile 将指定研究项目全量文件包编译为知识原子、项目内语义关系和公共方法候选，并完成可恢复验收。"

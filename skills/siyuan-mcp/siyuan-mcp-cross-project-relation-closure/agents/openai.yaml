@@ -1,0 +1,4 @@
+interface:
+  display_name: "思源跨项目关系闭合 MCP"
+  short_description: "建立项目到公共方法原子的可核验复用双链"
+  default_prompt: "使用 $siyuan-mcp-cross-project-relation-closure 审计并受控建立研究项目到公共方法原子的真实复用关系。"

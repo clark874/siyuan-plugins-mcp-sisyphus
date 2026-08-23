@@ -6,7 +6,7 @@
 
 Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Think of it like `obsidian-cli` but for SiYuan — every MCP tool (fs, block, document, notebook, av, search, tag, file, timeline, system, flashcard, extension, mascot, feedback) is exposed as a subcommand you can call directly from a shell.
 
-> **LLM Wiki release:** `v0.4.2-wiki.2` adds recoverable project-source diagnostics: mistyped `projectId` values receive close candidates, while unsafe paths return `invalid_path`.
+> **LLM Wiki release:** `v0.4.2-wiki.3` adds installable project-package compilation and cross-project method-reuse Skill workflows.
 
 > **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, timeline, and system workflows.
 
@@ -62,7 +62,7 @@ Unknown flags, extra positionals, JSON text passed to a plain array flag, empty 
 
 ## Agent skill bundles
 
-The npm package carries two related skill bundles, including dedicated knowledge-ingestion and knowledge-governance workflows:
+The npm package carries two related skill bundles, including dedicated external-source ingestion, project-package compilation, knowledge-governance, and cross-project relation-closure workflows:
 
 - `cli` uses terminal command examples and is still the default for `skill list`, `skill read`, and `skill install`.
 - `mcp` uses MCP tool-call examples for agents that connect through the plugin server.

@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.2-wiki.3 - 2026-08-24
+
+- 新增 MCP/CLI 双运行时 `project-knowledge-compile` Skill，补齐“本地研究项目全量文件包 → 范围账本 → 可追溯知识原子 → 项目内语义关系 → 公共方法候选 → 回读验收”的正式工作流
+- 项目内关系采用独立关系块、真实思源块引用与 `custom-relation-kind`，限定 `produced-by`、`supports`、`constrained-by`、`implements`、`part-of` 五类有向关系；中枢编目、项目内语义边和跨项目复用边分别统计
+- 新增 MCP/CLI 双运行时 `cross-project-relation-closure` Skill，正式发布 `active-reuse`、`compatibility-reference`、`historical-compatibility` 三类项目→公共方法关系，并把 `public-candidate` 明确为待治理接口而非公共化完成证据
+- `knowledge-ingest` 继续只负责外部网页、教程和发布说明的差量摄取，不再被误用为本地项目全量知识编译器；顶层路由、Skills-over-MCP、MCP Prompt、CLI 安装包与路由评测同步新增两条工作流
+- 内置场景 Skill 从 12 个增至 14 个，路由评测从 20 项增至 24 项；插件提升至 `v0.9.2-wiki.3`，CLI 提升至 `v0.4.2-wiki.3`，不改变原定 `0.9.3` 产品能力边界
+
 ## v0.9.2-wiki.2 - 2026-08-23
 
 - 修正项目源诊断分类：未登记的 `projectId` 现在返回结构化 `not_found`，不再误报为 `internal_error`

@@ -29,7 +29,9 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 | Create documents or edit blocks | {{skill create-edit}} |
 | Fulltext, SQL, backlinks, references, and replacement | {{skill search-query}} |
 | Capture web sources, deduplicate them, and merge knowledge with provenance | {{skill knowledge-ingest}} |
+| Compile a complete local research-project package into traceable atoms and internal semantic relations | {{skill project-knowledge-compile}} |
 | Compile and govern named knowledge atoms, aliases, hubs, and safe renames | {{skill knowledge-governance}} |
+| Close verified project-to-public-method reuse relations across projects | {{skill cross-project-relation-closure}} |
 | Attribute views, columns, rows, and cells | {{skill database}} |
 | Assets, extraction, and exports | {{skill file-export}} |
 | Tags, decks, cards, and review | {{skill tag-flashcard}} |
@@ -293,6 +295,137 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
         },
     },
     {
+        id: 'project-knowledge-compile',
+        cliName: 'siyuan-sisyphus-project-knowledge-compile',
+        mcpName: 'siyuan-mcp-project-knowledge-compile',
+        cliDescription: 'CLI-only 思源研究项目知识编译工作流。用于把本地项目全量文件包编译为可追溯知识原子、项目内语义关系与公共方法候选；不用于外部网页摄取、普通编辑或跨项目复用关系写入。',
+        mcpDescription: '思源研究项目知识编译工作流。用于把本地项目全量文件包编译为可追溯知识原子、项目内语义关系与公共方法候选；不用于外部网页摄取、普通编辑或跨项目复用关系写入。',
+        title: '思源研究项目知识编译',
+        displayName: '思源项目知识编译',
+        shortDescription: '将研究项目全量包编译为可追溯知识网络',
+        defaultPrompt: '使用 $NAME 将指定研究项目全量文件包编译为知识原子、项目内语义关系和公共方法候选，并完成可恢复验收。',
+        body: `本工作流处理“本地研究项目全量文件包 → 思源知识化”。外部网页、教程或发布说明的差量摄取应交给 knowledge-ingest；既有原子的 name/alias 治理和安全改名应交给 knowledge-governance；跨项目实际复用关系由 cross-project-relation-closure 独立执行。
+
+## 一、开工与范围账本
+
+依次读取实时能力、工作区入口、用户规则和《知识编译契约》：
+
+{{call bootstrap}}
+{{call memory}}
+{{call rules}}
+{{call contract}}
+
+先建立项目对象账本，覆盖项目根、正式交付物、脚本、输入、输出、配置、文档、历史版本、符号链接、受限数据与排除项。状态只能按“已发现 → 已完整读取 → 已编译/明确排除 → 已回读验证”推进。文件名、标题、哈希、目录层级或抽样读取不能替代完整读取。
+
+若项目已经登记本地来源映射，先列出登记项，再只读已进入清单且明确定位的文件：
+
+{{call projectSources}}
+{{call projectFile}}
+
+不得自动登记新项目源、扫描整个目录、扩大清单或修改本地文件。来源映射不可用时，报告缺口；不要把未读取文件记为已覆盖。
+
+## 二、编译计划与证据边界
+
+用知识检索定位既有项目中枢，读取完整中枢和必要上下文；命中只当候选：
+
+{{call projectHub}}
+
+逐项决定形成哪类原子：
+
+- \`summary\`：项目、子线或方法概览；
+- \`recipe\`：可复用操作流程；
+- \`evidence\`：统计结果或原始证据；
+- \`decision\`：项目选择及理由；
+- \`warning\`：失败方案、版本冲突或适用边界。
+
+每个原子必须单块自包含、来源范围明确、验证状态与证据一致。统计主张必须核对“脚本 → 输出 → 样本定义/阈值 → 叙述”；未核对不得提升为 evidence-verified。机器哈希、revision 和编译时间不得手填。
+
+## 三、寻址与公共方法接口
+
+项目特定原子使用项目命名空间；name 必须全库唯一。alias 只在存在真实自然语言召回价值时填写，写入前逐词元碰撞预检；alias 是发现接口，不是块引用或复用关系。
+
+{{call conflictName}}
+{{call conflictAlias}}
+
+原子若具备项目无关的输入、输出、操作和边界，且可能被其他项目复用，可设置 \`custom-reuse-scope=public-candidate\` 并写明候选理由。该标记只表示待治理候选，不得据此：
+
+- 宣称已经形成公共方法原子；
+- 自动移动到 \`/04 研究方法与数字工具\`；
+- 用宽泛 alias 代替公共化；
+- 自动建立跨项目关系。
+
+正式公共化须由 knowledge-governance 裁决：在公共方法区创建、合并或指定唯一现行原子，保留项目实现差异和历史边界；随后再由 cross-project-relation-closure 建立项目复用边。
+
+## 四、项目内语义关系闭合
+
+中枢→原子的收录是编目边，不是语义边。知识原子编译完成后，审计是否存在能够回答“如何产出、由何证据支持、受何约束、实现何方法、属于何子线”的真实关系。只允许以下五类有向关系：
+
+| \`custom-relation-kind\` | 方向 | 含义 |
+| --- | --- | --- |
+| \`produced-by\` | evidence/output → recipe/process | 该证据或产物由目标流程生成 |
+| \`supports\` | evidence → decision/claim | 该证据支持目标决策或主张，但不自动证明因果 |
+| \`constrained-by\` | recipe/claim → warning/constraint | 该操作或主张受目标边界约束 |
+| \`implements\` | project implementation → method | 项目实现了目标方法，并保留实现差异 |
+| \`part-of\` | subline/subproject → project overview | 该子线属于目标项目结构 |
+
+不自动建立“现状关联”“相关于”“概念相似”等方向含混的关系；不把所有文字提及变成引用，不建无实际语义的 evidence↔evidence 网，不重复中枢已有的纯导航边。
+
+每条边使用一个独立关系块，只承载一个目标原子。正文必须写出关系类型、事实依据、差异或边界，并使用真实块引用；随后设置关系属性：
+
+{{call relationAppend}}
+{{call relationAttrs}}
+
+关系只确认知识组织事实，不自动提升源原子、目标原子或项目结论的验证状态。
+
+## 五、可恢复写入
+
+每个受影响文档先建立文档级时间线节点。任一恢复点失败即停止整批写入：
+
+{{call snapshot}}
+
+只做稳定块 ID 下的追加、插入、单块更新与属性设置；禁止整篇覆写含 name、alias、custom-*、引用、AV 或 query_embed 的文档。严格写入模式下，按实时 action schema 区分 guarded 与 request-id-only 协议；追加类写入只执行一次，失败后先按返回的稳定 ID 或正文标识查找孤儿块，不得盲目重试。
+
+## 六、验收与幂等
+
+逐项回读原子和关系块，并验证：
+
+{{call readback}}
+{{call relationSql}}
+{{call backlinks}}
+{{call retrieval}}
+
+完成门：
+
+1. 范围分母、完整读取、排除、失败和截断均有账本；
+2. 原子具备唯一 name、合格内容、来源清单和真实验证状态；
+3. 中枢收录、项目内语义边、跨项目复用边分别统计；
+4. 每条项目内关系有独立关系块、规范类型、真实 refs 边和反向链接；
+5. 代表性“证据如何产生”“决策为何作出”问题能在前 10 结果或引用折叠中发现双方；
+6. 相同输入复跑不增加重复原子、关系块或 AV 行；
+7. public-candidate 只列入待治理清单，不虚报公共化或跨项目闭合。
+
+最终报告必须列出范围总数、已完整读取数、原子数、项目内关系数、公共候选数、排除/冲突/失败、恢复点、回读、refs、反向链接、检索复测和未完成项。
+`,
+        calls: {
+            bootstrap: call('system', 'bootstrap'),
+            memory: call('fs', 'read', { path: '/AGENTS.md', blockStart: 0, blockLimit: 80, tokenBudget: 3000 }),
+            rules: call('fs', 'read', { path: '/USER_RULES.md', blockStart: 0, blockLimit: 80, tokenBudget: 2000 }),
+            contract: call('fs', 'read', { path: '/工作日志/00 导航与说明/知识编译契约', blockStart: 0, blockLimit: 100, tokenBudget: 8000 }),
+            projectSources: call('file', 'list_project_sources', { page: 1, pageSize: 20 }),
+            projectFile: call('file', 'read_project_source', { projectId: '<registered-project-id>', relativePath: '<manifest-relative-path>', offset: 0, limit: 12000 }),
+            projectHub: call('search', 'knowledge', { query: '<project name> 项目中枢', pageSize: 10, candidateSize: 30 }),
+            conflictName: call('search', 'check_anchor', { candidates: ['project-step'], candidateKind: 'name', excludeBlockIds: ['<block-id>'] }),
+            conflictAlias: call('search', 'check_anchor', { candidates: ['自然语言召回词'], candidateKind: 'alias', excludeBlockIds: ['<block-id>'], activeScopes: ['<project-scope>'] }),
+            snapshot: call('timeline', 'create_node', { name: '项目知识编译前恢复点-<date>', scope: 'document', documentId: '<document-id>' }),
+            relationAppend: call('block', 'append', { parentID: '<source-atom-id>', dataType: 'markdown', data: "**关系：produced-by。** 本证据由 ((<target-atom-id> 'target-method-name')) 所述流程产生；实现差异与适用边界是……。该关系不自动提升统计结论的验证状态。" }),
+            relationAttrs: call('block', 'set_attrs', { id: '<relation-block-id>', attrs: { 'custom-relation-kind': 'produced-by' } }),
+            readback: call('block', 'get_kramdown', { id: '<relation-block-id>' }),
+            relationSql: call('search', 'query_sql', { stmt: "SELECT r.block_id, r.def_block_id, b.root_id, b.hpath FROM refs r JOIN blocks b ON b.id = r.block_id WHERE r.block_id = '<relation-block-id>' AND r.def_block_id = '<target-atom-id>' LIMIT 20", maxRows: 20 }),
+            backlinks: call('search', 'get_backlinks', { id: '<target-atom-id>', mode: 'both' }),
+            retrieval: call('search', 'knowledge', { query: '这项证据通过什么方法产生？', pageSize: 10, candidateSize: 30, activeScopes: ['<project-scope>'] }),
+        },
+    },
+    {
         id: 'knowledge-governance',
         cliName: 'siyuan-sisyphus-knowledge-governance',
         mcpName: 'siyuan-mcp-knowledge-governance',
@@ -458,6 +591,82 @@ Read the changed blocks again. Recent writes can take time to enter the search i
             refs: call('search', 'search_refs', { id: '<block-id>', beforeLen: 512 }),
             assets: call('search', 'search_assets', { query: 'diagram', exts: ['png', 'jpg', 'webp'] }),
             findReplace: call('search', 'find_replace', { k: 'old text', r: 'new text', ids: ['<doc-id>'] }),
+        },
+    },
+    {
+        id: 'cross-project-relation-closure',
+        cliName: 'siyuan-sisyphus-cross-project-relation-closure',
+        mcpName: 'siyuan-mcp-cross-project-relation-closure',
+        cliDescription: 'CLI-only 思源跨项目方法复用关系闭合工作流。用于审计并建立研究项目到公共方法原子的真实复用关系；不用于项目内语义边、name/alias 日常治理或公共方法原子迁移。',
+        mcpDescription: '思源跨项目方法复用关系闭合工作流。用于审计并建立研究项目到公共方法原子的真实复用关系；不用于项目内语义边、name/alias 日常治理或公共方法原子迁移。',
+        title: '思源跨项目方法复用关系闭合',
+        displayName: '思源跨项目关系闭合',
+        shortDescription: '建立项目到公共方法原子的可核验复用双链',
+        defaultPrompt: '使用 $NAME 审计并受控建立研究项目到公共方法原子的真实复用关系。',
+        body: `本工作流只维护“研究项目 → /04 公共方法知识原子”的真实语义关系。中枢收录、文字提及、虚拟引用、项目内语义边和跨项目复用必须分别统计。
+
+## 一、开工与候选
+
+先读取实时能力、工作区规则和《知识编译契约》：
+
+{{call bootstrap}}
+{{call memory}}
+{{call rules}}
+{{call contract}}
+
+从项目中枢的正式引用解析研究项目入口，不把过程笔记或子文档误当独立项目。公共方法目标限定于 \`/04 研究方法与数字工具\` 下具有唯一 name、完整内容、现行验证状态且未被接替的可复用原子。
+
+\`custom-reuse-scope=public-candidate\` 只是项目编译阶段留下的治理候选，不是公共方法原子。候选仍位于项目目录、需要创建/合并/迁移公共原子，或 name/alias/scope 存在歧义时，只列入待裁清单并交给 knowledge-governance，不得自动建立跨项目边。
+
+## 二、证据与关系类型
+
+完整读取项目入口及必要的方法上下文。先用 name/alias 精确定位公共原子，只有精确通道不能解决时才用 knowledge 发现候选。语义相似和关键词共现不能证明复用；若项目有已登记来源映射，只读核对已经定位的脚本、配置、参数、输入输出和版本，不得自动注册、扩大扫描或修改本地文件。
+
+只允许三类关系：
+
+- \`active-reuse\`：当前项目实际使用目标方法的核心操作、接口或判断规则；
+- \`compatibility-reference\`：只能确认同一方法体系的兼容、迁移或边界参考；
+- \`historical-compatibility\`：过去使用过，但当前路径已废弃、被替代或不再作为依据。
+
+概念类比、可能借鉴或关系类型冲突一律待裁。
+
+## 三、A/B 分类与写入
+
+A 类自动写入必须同时满足：目标唯一且现行；项目有明确使用证据；输入、输出、关键调用、参数或判断规则相符；关系类型唯一；没有同义重复边；不需要新建、改名、移动、合并、接替或改写既有关系。
+
+每条边使用独立关系块，只引用一个公共方法原子，正文说明项目实际应用、实现差异、适用边界与未验证部分，并声明关系不自动提升项目统计结论的验证状态：
+
+{{call snapshot}}
+{{call append}}
+{{call attrs}}
+
+任一目标文档恢复点失败即停止整批写入。只做块级增量修改；严格写入按实时 action schema 执行。追加只执行一次，取得稳定块 ID 后再设置 \`custom-relation-kind\`。
+
+以下均为 B 类：只有语义相似；目标或 scope 歧义；项目证据不足；需要公共化候选迁移；需要修改/删除既有关系；关系类型冲突；目标 historical/deprecated/failed/被接替；读取不完整或来源不可用。
+
+## 四、验收
+
+{{call readback}}
+{{call relationSql}}
+{{call backlinks}}
+{{call retrieval}}
+
+逐边确认正文、属性、refs、反向链接、无重复边和目标唯一性。代表性自然语言问题中，方法应进入去重后前 10，项目应能通过引用折叠或反向链接被发现。若语义索引尚未更新但 refs 和反向链接已通过，只报告“结构关系已建立，语义索引待更新”。
+
+统计 \`reuse_indegree\` 时排除中枢、目录索引、纯编目边和项目内语义边。相同输入复跑不得新增重复关系块。最终报告项目范围、完整审计数、自动新增数、幂等跳过、待裁、失败、恢复点及逐边验收证据。
+`,
+        calls: {
+            bootstrap: call('system', 'bootstrap'),
+            memory: call('fs', 'read', { path: '/AGENTS.md', blockStart: 0, blockLimit: 80, tokenBudget: 3000 }),
+            rules: call('fs', 'read', { path: '/USER_RULES.md', blockStart: 0, blockLimit: 80, tokenBudget: 2000 }),
+            contract: call('fs', 'read', { path: '/工作日志/00 导航与说明/知识编译契约', blockStart: 0, blockLimit: 100, tokenBudget: 8000 }),
+            snapshot: call('timeline', 'create_node', { name: '跨项目关系闭合前恢复点-<date>', scope: 'document', documentId: '<project-document-id>' }),
+            append: call('block', 'append', { parentID: '<project-document-id>', dataType: 'markdown', data: "**关系：active-reuse。** 本项目实际复用 ((<method-atom-id> 'public-method-name')) 所规定的规则；项目实现差异与适用边界是……。该关系不自动提升项目统计结论的验证状态。" }),
+            attrs: call('block', 'set_attrs', { id: '<relation-block-id>', attrs: { 'custom-relation-kind': 'active-reuse' } }),
+            readback: call('block', 'get_kramdown', { id: '<relation-block-id>' }),
+            relationSql: call('search', 'query_sql', { stmt: "SELECT r.block_id, r.def_block_id, b.root_id, b.hpath FROM refs r JOIN blocks b ON b.id = r.block_id WHERE r.block_id = '<relation-block-id>' AND r.def_block_id = '<method-atom-id>' LIMIT 20", maxRows: 20 }),
+            backlinks: call('search', 'get_backlinks', { id: '<method-atom-id>', mode: 'both' }),
+            retrieval: call('search', 'knowledge', { query: '哪些研究项目实际使用了这个方法？', pageSize: 10, candidateSize: 30 }),
         },
     },
     {

@@ -26,7 +26,9 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 | Create documents or edit blocks | `siyuan-mcp-create-edit` |
 | Fulltext, SQL, backlinks, references, and replacement | `siyuan-mcp-search-query` |
 | Capture web sources, deduplicate them, and merge knowledge with provenance | `siyuan-mcp-knowledge-ingest` |
+| Compile a complete local research-project package into traceable atoms and internal semantic relations | `siyuan-mcp-project-knowledge-compile` |
 | Compile and govern named knowledge atoms, aliases, hubs, and safe renames | `siyuan-mcp-knowledge-governance` |
+| Close verified project-to-public-method reuse relations across projects | `siyuan-mcp-cross-project-relation-closure` |
 | Attribute views, columns, rows, and cells | `siyuan-mcp-database` |
 | Assets, extraction, and exports | `siyuan-mcp-file-export` |
 | Tags, decks, cards, and review | `siyuan-mcp-tag-flashcard` |

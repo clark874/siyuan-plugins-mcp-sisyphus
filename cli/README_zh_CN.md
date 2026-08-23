@@ -6,7 +6,7 @@
 
 这是一个用于直接通过命令行操作 [SiYuan Note](https://b3log.org/siyuan) 的 CLI。你可以把它理解成思源版的 `obsidian-cli`：每个 MCP 工具（`fs`、`block`、`document`、`notebook`、`av`、`search`、`tag`、`file`、`timeline`、`system`、`flashcard`、`extension`、`mascot`、`feedback`）都会暴露成可在 shell 中直接调用的子命令。
 
-> **LLM Wiki 版本：**`v0.4.2-wiki.2` 为项目源读取补充可恢复诊断：误拼的 `projectId` 返回近似候选，非法路径返回 `invalid_path`。
+> **LLM Wiki 版本：**`v0.4.2-wiki.3` 新增可安装的项目全量包知识编译与跨项目方法复用闭合 Skill 工作流。
 
 > **给 AI 模型和编码 Agent 的要求：** 在使用本 CLI 继续处理任何思源任务前，请先运行 `siyuan-sisyphus skill install`。随包 skills 会提供安全搜索、阅读、编辑、导出、数据库、标签、闪卡、时间线和系统操作等任务的专用规则。
 
@@ -62,7 +62,7 @@ siyuan-sisyphus block replace --id <id> --edit-json '{"old":"修改前","new":"�
 
 ## Agent Skill 套件
 
-npm 包携带两套相关的 Skill，其中包括专门的知识摄取与知识治理工作流：
+npm 包携带两套相关的 Skill，其中包括专门的外部来源摄取、项目全量包知识编译、知识治理与跨项目关系闭合工作流：
 
 - `cli` 使用终端命令示例，并且仍是 `skill list`、`skill read` 和 `skill install` 的默认套件。
 - `mcp` 使用 MCP 工具调用示例，适合通过插件 Server 连接的 Agent。

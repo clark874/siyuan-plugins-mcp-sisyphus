@@ -655,10 +655,18 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
         skills: [
             'siyuan-mcp-sisyphus',
             'siyuan-mcp-browse-read',
+            'siyuan-mcp-create-edit',
             'siyuan-mcp-search-query',
+            'siyuan-mcp-knowledge-ingest',
+            'siyuan-mcp-project-knowledge-compile',
             'siyuan-mcp-knowledge-governance',
+            'siyuan-mcp-cross-project-relation-closure',
             'siyuan-mcp-database',
+            'siyuan-mcp-file-export',
+            'siyuan-mcp-tag-flashcard',
             'siyuan-mcp-timeline',
+            'siyuan-mcp-system-safety',
+            'siyuan-mcp-markup-guide',
         ],
         hints: [
             'This response contains no token, configuration body, or plugin secrets.',

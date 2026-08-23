@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前版本为 `v0.9.2-wiki.2`（CLI `v0.4.2-wiki.2`），为项目源读取补充可恢复诊断：误拼的 `projectId` 返回近似候选，非法路径返回 `invalid_path`。
+> **LLM Wiki 分支：** 当前版本为 `v0.9.2-wiki.3`（CLI `v0.4.2-wiki.3`），新增项目全量包知识编译与跨项目方法复用闭合工作流，同时保持知识摄取只处理外部来源的边界。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.9.2-wiki.2` — `file.read_project_source` 仍仅允许读取当前登记清单内的安全 UTF-8 文本，并执行根目录约束、返回前脱敏、1 MiB 单文件上限与有界分页。本热补丁将未登记项目改为 `not_found` 并返回近似 `projectId` 候选，将路径穿越改为 `invalid_path`。CLI `v0.4.2-wiki.2` 要求 Node.js 20+。
+> **当前 LLM Wiki 版本：**`v0.9.2-wiki.3` — 项目源读取继续保持 `v0.9.2-wiki.2` 的安全边界。本补丁新增“本地研究项目全量包 → 可追溯原子与项目内语义关系”和“项目 → 公共方法原子复用关系闭合”两条正式工作流。CLI `v0.4.2-wiki.3` 要求 Node.js 20+。
 
 ## 项目方向调整
 
@@ -206,7 +206,7 @@ modern 协议下的高危调用使用 MCP 多轮输入确认：支持 elicitatio
 
 新 Agent 连接后首先调用 `system(action="bootstrap")`。该动作会刷新笔记本权限，返回当前工具配置和可执行的后续调用；其中 `operation.readOnly=true` 只表示本动作不写入，不表示整个连接只读。
 
-MCP Server 内置了浏览、编辑、搜索、知识摄取、知识原子治理、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版等场景指南。普通 MCP 客户端无需安装任何 Skill：先读取 `siyuan://skills/index`，再加载匹配的 `siyuan://skills/{name}` 资源即可。网页整理任务可加载 `siyuan://skills/siyuan-mcp-knowledge-ingest`；知识原子编译、别名审计和安全改名可加载 `siyuan://skills/siyuan-mcp-knowledge-governance`。两者也分别提供 `siyuan_knowledge_ingest` 与 `siyuan_knowledge_governance` Prompt。对应的 MCP Prompts 是由用户显式调用的工作流入口，不会自动生效。
+MCP Server 内置了浏览、编辑、搜索、外部来源摄取、研究项目全量包编译、知识原子治理、跨项目方法复用闭合、数据库、导出、标签、闪卡、文档时间线、系统安全和思源排版等场景指南。普通 MCP 客户端无需安装任何 Skill：先读取 `siyuan://skills/index`，再加载匹配的 `siyuan://skills/{name}` 资源即可。网页来源使用 `siyuan-mcp-knowledge-ingest`；本地项目全量包与项目内语义边使用 `siyuan-mcp-project-knowledge-compile`；原子和锚点治理使用 `siyuan-mcp-knowledge-governance`；项目到公共方法原子的真实复用使用 `siyuan-mcp-cross-project-relation-closure`。对应的 MCP Prompts 是由用户显式调用的工作流入口，不会自动生效。
 
 支持安装 `SKILL.md` 包的 Agent 可以把同一套指南安装到本地：
 
@@ -216,7 +216,7 @@ siyuan-sisyphus skill install --bundle all # 同时安装 MCP 与 CLI 两套
 npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y
 ```
 
-`npx skills add` 只安装经过筛选的12个 MCP Skill，不会注册 `http://127.0.0.1:36806/mcp`、配置 Bearer token 或安装思源插件。为保持兼容，不带 `--bundle` 的 `siyuan-sisyphus skill install` 仍默认安装 CLI Skill。Skill 负责工作流与安全决策；当前参数的真相源仍是 `siyuan://help/action/{tool}/{action}`（或对应的 `action="help"` 响应）。
+`npx skills add` 只安装经过筛选的 14 个 MCP Skill，不会注册 `http://127.0.0.1:36806/mcp`、配置 Bearer token 或安装思源插件。为保持兼容，不带 `--bundle` 的 `siyuan-sisyphus skill install` 仍默认安装 CLI Skill。Skill 负责工作流与安全决策；当前参数的真相源仍是 `siyuan://help/action/{tool}/{action}`（或对应的 `action="help"` 响应）。
 
 草案 SEP-2640 Skills-over-MCP 在 HTTP 与 stdio 传输中均默认开启，并会发布全部内置工作流 Skill。插件内置 HTTP 服务可在“连接配置 → HTTP/HTTPS 连接 → Skills over MCP”中开关，保存后会重启服务。独立启动服务端时可通过 `SIYUAN_MCP_SKILLS_EXTENSION=false` 显式关闭。启用后服务端声明 `io.modelcontextprotocol/skills`，实现 `skills/list`、`skills/get`，并提供带 SHA-256 完整性清单的 `skill://.../SKILL.md` 资源。由于 SEP-2640 仍是草案，既有 `siyuan://skills/*` Resource 与 Prompt 继续作为稳定回退。
 

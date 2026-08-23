@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki branch:** `v0.9.2-wiki.2` with CLI `v0.4.2-wiki.2` adds recoverable project-source diagnostics: mistyped `projectId` values receive close candidates, while unsafe paths return `invalid_path`.
+> **LLM Wiki branch:** `v0.9.2-wiki.3` with CLI `v0.4.2-wiki.3` adds dedicated project-package compilation and cross-project method-reuse workflows while preserving the external-source boundary of knowledge ingestion.
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Current LLM Wiki release:** `v0.9.2-wiki.2` — project-source reads remain limited to safe UTF-8 text in the current manifest. This hotfix reports unknown projects as `not_found` with close `projectId` candidates and reports traversal as `invalid_path`, instead of misclassifying either as an internal failure. CLI `v0.4.2-wiki.2` requires Node.js 20+.
+> **Current LLM Wiki release:** `v0.9.2-wiki.3` — project-source reads retain the `v0.9.2-wiki.2` safety boundary. This patch adds explicit workflows for compiling complete local research projects into traceable atoms and internal semantic relations, and for closing verified project-to-public-method reuse relations. CLI `v0.4.2-wiki.3` requires Node.js 20+.
 
 ## Project Direction Update
 
@@ -202,7 +202,7 @@ Modern dangerous calls use MCP multi-round-trip input: the operation is not disp
 
 New agents should first call `system(action="bootstrap")`. It refreshes notebook permissions and returns the current configured capabilities and enabled next calls. `operation.readOnly=true` applies only to bootstrap, not necessarily to the whole connection.
 
-The MCP server includes scenario-oriented guidance for browsing, editing, search, knowledge ingestion, knowledge-atom governance, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. For web-source ingestion, load `siyuan://skills/siyuan-mcp-knowledge-ingest`; for named-block compilation, alias audits, and safe renames, load `siyuan://skills/siyuan-mcp-knowledge-governance`. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
+The MCP server includes scenario-oriented guidance for browsing, editing, search, external-source ingestion, complete research-project compilation, knowledge-atom governance, cross-project method-reuse closure, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. Use `siyuan-mcp-knowledge-ingest` for web sources, `siyuan-mcp-project-knowledge-compile` for local project packages and internal semantic relations, `siyuan-mcp-knowledge-governance` for atom and anchor governance, and `siyuan-mcp-cross-project-relation-closure` for verified project-to-public-method reuse. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
 
 Agents that support installable `SKILL.md` packages can install the same guidance locally:
 
@@ -212,7 +212,7 @@ siyuan-sisyphus skill install --bundle all # MCP and CLI bundles
 npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y
 ```
 
-The `npx skills add` command installs only the 12 curated MCP Skills. It does not register `http://127.0.0.1:36806/mcp`, configure a bearer token, or install the SiYuan plugin. Plain `siyuan-sisyphus skill install` remains the CLI bundle for backward compatibility. Skills describe workflows and safety decisions; the current parameter source of truth remains `siyuan://help/action/{tool}/{action}` or the corresponding `action="help"` response.
+The `npx skills add` command installs only the 14 curated MCP Skills. It does not register `http://127.0.0.1:36806/mcp`, configure a bearer token, or install the SiYuan plugin. Plain `siyuan-sisyphus skill install` remains the CLI bundle for backward compatibility. Skills describe workflows and safety decisions; the current parameter source of truth remains `siyuan://help/action/{tool}/{action}` or the corresponding `action="help"` response.
 
 Draft SEP-2640 Skills-over-MCP support is enabled by default for both HTTP and stdio transports and publishes all bundled workflow skills. For the plugin's built-in HTTP server, it can be toggled under Connection Config → HTTP/HTTPS Connection → Skills over MCP; saving restarts the server. Standalone servers can disable it with `SIYUAN_MCP_SKILLS_EXTENSION=false`. The extension advertises `io.modelcontextprotocol/skills`, implements `skills/list` and `skills/get`, and serves digest-addressed `skill://.../SKILL.md` resources. Because SEP-2640 is still a draft, the existing `siyuan://skills/*` resources and prompts remain the stable fallback.
 

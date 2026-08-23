@@ -43,7 +43,9 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 | Create documents or edit blocks | `siyuan-sisyphus-create-edit` |
 | Fulltext, SQL, backlinks, references, and replacement | `siyuan-sisyphus-search-query` |
 | Capture web sources, deduplicate them, and merge knowledge with provenance | `siyuan-sisyphus-knowledge-ingest` |
+| Compile a complete local research-project package into traceable atoms and internal semantic relations | `siyuan-sisyphus-project-knowledge-compile` |
 | Compile and govern named knowledge atoms, aliases, hubs, and safe renames | `siyuan-sisyphus-knowledge-governance` |
+| Close verified project-to-public-method reuse relations across projects | `siyuan-sisyphus-cross-project-relation-closure` |
 | Attribute views, columns, rows, and cells | `siyuan-sisyphus-database` |
 | Assets, extraction, and exports | `siyuan-sisyphus-file-export` |
 | Tags, decks, cards, and review | `siyuan-sisyphus-tag-flashcard` |
