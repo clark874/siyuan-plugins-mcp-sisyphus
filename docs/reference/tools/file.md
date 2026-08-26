@@ -15,7 +15,7 @@ Related pages:
 |------|---------|
 | Upload / export | `upload_asset`, `export_md`, `export_resources`, `extract_doc` |
 | Templates | `list_templates`, `read_template`, `create_template`, `update_template`, `delete_template`, `save_doc_as_template`, `render` |
-| Asset inspection | `get_doc_assets`, `get_image_ocr_text`, `list_unused_assets` |
+| Asset inspection | `get_doc_assets`, `list_unused_assets` |
 | Asset mutations | `remove_unused_assets`, `rename_asset`, `delete_asset` |
 
 `get_doc_assets` is a direct-reference inspection action. It reports assets referenced by the current document tree and does not expand query embed blocks. When you need to inspect the full document content and assets, use `extract_doc`.
@@ -36,7 +36,7 @@ MCP:
 ```json
 {
   "action": "upload_asset",
-  "file": "/Users/me/image.png"
+  "file": "/Users/me/source.pdf"
 }
 ```
 
@@ -150,7 +150,7 @@ Delete an existing template only after resolving it with `list_templates`:
 CLI:
 
 ```bash
-siyuan file get-doc-assets --id <doc-id> --asset-type image
+siyuan file get-doc-assets --id <doc-id> --asset-type all
 siyuan file extract-doc --id <doc-id> --output-dir ./siyuan-extracted
 ```
 
@@ -168,7 +168,6 @@ siyuan file extract-doc --id <doc-id> --output-dir ./siyuan-extracted
 - `export_resources`
 - `list_unused_assets`
 - `get_doc_assets`
-- `get_image_ocr_text`
 - `remove_unused_assets`
 - `rename_asset`
 - `delete_asset`

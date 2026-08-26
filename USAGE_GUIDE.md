@@ -113,7 +113,6 @@
 - `export_resources`
 - `list_unused_assets`
 - `get_doc_assets`
-- `get_image_ocr_text`
 - `remove_unused_assets`
 - `rename_asset`
 - `delete_asset`

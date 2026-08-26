@@ -362,7 +362,7 @@ describe('av tool', () => {
         });
     });
 
-    it('maps mAsset set_cells input into the kernel value payload', async () => {
+    it('maps file-only mAsset set_cells input into the kernel value payload', async () => {
         const avApi = await import('@/api/av');
         const transactionApi = await import('@/api/transaction');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
@@ -383,7 +383,6 @@ describe('av tool', () => {
             columnID: 'col-cover',
             valueType: 'mAsset',
             assets: [
-                { type: 'image', content: 'assets/cover.png' },
                 { type: 'file', content: 'assets/spec.pdf', name: '规格书' },
             ],
         }, enabledActions('set_cells'), permMgr);
@@ -398,10 +397,9 @@ describe('av tool', () => {
                 blockID: 'row-1',
                 type: 'mAsset',
                 text: {
-                    content: '![](assets/cover.png)\n[规格书](assets/spec.pdf)',
+                    content: '[规格书](assets/spec.pdf)',
                 },
                 mAsset: [
-                    { type: 'image', name: '', content: 'assets/cover.png' },
                     { type: 'file', name: '规格书', content: 'assets/spec.pdf' },
                 ],
             },
@@ -414,7 +412,7 @@ describe('av tool', () => {
         });
     });
 
-    it('maps mAsset set_cells input into the kernel value payload', async () => {
+    it('拒绝通过 set_cells 写入图片型资产', async () => {
         const avApi = await import('@/api/av');
         const transactionApi = await import('@/api/transaction');
         vi.mocked(avApi.getAttributeView).mockResolvedValue({
@@ -440,25 +438,46 @@ describe('av tool', () => {
             }],
         }, enabledActions('set_cells'), permMgr);
 
-        expect(vi.mocked(transactionApi.performTransactions).mock.calls[0][1][0].doOperations[0]).toEqual({
-            action: 'updateAttrViewCell',
-            avID: 'av-1',
-            keyID: 'col-cover',
-            rowID: 'row-1',
-            data: {
-                keyID: 'col-cover',
-                blockID: 'row-1',
-                type: 'mAsset',
-                text: { content: '![封面](assets/cover.png)' },
-                mAsset: [{ type: 'image', name: '封面', content: 'assets/cover.png' }],
+        expect(JSON.parse(result.content[0].text)).toMatchObject({
+            error: {
+                action: 'set_cells',
+                reason: 'image_values_disabled',
+            },
+        });
+        expect(result.isError).toBe(true);
+        expect(transactionApi.performTransactions).not.toHaveBeenCalled();
+    });
+
+    it('拒绝通过 set_cells 写入关系值', async () => {
+        const avApi = await import('@/api/av');
+        const transactionApi = await import('@/api/transaction');
+        vi.mocked(avApi.getAttributeView).mockResolvedValue({
+            av: {
+                id: 'av-1',
+                keyValues: [{
+                    key: { type: 'block' },
+                    values: [{ id: 'val-1', blockID: 'row-1', block: { id: 'block-1' } }],
+                }],
             },
         });
 
+        const result = await callAvTool(client, {
+            action: 'set_cells',
+            avID: 'av-1',
+            rowID: 'row-1',
+            columnID: 'col-relation',
+            valueType: 'relation',
+            relationBlockIDs: ['target-block'],
+        }, enabledActions('set_cells'), permMgr);
+
         expect(JSON.parse(result.content[0].text)).toMatchObject({
-            success: false,
-            transactionState: 'pending_verification',
-            pendingVerification: { action: 'set_cells', avID: 'av-1' },
+            error: {
+                action: 'set_cells',
+                reason: 'relation_writes_disabled',
+            },
         });
+        expect(result.isError).toBe(true);
+        expect(transactionApi.performTransactions).not.toHaveBeenCalled();
     });
 
     it('rejects set_cells when rowID is a source block ID and suggests the row item ID', async () => {
@@ -2637,6 +2656,89 @@ describe('av tool', () => {
         });
         expect(parsed).not.toHaveProperty('data');
         expect(parsed.view).not.toHaveProperty('rows');
+    });
+
+    it('归一化分组表格行并按最大分组页数计算分页', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-1',
+            viewType: 'table',
+            view: {
+                id: 'view-1',
+                columns: [{ id: 'col-title', name: '标题', type: 'text' }],
+                rows: [],
+                rowCount: 13,
+                groups: [
+                    {
+                        id: 'group-a',
+                        rowCount: 2,
+                        rows: [{ id: 'row-1', values: [{ key: { id: 'col-title' }, content: '甲' }] }],
+                    },
+                    {
+                        id: 'group-b',
+                        rowCount: 11,
+                        rows: [{ id: 'row-2', values: [{ key: { id: 'col-title' }, content: '乙' }] }],
+                    },
+                ],
+            },
+        });
+
+        const result = await callAvTool(client, {
+            action: 'render',
+            id: 'av-1',
+            page: 1,
+            pageSize: 10,
+        }, enabledActions('render'), permMgr);
+
+        const parsed = JSON.parse(result.content[0].text);
+        expect(parsed).toMatchObject({
+            total: 13,
+            pageCount: 2,
+            hasNextPage: true,
+            rawRowsIncluded: false,
+            table: {
+                rows: [
+                    { id: 'row-1', cells: { 'col-title': '甲' } },
+                    { id: 'row-2', cells: { 'col-title': '乙' } },
+                ],
+                rowCount: 13,
+            },
+            view: {
+                groups: [
+                    { id: 'group-a', rowCount: 2 },
+                    { id: 'group-b', rowCount: 11 },
+                ],
+            },
+        });
+        expect(parsed).not.toHaveProperty('data');
+    });
+
+    it('保留画廊卡片数据并使用 cardCount 作为总数', async () => {
+        const avApi = await import('@/api/av');
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            id: 'av-1',
+            viewType: 'gallery',
+            view: {
+                id: 'view-1',
+                cards: [{ id: 'card-1', title: '知识原子' }],
+                cardCount: 1,
+            },
+        });
+
+        const result = await callAvTool(client, {
+            action: 'render',
+            id: 'av-1',
+        }, enabledActions('render'), permMgr);
+
+        const parsed = JSON.parse(result.content[0].text);
+        expect(parsed).toMatchObject({
+            total: 1,
+            data: [{ id: 'card-1', title: '知识原子' }],
+            rawRowsIncluded: true,
+            view: { id: 'view-1', rowCount: 1 },
+        });
+        expect(parsed).not.toHaveProperty('warning');
+        expect(parsed).not.toHaveProperty('table');
     });
 
     it('keeps raw render rows only when verbose is explicitly enabled', async () => {

@@ -1074,11 +1074,6 @@ export const FileGetDocAssetsSchema = z.object({
     assetType: z.enum(['all', 'image']).optional().describe("Filter asset type: 'all' (default) returns all assets, 'image' returns only image assets."),
 });
 
-export const FileGetImageOCRTextSchema = z.object({
-    action: z.literal("get_image_ocr_text"),
-    path: z.string().optional().describe("Asset path; omit to receive an empty OCR text payload"),
-});
-
 export const FileRemoveUnusedAssetsSchema = z.object({
     action: z.literal("remove_unused_assets"),
 });

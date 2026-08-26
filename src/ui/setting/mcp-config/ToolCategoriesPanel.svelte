@@ -187,7 +187,6 @@
                 { key: "export_resources", title: "Export Resources", description: "Export resources as a ZIP archive." },
                 { key: "list_unused_assets", title: "List Unused Assets", description: "List asset files not currently referenced." },
                 { key: "get_doc_assets", title: "Get Direct Document Assets", description: "List assets directly referenced by the current document tree. Use Extract Document for complete content and asset inspection." },
-                { key: "get_image_ocr_text", title: "Get Image OCR Text", description: "Get stored OCR text for an image asset." },
                 { key: "remove_unused_assets", title: "Remove Unused Assets", description: "Remove all unused asset files." },
                 { key: "rename_asset", title: "Rename Asset", description: "Rename an asset file." },
                 { key: "delete_asset", title: "Delete Asset", description: "Delete an asset file." },

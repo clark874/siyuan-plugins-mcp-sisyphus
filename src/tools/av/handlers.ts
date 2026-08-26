@@ -1107,6 +1107,66 @@ function buildAvTableView(responseObj: Record<string, unknown>, rows: unknown[],
     return { columns, rows: tableRows, rowCount: total };
 }
 
+function extractViewItems(view: Record<string, unknown> | undefined): { items: unknown[]; total: number } {
+    if (!view) return { items: [], total: 0 };
+    const items = Array.isArray(view.rows)
+        ? view.rows
+        : Array.isArray(view.cards)
+            ? view.cards
+            : [];
+    const total = typeof view.rowCount === 'number'
+        ? view.rowCount
+        : typeof view.cardCount === 'number'
+            ? view.cardCount
+            : items.length;
+    if (items.length > 0 || !Array.isArray(view.groups)) return { items, total };
+
+    // 分组视图会把当前页数据放入各组，顶层 rows/cards 保持为空。
+    const groupedItems: unknown[] = [];
+    for (const group of view.groups) {
+        if (!isRecord(group)) continue;
+        const groupItems = Array.isArray(group.rows)
+            ? group.rows
+            : Array.isArray(group.cards)
+                ? group.cards
+                : [];
+        groupedItems.push(...groupItems);
+    }
+    return { items: groupedItems, total };
+}
+
+function computeRenderPageCount(view: Record<string, unknown> | undefined, total: number, pageSize: number): number {
+    const base = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
+    if (!Array.isArray(view?.groups)) return base;
+
+    // 每个分组独立分页，下一页状态由页数最多的分组决定。
+    let pageCount = 1;
+    let foundGroupTotal = false;
+    for (const group of view.groups) {
+        if (!isRecord(group)) continue;
+        const groupTotal = typeof group.rowCount === 'number'
+            ? group.rowCount
+            : typeof group.cardCount === 'number'
+                ? group.cardCount
+                : undefined;
+        if (groupTotal === undefined) continue;
+        foundGroupTotal = true;
+        pageCount = Math.max(pageCount, Math.max(1, Math.ceil(groupTotal / Math.max(1, pageSize))));
+    }
+    return foundGroupTotal ? pageCount : base;
+}
+
+function compactViewGroups(groups: unknown): unknown {
+    if (!Array.isArray(groups)) return groups;
+    return groups.map((group) => {
+        if (!isRecord(group)) return group;
+        const { rows: _rows, cards: _cards, ...metadata } = group;
+        void _rows;
+        void _cards;
+        return metadata;
+    });
+}
+
 function avTableProjectionCoversRows(rows: unknown[], table: AvTableView | undefined): boolean {
     if (!table || table.rows.length !== rows.length) return false;
     return rows.every((row, index) => {
@@ -1395,30 +1455,44 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
         ? responseObj.view as Record<string, unknown>
         : undefined;
     const renderedView = nestedView ?? responseObj;
-    const rows = Array.isArray(renderedView.rows) ? renderedView.rows as unknown[] : [];
+    const { items: rows, total } = extractViewItems(renderedView);
     const page = parsed.page ?? 1;
     // SiYuan 3.8.1 may echo the view's persisted page size (for example 50)
     // even when this request asked for 10 rows. Report the request window so
     // pagination metadata stays aligned with the actual returned row count.
     const pageSize = requestedPageSize > 0 ? requestedPageSize : (rows.length || 1);
-    const total = typeof renderedView.rowCount === 'number'
-        ? renderedView.rowCount as number
-        : rows.length;
     const kernelPageCount = typeof responseObj.pageCount === 'number'
         ? responseObj.pageCount as number
         : typeof renderedView.pageCount === 'number'
             ? renderedView.pageCount as number
-            : Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
-    const table = buildAvTableView(renderedView, rows, total);
-    const { rows: _ignoredRows, pageCount: _ignoredPageCount, rowCount: _ignoredRowCount, ...restRenderedView } = renderedView;
+            : computeRenderPageCount(renderedView, total, pageSize);
+    const isTableLayout = Array.isArray(renderedView.columns)
+        || renderedView.viewType === 'table'
+        || responseObj.viewType === 'table';
+    const table = isTableLayout ? buildAvTableView(renderedView, rows, total) : undefined;
+    const {
+        rows: _ignoredRows,
+        cards: _ignoredCards,
+        groups: rawGroups,
+        pageCount: _ignoredPageCount,
+        rowCount: _ignoredRowCount,
+        cardCount: _ignoredCardCount,
+        ...restRenderedView
+    } = renderedView;
     void _ignoredRows;
+    void _ignoredCards;
     void _ignoredPageCount;
     void _ignoredRowCount;
+    void _ignoredCardCount;
+    const compactedRenderedView = {
+        ...restRenderedView,
+        ...(rawGroups !== undefined ? { groups: compactViewGroups(rawGroups) } : {}),
+    };
     const restResponse = nestedView
-        ? { ...responseObj, view: { ...restRenderedView, rowCount: total } }
-        : restRenderedView;
+        ? { ...responseObj, view: { ...compactedRenderedView, rowCount: total } }
+        : compactedRenderedView;
     const tableCoversRows = avTableProjectionCoversRows(rows, table);
-    const includeRawRows = parsed.verbose === true || (rows.length > 0 && !tableCoversRows);
+    const includeRawRows = parsed.verbose === true || (rows.length > 0 && (!table || !tableCoversRows));
     const payload = {
         ...(includeRawRows ? { data: rows } : {}),
         total,
@@ -1433,7 +1507,7 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
         ...(table ? { rowFormat: 'compact_table' } : {}),
         rawRowsIncluded: includeRawRows,
         ...(!includeRawRows && rows.length > 0 ? { rawRowsHint: 'Set verbose=true only when the compact table omits a kernel field you need.' } : {}),
-        ...(rows.length > 0 && !tableCoversRows ? {
+        ...(rows.length > 0 && table !== undefined && !tableCoversRows ? {
             warning: 'MCP could not safely project every rendered row, so raw data[] was retained for this response.',
         } : {}),
         ...(parsed.createIfNotExist === true ? { generatedAvID: idWasGenerated } : {}),
@@ -1831,6 +1905,21 @@ async function handleSetCells({ client, permMgr, rawArgs }: ToolHandlerContext):
         phone: parsed.phone,
         assets: parsed.assets,
     }]) as Array<StrongCellValueInput & { rowID: string; columnID: string }>;
+
+    if (items.some((item) => item.valueType === 'relation')) {
+        return createAvRowIdErrorResult('set_cells', {
+            reason: 'relation_writes_disabled',
+            message: 'LLM Wiki 分支不通过 set_cells 写入关系单元格。',
+            hint: '当前动作无法在写入前完整验证目标 AV 权限；请在思源界面维护关系。',
+        });
+    }
+    if (items.some((item) => item.valueType === 'mAsset' && item.assets?.some((asset) => asset.type === 'image'))) {
+        return createAvRowIdErrorResult('set_cells', {
+            reason: 'image_values_disabled',
+            message: 'LLM Wiki 分支不写入图片型 AV 数据。',
+            hint: '请移除 type="image" 的资产值；文本型知识字段与普通文件型资产不受影响。',
+        });
+    }
 
     const values: TransactionOperation[] = [];
     for (let index = 0; index < items.length; index += 1) {

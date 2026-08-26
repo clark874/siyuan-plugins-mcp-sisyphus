@@ -1,6 +1,6 @@
 ---
 name: siyuan-sisyphus-file-export
-description: 思源文件与导出 CLI 工作流。用于附件上传、Markdown 导出、文档提取、资源 ZIP、OCR、模板、安全资产维护，以及项目知识与本机源文件目录的受控映射。
+description: 思源文件与导出 CLI 工作流。用于附件上传、Markdown 导出、文档提取、资源 ZIP、模板、安全资产维护，以及项目知识与本机源文件目录的受控映射。
 compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
@@ -26,7 +26,7 @@ siyuan-sisyphus system bootstrap --json
 File actions are the explicit exception to the normal remote-only data path: uploads and local exports may touch the machine running the server. Confirm local paths and scope first.
 
 ```bash
-siyuan-sisyphus file upload-asset --assets-dir-path '/assets/' --local-file-path '/absolute/path/to/image.png' --json
+siyuan-sisyphus file upload-asset --assets-dir-path '/assets/' --local-file-path '/absolute/path/to/source.pdf' --json
 ```
 ```bash
 siyuan-sisyphus file export-md --id '<doc-id>' --json
@@ -35,13 +35,10 @@ siyuan-sisyphus file export-md --id '<doc-id>' --json
 siyuan-sisyphus file extract-doc --id '<doc-id>' --output-dir '/tmp/siyuan-extract' --json
 ```
 ```bash
-siyuan-sisyphus file export-resources --paths-json '["assets/file.png","assets/file.pdf"]' --json
+siyuan-sisyphus file export-resources --paths-json '["assets/file.txt","assets/file.pdf"]' --json
 ```
 ```bash
-siyuan-sisyphus file get-doc-assets --id '<doc-id>' --asset-type 'image' --json
-```
-```bash
-siyuan-sisyphus file get-image-ocr-text --path 'assets/image.png' --json
+siyuan-sisyphus file get-doc-assets --id '<doc-id>' --asset-type 'all' --json
 ```
 
 Large uploads must stop and require explicit confirmation before retrying with the large-file confirmation field. A document extraction output directory may be cleared; use a task-specific empty directory. Before renaming, deleting, or removing unused assets, list the exact targets and obtain approval. Verify returned paths after the operation. Read `siyuan-sisyphus help file upload-asset` for current size and path constraints.

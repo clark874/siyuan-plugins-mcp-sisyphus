@@ -343,6 +343,29 @@ describe('extension tool', () => {
         expect(callTool).not.toHaveBeenCalled();
     });
 
+    it('始终拒绝原生图片工具，即使用户清空持久化屏蔽列表', async () => {
+        const config = buildDefaultToolConfig().extension;
+        config.includeNativeTools = true;
+        config.blockedTools = [];
+        const image = nativeTool({ name: 'image', readOnlyHint: true });
+        const { runtime, callTool } = fakeRuntime([image]);
+
+        const descriptor = listExtensionTools(config, runtime)[0];
+        const schema = descriptor.inputSchema as any;
+        expect(schema.properties.action.enum).not.toContain('image');
+
+        const result = await callExtensionTool(
+            createMockClient(),
+            { action: 'image', arguments: { action: 'analyze', path: 'assets/cover.png' } },
+            config,
+            createMockPermissionManager(),
+            runtime,
+        );
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('Unknown official MCP tool "image"');
+        expect(callTool).not.toHaveBeenCalled();
+    });
+
     it('fails closed for workspace-reading native actions when any notebook is restricted', async () => {
         const config = buildDefaultToolConfig().extension;
         config.includeNativeTools = true;

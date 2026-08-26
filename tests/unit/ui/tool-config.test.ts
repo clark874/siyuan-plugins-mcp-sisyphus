@@ -29,6 +29,7 @@ describe('setting tool config', () => {
             'database',
             'document',
             'file',
+            'image',
             'system',
         ]));
         expect(config.extension.blockedTools).not.toContain('history');

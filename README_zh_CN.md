@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前版本为 `v0.9.2-wiki.3`（CLI `v0.4.2-wiki.3`），新增项目全量包知识编译与跨项目方法复用闭合工作流，同时保持知识摄取只处理外部来源的边界。
+> **LLM Wiki 分支：**当前版本为 `v0.9.2-wiki.4`（CLI `v0.4.2-wiki.4`）。本补丁补齐 AV 分组与卡片读取，关闭图片读取入口，并收紧关系与图片型 AV 写入。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 版本：**`v0.9.2-wiki.3` — 项目源读取继续保持 `v0.9.2-wiki.2` 的安全边界。本补丁新增“本地研究项目全量包 → 可追溯原子与项目内语义关系”和“项目 → 公共方法原子复用关系闭合”两条正式工作流。CLI `v0.4.2-wiki.3` 要求 Node.js 20+。
+> **当前 LLM Wiki 版本：**`v0.9.2-wiki.4`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；本补丁仅吸收 AV 读取兼容性与写入安全增量。CLI `v0.4.2-wiki.4` 要求 Node.js 20+。
 
 ## 项目方向调整
 

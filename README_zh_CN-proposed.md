@@ -362,7 +362,6 @@ siyuan search fulltext --query "TODO" --json | jq '.data[].hPath'
 | `export_resources` | 导出资源为 ZIP（写本地需确认） |
 | `list_unused_assets` | 列出未被引用的资源文件 |
 | `get_doc_assets` | 列出文档引用的资源 |
-| `get_image_ocr_text` | 读取图片资源的 OCR 文本 |
 | `remove_unused_assets` | 删除全部未被引用的资源文件 |
 | `rename_asset` | 重命名资源文件 |
 | `delete_asset` | 删除资源文件 |
