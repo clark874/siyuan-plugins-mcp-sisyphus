@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki branch:** `v0.9.2-wiki.3` with CLI `v0.4.2-wiki.3` adds dedicated project-package compilation and cross-project method-reuse workflows while preserving the external-source boundary of knowledge ingestion.
+> **LLM Wiki 分支：**当前版本为 `v0.9.2-wiki.4`（CLI `v0.4.2-wiki.4`）。本补丁补齐 AV 分组与卡片读取，关闭图片读取入口，并收紧关系与图片型 AV 写入。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **Current LLM Wiki release:** `v0.9.2-wiki.3` — project-source reads retain the `v0.9.2-wiki.2` safety boundary. This patch adds explicit workflows for compiling complete local research projects into traceable atoms and internal semantic relations, and for closing verified project-to-public-method reuse relations. CLI `v0.4.2-wiki.3` requires Node.js 20+.
+> **当前 LLM Wiki 版本：**`v0.9.2-wiki.4`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；本补丁仅吸收 AV 读取兼容性与写入安全增量。CLI `v0.4.2-wiki.4` 要求 Node.js 20+。
 
 ## Project Direction Update
 

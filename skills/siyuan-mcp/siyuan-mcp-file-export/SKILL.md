@@ -1,6 +1,6 @@
 ---
 name: siyuan-mcp-file-export
-description: 思源文件与导出 MCP 工作流。用于附件上传、Markdown 导出、文档提取、资源 ZIP、OCR、模板、安全资产维护，以及项目知识与本机源文件目录的受控映射。
+description: 思源文件与导出 MCP 工作流。用于附件上传、Markdown 导出、文档提取、资源 ZIP、模板、安全资产维护，以及项目知识与本机源文件目录的受控映射。
 compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
 ---
 
@@ -9,7 +9,7 @@ compatibility: "Requires a reachable SiYuan Sisyphus MCP server already register
 File actions are the explicit exception to the normal remote-only data path: uploads and local exports may touch the machine running the server. Confirm local paths and scope first.
 
 ```text
-file(action="upload_asset", assetsDirPath="/assets/", localFilePath="/absolute/path/to/image.png")
+file(action="upload_asset", assetsDirPath="/assets/", localFilePath="/absolute/path/to/source.pdf")
 ```
 ```text
 file(action="export_md", id="<doc-id>")
@@ -18,13 +18,10 @@ file(action="export_md", id="<doc-id>")
 file(action="extract_doc", id="<doc-id>", outputDir="/tmp/siyuan-extract")
 ```
 ```text
-file(action="export_resources", paths=["assets/file.png","assets/file.pdf"])
+file(action="export_resources", paths=["assets/file.txt","assets/file.pdf"])
 ```
 ```text
-file(action="get_doc_assets", id="<doc-id>", assetType="image")
-```
-```text
-file(action="get_image_ocr_text", path="assets/image.png")
+file(action="get_doc_assets", id="<doc-id>", assetType="all")
 ```
 
 Large uploads must stop and require explicit confirmation before retrying with the large-file confirmation field. A document extraction output directory may be cleared; use a task-specific empty directory. Before renaming, deleting, or removing unused assets, list the exact targets and obtain approval. Verify returned paths after the operation. Read `siyuan://help/action/file/upload_asset` for current size and path constraints.

@@ -714,8 +714,8 @@ Before writing cells, render the current view and map column names to column IDs
         id: 'file-export',
         cliName: 'siyuan-sisyphus-file-export',
         mcpName: 'siyuan-mcp-file-export',
-        cliDescription: '思源文件与导出 CLI 工作流。用于附件上传、Markdown 导出、文档提取、资源 ZIP、OCR、模板、安全资产维护，以及项目知识与本机源文件目录的受控映射。',
-        mcpDescription: '思源文件与导出 MCP 工作流。用于附件上传、Markdown 导出、文档提取、资源 ZIP、OCR、模板、安全资产维护，以及项目知识与本机源文件目录的受控映射。',
+        cliDescription: '思源文件与导出 CLI 工作流。用于附件上传、Markdown 导出、文档提取、资源 ZIP、模板、安全资产维护，以及项目知识与本机源文件目录的受控映射。',
+        mcpDescription: '思源文件与导出 MCP 工作流。用于附件上传、Markdown 导出、文档提取、资源 ZIP、模板、安全资产维护，以及项目知识与本机源文件目录的受控映射。',
         title: 'Handle SiYuan Files and Exports',
         displayName: 'SiYuan Files & Export',
         shortDescription: '安全处理思源资产、导出与项目源映射',
@@ -727,7 +727,6 @@ Before writing cells, render the current view and map column names to column IDs
 {{call extract}}
 {{call exportResources}}
 {{call assets}}
-{{call ocr}}
 
 Large uploads must stop and require explicit confirmation before retrying with the large-file confirmation field. A document extraction output directory may be cleared; use a task-specific empty directory. Before renaming, deleting, or removing unused assets, list the exact targets and obtain approval. Verify returned paths after the operation. Read {{help file upload_asset}} for current size and path constraints.
 
@@ -746,12 +745,11 @@ Large uploads must stop and require explicit confirmation before retrying with t
 \`register_project_source\` 与 \`scan_project_manifest\` 会更新插件私有登记表，必须先确认；扫描同时受条目数、单文件哈希字节数和总哈希读取量限制。\`read_project_source\` 是只读动作，只允许读取当前清单中已列出、绑定可用且未逃逸根目录的安全 UTF-8 文本；单文件上限 1 MiB，每次最多返回 20,000 字符，分页在脱敏后进行，响应分别报告 \`listed\`、\`readable\`、\`contentRead\` 与 \`revisionVerified\`。二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。\`resolve_project_source\` 会披露一个本机绝对路径，必须先确认；除非确需把路径交给已有本机工作区权限的客户端，否则优先使用受控读取。不得把解析成功、清单收录或文件可读报告为内容已经核验。
 `,
         calls: {
-            upload: call('file', 'upload_asset', { assetsDirPath: '/assets/', localFilePath: '/absolute/path/to/image.png' }),
+            upload: call('file', 'upload_asset', { assetsDirPath: '/assets/', localFilePath: '/absolute/path/to/source.pdf' }),
             exportMd: call('file', 'export_md', { id: '<doc-id>' }),
             extract: call('file', 'extract_doc', { id: '<doc-id>', outputDir: '/tmp/siyuan-extract' }),
-            exportResources: call('file', 'export_resources', { paths: ['assets/file.png', 'assets/file.pdf'] }),
-            assets: call('file', 'get_doc_assets', { id: '<doc-id>', assetType: 'image' }),
-            ocr: call('file', 'get_image_ocr_text', { path: 'assets/image.png' }),
+            exportResources: call('file', 'export_resources', { paths: ['assets/file.txt', 'assets/file.pdf'] }),
+            assets: call('file', 'get_doc_assets', { id: '<doc-id>', assetType: 'all' }),
             registerProject: call('file', 'register_project_source', {
                 projectId: 'water-paper',
                 workspaceRoot: '/absolute/path/to/project',

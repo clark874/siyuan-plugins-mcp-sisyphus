@@ -405,7 +405,7 @@
 | 14 | POST | `/api/asset/renameAsset` | renameAsset | 资源重命名资源 | file.rename_asset | ✅ 已覆盖 |
 
 > 注：`file.delete_asset` 与 `file.set_image_alpha` 已在插件中实现兼容性 action，但未出现在本次 459 个上游 Kernel API 端点扫描结果中，因此不计入本表覆盖率统计。
-| 15 | POST | `/api/asset/getImageOCRText` | getImageOCRText | 资源获取ImageOCRText | file.get_image_ocr_text | ✅ 已覆盖 |
+| 15 | POST | `/api/asset/getImageOCRText` | getImageOCRText | 资源获取ImageOCRText | 未暴露 | LLM Wiki 分支排除图片读取 |
 | 16 | POST | `/api/asset/setImageOCRText` | setImageOCRText | 资源设置ImageOCRText | - | ❌ 未覆盖 |
 | 17 | POST | `/api/asset/ocr` | ocr | 资源ocr | - | ❌ 未覆盖 |
 | 18 | POST | `/api/asset/fullReindexAssetContent` | fullReindexAssetContent | 资源fullReindex资源Content | - | ❌ 未覆盖 |

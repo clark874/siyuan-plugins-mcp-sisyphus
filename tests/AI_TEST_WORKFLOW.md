@@ -1483,21 +1483,6 @@
 
 ---
 
-### 步骤 6.9 — 获取图片 OCR 文本
-
-**调用：**
-```json
-{
-  "tool": "file",
-  "action": "get_image_ocr_text",
-  "path": "$RENAMED_ASSET_PATH"
-}
-```
-
-**通过条件：** 调用成功，返回 `ocrText` 字段（可以为空字符串，说明无 OCR 数据）。
-
----
-
 ### 步骤 6.10 — 设置图片透明度
 
 > **前置判断：** 仅当 `$RENAMED_ASSET_PATH` 指向的图片格式支持透明度时执行；否则跳过。

@@ -122,7 +122,7 @@ describe('file tool asset actions', () => {
         expect(actionDescription).toContain('save_doc_as_template');
         expect(actionDescription).toContain('list_unused_assets');
         expect(actionDescription).toContain('get_doc_assets');
-        expect(actionDescription).toContain('get_image_ocr_text');
+        expect(actionDescription).not.toContain('get_image_ocr_text');
         expect(actionDescription).toContain('remove_unused_assets');
         expect(actionDescription).toContain('rename_asset');
         expect(actionDescription).toContain('delete_asset');
@@ -507,18 +507,6 @@ describe('file tool asset actions', () => {
             assetType: 'image',
             assets: ['assets/cover.png'],
             count: 1,
-        });
-    });
-
-    it('returns OCR text for an image asset', async () => {
-        const result = await callFileTool(client, {
-            action: 'get_image_ocr_text',
-            path: 'assets/cover.png',
-        }, config.file, {} as never);
-
-        expect(parseResult(result)).toEqual({
-            path: 'assets/cover.png',
-            text: 'recognized text',
         });
     });
 

@@ -11,12 +11,16 @@
 1. **MCP Server 插件**：作为 SiYuan 插件运行，对外暴露 MCP（Model Context Protocol）服务。AI 客户端（Claude Desktop、Cursor、Cherry Studio 等）通过 HTTP 或 stdio 连接。
 2. **独立 CLI `siyuan-sisyphus`**：发布到 npm 的包名 `siyuan-sisyphus`，安装后提供 `siyuan-sisyphus` / `siyuan` 命令。直接通过思源 HTTP API 执行单次操作后退出，无需 MCP 客户端。
 
-两种接口共享同一套底层能力（14 个聚合工具、153 个注册 action，不含各工具的 `help`；`extension` 另动态桥接官方原生 MCP 工具），覆盖思源绝大部分功能：笔记与文档管理、块级读写、属性视图（数据库）、搜索、标签、时间线快照、文件资源、闪卡、系统接口等。
+两种接口共享同一套底层能力（14 个聚合工具、152 个注册 action，不含各工具的 `help`；`extension` 另动态桥接经过固定白名单筛选的官方原生 MCP 工具）。
+
+### LLM Wiki 分支产品边界
+
+本维护分支服务于私人 LLM Wiki 的文本知识治理，不以覆盖通用笔记软件功能为目标。不得新增或重新暴露图片读取、图片分析、图片生成、图片 OCR 或图片引用审计能力；知识原子与 AV 写入不得承载图片型数据。上游同步只吸收能够直接提高文本知识检索、可追溯治理和安全写入可靠性的最小增量，不以功能数量或上游对齐度作为吸收依据。
 
 - 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.9.2-wiki.3`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.4.2-wiki.3`）
+- 当前版本：`0.9.2-wiki.4`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.4.2-wiki.4`）
 
 ---
 
@@ -248,13 +252,13 @@ notebook    → 11 actions（list, create, set_open_state, remove, rename, get_c
 document    → 19 actions（create, lookup, rename, remove, move, list_tree, get_doc, ...）
 block       → 21 actions（insert, prepend, append, update, replace, delete, move, ...）
 av          → 13 actions（get, render, get_attribute_view_keys, add_rows, set_cells, ...）
-file        → 21 actions（upload_asset, register_project_source, scan_project_manifest, resolve_project_source, list_project_sources, export_md, ...）
+file        → 20 actions（upload_asset, register_project_source, scan_project_manifest, resolve_project_source, list_project_sources, export_md, ...）
 search      → 11 actions（fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, ...）
 tag         → 3  actions（list, rename, remove）
 timeline    → 7  actions（list_nodes, create_node, compare_node, compare_recent, ...）
 system      → 27 actions（bootstrap, get_version, notify, workspace_info, plan_change, ...）
 flashcard   → 6  actions（list_cards, get_decks, review_card, create_card, ...）
-extension   → 官方原生 MCP 工具桥接（list 动态发现：search, ref, outline, history, image, inbox, repo, web_fetch, web_search）
+extension   → 官方原生 MCP 工具桥接（list 动态发现：search, ref, outline, history, inbox, repo, web_fetch, web_search；图片工具永久拒绝）
 mascot      → 3  actions（get_balance, shop, buy）
 feedback    → 1  action（submit）
 ```

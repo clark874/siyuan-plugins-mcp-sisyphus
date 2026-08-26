@@ -181,7 +181,6 @@
 | `export_resources` | `POST /api/export/exportResources` | `src/api/file.ts` | 将 `assets/...` 规范化为 `data/assets/...` 后导出；若传 `outputPath`，再把 ZIP 复制到本地文件系统（高危，需先确认） |
 | `list_unused_assets` | `POST /api/asset/getUnusedAssets` | `src/api/file.ts` | 列出未使用资源 |
 | `get_doc_assets` | `POST /api/asset/getDocAssets` / `POST /api/asset/getDocImageAssets` | `src/api/file.ts` | 列出文档引用的资源；`assetType: "all"`（默认）或 `"image"` |
-| `get_image_ocr_text` | `POST /api/asset/getImageOCRText` | `src/api/file.ts` | 获取图片资源的 OCR 文本 |
 | `remove_unused_assets` | `POST /api/asset/removeUnusedAssets` | `src/api/file.ts` | 删除所有未使用资源，需要确认 |
 | `rename_asset` | `POST /api/asset/renameAsset` | `src/api/file.ts` | 重命名资源 |
 | `delete_asset` | `POST /api/asset/deleteAsset` | `src/api/file.ts` | 删除指定资源，需要确认；兼容性 action，是否可用取决于目标 SiYuan 内核版本 |
@@ -393,7 +392,7 @@
 | `POST /api/asset/getUnusedAssets` | `list_unused_assets` | 获取未使用资源 | 已接入 |
 | `POST /api/asset/removeUnusedAssets` | `remove_unused_assets` | 删除未使用资源，需要确认 | 已接入 |
 | `POST /api/asset/renameAsset` | `rename_asset` | 重命名资源 | 已接入 |
-| `POST /api/asset/getImageOCRText` | `get_image_ocr_text` | 获取图片 OCR 文本 | 已接入 |
+| `POST /api/asset/getImageOCRText` | 未暴露 | 获取图片 OCR 文本 | LLM Wiki 分支明确排除 |
 
 补充：
 

@@ -14,7 +14,6 @@ import {
     FileExportResourcesSchema,
     FileExtractDocSchema,
     FileGetDocAssetsSchema,
-    FileGetImageOCRTextSchema,
     FileListProjectSourcesSchema,
     FileListTemplatesSchema,
     FileListUnusedAssetsSchema,
@@ -480,15 +479,6 @@ const handleGetDocAssets: ToolActionHandler = async ({ client, permMgr, rawArgs 
     });
 };
 
-const handleGetImageOCRText: ToolActionHandler = async ({ client, rawArgs }) => {
-    const parsed = FileGetImageOCRTextSchema.parse(rawArgs);
-    const result = await fileApi.getImageOCRText(client, parsed.path);
-    return createJsonResult({
-        path: parsed.path ?? null,
-        ...result,
-    });
-};
-
 const handleRemoveUnusedAssets: ToolActionHandler = async ({ client, rawArgs }) => {
     FileRemoveUnusedAssetsSchema.parse(rawArgs);
     const result = await fileApi.removeUnusedAssets(client);
@@ -599,7 +589,6 @@ export function createFileActionHandlers(thresholdMB: number, largeUploadThresho
         export_resources: handleExportResources,
         list_unused_assets: handleListUnusedAssets,
         get_doc_assets: handleGetDocAssets,
-        get_image_ocr_text: handleGetImageOCRText,
         remove_unused_assets: handleRemoveUnusedAssets,
         rename_asset: handleRenameAsset,
         delete_asset: handleDeleteAsset,

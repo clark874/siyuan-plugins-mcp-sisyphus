@@ -15,7 +15,7 @@
 |------|---------|
 | 上传 / 导出 | `upload_asset`, `export_md`, `export_resources`, `extract_doc` |
 | 模板 | `list_templates`, `read_template`, `create_template`, `update_template`, `delete_template`, `save_doc_as_template`, `render` |
-| 资源查看 | `get_doc_assets`, `get_image_ocr_text`, `list_unused_assets` |
+| 资源查看 | `get_doc_assets`, `list_unused_assets` |
 | 资源变更 | `remove_unused_assets`, `rename_asset`, `delete_asset` |
 
 `get_doc_assets` 是直接引用资源查看动作，只返回当前文档树直接引用的资源，不会展开查询嵌入块。需要查看完整文档内容和资源时，应使用 `extract_doc`。
@@ -36,7 +36,7 @@ MCP：
 ```json
 {
   "action": "upload_asset",
-  "file": "/Users/me/image.png"
+  "file": "/Users/me/source.pdf"
 }
 ```
 
@@ -150,7 +150,7 @@ MCP：
 CLI：
 
 ```bash
-siyuan file get-doc-assets --id <doc-id> --asset-type image
+siyuan file get-doc-assets --id <doc-id> --asset-type all
 siyuan file extract-doc --id <doc-id> --output-dir ./siyuan-extracted
 ```
 
@@ -168,7 +168,6 @@ siyuan file extract-doc --id <doc-id> --output-dir ./siyuan-extracted
 - `export_resources`
 - `list_unused_assets`
 - `get_doc_assets`
-- `get_image_ocr_text`
 - `remove_unused_assets`
 - `rename_asset`
 - `delete_asset`
