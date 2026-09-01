@@ -273,6 +273,7 @@ export const SEARCH_GUIDANCE: string[] = [
     'Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.',
     'search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.',
     'search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.',
+    'criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.',
     'Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.',
 ];
 
@@ -287,6 +288,9 @@ export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     find_replace: 'This is the mutating exception inside the search tool. It performs content replacement after write-permission checks and still requires explicit user confirmation.',
     search_assets: 'Searches asset filenames. Prefer query over k when prompting an AI. If you need OCR or indexed inner-text matches, use fulltext_asset_content instead.',
     fulltext_asset_content: 'Searches indexed asset/OCR text. Prefer methodName and sortBy over numeric method/orderBy. Provide assetId for an exact asset-content lookup.',
+    criteria_list: 'Lists the workspace saved-search criteria (kernel /api/storage/getCriteria, public API since SiYuan 3.8.2). Each entry is a name plus an opaque obj persisted by SiYuan\u2019s search panel; obj is passed through verbatim and not interpreted.',
+    criteria_save: 'Upserts a named criterion via /api/storage/setCriterion. Overwrites an existing saved search with the same name; obj must be the opaque condition object, typically copied from criteria_list output. Dangerous: requires explicit user confirmation.',
+    criteria_remove: 'Removes a saved criterion by name via /api/storage/removeCriterion. Dangerous: requires explicit user confirmation.',
 };
 
 export const TAG_ACTION_HINTS: Partial<Record<TagAction, string>> = {

@@ -137,6 +137,10 @@ function createContractClient() {
             if (endpoint === '/api/search/searchTemplate') return { k: body?.k ?? '', templates: [{ path: '/workspace/data/templates/demo.md', content: 'demo' }] };
             if (endpoint === '/api/search/removeTemplate') return null;
 
+            if (endpoint === '/api/storage/getCriteria') return [{ name: 'demo', obj: { k: 'doc' } }];
+            if (endpoint === '/api/storage/setCriterion') return null;
+            if (endpoint === '/api/storage/removeCriterion') return null;
+
             if (endpoint === '/api/export/exportMdContent') return { hPath: '/Doc 1', content: 'markdown' };
             if (endpoint === '/api/export/exportMd') return { name: 'Doc 1', zip: '/export/doc-1.zip' };
             if (endpoint === '/api/export/exportResources') return { path: '/temp/export.zip' };
@@ -301,6 +305,9 @@ describe('tool action contract coverage', () => {
             { action: 'search_assets', args: { action: 'search_assets', k: 'asset' }, expectedEndpoint: '/api/search/searchAsset' },
             { action: 'fulltext_asset_content', args: { action: 'fulltext_asset_content', query: 'asset' }, expectedEndpoint: '/api/search/fullTextSearchAssetContent' },
             { action: 'list_invalid_refs', args: { action: 'list_invalid_refs' }, expectedEndpoint: '/api/search/listInvalidBlockRefs' },
+            { action: 'criteria_list', args: { action: 'criteria_list' }, expectedEndpoint: '/api/storage/getCriteria' },
+            { action: 'criteria_save', args: { action: 'criteria_save', name: 'demo', obj: { k: 'doc' } }, expectedEndpoint: '/api/storage/setCriterion' },
+            { action: 'criteria_remove', args: { action: 'criteria_remove', name: 'demo' }, expectedEndpoint: '/api/storage/removeCriterion' },
         ]);
     });
 

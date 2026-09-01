@@ -1241,6 +1241,29 @@ export const SearchListInvalidRefsSchema = z.object({
     pageSize: z.number().int().min(1).max(128).optional().describe("Results per page"),
 });
 
+export const SearchCriteriaListSchema = z.object({
+    action: z.literal("criteria_list"),
+});
+
+export const SearchCriteriaSaveSchema = z.object({
+    action: z.literal("criteria_save"),
+    name: z.string().min(1).describe("Saved-search name; an existing criterion with the same name is overwritten"),
+    obj: z.unknown().describe("Opaque kernel search-condition object as persisted by SiYuan's search panel; pass it through verbatim, typically copied from criteria_list output"),
+}).superRefine((value, ctx) => {
+    if (value.obj === undefined || value.obj === null) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide obj (the opaque kernel search-condition object).",
+            path: ['obj'],
+        });
+    }
+});
+
+export const SearchCriteriaRemoveSchema = z.object({
+    action: z.literal("criteria_remove"),
+    name: z.string().min(1).describe("Saved-search name to remove"),
+});
+
 export const TagActionSchema = z.enum(TAG_ACTIONS);
 
 export const TagListSchema = z.object({

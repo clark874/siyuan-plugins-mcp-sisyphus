@@ -15,6 +15,9 @@ import {
 import {
     SearchAssetsSchema,
     SearchCheckAnchorSchema,
+    SearchCriteriaListSchema,
+    SearchCriteriaRemoveSchema,
+    SearchCriteriaSaveSchema,
     SearchFindReplaceSchema,
     SearchFulltextAssetContentSchema,
     SearchFulltextSchema,
@@ -1136,6 +1139,35 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             showing: normalizedBlocks.length,
             truncated: false,
             ...createPartialMetadata(typeof filteredObj.filteredOutBlockCount === 'number' ? filteredObj.filteredOutBlockCount as number : 0),
+        });
+    },
+    criteria_list: async ({ client, rawArgs }) => {
+        SearchCriteriaListSchema.parse(rawArgs);
+        const criteria = await searchApi.getCriteria(client);
+        return createJsonResult({
+            criteria,
+            data: criteria,
+            total: criteria.length,
+            showing: criteria.length,
+            truncated: false,
+        });
+    },
+    criteria_save: async ({ client, rawArgs }) => {
+        const parsed = SearchCriteriaSaveSchema.parse(rawArgs);
+        await searchApi.setCriterion(client, { name: parsed.name, obj: parsed.obj });
+        return createJsonResult({
+            success: true,
+            saved: true,
+            name: parsed.name,
+        });
+    },
+    criteria_remove: async ({ client, rawArgs }) => {
+        const parsed = SearchCriteriaRemoveSchema.parse(rawArgs);
+        await searchApi.removeCriterion(client, parsed.name);
+        return createJsonResult({
+            success: true,
+            removed: true,
+            name: parsed.name,
         });
     },
 };

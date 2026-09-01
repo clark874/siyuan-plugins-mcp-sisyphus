@@ -1110,3 +1110,67 @@ describe('search tool filtering', () => {
         });
     });
 });
+
+describe('search saved criteria actions', () => {
+    it('criteria_list returns workspace saved-search criteria', async () => {
+        const request = vi.fn(async (endpoint: string, body: unknown) => {
+            expect(endpoint).toBe('/api/storage/getCriteria');
+            expect(body).toEqual({});
+            return [{ name: 'wiki-docs', obj: { k: 'docs', method: 0 } }];
+        });
+        const client = createMockClient({ request });
+
+        const result = await callSearchTool(client, {
+            action: 'criteria_list',
+        }, buildDefaultToolConfig().search, { canRead: () => true } as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.criteria).toEqual([{ name: 'wiki-docs', obj: { k: 'docs', method: 0 } }]);
+        expect(parsed.total).toBe(1);
+        expect(parsed.truncated).toBe(false);
+    });
+
+    it('criteria_save forwards the opaque criterion object to setCriterion', async () => {
+        const request = vi.fn(async (endpoint: string, body: unknown) => {
+            expect(endpoint).toBe('/api/storage/setCriterion');
+            expect(body).toEqual({ criterion: { name: 'wiki-docs', obj: { k: 'docs' } } });
+            return null;
+        });
+        const client = createMockClient({ request });
+
+        const result = await callSearchTool(client, {
+            action: 'criteria_save',
+            name: 'wiki-docs',
+            obj: { k: 'docs' },
+        }, buildDefaultToolConfig().search, { canRead: () => true } as never);
+
+        expect(parseResult(result)).toMatchObject({ success: true, saved: true, name: 'wiki-docs' });
+    });
+
+    it('criteria_save rejects a missing obj before calling the kernel', async () => {
+        const request = vi.fn();
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'criteria_save',
+            name: 'wiki-docs',
+        }, buildDefaultToolConfig().search, { canRead: () => true } as never);
+
+        expect(parseResult(result).error.message).toContain('Invalid arguments');
+        expect(request).not.toHaveBeenCalled();
+    });
+
+    it('criteria_remove forwards the criterion name to removeCriterion', async () => {
+        const request = vi.fn(async (endpoint: string, body: unknown) => {
+            expect(endpoint).toBe('/api/storage/removeCriterion');
+            expect(body).toEqual({ name: 'wiki-docs' });
+            return null;
+        });
+        const client = createMockClient({ request });
+
+        const result = await callSearchTool(client, {
+            action: 'criteria_remove',
+            name: 'wiki-docs',
+        }, buildDefaultToolConfig().search, { canRead: () => true } as never);
+
+        expect(parseResult(result)).toMatchObject({ success: true, removed: true, name: 'wiki-docs' });
+    });
+});

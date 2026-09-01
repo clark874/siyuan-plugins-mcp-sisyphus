@@ -169,6 +169,10 @@ ${userRulesPrioritySection}
 ${agentMemorySection}
 ${softErrorSection}
 
+## Kernel version
+
+- This MCP server targets SiYuan kernel 3.8.2 or newer (kernel security fixes and the block-query SQL parsing crash fix). Most actions work on older kernels, but the saved-search criteria actions (\`search(action="criteria_*")\`) require 3.8.2+; if they fail on an older kernel, tell the user to upgrade via Settings - About.
+
 ## Help and progressive disclosure
 
 Each tool exposes common actions in its description. For detailed help on any action (including advanced ones):

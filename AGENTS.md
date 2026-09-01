@@ -20,7 +20,7 @@
 - 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.9.2-wiki.4`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.4.2-wiki.4`）
+- 当前版本：`0.9.2-wiki.5`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.4.2-wiki.5`）
 
 ---
 
@@ -253,7 +253,7 @@ document    → 19 actions（create, lookup, rename, remove, move, list_tree, ge
 block       → 21 actions（insert, prepend, append, update, replace, delete, move, ...）
 av          → 13 actions（get, render, get_attribute_view_keys, add_rows, set_cells, ...）
 file        → 20 actions（upload_asset, register_project_source, scan_project_manifest, resolve_project_source, list_project_sources, export_md, ...）
-search      → 11 actions（fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, ...）
+search      → 14 actions（fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, ...）
 tag         → 3  actions（list, rename, remove）
 timeline    → 7  actions（list_nodes, create_node, compare_node, compare_recent, ...）
 system      → 27 actions（bootstrap, get_version, notify, workspace_info, plan_change, ...）

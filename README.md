@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：**当前版本为 `v0.9.2-wiki.4`（CLI `v0.4.2-wiki.4`）。本补丁补齐 AV 分组与卡片读取，关闭图片读取入口，并收紧关系与图片型 AV 写入。
+> **LLM Wiki 分支：**当前版本为 `v0.9.2-wiki.5`（CLI `v0.4.2-wiki.5`）。本补丁对接思源 3.8.2 的已保存搜索条件公开接口，并保持严格写入边界。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.9.2-wiki.4`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；本补丁仅吸收 AV 读取兼容性与写入安全增量。CLI `v0.4.2-wiki.4` 要求 Node.js 20+。
+> **当前 LLM Wiki 版本：**`v0.9.2-wiki.5`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；本补丁新增已保存搜索条件的列出、保存与移除。CLI `v0.4.2-wiki.5` 要求 Node.js 20+。**建议思源内核升级到 `3.8.2+`**（包含内核安全修复与块查询 SQL 解析崩溃修复；已保存搜索条件 `search(action="criteria_*")` 需要 3.8.2+）。
 
 ## Project Direction Update
 

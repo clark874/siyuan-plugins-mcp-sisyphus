@@ -17,7 +17,7 @@
 | `block` | 21 | [block 工具](./block.md) |
 | `av` | 12 | [av 工具](./av.md) |
 | `file` | 17 | [file 工具](./file.md) |
-| `search` | 8 | [search 工具](./search.md) |
+| `search` | 14 | [search 工具](./search.md) |
 | `tag` | 3 | [tag 工具](./tag.md) |
 | `timeline` | 7 | [timeline 工具](./timeline.md) |
 | `system` | 8 | [system 工具](./system.md) |
@@ -34,7 +34,7 @@
 - `block`: insert, prepend, append, update, replace, delete, move, set_fold_state, get_kramdown, batch_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info
 - `av`: get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate, get_primary_key_values
 - `file`: upload_asset, list_templates, read_template, create_template, update_template, delete_template, save_doc_as_template, render, export_md, export_resources, list_unused_assets, get_doc_assets, remove_unused_assets, rename_asset, delete_asset, extract_doc
-- `search`: fulltext, query_sql, get_backlinks, search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs
+- `search`: fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs, criteria_list, criteria_save, criteria_remove
 - `tag`: list, rename, remove
 - `timeline`: list_nodes, create_node, compare_node, compare_recent, delete_node, rollback_document, rollback_block
 - `system`: workspace_info, network, conf, notify, changelog, perform_sync, get_version, get_current_time, audit_environment, list_packages

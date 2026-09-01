@@ -7363,6 +7363,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Use only before writing or changing name/alias, not to locate existing content. Required shape: search(action="check_anchor", candidates=["token"], candidateKind="name"|"alias"). Checks exact normalized tokens before knowledge compilation; name candidates must be globally unique, while alias collisions are reported for semantic or custom-anchor-scope adjudication rather than rejected automatically.",
@@ -7375,6 +7376,180 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
           "candidates + candidateKind",
         ],
         "tool": "search",
+      },
+      "criteria_list": {
+        "action": "criteria_list",
+        "example": {
+          "action": "criteria_list",
+        },
+        "fullDocResource": "siyuan://help/action/search/criteria_list",
+        "guidance": [
+          "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
+          "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
+          "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
+          "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
+          "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
+          "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
+          "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
+          "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
+        ],
+        "hint": "Lists the workspace saved-search criteria (kernel /api/storage/getCriteria, public API since SiYuan 3.8.2). Each entry is a name plus an opaque obj persisted by SiYuan’s search panel; obj is passed through verbatim and not interpreted.",
+        "requiredFields": [],
+        "requiresConfirmation": false,
+        "shapes": [
+          "action only",
+        ],
+        "tool": "search",
+      },
+      "criteria_remove": {
+        "action": "criteria_remove",
+        "cliExamples": [
+          "siyuan-sisyphus search criteria-remove --name Research --validate-only",
+          "siyuan-sisyphus search criteria-remove --name Research --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+        ],
+        "cliFlags": {
+          "optional": [],
+          "protocol": [
+            "--validate-only",
+            "--request-id",
+            "--expected-state-hash",
+          ],
+          "required": [
+            "--name",
+          ],
+        },
+        "example": {
+          "action": "criteria_remove",
+          "name": "Research",
+        },
+        "examples": [
+          {
+            "description": "siyuan-sisyphus search criteria-remove --name Research --validate-only
+siyuan-sisyphus search criteria-remove --name Research --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+            "mcp": {
+              "action": "criteria_remove",
+              "name": "Research",
+            },
+            "title": "Canonical CLI",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/search/criteria_remove",
+        "guidance": [
+          "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
+          "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
+          "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
+          "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
+          "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
+          "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
+          "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
+          "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
+          "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+        ],
+        "hint": "Removes a saved criterion by name via /api/storage/removeCriterion. Dangerous: requires explicit user confirmation.",
+        "requiredFields": [
+          "name",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "name",
+        ],
+        "tool": "search",
+        "writeSafety": {
+          "mode": "mutation",
+          "precondition": "state",
+          "preconditionField": "expectedStateHash",
+          "preconditionFlag": "--expected-state-hash",
+          "protocol": "guarded",
+          "requestId": "fresh UUIDv7",
+          "requestIdFlag": "--request-id",
+          "validateOnly": true,
+          "validateOnlyFlag": "--validate-only",
+          "validateOnlySteps": [
+            "Call the action with validateOnly=true and the complete business arguments; nothing is written.",
+            "Copy the returned expectedStateHash credential without changing any business argument.",
+            "Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+          ],
+        },
+      },
+      "criteria_save": {
+        "action": "criteria_save",
+        "cliExamples": [
+          "siyuan-sisyphus search criteria-save --name Research --obj <obj> --validate-only",
+          "siyuan-sisyphus search criteria-save --name Research --obj <obj> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+        ],
+        "cliFlags": {
+          "optional": [],
+          "protocol": [
+            "--validate-only",
+            "--request-id",
+            "--expected-state-hash",
+          ],
+          "required": [
+            "--name",
+            "--obj",
+          ],
+        },
+        "example": {
+          "action": "criteria_save",
+          "name": "Research",
+          "obj": "<obj>",
+        },
+        "examples": [
+          {
+            "description": "siyuan-sisyphus search criteria-save --name Research --obj <obj> --validate-only
+siyuan-sisyphus search criteria-save --name Research --obj <obj> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+            "mcp": {
+              "action": "criteria_save",
+              "name": "Research",
+              "obj": "<obj>",
+            },
+            "title": "Canonical CLI",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/search/criteria_save",
+        "guidance": [
+          "All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation.",
+          "search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable.",
+          "When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query.",
+          "The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated.",
+          "In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget.",
+          "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
+          "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
+          "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
+          "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
+          "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+        ],
+        "hint": "Upserts a named criterion via /api/storage/setCriterion. Overwrites an existing saved search with the same name; obj must be the opaque condition object, typically copied from criteria_list output. Dangerous: requires explicit user confirmation.",
+        "requiredFields": [
+          "name",
+          "obj",
+        ],
+        "requiresConfirmation": true,
+        "shapes": [
+          "name + obj",
+        ],
+        "tool": "search",
+        "writeSafety": {
+          "mode": "mutation",
+          "precondition": "state",
+          "preconditionField": "expectedStateHash",
+          "preconditionFlag": "--expected-state-hash",
+          "protocol": "guarded",
+          "requestId": "fresh UUIDv7",
+          "requestIdFlag": "--request-id",
+          "validateOnly": true,
+          "validateOnlyFlag": "--validate-only",
+          "validateOnlySteps": [
+            "Call the action with validateOnly=true and the complete business arguments; nothing is written.",
+            "Copy the returned expectedStateHash credential without changing any business argument.",
+            "Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+          ],
+        },
       },
       "find_replace": {
         "action": "find_replace",
@@ -7444,6 +7619,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedManifestHash credential without changing any business argument. Execute once with expectedManifestHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -7491,6 +7667,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Pass a query string. Supports keyword, query syntax, SQL, and regex modes via methodName (preferred) or method. fulltext now returns plainContent/excerpt by default. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.",
@@ -7518,6 +7695,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Searches indexed asset/OCR text. Prefer methodName and sortBy over numeric method/orderBy. Provide assetId for an exact asset-content lookup.",
@@ -7544,6 +7722,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". Partial permission-filtered results include machine-readable metadata.",
@@ -7572,6 +7751,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Probes the readable controlled namespace before semantic retrieval. One exact name/alias returns locally with trust metadata and no data egress; duplicate exact anchors return an explicit ambiguity unless activeScopes identifies exactly one target; contained unique anchors seed semantic retrieval. Remaining queries use the SiYuan 3.8 embedding provider and may incur cost. namespaceMode="off" is reserved for retrieval evaluation baselines.",
@@ -7599,6 +7779,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "requiredFields": [],
@@ -7623,6 +7804,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Execute a SELECT statement. Common tables include blocks, spans, assets, attributes, and refs. Prefer sql over stmt when prompting an AI. Always use LIMIT to control kernel work; maxRows controls the returned window (default 200, maximum 1000). Unattributed aggregate rows are returned only when every notebook is readable; otherwise MCP fails closed and reports the omission.",
@@ -7648,6 +7830,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Searches asset filenames. Prefer query over k when prompting an AI. If you need OCR or indexed inner-text matches, use fulltext_asset_content instead.",
@@ -7674,6 +7857,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Returns block-level reference contexts for the target id. Use this when you need the surrounding block content, not just the document-level backlink list. beforeLen controls how much leading context is included in each hit.",
@@ -7702,6 +7886,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
           "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
           "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+          "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
         "hint": "Low-level semantic candidates from the SiYuan 3.8 embedding index. The query leaves the workspace for the configured provider; verify source attributes before reuse.",
@@ -7719,7 +7904,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
 
 Common actions: fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks. Required fields: fulltext: query; semantic: query; knowledge: query; check_anchor: candidates, candidateKind; query_sql: no additional fields; get_backlinks: id.
 
-Additional actions: search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs. Read siyuan://help/action/search/{action} for details, or call action="help" if resources are unavailable.
+Additional actions: search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs, criteria_list, criteria_save, criteria_remove. Read siyuan://help/action/search/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 search.fulltext: required [query] | optional [method, methodName, types, typeShortcodes, paths, groupBy, orderBy, sortBy, page, pageSize, parentId, hasTags, stripHtml]
@@ -7733,11 +7918,17 @@ search.find_replace: required [k, r, ids] | optional [paths, types, method, meth
 search.search_assets: required [] | optional [k, query, exts]
 search.fulltext_asset_content: required [] | optional [query, assetId, queryMethod, types, method, methodName, orderBy, sortBy, page, pageSize]
 search.list_invalid_refs: required [] | optional [page, pageSize]
+search.criteria_list: required [] | optional []
+search.criteria_save: required [name, obj] | optional []
+search.criteria_remove: required [name] | optional []
 
-All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation. search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable. When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query. The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated. In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget. Requires user confirmation before: find_replace.",
+All search actions are read-only except find_replace, which modifies content and requires explicit user confirmation. search(action="query_sql") only accepts SELECT statements; mutation queries are rejected. Because arbitrary SQL can forge result provenance, raw SQL is available only when every configured notebook is readable. When calling query_sql, always add LIMIT yourself. MCP may still truncate large result sets and will tell you when to refine the query. The blocks table columns include: id, parent_id, root_id, box, path, hpath, name, alias, memo, tag, content, fcontent, markdown, length, type, subtype, ial, sort, created, updated. In SQL results, blocks.type uses SiYuan short codes such as d=document, h=heading, p=paragraph, l=list, i=list-item, b=blockquote, c=code, m=math, t=table, html=html, video=video, audio=audio, widget=widget. Requires user confirmation before: find_replace, criteria_save, criteria_remove.",
     "overview": {
       "actionSummaries": {
         "check_anchor": "Use only before writing or changing name/alias, not to locate existing content. Required shape: search(action="check_anchor", candidates=["token"], candidateKind="name"|"alias"). Checks exact normalized tokens before knowledge compilation; name candidates must be globally unique, while alias collisions are reported for semantic or custom-anchor-scope adjudication rather than rejected automatically.",
+        "criteria_list": "Lists the workspace saved-search criteria (kernel /api/storage/getCriteria, public API since SiYuan 3.8.2). Each entry is a name plus an opaque obj persisted by SiYuan’s search panel; obj is passed through verbatim and not interpreted.",
+        "criteria_remove": "Removes a saved criterion by name via /api/storage/removeCriterion. Dangerous: requires explicit user confirmation.",
+        "criteria_save": "Upserts a named criterion via /api/storage/setCriterion. Overwrites an existing saved search with the same name; obj must be the opaque condition object, typically copied from criteria_list output. Dangerous: requires explicit user confirmation.",
         "find_replace": "This is the mutating exception inside the search tool. It performs content replacement after write-permission checks and still requires explicit user confirmation.",
         "fulltext": "Pass a query string. Supports keyword, query syntax, SQL, and regex modes via methodName (preferred) or method. fulltext now returns plainContent/excerpt by default. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.",
         "fulltext_asset_content": "Searches indexed asset/OCR text. Prefer methodName and sortBy over numeric method/orderBy. Provide assetId for an exact asset-content lookup.",
@@ -7753,6 +7944,18 @@ All search actions are read-only except find_replace, which modifies content and
         "check_anchor": {
           "hint": "Use only before writing or changing name/alias, not to locate existing content. Required shape: search(action="check_anchor", candidates=["token"], candidateKind="name"|"alias"). Checks exact normalized tokens before knowledge compilation; name candidates must be globally unique, while alias collisions are reported for semantic or custom-anchor-scope adjudication rather than rejected automatically.",
           "requiresConfirmation": false,
+        },
+        "criteria_list": {
+          "hint": "Lists the workspace saved-search criteria (kernel /api/storage/getCriteria, public API since SiYuan 3.8.2). Each entry is a name plus an opaque obj persisted by SiYuan’s search panel; obj is passed through verbatim and not interpreted.",
+          "requiresConfirmation": false,
+        },
+        "criteria_remove": {
+          "hint": "Removes a saved criterion by name via /api/storage/removeCriterion. Dangerous: requires explicit user confirmation.",
+          "requiresConfirmation": true,
+        },
+        "criteria_save": {
+          "hint": "Upserts a named criterion via /api/storage/setCriterion. Overwrites an existing saved search with the same name; obj must be the opaque condition object, typically copied from criteria_list output. Dangerous: requires explicit user confirmation.",
+          "requiresConfirmation": true,
         },
         "find_replace": {
           "hint": "This is the mutating exception inside the search tool. It performs content replacement after write-permission checks and still requires explicit user confirmation.",
@@ -7800,6 +8003,9 @@ All search actions are read-only except find_replace, which modifies content and
         "search_assets",
         "fulltext_asset_content",
         "list_invalid_refs",
+        "criteria_list",
+        "criteria_save",
+        "criteria_remove",
       ],
       "commonActions": [
         "fulltext",
@@ -7819,6 +8025,7 @@ All search actions are read-only except find_replace, which modifies content and
         "Use search(action="knowledge") for namespace-first LLM Wiki retrieval: exact readable name/alias matches stay local, ambiguous anchors fail closed, and unresolved queries fall back to the 3.8 embedding index with reference collapse. Use fulltext for lexical search and query_sql for structured queries.",
         "search(action="fulltext") types field auto-expands shortcodes: {"h": true, "p": true} is equivalent to {"heading": true, "paragraph": true}. Shortcodes: d/h/p/l/i/b/c/m/t/s/html/embed/av. Prefer semantic aliases such as methodName/sortBy over numeric method/orderBy.",
         "search(action="fulltext") supports parentId to scope results within a document subtree, and hasTags to filter by tag presence.",
+        "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
         "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
       ],
       "helpResources": [
@@ -7829,6 +8036,8 @@ All search actions are read-only except find_replace, which modifies content and
       ],
       "requiresConfirmation": [
         "find_replace",
+        "criteria_save",
+        "criteria_remove",
       ],
       "tool": "search",
     },

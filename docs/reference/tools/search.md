@@ -14,9 +14,10 @@ Related pages:
 | Group | Actions |
 |------|---------|
 | Knowledge retrieval | `knowledge`, `check_anchor` |
-| Text search | `fulltext`, `search_refs` |
+| Text search | `fulltext`, `semantic`, `search_refs` |
 | Graph / relation | `get_backlinks`, `list_invalid_refs` |
 | SQL / asset | `query_sql`, `search_assets`, `fulltext_asset_content` |
+| Saved search | `criteria_list`, `criteria_save`, `criteria_remove` |
 | Mutating | `find_replace` |
 
 ## Safety Rules
@@ -30,6 +31,7 @@ Related pages:
 - `check_anchor` is a generated, read-only namespace audit. It normalizes exact `name`/`alias` tokens, filters unreadable blocks, and returns every matching target plus `custom-anchor-scope` values. Canonical names are expected to remain unique; alias multi-matches are reported for adjudication and can resolve automatically only when exactly one target intersects `activeScopes`.
 - Send at most 10 candidate tokens per `check_anchor` call. Each candidate returns at most 10 target details while preserving the full `targetCount` and a truncation hint, so large historical collisions fail closed without overflowing client output.
 - A semantic match is a discovery candidate, not evidence. Read the returned stable block ID and inspect its source and verification attributes before reuse.
+- `criteria_*` actions manage the workspace-level saved-search store (kernel `/api/storage/*`, public API since SiYuan 3.8.2). They are global rather than notebook-scoped and bypass per-notebook permission filtering, so only use them when the user explicitly asks. `criteria_save` overwrites an existing criterion with the same name; both `criteria_save` and `criteria_remove` require explicit confirmation. The `obj` field is an opaque kernel search-condition object: pass it through verbatim (typically copied from `criteria_list` output) instead of constructing it by hand.
 - Full-text search can lag briefly behind recent writes because indexing is eventually consistent.
 
 ## Examples
@@ -86,6 +88,7 @@ CLI:
 siyuan search knowledge --query "How is textnets projection weighting computed?" --page-size 10 --candidate-size 30
 siyuan search fulltext --query "meeting notes" --method-name keyword --sort-by relevance
 siyuan search query-sql --sql "SELECT id, content, type FROM blocks LIMIT 10"
+siyuan search criteria-save --name "meeting notes" --obj-json '{"k":"meeting notes","method":0}'
 ```
 
 Notes for AI callers:
@@ -97,6 +100,7 @@ Notes for AI callers:
 ## Action List
 
 - `fulltext`
+- `semantic`
 - `knowledge`
 - `check_anchor`
 - `query_sql`
@@ -106,3 +110,6 @@ Notes for AI callers:
 - `search_assets`
 - `fulltext_asset_content`
 - `list_invalid_refs`
+- `criteria_list`
+- `criteria_save`
+- `criteria_remove`

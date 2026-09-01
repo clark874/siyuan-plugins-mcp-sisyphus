@@ -17,6 +17,7 @@
 | 文本搜索 | `fulltext`, `search_refs` |
 | 图谱 / 引用关系 | `get_backlinks`, `list_invalid_refs` |
 | SQL / 资源 | `query_sql`, `search_assets`, `fulltext_asset_content` |
+| 已保存搜索 | `criteria_list`, `criteria_save`, `criteria_remove` |
 | 修改类 | `find_replace` |
 
 ## 安全规则
@@ -30,6 +31,7 @@
 - `check_anchor` 是服务端生成的只读命名空间审计：统一规范化精确 `name`/`alias` 词元、过滤不可读块，并返回全部命中目标及其 `custom-anchor-scope`。规范 `name` 应保持唯一；alias 多命中只报告、不得静默选择，只有 `activeScopes` 与恰好一个候选相交时才自动解析。
 - 每次 `check_anchor` 最多提交 10 个候选词元；每个候选最多返回 10 个目标详情，同时保留完整 `targetCount`、截断标记和后续审计提示，避免历史大冲突撑破客户端输出。
 - 语义命中只用于发现候选，不等于证据。复用前必须按返回的稳定块 ID 读取原文，并检查来源与验证属性。
+- `criteria_*` 管理工作区级的已保存搜索条件（内核 `/api/storage/*`，自思源 3.8.2 起为公开 API）。它们是全局操作，不按笔记本划分作用域，也会绕过笔记本级权限过滤，因此只在用户明确要求时使用。`criteria_save` 会覆盖同名已存条件；`criteria_save` 与 `criteria_remove` 均需要显式确认。`obj` 是内核搜索面板持久化的不透明条件对象：原样透传（通常复制自 `criteria_list` 的输出），不要手工拼造。
 - 全文搜索可能略滞后于刚写入的内容，因为索引是最终一致的。
 
 ## 示例
@@ -86,6 +88,7 @@ CLI：
 siyuan search knowledge --query "既有项目如何复用这一分析方法？" --page-size 10 --candidate-size 30
 siyuan search fulltext --query "meeting notes" --method-name keyword --sort-by relevance
 siyuan search query-sql --sql "SELECT id, content, type FROM blocks LIMIT 10"
+siyuan search criteria-save --name "会议记录" --obj-json '{"k":"会议记录","method":0}'
 ```
 
 给 AI 调用方的提示：
@@ -107,3 +110,6 @@ siyuan search query-sql --sql "SELECT id, content, type FROM blocks LIMIT 10"
 - `search_assets`
 - `fulltext_asset_content`
 - `list_invalid_refs`
+- `criteria_list`
+- `criteria_save`
+- `criteria_remove`

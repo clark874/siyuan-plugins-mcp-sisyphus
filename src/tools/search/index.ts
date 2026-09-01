@@ -5,6 +5,9 @@ import type { PermissionManager } from '../../core/permissions';
 import {
     SearchActionSchema,
     SearchAssetsSchema,
+    SearchCriteriaListSchema,
+    SearchCriteriaRemoveSchema,
+    SearchCriteriaSaveSchema,
     SearchFindReplaceSchema,
     SearchCheckAnchorSchema,
     SearchFulltextAssetContentSchema,
@@ -41,6 +44,9 @@ export const SEARCH_VARIANTS: ActionVariant<SearchAction>[] = [
     createZodActionVariant('search_assets', SearchAssetsSchema, 'Search asset files by filename.'),
     createZodActionVariant('fulltext_asset_content', SearchFulltextAssetContentSchema, 'Full-text search indexed asset contents.'),
     createZodActionVariant('list_invalid_refs', SearchListInvalidRefsSchema, 'List invalid block references.'),
+    createZodActionVariant('criteria_list', SearchCriteriaListSchema, 'List workspace saved-search criteria (name + opaque kernel condition object).'),
+    createZodActionVariant('criteria_save', SearchCriteriaSaveSchema, 'Save or overwrite a named search criterion. Requires user confirmation.'),
+    createZodActionVariant('criteria_remove', SearchCriteriaRemoveSchema, 'Remove a saved search criterion by name. Requires user confirmation.'),
 ];
 
 const searchTool = defineTool<SearchAction>({

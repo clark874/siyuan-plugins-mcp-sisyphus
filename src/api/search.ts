@@ -142,3 +142,19 @@ export async function listInvalidBlockRefs(
 ): Promise<unknown> {
     return client.requestRead('/api/search/listInvalidBlockRefs', { page, pageSize });
 }
+
+export async function getCriteria(client: SiYuanClient): Promise<unknown[]> {
+    const result = await client.requestRead<unknown[] | null>('/api/storage/getCriteria', {});
+    return Array.isArray(result) ? result : [];
+}
+
+export async function setCriterion(
+    client: SiYuanClient,
+    criterion: { name: string; obj: unknown },
+): Promise<null> {
+    return client.requestWrite<null>('/api/storage/setCriterion', { criterion });
+}
+
+export async function removeCriterion(client: SiYuanClient, name: string): Promise<null> {
+    return client.requestWrite<null>('/api/storage/removeCriterion', { name });
+}
