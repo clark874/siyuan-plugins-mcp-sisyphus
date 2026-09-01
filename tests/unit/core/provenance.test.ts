@@ -1,6 +1,11 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
+    hermesSessionExists,
     recordProvenanceEvent,
     readProvenanceWriteState,
     resolveAgentSessionLink,
@@ -22,6 +27,27 @@ describe('Agent 会话溯源核心', () => {
         expect(link.linkCapability).toBe('resume_command');
         expect(link.nativeUrl).toBeUndefined();
         expect(link.resumeCommand).toBe("zcode --resume 'sess_demo'");
+    });
+
+    it('为 Hermes 返回已核验的 --resume 命令，不虚构 hermes://', () => {
+        const link = resolveAgentSessionLink({ provider: 'hermes', sessionId: '20260901_013451_2821c5', hostAlias: 'local' });
+        expect(link.linkCapability).toBe('resume_command');
+        expect(link.nativeUrl).toBeUndefined();
+        expect(link.preferredUrl).toBeUndefined();
+        expect(link.resumeCommand).toBe("hermes --resume '20260901_013451_2821c5'");
+        expect(link.launcherUrl).toContain('provider=hermes');
+    });
+
+    it('在隔离的 Hermes home 中按 state.db 字节核验会话存在性', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-provenance-'));
+        try {
+            fs.writeFileSync(path.join(root, 'state.db'), Buffer.from('noise 20260901_013451_2821c5 more'));
+            expect(hermesSessionExists('20260901_013451_2821c5', root)).toBe(true);
+            expect(hermesSessionExists('missing-session', root)).toBe(false);
+            expect(validateLocalAgentSession({ provider: 'hermes', sessionId: 'definitely-absent-session-id', hostAlias: 'local' }).checkedBy).toBe('hermes_state_db');
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
     });
 
     it('对远端 hostAlias 不读取本机 rollout', () => {

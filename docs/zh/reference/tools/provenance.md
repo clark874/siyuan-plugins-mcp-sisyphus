@@ -23,6 +23,7 @@
 ## 链接能力
 
 - Codex 会话使用原生 `codex://threads/<sessionId>` 链接。
+- Hermes 返回已核验的 `hermes --resume <sessionId>` 恢复命令。Hermes.app 当前没有注册 URL scheme，因此不生成 `hermes://` 或 `@session:` 原生深链。
 - ZCode 与 Claude Code 当前只返回经过验证的 `--resume <sessionId>` 恢复命令；在客户端提供并核验会话原生深链前，不声明可直接跳转。
 - 远程主机会返回会话元数据，但不会在当前设备上启动。
 

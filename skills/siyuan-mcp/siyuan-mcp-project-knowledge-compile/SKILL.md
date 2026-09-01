@@ -115,7 +115,7 @@ timeline(action="create_node", name="项目知识编译前恢复点-<date>", sco
 
 写入前在发起知识化的 Agent 进程中捕获当前会话。优先使用客户端注入的会话环境变量或会话上下文；MCP 服务端不能按“最新文件”推断调用方。用户显式提供的会话标记为 `explicit`。只有确认没有并发会话时才可使用最近 rollout 兼容路径，并必须保留 `inferred_latest_rollout` 标记和风险提示。
 
-通过 Agent Kit 安装的本地客户端可执行 `node ~/.siyuan-sisyphus/bin/capture-agent-session.cjs`。命令未发现会话时应停止并请求显式会话标识；`--provider zcode --infer-latest` 仅是经确认后的兼容路径。
+通过 Agent Kit 安装的本地客户端可执行 `node ~/.siyuan-sisyphus/bin/capture-agent-session.cjs`。命令未发现会话时应停止并请求显式会话标识。Hermes 优先读取 HERMES_SESSION_ID。`--provider zcode --infer-latest` 仅是经确认后的兼容路径。
 
 交互式知识化把当前会话同时作为 `sourceSession` 和 `compileSession`。定时编译或跨 Agent 转交必须分别记录原始讨论会话与执行编译会话；原始来源未知时留待补录，不得用编译会话冒充来源会话。
 

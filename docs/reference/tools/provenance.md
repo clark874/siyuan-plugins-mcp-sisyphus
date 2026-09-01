@@ -23,6 +23,7 @@
 ## Link capability
 
 - Codex sessions use the native `codex://threads/<sessionId>` link.
+- Hermes returns the verified `hermes --resume <sessionId>` command. Hermes.app currently registers no URL scheme, so the adapter does not invent `hermes://` or `@session:` native deep links.
 - ZCode and Claude Code currently return a tested `--resume <sessionId>` command. No native session deep link is claimed until the client exposes and verifies one.
 - Remote hosts return metadata but are not opened on the current device.
 

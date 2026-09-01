@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.4 - 2026-09-01
+
+- 会话溯源新增 `hermes` 提供方：从 `HERMES_SESSION_ID` / `HERMES_SESSION_KEY` 捕获当前桌面或 CLI 会话，返回已核验的 `hermes --resume <sessionId>` 恢复命令和统一 `siyuan://` 启动链接
+- 本机核验读取 `~/.hermes/state.db` 与 `~/.hermes/profiles/*/state.db`；Hermes.app 未注册 URL scheme，因此不生成 `hermes://` 或把聊天内部的 `@session:` 宣称为原生深链
+- `hermes resume` 子命令是解除紧急暂停，适配器只使用官方会话恢复旗标 `hermes --resume`
+- 捕获脚本、项目知识编译 Skill、双语文档、设置页更新日志与 CLI 同步；插件提升至 `v0.9.4`，CLI 提升至 `v0.4.4`
+
 ## v0.9.3 - 2026-09-01
 
 - 新增第 15 个聚合工具 `provenance`，提供 `register_session`、`record_event`、`list_project_sessions`、`list_atom_events`、`resolve_session_link` 与 `validate_session` 六个动作，形成“项目—会话—知识化事件—知识原子”四层溯源模型

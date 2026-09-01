@@ -518,9 +518,11 @@ export default class SiyuanMCP extends Plugin {
             if (process.platform === "darwin") { command = "open"; args = [nativeUrl]; }
             else if (process.platform === "win32") { command = "cmd"; args = ["/c", "start", "", nativeUrl]; }
             else { command = "xdg-open"; args = [nativeUrl]; }
-        } else if (provider === "zcode" || provider === "claude-code") {
-            const executable = provider === "zcode" ? "zcode" : "claude";
-            showMessage(`该 Agent 尚未确认原生会话深链。请在终端执行：${executable} --resume '${sessionId.replace(/'/g, "'\\''")}'`, 10000);
+        } else if (provider === "zcode" || provider === "claude-code" || provider === "hermes") {
+            const resume = provider === "hermes"
+                ? `hermes --resume '${sessionId.replace(/'/g, "'\\''")}'`
+                : `${provider === "zcode" ? "zcode" : "claude"} --resume '${sessionId.replace(/'/g, "'\\''")}'`;
+            showMessage(`该 Agent 尚未确认原生会话深链。请在终端执行：${resume}`, 10000);
             return;
         } else {
             showMessage(`当前尚未配置 ${provider || "该 Agent"} 的会话启动适配器。`, 5000, "error");

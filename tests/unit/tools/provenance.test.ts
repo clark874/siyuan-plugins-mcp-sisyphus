@@ -25,4 +25,16 @@ describe('provenance 聚合工具', () => {
         expect(payload.link.nativeUrl).toBe('codex://threads/thread-1');
         expect(client.request).not.toHaveBeenCalled();
     });
+
+    it('解析 Hermes 会话为 resume_command 且不访问思源写接口', async () => {
+        const client = createMockClient();
+        const result = await callProvenanceTool(client, {
+            action: 'resolve_session_link', provider: 'hermes', sessionId: '20260901_013451_2821c5', hostAlias: 'local',
+        }, config, createMockPermissionManager());
+        const payload = parseResult(result);
+        expect(payload.link.linkCapability).toBe('resume_command');
+        expect(payload.link.nativeUrl).toBeUndefined();
+        expect(payload.link.resumeCommand).toBe("hermes --resume '20260901_013451_2821c5'");
+        expect(client.request).not.toHaveBeenCalled();
+    });
 });

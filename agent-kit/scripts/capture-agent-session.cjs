@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const PROVIDERS = new Set(['codex', 'zcode', 'claude-code', 'kimi', 'cursor', 'other']);
+const PROVIDERS = new Set(['codex', 'zcode', 'claude-code', 'hermes', 'kimi', 'cursor', 'other']);
 
 function fail(message) {
     process.stderr.write(`${message}\n`);
@@ -31,6 +31,7 @@ function environmentCandidates(provider) {
         codex: ['CODEX_THREAD_ID', 'CODEX_SESSION_ID'],
         zcode: ['ZCODE_SESSION_ID'],
         'claude-code': ['CLAUDE_SESSION_ID'],
+        hermes: ['HERMES_SESSION_ID', 'HERMES_SESSION_KEY'],
         kimi: ['KIMI_SESSION_ID'],
         cursor: ['CURSOR_SESSION_ID'],
         other: ['AGENT_SESSION_ID'],
@@ -75,7 +76,7 @@ function main() {
     let options;
     try { options = parseArgs(process.argv.slice(2)); } catch (error) { fail(error.message); return; }
     if (options.help) {
-        process.stdout.write('用法：capture-agent-session.cjs [--provider codex|zcode|claude-code|kimi|cursor|other] [--host-alias local] [--infer-latest]\n');
+        process.stdout.write('用法：capture-agent-session.cjs [--provider codex|zcode|claude-code|hermes|kimi|cursor|other] [--host-alias local] [--infer-latest]\n');
         return;
     }
     const provider = detectProvider(options.provider);

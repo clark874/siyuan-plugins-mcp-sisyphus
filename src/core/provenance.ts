@@ -7,7 +7,7 @@ import * as blockApi from '../api/block';
 import * as searchApi from '../api/search';
 import { hashWriteState } from './write-safety-hash';
 
-export const PROVENANCE_PROVIDERS = ['codex', 'zcode', 'claude-code', 'kimi', 'cursor', 'other'] as const;
+export const PROVENANCE_PROVIDERS = ['codex', 'zcode', 'claude-code', 'hermes', 'kimi', 'cursor', 'other'] as const;
 export const PROVENANCE_CAPTURE_METHODS = ['environment', 'client_context', 'explicit', 'inferred_latest_rollout'] as const;
 export type ProvenanceProvider = typeof PROVENANCE_PROVIDERS[number];
 export type ProvenanceCaptureMethod = typeof PROVENANCE_CAPTURE_METHODS[number];
@@ -113,6 +113,11 @@ export function resolveAgentSessionLink(session: Pick<SessionIdentity, 'provider
     if (session.provider === 'claude-code') {
         return { ...session, hostAlias, linkCapability: 'resume_command', launcherUrl, resumeCommand: `claude --resume ${shellQuote(session.sessionId)}` };
     }
+    if (session.provider === 'hermes') {
+        // Official CLI flag is `hermes --resume <id>`. The `hermes resume` subcommand lifts emergency pause and is not a session opener.
+        // Hermes.app currently has no CFBundleURLTypes; do not invent hermes:// or @session: deep links.
+        return { ...session, hostAlias, linkCapability: 'resume_command', launcherUrl, resumeCommand: `hermes --resume ${shellQuote(session.sessionId)}` };
+    }
     return { ...session, hostAlias, linkCapability: 'unavailable', launcherUrl };
 }
 
@@ -148,7 +153,37 @@ export function validateLocalAgentSession(session: Pick<SessionIdentity, 'provid
     if (session.provider === 'claude-code') {
         return { status: findNamedFile(path.join(os.homedir(), '.claude', 'projects'), session.sessionId) ? 'found' : 'missing', checkedBy: 'claude_project_filename' };
     }
+    if (session.provider === 'hermes') {
+        return { status: hermesSessionExists(session.sessionId) ? 'found' : 'missing', checkedBy: 'hermes_state_db' };
+    }
     return { status: 'unsupported', checkedBy: 'provider_adapter' };
+}
+
+export function defaultHermesHome(): string {
+    return path.join(os.homedir(), '.hermes');
+}
+
+export function hermesStateDatabasePaths(homeDir = defaultHermesHome()): string[] {
+    const paths = [path.join(homeDir, 'state.db')];
+    const profilesDir = path.join(homeDir, 'profiles');
+    if (!fs.existsSync(profilesDir)) return paths.filter((candidate) => fs.existsSync(candidate));
+    let entries: fs.Dirent[] = [];
+    try { entries = fs.readdirSync(profilesDir, { withFileTypes: true }); } catch { return paths.filter((candidate) => fs.existsSync(candidate)); }
+    for (const entry of entries) {
+        if (entry.isDirectory()) paths.push(path.join(profilesDir, entry.name, 'state.db'));
+    }
+    return paths.filter((candidate) => fs.existsSync(candidate));
+}
+
+export function hermesSessionExists(sessionId: string, homeDir = defaultHermesHome()): boolean {
+    if (!sessionId || sessionId.length > 256 || /[\u0000-\u001f]/.test(sessionId)) return false;
+    const needle = Buffer.from(sessionId);
+    for (const dbPath of hermesStateDatabasePaths(homeDir)) {
+        try {
+            if (fs.readFileSync(dbPath).includes(needle)) return true;
+        } catch { /* skip unreadable profile databases */ }
+    }
+    return false;
 }
 
 function extractCreatedId(result: unknown): string {
