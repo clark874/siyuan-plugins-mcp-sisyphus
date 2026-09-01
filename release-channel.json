@@ -5,7 +5,7 @@
   "releaseUrl": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/tag/v0.9.2-wiki.5",
   "package": {
     "url": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.9.2-wiki.5/package.zip",
-    "sha256": "15953730c592fc67eb88153553788a9ee635198277e61fbc3a1f010d4d8f8cd3"
+    "sha256": "6b359119f6199cdb19062c308d45bf7dc15cf62da4aadc29e2eed50ae0f204ae"
   },
   "agentKit": {
     "url": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.9.2-wiki.5/siyuan-agent-kit.zip",

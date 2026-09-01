@@ -1248,15 +1248,7 @@ export const SearchCriteriaListSchema = z.object({
 export const SearchCriteriaSaveSchema = z.object({
     action: z.literal("criteria_save"),
     name: z.string().min(1).describe("Saved-search name; an existing criterion with the same name is overwritten"),
-    obj: z.unknown().describe("Opaque kernel search-condition object as persisted by SiYuan's search panel; pass it through verbatim, typically copied from criteria_list output"),
-}).superRefine((value, ctx) => {
-    if (value.obj === undefined || value.obj === null) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Provide obj (the opaque kernel search-condition object).",
-            path: ['obj'],
-        });
-    }
+    obj: z.record(z.string(), z.unknown()).describe("Opaque kernel search-condition object as persisted by SiYuan's search panel; pass it through verbatim, typically copied from criteria_list output"),
 });
 
 export const SearchCriteriaRemoveSchema = z.object({

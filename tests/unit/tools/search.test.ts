@@ -1116,7 +1116,7 @@ describe('search saved criteria actions', () => {
         const request = vi.fn(async (endpoint: string, body: unknown) => {
             expect(endpoint).toBe('/api/storage/getCriteria');
             expect(body).toEqual({});
-            return [{ name: 'wiki-docs', obj: { k: 'docs', method: 0 } }];
+            return [{ name: 'wiki-docs', k: 'docs', method: 0 }];
         });
         const client = createMockClient({ request });
 
@@ -1133,7 +1133,7 @@ describe('search saved criteria actions', () => {
     it('criteria_save forwards the opaque criterion object to setCriterion', async () => {
         const request = vi.fn(async (endpoint: string, body: unknown) => {
             expect(endpoint).toBe('/api/storage/setCriterion');
-            expect(body).toEqual({ criterion: { name: 'wiki-docs', obj: { k: 'docs' } } });
+            expect(body).toEqual({ criterion: { name: 'wiki-docs', k: 'docs' } });
             return null;
         });
         const client = createMockClient({ request });

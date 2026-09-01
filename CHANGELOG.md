@@ -5,6 +5,7 @@
 ## v0.9.2-wiki.5 - 2026-09-01
 
 - 对接思源 3.8.2 公开的已保存搜索条件接口，新增 `search.criteria_list`、`search.criteria_save` 与 `search.criteria_remove`；条件对象保持不透明透传，避免插件复制内核内部查询结构
+- 对外统一使用 `{name, obj}` 契约，对内按思源内核要求展开为扁平 `criterion`；保存后必须通过真实内核回读确认查询条件未丢失
 - `criteria_save` 与 `criteria_remove` 纳入严格写入协议和显式确认，`criteria_list` 保持只读；Schema、帮助、双语文档、CLI 映射、设置文案和动作契约同步更新
 - 推荐思源版本提升至 3.8.2，以获得内核安全修复和块查询 SQL 解析修复；插件最低版本仍保持 2.9.0，已保存搜索条件仅在 3.8.2 及以上使用
 - 本补丁不包含 Agent 会话溯源或本地会话回跳；插件提升至 `v0.9.2-wiki.5`，CLI 提升至 `v0.4.2-wiki.5`

@@ -143,16 +143,28 @@ export async function listInvalidBlockRefs(
     return client.requestRead('/api/search/listInvalidBlockRefs', { page, pageSize });
 }
 
-export async function getCriteria(client: SiYuanClient): Promise<unknown[]> {
+export interface SavedSearchCriterion {
+    name: string;
+    obj: Record<string, unknown>;
+}
+
+export async function getCriteria(client: SiYuanClient): Promise<SavedSearchCriterion[]> {
     const result = await client.requestRead<unknown[] | null>('/api/storage/getCriteria', {});
-    return Array.isArray(result) ? result : [];
+    if (!Array.isArray(result)) return [];
+    return result.flatMap((item) => {
+        if (item === null || typeof item !== 'object' || Array.isArray(item)) return [];
+        const { name, ...obj } = item as Record<string, unknown>;
+        return typeof name === 'string' && name.length > 0 ? [{ name, obj }] : [];
+    });
 }
 
 export async function setCriterion(
     client: SiYuanClient,
-    criterion: { name: string; obj: unknown },
+    criterion: SavedSearchCriterion,
 ): Promise<null> {
-    return client.requestWrite<null>('/api/storage/setCriterion', { criterion });
+    return client.requestWrite<null>('/api/storage/setCriterion', {
+        criterion: { ...criterion.obj, name: criterion.name },
+    });
 }
 
 export async function removeCriterion(client: SiYuanClient, name: string): Promise<null> {

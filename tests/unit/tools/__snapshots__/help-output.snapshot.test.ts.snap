@@ -7478,8 +7478,8 @@ siyuan-sisyphus search criteria-remove --name Research --expected-state-hash <pr
       "criteria_save": {
         "action": "criteria_save",
         "cliExamples": [
-          "siyuan-sisyphus search criteria-save --name Research --obj <obj> --validate-only",
-          "siyuan-sisyphus search criteria-save --name Research --obj <obj> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+          "siyuan-sisyphus search criteria-save --name Research --obj-json '{}' --validate-only",
+          "siyuan-sisyphus search criteria-save --name Research --obj-json '{}' --expected-state-hash <preflight-credential> --request-id <uuidv7>",
         ],
         "cliFlags": {
           "optional": [],
@@ -7490,22 +7490,22 @@ siyuan-sisyphus search criteria-remove --name Research --expected-state-hash <pr
           ],
           "required": [
             "--name",
-            "--obj",
+            "--obj-json",
           ],
         },
         "example": {
           "action": "criteria_save",
           "name": "Research",
-          "obj": "<obj>",
+          "obj": {},
         },
         "examples": [
           {
-            "description": "siyuan-sisyphus search criteria-save --name Research --obj <obj> --validate-only
-siyuan-sisyphus search criteria-save --name Research --obj <obj> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+            "description": "siyuan-sisyphus search criteria-save --name Research --obj-json '{}' --validate-only
+siyuan-sisyphus search criteria-save --name Research --obj-json '{}' --expected-state-hash <preflight-credential> --request-id <uuidv7>",
             "mcp": {
               "action": "criteria_save",
               "name": "Research",
-              "obj": "<obj>",
+              "obj": {},
             },
             "title": "Canonical CLI",
           },
