@@ -111,7 +111,30 @@ timeline(action="create_node", name="项目知识编译前恢复点-<date>", sco
 
 只做稳定块 ID 下的追加、插入、单块更新与属性设置；禁止整篇覆写含 name、alias、custom-*、引用、AV 或 query_embed 的文档。严格写入模式下，按实时 action schema 区分 guarded 与 request-id-only 协议；追加类写入只执行一次，失败后先按返回的稳定 ID 或正文标识查找孤儿块，不得盲目重试。
 
-## 六、验收与幂等
+## 六、Agent 会话溯源
+
+写入前在发起知识化的 Agent 进程中捕获当前会话。优先使用客户端注入的会话环境变量或会话上下文；MCP 服务端不能按“最新文件”推断调用方。用户显式提供的会话标记为 `explicit`。只有确认没有并发会话时才可使用最近 rollout 兼容路径，并必须保留 `inferred_latest_rollout` 标记和风险提示。
+
+通过 Agent Kit 安装的本地客户端可执行 `node ~/.siyuan-sisyphus/bin/capture-agent-session.cjs`。命令未发现会话时应停止并请求显式会话标识；`--provider zcode --infer-latest` 仅是经确认后的兼容路径。
+
+交互式知识化把当前会话同时作为 `sourceSession` 和 `compileSession`。定时编译或跨 Agent 转交必须分别记录原始讨论会话与执行编译会话；原始来源未知时留待补录，不得用编译会话冒充来源会话。
+
+原子和关系块完成后，以同一个稳定 `eventId` 登记一次知识化事件：
+
+```text
+provenance(action="record_event", projectBlockId="<project-hub-block-id>", projectId="<registered-project-id>", eventId="<stable-event-id>", operation="project-knowledge-compile", sourceSession={"provider":"codex","sessionId":"<source-session-id>","hostAlias":"local","captureMethod":"environment"}, compileSession={"provider":"codex","sessionId":"<compile-session-id>","hostAlias":"local","captureMethod":"environment"}, targetAtomIds=["<atom-id>","<relation-block-id>"])
+```
+
+随后按项目与代表性原子回读。只有 `linkCapability=native` 才能表述为客户端原生深链；`launcher` 和 `resume_command` 必须保留能力分级：
+
+```text
+provenance(action="list_project_sessions", projectId="<registered-project-id>", validate=true, limit=100)
+```
+```text
+provenance(action="list_atom_events", atomId="<atom-id>", limit=100)
+```
+
+## 七、验收与幂等
 
 逐项回读原子和关系块，并验证：
 
@@ -137,5 +160,6 @@ search(action="knowledge", query="这项证据通过什么方法产生？", page
 5. 代表性“证据如何产生”“决策为何作出”问题能在前 10 结果或引用折叠中发现双方；
 6. 相同输入复跑不增加重复原子、关系块或 AV 行；
 7. public-candidate 只列入待治理清单，不虚报公共化或跨项目闭合。
+8. 知识化事件能够反查来源/编译会话，项目会话列表明确 provider、captureMethod、linkCapability 与验证状态。
 
 最终报告必须列出范围总数、已完整读取数、原子数、项目内关系数、公共候选数、排除/冲突/失败、恢复点、回读、refs、反向链接、检索复测和未完成项。

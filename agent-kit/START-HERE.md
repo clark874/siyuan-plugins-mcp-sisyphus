@@ -58,6 +58,14 @@ node bin/check-sisyphus.cjs --client kimi --json
 system(action="bootstrap")
 ```
 
+触发项目知识化前，先在当前 Agent 进程中捕获会话标识：
+
+```bash
+node ~/.siyuan-sisyphus/bin/capture-agent-session.cjs
+```
+
+Codex、ZCode 或其他客户端若注入会话变量，结果会标记为 `environment`。只有在客户端没有注入标识、并且已经确认没有并发会话时，才可使用 `--provider zcode --infer-latest`；该结果会永久标记为 `inferred_latest_rollout`，不得改写成自动捕获。
+
 只有满足以下条件时，才可报告接入完成：`schemaVersion=2`、`toolConfiguration.current=true`，并且返回了当前可读笔记本和能力摘要。
 
 ## 后续统一更新

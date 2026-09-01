@@ -1,6 +1,6 @@
 # 工具索引
 
-这个页面汇总项目暴露的 14 个聚合工具。
+这个页面汇总项目暴露的 15 个聚合工具。
 
 适用场景：你已经知道大致领域，但还需要定位到具体工具页面。
 
@@ -11,16 +11,17 @@
 
 | 工具 | 动作数量 | 页面 |
 |------|-------------|------|
-| `fs` | 8 | [fs 工具](./fs.md) |
+| `fs` | 9 | [fs 工具](./fs.md) |
 | `notebook` | 11 | [notebook 工具](./notebook.md) |
-| `document` | 16 | [document 工具](./document.md) |
+| `document` | 19 | [document 工具](./document.md) |
 | `block` | 21 | [block 工具](./block.md) |
-| `av` | 12 | [av 工具](./av.md) |
-| `file` | 17 | [file 工具](./file.md) |
+| `av` | 13 | [av 工具](./av.md) |
+| `file` | 21 | [file 工具](./file.md) |
 | `search` | 14 | [search 工具](./search.md) |
+| `provenance` | 6 | [provenance 工具](./provenance.md) |
 | `tag` | 3 | [tag 工具](./tag.md) |
 | `timeline` | 7 | [timeline 工具](./timeline.md) |
-| `system` | 8 | [system 工具](./system.md) |
+| `system` | 27 | [system 工具](./system.md) |
 | `flashcard` | 6 | [flashcard 工具](./flashcard.md) |
 | `extension` | 动态 | [extension 工具](./extension.md) |
 | `mascot` | 3 | [mascot 工具](./mascot.md) |
@@ -35,6 +36,7 @@
 - `av`: get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate, get_primary_key_values
 - `file`: upload_asset, list_templates, read_template, create_template, update_template, delete_template, save_doc_as_template, render, export_md, export_resources, list_unused_assets, get_doc_assets, remove_unused_assets, rename_asset, delete_asset, extract_doc
 - `search`: fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs, criteria_list, criteria_save, criteria_remove
+- `provenance`: register_session, record_event, list_project_sessions, list_atom_events, resolve_session_link, validate_session
 - `tag`: list, rename, remove
 - `timeline`: list_nodes, create_node, compare_node, compare_recent, delete_node, rollback_document, rollback_block
 - `system`: workspace_info, network, conf, notify, changelog, perform_sync, get_version, get_current_time, audit_environment, list_packages

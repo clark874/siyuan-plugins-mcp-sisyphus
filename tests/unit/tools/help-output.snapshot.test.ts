@@ -37,6 +37,10 @@ function createAllEnabledConfig(): ToolConfig {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.search.map((action) => [action, true])) as ToolConfig['search']['actions'],
         },
+        provenance: {
+            enabled: true,
+            actions: Object.fromEntries(ACTIONS_BY_CATEGORY.provenance.map((action) => [action, true])) as ToolConfig['provenance']['actions'],
+        },
         tag: {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.tag.map((action) => [action, true])) as ToolConfig['tag']['actions'],

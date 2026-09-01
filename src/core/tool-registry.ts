@@ -17,6 +17,7 @@ import {
     callFsTool,
     callMascotTool,
     callNotebookTool,
+    callProvenanceTool,
     callSearchTool,
     callSystemTool,
     callTagTool,
@@ -31,6 +32,7 @@ import {
     listFsTools,
     listMascotTools,
     listNotebookTools,
+    listProvenanceTools,
     listSearchTools,
     listSystemTools,
     listTagTools,
@@ -80,6 +82,7 @@ const TOOL_TITLES: Record<ToolCategory, string> = {
     flashcard: 'SiYuan Flashcards',
     extension: 'SiYuan Extension Tools',
     mascot: 'Sisyphus Mascot',
+    provenance: 'Agent Session Provenance',
 };
 
 /**
@@ -127,6 +130,7 @@ export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
         callTool: callExtensionTool as ToolModule['callTool'],
     },
     mascot: { category: 'mascot', listTools: listMascotTools as ToolModule['listTools'], callTool: callMascotTool as ToolModule['callTool'] },
+    provenance: { category: 'provenance', listTools: listProvenanceTools as ToolModule['listTools'], callTool: callProvenanceTool as ToolModule['callTool'] },
 };
 
 export const USER_RULES_TOOL_DESCRIPTION_REMINDER = `Active user custom rules apply. Read fs(action="read", path="${USER_RULES_VIRTUAL_PATH}") or siyuan://help/user-rules before choosing actions.`;

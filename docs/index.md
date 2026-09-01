@@ -43,7 +43,7 @@ Use this path if you need to change tool handlers, API wrappers, build targets, 
 
 ## What This Project Contains
 
-- 14 aggregated tools with action-level routing
+- 15 aggregated tools with action-level routing
 - Notebook-level permission control: `none`, `r`, `rw`, `rwd`
 - HTTP and stdio transport modes
 - A shared implementation used by both MCP and CLI entrypoints

@@ -95,6 +95,10 @@ export const ACTION_SAFETY_POLICIES: {
     extension: { list: read() },
     mascot: { get_balance: read(), shop: read(), buy: mutation('state') },
     feedback: { submit: external() },
+    provenance: {
+        register_session: mutation('state'), record_event: mutation('state'),
+        list_project_sessions: read(), list_atom_events: read(), resolve_session_link: read(), validate_session: read(),
+    },
 };
 
 export const PRECONDITION_FIELD: Record<Exclude<WritePrecondition, 'none'>, string> = {

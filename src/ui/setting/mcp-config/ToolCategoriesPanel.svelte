@@ -213,6 +213,20 @@
             ],
         },
         {
+            category: "provenance",
+            icon: "🔗",
+            groupKey: "Agent Provenance",
+            iconSvg: ICON_SVGS.layers,
+            actions: [
+                { key: "register_session", title: "Register Session", description: "Idempotently register or refresh one Agent session for a project." },
+                { key: "record_event", title: "Record Event", description: "Record one knowledgeization event and update target atom provenance." },
+                { key: "list_project_sessions", title: "List Project Sessions", description: "List all Agent sessions registered for a project." },
+                { key: "list_atom_events", title: "List Atom Events", description: "Trace a knowledge atom back to all recorded events." },
+                { key: "resolve_session_link", title: "Resolve Session Link", description: "Resolve a native link, launcher link, or resume command." },
+                { key: "validate_session", title: "Validate Session", description: "Check whether a local session record is still available." },
+            ],
+        },
+        {
             category: "tag",
             icon: "🏷️",
             groupKey: "Tags",

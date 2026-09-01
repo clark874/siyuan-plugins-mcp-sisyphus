@@ -1,6 +1,6 @@
 import type { SiYuanClient } from '../api/client';
 
-export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'tag', 'timeline', 'system', 'flashcard', 'extension', 'mascot', 'feedback'] as const;
+export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'provenance', 'tag', 'timeline', 'system', 'flashcard', 'extension', 'mascot', 'feedback'] as const;
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
@@ -21,6 +21,7 @@ export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'revie
 export const EXTENSION_ACTIONS = ['list'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 export const FEEDBACK_ACTIONS = ['submit'] as const;
+export const PROVENANCE_ACTIONS = ['register_session', 'record_event', 'list_project_sessions', 'list_atom_events', 'resolve_session_link', 'validate_session'] as const;
 
 export const NATIVE_EXTENSION_ACTION_ALLOWLIST = {
     search: ['semantic', 'fulltext'],
@@ -88,6 +89,7 @@ export type FlashcardAction = typeof FLASHCARD_ACTIONS[number];
 export type ExtensionAction = typeof EXTENSION_ACTIONS[number];
 export type MascotAction = typeof MASCOT_ACTIONS[number];
 export type FeedbackAction = typeof FEEDBACK_ACTIONS[number];
+export type ProvenanceAction = typeof PROVENANCE_ACTIONS[number];
 
 export type ToolActionMap = {
     fs: FsAction;
@@ -104,6 +106,7 @@ export type ToolActionMap = {
     extension: ExtensionAction;
     mascot: MascotAction;
     feedback: FeedbackAction;
+    provenance: ProvenanceAction;
 };
 
 export interface CategoryToolConfig<Action extends string = string> {
@@ -145,7 +148,7 @@ export interface WriteSafetyConfig {
 
 /**
  * Some MCP clients react to `isError: true` by re-sending the full tools/list
- * payload as a self-correction hint. With 14 aggregated tools that payload is
+ * payload as a self-correction hint. With 15 aggregated tools that payload is
  * around 118 KB, so a single mistyped argument can burn tens of thousands of
  * tokens of client context. Opting in downgrades only agent-correctable
  * failures to a non-error result; the structured `error` payload is preserved
@@ -170,6 +173,7 @@ export type ToolConfig = {
     extension: ExtensionCategoryToolConfig;
     mascot: CategoryToolConfig<MascotAction>;
     feedback: CategoryToolConfig<FeedbackAction>;
+    provenance: CategoryToolConfig<ProvenanceAction>;
     mcpApps: McpAppsConfig;
     userRulesText: string;
     agentSiyuanMemoryText: string;
@@ -208,6 +212,7 @@ export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolAct
     extension: EXTENSION_ACTIONS,
     mascot: MASCOT_ACTIONS,
     feedback: FEEDBACK_ACTIONS,
+    provenance: PROVENANCE_ACTIONS,
 };
 
 export type ActionTier = 'basic' | 'advanced';
@@ -298,6 +303,10 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     feedback: {
         submit: 'basic',
     },
+    provenance: {
+        register_session: 'basic', record_event: 'basic', list_project_sessions: 'basic',
+        list_atom_events: 'basic', resolve_session_link: 'basic', validate_session: 'basic',
+    },
 };
 
 export function getActionTier(category: ToolCategory, action: string): ActionTier {
@@ -319,6 +328,7 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     extension: new Set(),
     mascot: new Set(),
     feedback: new Set(),
+    provenance: new Set(),
 };
 
 const createActionsRecord = <Action extends string>(
@@ -393,6 +403,10 @@ export function buildDefaultToolConfig(): ToolConfig {
         feedback: {
             enabled: true,
             actions: createActionsRecord(FEEDBACK_ACTIONS, ['submit']),
+        },
+        provenance: {
+            enabled: true,
+            actions: createActionsRecord(PROVENANCE_ACTIONS, PROVENANCE_ACTIONS),
         },
         mcpApps: {
             timeline: {

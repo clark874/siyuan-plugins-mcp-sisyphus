@@ -26,6 +26,7 @@ import {
     FS_VARIANTS,
     MASCOT_VARIANTS,
     NOTEBOOK_VARIANTS,
+    PROVENANCE_VARIANTS,
     SEARCH_VARIANTS,
     SYSTEM_VARIANTS,
     TAG_VARIANTS,
@@ -76,6 +77,7 @@ const VARIANTS_BY_CATEGORY: Record<ToolCategory, ActionVariant<string>[]> = {
     extension: EXTENSION_VARIANTS,
     mascot: MASCOT_VARIANTS,
     feedback: FEEDBACK_VARIANTS,
+    provenance: PROVENANCE_VARIANTS,
 };
 
 function formatJsonExample(value: unknown): string {
@@ -100,7 +102,7 @@ function renderToolOverview(): string {
     return [
         '# SiYuan MCP Tool Overview',
         '',
-        'This server exposes 14 aggregated tools. Use `fs` first for basic path-style notebook and document operations; advanced tools remain available for SiYuan-specific workflows.',
+        'This server exposes 15 aggregated tools. Use `fs` first for basic path-style notebook and document operations; advanced tools remain available for SiYuan-specific workflows.',
         '',
         '## High-risk actions',
         '',

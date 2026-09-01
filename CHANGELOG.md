@@ -2,6 +2,15 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.3 - 2026-09-01
+
+- 新增第 15 个聚合工具 `provenance`，提供 `register_session`、`record_event`、`list_project_sessions`、`list_atom_events`、`resolve_session_link` 与 `validate_session` 六个动作，形成“项目—会话—知识化事件—知识原子”四层溯源模型
+- 来源讨论会话与执行写入会话分别记录；事件块通过真实思源块引用连接目标知识原子，原子属性只保留最近一次摘要，项目与原子的完整历史均可反向查询
+- Codex 使用已验证的 `codex://threads/<sessionId>` 原生链接；ZCode 与 Claude Code 在尚无已验证会话深链时返回 `--resume <sessionId>` 恢复命令，其他客户端明确报告未适配，不生成虚假链接
+- 新增 Agent Kit 会话捕获器：Codex 优先读取当前会话环境变量；ZCode 仅在显式启用时按最新 rollout 推断，并返回推断警告。MCP 服务端不按文件时间猜测调用方，避免并发会话串线
+- 会话与事件登记纳入严格写入预检、请求幂等、写后属性回读和笔记本权限检查；会话标识保存在块属性中，不写入知识原子正文
+- 项目知识编译 Skill、顶层路由、帮助、设置、CLI、双语文档与 Agent Kit 同步升级；插件提升至 `v0.9.3`，CLI 提升至 `v0.4.3`
+
 ## v0.9.2-wiki.5 - 2026-09-01
 
 - 对接思源 3.8.2 公开的已保存搜索条件接口，新增 `search.criteria_list`、`search.criteria_save` 与 `search.criteria_remove`；条件对象保持不透明透传，避免插件复制内核内部查询结构

@@ -1,6 +1,6 @@
 {
   "name": "siyuan-sisyphus",
-  "version": "0.9.2-wiki.5",
+  "version": "0.9.3",
   "description": "Operate SiYuan Note through the single external Sisyphus MCP gateway with bundled workflow skills.",
   "author": {
     "name": "Taihong Yang",
@@ -15,7 +15,7 @@
   "interface": {
     "displayName": "SiYuan Sisyphus",
     "shortDescription": "Read and safely edit SiYuan notes",
-    "longDescription": "Connect Codex to a running SiYuan Sisyphus MCP endpoint and use five bounded workflow skills for reading, writing, databases, files, organization, and safety.",
+    "longDescription": "Connect Codex to a running SiYuan Sisyphus MCP endpoint and use bounded workflow skills for reading, writing, knowledge compilation, Agent provenance, databases, files, organization, and safety.",
     "developerName": "Taihong Yang",
     "category": "Productivity",
     "capabilities": ["Interactive", "Read", "Write"],

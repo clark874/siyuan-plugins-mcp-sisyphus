@@ -30,6 +30,6 @@ This site documents both deliverables in this repository:
 
 ## Version
 
-当前文档对应版本：**v0.9.2-wiki.5**
+当前文档对应版本：**v0.9.3**
 
-Last updated: 2026-08-23
+Last updated: 2026-09-01

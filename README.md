@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：**当前版本为 `v0.9.2-wiki.5`（CLI `v0.4.2-wiki.5`）。本补丁对接思源 3.8.2 的已保存搜索条件公开接口，并保持严格写入边界。
+> **LLM Wiki 分支：**当前版本为 `v0.9.3`（CLI `v0.4.3`）。本版本新增跨 Agent 会话溯源，同时保持严格写入与纯文本知识治理边界。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.9.2-wiki.5`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；本补丁新增已保存搜索条件的列出、保存与移除。CLI `v0.4.2-wiki.5` 要求 Node.js 20+。**建议思源内核升级到 `3.8.2+`**（包含内核安全修复与块查询 SQL 解析崩溃修复；已保存搜索条件 `search(action="criteria_*")` 需要 3.8.2+）。
+> **当前 LLM Wiki 版本：**`v0.9.3`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；本版本新增项目级 Agent 会话、知识化事件和原子反向溯源。CLI `v0.4.3` 要求 Node.js 20+。**建议思源内核升级到 `3.8.2+`**。
 
 ## Project Direction Update
 
@@ -33,7 +33,7 @@ I originally built SiYuan Sisyphus simply because I wanted my own SiYuan notes t
 
 This does not replace the existing project:
 
-- the 14 Sisyphus aggregate tools, parameter conventions, notebook permissions, and existing agent workflows remain compatible;
+- the 15 Sisyphus aggregate tools, parameter conventions, notebook permissions, and existing agent workflows remain compatible;
 - Sisyphus now connects to SiYuan's official MCP endpoint and discovers tools registered by other plugins;
 - native SiYuan MCP tools can also be included explicitly, but remain disabled by default because they have a different security boundary;
 - permission management, the document timeline, and multiple connection options continue to be maintained.
@@ -93,7 +93,8 @@ For complete installation and connection instructions, see [Getting Started](./d
 - **AI-friendly note access**: use human-readable `fs` paths such as `/Notebook/Project/Note` without requiring agents to understand block IDs or document-tree internals.
 - **MCP and CLI entry points**: use MCP for multi-step agent workflows and CLI for scripts, automation, and small one-shot tasks.
 - **Notebook-level safety**: assign each notebook `none`, `r`, `rw`, or `rwd` access.
-- **Low-context tool design**: group 100+ SiYuan capabilities into 14 action-routed tools and load detailed guidance only when needed.
+- **Low-context tool design**: group 100+ SiYuan capabilities into 15 action-routed tools and load detailed guidance only when needed.
+- **Agent session provenance**: record source and compile sessions for project knowledgeization, query a project's cross-Agent session history, and resolve verified links or resume commands without placing session identifiers in note content.
 - **Scenario Skills for agents**: provide guidance for browsing, editing, search, knowledge ingestion, knowledge-atom governance, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup.
 - **MCP Apps views**: dedicated launch tools open flashcard review, document timeline, and mascot shop exactly once; ordinary aggregate tools never render duplicate Apps, and human actions are managed on a separate MCP Apps settings page.
 - **Git-like document timeline**: create named timeline nodes, compare snapshots, and roll back a document when needed.

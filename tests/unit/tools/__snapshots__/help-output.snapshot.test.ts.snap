@@ -7335,6 +7335,356 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
       "tool": "notebook",
     },
   },
+  "provenance": {
+    "actions": {
+      "list_atom_events": {
+        "action": "list_atom_events",
+        "example": {
+          "action": "list_atom_events",
+          "atomId": "<atomId>",
+        },
+        "fullDocResource": "siyuan://help/action/provenance/list_atom_events",
+        "guidance": [
+          "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
+          "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
+          "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+        ],
+        "hint": "List knowledgeization events that contain a real block reference to one atom.",
+        "requiredFields": [
+          "atomId",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "atomId",
+        ],
+        "tool": "provenance",
+      },
+      "list_project_sessions": {
+        "action": "list_project_sessions",
+        "example": {
+          "action": "list_project_sessions",
+          "projectId": "<projectId>",
+        },
+        "fullDocResource": "siyuan://help/action/provenance/list_project_sessions",
+        "guidance": [
+          "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
+          "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
+          "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+        ],
+        "hint": "List all Agent sessions registered for a project, optionally with local validation.",
+        "requiredFields": [
+          "projectId",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "projectId",
+        ],
+        "tool": "provenance",
+      },
+      "record_event": {
+        "action": "record_event",
+        "arrayContracts": [
+          {
+            "field": "targetAtomIds",
+            "flag": "--target-atom-ids",
+            "minItems": 1,
+          },
+        ],
+        "cliExamples": [
+          "siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --validate-only",
+          "siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+        ],
+        "cliFlags": {
+          "optional": [
+            "--occurred-at",
+            "--compile-session-json",
+            "--automation-id",
+          ],
+          "protocol": [
+            "--validate-only",
+            "--request-id",
+            "--expected-state-hash",
+          ],
+          "required": [
+            "--project-block-id",
+            "--project-id",
+            "--event-id",
+            "--operation",
+            "--source-session-json",
+            "--target-atom-ids",
+          ],
+        },
+        "example": {
+          "action": "record_event",
+          "eventId": "<eventId>",
+          "operation": "<operation>",
+          "projectBlockId": "<projectBlockId>",
+          "projectId": "<projectId>",
+          "sourceSession": {
+            "provider": "codex",
+          },
+          "targetAtomIds": [
+            "<targetAtomIdsItem>",
+          ],
+        },
+        "examples": [
+          {
+            "description": "siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --validate-only
+siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+            "mcp": {
+              "action": "record_event",
+              "eventId": "<eventId>",
+              "operation": "<operation>",
+              "projectBlockId": "<projectBlockId>",
+              "projectId": "<projectId>",
+              "sourceSession": {
+                "provider": "codex",
+              },
+              "targetAtomIds": [
+                "<targetAtomIdsItem>",
+              ],
+            },
+            "title": "Canonical CLI",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/provenance/record_event",
+        "guidance": [
+          "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
+          "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
+          "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+          "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+        ],
+        "hint": "Record a knowledgeization event and write the latest provenance summary to its target atom blocks.",
+        "requiredFields": [
+          "projectBlockId",
+          "projectId",
+          "eventId",
+          "operation",
+          "sourceSession",
+          "targetAtomIds",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "projectBlockId + projectId + eventId + operation + sourceSession + targetAtomIds",
+        ],
+        "tool": "provenance",
+        "writeSafety": {
+          "mode": "mutation",
+          "precondition": "state",
+          "preconditionField": "expectedStateHash",
+          "preconditionFlag": "--expected-state-hash",
+          "protocol": "guarded",
+          "requestId": "fresh UUIDv7",
+          "requestIdFlag": "--request-id",
+          "validateOnly": true,
+          "validateOnlyFlag": "--validate-only",
+          "validateOnlySteps": [
+            "Call the action with validateOnly=true and the complete business arguments; nothing is written.",
+            "Copy the returned expectedStateHash credential without changing any business argument.",
+            "Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+          ],
+        },
+      },
+      "register_session": {
+        "action": "register_session",
+        "cliExamples": [
+          "siyuan-sisyphus provenance register-session --project-block-id <projectBlockId> --project-id <projectId> --session-json '{"provider":"codex"}' --validate-only",
+          "siyuan-sisyphus provenance register-session --project-block-id <projectBlockId> --project-id <projectId> --session-json '{"provider":"codex"}' --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+        ],
+        "cliFlags": {
+          "optional": [
+            "--occurred-at",
+          ],
+          "protocol": [
+            "--validate-only",
+            "--request-id",
+            "--expected-state-hash",
+          ],
+          "required": [
+            "--project-block-id",
+            "--project-id",
+            "--session-json",
+          ],
+        },
+        "example": {
+          "action": "register_session",
+          "projectBlockId": "<projectBlockId>",
+          "projectId": "<projectId>",
+          "session": {
+            "provider": "codex",
+          },
+        },
+        "examples": [
+          {
+            "description": "siyuan-sisyphus provenance register-session --project-block-id <projectBlockId> --project-id <projectId> --session-json '{"provider":"codex"}' --validate-only
+siyuan-sisyphus provenance register-session --project-block-id <projectBlockId> --project-id <projectId> --session-json '{"provider":"codex"}' --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+            "mcp": {
+              "action": "register_session",
+              "projectBlockId": "<projectBlockId>",
+              "projectId": "<projectId>",
+              "session": {
+                "provider": "codex",
+              },
+            },
+            "title": "Canonical CLI",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/provenance/register_session",
+        "guidance": [
+          "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
+          "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
+          "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+          "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+        ],
+        "hint": "Idempotently register or refresh one Agent session under a project hub block.",
+        "requiredFields": [
+          "projectBlockId",
+          "projectId",
+          "session",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "projectBlockId + projectId + session",
+        ],
+        "tool": "provenance",
+        "writeSafety": {
+          "mode": "mutation",
+          "precondition": "state",
+          "preconditionField": "expectedStateHash",
+          "preconditionFlag": "--expected-state-hash",
+          "protocol": "guarded",
+          "requestId": "fresh UUIDv7",
+          "requestIdFlag": "--request-id",
+          "validateOnly": true,
+          "validateOnlyFlag": "--validate-only",
+          "validateOnlySteps": [
+            "Call the action with validateOnly=true and the complete business arguments; nothing is written.",
+            "Copy the returned expectedStateHash credential without changing any business argument.",
+            "Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
+          ],
+        },
+      },
+      "resolve_session_link": {
+        "action": "resolve_session_link",
+        "example": {
+          "action": "resolve_session_link",
+          "provider": "codex",
+          "sessionId": "<sessionId>",
+        },
+        "fullDocResource": "siyuan://help/action/provenance/resolve_session_link",
+        "guidance": [
+          "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
+          "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
+          "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+        ],
+        "hint": "Resolve the verified native link, Sisyphus launcher link, or resume command for a session.",
+        "requiredFields": [
+          "provider",
+          "sessionId",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "provider + sessionId",
+        ],
+        "tool": "provenance",
+      },
+      "validate_session": {
+        "action": "validate_session",
+        "example": {
+          "action": "validate_session",
+          "provider": "codex",
+          "sessionId": "<sessionId>",
+        },
+        "fullDocResource": "siyuan://help/action/provenance/validate_session",
+        "guidance": [
+          "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
+          "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
+          "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+        ],
+        "hint": "Check whether the local Agent session record still exists without returning its conversation content.",
+        "requiredFields": [
+          "provider",
+          "sessionId",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "provider + sessionId",
+        ],
+        "tool": "provenance",
+      },
+    },
+    "description": "🔗 登记、查询并解析项目知识化事件与 Agent 会话之间的溯源关系。 Use the "action" field to select the operation.
+
+Common actions: register_session, record_event, list_project_sessions, list_atom_events, resolve_session_link, validate_session. Required fields: register_session: projectBlockId, projectId, session; record_event: projectBlockId, projectId, eventId, operation, sourceSession, targetAtomIds; list_project_sessions: projectId; list_atom_events: atomId; resolve_session_link: provider, sessionId; validate_session: provider, sessionId.
+
+Parameter contract per action (fields outside the action's optional list should not be sent):
+provenance.register_session: required [projectBlockId, projectId, session] | optional [occurredAt]
+provenance.record_event: required [projectBlockId, projectId, eventId, operation, sourceSession, targetAtomIds] | optional [occurredAt, compileSession, automationId]
+provenance.list_project_sessions: required [projectId] | optional [limit, validate]
+provenance.list_atom_events: required [atomId] | optional [limit]
+provenance.resolve_session_link: required [provider, sessionId] | optional [hostAlias]
+provenance.validate_session: required [provider, sessionId] | optional [hostAlias]
+
+交互式知识化应把当前 Agent 会话同时作为 sourceSession 与 compileSession。 定时编译必须区分原始讨论会话和本轮编译会话；未知来源时不得猜测。",
+    "overview": {
+      "actionSummaries": {
+        "list_atom_events": "List knowledgeization events that contain a real block reference to one atom.",
+        "list_project_sessions": "List all Agent sessions registered for a project, optionally with local validation.",
+        "record_event": "Record a knowledgeization event and write the latest provenance summary to its target atom blocks.",
+        "register_session": "Idempotently register or refresh one Agent session under a project hub block.",
+        "resolve_session_link": "Resolve the verified native link, Sisyphus launcher link, or resume command for a session.",
+        "validate_session": "Check whether the local Agent session record still exists without returning its conversation content.",
+      },
+      "actions": {
+        "list_atom_events": {
+          "hint": "List knowledgeization events that contain a real block reference to one atom.",
+          "requiresConfirmation": false,
+        },
+        "list_project_sessions": {
+          "hint": "List all Agent sessions registered for a project, optionally with local validation.",
+          "requiresConfirmation": false,
+        },
+        "record_event": {
+          "hint": "Record a knowledgeization event and write the latest provenance summary to its target atom blocks.",
+          "requiresConfirmation": false,
+        },
+        "register_session": {
+          "hint": "Idempotently register or refresh one Agent session under a project hub block.",
+          "requiresConfirmation": false,
+        },
+        "resolve_session_link": {
+          "hint": "Resolve the verified native link, Sisyphus launcher link, or resume command for a session.",
+          "requiresConfirmation": false,
+        },
+        "validate_session": {
+          "hint": "Check whether the local Agent session record still exists without returning its conversation content.",
+          "requiresConfirmation": false,
+        },
+      },
+      "advancedActions": [],
+      "commonActions": [
+        "register_session",
+        "record_event",
+        "list_project_sessions",
+        "list_atom_events",
+        "resolve_session_link",
+        "validate_session",
+      ],
+      "detailsHint": "Call provenance(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
+      "guidance": [
+        "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
+        "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
+        "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+      ],
+      "helpResources": [
+        "siyuan://help/action/provenance/{action}",
+        "siyuan://help/tool-overview",
+        "siyuan://help/examples",
+        "siyuan://help/ai-layout-guide",
+      ],
+      "tool": "provenance",
+    },
+  },
   "search": {
     "actions": {
       "check_anchor": {

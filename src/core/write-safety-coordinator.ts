@@ -554,6 +554,9 @@ async function probeCurrentState(
         const criterion = (await searchApi.getCriteria(client)).find((item) => item.name === name);
         state.savedSearchCriterion = criterion ?? { name, missing: true };
         targetIds = [`saved-search:${name}`];
+    } else if (category === 'provenance') {
+        const { readProvenanceWriteState } = await import('./provenance');
+        return readProvenanceWriteState(client, action, args);
     } else if (category === 'timeline') {
         state.timelineTags = await client.requestRead('/api/repo/getRepoTagSnapshots', {});
         if (typeof args.documentId === 'string' && args.documentId) {

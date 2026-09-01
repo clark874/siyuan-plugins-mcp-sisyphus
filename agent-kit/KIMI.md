@@ -26,7 +26,7 @@ cp -R ./skills/siyuan-mcp-sisyphus ~/.agents/skills/
 /reload
 ```
 
-Kimi Work 桌面端和 Kimi Code 使用不同的运行时配置目录。安装 Skill 或插件不等于已经写入带认证的 MCP 连接；只有工具列表中出现 Sisyphus 的 14 个聚合工具并成功调用 `bootstrap`，才能报告连接完成。
+Kimi Work 桌面端和 Kimi Code 使用不同的运行时配置目录。安装 Skill 或插件不等于已经写入带认证的 MCP 连接；只有工具列表中出现 Sisyphus 的 15 个聚合工具并成功调用 `bootstrap`，才能报告连接完成。
 
 ## 二、配置 MCP 连接
 

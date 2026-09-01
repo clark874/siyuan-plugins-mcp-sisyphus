@@ -62,7 +62,8 @@ if (!files.some((file) => file.relative === 'kimi.plugin.json')) {
 if (!files.some((file) => file.relative === 'START-HERE.md')
     || !files.some((file) => file.relative === 'delivery.json')
     || !files.some((file) => file.relative === 'scripts/install-agent-kit.mjs')
-    || !files.some((file) => file.relative === 'bin/check-sisyphus.cjs')) {
+    || !files.some((file) => file.relative === 'bin/check-sisyphus.cjs')
+    || !files.some((file) => file.relative === 'scripts/capture-agent-session.cjs')) {
     throw new Error('agent-kit 缺少便携安装入口、机器契约或安装器。');
 }
 

@@ -25,7 +25,7 @@ The system consists of four layers from outside to inside:
 │  └──────────────┘  └─────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────┤
 │  Layer 3: Plugin Runtime & Tool Layer                        │
-│  - Tool Registry (14 aggregated tools)                      │
+│  - Tool Registry (15 aggregated tools)                      │
 │  - Tool Lifecycle (analytics / telemetry / mascot)          │
 │  - Permission Manager (notebook-level 4-tier permissions)   │
 │  - Settings Panel & Mascot UI                               │

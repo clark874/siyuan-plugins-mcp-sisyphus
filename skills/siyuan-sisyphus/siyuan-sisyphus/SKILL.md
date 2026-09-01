@@ -55,7 +55,7 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 
 ## Tool choice
 
-Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `av` for real databases rather than Markdown tables. Use `timeline` for named snapshots, document diffs, and rollback. Low-complexity `feedback` and `mascot` actions need no separate scenario skill.
+Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `av` for real databases rather than Markdown tables. Use `timeline` for named snapshots, document diffs, and rollback. Use `provenance` after project knowledgeization to register source and compile Agent sessions and to answer project-session history queries. Low-complexity `feedback` and `mascot` actions need no separate scenario skill.
 
 ```bash
 siyuan-sisyphus fs tree --path '/Notebook' --max-depth '3' --json

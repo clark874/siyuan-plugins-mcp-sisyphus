@@ -711,7 +711,8 @@ describe('HTTP settings sync', () => {
         expect(addIcons).toHaveBeenCalledWith(expect.stringContaining('<symbol id="iconSisyphusRecentDocumentsDock"'));
         expect(addDock).not.toHaveBeenCalled();
         expect(addCommand).not.toHaveBeenCalled();
-        expect(eventBusOn).not.toHaveBeenCalled();
+        expect(eventBusOn).toHaveBeenCalledTimes(1);
+        expect(eventBusOn).toHaveBeenCalledWith("open-siyuan-url-plugin", expect.any(Function));
 
         resolveFirstLoad(undefined);
         await loading;
@@ -738,7 +739,7 @@ describe('HTTP settings sync', () => {
             show: false,
         }));
         expect(addCommand).toHaveBeenCalledTimes(1);
-        expect(eventBusOn).toHaveBeenCalledTimes(6);
+        expect(eventBusOn).toHaveBeenCalledTimes(7);
         expect(eventBusOn).toHaveBeenCalledWith("ws-main", expect.any(Function));
         expect(eventBusOn).toHaveBeenCalledWith("open-menu-doctree", expect.any(Function));
     });
@@ -905,7 +906,7 @@ describe('HTTP settings sync', () => {
         expect(addDock).toHaveBeenCalledTimes(1);
         expect(addDock.mock.calls[0][0].type).toBe(RECENT_DOCUMENTS_DOCK_TYPE);
         expect(addCommand).not.toHaveBeenCalled();
-        expect(eventBusOn).toHaveBeenCalledTimes(1);
+        expect(eventBusOn).toHaveBeenCalledTimes(2);
         expect(snapshotPanelInstances).toHaveLength(0);
         expect(diffPanelInstances).toHaveLength(0);
         expect(leftDock.remove).toHaveBeenCalledWith(SNAPSHOT_REGISTERED_DOCK_TYPE);
@@ -930,7 +931,7 @@ describe('HTTP settings sync', () => {
 
         expect(addCommand).toHaveBeenCalledTimes(1);
         expect((plugin as any).commands).toHaveLength(1);
-        expect(eventBusOn).toHaveBeenCalledTimes(5);
+        expect(eventBusOn).toHaveBeenCalledTimes(6);
         expect(snapshotPanelInstances).toHaveLength(1);
         expect(diffPanelInstances).toHaveLength(1);
 

@@ -93,6 +93,10 @@ type CurrentDocumentContext = {
 };
 
 export default class SiyuanMCP extends Plugin {
+    private agentSessionUrlRegistered = false;
+    private handleAgentSessionUrl = (event: CustomEvent<{ url: string }>) => {
+        void this.openAgentSessionUrl(event.detail?.url);
+    };
     private puppyComponent: ToolPuppy | null = null;
     private snapshotPanel: SnapshotPanel | null = null;
     private diffPanel: VersionDiffPanel | null = null;
@@ -141,6 +145,7 @@ export default class SiyuanMCP extends Plugin {
 
     async onload() {
         appendHttpLifecycleLog("[plugin] onload begin");
+        this.registerAgentSessionUrlHandler();
         this.registerVersionControlIcon();
 
         const { config: normalized, warning } = await loadPersistedToolConfigState(this);
@@ -449,6 +454,7 @@ export default class SiyuanMCP extends Plugin {
 
     async onunload() {
         appendHttpLifecycleLog("[plugin] onunload begin");
+        this.unregisterAgentSessionUrlHandler();
         this.layoutReady = false;
         this.puppySettingsLoaded = false;
         this.permissionDisplaySettingsLoaded = false;
@@ -466,6 +472,67 @@ export default class SiyuanMCP extends Plugin {
             }
         }
         appendHttpLifecycleLog("[plugin] onunload end");
+    }
+
+    private registerAgentSessionUrlHandler() {
+        if (this.agentSessionUrlRegistered) return;
+        const eventBus = (this as any).eventBus;
+        if (typeof eventBus?.on !== "function") return;
+        eventBus.on("open-siyuan-url-plugin", this.handleAgentSessionUrl as any);
+        this.agentSessionUrlRegistered = true;
+    }
+
+    private unregisterAgentSessionUrlHandler() {
+        if (!this.agentSessionUrlRegistered) return;
+        (this as any).eventBus?.off?.("open-siyuan-url-plugin", this.handleAgentSessionUrl as any);
+        this.agentSessionUrlRegistered = false;
+    }
+
+    private async openAgentSessionUrl(rawUrl?: string) {
+        if (!rawUrl) return;
+        let url: URL;
+        try { url = new URL(rawUrl); } catch { return; }
+        if (url.hostname !== "plugins" || url.pathname.replace(/^\/+/, "") !== this.name) return;
+        if (url.searchParams.get("action") !== "open-agent-session") return;
+        const provider = url.searchParams.get("provider") ?? "";
+        const sessionId = url.searchParams.get("sessionId") ?? "";
+        const hostAlias = url.searchParams.get("hostAlias") || "local";
+        if (hostAlias !== "local") {
+            showMessage(`会话位于主机 ${hostAlias}，当前设备不能直接打开。`);
+            return;
+        }
+        if (!/^[^\u0000-\u001f]{1,256}$/.test(sessionId)) {
+            showMessage("会话标识无效，已拒绝启动。", 5000, "error");
+            return;
+        }
+        const nodeRequire = this.getNodeRequire();
+        if (!nodeRequire) {
+            showMessage("当前前端不支持启动本机 Agent。", 5000, "error");
+            return;
+        }
+        const childProcess = nodeRequire("child_process") as typeof import("child_process");
+        let command = "";
+        let args: string[] = [];
+        if (provider === "codex") {
+            const nativeUrl = `codex://threads/${encodeURIComponent(sessionId)}`;
+            if (process.platform === "darwin") { command = "open"; args = [nativeUrl]; }
+            else if (process.platform === "win32") { command = "cmd"; args = ["/c", "start", "", nativeUrl]; }
+            else { command = "xdg-open"; args = [nativeUrl]; }
+        } else if (provider === "zcode" || provider === "claude-code") {
+            const executable = provider === "zcode" ? "zcode" : "claude";
+            showMessage(`该 Agent 尚未确认原生会话深链。请在终端执行：${executable} --resume '${sessionId.replace(/'/g, "'\\''")}'`, 10000);
+            return;
+        } else {
+            showMessage(`当前尚未配置 ${provider || "该 Agent"} 的会话启动适配器。`, 5000, "error");
+            return;
+        }
+        try {
+            const child = childProcess.spawn(command, args, { detached: true, stdio: "ignore", shell: false });
+            child.once("error", (error) => showMessage(`Agent 会话启动失败：${error.message}`, 5000, "error"));
+            child.unref();
+        } catch (error) {
+            showMessage(`Agent 会话启动失败：${error instanceof Error ? error.message : String(error)}`, 5000, "error");
+        }
     }
 
     uninstall() {

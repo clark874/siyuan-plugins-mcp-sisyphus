@@ -1,8 +1,9 @@
 import { z } from "zod";
 
-import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FEEDBACK_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS, TIMELINE_ACTIONS } from "./config";
+import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FEEDBACK_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, PROVENANCE_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS, TIMELINE_ACTIONS } from "./config";
 import type { NotebookConf } from "../types/shared";
 import { PROJECT_SOURCE_ACCESSES, PROJECT_SOURCE_COVERAGES, PROJECT_SOURCE_KINDS, PROJECT_SOURCE_ROLES, PROJECT_SOURCE_STATUSES } from "./project-source-contract";
+import { PROVENANCE_CAPTURE_METHODS, PROVENANCE_PROVIDERS } from "./provenance";
 
 const NotebookConfSchema: z.ZodType<Partial<NotebookConf>> = z.object({
     name: z.string().optional(),
@@ -78,6 +79,60 @@ export const DocumentActionSchema = z.enum(DOCUMENT_ACTIONS);
 export const BlockActionSchema = z.enum(BLOCK_ACTIONS);
 export const AvActionSchema = z.enum(AV_ACTIONS);
 export const FileActionSchema = z.enum(FILE_ACTIONS);
+export const ProvenanceActionSchema = z.enum(PROVENANCE_ACTIONS);
+
+export const ProvenanceSessionIdentitySchema = z.object({
+    provider: z.enum(PROVENANCE_PROVIDERS),
+    sessionId: z.string().min(1).max(256),
+    hostAlias: z.string().min(1).max(64).optional(),
+    captureMethod: z.enum(PROVENANCE_CAPTURE_METHODS),
+});
+
+const ProvenanceProjectBaseSchema = z.object({
+    projectBlockId: z.string().min(1),
+    projectId: z.string().min(1).max(256),
+});
+
+export const ProvenanceRegisterSessionSchema = ProvenanceProjectBaseSchema.extend({
+    action: z.literal("register_session"),
+    session: ProvenanceSessionIdentitySchema,
+    occurredAt: z.string().datetime().optional(),
+});
+
+export const ProvenanceRecordEventSchema = ProvenanceProjectBaseSchema.extend({
+    action: z.literal("record_event"),
+    eventId: z.string().min(1).max(128),
+    operation: z.string().min(1).max(256),
+    occurredAt: z.string().datetime().optional(),
+    sourceSession: ProvenanceSessionIdentitySchema,
+    compileSession: ProvenanceSessionIdentitySchema.optional(),
+    targetAtomIds: z.array(z.string().min(1)).min(1).max(500),
+    automationId: z.string().min(1).max(256).optional(),
+});
+
+export const ProvenanceListProjectSessionsSchema = z.object({
+    action: z.literal("list_project_sessions"),
+    projectId: z.string().min(1).max(256),
+    limit: z.number().int().min(1).max(500).optional(),
+    validate: z.boolean().optional(),
+});
+
+export const ProvenanceListAtomEventsSchema = z.object({
+    action: z.literal("list_atom_events"),
+    atomId: z.string().min(1),
+    limit: z.number().int().min(1).max(500).optional(),
+});
+
+export const ProvenanceResolveSessionLinkSchema = z.object({
+    action: z.literal("resolve_session_link"),
+    provider: z.enum(PROVENANCE_PROVIDERS),
+    sessionId: z.string().min(1).max(256),
+    hostAlias: z.string().min(1).max(64).optional(),
+});
+
+export const ProvenanceValidateSessionSchema = ProvenanceResolveSessionLinkSchema.extend({
+    action: z.literal("validate_session"),
+});
 export const FlashcardActionSchema = z.enum(FLASHCARD_ACTIONS);
 export const MascotActionSchema = z.enum(MASCOT_ACTIONS);
 export const FeedbackActionSchema = z.enum(FEEDBACK_ACTIONS);

@@ -198,6 +198,16 @@ async function installSkill(options) {
     return destination;
 }
 
+async function installSessionCaptureHelper(options) {
+    const source = path.join(kitRoot, 'scripts/capture-agent-session.cjs');
+    const destination = path.join(options.home, '.siyuan-sisyphus/bin/capture-agent-session.cjs');
+    if (options.dryRun) return destination;
+    await mkdir(path.dirname(destination), { recursive: true });
+    await copyFile(source, destination);
+    await chmod(destination, 0o755);
+    return destination;
+}
+
 async function configureClient(client, target, token, options) {
     const config = await readJson(target, { optional: true });
     const officialNames = officialServerNames(config);
@@ -261,12 +271,14 @@ async function main() {
     }
     const token = await resolveToken(options, paths);
     const skillPath = await installSkill(options);
+    const captureHelperPath = await installSessionCaptureHelper(options);
     for (let index = 0; index < clients.length; index += 1) {
         await configureClient(clients[index], paths[index], token, options);
     }
     const verification = await verifyInstallation(options);
     console.log(`${options.dryRun ? '预检完成' : '安装完成'}：已注册唯一外部 MCP ${SISYPHUS_URL}`);
     console.log(`Skill：${skillPath}`);
+    console.log(`会话捕获助手：${captureHelperPath}`);
     console.log(`Verification：${verification.status}${verification.issue ? ` (${verification.issue})` : ''}`);
     console.log('重新加载客户端后，首次调用 system(action="bootstrap")。');
     if (options.requireReady && !verification.ready) process.exitCode = 1;

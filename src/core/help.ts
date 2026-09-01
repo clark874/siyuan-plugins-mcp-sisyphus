@@ -12,6 +12,7 @@ import {
     type TimelineAction,
     type MascotAction,
     type FeedbackAction,
+    type ProvenanceAction,
     type FsAction,
     type ToolCategory,
 } from './config';
@@ -357,6 +358,21 @@ export const FEEDBACK_ACTION_HINTS: Partial<Record<FeedbackAction, string>> = {
     submit: 'Sends plain-text feedback. Put a GitHub Issue-style report in description when reporting bugs, confusing behavior, or rough workflows. Recommended headings: ## Summary, ## What happened, ## Expected behavior, ## Steps or context, ## Impact, ## Suggested fix. impact should be a short impact summary; suggestion should be the direct fix idea. Avoid private note content and secrets.',
 };
 
+export const PROVENANCE_GUIDANCE: string[] = [
+    'Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.',
+    'Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.',
+    'Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.',
+];
+
+export const PROVENANCE_ACTION_HINTS: Partial<Record<ProvenanceAction, string>> = {
+    register_session: 'Idempotently register or refresh one Agent session under a project hub block.',
+    record_event: 'Record a knowledgeization event and write the latest provenance summary to its target atom blocks.',
+    list_project_sessions: 'List all Agent sessions registered for a project, optionally with local validation.',
+    list_atom_events: 'List knowledgeization events that contain a real block reference to one atom.',
+    resolve_session_link: 'Resolve the verified native link, Sisyphus launcher link, or resume command for a session.',
+    validate_session: 'Check whether the local Agent session record still exists without returning its conversation content.',
+};
+
 export const EXTENSION_ACTION_HINTS: Partial<Record<string, string>> = {
     list: 'Set refresh=true to re-read the official SiYuan MCP tool registry. The result separates plugin/native sources and reports the currently exposed schema size. Discovery failures preserve the last successful cache.',
 };
@@ -376,6 +392,7 @@ export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
     extension: EXTENSION_GUIDANCE,
     mascot: MASCOT_GUIDANCE,
     feedback: FEEDBACK_GUIDANCE,
+    provenance: PROVENANCE_GUIDANCE,
 };
 
 export const TOOL_ACTION_HINTS: Record<ToolCategory, Partial<Record<string, string>>> = {
@@ -393,6 +410,7 @@ export const TOOL_ACTION_HINTS: Record<ToolCategory, Partial<Record<string, stri
     extension: EXTENSION_ACTION_HINTS,
     mascot: MASCOT_ACTION_HINTS,
     feedback: FEEDBACK_ACTION_HINTS,
+    provenance: PROVENANCE_ACTION_HINTS,
 };
 
 export interface HelpExample {
@@ -731,6 +749,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
     },
     mascot: {},
     feedback: {},
+    provenance: {},
 };
 
 export { ACTIONS_BY_CATEGORY } from './config';
