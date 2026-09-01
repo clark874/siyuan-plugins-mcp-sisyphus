@@ -1197,6 +1197,7 @@ export const SearchKnowledgeSchema = z.object({
     includeRelatedDocuments: z.boolean().optional().describe("Attach documents that reference each candidate, default true."),
     activeScopes: z.array(z.string().min(1)).max(50).optional().describe("Optional custom-anchor-scope values for deterministic resolution when an exact alias maps to multiple readable blocks."),
     namespaceMode: z.enum(["auto", "off"]).optional().describe("Namespace resolution mode. auto (default) probes readable name/alias anchors before semantic search; off is a diagnostic baseline for retrieval evaluation."),
+    lexicalFirst: z.boolean().optional().describe("Set false to skip the local lexical pre-check and always use the embedding index; intended for retrieval-evaluation baselines. Default true: when a local keyword full-text block contains every query token, it is returned without data egress."),
 });
 
 export const SearchCheckAnchorSchema = z.object({

@@ -1174,3 +1174,161 @@ describe('search saved criteria actions', () => {
         expect(parseResult(result)).toMatchObject({ success: true, removed: true, name: 'wiki-docs' });
     });
 });
+
+describe('search knowledge lexical-first pre-check', () => {
+    const permMgr = { reload: vi.fn(async () => undefined), canRead: () => true, canWrite: () => true, canDelete: () => true, get: () => 'rwd', getAll: () => ({}) };
+
+    it('returns a local full-text hit without semantic egress when every query token matches', async () => {
+        const endpoints: string[] = [];
+        const request = vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+            endpoints.push(endpoint);
+            if (endpoint === '/api/query/sql') return String(body?.stmt).includes('namespace_probe') ? [] : [];
+            if (endpoint === '/api/search/fullTextSearchBlock') {
+                return {
+                    blocks: [{ id: 'local-1', rootID: 'doc-1', box: 'nb-1', path: '/doc-1.sy', type: 'p', content: 'water commodification case study notes' }],
+                    matchedBlockCount: 1,
+                    matchedRootCount: 1,
+                    pageCount: 1,
+                };
+            }
+            throw new Error(`unexpected endpoint: ${endpoint}`);
+        });
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'knowledge',
+            query: 'water commodification',
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.retrievalMode).toBe('lexical_exact');
+        expect(parsed.egressAvoided).toBe(true);
+        expect(parsed.dataEgress).toBe(false);
+        expect(parsed.externalCost).toBe(false);
+        expect(parsed.data).toHaveLength(1);
+        expect(endpoints).not.toContain('/api/search/semanticSearchBlock');
+    });
+
+    it('falls through to semantic search when no local block covers all tokens', async () => {
+        const endpoints: string[] = [];
+        const request = vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+            endpoints.push(endpoint);
+            if (endpoint === '/api/query/sql') return [];
+            if (endpoint === '/api/search/fullTextSearchBlock') {
+                return { blocks: [{ id: 'x-1', box: 'nb-1', path: '/d.sy', content: 'something entirely different' }], matchedBlockCount: 1, matchedRootCount: 1, pageCount: 1 };
+            }
+            if (endpoint === '/api/search/semanticSearchBlock') {
+                return { blocks: [{ id: 'sem-1', rootID: 'doc-1', box: 'nb-1', path: '/doc-1.sy', type: 'd', content: 'water commodification semantic hit' }], matchedBlockCount: 1, matchedRootCount: 1, pageCount: 1 };
+            }
+            return null;
+        });
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'knowledge',
+            query: 'water commodification',
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.retrievalMode).not.toBe('lexical_exact');
+        expect(parsed.dataEgress).toBe(true);
+        expect(endpoints).toContain('/api/search/semanticSearchBlock');
+    });
+
+    it('lexicalFirst=false skips the local probe entirely', async () => {
+        const endpoints: string[] = [];
+        const request = vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+            endpoints.push(endpoint);
+            if (endpoint === '/api/query/sql') return [];
+            if (endpoint === '/api/search/semanticSearchBlock') {
+                return { blocks: [{ id: 'sem-1', rootID: 'doc-1', box: 'nb-1', path: '/doc-1.sy', type: 'd', content: 'water commodification semantic hit' }], matchedBlockCount: 1, matchedRootCount: 1, pageCount: 1 };
+            }
+            throw new Error(`unexpected endpoint: ${endpoint}`);
+        });
+
+        await callSearchTool(createMockClient({ request }), {
+            action: 'knowledge',
+            query: 'water commodification',
+            lexicalFirst: false,
+        }, buildDefaultToolConfig().search, permMgr as never);
+
+        expect(endpoints).not.toContain('/api/search/fullTextSearchBlock');
+        expect(endpoints).toContain('/api/search/semanticSearchBlock');
+    });
+});
+
+describe('search get_backlinks refresh and diagnostics', () => {
+    it('refreshes the backlink index once and recovers the native payload', async () => {
+        let backlinkCalls = 0;
+        let refreshCalls = 0;
+        const request = vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+            if (endpoint === '/api/query/sql') {
+                const stmt = String(body?.stmt);
+                if (stmt.includes("WHERE id = 'doc-1'") && stmt.includes('LIMIT 1')) {
+                    return [{ id: 'doc-1', root_id: 'doc-1', box: 'nb-1', path: '/doc-1.sy', hpath: '/Doc', type: 'p', content: 'x', markdown: 'x' }];
+                }
+                return [];
+            }
+            if (endpoint === '/api/ref/getBacklinkDoc') {
+                backlinkCalls += 1;
+                return backlinkCalls === 1 ? null : { backlinks: [{ id: 'block-1', box: 'nb-1', path: '/doc-1.sy' }] };
+            }
+            if (endpoint === '/api/ref/refreshBacklink') {
+                refreshCalls += 1;
+                return null;
+            }
+            return null;
+        });
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'get_backlinks',
+            id: 'doc-1',
+            mode: 'links',
+        }, buildDefaultToolConfig().search, { reload: vi.fn(async () => undefined), canRead: () => true } as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.backlinks).toHaveLength(1);
+        expect(parsed.fallbackUsed).toBeUndefined();
+        expect(parsed.backlinkDiagnostics).toMatchObject({ refreshed: true, nativeRecoveredAfterRefresh: true });
+        expect(refreshCalls).toBe(1);
+        expect(backlinkCalls).toBe(2);
+    });
+
+    it('falls back to refs-table SQL after refresh still misses and reports counts', async () => {
+        let refreshCalls = 0;
+        const request = vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+            if (endpoint === '/api/query/sql') {
+                const stmt = String(body?.stmt);
+                if (stmt.includes("WHERE id = 'doc-1'") && stmt.includes('LIMIT 1')) {
+                    return [{ id: 'doc-1', root_id: 'doc-1', box: 'nb-1', path: '/doc-1.sy', hpath: '/Doc', type: 'p', content: 'x', markdown: 'x' }];
+                }
+                if (stmt.includes('COUNT(*)')) return [{ backlink_count: 2, mention_count: 1 }];
+                if (stmt.includes('block-ref')) {
+                    return [{ id: 'span-block-1', root_id: 'doc-9', box: 'nb-1', path: '/doc-9.sy', hpath: '/Doc 9', type: 'p', content: 'ref', markdown: 'ref' }];
+                }
+                return [];
+            }
+            if (endpoint === '/api/ref/getBacklinkDoc') return null;
+            if (endpoint === '/api/ref/refreshBacklink') {
+                refreshCalls += 1;
+                return null;
+            }
+            return null;
+        });
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'get_backlinks',
+            id: 'doc-1',
+            mode: 'links',
+        }, buildDefaultToolConfig().search, { reload: vi.fn(async () => undefined), canRead: () => true } as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.fallbackUsed).toBe(true);
+        expect(parsed.backlinks).toHaveLength(1);
+        expect(parsed.backlinkDiagnostics).toMatchObject({
+            refreshed: true,
+            nativeRecoveredAfterRefresh: false,
+            refsTableBacklinkCount: 2,
+            refsTableBackmentionCount: 1,
+        });
+        expect(refreshCalls).toBe(1);
+    });
+});

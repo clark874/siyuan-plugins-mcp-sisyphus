@@ -170,3 +170,7 @@ export async function setCriterion(
 export async function removeCriterion(client: SiYuanClient, name: string): Promise<null> {
     return client.requestWrite<null>('/api/storage/removeCriterion', { name });
 }
+
+export async function refreshBacklink(client: SiYuanClient, id: string): Promise<null> {
+    return client.requestRead<null>('/api/ref/refreshBacklink', { id });
+}

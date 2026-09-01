@@ -8075,7 +8075,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
-        "hint": "Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". Partial permission-filtered results include machine-readable metadata.",
+        "hint": "Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". When the native payload is missing, MCP refreshes the backlink index once and retries before falling back to refs-table SQL, and returns backlinkDiagnostics with the refresh outcome and refs-table counts. Partial permission-filtered results include machine-readable metadata.",
         "requiredFields": [
           "id",
         ],
@@ -8104,7 +8104,7 @@ siyuan-sisyphus search find-replace --k todo --r <r> --ids <idsItem> --expected-
           "criteria_* actions manage the workspace-level saved-search store (/api/storage/*). They are global, not notebook-scoped, and bypass per-notebook permission filtering; only touch them when the user explicitly asks. criteria_save and criteria_remove require explicit user confirmation.",
           "Right after creating or editing content, full-text and tag search can lag behind writes because SiYuan indexing is eventually consistent; brief retries are expected in live tests.",
         ],
-        "hint": "Probes the readable controlled namespace before semantic retrieval. One exact name/alias returns locally with trust metadata and no data egress; duplicate exact anchors return an explicit ambiguity unless activeScopes identifies exactly one target; contained unique anchors seed semantic retrieval. Remaining queries use the SiYuan 3.8 embedding provider and may incur cost. namespaceMode="off" is reserved for retrieval evaluation baselines.",
+        "hint": "Probes the readable controlled namespace before semantic retrieval. One exact name/alias returns locally with trust metadata and no data egress; duplicate exact anchors return an explicit ambiguity unless activeScopes identifies exactly one target; contained unique anchors seed semantic retrieval. Before any embedding egress, a local lexical pre-check returns a readable block containing every query token directly (retrievalMode="lexical_exact", egressAvoided=true); set lexicalFirst=false for pure-semantic retrieval-evaluation baselines. namespaceMode="off" is reserved for retrieval evaluation baselines.",
         "requiredFields": [
           "query",
         ],
@@ -8259,7 +8259,7 @@ Additional actions: search_refs, find_replace, search_assets, fulltext_asset_con
 Parameter contract per action (fields outside the action's optional list should not be sent):
 search.fulltext: required [query] | optional [method, methodName, types, typeShortcodes, paths, groupBy, orderBy, sortBy, page, pageSize, parentId, hasTags, stripHtml]
 search.semantic: required [query] | optional [paths, types, typeShortcodes, subTypes, page, pageSize]
-search.knowledge: required [query] | optional [pageSize, candidateSize, notebooks, paths, types, subTypes, includeRelatedDocuments, activeScopes, namespaceMode]
+search.knowledge: required [query] | optional [pageSize, candidateSize, notebooks, paths, types, subTypes, includeRelatedDocuments, activeScopes, namespaceMode, lexicalFirst]
 search.check_anchor: required [candidates, candidateKind] | optional [excludeBlockIds, activeScopes]
 search.query_sql: required [] | optional [stmt, sql, maxRows]
 search.get_backlinks: required [id] | optional [keyword, refTreeID, scopeRootId, mode]
@@ -8282,8 +8282,8 @@ All search actions are read-only except find_replace, which modifies content and
         "find_replace": "This is the mutating exception inside the search tool. It performs content replacement after write-permission checks and still requires explicit user confirmation.",
         "fulltext": "Pass a query string. Supports keyword, query syntax, SQL, and regex modes via methodName (preferred) or method. fulltext now returns plainContent/excerpt by default. types accepts shortcodes directly: {"h": true, "c": true} auto-expands to {"heading": true, "codeBlock": true}. Use sortBy="relevance" or "date" instead of numeric orderBy. Use parentId to scope within a document, hasTags to filter tagged blocks.",
         "fulltext_asset_content": "Searches indexed asset/OCR text. Prefer methodName and sortBy over numeric method/orderBy. Provide assetId for an exact asset-content lookup.",
-        "get_backlinks": "Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". Partial permission-filtered results include machine-readable metadata.",
-        "knowledge": "Probes the readable controlled namespace before semantic retrieval. One exact name/alias returns locally with trust metadata and no data egress; duplicate exact anchors return an explicit ambiguity unless activeScopes identifies exactly one target; contained unique anchors seed semantic retrieval. Remaining queries use the SiYuan 3.8 embedding provider and may incur cost. namespaceMode="off" is reserved for retrieval evaluation baselines.",
+        "get_backlinks": "Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". When the native payload is missing, MCP refreshes the backlink index once and retries before falling back to refs-table SQL, and returns backlinkDiagnostics with the refresh outcome and refs-table counts. Partial permission-filtered results include machine-readable metadata.",
+        "knowledge": "Probes the readable controlled namespace before semantic retrieval. One exact name/alias returns locally with trust metadata and no data egress; duplicate exact anchors return an explicit ambiguity unless activeScopes identifies exactly one target; contained unique anchors seed semantic retrieval. Before any embedding egress, a local lexical pre-check returns a readable block containing every query token directly (retrievalMode="lexical_exact", egressAvoided=true); set lexicalFirst=false for pure-semantic retrieval-evaluation baselines. namespaceMode="off" is reserved for retrieval evaluation baselines.",
         "list_invalid_refs": "no extra fields",
         "query_sql": "Execute a SELECT statement. Common tables include blocks, spans, assets, attributes, and refs. Prefer sql over stmt when prompting an AI. Always use LIMIT to control kernel work; maxRows controls the returned window (default 200, maximum 1000). Unattributed aggregate rows are returned only when every notebook is readable; otherwise MCP fails closed and reports the omission.",
         "search_assets": "Searches asset filenames. Prefer query over k when prompting an AI. If you need OCR or indexed inner-text matches, use fulltext_asset_content instead.",
@@ -8320,11 +8320,11 @@ All search actions are read-only except find_replace, which modifies content and
           "requiresConfirmation": false,
         },
         "get_backlinks": {
-          "hint": "Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". Partial permission-filtered results include machine-readable metadata.",
+          "hint": "Returns documents/blocks that contain references and/or text mentions for the given block ID. Use mode="links" | "mentions" | "both". When the native payload is missing, MCP refreshes the backlink index once and retries before falling back to refs-table SQL, and returns backlinkDiagnostics with the refresh outcome and refs-table counts. Partial permission-filtered results include machine-readable metadata.",
           "requiresConfirmation": false,
         },
         "knowledge": {
-          "hint": "Probes the readable controlled namespace before semantic retrieval. One exact name/alias returns locally with trust metadata and no data egress; duplicate exact anchors return an explicit ambiguity unless activeScopes identifies exactly one target; contained unique anchors seed semantic retrieval. Remaining queries use the SiYuan 3.8 embedding provider and may incur cost. namespaceMode="off" is reserved for retrieval evaluation baselines.",
+          "hint": "Probes the readable controlled namespace before semantic retrieval. One exact name/alias returns locally with trust metadata and no data egress; duplicate exact anchors return an explicit ambiguity unless activeScopes identifies exactly one target; contained unique anchors seed semantic retrieval. Before any embedding egress, a local lexical pre-check returns a readable block containing every query token directly (retrievalMode="lexical_exact", egressAvoided=true); set lexicalFirst=false for pure-semantic retrieval-evaluation baselines. namespaceMode="off" is reserved for retrieval evaluation baselines.",
           "requiresConfirmation": false,
         },
         "list_invalid_refs": {

@@ -40,7 +40,7 @@ import {
     hasRestrictedNotebookPermissions,
     isPermissionRelatedApiError,
 } from './permission-filter';
-import { assertReadOnlySql, getBacklinkDocWithFallback, getBackmentionDocWithFallback } from './sql-builder';
+import { assertReadOnlySql, getBacklinksWithDiagnostics } from './sql-builder';
 
 const SEARCH_TOOL_NAME = 'search';
 
@@ -489,6 +489,75 @@ async function checkAnchors(
     });
 }
 
+const LEXICAL_PROBE_PAGE_SIZE = 8;
+
+function splitLexicalTokens(query: string): string[] {
+    const normalized = query.normalize('NFKC').toLowerCase();
+    return [...new Set(normalized
+        .split(/[\s,，。.;;：:、''""()（）[\]{}·！!？?]+/u)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 2))];
+}
+
+function blockContainsAllTokens(text: string, tokens: string[]): boolean {
+    if (!text) return false;
+    const haystack = text.normalize('NFKC').toLowerCase();
+    return tokens.every((token) => haystack.includes(token));
+}
+
+/**
+ * 词汇预检层：在语义外发之前先做一次本地关键词 fulltext 探测。
+ * 只有当某个可读块同时包含全部查询词元时才就地返回，
+ * 让"精确词检索"不付出嵌入调用成本；否则返回 null 继续走语义分支。
+ */
+async function tryLexicalFirstResolution(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    permMgr: Parameters<ToolActionHandler>[0]['permMgr'],
+    parsed: SearchKnowledgeArgs,
+): Promise<ToolResult | null> {
+    if (parsed.lexicalFirst === false) return null;
+    if (parsed.notebooks && parsed.notebooks.length > 0) return null;
+    const tokens = splitLexicalTokens(parsed.query);
+    if (tokens.length === 0) return null;
+    // 预检必须完全容错：探测端点的任何失败都不能破坏 knowledge 主路径。
+    try {
+        const probe = await searchApi.fullTextSearchBlock(client, {
+            query: parsed.query,
+            method: 0,
+            page: 1,
+            pageSize: LEXICAL_PROBE_PAGE_SIZE,
+            ...(parsed.paths ? { paths: parsed.paths } : {}),
+        }) as { blocks?: unknown[] } | undefined;
+        const filteredProbe = filterFullTextSearchResultByPermission(probe ?? { blocks: [] }, permMgr) as unknown as Record<string, unknown>;
+        const probeBlocks = Array.isArray(filteredProbe.blocks)
+            ? filteredProbe.blocks.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+            : [];
+        const lexicalHit = probeBlocks.find((block) => blockContainsAllTokens(
+            [readStringField(block, 'content'), readStringField(block, 'fcontent'), readStringField(block, 'name'), readStringField(block, 'alias')].join('\n'),
+            tokens,
+        ));
+        if (!lexicalHit) return null;
+        const data = normalizeSearchBlocksForAi([lexicalHit]);
+        return createJsonResult({
+            query: parsed.query,
+            retrievalMode: 'lexical_exact',
+            resolutionStatus: 'local_fulltext_all_tokens',
+            matchedTokens: tokens,
+            data,
+            showing: data.length,
+            total: typeof filteredProbe.matchedBlockCount === 'number' ? filteredProbe.matchedBlockCount : data.length,
+            permissionFilteredCount: typeof filteredProbe.filteredOutBlockCount === 'number' ? filteredProbe.filteredOutBlockCount as number : 0,
+            dataEgress: false,
+            externalCost: false,
+            egressAvoided: true,
+            retrievalProtocol: ['local_keyword_fulltext', 'all_token_coverage', 'permission_filter'],
+            hint: 'All query tokens matched a readable block in the local full-text index, so the embedding provider was not called. Rerun with lexicalFirst=false for broader semantic recall.',
+        });
+    } catch {
+        return null;
+    }
+}
+
 async function knowledgeSearch(
     client: Parameters<ToolActionHandler>[0]['client'],
     permMgr: Parameters<ToolActionHandler>[0]['permMgr'],
@@ -535,6 +604,8 @@ async function knowledgeSearch(
             hint: 'A unique readable name/alias resolved locally. Verify updated and trust metadata before treating the block as current evidence.',
         });
     }
+    const lexicalResult = await tryLexicalFirstResolution(client, permMgr, parsed);
+    if (lexicalResult) return lexicalResult;
     const semantic = await searchApi.semanticSearchBlock(client, {
         query: parsed.query,
         page: 1,
@@ -983,13 +1054,11 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
         const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
         if (denied) return denied;
         try {
-            const linkResult = mode !== 'mentions'
-                ? await getBacklinkDocWithFallback(client, parsed.id, parsed.keyword, scopeRootId)
-                : {};
-            const mentionResult = mode !== 'links'
-                ? await getBackmentionDocWithFallback(client, parsed.id, parsed.keyword, scopeRootId)
-                : {};
-            const result = { ...(linkResult as Record<string, unknown>), ...(mentionResult as Record<string, unknown>) };
+            const result = await getBacklinksWithDiagnostics(client, parsed.id, {
+                keyword: parsed.keyword,
+                refTreeID: scopeRootId,
+                mode,
+            });
             const filtered = filterBacklinkResultByPermission(result, permMgr);
             return createJsonResult({
                 ...filtered,
@@ -999,6 +1068,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
                 ...(result.sourcePayloadMissing ? { sourcePayloadMissing: true } : {}),
                 ...(result.fallbackQuery ? { fallbackQuery: result.fallbackQuery } : {}),
                 ...(result.resultConfidence ? { resultConfidence: result.resultConfidence } : {}),
+                ...(result.backlinkDiagnostics ? { backlinkDiagnostics: result.backlinkDiagnostics } : {}),
                 ...(parsed.scopeRootId !== undefined ? { resolvedArgs: { refTreeID: scopeRootId } } : {}),
                 ...(result.fallbackUsed ? { warning: 'SiYuan returned no backlink/backmention payload; SQL fallback results are shown.' } : {}),
             });

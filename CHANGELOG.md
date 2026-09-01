@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.5 - 2026-09-02
+
+- `search.knowledge` 新增本地词汇预检层：当某个可读全文块包含全部查询词元时直接本地返回（`retrievalMode="lexical_exact"`、`egressAvoided=true`），精确词检索不再触发嵌入调用与数据外发；`lexicalFirst=false` 保留纯语义评测基线
+- `search.get_backlinks` 在原生载荷缺失时先刷新反链索引并重试一次，仍缺失才落到 refs 表 SQL 兜底，并返回 `backlinkDiagnostics`（刷新结果与原生/索引计数偏差），用于持续度量内核反链接口可靠性
+- 知识编译契约 v1.5（思源侧）：新增检索问题粒度判据、evidence/decision 最低内容标准、超大原子与原子重复度及原生反链一致性 lint、溯源账本季度滚动归档程序
+- 插件提升至 `v0.9.5`，CLI 同步提升至 `v0.4.5`
+
 ## v0.9.4 - 2026-09-01
 
 - 会话溯源新增 `hermes` 提供方：从 `HERMES_SESSION_ID` / `HERMES_SESSION_KEY` 捕获当前桌面或 CLI 会话，返回已核验的 `hermes --resume <sessionId>` 恢复命令和统一 `siyuan://` 启动链接

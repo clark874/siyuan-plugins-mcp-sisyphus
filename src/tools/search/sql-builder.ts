@@ -336,3 +336,107 @@ export async function getBackmentionDocWithFallback(
         resultConfidence: 'fallback',
     };
 }
+
+export interface BacklinkDiagnostics {
+    refreshed: boolean;
+    nativeRecoveredAfterRefresh: boolean;
+    refsTableBacklinkCount?: number;
+    refsTableBackmentionCount?: number;
+}
+
+function hasMentionPayload(result: unknown): result is { backmentions: unknown[] } {
+    return !!result && typeof result === 'object' && Array.isArray((result as { backmentions?: unknown[] }).backmentions);
+}
+
+async function countBacklinkRefs(client: SiYuanClient, id: string): Promise<{ backlink: number; mention: number }> {
+    const rows = (await searchApi.querySQL(
+        client,
+        `SELECT (SELECT COUNT(*) FROM refs WHERE def_block_id='${escapeSqlString(id)}') AS backlink_count, (SELECT COUNT(*) FROM refs WHERE block_id='${escapeSqlString(id)}') AS mention_count`,
+    )) as Array<Record<string, unknown>>;
+    const row = Array.isArray(rows) && rows[0] ? rows[0] : {};
+    return {
+        backlink: typeof row.backlink_count === 'number' ? row.backlink_count : 0,
+        mention: typeof row.mention_count === 'number' ? row.mention_count : 0,
+    };
+}
+
+/**
+ * get_backlinks 的统一取数路径：原生端点优先；载荷缺失时先刷新一次反链索引并重试，
+ * 仍缺失才落到 refs 表 SQL 兜底，并附上刷新结果与原生/索引偏差诊断。
+ */
+export async function getBacklinksWithDiagnostics(
+    client: SiYuanClient,
+    id: string,
+    options: { keyword?: string; refTreeID?: string; mode: 'links' | 'mentions' | 'both' },
+): Promise<{
+    backlinks: unknown[];
+    backmentions: unknown[];
+    fallbackUsed?: boolean;
+    sourcePayloadMissing?: boolean;
+    fallbackQuery?: 'sql';
+    resultConfidence?: 'fallback';
+    backlinkDiagnostics?: BacklinkDiagnostics;
+}> {
+    const needLinks = options.mode !== 'mentions';
+    const needMentions = options.mode !== 'links';
+
+    const [nativeLinks, nativeMentions] = await Promise.all([
+        needLinks ? searchApi.getBacklinkDoc(client, id, options.keyword, options.refTreeID) : Promise.resolve(null),
+        needMentions ? searchApi.getBackmentionDoc(client, id, options.keyword, options.refTreeID) : Promise.resolve(null),
+    ]);
+    let links = hasBacklinkPayload(nativeLinks) && Array.isArray(nativeLinks.backlinks) ? nativeLinks.backlinks : undefined;
+    let mentions = hasMentionPayload(nativeMentions) ? nativeMentions.backmentions : undefined;
+
+    const diagnostics: BacklinkDiagnostics = { refreshed: false, nativeRecoveredAfterRefresh: false };
+    const missingNative = (needLinks && links === undefined) || (needMentions && mentions === undefined);
+    if (missingNative) {
+        diagnostics.refreshed = true;
+        try {
+            await searchApi.refreshBacklink(client, id);
+        } catch {
+            // 刷新失败不阻断取数路径：继续重试与兜底。
+        }
+        const [retriedLinks, retriedMentions] = await Promise.all([
+            needLinks && links === undefined ? searchApi.getBacklinkDoc(client, id, options.keyword, options.refTreeID) : Promise.resolve(null),
+            needMentions && mentions === undefined ? searchApi.getBackmentionDoc(client, id, options.keyword, options.refTreeID) : Promise.resolve(null),
+        ]);
+        if (needLinks && links === undefined && hasBacklinkPayload(retriedLinks) && Array.isArray(retriedLinks.backlinks)) {
+            links = retriedLinks.backlinks;
+            diagnostics.nativeRecoveredAfterRefresh = true;
+        }
+        if (needMentions && mentions === undefined && hasMentionPayload(retriedMentions)) {
+            mentions = retriedMentions.backmentions;
+            diagnostics.nativeRecoveredAfterRefresh = true;
+        }
+    }
+
+    const stillMissing = (needLinks && links === undefined) || (needMentions && mentions === undefined);
+    if (!stillMissing) {
+        return {
+            backlinks: links ?? [],
+            backmentions: mentions ?? [],
+            ...(diagnostics.refreshed ? { backlinkDiagnostics: diagnostics } : {}),
+        };
+    }
+
+    const refCounts = await countBacklinkRefs(client, id);
+    diagnostics.refsTableBacklinkCount = refCounts.backlink;
+    diagnostics.refsTableBackmentionCount = refCounts.mention;
+    const [fallbackLinks, fallbackMentions] = await Promise.all([
+        needLinks && links === undefined
+            ? queryFallbackBacklinkRows(client, id, options.keyword, options.refTreeID)
+            : Promise.resolve([] as unknown[]),
+        needMentions && mentions === undefined
+            ? queryFallbackBackmentionRows(client, id, options.keyword, options.refTreeID)
+            : Promise.resolve([] as unknown[]),
+    ]);
+    return {
+        backlinks: links ?? fallbackLinks,
+        backmentions: mentions ?? fallbackMentions,
+        fallbackUsed: true,
+        sourcePayloadMissing: true,
+        fallbackQuery: 'sql',
+        resultConfidence: 'fallback',
+        backlinkDiagnostics: diagnostics,
+    };
+}
