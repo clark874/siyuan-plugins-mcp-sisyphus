@@ -767,6 +767,84 @@ describe('write safety coordinator', () => {
         }
     });
 
+    it('tracks a saved-search criterion as a real state target and verifies save readback', async () => {
+        let criteria: Array<Record<string, unknown>> = [];
+        const client = {
+            readFile: vi.fn(async () => { throw new Error('HTTP error: 404 Not Found'); }),
+            writeFile: vi.fn(async () => undefined),
+            requestRead: vi.fn(async (endpoint: string) => endpoint === '/api/storage/getCriteria' ? criteria : null),
+        } as never;
+        const coordinator = new WriteSafetyCoordinator(client);
+        const permMgr = createMockPermissionManager();
+        const args = {
+            action: 'criteria_save',
+            name: '项目检索',
+            obj: { k: '项目', method: 0, types: { document: true } },
+        };
+        const preflight = parseResult(await coordinator.run({
+            client, permMgr, category: 'search', action: 'criteria_save',
+            args: { ...args, validateOnly: true }, strictMode: true, execute: vi.fn(),
+        }));
+        expect(preflight.targetCount).toBe(1);
+
+        const result = parseResult(await coordinator.run({
+            client,
+            permMgr,
+            category: 'search',
+            action: 'criteria_save',
+            args: {
+                ...args,
+                requestId: uuidV7(Date.now(), '000000000040'),
+                expectedStateHash: preflight.stateHash,
+            },
+            strictMode: true,
+            execute: vi.fn(async () => {
+                criteria = [{ name: '项目检索', k: '项目', method: 0, types: { document: true, heading: false } }];
+                return success({ success: true, saved: true, name: '项目检索' });
+            }),
+        }));
+
+        expect(result.safety).toMatchObject({ writeExecuted: true, transactionState: 'committed' });
+        expect(result.safety.previousHash).not.toBe(result.safety.resultHash);
+    });
+
+    it('verifies that a removed saved-search criterion is absent after execution', async () => {
+        let criteria: Array<Record<string, unknown>> = [{ name: '项目检索', k: '项目', method: 0 }];
+        const client = {
+            readFile: vi.fn(async () => { throw new Error('HTTP error: 404 Not Found'); }),
+            writeFile: vi.fn(async () => undefined),
+            requestRead: vi.fn(async (endpoint: string) => endpoint === '/api/storage/getCriteria' ? criteria : null),
+        } as never;
+        const coordinator = new WriteSafetyCoordinator(client);
+        const permMgr = createMockPermissionManager();
+        const args = { action: 'criteria_remove', name: '项目检索' };
+        const preflight = parseResult(await coordinator.run({
+            client, permMgr, category: 'search', action: 'criteria_remove',
+            args: { ...args, validateOnly: true }, strictMode: true, execute: vi.fn(),
+        }));
+        expect(preflight.targetCount).toBe(1);
+
+        const result = parseResult(await coordinator.run({
+            client,
+            permMgr,
+            category: 'search',
+            action: 'criteria_remove',
+            args: {
+                ...args,
+                requestId: uuidV7(Date.now(), '000000000041'),
+                expectedStateHash: preflight.stateHash,
+            },
+            strictMode: true,
+            execute: vi.fn(async () => {
+                criteria = [];
+                return success({ success: true, removed: true, name: '项目检索' });
+            }),
+        }));
+
+        expect(result.safety).toMatchObject({ writeExecuted: true, transactionState: 'committed' });
+        expect(result.safety.previousHash).not.toBe(result.safety.resultHash);
+    });
+
     it('hashes equivalent Kramdown IAL attribute orders identically', async () => {
         const id = '20260812000000-abcdefg';
         let reverse = false;

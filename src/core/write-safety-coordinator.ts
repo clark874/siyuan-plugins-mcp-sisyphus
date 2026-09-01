@@ -2,6 +2,7 @@ import fs from 'node:fs';
 
 import type { SiYuanClient } from '../api/client';
 import { WriteOutcomeUnknownError } from '../api/client';
+import * as searchApi from '../api/search';
 import { normalizeTemplatePath, readTemplateSource } from '../api/template';
 import { readPuppyStats } from './puppy-state';
 import type { PermissionManager } from './permissions';
@@ -548,6 +549,11 @@ async function probeCurrentState(
         }
     } else if (category === 'file') {
         await appendFileState(client, action, args, state);
+    } else if (category === 'search' && (action === 'criteria_save' || action === 'criteria_remove')) {
+        const name = typeof args.name === 'string' ? args.name : '';
+        const criterion = (await searchApi.getCriteria(client)).find((item) => item.name === name);
+        state.savedSearchCriterion = criterion ?? { name, missing: true };
+        targetIds = [`saved-search:${name}`];
     } else if (category === 'timeline') {
         state.timelineTags = await client.requestRead('/api/repo/getRepoTagSnapshots', {});
         if (typeof args.documentId === 'string' && args.documentId) {
@@ -898,6 +904,23 @@ async function verifyPostWriteSemanticState(
         }
         return;
     }
+    if (category === 'search' && action === 'criteria_save') {
+        const name = typeof args.name === 'string' ? args.name : '';
+        const { name: _ignoredName, ...expected } = isRecord(args.obj) ? args.obj : {};
+        const criterion = (await searchApi.getCriteria(client)).find((item) => item.name === name);
+        if (!criterion || !isDeepSubset(expected, criterion.obj)) {
+            throw safetyError('readback_mismatch', `Saved-search criterion "${name}" did not retain the requested condition object.`);
+        }
+        return;
+    }
+    if (category === 'search' && action === 'criteria_remove') {
+        const name = typeof args.name === 'string' ? args.name : '';
+        const criterion = (await searchApi.getCriteria(client)).find((item) => item.name === name);
+        if (criterion) {
+            throw safetyError('readback_mismatch', `Saved-search criterion "${name}" is still present after removal.`);
+        }
+        return;
+    }
     if (category !== 'search' || action !== 'find_replace') return;
     const method = typeof args.method === 'number' ? args.method : undefined;
     const methodName = typeof args.methodName === 'string' ? args.methodName : undefined;
@@ -926,6 +949,19 @@ async function verifyPostWriteSemanticState(
     if (replacement && replacement !== keyword && !markdown.includes(replacement)) {
         throw safetyError('readback_mismatch', 'The find/replace response returned, but the replacement text was not observed in the requested targets.');
     }
+}
+
+function isDeepSubset(expected: unknown, actual: unknown): boolean {
+    if (Array.isArray(expected)) {
+        return Array.isArray(actual)
+            && expected.length === actual.length
+            && expected.every((item, index) => isDeepSubset(item, actual[index]));
+    }
+    if (isRecord(expected)) {
+        if (!isRecord(actual)) return false;
+        return Object.entries(expected).every(([key, value]) => isDeepSubset(value, actual[key]));
+    }
+    return Object.is(expected, actual);
 }
 
 function enforceNotebookPermission(
