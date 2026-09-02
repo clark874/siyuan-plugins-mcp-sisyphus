@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：**当前版本为 `v0.9.3`（CLI `v0.4.3`）。本版本新增跨 Agent 会话溯源，同时保持严格写入与纯文本知识治理边界。
+> **LLM Wiki 分支：** 当前版本为 `v0.9.5`（CLI `v0.4.5`）。本版本新增 Hermes 会话溯源、本地词汇预检与反链刷新诊断，同时保持严格写入与纯文本知识治理边界。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
