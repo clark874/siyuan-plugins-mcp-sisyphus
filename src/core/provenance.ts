@@ -138,6 +138,99 @@ function findNamedFile(root: string, needle: string, depth = 5): boolean {
     return false;
 }
 
+export interface DiscoveredSession {
+    sessionId: string;
+    fileName: string;
+    filePath: string;
+    modifiedAt: string;
+    ageSeconds: number;
+    sizeBytes: number;
+    recentlyActive: boolean;
+}
+
+export interface SessionDiscoveryResult {
+    provider: ProvenanceProvider;
+    root: string;
+    rootExists: boolean;
+    candidates: DiscoveredSession[];
+    notice: string;
+}
+
+export const SESSION_DISCOVERY_NOTICE = '发现接口只列出本机候选会话，不推断哪一条属于当前调用方。请结合本会话发起时间与 recentlyActive 标记选定真实 sessionId；无法排除并发会话时按 inferred_latest_rollout 登记并保留误配警告。禁止用自拟描述性字符串充当 sessionId。';
+
+function collectJsonlFiles(root: string, maxDepth: number): Array<{ fileName: string; filePath: string }> {
+    const found: Array<{ fileName: string; filePath: string }> = [];
+    if (!fs.existsSync(root)) return found;
+    const queue: Array<{ dir: string; depth: number }> = [{ dir: root, depth: 0 }];
+    let visited = 0;
+    while (queue.length > 0 && visited < 5000) {
+        const item = queue.shift()!;
+        visited += 1;
+        let entries: fs.Dirent[];
+        try { entries = fs.readdirSync(item.dir, { withFileTypes: true }); } catch { continue; }
+        for (const entry of entries) {
+            const fullPath = path.join(item.dir, entry.name);
+            if (entry.isFile() && entry.name.endsWith('.jsonl')) found.push({ fileName: entry.name, filePath: fullPath });
+            else if (entry.isDirectory() && item.depth < maxDepth) queue.push({ dir: fullPath, depth: item.depth + 1 });
+        }
+    }
+    return found;
+}
+
+function sessionIdFromFileName(provider: ProvenanceProvider, fileName: string): string | null {
+    const base = fileName.replace(/\.jsonl$/, '');
+    if (provider === 'zcode') return base.startsWith('model-io-') ? base.slice('model-io-'.length) : base;
+    if (provider === 'codex') {
+        // rollout-2026-09-02T15-43-12-<uuid>.jsonl → <uuid>
+        const match = base.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+        return match ? match[0] : base;
+    }
+    return base;
+}
+
+export function discoverLocalAgentSessions(provider: ProvenanceProvider, options: { limit?: number; activeWindowSeconds?: number; homeDir?: string } = {}): SessionDiscoveryResult {
+    const limit = Math.max(1, Math.min(50, options.limit ?? 10));
+    const activeWindowSeconds = Math.max(1, Math.min(3600, options.activeWindowSeconds ?? 120));
+    const home = options.homeDir ?? os.homedir();
+    const roots: Partial<Record<ProvenanceProvider, { root: string; depth: number }>> = {
+        zcode: { root: path.join(home, '.zcode', 'cli', 'rollout'), depth: 1 },
+        codex: { root: path.join(home, '.codex', 'sessions'), depth: 5 },
+        'claude-code': { root: path.join(home, '.claude', 'projects'), depth: 2 },
+    };
+    const config = roots[provider];
+    const root = config?.root ?? '';
+    if (!config) {
+        return { provider, root, rootExists: false, candidates: [], notice: `provider ${provider} 暂无本机会话目录适配；仅支持 zcode、codex、claude-code 的本地发现。${SESSION_DISCOVERY_NOTICE}` };
+    }
+    const files = collectJsonlFiles(config.root, config.depth);
+    const now = Date.now();
+    const candidates: DiscoveredSession[] = [];
+    for (const file of files) {
+        const sessionId = sessionIdFromFileName(provider, file.fileName);
+        if (!sessionId) continue;
+        let stat: fs.Stats;
+        try { stat = fs.statSync(file.filePath); } catch { continue; }
+        const ageSeconds = Math.max(0, Math.round((now - stat.mtimeMs) / 1000));
+        candidates.push({
+            sessionId,
+            fileName: file.fileName,
+            filePath: file.filePath,
+            modifiedAt: stat.mtime.toISOString(),
+            ageSeconds,
+            sizeBytes: stat.size,
+            recentlyActive: ageSeconds <= activeWindowSeconds,
+        });
+    }
+    candidates.sort((a, b) => a.ageSeconds - b.ageSeconds);
+    return {
+        provider,
+        root: config.root,
+        rootExists: fs.existsSync(config.root),
+        candidates: candidates.slice(0, limit),
+        notice: SESSION_DISCOVERY_NOTICE,
+    };
+}
+
 export function validateLocalAgentSession(session: Pick<SessionIdentity, 'provider' | 'sessionId' | 'hostAlias'>): {
     status: 'found' | 'missing' | 'unsupported' | 'remote';
     checkedBy: string;

@@ -21,7 +21,7 @@ export const FLASHCARD_ACTIONS = ['list_cards', 'get_decks', 'get_cards', 'revie
 export const EXTENSION_ACTIONS = ['list'] as const;
 export const MASCOT_ACTIONS = ['get_balance', 'shop', 'buy'] as const;
 export const FEEDBACK_ACTIONS = ['submit'] as const;
-export const PROVENANCE_ACTIONS = ['register_session', 'record_event', 'list_project_sessions', 'list_atom_events', 'resolve_session_link', 'validate_session'] as const;
+export const PROVENANCE_ACTIONS = ['register_session', 'record_event', 'discover_session', 'list_project_sessions', 'list_atom_events', 'resolve_session_link', 'validate_session'] as const;
 
 export const NATIVE_EXTENSION_ACTION_ALLOWLIST = {
     search: ['semantic', 'fulltext'],

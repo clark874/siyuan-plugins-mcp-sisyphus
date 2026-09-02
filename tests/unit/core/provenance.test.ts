@@ -5,6 +5,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+    discoverLocalAgentSessions,
     hermesSessionExists,
     recordProvenanceEvent,
     readProvenanceWriteState,
@@ -47,6 +48,60 @@ describe('Agent 会话溯源核心', () => {
             expect(validateLocalAgentSession({ provider: 'hermes', sessionId: 'definitely-absent-session-id', hostAlias: 'local' }).checkedBy).toBe('hermes_state_db');
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
+        }
+    });
+
+    it('discover 列出 ZCode rollout 候选：剥前缀取 sessionId、按新旧排序、标记活跃与限额', () => {
+        const home = fs.mkdtempSync(path.join(os.tmpdir(), 'zcode-discover-'));
+        try {
+            const rolloutDir = path.join(home, '.zcode', 'cli', 'rollout');
+            fs.mkdirSync(rolloutDir, { recursive: true });
+            const now = Date.now();
+            const active = path.join(rolloutDir, 'model-io-sess_active-0001.jsonl');
+            const stale = path.join(rolloutDir, 'model-io-sess_stale-0002.jsonl');
+            fs.writeFileSync(active, 'a');
+            fs.writeFileSync(stale, 'b');
+            fs.utimesSync(active, new Date(now - 30 * 1000), new Date(now - 30 * 1000));
+            fs.utimesSync(stale, new Date(now - 2 * 3600 * 1000), new Date(now - 2 * 3600 * 1000));
+            const result = discoverLocalAgentSessions('zcode', { homeDir: home, activeWindowSeconds: 60 });
+            expect(result.rootExists).toBe(true);
+            expect(result.candidates.map((c) => c.sessionId)).toEqual(['sess_active-0001', 'sess_stale-0002']);
+            expect(result.candidates[0].recentlyActive).toBe(true);
+            expect(result.candidates[1].recentlyActive).toBe(false);
+            expect(result.notice).toContain('不推断');
+            const limited = discoverLocalAgentSessions('zcode', { homeDir: home, limit: 1 });
+            expect(limited.candidates).toHaveLength(1);
+            expect(limited.candidates[0].sessionId).toBe('sess_active-0001');
+        } finally {
+            fs.rmSync(home, { recursive: true, force: true });
+        }
+    });
+
+    it('discover 递归收集 Codex 嵌套会话并从文件名提取 UUID', () => {
+        const home = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-discover-'));
+        try {
+            const nested = path.join(home, '.codex', 'sessions', '2026', '09', '02');
+            fs.mkdirSync(nested, { recursive: true });
+            fs.writeFileSync(path.join(nested, 'rollout-2026-09-02T15-43-12-3f2b8c41-9d5e-4a67-8b1f-2c9d0e5a7b31.jsonl'), 'x');
+            const result = discoverLocalAgentSessions('codex', { homeDir: home });
+            expect(result.candidates).toHaveLength(1);
+            expect(result.candidates[0].sessionId).toBe('3f2b8c41-9d5e-4a67-8b1f-2c9d0e5a7b31');
+        } finally {
+            fs.rmSync(home, { recursive: true, force: true });
+        }
+    });
+
+    it('discover 对未适配 provider 与缺失目录返回空候选而不抛错', () => {
+        const home = fs.mkdtempSync(path.join(os.tmpdir(), 'discover-empty-'));
+        try {
+            const unsupported = discoverLocalAgentSessions('kimi', { homeDir: home });
+            expect(unsupported.candidates).toEqual([]);
+            expect(unsupported.notice).toContain('暂无本机会话目录适配');
+            const missing = discoverLocalAgentSessions('zcode', { homeDir: home });
+            expect(missing.rootExists).toBe(false);
+            expect(missing.candidates).toEqual([]);
+        } finally {
+            fs.rmSync(home, { recursive: true, force: true });
         }
     });
 

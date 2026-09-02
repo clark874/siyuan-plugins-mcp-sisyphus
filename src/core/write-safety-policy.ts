@@ -97,6 +97,7 @@ export const ACTION_SAFETY_POLICIES: {
     feedback: { submit: external() },
     provenance: {
         register_session: mutation('state'), record_event: mutation('state'),
+        discover_session: read(),
         list_project_sessions: read(), list_atom_events: read(), resolve_session_link: read(), validate_session: read(),
     },
 };

@@ -389,6 +389,10 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 写入前在发起知识化的 Agent 进程中捕获当前会话。优先使用客户端注入的会话环境变量或会话上下文；MCP 服务端不能按“最新文件”推断调用方。用户显式提供的会话标记为 \`explicit\`。只有确认没有并发会话时才可使用最近 rollout 兼容路径，并必须保留 \`inferred_latest_rollout\` 标记和风险提示。
 
+客户端未注入会话变量时（ZCode 当前即为此类），先按下面的调用获取本机最近 rollout 候选，结合本会话发起时间与 recentlyActive 标记选定真实 sessionId；无法排除并发会话时按 \`inferred_latest_rollout\` 登记并保留误配警告。禁止自拟描述性字符串充当 sessionId：注册接口会对本机会话即时校验，描述性 ID 将触发告警。
+
+{{call discoverSession}}
+
 通过 Agent Kit 安装的本地客户端可执行 \`node ~/.siyuan-sisyphus/bin/capture-agent-session.cjs\`。命令未发现会话时应停止并请求显式会话标识。Hermes 优先读取 HERMES_SESSION_ID。\`--provider zcode --infer-latest\` 仅是经确认后的兼容路径。
 
 交互式知识化把当前会话同时作为 \`sourceSession\` 和 \`compileSession\`。定时编译或跨 Agent 转交必须分别记录原始讨论会话与执行编译会话；原始来源未知时留待补录，不得用编译会话冒充来源会话。
@@ -437,6 +441,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             snapshot: call('timeline', 'create_node', { name: '项目知识编译前恢复点-<date>', scope: 'document', documentId: '<document-id>' }),
             relationAppend: call('block', 'append', { parentID: '<source-atom-id>', dataType: 'markdown', data: "**关系：produced-by。** 本证据由 ((<target-atom-id> 'target-method-name')) 所述流程产生；实现差异与适用边界是……。该关系不自动提升统计结论的验证状态。" }),
             relationAttrs: call('block', 'set_attrs', { id: '<relation-block-id>', attrs: { 'custom-relation-kind': 'produced-by' } }),
+            discoverSession: call('provenance', 'discover_session', { provider: 'zcode', limit: 10 }),
             recordEvent: call('provenance', 'record_event', { projectBlockId: '<project-hub-block-id>', projectId: '<registered-project-id>', eventId: '<stable-event-id>', operation: 'project-knowledge-compile', sourceSession: { provider: 'codex', sessionId: '<source-session-id>', hostAlias: 'local', captureMethod: 'environment' }, compileSession: { provider: 'codex', sessionId: '<compile-session-id>', hostAlias: 'local', captureMethod: 'environment' }, targetAtomIds: ['<atom-id>', '<relation-block-id>'] }),
             projectSessions: call('provenance', 'list_project_sessions', { projectId: '<registered-project-id>', validate: true, limit: 100 }),
             atomEvents: call('provenance', 'list_atom_events', { atomId: '<atom-id>', limit: 100 }),

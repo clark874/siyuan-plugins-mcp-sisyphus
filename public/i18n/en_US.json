@@ -3,7 +3,7 @@
     "toolSettingsChangelogBadge": "Latest",
     "toolSettingsChangelogExpand": "Expand",
     "toolSettingsChangelogCollapse": "Collapse",
-    "toolSettingsChangelogLatestText": "`v0.9.5` · 2026-09-02 — Knowledge retrieval adds a local lexical pre-check: when one readable block covers every query token, results return with zero data egress (`lexicalFirst=false` restores pure-semantic baselines). Backlink reads refresh and retry before SQL fallback and report `backlinkDiagnostics`. Local CLI is `v0.4.5`.",
+    "toolSettingsChangelogLatestText": "`v0.9.6` · 2026-09-02 — Agent session provenance adds `provenance.discover_session`: list recent local session candidates (zcode rollout, codex sessions, claude-code projects) with activity hints before registering. `register_session` now validates local recoverability immediately and warns on descriptive IDs that cannot resume a session. Local CLI is `v0.4.6`.",
     "toolSettingsChangelogText": "`v0.7.0-local.9` · 2026-08-11 — Recently Modified now groups by date and opens a read-only right-side Diff against the newest different native document-history checkpoint; timeline.compare_recent exposes the same permission-guarded comparison.\n`v0.6.4-local.8` · 2026-08-11 — Added an independent Recently Modified dock ordered by actual document update time, with path search, automatic invalidation refresh, one-click opening, and lifecycle separate from the document timeline.\n`v0.6.3-local.7` · 2026-08-11 — Added the knowledge-ingestion Skill, unifying web clips and Agent research through source normalization, delta merging, recoverable writes, SQL/AV verification, and idempotent reruns.\n`v0.6.2-local.6` · 2026-08-11 — Fixed silent row loss for aggregate, GROUP BY, and recursive CTE SQL; raw SQL now reloads permissions and fails closed whenever any notebook is unreadable, while maxRows defaults to 200 with a hard ceiling of 1000.\n`v0.6.2-local.5` · 2026-08-11 — Fixed plugin-install verification for SiYuan's empty installed-package repoHash while retaining pinned bazaar revision, repository, version, descriptor, and content-tree checks; marketplace compatibility now also excludes packages disallowed by SiYuan.\n`v0.6.2-local.4` · 2026-08-11 — The local maintenance edition adds a read-only SiYuan bazaar catalog for five package types, merged online/local state, and sanitized, redacted, size-limited README reads; install, update, and uninstall operations remain guarded by the workspace control plane.\n`v0.6.1-local.3` · 2026-08-11 — The local maintenance edition adds a SiYuan workspace control plane for bounded plugin, snippet, and configuration inspection, plus limited changes guarded by planning, confirmation, verification, auditing, and exact rollback.\n`v0.6.0` · 2026-08-07 — Upgraded to MCP SDK v2 with MCP 2026-07-28 negotiation, protocol-level elicitation, structured tool metadata, and default Skills-over-MCP publication over HTTP and stdio. CLI is now `v0.2.3`.\n`v0.5.2` · 2026-08-05 — The document timeline is now available through MCP and CLI, with stronger block-aware diff classification, line statistics, paginated changes, rollbackability checks, and stale-change protection for safer document or block restoration. **Thanks to @xyx2233 for PR #45**, which established the document-scoped timeline node foundation. CLI is now `v0.2.2`.\n`v0.5.1` · 2026-07-28 — Official MCP extension failures are now isolated through lazy connection and full degradation, keeping Sisyphus tools, the CLI, and the outer MCP server available; settings add copy-ready AI setup prompts and a collapsible release timeline. CLI is now `v0.2.1`.\n`v0.5.0` · 2026-07-28 — Official SiYuan MCP ecosystem integration: the new `extension` aggregate tool discovers, filters, and forwards tools registered by other plugins; native SiYuan MCP tools can be enabled separately and remain off by default. CLI is now `v0.2.0`.\n`v0.4.15` · 2026-07-23 — Long-document reads now paginate on complete display-block boundaries across `fs` and `document`; file-tree permission badges and quick switching were added, and the settings interface was rebuilt as a consistent responsive workspace. CLI is now `v0.1.18`.\n`v0.4.14` · 2026-07-16 — Introduced discoverable MCP scenario Skills and Prompts for browsing, editing, search, databases, exports, tags, flashcards, and system safety, with independently installable CLI/MCP Skill bundles.\n`v0.4.13` · 2026-07-04 — Added selectable MCP HTTP binding addresses for local-only or all-IPv4 access. **Thanks to @Ciciy-l for PR #43**. CLI is now `v0.1.16`.\n`v0.4.8` · 2026-05-24 — Added the feedback tool, manual feedback panel, virtual `/AGENTS.md` workspace memory, and customizable mascot colors, giving agents durable context and a direct product feedback channel.\n`v0.4.7` · 2026-05-20 — Improved Document Timeline diff viewport coordination and dock registration stability. **Thanks to @alone-tree for PR #33**, which reduced SiYuan API timeout failures.\n`v0.4.3` · 2026-05-16 — Improved MCP/HTTP connection stability and fixed `extract_doc` asset paths that included image titles. **Thanks to @alone-tree for PR #25 and PR #26**. CLI is now `v0.1.12`.\n`v0.4.0` · 2026-05-14 — Launched Document Timeline with named per-document snapshots, visual diff, block or whole-document rollback, and editor integrations; also added self-contained document resource extraction and reorganized settings around permissions and tool groups. **Thanks to @alone-tree for PR #21**, which contributed `extract_doc`.\n`v0.3.7` · 2026-05-06 — Added the `fs` human-readable path interface (`ls`, `tree`, `read`, `write`, `replace`, `rm`, `mv`, `search`), allowing agents to treat SiYuan documents like Markdown files without learning block IDs or storage paths.\n`v0.3.3` · 2026-04-21 — Expanded the standalone CLI with multi-profile `config` management and interactive paging, added MCP/CLI token-cost analytics, and reorganized the bilingual VitePress documentation into task-oriented sections.\n`v0.3.0` · 2026-04-18 — Published the first preview of the standalone `siyuan-sisyphus` CLI to npm, exposing the shared aggregate tools through one-shot commands with interactive initialization, schema-aware flags, JSON output, and built-in help.\n`v0.2.10` · 2026-04-16 — Unified aggregate-tool definitions through the `defineTool` factory, split the settings UI into focused panels, introduced local analytics and telemetry, and completed end-to-end flashcard creation support.\n`v0.2.6` · 2026-04-12 — Made the SiYuan HTTP API configuration file the single source of truth for tool settings, removing local filesystem guessing and aligning plugin, standalone, Docker, and remote deployments.\n`v0.2.5` · 2026-04-11 — Added standalone mode and schema fixes. **Thanks to @JRbemt for PR #10**.\n`v0.2.4` · 2026-04-10 — Removed the plugin-level repository snapshot sidebar because it duplicated SiYuan's official workspace snapshot feature, clarifying the boundary between Sisyphus workflows and native data-history management.\n`v0.2.0` · 2026-04-09 — Added stateful Streamable HTTP transport for concurrent MCP clients, plus a settings panel for startup, host, port, Bearer authentication, generated tokens, and copy-ready direct or bridge configurations.\n`v0.1.17` · 2026-04-09 — Added the `flashcard` aggregate tool for review, deck, and card operations; rebuilt the bilingual onboarding documentation and expanded the public surface to ten aggregate tools.\n`v0.1.12` · 2026-04-04 — Improved API URL and token handling for Docker and authenticated SiYuan deployments. **Thanks to @Jasaxion for PR #6**.\n`v0.1.9` · 2026-04-03 — Upgraded notebook security to four explicit levels (`none`, `r`, `rw`, `rwd`) and strengthened move, export, server instructions, and permission-aware tool behavior.\n`v0.1.5` · 2026-04-02 — Established the aggregate-tool model with notebook, document, block, and file tools; added notebook permission guards, explicit confirmation requirements for dangerous actions, and direct subtree queries.\n`v0.1.0` · 2026-02-20 — Established the first public project baseline and introduced the Sisyphus plugin identity with its icon and preview assets.",
     "addTopBarIcon": "Add a top bar icon by plugin",
     "cancel": "Cancel",
@@ -134,7 +134,7 @@
     "timeline_scope_global_badge": "Global",
     "timeline_scope_document_description": "Show only in the current document timeline",
     "timeline_scope_global_description": "Show in every document timeline",
-    "timeline_action_rollback_document": "Roll back whole document to history",
+    "timeline_action_rollback_document": "Rollback Document",
     "timeline_action_restore_block": "Restore Block",
     "timeline_action_compare_unified": "Unified Diff",
     "timeline_action_compare_split": "Split Diff",
@@ -201,11 +201,10 @@
     "hello": {
         "makesure": "Before using this template, please read the <a href=\"https://github.com/siyuan-note/plugin-sample\">offical sample</a>, make sure that you've known about the pipeline for plugin developing."
     },
-    "hintTitle":"About",
-    "hintDesc":"<a href='https://github.com/siyuan-note/plugin-sample-vite-svelte'>plugin-sample-vite-svelte</a><br>@frostime<br>@88250<br>@zxkmm",
+    "hintTitle": "About",
+    "hintDesc": "<a href='https://github.com/siyuan-note/plugin-sample-vite-svelte'>plugin-sample-vite-svelte</a><br>@frostime<br>@88250<br>@zxkmm",
     "tool_title_move_docs": "Move Documents",
     "tool_title_move_block_by_id": "Move Block by ID",
-
     "Filesystem": "Simplified Tools",
     "Notebooks": "Notebooks",
     "list_notebooks": "List Notebooks",
@@ -216,7 +215,6 @@
     "rename_notebook": "Rename Notebook",
     "get_notebook_conf": "Get Notebook Config",
     "set_notebook_conf": "Set Notebook Config",
-
     "Documents": "Documents",
     "create_document": "Create Document",
     "rename_document": "Rename Document",
@@ -229,7 +227,6 @@
     "get_notebook_child_docs": "Get Child Documents",
     "get_document_child_blocks": "Get Child Blocks",
     "get_document_child_docs": "Get Child Documents",
-
     "Blocks": "Blocks",
     "Databases": "Databases",
     "insert_block": "Insert Block",
@@ -245,7 +242,6 @@
     "transfer_block_ref": "Transfer Block Reference",
     "set_block_attrs": "Set Block Attributes",
     "get_block_attrs": "Get Block Attributes",
-
     "Files": "Files",
     "Search": "Search",
     "Tags": "Tags",
@@ -262,7 +258,6 @@
     "get_current_time": "Get Current Time",
     "puppy_visible_title": "Show Mascot",
     "puppy_visible_desc": "Show or hide the mascot on screen.",
-
     "desc_list_notebooks": "List all notebooks in the workspace",
     "desc_create_notebook": "Create a new notebook",
     "desc_open_notebook": "Open a notebook",
@@ -271,7 +266,6 @@
     "desc_rename_notebook": "Rename a notebook",
     "desc_get_notebook_conf": "Get notebook configuration",
     "desc_set_notebook_conf": "Set notebook configuration",
-
     "desc_create_document": "Create a new document with markdown content at a human-readable target path",
     "desc_rename_document": "Rename a document by path",
     "desc_rename_document_by_id": "Rename a document by ID",
@@ -283,7 +277,6 @@
     "desc_get_notebook_child_docs": "Get direct child documents at the notebook root",
     "desc_get_document_child_blocks": "Get direct child blocks by document ID",
     "desc_get_document_child_docs": "Get direct child documents by document ID",
-
     "desc_insert_block": "Insert a new block at specified position",
     "desc_prepend_block": "Insert a block at the beginning of parent",
     "desc_append_block": "Insert a block at the end of parent",
@@ -297,7 +290,6 @@
     "desc_transfer_block_ref": "Transfer block references",
     "desc_set_block_attrs": "Set block attributes",
     "desc_get_block_attrs": "Get block attributes",
-
     "desc_get_database": "Get the full attribute view payload by AV ID",
     "desc_search_databases": "Search attribute views by keyword",
     "desc_add_rows": "Add existing blocks as rows in a database",
@@ -307,7 +299,6 @@
     "desc_set_cells": "Update one or more cells with typed value payloads",
     "desc_duplicate_database_block": "Duplicate an existing database block",
     "desc_get_primary_key_values": "Get database primary key rows with optional filtering",
-
     "desc_upload_asset": "Read a local file path and upload it to the assets directory; files larger than the configured threshold must stop and ask the user before retrying with confirmLargeFile=true",
     "desc_render_template": "Render a template with document context",
     "desc_render_sprig": "Render a Sprig template",
@@ -317,7 +308,6 @@
     "desc_push_err_msg": "Push an error message",
     "desc_get_version": "Get SiYuan version",
     "desc_get_current_time": "Get current system time",
-
     "notebook_tool_title": "Notebook Tool",
     "notebook_tool_desc": "Expose the aggregated notebook tool to MCP clients.",
     "document_tool_title": "Document Tool",
@@ -384,7 +374,6 @@
     "mcpDefaultVisible": "This action stays visible in the default configuration.",
     "mcpDefaultEnabled": "Enabled by default.",
     "mcpDefaultDisabled": "Disabled by default.",
-
     "notebook_action_list": "List Notebooks",
     "desc_notebook_action_list": "List all notebooks in the workspace.",
     "notebook_action_create": "Create Notebook",
@@ -411,7 +400,6 @@
     "desc_notebook_action_get_child_docs": "Get direct child documents at the notebook root.",
     "notebook_action_set_icon": "Set Notebook Icon",
     "desc_notebook_action_set_icon": "Set the icon for a notebook.",
-
     "document_action_create": "Create Document",
     "desc_document_action_create": "Create a new document with markdown content at a human-readable target path.",
     "document_action_rename": "Rename Document",
@@ -476,7 +464,6 @@
     "skillsOverMcpDesc": "Publish all bundled workflow skills through the draft SEP-2640 extension. This affects the built-in HTTP server only.",
     "skillsOverMcpEnabled": "Enable",
     "skillsOverMcpRestartHint": "Save and restart the HTTP server, then reconnect the MCP client. Clients without SEP-2640 support can continue using the stable SiYuan skill resources.",
-
     "block_action_insert": "Insert Block",
     "desc_block_action_insert": "Insert a new block at a specified position.",
     "block_action_prepend": "Prepend Block",
@@ -527,7 +514,6 @@
     "desc_block_action_add_to_daily_note": "Append Markdown content to today's daily note in a notebook.",
     "block_action_docs_info": "Documents Info",
     "desc_block_action_docs_info": "Get document metadata for one or more block or document IDs.",
-
     "file_action_upload_asset": "Upload Asset",
     "desc_file_action_upload_asset": "Read a local file path and upload that file to the assets directory. Files larger than the configured threshold must stop and ask the user before retrying with confirmLargeFile=true.",
     "file_action_register_project_source": "Register Project Source",
@@ -627,6 +613,8 @@
     "desc_provenance_action_register_session": "Idempotently register or refresh one Agent session for a project.",
     "provenance_action_record_event": "Record Knowledgeization Event",
     "desc_provenance_action_record_event": "Record source and compile sessions, event relations, and atom provenance summaries.",
+    "provenance_action_discover_session": "Discover Sessions",
+    "desc_provenance_action_discover_session": "List recent local Agent session candidates with activity hints before registering.",
     "provenance_action_list_project_sessions": "List Project Sessions",
     "desc_provenance_action_list_project_sessions": "List all Agent sessions registered for a project.",
     "provenance_action_list_atom_events": "List Atom Events",
@@ -653,15 +641,12 @@
     "timeline_permissions_app_desc": "Control actions performed manually inside the Timeline App; the corresponding Tool is hidden from the model.",
     "timeline_action_list_nodes": "List Nodes",
     "desc_timeline_action_list_nodes": "List global nodes or timeline nodes visible to a document.",
-    "timeline_action_create_node": "Create Node",
     "desc_timeline_action_create_node": "Create a named global or document timeline node.",
     "timeline_action_compare_node": "Compare Node",
     "desc_timeline_action_compare_node": "Compare one document with a historical timeline node at block level.",
     "timeline_action_compare_recent": "Compare Recent History",
     "desc_timeline_action_compare_recent": "Compare one document with its newest different native document-history checkpoint.",
-    "timeline_action_delete_node": "Delete Node",
     "desc_timeline_action_delete_node": "Delete the node tag while retaining the underlying snapshot.",
-    "timeline_action_rollback_document": "Rollback Document",
     "desc_timeline_action_rollback_document": "Restore one document file from a timeline node without checking out the repository.",
     "timeline_action_rollback_block": "Rollback Block",
     "desc_timeline_action_rollback_block": "Restore one safely recoverable block using a changeKey from compare_node.",
@@ -729,7 +714,6 @@
     "desc_system_action_list_control_changes": "List redacted plans and change audit records with pagination.",
     "system_action_get_control_change": "Get Control Record",
     "desc_system_action_get_control_change": "Read one redacted plan or change without returning internal snapshot content.",
-
     "flashcard_tool_title": "Flashcard Tool",
     "flashcard_tool_desc": "Expose grouped flashcard review and deck operations to MCP clients.",
     "flashcard_action_list_cards": "List Cards",
@@ -748,7 +732,6 @@
     "desc_flashcard_action_add_card": "Run the lower-level riff registration step for existing blocks.",
     "flashcard_action_remove_card": "Remove Card",
     "desc_flashcard_action_remove_card": "Remove existing blocks from a flashcard deck.",
-
     "mascot_tool_title": "Mascot Tool",
     "mascot_tool_desc": "Expose the grouped mascot tool to MCP clients.",
     "mascot_action_get_balance": "Get Balance",
@@ -761,7 +744,6 @@
     "feedback_tool_desc": "Expose plain-text feedback submission to MCP clients.",
     "feedback_action_submit": "Submit Feedback",
     "desc_feedback_action_submit": "Submit plain-text issues, suggestions, or usage experience to the developer. Agent product/model can be provided by AI; source and plugin version are filled automatically. Avoid secrets and private note content.",
-
     "Mascot Tool": "Mascot Tool",
     "Feedback Tool": "Feedback Tool",
     "Flashcards": "Flashcards",
@@ -845,11 +827,9 @@
     "permission_tree_scope": "Applies to the entire notebook and its child documents",
     "permission_tree_click_hint": "Click to cycle: NONE → R → RW → RWD",
     "permission_tree_save_failed": "Failed to save permission; the previous state was restored",
-
     "mcpConfigSaved": "✅ MCP Tools configuration saved to file",
     "mcpConfigSavedBackup": "⚠️ MCP Tools configuration saved (backup only)",
     "mcpConfigReset": "🔄 MCP Tools configuration reset to defaults",
-
     "httpServerTitle": "Connection Config",
     "httpStart": "Start",
     "httpStop": "Stop",

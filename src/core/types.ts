@@ -133,6 +133,13 @@ export const ProvenanceResolveSessionLinkSchema = z.object({
 export const ProvenanceValidateSessionSchema = ProvenanceResolveSessionLinkSchema.extend({
     action: z.literal("validate_session"),
 });
+
+export const ProvenanceDiscoverSessionSchema = z.object({
+    action: z.literal("discover_session"),
+    provider: z.enum(PROVENANCE_PROVIDERS),
+    limit: z.number().int().min(1).max(50).optional(),
+    activeWindowSeconds: z.number().int().min(1).max(3600).optional(),
+});
 export const FlashcardActionSchema = z.enum(FLASHCARD_ACTIONS);
 export const MascotActionSchema = z.enum(MASCOT_ACTIONS);
 export const FeedbackActionSchema = z.enum(FEEDBACK_ACTIONS);

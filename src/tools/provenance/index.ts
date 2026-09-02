@@ -1,6 +1,7 @@
 import type { SiYuanClient } from '../../api/client';
 import type { CategoryToolConfig, ProvenanceAction } from '../../core/config';
 import {
+    discoverLocalAgentSessions,
     listAtomProvenanceEvents,
     listProjectProvenanceSessions,
     recordProvenanceEvent,
@@ -11,6 +12,7 @@ import {
 import type { PermissionManager } from '../../core/permissions';
 import {
     ProvenanceActionSchema,
+    ProvenanceDiscoverSessionSchema,
     ProvenanceListAtomEventsSchema,
     ProvenanceListProjectSessionsSchema,
     ProvenanceRecordEventSchema,
@@ -31,8 +33,9 @@ export const PROVENANCE_GUIDANCE = [
 ];
 
 export const PROVENANCE_ACTION_HINTS: Partial<Record<ProvenanceAction, string>> = {
-    register_session: '幂等登记一个项目 Agent 会话。',
+    register_session: '幂等登记一个项目 Agent 会话；本机会话注册即校验，描述性 ID 会收到告警。',
     record_event: '登记知识化事件并把最近一次溯源摘要写入目标知识原子。',
+    discover_session: '列出本机最近活跃的 Agent 会话候选；不推断调用方，供注册前选定真实 sessionId。',
     list_project_sessions: '汇总项目内全部已登记 Agent 会话与可用回链。',
     list_atom_events: '从知识原子反查全部知识化事件。',
     resolve_session_link: '解析原生链接、统一启动链接或恢复命令。',
@@ -42,6 +45,7 @@ export const PROVENANCE_ACTION_HINTS: Partial<Record<ProvenanceAction, string>> 
 export const PROVENANCE_VARIANTS: ActionVariant<ProvenanceAction>[] = [
     createZodActionVariant('register_session', ProvenanceRegisterSessionSchema, PROVENANCE_ACTION_HINTS.register_session!),
     createZodActionVariant('record_event', ProvenanceRecordEventSchema, PROVENANCE_ACTION_HINTS.record_event!),
+    createZodActionVariant('discover_session', ProvenanceDiscoverSessionSchema, PROVENANCE_ACTION_HINTS.discover_session!),
     createZodActionVariant('list_project_sessions', ProvenanceListProjectSessionsSchema, PROVENANCE_ACTION_HINTS.list_project_sessions!),
     createZodActionVariant('list_atom_events', ProvenanceListAtomEventsSchema, PROVENANCE_ACTION_HINTS.list_atom_events!),
     createZodActionVariant('resolve_session_link', ProvenanceResolveSessionLinkSchema, PROVENANCE_ACTION_HINTS.resolve_session_link!),
@@ -60,7 +64,15 @@ const provenanceTool = defineTool<ProvenanceAction>({
             const permission = await ensurePermissionForDocumentId(client, permMgr, parsed.projectBlockId, 'write');
             if (permission.denied) return permission.denied;
             const session = await registerProvenanceSession(client, parsed.projectBlockId, parsed.projectId, parsed.session, parsed.occurredAt);
-            return createJsonResult({ action: parsed.action, session });
+            const validation = validateLocalAgentSession(parsed.session);
+            const warning = validation.status === 'missing'
+                ? `sessionId 未在本机 ${parsed.session.provider} 会话记录中找到（checkedBy: ${validation.checkedBy}），无法恢复对应会话。若这是自拟描述性标识，请先 provenance(action="discover_session", provider="${parsed.session.provider}") 获取真实会话 ID 并重新登记。`
+                : undefined;
+            return createJsonResult({ action: parsed.action, session, validation, warning });
+        },
+        discover_session: async ({ rawArgs }) => {
+            const parsed = ProvenanceDiscoverSessionSchema.parse(rawArgs);
+            return createJsonResult({ action: parsed.action, ...discoverLocalAgentSessions(parsed.provider, { limit: parsed.limit, activeWindowSeconds: parsed.activeWindowSeconds }) });
         },
         record_event: async ({ client, rawArgs, permMgr }) => {
             const parsed = ProvenanceRecordEventSchema.parse(rawArgs);

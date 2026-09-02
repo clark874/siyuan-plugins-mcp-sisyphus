@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.6 - 2026-09-02
+
+- 会话溯源新增 `provenance.discover_session`：列出本机最近活跃的 Agent 会话候选（zcode 扫描 `~/.zcode/cli/rollout`、codex 递归 `~/.codex/sessions`、claude-code 扫描 `~/.claude/projects`），返回 sessionId、修改时间、年龄、大小与 recentlyActive 标记；只列候选不推断调用方，notice 提示无法排除并发时按 `inferred_latest_rollout` 登记
+- `register_session` 注册即校验：本机会话登记后立即执行本地核验并返回 `validation`；sessionId 在本机不可恢复时附带告警，指向 `discover_session`，堵住自拟描述性标识静默入库的路径
+- 项目知识编译 Skill（MCP 与 CLI 双端）补充 ZCode 会话捕获路径：客户端未注入会话变量时先发现后登记，禁止自拟描述性字符串充当 sessionId
+- 动机：2026-09-02 水论文 R7 知识化事件中，编译 Agent 因 ZCode 无会话环境变量且无发现接口，以描述性 ID 登记，事后只能人工补录真实 rollout 会话；本版把该捕获路径产品化
+- 插件提升至 `v0.9.6`，CLI 同步提升至 `v0.4.6`
+
 ## v0.9.5 - 2026-09-02
 
 - `search.knowledge` 新增本地词汇预检层：当某个可读全文块包含全部查询词元时直接本地返回（`retrievalMode="lexical_exact"`、`egressAvoided=true`），精确词检索不再触发嵌入调用与数据外发；`lexicalFirst=false` 保留纯语义评测基线

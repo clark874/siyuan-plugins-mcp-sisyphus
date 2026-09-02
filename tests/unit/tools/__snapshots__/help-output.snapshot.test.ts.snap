@@ -7337,6 +7337,27 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
   },
   "provenance": {
     "actions": {
+      "discover_session": {
+        "action": "discover_session",
+        "example": {
+          "action": "discover_session",
+          "provider": "codex",
+        },
+        "fullDocResource": "siyuan://help/action/provenance/discover_session",
+        "guidance": [
+          "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
+          "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
+          "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+        ],
+        "requiredFields": [
+          "provider",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "provider",
+        ],
+        "tool": "provenance",
+      },
       "list_atom_events": {
         "action": "list_atom_events",
         "example": {
@@ -7617,9 +7638,12 @@ siyuan-sisyphus provenance register-session --project-block-id <projectBlockId> 
 
 Common actions: register_session, record_event, list_project_sessions, list_atom_events, resolve_session_link, validate_session. Required fields: register_session: projectBlockId, projectId, session; record_event: projectBlockId, projectId, eventId, operation, sourceSession, targetAtomIds; list_project_sessions: projectId; list_atom_events: atomId; resolve_session_link: provider, sessionId; validate_session: provider, sessionId.
 
+Additional actions: discover_session. Read siyuan://help/action/provenance/{action} for details, or call action="help" if resources are unavailable.
+
 Parameter contract per action (fields outside the action's optional list should not be sent):
 provenance.register_session: required [projectBlockId, projectId, session] | optional [occurredAt]
 provenance.record_event: required [projectBlockId, projectId, eventId, operation, sourceSession, targetAtomIds] | optional [occurredAt, compileSession, automationId]
+provenance.discover_session: required [provider] | optional [limit, activeWindowSeconds]
 provenance.list_project_sessions: required [projectId] | optional [limit, validate]
 provenance.list_atom_events: required [atomId] | optional [limit]
 provenance.resolve_session_link: required [provider, sessionId] | optional [hostAlias]
@@ -7628,6 +7652,7 @@ provenance.validate_session: required [provider, sessionId] | optional [hostAlia
 交互式知识化应把当前 Agent 会话同时作为 sourceSession 与 compileSession。 定时编译必须区分原始讨论会话和本轮编译会话；未知来源时不得猜测。",
     "overview": {
       "actionSummaries": {
+        "discover_session": "requires: provider",
         "list_atom_events": "List knowledgeization events that contain a real block reference to one atom.",
         "list_project_sessions": "List all Agent sessions registered for a project, optionally with local validation.",
         "record_event": "Record a knowledgeization event and write the latest provenance summary to its target atom blocks.",
@@ -7636,6 +7661,9 @@ provenance.validate_session: required [provider, sessionId] | optional [hostAlia
         "validate_session": "Check whether the local Agent session record still exists without returning its conversation content.",
       },
       "actions": {
+        "discover_session": {
+          "requiresConfirmation": false,
+        },
         "list_atom_events": {
           "hint": "List knowledgeization events that contain a real block reference to one atom.",
           "requiresConfirmation": false,
@@ -7661,7 +7689,9 @@ provenance.validate_session: required [provider, sessionId] | optional [hostAlia
           "requiresConfirmation": false,
         },
       },
-      "advancedActions": [],
+      "advancedActions": [
+        "discover_session",
+      ],
       "commonActions": [
         "register_session",
         "record_event",
