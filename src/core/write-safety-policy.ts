@@ -62,7 +62,7 @@ export const ACTION_SAFETY_POLICIES: {
     },
     file: {
         list_templates: read(), read_template: read(), render: read(), export_md: read(), list_unused_assets: read(),
-        get_doc_assets: read(), resolve_project_source: read(), read_project_source: read(), list_project_sources: read(),
+        get_doc_assets: read(), identify_project: read(), resolve_project_source: read(), read_project_source: read(), list_project_sources: read(),
         register_project_source: mutation('state'), scan_project_manifest: mutation('state'),
         upload_asset: mutation('source'), create_template: mutation('state'), update_template: mutation('state'),
         delete_template: mutation('state'), save_doc_as_template: mutation('state'), export_resources: external(),

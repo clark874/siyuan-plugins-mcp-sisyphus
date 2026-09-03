@@ -103,7 +103,10 @@ function renderSkill(scenario, runtime) {
 function renderOpenAiYaml(scenario, runtime) {
     const name = runtime === 'mcp' ? scenario.mcpName : scenario.cliName;
     const displayName = runtime === 'mcp' ? `${scenario.displayName} MCP` : `${scenario.displayName} CLI`;
-    return `interface:\n  display_name: ${yamlQuote(displayName)}\n  short_description: ${yamlQuote(scenario.shortDescription)}\n  default_prompt: ${yamlQuote(scenario.defaultPrompt.replace('$NAME', `$${name}`))}\n`;
+    const policy = scenario.allowImplicitInvocation === false
+        ? 'policy:\n  allow_implicit_invocation: false\n'
+        : '';
+    return `interface:\n  display_name: ${yamlQuote(displayName)}\n  short_description: ${yamlQuote(scenario.shortDescription)}\n  default_prompt: ${yamlQuote(scenario.defaultPrompt.replaceAll('$NAME', `$${name}`))}\n${policy}`;
 }
 
 async function syncFile(relativePath, expected) {

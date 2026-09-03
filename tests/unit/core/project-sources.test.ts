@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     PROJECT_SOURCE_REGISTRY_PATH,
+    identifyProjectSource,
     listProjectSources,
     readProjectSource,
     readProjectSourceState,
@@ -100,6 +101,64 @@ describe('project source registry', () => {
         const stored = JSON.parse(files.get(PROJECT_SOURCE_REGISTRY_PATH)!);
         expect(stored.projects[0].workspaceRoot).toBeUndefined();
         expect(stored.projects[0].bindings['host-test'].workspaceRoot).toBe(realRoot);
+    });
+
+    it('按当前主机绑定识别根目录、子目录与最长路径，并隐藏本机路径', async () => {
+        const root = createDirectoryProject();
+        const nested = path.join(root, 'src');
+        const { client } = createStorageClient();
+        await registerProjectSource(client, {
+            projectId: 'root-project', workspaceRoot: root, sourceKind: 'directory',
+            hubBlockId: '20260903000000-root001',
+        }, { hostId: 'host-test' });
+        await registerProjectSource(client, {
+            projectId: 'nested-project', workspaceRoot: nested, sourceKind: 'directory',
+            hubBlockId: '20260903000001-nest001',
+        }, { hostId: 'host-test' });
+
+        const exact = await identifyProjectSource(client, { cwd: root }, { hostId: 'host-test' });
+        const longest = await identifyProjectSource(client, { cwd: nested }, { hostId: 'host-test' });
+        expect(exact).toEqual({
+            matched: true,
+            projectId: 'root-project',
+            hubBlockId: '20260903000000-root001',
+            sourceKind: 'directory',
+            bindingStatus: 'available',
+            matchType: 'exact',
+            localPathsIncluded: false,
+        });
+        expect(longest).toEqual({
+            matched: true,
+            projectId: 'nested-project',
+            hubBlockId: '20260903000001-nest001',
+            sourceKind: 'directory',
+            bindingStatus: 'available',
+            matchType: 'exact',
+            localPathsIncluded: false,
+        });
+        expect(JSON.stringify(longest)).not.toContain(realpathSync(root));
+        expect(longest).not.toHaveProperty('workspaceRoot');
+        expect(longest).not.toHaveProperty('cwd');
+
+        await registerProjectSource(client, {
+            projectId: 'nested-project-peer', workspaceRoot: nested, sourceKind: 'directory',
+        }, { hostId: 'host-test' });
+        const ambiguous = await identifyProjectSource(client, { cwd: nested }, { hostId: 'host-test' });
+        expect(ambiguous).toMatchObject({
+            matched: false,
+            reason: 'ambiguous_project_for_cwd',
+            candidates: [{ projectId: 'nested-project' }, { projectId: 'nested-project-peer' }],
+        });
+        expect(JSON.stringify(ambiguous)).not.toContain(realpathSync(root));
+
+        await expect(identifyProjectSource(client, { cwd: 'relative/path' }, { hostId: 'host-test' }))
+            .rejects.toThrow(/absolute/i);
+        await expect(identifyProjectSource(client, { cwd: path.join(root, 'README.md') }, { hostId: 'host-test' }))
+            .rejects.toThrow(/directory/i);
+        expect(await identifyProjectSource(client, { cwd: root }, { hostId: 'other-host' }))
+            .toMatchObject({ matched: false, reason: 'no_registered_project_for_cwd' });
+        expect(await identifyProjectSource(client, { cwd: path.join(root, 'missing') }, { hostId: 'host-test' }))
+            .toMatchObject({ matched: false, reason: 'cwd_unavailable_on_binding_host' });
     });
 
     it('builds an A/B/C manifest without reading excluded cache trees', async () => {

@@ -53,7 +53,7 @@ siyuan-sisyphus skill install --bundle all
 
 `skill list` and `skill read` accept the same `--bundle cli|mcp|all` selector. Skills define task flow, path semantics, and safety rules; they do not replace action schemas. For exact current parameters, read `siyuan://help/action/{tool}/{action}` or call the tool's `help` action.
 
-To install only the twelve MCP workflow skills through the public `skills` installer, use the curated subdirectory instead of the repository root:
+To install only the fifteen MCP workflow skills through the public `skills` installer, use the curated subdirectory instead of the repository root:
 
 ```bash
 npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y

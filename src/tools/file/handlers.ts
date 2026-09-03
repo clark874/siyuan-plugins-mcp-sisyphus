@@ -14,6 +14,7 @@ import {
     FileExportResourcesSchema,
     FileExtractDocSchema,
     FileGetDocAssetsSchema,
+    FileIdentifyProjectSchema,
     FileListProjectSourcesSchema,
     FileListTemplatesSchema,
     FileListUnusedAssetsSchema,
@@ -201,6 +202,12 @@ const handleRegisterProjectSource: ToolActionHandler = async ({ client, rawArgs 
     const parsed = FileRegisterProjectSourceSchema.parse(rawArgs);
     const { registerProjectSource } = await import('../../core/project-sources');
     return createJsonResult(await registerProjectSource(client, parsed));
+};
+
+const handleIdentifyProject: ToolActionHandler = async ({ client, rawArgs }) => {
+    const parsed = FileIdentifyProjectSchema.parse(rawArgs);
+    const { identifyProjectSource } = await import('../../core/project-sources');
+    return createJsonResult(await identifyProjectSource(client, parsed));
 };
 
 const handleScanProjectManifest: ToolActionHandler = async ({ client, rawArgs }) => {
@@ -574,6 +581,7 @@ export function createFileActionHandlers(thresholdMB: number, largeUploadThresho
     return {
         upload_asset: handleUploadAsset(thresholdMB, largeUploadThresholdBytes),
         register_project_source: handleRegisterProjectSource,
+        identify_project: handleIdentifyProject,
         scan_project_manifest: handleScanProjectManifest,
         resolve_project_source: handleResolveProjectSource,
         read_project_source: handleReadProjectSource,

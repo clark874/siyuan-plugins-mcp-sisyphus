@@ -1036,6 +1036,11 @@ export const FileScanProjectManifestSchema = z.object({
     maxTotalHashBytes: z.number().int().min(1).max(2147483648).optional().describe("Total A-tier hash-read budget, default 512 MiB. Later files remain listed with hashStatus=skipped_total_budget."),
 });
 
+export const FileIdentifyProjectSchema = z.object({
+    action: z.literal("identify_project"),
+    cwd: z.string().min(1).describe("Absolute current working directory supplied by the Agent host. The server matches it against current-host project bindings without storing or returning the path."),
+});
+
 export const FileResolveProjectSourceSchema = z.object({
     action: z.literal("resolve_project_source"),
     projectId: z.string().min(3).max(128).describe("Registered project identifier."),

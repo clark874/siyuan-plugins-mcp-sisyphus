@@ -2,6 +2,10 @@
   "schemaVersion": 1,
   "description": "冷启动时用于核对 Sisyphus MCP Skill 路由边界的静态评估集。null 表示不应触发思源 Skill。",
   "cases": [
+    { "id": "explicit-project-coordinator-start", "prompt": "使用 $siyuan-mcp-project-coordinator 启动，继续处理稳健性检验。", "expectedSkill": "siyuan-mcp-project-coordinator", "reason": "用户显式调用项目协调 Skill 的启动动作，应按当前目录接入项目并静默恢复工作上下文。" },
+    { "id": "explicit-project-coordinator-close", "prompt": "使用 $siyuan-mcp-project-coordinator 收尾，判断本轮持久增量并更新共享进度。", "expectedSkill": "siyuan-mcp-project-coordinator", "reason": "用户显式调用项目协调 Skill 的收尾动作，应判断并写入必要的进度或知识增量。" },
+    { "id": "explicit-project-coordinator-knowledge-alias", "prompt": "使用 $siyuan-mcp-project-coordinator 知识化本轮已经核验的方法结论。", "expectedSkill": "siyuan-mcp-project-coordinator", "reason": "知识化是收尾动作的同义词，应进入相同的增量判断与单事件流程。" },
+    { "id": "ordinary-project-task-no-coordinator", "prompt": "帮我润色水商品化论文的这一段讨论。", "expectedSkill": null, "reason": "普通项目任务没有显式调用协调 Skill，不应自动读取或更新共享进度。" },
     { "id": "existing-project-status", "prompt": "搜索思源知识库并读取水商品化项目当前进度，不要修改任何笔记。", "expectedSkill": "siyuan-mcp-search-query", "reason": "目标是检索既有知识，不是摄取外部来源。" },
     { "id": "read-only-sql", "prompt": "用只读 SQL 统计工作日志中带 name 属性的块数量并返回前20个。", "expectedSkill": "siyuan-mcp-search-query", "reason": "只读 SQL 属于检索分析，不属于 AV 操作。" },
     { "id": "existing-alias-lookup", "prompt": "查找思源里 alias 为投稿水论文的既有知识块并读取正文。", "expectedSkill": "siyuan-mcp-search-query", "reason": "既有锚点定位应检索，不应调用 check_anchor。" },

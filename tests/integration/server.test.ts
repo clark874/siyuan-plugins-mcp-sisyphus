@@ -820,7 +820,7 @@ describe('MCP Server Integration', () => {
     describe('Scenario prompts', () => {
         it('lists prompts and returns embedded skill guidance with an optional task', async () => {
             const { prompts } = await client.listPrompts();
-            expect(prompts).toHaveLength(14);
+            expect(prompts).toHaveLength(15);
             expect(prompts).toContainEqual(expect.objectContaining({
                 name: 'siyuan_create_edit',
                 arguments: [expect.objectContaining({ name: 'task', required: false })],
@@ -835,6 +835,10 @@ describe('MCP Server Integration', () => {
             }));
             expect(prompts).toContainEqual(expect.objectContaining({
                 name: 'siyuan_project_knowledge_compile',
+                arguments: [expect.objectContaining({ name: 'task', required: false })],
+            }));
+            expect(prompts).toContainEqual(expect.objectContaining({
+                name: 'siyuan_project_coordinator',
                 arguments: [expect.objectContaining({ name: 'task', required: false })],
             }));
             expect(prompts).toContainEqual(expect.objectContaining({

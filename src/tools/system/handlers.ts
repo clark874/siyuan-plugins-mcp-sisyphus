@@ -659,6 +659,7 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
             'siyuan-mcp-search-query',
             'siyuan-mcp-knowledge-ingest',
             'siyuan-mcp-project-knowledge-compile',
+            'siyuan-mcp-project-coordinator',
             'siyuan-mcp-knowledge-governance',
             'siyuan-mcp-cross-project-relation-closure',
             'siyuan-mcp-database',

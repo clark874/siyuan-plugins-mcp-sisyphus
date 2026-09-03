@@ -10,7 +10,7 @@ Sisyphus MCP：http://127.0.0.1:36806/mcp
 
 ## 只安装工作流 Skill
 
-支持 Agent Skills 规范的客户端可以单独安装12个 MCP 工作流 Skill：
+支持 Agent Skills 规范的客户端可以单独安装15个 MCP 工作流 Skill：
 
 ```bash
 npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y

@@ -40,10 +40,10 @@ const variantsByTool: Record<string, Array<{ action: string; schema: Record<stri
 };
 
 describe('core/skills', () => {
-    it('embeds fourteen valid MCP skills without CLI invocation examples', () => {
-        expect(MCP_SKILLS).toHaveLength(14);
-        expect(new Set(MCP_SKILLS.map((skill) => skill.name)).size).toBe(14);
-        expect(new Set(MCP_SKILLS.map((skill) => skill.promptName)).size).toBe(14);
+    it('embeds fifteen valid MCP skills without CLI invocation examples', () => {
+        expect(MCP_SKILLS).toHaveLength(15);
+        expect(new Set(MCP_SKILLS.map((skill) => skill.name)).size).toBe(15);
+        expect(new Set(MCP_SKILLS.map((skill) => skill.promptName)).size).toBe(15);
 
         for (const skill of MCP_SKILLS) {
             expect(skill.text).toContain(`name: ${skill.name}`);
@@ -54,6 +54,7 @@ describe('core/skills', () => {
 
         const ingest = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-knowledge-ingest');
         const projectCompile = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-project-knowledge-compile');
+        const projectCoordinator = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-project-coordinator');
         const governance = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-knowledge-governance');
         const relationClosure = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-cross-project-relation-closure');
         const index = MCP_SKILLS.find((skill) => skill.name === 'siyuan-mcp-sisyphus');
@@ -74,6 +75,23 @@ describe('core/skills', () => {
         expect(projectCompile?.text).toContain('custom-reuse-scope=public-candidate');
         expect(projectCompile?.text).toContain('produced-by');
         expect(projectCompile?.text).toContain('不把所有文字提及变成引用');
+        expect(projectCoordinator?.text).toContain('公开动作只有“启动”和“收尾”');
+        expect(projectCoordinator?.text).toContain('“知识化”完全等同“收尾”');
+        expect(projectCoordinator?.text).toContain('不生成独立简报');
+        expect(projectCoordinator?.text).toContain('file(action="identify_project"');
+        expect(projectCoordinator?.text).toContain('不创建第二个检查点块');
+        expect(projectCoordinator?.text).toContain('状态投影待重建');
+        expect(projectCoordinator?.text).toContain('最多读取 5 个');
+        expect(projectCoordinator?.text).not.toContain('800 token');
+        expect(projectCoordinator?.text).not.toContain('只读交接');
+        expect(projectCoordinator?.text).not.toContain('LEFT JOIN attributes');
+        expect(projectCoordinator?.text).not.toContain('COALESCE(t.value');
+        const projectCoordinatorOpenAi = readFileSync(path.join(
+            path.resolve(__dirname, '../../..'),
+            'skills/siyuan-mcp/siyuan-mcp-project-coordinator/agents/openai.yaml',
+        ), 'utf8');
+        expect(projectCoordinatorOpenAi).toContain('allow_implicit_invocation: false');
+        expect(projectCoordinatorOpenAi).not.toContain('$NAME');
         expect(governance?.text).toContain('四层影响');
         expect(governance?.text).toContain('数量和冲突以实时 SQL 为准');
         expect(governance?.text).toContain('拆成单个词元');
@@ -136,8 +154,8 @@ describe('core/skills', () => {
         const evals = JSON.parse(readFileSync(path.join(root, 'skills/evals/mcp-routing.json'), 'utf8'));
 
         expect(evals.schemaVersion).toBe(1);
-        expect(evals.cases).toHaveLength(24);
-        expect(new Set(evals.cases.map((item: { id: string }) => item.id)).size).toBe(24);
+        expect(evals.cases).toHaveLength(28);
+        expect(new Set(evals.cases.map((item: { id: string }) => item.id)).size).toBe(28);
         const routedSkills = evals.cases
             .map((item: { expectedSkill: string | null }) => item.expectedSkill)
             .filter(Boolean);
@@ -145,6 +163,7 @@ describe('core/skills', () => {
             'siyuan-mcp-search-query',
             'siyuan-mcp-knowledge-ingest',
             'siyuan-mcp-project-knowledge-compile',
+            'siyuan-mcp-project-coordinator',
             'siyuan-mcp-knowledge-governance',
             'siyuan-mcp-cross-project-relation-closure',
             'siyuan-mcp-database',
@@ -167,15 +186,17 @@ describe('core/skills', () => {
         const prompt = getMcpPrompt('siyuan_create_edit', 'Append a summary.');
 
         expect(index).toContain('siyuan://help/action/{tool}/{action}');
-        expect(prompts).toHaveLength(14);
+        expect(prompts).toHaveLength(15);
         expect(index).toContain('siyuan-mcp-timeline');
         expect(index).toContain('siyuan-mcp-knowledge-ingest');
         expect(index).toContain('siyuan-mcp-project-knowledge-compile');
+        expect(index).toContain('siyuan-mcp-project-coordinator');
         expect(index).toContain('siyuan-mcp-knowledge-governance');
         expect(index).toContain('siyuan-mcp-cross-project-relation-closure');
         expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_timeline' }));
         expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_knowledge_ingest' }));
         expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_project_knowledge_compile' }));
+        expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_project_coordinator' }));
         expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_knowledge_governance' }));
         expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_cross_project_relation_closure' }));
         expect(prompts.find((item) => item.name === 'siyuan_create_edit')?.arguments).toEqual([

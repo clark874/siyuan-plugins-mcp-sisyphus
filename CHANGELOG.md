@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.7 - 2026-09-03
+
+- 新增只读 `file.identify_project(cwd)`，在当前主机绑定内完成目录到项目身份的反向识别；支持根目录、子目录、嵌套项目最长路径与歧义返回，且不保存或返回本机路径
+- 项目协调 Skill 收敛为显式“启动/收尾”双动作；“知识化”作为收尾同义词，启动默认静默恢复内部上下文并登记真实会话，不再生成交接简报或要求用户填写 projectId
+- 最近活动查询改用单表 `EXISTS` 与 `b.created` 排序，知识产物查询改用 `refs` 直连，移除已知不稳定的多重属性 `LEFT JOIN + COALESCE`
+- 项目会话列表显式按 `lastSeenAt` 降序，并以 provider、sessionId 稳定排序
+- 插件提升至 `v0.9.7`，CLI 同步提升至 `v0.4.7`
+
 ## v0.9.6 - 2026-09-02
 
 - 会话溯源新增 `provenance.discover_session`：列出本机最近活跃的 Agent 会话候选（zcode 扫描 `~/.zcode/cli/rollout`、codex 递归 `~/.codex/sessions`、claude-code 扫描 `~/.claude/projects`），返回 sessionId、修改时间、年龄、大小与 recentlyActive 标记；只列候选不推断调用方，notice 提示无法排除并发时按 `inferred_latest_rollout` 登记

@@ -103,6 +103,7 @@ export const FILE_GUIDANCE: string[] = [
     'file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。',
     'file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。',
     'file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。',
+    'file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。',
     '项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。',
 ];
 
@@ -259,6 +260,7 @@ export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
     get_doc_assets: 'Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full document content and assets, guide them to file(action="extract_doc") instead.',
     extract_doc: 'Use a document ID + optional outputDir. Exports the document markdown and all referenced assets into an uncompressed folder, preserving original filenames. If outputDir is omitted, the default output root is ~/siyuan-extracted/; pass outputDir explicitly for a predictable path such as /private/tmp. Clears the entire output root directory first to prevent accumulation from previous exports. The returned extractedDir is an absolute path ready for direct file access.',
     register_project_source: '登记可移植 projectId 与当前主机绝对 workspaceRoot 的绑定。Git 项目校验仓库根与提交；directory 项目只登记目录身份。coreFiles 必须由用户或项目契约显式指定，不得用启发式规则代替。此操作写入插件私有登记表并需要确认。',
+    identify_project: '传入 Agent 宿主提供的绝对 cwd，将目录反向识别为项目身份；与把 projectId + relativePath 解析为路径状态的 resolve_project_source 方向相反。仅匹配当前 host binding，嵌套项目取最长根路径；响应不包含输入路径或已登记 workspaceRoot。',
     scan_project_manifest: '扫描已登记项目，生成 A/B/C 分层清单。A 层为 coreFiles 并在单文件与总读取量上限内计算 SHA-256；B 层只保存路径、类型、大小和时间；C 层记录依赖缓存、构建产物、自定义排除项、符号链接或特殊文件。操作不返回文件内容，需要确认，并受 maxEntries/maxHashBytes/maxTotalHashBytes 限制。',
     resolve_project_source: '使用 projectId + relativePath 解析当前主机路径，拒绝绝对路径、父目录穿越和逃逸工作目录的符号链接。只返回存在性、绑定/版本/清单状态与绝对路径，不读取内容；路径披露需要确认。',
     read_project_source: '读取一个当前项目清单中已列出的相对路径。仅返回不超过 1 MiB 的安全扩展名 UTF-8 文本；offset/limit 在脱敏后分页，limit 默认 8,000、最大 20,000。响应分别报告 listed、readable、contentRead 与 revisionVerified，且不返回本机绝对路径。二进制文件只返回受限元数据和已有或当前哈希状态。',

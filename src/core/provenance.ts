@@ -377,7 +377,9 @@ export async function listProjectProvenanceSessions(client: SiYuanClient, projec
         const record = sessionFromAttrs(id, await blockApi.getBlockAttrs(client, id));
         if (record) records.push(record);
     }
-    return records;
+    return records.sort((left, right) => right.lastSeenAt.localeCompare(left.lastSeenAt)
+        || left.provider.localeCompare(right.provider)
+        || left.sessionId.localeCompare(right.sessionId));
 }
 
 async function readRegisteredSession(client: SiYuanClient, projectId: string, session: SessionIdentity): Promise<SessionRecord> {

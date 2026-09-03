@@ -450,6 +450,7 @@ describe('system tool schemas', () => {
         expect(parsed.skills).toEqual(expect.arrayContaining([
             'siyuan-mcp-knowledge-ingest',
             'siyuan-mcp-project-knowledge-compile',
+            'siyuan-mcp-project-coordinator',
             'siyuan-mcp-knowledge-governance',
             'siyuan-mcp-cross-project-relation-closure',
         ]));

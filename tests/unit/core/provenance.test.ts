@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
     discoverLocalAgentSessions,
     hermesSessionExists,
+    listProjectProvenanceSessions,
     recordProvenanceEvent,
     readProvenanceWriteState,
     resolveAgentSessionLink,
@@ -15,6 +16,24 @@ import {
 import { createMockClient } from '../../helpers/mock-client';
 
 describe('Agent 会话溯源核心', () => {
+    it('按 lastSeenAt 降序并以 provider、sessionId 稳定排序项目会话', async () => {
+        const attrs: Record<string, Record<string, string>> = {
+            a: { 'custom-provenance-provider': 'zcode', 'custom-provenance-session-id': 'z-2', 'custom-provenance-project-id': 'p', 'custom-provenance-last-seen-at': '2026-09-02T00:00:00.000Z' },
+            b: { 'custom-provenance-provider': 'codex', 'custom-provenance-session-id': 'c-2', 'custom-provenance-project-id': 'p', 'custom-provenance-last-seen-at': '2026-09-03T00:00:00.000Z' },
+            c: { 'custom-provenance-provider': 'codex', 'custom-provenance-session-id': 'c-1', 'custom-provenance-project-id': 'p', 'custom-provenance-last-seen-at': '2026-09-03T00:00:00.000Z' },
+        };
+        const client = createMockClient({
+            request: async (endpoint: string, body: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') return [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+                if (endpoint === '/api/attr/getBlockAttrs') return attrs[String(body.id)] || {};
+                return null;
+            },
+        });
+
+        const sessions = await listProjectProvenanceSessions(client, 'p');
+        expect(sessions.map((item) => item.sessionId)).toEqual(['c-1', 'c-2', 'z-2']);
+    });
+
     it('为 Codex 返回已核验的原生深链和统一启动链接', () => {
         const link = resolveAgentSessionLink({ provider: 'codex', sessionId: '0199-example', hostAlias: 'local' });
         expect(link.linkCapability).toBe('native');

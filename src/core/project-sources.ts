@@ -148,6 +148,10 @@ export interface ListProjectSourcesInput {
     pageSize?: number;
 }
 
+export interface IdentifyProjectInput {
+    cwd: string;
+}
+
 export interface ReadProjectSourceInput {
     projectId: string;
     relativePath: string;
@@ -1196,6 +1200,110 @@ export async function listProjectSources(
         pageSize,
         pageCount,
         hasNextPage: page < pageCount,
+        localPathsIncluded: false,
+    };
+}
+
+/**
+ * 依据宿主当前目录识别已登记项目。输入路径只用于本次匹配，不写入登记表，
+ * 响应也不返回 cwd 或 workspaceRoot。
+ */
+export async function identifyProjectSource(
+    client: SiYuanClient,
+    input: IdentifyProjectInput,
+    options: ProjectSourceRuntimeOptions = {},
+) {
+    if (!path.isAbsolute(input.cwd)) {
+        throw projectSourceSemanticError(
+            'invalid_arguments',
+            'cwd_must_be_absolute',
+            'cwd must be an absolute directory path supplied by the Agent host.',
+        );
+    }
+
+    let cwd: string;
+    try {
+        cwd = await fs.promises.realpath(input.cwd);
+        if (!(await fs.promises.stat(cwd)).isDirectory()) {
+            throw projectSourceSemanticError(
+                'invalid_path',
+                'cwd_not_directory',
+                'cwd must identify a directory on the current binding host.',
+            );
+        }
+    } catch (error) {
+        if (error instanceof Error && error.name === 'ProjectSourceError') throw error;
+        return {
+            matched: false,
+            reason: 'cwd_unavailable_on_binding_host',
+            bindingHostMatched: false,
+            localPathsIncluded: false,
+        };
+    }
+
+    const hostId = resolveHostId(options);
+    const registry = await readRegistry(client);
+    const matches: Array<{
+        record: ProjectSourceRecord;
+        binding: ProjectHostBinding;
+        root: string;
+        matchType: 'exact' | 'descendant';
+    }> = [];
+
+    for (const record of registry.projects) {
+        const binding = record.bindings[hostId];
+        if (!binding) continue;
+        let root: string;
+        try {
+            root = await fs.promises.realpath(binding.workspaceRoot);
+            if (!(await fs.promises.stat(root)).isDirectory()) continue;
+        } catch {
+            continue;
+        }
+        const relative = path.relative(root, cwd);
+        if (relative === '') {
+            matches.push({ record, binding, root, matchType: 'exact' });
+        } else if (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)) {
+            matches.push({ record, binding, root, matchType: 'descendant' });
+        }
+    }
+
+    if (matches.length === 0) {
+        return {
+            matched: false,
+            reason: 'no_registered_project_for_cwd',
+            bindingHostMatched: true,
+            localPathsIncluded: false,
+        };
+    }
+
+    const longestRoot = Math.max(...matches.map((item) => item.root.length));
+    const finalists = matches.filter((item) => item.root.length === longestRoot);
+    if (finalists.length !== 1) {
+        return {
+            matched: false,
+            reason: 'ambiguous_project_for_cwd',
+            bindingHostMatched: true,
+            candidates: finalists
+                .map(({ record }) => ({
+                    projectId: record.projectId,
+                    hubBlockId: record.hubBlockId,
+                    sourceKind: record.sourceKind,
+                }))
+                .sort((left, right) => left.projectId.localeCompare(right.projectId)),
+            localPathsIncluded: false,
+        };
+    }
+
+    const { record, binding, matchType } = finalists[0];
+    const inspected = await inspectBinding(record, binding);
+    return {
+        matched: true,
+        projectId: record.projectId,
+        hubBlockId: record.hubBlockId,
+        sourceKind: record.sourceKind,
+        bindingStatus: inspected.status,
+        matchType,
         localPathsIncluded: false,
     };
 }

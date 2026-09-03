@@ -11,6 +11,7 @@ import {
     FileExportResourcesSchema,
     FileExtractDocSchema,
     FileGetDocAssetsSchema,
+    FileIdentifyProjectSchema,
     FileListProjectSourcesSchema,
     FileListTemplatesSchema,
     FileListUnusedAssetsSchema,
@@ -35,6 +36,7 @@ export { FILE_TOOL_NAME };
 export const FILE_VARIANTS: ActionVariant<FileAction>[] = [
     createZodActionVariant('upload_asset', FileUploadAssetSchema, 'Read a local file and upload it to the specified assets directory.'),
     createZodActionVariant('register_project_source', FileRegisterProjectSourceSchema, 'Register a portable project identity and its current-host absolute root without reading source content.'),
+    createZodActionVariant('identify_project', FileIdentifyProjectSchema, 'Identify the current project from an Agent-provided absolute working directory without storing or returning local paths.'),
     createZodActionVariant('scan_project_manifest', FileScanProjectManifestSchema, 'Refresh a bounded A/B/C project file manifest using metadata and policy-limited A-tier hashes; source content is not returned.'),
     createZodActionVariant('resolve_project_source', FileResolveProjectSourceSchema, 'Resolve one registered project-relative path, verify root containment and report status without reading content.'),
     createZodActionVariant('read_project_source', FileReadProjectSourceSchema, 'Read bounded redacted UTF-8 text only from one manifest-listed path under an available registered project binding; binary and blocked files return status without content.'),

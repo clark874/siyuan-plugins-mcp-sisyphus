@@ -3859,6 +3859,7 @@ feedback submits plain-text product feedback to the developer through the config
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
           "Strict-write protocol (request-id-only): validateOnly=true is an optional schema/protocol check; it writes nothing and returns no credential. Execute the mutation once with a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -3940,6 +3941,7 @@ siyuan-sisyphus file delete-asset --path /20240318112233-abc123.sy --expected-st
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -4020,6 +4022,7 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -4075,6 +4078,7 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "requiredFields": [
@@ -4114,6 +4118,7 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "hint": "Provide one or more existing resource paths. Asset paths like assets/foo.txt are normalized to /data/assets/foo.txt before export. Set outputPath to also copy the exported ZIP to a local filesystem path. Using outputPath is high-risk and requires explicit user confirmation. To extract attachments for direct reading without a ZIP archive, prefer extract_doc which produces an uncompressed folder.",
@@ -4163,6 +4168,7 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "hint": "Use a document ID + optional outputDir. Exports the document markdown and all referenced assets into an uncompressed folder, preserving original filenames. If outputDir is omitted, the default output root is ~/siyuan-extracted/; pass outputDir explicitly for a predictable path such as /private/tmp. Clears the entire output root directory first to prevent accumulation from previous exports. The returned extractedDir is an absolute path ready for direct file access.",
@@ -4201,6 +4207,7 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "hint": "Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full document content and assets, guide them to file(action="extract_doc") instead.",
@@ -4210,6 +4217,45 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
         "requiresConfirmation": false,
         "shapes": [
           "id",
+        ],
+        "tool": "file",
+      },
+      "identify_project": {
+        "action": "identify_project",
+        "example": {
+          "action": "identify_project",
+          "cwd": "<cwd>",
+        },
+        "fullDocResource": "siyuan://help/action/file/identify_project",
+        "guidance": [
+          "file(action="upload_asset") reads a local file path and uploads that file into SiYuan assets. Because it reads the local filesystem, it requires explicit user confirmation before execution.",
+          "If the file is larger than the configured large-upload threshold (10 MB by default), MCP must stop and ask the user for explicit confirmation before retrying with confirmLargeFile=true.",
+          "file(action="export_resources") exports the given paths as a ZIP archive, normalizes common asset path formats, and can optionally save the ZIP to a local filesystem path.",
+          "file(action="export_resources", outputPath=...) writes to the local filesystem and requires explicit user confirmation before execution.",
+          "Use file(action="list_templates") before rendering when you need to discover valid workspace template paths under data/templates.",
+          "file(action="read_template") reads Markdown template source through SiYuan’s authenticated /templates/ route; it does not expose arbitrary workspace files.",
+          "file(action="create_template"|"update_template") writes Markdown templates through SiYuan’s /api/file/putFile workspace API; it does not write data/templates through the local filesystem.",
+          "file(action="delete_template") removes an existing Markdown template resolved from SiYuan’s template picker and requires explicit user confirmation before execution.",
+          "file(action="save_doc_as_template") saves an existing document as a root-level template after read-permission checks; use create_template when you need a nested template path.",
+          "file(action="render", engine="template") requires a template path inside the SiYuan workspace; arbitrary local paths like /tmp/... are rejected by the kernel.",
+          "file(action="render", engine="template") uses SiYuan workspace template syntax .action{.title}, .action{.id}, .action{.name}, and .action{.alias}; it does not replace {{...}} placeholders.",
+          "file(action="render", engine="sprig") uses inline Go/Sprig template syntax such as {{ now | date "2006-01-02" }}, but it has no document context.",
+          "file(action="extract_doc") exports a document and all its assets into a self-contained uncompressed folder, so AI tools can read the files directly. Prefer this over export_resources when the goal is to inspect attachment content such as images, spreadsheets, or other binary files.",
+          "项目源登记只建立思源项目中枢与本机工作目录之间的受控映射；它既不把目录加入 Agent 工作区，也不把本地文件内容写入思源。",
+          "file(action="register_project_source") 与 file(action="scan_project_manifest") 会修改插件私有登记表，必须取得明确确认。清单按 A（显式核心文件）、B（普通文件元数据）、C（排除项）分层；只有 A 层在大小上限内计算哈希。",
+          "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
+          "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
+          "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
+          "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
+        ],
+        "hint": "传入 Agent 宿主提供的绝对 cwd，将目录反向识别为项目身份；与把 projectId + relativePath 解析为路径状态的 resolve_project_source 方向相反。仅匹配当前 host binding，嵌套项目取最长根路径；响应不包含输入路径或已登记 workspaceRoot。",
+        "requiredFields": [
+          "cwd",
+        ],
+        "requiresConfirmation": false,
+        "shapes": [
+          "cwd",
         ],
         "tool": "file",
       },
@@ -4238,6 +4284,7 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "hint": "分页列出项目身份、当前主机绑定状态和清单摘要。默认且经 MCP 契约固定不返回 workspaceRoot；需要实际路径时，对单个相对路径调用 resolve_project_source。",
@@ -4273,6 +4320,7 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "hint": "Searches SiYuan data/templates via the kernel template picker endpoint. Empty query lists all visible Markdown templates. Results include readArgs and renderArgsTemplate for reuse.",
@@ -4308,6 +4356,7 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "requiredFields": [],
@@ -4357,6 +4406,7 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "hint": "读取一个当前项目清单中已列出的相对路径。仅返回不超过 1 MiB 的安全扩展名 UTF-8 文本；offset/limit 在脱敏后分页，limit 默认 8,000、最大 20,000。响应分别报告 listed、readable、contentRead 与 revisionVerified，且不返回本机绝对路径。二进制文件只返回受限元数据和已有或当前哈希状态。",
@@ -4396,6 +4446,7 @@ siyuan-sisyphus file delete-template --path /20240318112233-abc123.sy --expected
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "hint": "Use a path from list_templates, /data/templates/..., /templates/..., or a path relative to data/templates. Reads only Markdown template source and supports offset/limit pagination.",
@@ -4497,6 +4548,7 @@ siyuan-sisyphus file register-project-source --project-id <projectId> --workspac
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -4576,6 +4628,7 @@ siyuan-sisyphus file remove-unused-assets --expected-manifest-hash <preflight-cr
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedManifestHash credential without changing any business argument. Execute once with expectedManifestHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -4657,6 +4710,7 @@ siyuan-sisyphus file rename-asset --old-path <oldPath> --new-name <newName> --ex
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -4712,6 +4766,7 @@ siyuan-sisyphus file rename-asset --old-path <oldPath> --new-name <newName> --ex
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "hint": "Use engine="template" with id + path for a workspace template; that engine uses .action{...} delimiters and exposes limited document fields such as id/title/name/alias. Set preview=true for SiYuan preview DOM. Use engine="sprig" with inline template for {{...}} syntax; Sprig has functions but no document context.",
@@ -4761,6 +4816,7 @@ siyuan-sisyphus file rename-asset --old-path <oldPath> --new-name <newName> --ex
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
         ],
         "hint": "使用 projectId + relativePath 解析当前主机路径，拒绝绝对路径、父目录穿越和逃逸工作目录的符号链接。只返回存在性、绑定/版本/清单状态与绝对路径，不读取内容；路径披露需要确认。",
@@ -4839,6 +4895,7 @@ siyuan-sisyphus file save-doc-as-template --id 20240318112233-abc123 --name Rese
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -4933,6 +4990,7 @@ siyuan-sisyphus file scan-project-manifest --project-id <projectId> --expected-s
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -5028,6 +5086,7 @@ siyuan-sisyphus file update-template --path /20240318112233-abc123.sy --markdown
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -5131,6 +5190,7 @@ siyuan-sisyphus file upload-asset --assets-dir-path /assets/ --local-file-path <
           "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
           "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
           "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+          "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
           "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedSourceHash credential without changing any business argument. Execute once with expectedSourceHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
@@ -5164,13 +5224,14 @@ siyuan-sisyphus file upload-asset --assets-dir-path /assets/ --local-file-path <
     },
     "description": "📁 Grouped file and asset operations. Use the "action" field to select the operation.
 
-Common actions: upload_asset, resolve_project_source, read_project_source, list_project_sources, list_templates, read_template, create_template, update_template, save_doc_as_template, export_md, get_doc_assets, extract_doc. Required fields: upload_asset: assetsDirPath, localFilePath; resolve_project_source: projectId, relativePath; read_project_source: projectId, relativePath; list_project_sources: no additional fields; list_templates: no additional fields; read_template: path; create_template: path, markdown; update_template: path, markdown; save_doc_as_template: id, name; export_md: id; get_doc_assets: id; extract_doc: id.
+Common actions: upload_asset, identify_project, resolve_project_source, read_project_source, list_project_sources, list_templates, read_template, create_template, update_template, save_doc_as_template, export_md, get_doc_assets, extract_doc. Required fields: upload_asset: assetsDirPath, localFilePath; identify_project: cwd; resolve_project_source: projectId, relativePath; read_project_source: projectId, relativePath; list_project_sources: no additional fields; list_templates: no additional fields; read_template: path; create_template: path, markdown; update_template: path, markdown; save_doc_as_template: id, name; export_md: id; get_doc_assets: id; extract_doc: id.
 
 Additional actions: register_project_source, scan_project_manifest, delete_template, render, export_resources, list_unused_assets, remove_unused_assets, rename_asset, delete_asset. Read siyuan://help/action/file/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 file.upload_asset: required [assetsDirPath, localFilePath] | optional [confirmLargeFile]
 file.register_project_source: required [projectId, workspaceRoot, sourceKind] | optional [hubBlockId, manifestBlockId, repository, coverage, access, coreFiles, includePaths, exclusions]
+file.identify_project: required [cwd] | optional []
 file.scan_project_manifest: required [projectId] | optional [maxEntries, maxHashBytes, maxTotalHashBytes]
 file.resolve_project_source: required [projectId, relativePath] | optional []
 file.read_project_source: required [projectId, relativePath] | optional [offset, limit]
@@ -5201,6 +5262,7 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "export_resources": "Provide one or more existing resource paths. Asset paths like assets/foo.txt are normalized to /data/assets/foo.txt before export. Set outputPath to also copy the exported ZIP to a local filesystem path. Using outputPath is high-risk and requires explicit user confirmation. To extract attachments for direct reading without a ZIP archive, prefer extract_doc which produces an uncompressed folder.",
         "extract_doc": "Use a document ID + optional outputDir. Exports the document markdown and all referenced assets into an uncompressed folder, preserving original filenames. If outputDir is omitted, the default output root is ~/siyuan-extracted/; pass outputDir explicitly for a predictable path such as /private/tmp. Clears the entire output root directory first to prevent accumulation from previous exports. The returned extractedDir is an absolute path ready for direct file access.",
         "get_doc_assets": "Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full document content and assets, guide them to file(action="extract_doc") instead.",
+        "identify_project": "传入 Agent 宿主提供的绝对 cwd，将目录反向识别为项目身份；与把 projectId + relativePath 解析为路径状态的 resolve_project_source 方向相反。仅匹配当前 host binding，嵌套项目取最长根路径；响应不包含输入路径或已登记 workspaceRoot。",
         "list_project_sources": "分页列出项目身份、当前主机绑定状态和清单摘要。默认且经 MCP 契约固定不返回 workspaceRoot；需要实际路径时，对单个相对路径调用 resolve_project_source。",
         "list_templates": "Searches SiYuan data/templates via the kernel template picker endpoint. Empty query lists all visible Markdown templates. Results include readArgs and renderArgsTemplate for reuse.",
         "list_unused_assets": "no extra fields",
@@ -5241,6 +5303,10 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         },
         "get_doc_assets": {
           "hint": "Use a document ID to list assets directly referenced by the current document tree after read-permission checks. This does not expand query embed blocks; when the user needs to inspect the full document content and assets, guide them to file(action="extract_doc") instead.",
+          "requiresConfirmation": false,
+        },
+        "identify_project": {
+          "hint": "传入 Agent 宿主提供的绝对 cwd，将目录反向识别为项目身份；与把 projectId + relativePath 解析为路径状态的 resolve_project_source 方向相反。仅匹配当前 host binding，嵌套项目取最长根路径；响应不包含输入路径或已登记 workspaceRoot。",
           "requiresConfirmation": false,
         },
         "list_project_sources": {
@@ -5310,6 +5376,7 @@ file(action="upload_asset") reads a local file path and uploads that file into S
       ],
       "commonActions": [
         "upload_asset",
+        "identify_project",
         "resolve_project_source",
         "read_project_source",
         "list_project_sources",
@@ -5342,6 +5409,7 @@ file(action="upload_asset") reads a local file path and uploads that file into S
         "file(action="resolve_project_source") 仅把 projectId + relativePath 解析为当前主机路径并返回状态，不读取文件内容；由于会披露本机绝对路径，也必须取得明确确认。",
         "file(action="read_project_source") 只读取当前清单中已列出的受控文本文件，隐藏绝对路径，限制为 1 MiB UTF-8 文本和每次最多 20,000 字符，并在返回前脱敏；二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。",
         "file(action="list_project_sources") 默认隐藏本机工作目录绝对路径，并通过 page/pageSize 分页返回项目身份、绑定状态和清单摘要。",
+        "file(action="identify_project") 使用宿主提供的绝对当前目录匹配当前主机登记项；它不保存输入目录，也不返回 workspaceRoot。它是 resolve_project_source 的反向识别入口：identify 将目录映射为项目身份，resolve 将 projectId 与相对路径解析为路径状态。嵌套项目按最长根路径命中，同长度候选返回歧义而不猜测。",
         "项目源 action 收到未登记的 projectId 时返回 not_found，并在存在近似登记项时给出最多三个候选；绝对路径、父目录穿越与根目录逃逸返回 invalid_path，不应解释为服务器内部故障。",
       ],
       "helpResources": [

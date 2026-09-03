@@ -315,6 +315,7 @@ describe('tool action contract coverage', () => {
         await runContracts('file', FILE_VARIANTS, callFileTool as ToolCaller, [
             { action: 'upload_asset', args: { action: 'upload_asset', assetsDirPath: '/assets/', localFilePath: 'package.json' }, expectedEndpoint: '/api/asset/upload' },
             { action: 'register_project_source', args: { action: 'register_project_source', projectId: 'contract-project', workspaceRoot: process.cwd(), sourceKind: 'git', coverage: 'tracked' } },
+            { action: 'identify_project', args: { action: 'identify_project', cwd: process.cwd() } },
             { action: 'scan_project_manifest', args: { action: 'scan_project_manifest', projectId: 'missing-project' }, expectedError: true },
             { action: 'resolve_project_source', args: { action: 'resolve_project_source', projectId: 'missing-project', relativePath: 'README.md' }, expectedError: true },
             { action: 'read_project_source', args: { action: 'read_project_source', projectId: 'missing-project', relativePath: 'README.md' }, expectedError: true },

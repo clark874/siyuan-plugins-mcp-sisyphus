@@ -16,7 +16,7 @@ Related pages:
 | `document` | 19 | [document](./document.md) |
 | `block` | 21 | [block](./block.md) |
 | `av` | 13 | [av](./av.md) |
-| `file` | 21 | [file](./file.md) |
+| `file` | 22 | [file](./file.md) |
 | `search` | 14 | [search](./search.md) |
 | `provenance` | 6 | [provenance](./provenance.md) |
 | `tag` | 3 | [tag](./tag.md) |

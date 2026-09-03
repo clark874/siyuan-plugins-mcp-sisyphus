@@ -45,6 +45,7 @@ describe('write safety action policy', () => {
         expect(getActionSafetyPolicy('file', 'resolve_project_source')).toEqual({ mode: 'read' });
         expect(getActionSafetyPolicy('file', 'read_project_source')).toEqual({ mode: 'read' });
         expect(getActionSafetyPolicy('file', 'list_project_sources')).toEqual({ mode: 'read' });
+        expect(getActionSafetyPolicy('file', 'identify_project')).toEqual({ mode: 'read' });
         expect(getActionSafetyPolicy('fs', 'reorder')).toMatchObject({
             mode: 'mutation', precondition: 'structure',
         });

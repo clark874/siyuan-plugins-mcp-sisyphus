@@ -6,7 +6,7 @@
 
 ## 覆盖结论
 
-截至当前代码，源码中声明的静态 action 总数为 162 个；`extension` 还会按官方注册表生成动态 action。
+截至当前代码，源码中声明的静态 action 总数为 163 个；`extension` 还会按官方注册表生成动态 action。
 
 | 工具 | action 数 | 覆盖方式 |
 | --- | ---: | --- |
@@ -16,8 +16,8 @@
 | `block` | 21 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
 | `av` | 13 | `tests/unit/tools/av.test.ts` 对每个 action 有直接调用覆盖 |
 | `search` | 14 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
-| `file` | 21 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
-| `provenance` | 6 | `tests/unit/tools/provenance.test.ts` 与 `tests/unit/core/provenance.test.ts` 覆盖 schema、严格写入、幂等记录、项目汇总、原子反查、链接解析和本机会话验证 |
+| `file` | 22 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
+| `provenance` | 7 | `tests/unit/tools/provenance.test.ts` 与 `tests/unit/core/provenance.test.ts` 覆盖 schema、严格写入、幂等记录、项目汇总、原子反查、链接解析、会话发现和本机会话验证 |
 | `system` | 27 | `tests/unit/tools/action-contract.test.ts` 对每个 action 做最小运行时契约调用 |
 | `flashcard` | 6 | `tests/unit/tools/flashcard.test.ts` 对每个 action 有直接调用覆盖 |
 | `extension` | 1 + 动态 | `tests/unit/core/official-mcp-bridge.test.ts` 与 `tests/unit/tools/extension.test.ts` 覆盖发现、schema、屏蔽和转发 |

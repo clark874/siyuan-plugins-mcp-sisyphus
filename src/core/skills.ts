@@ -6,6 +6,7 @@ import createEditSkill from '../../skills/siyuan-mcp/siyuan-mcp-create-edit/SKIL
 import knowledgeIngestSkill from '../../skills/siyuan-mcp/siyuan-mcp-knowledge-ingest/SKILL.md?raw';
 import knowledgeIngestNormalizeScript from '../../skills/siyuan-mcp/siyuan-mcp-knowledge-ingest/scripts/normalize-source.mjs?raw';
 import projectKnowledgeCompileSkill from '../../skills/siyuan-mcp/siyuan-mcp-project-knowledge-compile/SKILL.md?raw';
+import projectCoordinatorSkill from '../../skills/siyuan-mcp/siyuan-mcp-project-coordinator/SKILL.md?raw';
 import knowledgeGovernanceSkill from '../../skills/siyuan-mcp/siyuan-mcp-knowledge-governance/SKILL.md?raw';
 import crossProjectRelationClosureSkill from '../../skills/siyuan-mcp/siyuan-mcp-cross-project-relation-closure/SKILL.md?raw';
 import searchQuerySkill from '../../skills/siyuan-mcp/siyuan-mcp-search-query/SKILL.md?raw';
@@ -76,6 +77,7 @@ export const MCP_SKILLS: readonly McpSkillDefinition[] = [
         mimeType: 'text/javascript',
     }]),
     createMcpSkill(projectKnowledgeCompileSkill),
+    createMcpSkill(projectCoordinatorSkill),
     createMcpSkill(knowledgeGovernanceSkill),
     createMcpSkill(crossProjectRelationClosureSkill),
     createMcpSkill(searchQuerySkill),
