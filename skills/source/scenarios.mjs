@@ -30,7 +30,7 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 | Fulltext, SQL, backlinks, references, and replacement | {{skill search-query}} |
 | Capture web sources, deduplicate them, and merge knowledge with provenance | {{skill knowledge-ingest}} |
 | Compile a complete local research-project package into traceable atoms and internal semantic relations | {{skill project-knowledge-compile}} |
-| Explicitly invoke Start or Close for a registered project's shared multi-Agent progress memory | {{skill project-coordinator}} |
+| Explicitly invoke Start, Handoff, Knowledge, or Close for a registered project's shared multi-Agent progress memory | {{skill project-coordinator}} |
 | Compile and govern named knowledge atoms, aliases, hubs, and safe renames | {{skill knowledge-governance}} |
 | Close verified project-to-public-method reuse relations across projects | {{skill cross-project-relation-closure}} |
 | Attribute views, columns, rows, and cells | {{skill database}} |
@@ -456,22 +456,25 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
         id: 'project-coordinator',
         cliName: 'siyuan-sisyphus-project-coordinator',
         mcpName: 'siyuan-mcp-project-coordinator',
-        cliDescription: 'CLI-only 思源多 Agent 项目协调工作流。仅在用户明确调用“启动”或“收尾”时，自动接入当前项目并维护共享进度记忆；“知识化”是“收尾”的同义词。',
-        mcpDescription: '思源多 Agent 项目协调工作流。仅在用户明确调用“启动”或“收尾”时，自动接入当前项目并维护共享进度记忆；“知识化”是“收尾”的同义词。',
+        cliDescription: 'CLI-only 思源多 Agent 项目协同工作流。仅在用户明确调用“启动”“交接”“知识化”或“收尾”时，读取或维护共享项目记忆。',
+        mcpDescription: '思源多 Agent 项目协同工作流。仅在用户明确调用“启动”“交接”“知识化”或“收尾”时，读取或维护共享项目记忆。',
         title: '思源多 Agent 项目协调',
-        displayName: '思源项目协调',
-        shortDescription: '用“启动/收尾”维护多 Agent 共享项目记忆',
-        defaultPrompt: '使用 $NAME 启动当前项目；结束工作时再次调用 $NAME 收尾。',
+        displayName: '项目协同',
+        mcpDisplayName: '项目协同',
+        cliDisplayName: '项目协同 CLI',
+        shortDescription: '用四个命令读取和维护多 Agent 共享项目记忆',
+        defaultPrompt: '使用 $NAME 启动、交接、知识化或收尾当前项目。',
         allowImplicitInvocation: false,
-        body: `本 Skill 只在用户明确调用时运行，公开动作只有“启动”和“收尾”；“知识化”完全等同“收尾”。未被明确调用时，不读取或写入项目进度。用户不需要知道 projectId、块 ID 或知识流程名称。
+        body: `本 Skill 的中文可见名称是“项目协同”，底层稳定标识仍为英文。只在用户明确调用时运行，公开命令只有“启动”“交接”“知识化”“收尾”。未被明确调用时，不读取或写入项目进度。用户不需要知道 projectId、块 ID 或知识流程名称。
 
 ## 一、公开交互
 
-- \`启动\`：从宿主当前目录自动识别项目，登记真实 Agent 会话，静默恢复内部工作上下文，然后直接执行附带任务。
-- \`收尾\` / \`知识化\`：判断本轮持久增量，按普通进度或知识增量分流；没有持久增量时零写入。
-- \`启动并复查\`、\`收尾并验收\`等自然语言修饰语不构成第三种模式；只有用户明确要求复查、验收、审计或列出会话时才输出诊断详情。
+- \`启动\`：识别项目、登记当前真实会话、读取全部当前进度，并输出详细“项目进度全景”；附带任务时，在全景之后继续执行任务。
+- \`交接\`：随时重新读取真实数据并输出同规格“项目进度全景”；除必要的当前会话登记外，不写进度、状态或知识。
+- \`知识化\`：只处理本轮可长期复用的决策、方法、证据、警告和否决结论；不代替收尾，不生成普通进度事件。
+- \`收尾\`：先执行知识化判断，再登记从本次启动到收尾之间的非重复工作差量、更新状态投影，最后输出“本轮差量 + 更新后的项目进度全景”。
 
-\`启动\`附带任务时直接工作，不展示内部检索过程。只输入“启动”时，仅回复“已接入《项目名》，当前会话已登记”。普通响应不显示 projectId、块 ID 清单或默认交接简报。
+四个命令可以附带自然语言任务或范围。\`启动\`和\`交接\`的详细输出是面向用户的实时视图，只出现在响应中；不得另建交接文档，也不得把知识正文复制到进度页。
 
 ## 二、固定数据边界
 
@@ -488,7 +491,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 知识原子只使用既有 \`custom-verification-status\`、\`custom-provenance-*\`、name、alias 和原子类型。不要创建 \`custom-knowledge-status\`、\`custom-progress-linked\`、\`custom-promotion-status\` 或 stable 状态。
 
-## 三、启动
+## 三、项目接入与完整进度读取
 
 先读取实时能力、工作区路由和知识契约：
 
@@ -525,51 +528,34 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 {{call registerSession}}
 {{call listSessions}}
 
-\`register_session\` 是严格写入动作：不得直接执行示例参数；先用完全相同的业务参数加 \`validateOnly=true\` 取得 \`expectedStateHash\`，再用返回凭据和新的 UUIDv7 \`requestId\` 执行一次。随后立即用 \`list_project_sessions(validate=true)\` 回读，确认当前 sessionId 已出现。捕获或登记失败时仍可只读恢复项目，但必须回复“当前会话未登记”；本次会话后续禁止写入，直至取得并验证真实 sessionId。
+\`captureMethod\` 只能使用 \`environment|client_context|explicit|inferred_latest_rollout\`。宿主注入时分别用 environment 或 client_context；用户明确提供时用 explicit；从唯一且无并发歧义的 rollout 捕获时用 inferred_latest_rollout。禁止把说明文字或复合短语写进该字段。\`register_session\` 是严格写入动作：不得直接执行示例参数；先用完全相同的业务参数加 \`validateOnly=true\` 取得 \`expectedStateHash\`，再用返回凭据和新的 UUIDv7 \`requestId\` 执行一次。随后立即用 \`list_project_sessions(validate=true)\` 回读，确认当前 sessionId 已出现。捕获或登记失败时仍可只读恢复项目，但必须回复“当前会话未登记”；本次会话后续禁止写入，直至取得并验证真实 sessionId。
 
-内部恢复采用“索引 → 筛选 → 详情”，不生成独立简报：
+\`启动\`与\`交接\`共用以下读取流程。采用“索引 → 筛选 → 详情”，从权威块实时生成用户可见的项目进度全景：
 
 1. 读取项目状态和相关工作线状态正文与属性；
-2. 按块创建时间读取最近 10 个事件；
+2. 按块创建时间分页读取本项目全部事件元数据，并读取组成当前阶段时间线的事件正文；不得只看 query_embed；
 3. 以当前任务检索最多 12 个知识候选；
 4. 综合语义、时间和 \`custom-verification-status\` 后，最多读取 5 个完整块；
-5. 检查旧状态、draft、来源冲突和未核验内容，只把通过判断的信息放入当前推理上下文；
-6. 直接执行用户任务。
+5. 读取按 \`lastSeenAt DESC\` 排序的项目会话表并核验当前会话；
+6. 检查旧状态、draft、来源冲突和未核验内容，不把检索命中直接当作当前事实。
 
 {{call findStates}}
-{{call recentEvents}}
+{{call allEvents}}
 {{call knowledgeSearch}}
 {{call readDetails}}
+{{call listSessions}}
 
-Agent 恢复直接读取 SQL、稳定块 ID 和 refs；页面中的 query_embed 仅供人类浏览，不能作为唯一机器数据源。
+“项目进度全景”必须包含：项目目标、当前阶段与焦点、各工作线状态、最近完成、唯一下一步、阻塞、已否决方案、关键产物、按时间排序的任务事件时间线、最新知识变化及验证状态、全部已登记 Agent 会话、信息新鲜度与冲突提示。会话表列出 provider、sessionId、最后活动时间、验证状态、首选地址、launcher 地址和可用 resume 命令；首选地址按 \`preferredUrl → launcherUrl\`，验证为 missing 的旧会话保留并标记。
 
-## 四、收尾与知识化
+\`启动\`先完成登记和上述全景输出；附带任务时随后继续执行。\`交接\`每次都重新读数据，不复用旧报告；它不创建进度事件、不更新状态投影、不写知识。若只读恢复成功但当前会话未登记，仍输出全景并明确标记“当前会话未登记，禁止写入”。Agent 恢复直接读取 SQL、稳定块 ID 和 refs；页面中的 query_embed 仅供人类浏览，不能作为唯一机器数据源。
 
-用户显式调用“收尾”或“知识化”即授权本轮必要的进度与知识写入。若本轮没有先“启动”，先完成项目识别、会话发现、登记和回读。只有原子冲突、目标中枢歧义或事实无法确认时才中断询问。
+## 四、知识化
+
+用户显式调用“知识化”即授权本轮必要的知识写入。若本轮没有先“启动”，先完成项目识别、会话发现、登记和回读。只有原子冲突、目标中枢歧义或事实无法确认时才中断询问。
 
 写入前确认当前 sessionId 存在于项目会话注册表。普通事件核对 \`custom-progress-provider/session-id\`，知识事件核对 provenance source/compile session；当前会话未登记时，本 Skill 必须拒绝创建事件并报告孤儿事件风险。这是协调协议的写前义务，不是通用 \`block.insert\` 的服务端硬门。历史孤儿事件只在显式验收时通过 lint 报告。
 
-先判断本轮是否有持久增量：
-
-- 仅有进度变化：追加一个普通事件，再更新状态投影；
-- 有研究决策、可复用方法、已核验证据或长期警告、失败原因、否决结论：先完成知识落位，再创建唯一知识事件；
-- 无实质变化：不写项目进度和知识。
-
-普通增量先在“普通进度事件”区末尾、下一节“最近活动”标题之前插入一个单段事件块，正文只记录完成、下一步、阻塞、产物和必要引用。不要拆成多个兄弟块，以免属性和引用脱离事件根块。生成一次 UUIDv7 事件 ID，重试前按事件 ID 查询；已经存在即复用，不重复追加：
-
-{{call appendProgressEvent}}
-{{call setProgressEventAttrs}}
-
-事件成功后更新对应工作线状态，再依据所有工作线状态重算项目状态。严格写入时先 validateOnly，使用返回的预置条件凭据和新 requestId 单次执行；每次更新后立即按 ID 回读：
-
-{{call updateState}}
-{{call readState}}
-
-若哈希冲突，保留已追加事件，重读状态后只合并一次。第二次仍冲突则停止覆写并报告“状态投影待重建”。事件是权威历史，摘要暂时落后不等于进度丢失。
-
-普通更新不创建时间线节点。只有进度模板迁移、批量重建或高风险改写前才建立文档级节点：
-
-{{call structuralSnapshot}}
+只处理本轮新增或修订的研究决策、可复用方法、已核验证据、长期警告、失败原因和否决结论。没有知识增量时零写入，并直接说明“本轮没有需要知识化的增量”。
 
 按来源读取并执行现有 Skill，不在这里复制其查重、写入、验证或来源协议：
 
@@ -589,11 +575,33 @@ Agent 恢复直接读取 SQL、稳定块 ID 和 refs；页面中的 query_embed 
 
 知识写入成功而事件登记失败时，使用同一个 eventId 重试 record_event；其幂等重放不得重新创建知识原子。事件登记成功而状态更新失败时，保留事件并在下次调用时重建状态投影。
 
-正常收尾只返回一行回执，例如“收尾完成：更新 1 条工作线，沉淀 2 条知识，登记 1 个事件。”
+\`知识化\`只报告创建、合并或更新了哪些原子、原子类型、验证状态和唯一知识事件；不追加普通事件，不生成全局收尾报告。
 
-## 五、显式复查与完成门
+## 五、收尾
 
-只有用户明确要求“验收”“复查”“审计”或“列出会话”时，才实时调用会话列表并显示完整表格。表格按 \`lastSeenAt\` 降序，列出 Agent/provider、sessionId、最后活动时间、验证状态、首选地址、launcher 地址和可用的 resume 命令。首选地址按 \`preferredUrl → launcherUrl\`；resumeCommand 单独展示。验证为 missing 的旧会话保留并明确标记，不静默删除：
+\`收尾\`包含但不限于知识化：先执行第四节，复用已经成功登记的知识事件，不重复创建知识原子或知识事件；再汇总本次会话的工作差量。若本轮没有先执行“启动”，先完成项目识别和会话登记，并将本次可确认的最早会话活动作为基线，明确说明无法恢复更早的启动快照。
+
+本轮差量以当前会话注册记录的 \`firstSeenAt\`、本会话事件、当前对话中的真实工具结果和项目文件差异为证据。Git 项目可读取 \`git status --short\`、\`git diff --stat\` 与 \`git diff --name-status\`；非 Git 或宿主不能读取文件差异时，只报告已被工具结果证明的产物变化并标记该限制。还要读取同一时段其他 Agent 的项目事件，单列“并发 Agent 更新”，不得把它们冒充本会话成果。
+
+有非重复进度差量时，在普通事件区追加一个 \`kind=handoff\` 的单段事件块；正文只记录本轮完成、下一步、阻塞、产物、知识事件引用和会话引用。知识正文仍只在原子中。生成一次 UUIDv7 事件 ID，重试前按事件 ID 查询；已有即复用：
+
+{{call appendProgressEvent}}
+{{call setProgressEventAttrs}}
+
+事件成功后更新相关工作线状态，再根据全部工作线状态重算项目状态。严格写入先 validateOnly，再使用凭据和新 requestId 单次执行；每块更新后立即回读：
+
+{{call updateState}}
+{{call readState}}
+
+若哈希冲突，保留已追加事件，重读状态后只合并一次。第二次仍冲突则停止覆写并报告“状态投影待重建”。普通收尾不创建时间线节点；只有模板迁移、批量重建或高风险改写前才建立文档级节点：
+
+{{call structuralSnapshot}}
+
+无普通进度差量且无知识增量时零写入，但仍输出收尾报告。收尾报告必须先列“本轮工作差量”，包括启动基线、收尾时间、完成事项、状态前后变化、知识变化、文件与产物变化、阻塞与否决、并发 Agent 更新；随后按第三节重新读取并输出更新后的完整“项目进度全景”。不得只返回一行计数。
+
+## 六、完成门
+
+\`启动\`、\`交接\`和\`收尾\`都必须实时读取会话列表。显式要求“验收”“复查”或“审计”时，在常规全景之外补充数据完整性诊断：
 
 {{call listSessions}}
 
@@ -610,18 +618,18 @@ Agent 恢复直接读取 SQL、稳定块 ID 和 refs；页面中的 query_embed 
             setProgressPageAttrs: call('block', 'set_attrs', { id: '<progress-document-id>', attrs: { 'custom-progress-role': 'project-progress-page', 'custom-progress-schema': '1', 'custom-progress-project-id': '<project-id>' } }),
             setProjectStateAttrs: call('block', 'set_attrs', { id: '<project-state-list-block-id>', attrs: { 'custom-progress-role': 'project-state', 'custom-progress-project-id': '<project-id>', 'custom-progress-workstream': 'project', 'custom-progress-updated-at': '2026-09-03T00:00:00.000Z', 'custom-progress-last-event-id': '<latest-event-block-id-or-empty>' } }),
             findStates: call('search', 'query_sql', { stmt: "SELECT b.id, b.content, b.updated FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='<project-id>') AND EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value IN ('project-state','workstream-state')) ORDER BY b.updated DESC LIMIT 50", maxRows: 50 }),
-            recentEvents: call('search', 'query_sql', { stmt: "SELECT b.id, substr(b.content, 1, 240) AS preview, b.created FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value='event') AND (EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='<project-id>') OR EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-provenance-project-id' AND p.value='<project-id>')) ORDER BY b.created DESC LIMIT 10", maxRows: 10 }),
+            allEvents: call('search', 'query_sql', { stmt: "SELECT b.id, b.content, b.created FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value='event') AND (EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='<project-id>') OR EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-provenance-project-id' AND p.value='<project-id>')) ORDER BY b.created DESC LIMIT 200 OFFSET 0", maxRows: 200 }),
             knowledgeSearch: call('search', 'knowledge', { query: '<current project task>', pageSize: 12, candidateSize: 30, activeScopes: ['<project-scope>'] }),
             readDetails: call('block', 'batch_kramdown', { ids: ['<filtered-block-id-1>', '<filtered-block-id-2>'], mode: 'md' }),
             discoverSession: call('provenance', 'discover_session', { provider: '<current-provider>', limit: 10 }),
-            registerSession: call('provenance', 'register_session', { projectBlockId: '<project-hub-block-id>', projectId: '<project-id>', session: { provider: '<current-provider>', sessionId: '<real-session-id>', hostAlias: 'local', captureMethod: '<environment-or-verified-discovery>' }, occurredAt: '2026-09-03T00:00:00.000Z' }),
+            registerSession: call('provenance', 'register_session', { projectBlockId: '<project-hub-block-id>', projectId: '<project-id>', session: { provider: '<current-provider>', sessionId: '<real-session-id>', hostAlias: 'local', captureMethod: 'inferred_latest_rollout' }, occurredAt: '2026-09-03T00:00:00.000Z' }),
             listSessions: call('provenance', 'list_project_sessions', { projectId: '<project-id>', validate: true, limit: 100 }),
             appendProgressEvent: call('block', 'insert', { nextID: '<recent-activity-heading-id>', dataType: 'markdown', data: "**[<local-time>] <provider> · <workstream>**　完成：<durable delta>；下一步：<single next action>；阻塞：<none or blocker>；产物：<paths or block references>；会话：((<session-record-block-id> 'Agent 会话'))" }),
-            setProgressEventAttrs: call('block', 'set_attrs', { id: '<progress-event-block-id>', attrs: { 'custom-progress-role': 'event', 'custom-progress-schema': '1', 'custom-progress-project-id': '<project-id>', 'custom-progress-event-id': '<uuidv7>', 'custom-progress-workstream': '<workstream>', 'custom-progress-kind': 'progress', 'custom-progress-occurred-at': '2026-09-03T00:00:00.000Z', 'custom-progress-provider': '<current-provider>', 'custom-progress-session-id': '<real-session-id>' } }),
+            setProgressEventAttrs: call('block', 'set_attrs', { id: '<progress-event-block-id>', attrs: { 'custom-progress-role': 'event', 'custom-progress-schema': '1', 'custom-progress-project-id': '<project-id>', 'custom-progress-event-id': '<uuidv7>', 'custom-progress-workstream': '<workstream>', 'custom-progress-kind': 'handoff', 'custom-progress-occurred-at': '2026-09-03T00:00:00.000Z', 'custom-progress-provider': '<current-provider>', 'custom-progress-session-id': '<real-session-id>' } }),
             updateState: call('block', 'update', { id: '<state-list-block-id>', dataType: 'markdown', data: "- 项目目标：<goal>\n- 当前阶段：<phase>\n- 当前焦点：<focus>\n- 最近完成：<latest completion>\n- 下一步：<single next action>\n- 阻塞：<blockers>\n- 已否决方案：<rejected options>\n- 关键产物：<artifacts>\n- 最近事件：((<event-block-id> '最近事件'))" }),
             readState: call('block', 'get_kramdown', { id: '<state-list-block-id>' }),
             structuralSnapshot: call('timeline', 'create_node', { name: '项目进度结构调整前-<date>', scope: 'document', documentId: '<progress-document-id>' }),
-            recordKnowledgeEvent: call('provenance', 'record_event', { projectBlockId: '<project-hub-block-id>', projectId: '<project-id>', eventId: '<stable-event-id>', operation: '<concise knowledge delta>', sourceSession: { provider: '<current-provider>', sessionId: '<real-session-id>', hostAlias: 'local', captureMethod: '<environment-or-verified-discovery>' }, targetAtomIds: ['<knowledge-atom-id>'] }),
+            recordKnowledgeEvent: call('provenance', 'record_event', { projectBlockId: '<project-hub-block-id>', projectId: '<project-id>', eventId: '<stable-event-id>', operation: '<concise knowledge delta>', sourceSession: { provider: '<current-provider>', sessionId: '<real-session-id>', hostAlias: 'local', captureMethod: 'inferred_latest_rollout' }, targetAtomIds: ['<knowledge-atom-id>'] }),
             markKnowledgeEvent: call('block', 'set_attrs', { id: '<provenance-event-block-id>', attrs: { 'custom-progress-role': 'event', 'custom-progress-schema': '1', 'custom-progress-workstream': '<workstream>', 'custom-progress-kind': 'knowledge' } }),
         },
     },

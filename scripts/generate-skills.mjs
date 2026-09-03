@@ -102,7 +102,9 @@ function renderSkill(scenario, runtime) {
 
 function renderOpenAiYaml(scenario, runtime) {
     const name = runtime === 'mcp' ? scenario.mcpName : scenario.cliName;
-    const displayName = runtime === 'mcp' ? `${scenario.displayName} MCP` : `${scenario.displayName} CLI`;
+    const displayName = runtime === 'mcp'
+        ? (scenario.mcpDisplayName ?? `${scenario.displayName} MCP`)
+        : (scenario.cliDisplayName ?? `${scenario.displayName} CLI`);
     const policy = scenario.allowImplicitInvocation === false
         ? 'policy:\n  allow_implicit_invocation: false\n'
         : '';

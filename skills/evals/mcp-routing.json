@@ -2,9 +2,10 @@
   "schemaVersion": 1,
   "description": "冷启动时用于核对 Sisyphus MCP Skill 路由边界的静态评估集。null 表示不应触发思源 Skill。",
   "cases": [
-    { "id": "explicit-project-coordinator-start", "prompt": "使用 $siyuan-mcp-project-coordinator 启动，继续处理稳健性检验。", "expectedSkill": "siyuan-mcp-project-coordinator", "reason": "用户显式调用项目协调 Skill 的启动动作，应按当前目录接入项目并静默恢复工作上下文。" },
-    { "id": "explicit-project-coordinator-close", "prompt": "使用 $siyuan-mcp-project-coordinator 收尾，判断本轮持久增量并更新共享进度。", "expectedSkill": "siyuan-mcp-project-coordinator", "reason": "用户显式调用项目协调 Skill 的收尾动作，应判断并写入必要的进度或知识增量。" },
-    { "id": "explicit-project-coordinator-knowledge-alias", "prompt": "使用 $siyuan-mcp-project-coordinator 知识化本轮已经核验的方法结论。", "expectedSkill": "siyuan-mcp-project-coordinator", "reason": "知识化是收尾动作的同义词，应进入相同的增量判断与单事件流程。" },
+    { "id": "explicit-project-coordinator-start", "prompt": "使用 $siyuan-mcp-project-coordinator 启动，列出完整项目进度后继续处理稳健性检验。", "expectedSkill": "siyuan-mcp-project-coordinator", "reason": "用户显式调用项目协同 Skill 的启动命令，应按当前目录接入项目并输出完整进度全景。" },
+    { "id": "explicit-project-coordinator-handoff", "prompt": "使用 $siyuan-mcp-project-coordinator 交接，重新读取并说明当前完整项目进度。", "expectedSkill": "siyuan-mcp-project-coordinator", "reason": "用户显式调用交接命令，应实时读取状态、时间线、知识和会话而不更新进度。" },
+    { "id": "explicit-project-coordinator-close", "prompt": "使用 $siyuan-mcp-project-coordinator 收尾，知识化本轮增量并总结启动以来的全部工作差量。", "expectedSkill": "siyuan-mcp-project-coordinator", "reason": "用户显式调用收尾命令，应先知识化，再登记本轮差量并输出更新后的完整进度。" },
+    { "id": "explicit-project-coordinator-knowledge", "prompt": "使用 $siyuan-mcp-project-coordinator 知识化本轮已经核验的方法结论，但不要执行收尾。", "expectedSkill": "siyuan-mcp-project-coordinator", "reason": "知识化是独立命令，只处理长期知识增量，不追加普通收尾事件。" },
     { "id": "ordinary-project-task-no-coordinator", "prompt": "帮我润色水商品化论文的这一段讨论。", "expectedSkill": null, "reason": "普通项目任务没有显式调用协调 Skill，不应自动读取或更新共享进度。" },
     { "id": "existing-project-status", "prompt": "搜索思源知识库并读取水商品化项目当前进度，不要修改任何笔记。", "expectedSkill": "siyuan-mcp-search-query", "reason": "目标是检索既有知识，不是摄取外部来源。" },
     { "id": "read-only-sql", "prompt": "用只读 SQL 统计工作日志中带 name 属性的块数量并返回前20个。", "expectedSkill": "siyuan-mcp-search-query", "reason": "只读 SQL 属于检索分析，不属于 AV 操作。" },

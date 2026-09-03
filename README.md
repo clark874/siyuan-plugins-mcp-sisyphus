@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前版本为 `v0.9.7`（CLI `v0.4.7`）。本版本新增只读项目目录识别，并将多 Agent 项目协调收敛为显式“启动/收尾”双动作，同时修复进度页查询模板与会话排序。
+> **LLM Wiki 分支：** 当前版本为 `v0.9.8`（CLI `v0.4.8`）。本版本将多 Agent 项目协同扩展为“启动/交接/知识化/收尾”四个显式命令，默认提供完整进度全景，并以中文“项目协同”显示。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.9.7`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；项目协调器可按当前目录识别已登记项目，并通过“启动/收尾”维护跨 Agent 共享进度。CLI `v0.4.7` 要求 Node.js 20+。**建议思源内核升级到 `3.8.2+`**。
+> **当前 LLM Wiki 版本：**`v0.9.8`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；“项目协同”可按当前目录识别已登记项目，并通过“启动/交接/知识化/收尾”读取和维护跨 Agent 共享进度。CLI `v0.4.8` 要求 Node.js 20+。**建议思源内核升级到 `3.8.2+`**。
 
 ## Project Direction Update
 

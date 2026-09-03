@@ -27,7 +27,7 @@ Use the narrowest scenario skill that matches the task. For unfamiliar fields, i
 | Fulltext, SQL, backlinks, references, and replacement | `siyuan-mcp-search-query` |
 | Capture web sources, deduplicate them, and merge knowledge with provenance | `siyuan-mcp-knowledge-ingest` |
 | Compile a complete local research-project package into traceable atoms and internal semantic relations | `siyuan-mcp-project-knowledge-compile` |
-| Explicitly invoke Start or Close for a registered project's shared multi-Agent progress memory | `siyuan-mcp-project-coordinator` |
+| Explicitly invoke Start, Handoff, Knowledge, or Close for a registered project's shared multi-Agent progress memory | `siyuan-mcp-project-coordinator` |
 | Compile and govern named knowledge atoms, aliases, hubs, and safe renames | `siyuan-mcp-knowledge-governance` |
 | Close verified project-to-public-method reuse relations across projects | `siyuan-mcp-cross-project-relation-closure` |
 | Attribute views, columns, rows, and cells | `siyuan-mcp-database` |

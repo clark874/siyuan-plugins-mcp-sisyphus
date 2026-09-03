@@ -75,15 +75,17 @@ describe('core/skills', () => {
         expect(projectCompile?.text).toContain('custom-reuse-scope=public-candidate');
         expect(projectCompile?.text).toContain('produced-by');
         expect(projectCompile?.text).toContain('不把所有文字提及变成引用');
-        expect(projectCoordinator?.text).toContain('公开动作只有“启动”和“收尾”');
-        expect(projectCoordinator?.text).toContain('“知识化”完全等同“收尾”');
-        expect(projectCoordinator?.text).toContain('不生成独立简报');
+        expect(projectCoordinator?.text).toContain('公开命令只有“启动”“交接”“知识化”“收尾”');
+        expect(projectCoordinator?.text).toContain('知识化\`：只处理本轮可长期复用');
+        expect(projectCoordinator?.text).toContain('项目进度全景');
+        expect(projectCoordinator?.text).toContain('本轮工作差量');
+        expect(projectCoordinator?.text).toContain('并发 Agent 更新');
+        expect(projectCoordinator?.text).toContain('environment|client_context|explicit|inferred_latest_rollout');
         expect(projectCoordinator?.text).toContain('file(action="identify_project"');
         expect(projectCoordinator?.text).toContain('不创建第二个检查点块');
         expect(projectCoordinator?.text).toContain('状态投影待重建');
         expect(projectCoordinator?.text).toContain('最多读取 5 个');
         expect(projectCoordinator?.text).not.toContain('800 token');
-        expect(projectCoordinator?.text).not.toContain('只读交接');
         expect(projectCoordinator?.text).not.toContain('LEFT JOIN attributes');
         expect(projectCoordinator?.text).not.toContain('COALESCE(t.value');
         const projectCoordinatorOpenAi = readFileSync(path.join(
@@ -91,6 +93,7 @@ describe('core/skills', () => {
             'skills/siyuan-mcp/siyuan-mcp-project-coordinator/agents/openai.yaml',
         ), 'utf8');
         expect(projectCoordinatorOpenAi).toContain('allow_implicit_invocation: false');
+        expect(projectCoordinatorOpenAi).toContain('display_name: "项目协同"');
         expect(projectCoordinatorOpenAi).not.toContain('$NAME');
         expect(governance?.text).toContain('四层影响');
         expect(governance?.text).toContain('数量和冲突以实时 SQL 为准');
@@ -154,8 +157,8 @@ describe('core/skills', () => {
         const evals = JSON.parse(readFileSync(path.join(root, 'skills/evals/mcp-routing.json'), 'utf8'));
 
         expect(evals.schemaVersion).toBe(1);
-        expect(evals.cases).toHaveLength(28);
-        expect(new Set(evals.cases.map((item: { id: string }) => item.id)).size).toBe(28);
+        expect(evals.cases).toHaveLength(29);
+        expect(new Set(evals.cases.map((item: { id: string }) => item.id)).size).toBe(29);
         const routedSkills = evals.cases
             .map((item: { expectedSkill: string | null }) => item.expectedSkill)
             .filter(Boolean);
