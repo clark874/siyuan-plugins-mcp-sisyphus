@@ -709,7 +709,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
                 description: 'Use this after an upgrade to decide whether user rules, /AGENTS.md memory, connection snippets, permissions, appearance, timeline settings, or tool config need attention.',
                 mcp: {
                     action: 'changelog',
-                    fromVersion: '0.4.8',
+                    fromVersion: '0.4.9',
                 },
             },
             {

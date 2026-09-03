@@ -7,6 +7,10 @@ import { scenarios } from '../skills/source/scenarios.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const knowledgeIngestScript = await readFile(path.join(root, 'skills/source/normalize-source.mjs'), 'utf8');
+const projectCoordinatorOutputContract = await readFile(
+    path.join(root, 'skills/source/project-coordinator-output-contract.md'),
+    'utf8',
+);
 const check = process.argv.includes('--check');
 const validArgs = new Set(['--check']);
 const unknownArgs = process.argv.slice(2).filter((arg) => !validArgs.has(arg));
@@ -147,9 +151,15 @@ for (const scenario of scenarios) {
         if (scenario.id === 'knowledge-ingest') {
             await syncFile(`${base}/scripts/normalize-source.mjs`, knowledgeIngestScript);
         }
+        if (scenario.id === 'project-coordinator') {
+            await syncFile(
+                `${base}/references/project-panorama-output-contract.md`,
+                projectCoordinatorOutputContract,
+            );
+        }
     }
 }
 
 console.log(check
-    ? `Verified ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 2 runtime assets, and 1 portable entry skill.`
-    : `Generated ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 2 runtime assets, and 1 portable entry skill.`);
+    ? `Verified ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 4 runtime assets, and 1 portable entry skill.`
+    : `Generated ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 4 runtime assets, and 1 portable entry skill.`);

@@ -8645,7 +8645,7 @@ siyuan-sisyphus system apply-change --plan-id <planID> --expected-state-hash <pr
             "description": "Use this after an upgrade to decide whether user rules, /AGENTS.md memory, connection snippets, permissions, appearance, timeline settings, or tool config need attention.",
             "mcp": {
               "action": "changelog",
-              "fromVersion": "0.4.8",
+              "fromVersion": "0.4.9",
             },
             "title": "Review changes after a known previous plugin version",
           },

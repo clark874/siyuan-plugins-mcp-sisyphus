@@ -34,15 +34,18 @@ siyuan-sisyphus system bootstrap --json
 
 四个命令可以附带自然语言任务或范围。`启动`和`交接`的详细输出是面向用户的实时视图，只出现在响应中；不得另建交接文档，也不得把知识正文复制到进度页。
 
+执行 `启动`、`交接`或`收尾`前，必须完整读取 [项目全景输出契约](references/project-panorama-output-contract.md)，严格使用其中的来源优先级、项目归属门、固定九节模板、默认隐藏项和输出前自检。不得依据本 Skill 中的字段枚举自由组织报告。
+
 ## 二、固定数据边界
 
-项目中枢下最多有一个带 `custom-progress-role=project-progress-page` 和当前 `custom-progress-project-id` 的“项目进度协作”页。标题只用于人类阅读，属性才是机器定位契约。页面包含：一个当前项目状态块、每条工作线一个状态块、普通进度事件追加区，以及“最近活动”“本项目知识产物”两个 `query_embed` 只读投影。
+项目中枢下最多有一个带 `custom-progress-role=project-progress-page` 和当前 `custom-progress-project-id` 的“项目进度协作”页。标题只用于人类阅读，属性才是机器定位契约。页面包含：项目概览、阶段台账、权威产物索引三个稳定投影，一个当前项目状态块、每条工作线一个状态块、普通进度事件追加区，以及“最近活动”“本项目知识产物”两个 `query_embed` 只读投影。
 
 当前状态和工作线状态都只是可重建投影。每个状态块正文固定记录：项目目标、当前阶段、当前焦点、最近完成事项、唯一下一步、阻塞、已否决方案、关键产物和最近事件引用。知识正文只保存在知识原子；进度事件只写短摘要和真实块引用。
 
 机器契约使用 custom 属性，不用标签：
 
 - 进度页：`custom-progress-role=project-progress-page`、`custom-progress-schema=1`、`custom-progress-project-id`；
+- 稳定投影：`custom-progress-role=project-profile|stage-ledger|artifact-index`、项目 ID、更新时间；其中产物索引只保存项目内相对路径；
 - 状态块：`custom-progress-role=project-state|workstream-state`、项目 ID、工作线、更新时间、最近事件 ID；
 - 普通事件：`custom-progress-role=event`、schema、项目 ID、事件 ID、工作线、事件类型、UTC 时间、provider、session ID；
 - 事件类型只用 `progress|decision|blocker|handoff|milestone|knowledge`。
@@ -81,10 +84,26 @@ siyuan-sisyphus file list-project-sources --query '<natural-language-project-nam
 siyuan-sisyphus search query-sql --stmt 'SELECT b.id, b.root_id, b.hpath FROM blocks b JOIN attributes r ON r.block_id=b.id AND r.name='"'"'custom-progress-role'"'"' AND r.value='"'"'project-progress-page'"'"' JOIN attributes p ON p.block_id=b.id AND p.name='"'"'custom-progress-project-id'"'"' AND p.value='"'"'<project-id>'"'"' LIMIT 2' --max-rows '2' --json
 ```
 
-没有结果时，在项目中枢下创建“项目进度协作”页。初始 Markdown 使用单个列表块承载当前状态，并保留普通事件标题；两个 query_embed 按事件真实属性和 refs 动态查询，不复制知识正文：
+没有结果时，在项目中枢下创建“项目进度协作”页。初始 Markdown 先建立项目概览、阶段台账和权威产物索引，再用单个列表块承载当前状态，并保留普通事件标题；三个稳定投影应从项目内明确的当前入口、权威证据说明、阶段导航和最终验收文件生成，缺少证据时保留“待确认”，不得根据文件名臆测。两个 query_embed 按事件真实属性和 refs 动态查询，不复制知识正文：
 
 ```bash
-siyuan-sisyphus document create --notebook '<notebook-id>' --parent-path '<project-hub-hpath>' --title '项目进度协作' --markdown '## 当前项目状态
+siyuan-sisyphus document create --notebook '<notebook-id>' --parent-path '<project-hub-hpath>' --title '项目进度协作' --markdown '## 项目概览
+
+- 项目名称：<待确认>
+- 研究或建设对象：<待确认>
+- 核心问题：<待确认>
+- 当前交付目标：<待确认>
+- 核心观点与发现：<待确认；使用知识原子引用>
+
+## 阶段台账
+
+- <阶段｜时间｜实质工作｜权威产物｜当前效力>
+
+## 权威产物索引
+
+- <用途｜项目内相对路径｜状态>
+
+## 当前项目状态
 
 - 项目目标：<待确认>
 - 当前阶段：<待确认>
@@ -115,6 +134,15 @@ siyuan-sisyphus document create --notebook '<notebook-id>' --parent-path '<proje
 siyuan-sisyphus block set-attrs --id '<progress-document-id>' --attrs-json '{"custom-progress-role":"project-progress-page","custom-progress-schema":"1","custom-progress-project-id":"<project-id>"}' --json
 ```
 ```bash
+siyuan-sisyphus block set-attrs --id '<project-profile-block-id>' --attrs-json '{"custom-progress-role":"project-profile","custom-progress-project-id":"<project-id>","custom-progress-updated-at":"2026-09-03T00:00:00.000Z"}' --json
+```
+```bash
+siyuan-sisyphus block set-attrs --id '<stage-ledger-block-id>' --attrs-json '{"custom-progress-role":"stage-ledger","custom-progress-project-id":"<project-id>","custom-progress-updated-at":"2026-09-03T00:00:00.000Z"}' --json
+```
+```bash
+siyuan-sisyphus block set-attrs --id '<artifact-index-block-id>' --attrs-json '{"custom-progress-role":"artifact-index","custom-progress-project-id":"<project-id>","custom-progress-updated-at":"2026-09-03T00:00:00.000Z"}' --json
+```
+```bash
 siyuan-sisyphus block set-attrs --id '<project-state-list-block-id>' --attrs-json '{"custom-progress-role":"project-state","custom-progress-project-id":"<project-id>","custom-progress-workstream":"project","custom-progress-updated-at":"2026-09-03T00:00:00.000Z","custom-progress-last-event-id":"<latest-event-block-id-or-empty>"}' --json
 ```
 
@@ -136,15 +164,19 @@ siyuan-sisyphus provenance list-project-sessions --project-id '<project-id>' --v
 
 `启动`与`交接`共用以下读取流程。采用“索引 → 筛选 → 详情”，从权威块实时生成用户可见的项目进度全景：
 
-1. 读取项目状态和相关工作线状态正文与属性；
-2. 按块创建时间分页读取本项目全部事件元数据，并读取组成当前阶段时间线的事件正文；不得只看 query_embed；
-3. 以当前任务检索最多 12 个知识候选；
-4. 综合语义、时间和 `custom-verification-status` 后，最多读取 5 个完整块；
-5. 读取按 `lastSeenAt DESC` 排序的项目会话表并核验当前会话；
-6. 检查旧状态、draft、来源冲突和未核验内容，不把检索命中直接当作当前事实。
+1. 读取项目概览、阶段台账、权威产物索引、项目状态和相关工作线状态正文与属性；
+2. 对产物索引中的当前权威相对路径调用项目源解析或在当前本地项目中核验，形成可点击的完整绝对路径；
+3. 按块创建时间分页读取本项目全部事件元数据，并用输出契约的项目归属门排除工具开发、部署和协调器自测事件；不得只看 query_embed；
+4. 以当前任务检索最多 12 个知识候选；
+5. 综合语义、时间和 `custom-verification-status` 后，最多读取 5 个完整块，提炼核心观点、核心发现和解释边界；
+6. 读取按 `lastSeenAt DESC` 排序的项目会话表并核验当前会话；普通全景只保留当前会话以及产出实质项目事件或知识事件的会话；
+7. 检查权威文件与投影、旧状态、draft、来源冲突和未核验内容，不把检索命中直接当作当前事实。
 
 ```bash
-siyuan-sisyphus search query-sql --stmt 'SELECT b.id, b.content, b.updated FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='"'"'custom-progress-project-id'"'"' AND p.value='"'"'<project-id>'"'"') AND EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='"'"'custom-progress-role'"'"' AND r.value IN ('"'"'project-state'"'"','"'"'workstream-state'"'"')) ORDER BY b.updated DESC LIMIT 50' --max-rows '50' --json
+siyuan-sisyphus search query-sql --stmt 'SELECT b.id, b.content, b.updated FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='"'"'custom-progress-project-id'"'"' AND p.value='"'"'<project-id>'"'"') AND EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='"'"'custom-progress-role'"'"' AND r.value IN ('"'"'project-profile'"'"','"'"'stage-ledger'"'"','"'"'artifact-index'"'"','"'"'project-state'"'"','"'"'workstream-state'"'"')) ORDER BY b.updated DESC LIMIT 50' --max-rows '50' --json
+```
+```bash
+siyuan-sisyphus file resolve-project-source --project-id '<project-id>' --relative-path '<authoritative-relative-path>' --json
 ```
 ```bash
 siyuan-sisyphus search query-sql --stmt 'SELECT b.id, b.content, b.created FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='"'"'custom-progress-role'"'"' AND r.value='"'"'event'"'"') AND (EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='"'"'custom-progress-project-id'"'"' AND p.value='"'"'<project-id>'"'"') OR EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='"'"'custom-provenance-project-id'"'"' AND p.value='"'"'<project-id>'"'"')) ORDER BY b.created DESC LIMIT 200 OFFSET 0' --max-rows '200' --json
@@ -159,7 +191,7 @@ siyuan-sisyphus block batch-kramdown --ids-json '["<filtered-block-id-1>","<filt
 siyuan-sisyphus provenance list-project-sessions --project-id '<project-id>' --validate --limit '100' --json
 ```
 
-“项目进度全景”必须包含：项目目标、当前阶段与焦点、各工作线状态、最近完成、唯一下一步、阻塞、已否决方案、关键产物、按时间排序的任务事件时间线、最新知识变化及验证状态、全部已登记 Agent 会话、信息新鲜度与冲突提示。会话表列出 provider、sessionId、最后活动时间、验证状态、首选地址、launcher 地址和可用 resume 命令；首选地址按 `preferredUrl → launcherUrl`，验证为 missing 的旧会话保留并标记。
+“项目进度全景”严格按输出契约的九节模板生成，不增加实现流水区。会话入口必须保留完整 sessionId、preferredUrl、launcherUrl 和 resumeCommand；不得截断、写成 `[blocked]` 或用块 ID 替代。自定义协议被宿主阻止时，仍输出完整地址并注明限制。用户明确要求审计全部会话时，才在正文后附加测试会话和历史 missing 会话。
 
 `启动`先完成登记和上述全景输出；附带任务时随后继续执行。`交接`每次都重新读数据，不复用旧报告；它不创建进度事件、不更新状态投影、不写知识。若只读恢复成功但当前会话未登记，仍输出全景并明确标记“当前会话未登记，禁止写入”。Agent 恢复直接读取 SQL、稳定块 ID 和 refs；页面中的 query_embed 仅供人类浏览，不能作为唯一机器数据源。
 
@@ -199,7 +231,7 @@ siyuan-sisyphus block set-attrs --id '<provenance-event-block-id>' --attrs-json 
 
 `收尾`包含但不限于知识化：先执行第四节，复用已经成功登记的知识事件，不重复创建知识原子或知识事件；再汇总本次会话的工作差量。若本轮没有先执行“启动”，先完成项目识别和会话登记，并将本次可确认的最早会话活动作为基线，明确说明无法恢复更早的启动快照。
 
-本轮差量以当前会话注册记录的 `firstSeenAt`、本会话事件、当前对话中的真实工具结果和项目文件差异为证据。Git 项目可读取 `git status --short`、`git diff --stat` 与 `git diff --name-status`；非 Git 或宿主不能读取文件差异时，只报告已被工具结果证明的产物变化并标记该限制。还要读取同一时段其他 Agent 的项目事件，单列“并发 Agent 更新”，不得把它们冒充本会话成果。
+本轮差量以当前会话注册记录的 `firstSeenAt`、本会话事件、当前对话中的真实工具结果和项目文件差异为证据。Git 项目可读取 `git status --short`、`git diff --stat` 与 `git diff --name-status`；非 Git 或宿主不能读取文件差异时，只报告已被工具结果证明的产物变化并标记该限制。还要读取同一时段其他 Agent 的项目事件，单列“并发 Agent 更新”，不得把它们冒充本会话成果。所有候选差量先通过输出契约的项目归属门；工具开发、部署或用当前项目作样本的协调器测试不得写入当前项目事件和状态。
 
 有非重复进度差量时，在普通事件区追加一个 `kind=handoff` 的单段事件块；正文只记录本轮完成、下一步、阻塞、产物、知识事件引用和会话引用。知识正文仍只在原子中。生成一次 UUIDv7 事件 ID，重试前按事件 ID 查询；已有即复用：
 

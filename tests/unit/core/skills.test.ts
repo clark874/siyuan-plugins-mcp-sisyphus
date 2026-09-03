@@ -77,9 +77,24 @@ describe('core/skills', () => {
         expect(projectCompile?.text).toContain('不把所有文字提及变成引用');
         expect(projectCoordinator?.text).toContain('公开命令只有“启动”“交接”“知识化”“收尾”');
         expect(projectCoordinator?.text).toContain('知识化\`：只处理本轮可长期复用');
-        expect(projectCoordinator?.text).toContain('项目进度全景');
+        expect(projectCoordinator?.text).toContain('references/project-panorama-output-contract.md');
         expect(projectCoordinator?.text).toContain('本轮工作差量');
         expect(projectCoordinator?.text).toContain('并发 Agent 更新');
+        expect(projectCoordinator?.files).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                path: 'references/project-panorama-output-contract.md',
+                mimeType: 'text/markdown',
+            }),
+        ]));
+        const panoramaContract = projectCoordinator?.files.find(
+            (file) => file.path === 'references/project-panorama-output-contract.md',
+        )?.text ?? '';
+        expect(panoramaContract).toContain('## 三、固定输出模板');
+        expect(panoramaContract).toContain('## 1. 项目是什么');
+        expect(panoramaContract).toContain('## 5. 当前权威文件');
+        expect(panoramaContract).toContain('如果项目协调器、MCP 或验收环境不存在');
+        expect(panoramaContract).toContain('不得截断 sessionId');
+        expect(panoramaContract).toContain('项目进度页只保存相对路径');
         expect(projectCoordinator?.text).toContain('environment|client_context|explicit|inferred_latest_rollout');
         expect(projectCoordinator?.text).toContain('file(action="identify_project"');
         expect(projectCoordinator?.text).toContain('不创建第二个检查点块');
