@@ -494,6 +494,8 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 知识原子只使用既有 \`custom-verification-status\`、\`custom-provenance-*\`、name、alias 和原子类型。不要创建 \`custom-knowledge-status\`、\`custom-progress-linked\`、\`custom-promotion-status\` 或 stable 状态。
 
+进度与知识的一切写入只经 Sisyphus MCP 完成。禁止通过 RepoPrompt、宿主文件工具或其他本地写入通道修改项目文件、进度页或知识原子；本地读取仅用于核验与差量取证。
+
 ## 三、项目接入与完整进度读取
 
 先读取实时能力、工作区路由和知识契约：
@@ -543,7 +545,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 3. 按块创建时间分页读取本项目全部事件元数据，并用输出契约的项目归属门排除工具开发、部署和协调器自测事件；不得只看 query_embed；
 4. 以当前任务检索最多 12 个知识候选；
 5. 综合语义、时间和 \`custom-verification-status\` 后，最多读取 5 个完整块，提炼核心观点、核心发现和解释边界；
-6. 读取按 \`lastSeenAt DESC\` 排序的项目会话表并核验当前会话；普通全景只保留当前会话以及产出实质项目事件或知识事件的会话；
+6. 读取按 \`lastSeenAt DESC\` 排序的项目会话表并核验当前会话；普通全景只保留当前会话以及产出实质项目事件或知识事件的会话；会话表读取上限 100，普通全景展示上限 20，\`lastSeenAt\` 在最近 48 小时内的会话标注“活跃”；
 7. 检查权威文件与投影、旧状态、draft、来源冲突和未核验内容，不把检索命中直接当作当前事实。
 
 {{call findStates}}
@@ -552,6 +554,12 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 {{call knowledgeSearch}}
 {{call readDetails}}
 {{call listSessions}}
+
+\`启动\`与\`交接\`在输出全景前执行启动核验。核验只读，异常时最多在全景之前追加两行警示；不写入、不阻断、不把警示写成事件：
+
+1. 投影一致性（全宿主必做）：项目状态块与各工作线状态块的 \`custom-progress-last-event-id\` 必须等于事件流最新块 ID；不一致时提示“状态投影落后于事件流，收尾时将重建”。
+2. 本地新鲜度（宿主可执行本地命令时）：\`identify_project\` 返回绑定状态 \`stale\` 即提示“项目清单登记落后于当前修订”。Git 项目以最近事件 \`custom-progress-occurred-at\`（UTC）为基准执行 \`git log --oneline --since=<occurred-at>\` 与 \`git status --porcelain\`，有未登记提交或未提交改动时提示“本地领先共享进度：N 个未登记提交 / M 项未提交改动”。非 Git 目录项目把最近事件时间转换为宿主本地时间后执行 \`find . -type f -newermt "<本地时间>" -not -path "*/.git/*" -not -path "*/node_modules/*" | head -20\`，非空时提示“本地存在最后收尾之后修改的文件”并最多列出 3 个相对路径。产物索引中的相对路径在当前目录不存在时，逐条提示悬空产物。
+3. 思源不可用降级：\`bootstrap\` 或首个读取调用失败且重试一次仍失败时，停止访问共享记忆，提示“共享记忆不可用，本会话仅本地工作，恢复后请重新启动并收尾”；随后只执行不依赖思源的任务，降级状态下禁止任何项目写入。
 
 “项目进度全景”严格按输出契约的九节模板生成，不增加实现流水区。会话入口必须保留完整 sessionId、preferredUrl、launcherUrl 和 resumeCommand；不得截断、写成 \`[blocked]\` 或用块 ID 替代。自定义协议被宿主阻止时，仍输出完整地址并注明限制。用户明确要求审计全部会话时，才在正文后附加测试会话和历史 missing 会话。
 
@@ -613,7 +621,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 {{call listSessions}}
 
-逐项验证：进度页唯一；状态块与事件属性完整；普通事件无重复 eventId；知识型更新只有一个 provenance/进度事件；事件引用真实会话和原子；原子反链能返回事件；两个 query_embed 能显示相应记录；新会话能仅凭进度页、事件和原子恢复当前阶段、下一步与阻塞。报告成功、冲突、降级和未写入项，不以“工具调用成功”代替回读证据。
+逐项验证：进度页唯一；状态块与事件属性完整；普通事件无重复 eventId；启动核验三层（投影一致性、本地新鲜度、降级）在异常场景下能给出正确警示；知识型更新只有一个 provenance/进度事件；事件引用真实会话和原子；原子反链能返回事件；两个 query_embed 能显示相应记录；新会话能仅凭进度页、事件和原子恢复当前阶段、下一步与阻塞。报告成功、冲突、降级和未写入项，不以“工具调用成功”代替回读证据。
 `,
         calls: {
             bootstrap: call('system', 'bootstrap'),
