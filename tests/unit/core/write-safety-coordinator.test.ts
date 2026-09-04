@@ -51,7 +51,8 @@ describe('write safety coordinator', () => {
             preconditionRequired: false,
             requestIdRequired: true,
         });
-        expect(result.nextStep).toContain('fresh UUIDv7 requestId');
+        expect(result.issuedRequestId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+        expect(result.nextStep).toContain('issuedRequestId');
         expect(result).not.toHaveProperty('preconditionField');
         expect(execute).not.toHaveBeenCalled();
     });
@@ -80,6 +81,7 @@ describe('write safety coordinator', () => {
             type: 'validation_error',
             code: 'precondition_required',
         });
+        expect(missingRequestId.error.issuedRequestId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
         const softened = softenRecoverableToolError(missingRequestIdResult, true);
         expect(softened.isError).toBeUndefined();
         expect(parseResult(softened).error.softened).toBe(true);
@@ -306,12 +308,13 @@ describe('write safety coordinator', () => {
         expect(preflight.stateHash).toMatch(/^sha256:v1:[a-f0-9]{4}$/);
         expect(preflight.hashPrefixLength).toBe(4);
         expect(preflight.leaseExpiresAt).toBeGreaterThan(Date.now());
+        expect(preflight.issuedRequestId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
         const execute = vi.fn(async () => {
             updated = '20260812020202';
             return success({ success: true, action: 'update' });
         });
-        const requestId = uuidV7();
+        const requestId = String(preflight.issuedRequestId);
         const bareUppercaseCredential = String(preflight.stateHash).replace('sha256:v1:', '').toUpperCase();
         const committed = parseResult(await coordinator.run({
             client,

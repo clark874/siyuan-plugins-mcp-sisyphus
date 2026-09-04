@@ -20,7 +20,7 @@ For a mutation with a precondition, first call the same action and business argu
 }
 ```
 
-The preflight reads without mutating, computes a complete SHA-256 digest, and creates a ten-minute lease inside the current MCP Server process. It returns `preconditionField` plus the shortest unique credential:
+The preflight reads without mutating, computes a complete SHA-256 digest, and creates a ten-minute lease inside the current MCP Server process. It returns `preconditionField`, the shortest unique credential, and a server-issued UUIDv7:
 
 ```json
 {
@@ -28,12 +28,13 @@ The preflight reads without mutating, computes a complete SHA-256 digest, and cr
   "writeAttempted": false,
   "preconditionField": "expectedStateHash",
   "stateHash": "sha256:v1:8ac2",
+  "issuedRequestId": "019c1234-5678-7abc-8def-0123456789ab",
   "hashPrefixLength": 4,
   "leaseExpiresAt": 1786543200000
 }
 ```
 
-Generate a fresh UUIDv7 and submit the real write once with that field:
+Copy `issuedRequestId` and submit the real write once with that field. Do not handcraft UUIDv7 values:
 
 ```json
 {
@@ -50,7 +51,7 @@ Actions may use `expectedStateHash`, `expectedStructureHash`, `expectedManifestH
 
 ### Request-id-only additive mutation
 
-Additive actions such as create and append have no state precondition, no expected-hash field, and no lease. Execute them once with a fresh UUIDv7 `requestId`; no preflight is required. An optional `validateOnly=true` call returns `mutationProtocol: "request-id-only"`, `preflightRequired: false`, and an executable `nextStep`. It does not issue `preconditionField` or a hash credential and must not be interpreted as a failed preflight.
+Additive actions such as create and append have no state precondition, no expected-hash field, and no lease. A capable client may execute once with its own fresh UUIDv7. Otherwise call `validateOnly=true` first and execute once with the returned `issuedRequestId`. This preflight returns `mutationProtocol: "request-id-only"` and `preflightRequired: false`; it does not issue `preconditionField` or a hash credential and must not be interpreted as a failed preflight. A missing-request-ID rejection also carries a recovery `issuedRequestId` and performs no write.
 
 Credentials accept either `sha256:v1:<4-64 hex digits>` or bare `<4-64 hex digits>`, case-insensitively. Four digits are only a lease lookup key, not a 16-bit correctness check. The real write resolves the credential within `tool + action + business-argument digest + sorted target IDs`, retrieves the lease's complete 256-bit SHA-256, rereads current state, and compares the complete digests. Even a 64-digit credential must resolve to an active lease and cannot bypass preflight.
 
@@ -71,7 +72,7 @@ If active hashes in the same operation scope share four digits, a new preflight 
 
 | Code | Meaning | Caller action |
 | --- | --- | --- |
-| `precondition_required` | A request ID or required hash is absent | Run preflight again; never invent a hash |
+| `precondition_required` | A request ID or required hash is absent | Copy the returned `issuedRequestId`, or run preflight again; never invent a hash or UUIDv7 |
 | `preflight_lease_invalid` | The lease is missing, expired, evicted, or belonged to a previous process | Run the same `validateOnly` call again |
 | `ambiguous_hash_prefix` | The prefix matches multiple active leases in this scope | Re-preflight and use the newly issued longer prefix |
 | `state_changed` | The target changed after preflight | Stop and reread before deciding to write |

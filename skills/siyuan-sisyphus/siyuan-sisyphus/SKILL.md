@@ -70,7 +70,7 @@ siyuan-sisyphus fs read --path '/Notebook/Folder/Doc' --block-start '0' --block-
 - Read `/AGENTS.md` through `fs` before workspace-aware tasks when it exists.
 - A workspace path such as `/Notebook/Folder/Doc`, an hpath such as `/Folder/Doc`, and a storage path such as `/20260712123000-abc123.sy` are different values.
 - Read before writing; after a mutation, read the affected object again.
-- When strict safe writes are enabled, inspect the action schema. Guarded mutations expose an expected-hash field: call `validateOnly=true`, then execute once with the returned `preconditionField` credential and a fresh UUIDv7 `requestId`. Additive request-id-only actions expose no expected-hash field: skip preflight and execute once with only a fresh `requestId`; their optional `validateOnly` response issues no credential and is not a failure.
+- When strict safe writes are enabled, inspect the action schema. Guarded mutations expose an expected-hash field: call `validateOnly=true`, then execute once with the returned `preconditionField` credential and `issuedRequestId`. Additive request-id-only actions expose no expected-hash field: call `validateOnly=true` when the client does not already have a fresh UUIDv7, then execute once with the returned `issuedRequestId`; their preflight issues no hash credential and is not a failure. Never handcraft UUIDv7 values.
 - For document reads, continue with `nextWindow` or explicit `blockStart`/`blockLimit`/`tokenBudget`; for list and search results, use their page parameters.
 - Missing results may be caused by notebook permissions or indexing delay.
 - Obtain explicit approval before deletes, moves, bulk replacement, permission changes, local upload/export, or sensitive workspace disclosure.

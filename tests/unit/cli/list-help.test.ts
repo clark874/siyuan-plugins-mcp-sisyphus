@@ -205,7 +205,7 @@ describe('cli/list-help', () => {
         expect(io.stdout).toContain('guarded');
         expect(io.stdout).toContain('expected-state-hash');
         expect(io.stdout).toContain('validateOnly=true');
-        expect(io.stdout).toContain('UUIDv7');
+        expect(io.stdout).toContain('issuedRequestId');
         expect(io.stdout).toContain('siyuan-sisyphus block replace');
         expect(io.stdout).toContain('--edit-json');
         io.restore();
@@ -224,7 +224,7 @@ describe('cli/list-help', () => {
 
         expect(code, io.stderr || io.stdout).toBe(0);
         expect(io.stdout).toContain('request-id-only');
-        expect(io.stdout).toContain('fresh UUIDv7 requestId');
+        expect(io.stdout).toContain('issuedRequestId');
         expect(io.stdout).toContain('--block-ids');
         expect(io.stdout).toContain('siyuan-sisyphus av set-cells');
         expect(io.stdout).toContain('--cells-json');

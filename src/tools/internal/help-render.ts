@@ -251,7 +251,7 @@ interface StrictWriteHelp {
     precondition: string;
     preconditionField: string | null;
     preconditionFlag: string | null;
-    requestId: 'fresh UUIDv7';
+    requestId: string;
     requestIdFlag: '--request-id';
     validateOnly: boolean;
     validateOnlyFlag: '--validate-only';
@@ -267,12 +267,12 @@ function buildStrictWriteHelp(category: ToolCategory, action: string): StrictWri
     const validateOnlySteps = preconditionField
         ? [
             'Call the action with validateOnly=true and the complete business arguments; nothing is written.',
-            `Copy the returned ${preconditionField} credential without changing any business argument.`,
-            `Execute once with ${preconditionField} and a fresh UUIDv7 requestId, then read the target back.`,
+            `Copy the returned ${preconditionField} credential and issuedRequestId without changing any business argument.`,
+            `Execute once with ${preconditionField} and the returned issuedRequestId, then read the target back.`,
         ]
         : [
-            'validateOnly=true is an optional schema/protocol check; it writes nothing and returns no credential.',
-            'Execute the mutation once with a fresh UUIDv7 requestId, then read the target back.',
+            'Call validateOnly=true when the client does not already have a fresh UUIDv7; it writes nothing and returns issuedRequestId but no hash credential.',
+            'Execute the mutation once with the returned issuedRequestId, then read the target back.',
         ];
 
     return {
@@ -281,7 +281,7 @@ function buildStrictWriteHelp(category: ToolCategory, action: string): StrictWri
         precondition: policy.precondition,
         preconditionField,
         preconditionFlag: preconditionField ? `--${toKebab(preconditionField)}` : null,
-        requestId: 'fresh UUIDv7',
+        requestId: 'server-issued UUIDv7 or fresh client UUIDv7',
         requestIdFlag: '--request-id',
         validateOnly: policy.validateOnly,
         validateOnlyFlag: '--validate-only',
@@ -299,10 +299,13 @@ function buildCanonicalCliExamples(
     const examples = safety?.protocol === 'guarded'
         ? [
             `${base} --validate-only`,
-            `${base} ${safety.preconditionFlag} <preflight-credential> --request-id <uuidv7>`,
+            `${base} ${safety.preconditionFlag} <preflight-credential> --request-id <issued-request-id>`,
         ]
         : safety?.protocol === 'request-id-only'
-            ? [`${base} --request-id <uuidv7>`]
+            ? [
+                `${base} --validate-only`,
+                `${base} --request-id <issued-request-id>`,
+            ]
             : [base];
 
     if (category === 'av' && action === 'add_rows') {

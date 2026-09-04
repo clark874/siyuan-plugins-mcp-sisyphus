@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import type { SiYuanClient } from '../api/client';
 import { hashWriteState } from './write-safety-hash';
 import type { ToolCategory } from './config';
@@ -197,6 +199,23 @@ function assertFreshUuidV7(requestId: string): void {
     if (!Number.isFinite(timestamp) || age > WRITE_SAFETY_LEDGER_TTL_MS || age < -5 * 60 * 1000) {
         throw safetyError('request_id_expired', 'requestId timestamp is expired or unreasonably far in the future.');
     }
+}
+
+/**
+ * 由服务端签发严格写入使用的新鲜 UUIDv7。
+ * 调用方只需回传该值，不应自行实现 UUIDv7 的时间戳和变体位布局。
+ */
+export function createFreshUuidV7(now = Date.now()): string {
+    const bytes = randomBytes(16);
+    let timestamp = BigInt(Math.trunc(now));
+    for (let index = 5; index >= 0; index -= 1) {
+        bytes[index] = Number(timestamp & 0xffn);
+        timestamp >>= 8n;
+    }
+    bytes[6] = (bytes[6] & 0x0f) | 0x70;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = bytes.toString('hex');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function isLedgerEntry(value: unknown): value is WriteLedgerEntry {

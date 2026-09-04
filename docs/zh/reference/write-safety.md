@@ -20,7 +20,7 @@
 }
 ```
 
-预检只读取目标，不执行修改。服务端计算完整 SHA-256，并在当前 MCP Server 进程内创建一条 10 分钟有效的预检租约。响应会给出 `preconditionField` 和最短唯一短凭据，例如：
+预检只读取目标，不执行修改。服务端计算完整 SHA-256，并在当前 MCP Server 进程内创建一条 10 分钟有效的预检租约。响应会给出 `preconditionField`、最短唯一短凭据和服务端签发的 UUIDv7，例如：
 
 ```json
 {
@@ -28,12 +28,13 @@
   "writeAttempted": false,
   "preconditionField": "expectedStateHash",
   "stateHash": "sha256:v1:8ac2",
+  "issuedRequestId": "019c1234-5678-7abc-8def-0123456789ab",
   "hashPrefixLength": 4,
   "leaseExpiresAt": 1786543200000
 }
 ```
 
-随后生成一个新的 UUIDv7，并提交一次真实写入：
+随后原样复制 `issuedRequestId`，提交一次真实写入。不得手工构造 UUIDv7：
 
 ```json
 {
@@ -50,7 +51,7 @@
 
 ### 仅需 request ID 的新增型修改
 
-创建、追加等新增型 action 没有状态前置条件，不暴露 expected-hash 字段，也不签发租约。此类 action 无需预检，直接携带新的 UUIDv7 `requestId` 执行一次即可。若显式调用 `validateOnly=true`，响应会给出 `mutationProtocol: "request-id-only"`、`preflightRequired: false` 与可执行的 `nextStep`，不会返回 `preconditionField` 或哈希凭据；这不是预检失败。
+创建、追加等新增型 action 没有状态前置条件，不暴露 expected-hash 字段，也不签发租约。具备原生 UUIDv7 生成能力的客户端可以直接执行一次；其他客户端先调用 `validateOnly=true`，再原样使用返回的 `issuedRequestId` 执行。该预检会给出 `mutationProtocol: "request-id-only"`、`preflightRequired: false` 与可执行的 `nextStep`，不会返回 `preconditionField` 或哈希凭据；这不是预检失败。缺少 request ID 的拒绝响应也会返回一个用于恢复的 `issuedRequestId`，且不会执行写入。
 
 凭据接受 `sha256:v1:<4～64 位十六进制>` 或裸 `<4～64 位十六进制>`，不区分大小写。4 位只是租约查找键，不是把正确性降低为 16 bit 比较：正式写入会按 `tool + action + 业务参数摘要 + 排序后的目标 ID` 查找唯一活动租约，取出其中的完整 256-bit SHA-256，重新读取实时状态并做完整比较。即使提交 64 位完整值，也必须能解析到活动租约，不能绕过预检。
 
@@ -71,7 +72,7 @@
 
 | 错误码 | 含义 | 调用方行为 |
 | --- | --- | --- |
-| `precondition_required` | 缺少预检哈希或 request ID | 重新预检；不要直接猜哈希 |
+| `precondition_required` | 缺少预检哈希或 request ID | 复制响应中的 `issuedRequestId`，或重新预检；不要猜哈希或手工构造 UUIDv7 |
 | `preflight_lease_invalid` | 租约缺失、过期、被淘汰或服务已重启 | 使用相同业务参数重新 `validateOnly` |
 | `ambiguous_hash_prefix` | 短前缀在当前作用域匹配多条活动租约 | 重新预检，使用服务端签发的更长前缀 |
 | `state_changed` | 预检后目标已变化 | 停止，重新读取并决定是否仍要修改 |

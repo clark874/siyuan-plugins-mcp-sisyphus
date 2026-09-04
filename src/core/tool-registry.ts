@@ -208,11 +208,11 @@ function decorateStrictWriteSchema(category: ToolCategory, descriptor: ToolDescr
     properties.requestId = {
         type: 'string',
         pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
-        description: 'Fresh UUIDv7. Required when executing any strict write; omit for validateOnly preflight.',
+        description: 'Fresh UUIDv7. Normally copy issuedRequestId from validateOnly; required when executing any strict write.',
     };
     properties.validateOnly = {
         type: 'boolean',
-        description: 'Protocol check only; never writes. Guarded mutations return a temporary hash credential. Request-id-only additive mutations return no credential and should be executed once with a fresh UUIDv7 requestId.',
+        description: 'Protocol check only; never writes. Every strict mutation returns issuedRequestId. Guarded mutations also return a temporary hash credential; request-id-only additive mutations do not.',
     };
     for (const field of Object.values(PRECONDITION_FIELD)) {
         properties[field] = {

@@ -88,7 +88,7 @@ siyuan-sisyphus project snapshot --project-name '<natural-language-project-name>
 siyuan-sisyphus file list-project-sources --query '<natural-language-project-name>' --page '1' --page-size '20' --json
 ```
 
-目录不存在于当前服务器主机、绑定过期或无法唯一匹配时不得自动登记或修复项目源。`snapshot` 返回 `needs_initialization` 时，先征得用户同意，再按需读取 [项目进度页初始化](references/project-progress-initialization.md)；主 Skill 不内嵌初始化模板，不自动创建页面。
+目录不存在于当前服务器主机、绑定过期或无法唯一匹配时不得自动登记或修复项目源。当前目录未登记时，只有用户明确同意首次接入后，才按需读取 [项目首次接入与进度页初始化](references/project-progress-initialization.md)，并按“最小中枢 → 项目源登记 → 进度页 → 知识编译 → 常规收尾”分阶段回读；不得把知识原子批量塞进首次中枢创建。`snapshot` 返回 `needs_initialization` 时同样先征得用户同意再读取该参考。主 Skill 不内嵌初始化模板，不自动创建页面。
 
 随后捕获并登记当前真实 Agent 会话。先调用 `discover_session`；只有唯一捕获结果或宿主可信注入的真实 sessionId 才能登记，不得自拟描述性 ID：
 
@@ -102,7 +102,7 @@ siyuan-sisyphus provenance register-session --project-block-id '<project-hub-blo
 siyuan-sisyphus project snapshot --project-id '<project-id>' --event-limit '10' --session-limit '20' --validate-sessions --json
 ```
 
-`captureMethod` 只能使用 `environment|client_context|explicit|inferred_latest_rollout`。宿主注入时分别用 environment 或 client_context；用户明确提供时用 explicit；从唯一且无并发歧义的 rollout 捕获时用 inferred_latest_rollout。禁止把说明文字或复合短语写进该字段。`register_session` 是严格写入动作：不得直接执行示例参数；先用完全相同的业务参数加 `validateOnly=true` 取得 `expectedStateHash`，再用返回凭据和新的 UUIDv7 `requestId` 执行一次。随后再次调用 `project.snapshot(projectId=...)`，确认当前 sessionId 已出现在权威快照。捕获或登记失败时仍可只读恢复项目，但必须回复“当前会话未登记”；本次会话后续禁止写入，直至取得并验证真实 sessionId。
+`captureMethod` 只能使用 `environment|client_context|explicit|inferred_latest_rollout`。宿主注入时分别用 environment 或 client_context；用户明确提供时用 explicit；从唯一且无并发歧义的 rollout 捕获时用 inferred_latest_rollout。禁止把说明文字或复合短语写进该字段。`register_session` 是严格写入动作：不得直接执行示例参数；先用完全相同的业务参数加 `validateOnly=true` 取得 `expectedStateHash` 与 `issuedRequestId`，再原样回传两者执行一次。不得自行构造 UUIDv7。随后再次调用 `project.snapshot(projectId=...)`，确认当前 sessionId 已出现在权威快照。捕获或登记失败时仍可只读恢复项目，但必须回复“当前会话未登记”；本次会话后续禁止写入，直至取得并验证真实 sessionId。
 
 `启动`与`交接`共用以下读取流程。采用“索引 → 筛选 → 详情”，从权威块实时生成用户可见的项目进度全景：
 
@@ -176,16 +176,16 @@ siyuan-sisyphus provenance record-event --project-block-id '<project-hub-block-i
 
 本轮差量以 `runStartedAt`、本次运行产生的事件、当前对话中的真实工具结果和项目文件差异为证据，不使用历史 `firstSeenAt` 重算整个旧会话。Git 项目可读取 `git status --short`、`git diff --stat` 与 `git diff --name-status`；非 Git 或宿主不能读取文件差异时，只报告已被工具结果证明的产物变化并标记该限制。旧聊天中的既往成果单列为历史补录候选；同时存在当前增量和历史补录时分别创建事件，不得混成一条。还要读取同一时段其他 Agent 的项目事件，单列“并发 Agent 更新”，不得把它们冒充本次运行成果。所有候选差量先通过输出契约的项目归属门；工具开发、部署或用当前项目作样本的协调器测试不得写入当前项目事件和状态。
 
-有非重复进度差量时，在普通事件区追加一个 `kind=handoff` 的单段事件块；正文只记录本轮完成、下一步、阻塞、产物、知识事件引用和会话引用。知识正文仍只在原子中。生成一次 UUIDv7 事件 ID，重试前按事件 ID 查询；已有即复用：
+有非重复进度差量时，在普通事件区追加一个 `kind=handoff` 的单段事件块；正文只记录本轮完成、下一步、阻塞、产物、知识事件引用和会话引用。知识正文仍只在原子中。生成一次稳定事件 ID（可使用宿主原生随机 UUID，不要求 UUIDv7），在本次运行内保存；重试前按事件 ID 查询，已有即复用：
 
 ```bash
 siyuan-sisyphus block insert --next-id '<recent-activity-heading-id>' --data-type 'markdown' --data '**[<local-time>] <provider> · <workstream>**　完成：<durable delta>；下一步：<single next action>；阻塞：<none or blocker>；产物：<paths or block references>；会话：((<session-record-block-id> '"'"'Agent 会话'"'"'))' --json
 ```
 ```bash
-siyuan-sisyphus block set-attrs --id '<progress-event-block-id>' --attrs-json '{"custom-progress-role":"event","custom-progress-schema":"1","custom-progress-project-id":"<project-id>","custom-progress-event-id":"<uuidv7>","custom-progress-workstream":"<workstream>","custom-progress-kind":"handoff","custom-progress-occurred-at":"2026-09-03T00:00:00.000Z","custom-progress-provider":"<current-provider>","custom-progress-session-id":"<real-session-id>"}' --json
+siyuan-sisyphus block set-attrs --id '<progress-event-block-id>' --attrs-json '{"custom-progress-role":"event","custom-progress-schema":"1","custom-progress-project-id":"<project-id>","custom-progress-event-id":"<stable-event-id>","custom-progress-workstream":"<workstream>","custom-progress-kind":"handoff","custom-progress-occurred-at":"2026-09-03T00:00:00.000Z","custom-progress-provider":"<current-provider>","custom-progress-session-id":"<real-session-id>"}' --json
 ```
 
-只有当前增量事件晚于 snapshot 对应工作线头部且 `chronology.complete=true` 时，才更新相关工作线状态并根据全部工作线状态重算项目状态。历史补录与未解决的历史冲突只保留事件及必要的阶段台账关系，禁止更新当前状态投影。严格写入先 validateOnly，再使用凭据和新 requestId 单次执行；每块更新后立即回读：
+只有当前增量事件晚于 snapshot 对应工作线头部且 `chronology.complete=true` 时，才更新相关工作线状态并根据全部工作线状态重算项目状态。历史补录与未解决的历史冲突只保留事件及必要的阶段台账关系，禁止更新当前状态投影。严格写入先 validateOnly，再原样使用返回的 `issuedRequestId` 与凭据单次执行；每块更新后立即回读：
 
 ```bash
 siyuan-sisyphus block update --id '<state-list-block-id>' --data-type 'markdown' --data '- 项目目标：<goal>

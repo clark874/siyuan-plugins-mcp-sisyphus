@@ -626,13 +626,13 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
             mutationSteps: toolConfigResult.config.writeSafety.strictMode
                 ? [
                     'Inspect the action schema: guarded mutations expose an expected hash field; additive request-id-only mutations do not.',
-                    'For a guarded mutation, call validateOnly=true, then execute once with a fresh UUIDv7 requestId and the returned action-specific credential.',
-                    'For a request-id-only mutation, skip preflight and execute once with a fresh UUIDv7 requestId; validateOnly returns no credential.',
+                    'For a guarded mutation, call validateOnly=true, then execute once with the returned issuedRequestId and action-specific credential.',
+                    'For a request-id-only mutation, use a fresh client UUIDv7 or call validateOnly=true and execute once with the returned issuedRequestId; no hash credential is returned.',
                 ]
                 : ['Read the target before writing and re-read it after writing.'],
             protocols: toolConfigResult.config.writeSafety.strictMode ? {
-                guarded: 'validateOnly -> returned preconditionField/credential -> one execution with fresh UUIDv7 requestId',
-                requestIdOnly: 'one execution with fresh UUIDv7 requestId; no hash credential',
+                guarded: 'validateOnly -> returned preconditionField/credential + issuedRequestId -> one execution',
+                requestIdOnly: 'fresh client UUIDv7 or validateOnly -> issuedRequestId -> one execution; no hash credential',
             } : undefined,
             invariant: 'Guarded mutation business arguments must remain byte-for-byte equivalent between preflight and execution. Request-id-only mutations execute once and still require readback.',
             helpResource: 'siyuan://help/write-safety',

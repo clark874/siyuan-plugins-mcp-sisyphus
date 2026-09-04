@@ -37,6 +37,7 @@ import {
     type ActionSafetyPolicy,
 } from './write-safety-policy';
 import {
+    createFreshUuidV7,
     WriteSafetyLedger,
     safetyError,
     stripSafetyFields,
@@ -115,7 +116,11 @@ export class WriteSafetyCoordinator {
 
         if (!validateOnly) {
             if (!requestId) {
-                return writeSafetyFailure('precondition_required', 'requestId is required for every strict write and must be a fresh UUIDv7.');
+                return writeSafetyFailure(
+                    'precondition_required',
+                    'requestId is required for every strict write. Reuse the issuedRequestId below, or run validateOnly=true and reuse the issuedRequestId returned by that preflight.',
+                    { issuedRequestId: createFreshUuidV7() },
+                );
             }
             try {
                 inspected = await this.ledger.inspect(requestId, category, action, args);
@@ -156,6 +161,7 @@ export class WriteSafetyCoordinator {
                     writeSafetyMode: 'strict',
                     writeAttempted: false,
                     writeExecuted: false,
+                    issuedRequestId: createFreshUuidV7(),
                     preconditionField: expectedField,
                     [hashResultField(policy.precondition)]: issued.credential,
                     hashPrefixLength: issued.hashPrefixLength,
@@ -198,7 +204,8 @@ export class WriteSafetyCoordinator {
                 preflightRequired: false,
                 preconditionRequired: false,
                 requestIdRequired: true,
-                nextStep: 'This additive action has no state precondition and issues no hash credential. Submit the exact mutation once with validateOnly omitted and a fresh UUIDv7 requestId; do not add an expected hash field.',
+                issuedRequestId: createFreshUuidV7(),
+                nextStep: 'This additive action has no state precondition and issues no hash credential. Submit the exact mutation once with validateOnly omitted and the issuedRequestId returned here; do not add an expected hash field.',
             });
         }
 
