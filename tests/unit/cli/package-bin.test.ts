@@ -8,7 +8,7 @@ describe('CLI package bin aliases', () => {
         const raw = readFileSync(join(process.cwd(), 'cli', 'package.json'), 'utf8');
         const pkg = JSON.parse(raw) as { version: string; bin: Record<string, string>; engines: { node: string } };
 
-        expect(pkg.version).toBe('0.4.10');
+        expect(pkg.version).toBe('0.4.11');
         expect(pkg.bin).toEqual({
             'siyuan-sisyphus': 'dist/cli.cjs',
             sisyphus: 'dist/cli.cjs',

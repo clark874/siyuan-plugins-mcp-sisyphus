@@ -100,6 +100,11 @@ describe('core/skills', () => {
         expect(projectCoordinator?.text).toContain('不创建第二个检查点块');
         expect(projectCoordinator?.text).toContain('状态投影待重建');
         expect(projectCoordinator?.text).toContain('最多读取 5 个');
+        expect(projectCoordinator?.text).toContain('本地权威文件 ↔ 项目源清单 ↔ 思源投影/知识');
+        expect(projectCoordinator?.text).toContain('每个工作线状态块只对应同一');
+        expect(projectCoordinator?.text).toContain('先检查 `find` 自身退出状态');
+        expect(projectCoordinator?.text).toContain('宿主私有 memory、旧 rollout 和聊天记录不得用于补全项目事实');
+        expect(projectCoordinator?.text).toContain('SELECT block_id, name, value FROM attributes WHERE block_id IN');
         expect(projectCoordinator?.text).not.toContain('800 token');
         expect(projectCoordinator?.text).not.toContain('LEFT JOIN attributes');
         expect(projectCoordinator?.text).not.toContain('COALESCE(t.value');

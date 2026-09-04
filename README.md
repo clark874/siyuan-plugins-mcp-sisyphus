@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前版本为 `v0.9.10`（CLI `v0.4.9`）。本版本为项目协同加入固定九节全景契约、权威来源优先级、项目归属门和完整文件/会话入口，避免不同 Agent 输出漂移及跨项目污染。
+> **LLM Wiki 分支：** 当前版本为 `v0.9.11`（CLI `v0.4.11`）。本版本修正项目协同启动核验：按工作线校验状态投影，以 Tier A 哈希完成本地文件、项目源清单与思源共享记忆三方对账，并固化安全事件查询与确定性目录探针。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.9.10`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；“项目协同”按固定模板解释项目、阶段、核心发现、权威文件、实质更新和会话入口。CLI `v0.4.9` 要求 Node.js 20+。**建议思源内核升级到 `3.8.2+`**。
+> **当前 LLM Wiki 版本：**`v0.9.11`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；“项目协同”按固定模板解释项目、阶段、核心发现、权威文件、实质更新和会话入口。CLI `v0.4.11` 要求 Node.js 20+。**建议思源内核升级到 `3.8.2+`**。
 
 ## Project Direction Update
 

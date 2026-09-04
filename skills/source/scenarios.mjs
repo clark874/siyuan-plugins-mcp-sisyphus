@@ -541,8 +541,8 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 \`启动\`与\`交接\`共用以下读取流程。采用“索引 → 筛选 → 详情”，从权威块实时生成用户可见的项目进度全景：
 
 1. 读取项目概览、阶段台账、权威产物索引、项目状态和相关工作线状态正文与属性；
-2. 对产物索引中的当前权威相对路径调用项目源解析或在当前本地项目中核验，形成可点击的完整绝对路径；
-3. 按块创建时间分页读取本项目全部事件元数据，并用输出契约的项目归属门排除工具开发、部署和协调器自测事件；不得只看 query_embed；
+2. 对产物索引中的当前权威相对路径调用项目源解析或在当前本地项目中核验，形成可点击的完整绝对路径；宿主能读取本地文件时，对项目源清单中已有哈希的 Tier A 权威文件计算当前 SHA-256 并与清单值比较，不对其他文件做全量哈希；
+3. 严格使用下方单表 \`EXISTS\` 查询按块创建时间分页取得本项目事件 ID，不得为补取属性改写为多重 \`attributes LEFT JOIN + ORDER BY/LIMIT\`；需要事件属性时，再对已取得的事件 ID 单独查询 \`attributes\`；用输出契约的项目归属门排除工具开发、部署和协调器自测事件，不得只看 query_embed；
 4. 以当前任务检索最多 12 个知识候选；
 5. 综合语义、时间和 \`custom-verification-status\` 后，最多读取 5 个完整块，提炼核心观点、核心发现和解释边界；
 6. 读取按 \`lastSeenAt DESC\` 排序的项目会话表并核验当前会话；普通全景只保留当前会话以及产出实质项目事件或知识事件的会话；会话表读取上限 100，普通全景展示上限 20，\`lastSeenAt\` 在最近 48 小时内的会话标注“活跃”；
@@ -551,15 +551,19 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 {{call findStates}}
 {{call resolveArtifact}}
 {{call allEvents}}
+{{call eventAttrs}}
 {{call knowledgeSearch}}
 {{call readDetails}}
 {{call listSessions}}
 
 \`启动\`与\`交接\`在输出全景前执行启动核验。核验只读，异常时最多在全景之前追加两行警示；不写入、不阻断、不把警示写成事件：
 
-1. 投影一致性（全宿主必做）：项目状态块与各工作线状态块的 \`custom-progress-last-event-id\` 必须等于事件流最新块 ID；不一致时提示“状态投影落后于事件流，收尾时将重建”。
-2. 本地新鲜度（宿主可执行本地命令时）：\`identify_project\` 返回绑定状态 \`stale\` 即提示“项目清单登记落后于当前修订”。Git 项目以最近事件 \`custom-progress-occurred-at\`（UTC）为基准执行 \`git log --oneline --since=<occurred-at>\` 与 \`git status --porcelain\`，有未登记提交或未提交改动时提示“本地领先共享进度：N 个未登记提交 / M 项未提交改动”。非 Git 目录项目把最近事件时间转换为宿主本地时间后执行 \`find . -type f -newermt "<本地时间>" -not -path "*/.git/*" -not -path "*/node_modules/*" | head -20\`，非空时提示“本地存在最后收尾之后修改的文件”并最多列出 3 个相对路径。产物索引中的相对路径在当前目录不存在时，逐条提示悬空产物。
-3. 思源不可用降级：\`bootstrap\` 或首个读取调用失败且重试一次仍失败时，停止访问共享记忆，提示“共享记忆不可用，本会话仅本地工作，恢复后请重新启动并收尾”；随后只执行不依赖思源的任务，降级状态下禁止任何项目写入。
+1. 投影一致性（全宿主必做）：项目状态块的 \`custom-progress-last-event-id\` 对应全项目最新有效事件；每个工作线状态块只对应同一 \`custom-progress-workstream\` 的最新事件。该工作线没有事件时不强求指向全项目最新事件。不一致时提示“状态投影落后于事件流，收尾时将重建”。
+2. 本地与共享记忆对账（宿主可执行本地命令时）：按“本地权威文件 ↔ 项目源清单 ↔ 思源投影/知识”三方核验。Tier A 文件的当前 SHA-256 与清单哈希相同且投影无冲突才可写“已核验一致”；哈希不同写“本地领先共享记忆”，文件缺失写“本地缺失”，命令失败或缺少哈希写“无法确认”，不得用 mtime 证明内容一致。
+3. 增量新鲜度：\`identify_project\` 返回绑定状态 \`stale\` 即提示“项目清单登记落后于当前修订”。Git 项目优先以最近一次成功普通收尾（\`kind=handoff\`）的 UTC 时间为基准执行 \`git log --oneline --since=<occurred-at>\` 与 \`git status --porcelain\`；没有普通收尾时可暂用最新项目事件，但必须标注“弱基线”。非 Git 目录项目把 UTC 转为 \`YYYY-MM-DD HH:MM:SS UTC\` 后执行 \`find . -type f -newermt "<UTC 文本时间>" -not -path "*/.git/*" -not -path "*/node_modules/*"\`；先检查 \`find\` 自身退出状态，再截取前 20 条，禁止用管道成功掩盖日期解析失败。非空时提示“本地存在最后收尾之后修改的文件”并最多列出 3 个相对路径。产物缺失按一条汇总警示展示。
+4. 思源不可用降级：\`bootstrap\` 或首个读取调用失败且重试一次仍失败时，停止访问共享记忆，提示“共享记忆不可用，本会话仅本地工作，恢复后请重新启动并收尾”；随后只执行不依赖思源的任务，降级状态下禁止任何项目写入。
+
+宿主私有 memory、旧 rollout 和聊天记录不得用于补全项目事实；rollout 仅可用于发现或验证真实会话标识。同一实时查询在一次启动中只执行一次，后续筛选使用已有结果。
 
 “项目进度全景”严格按输出契约的九节模板生成，不增加实现流水区。会话入口必须保留完整 sessionId、preferredUrl、launcherUrl 和 resumeCommand；不得截断、写成 \`[blocked]\` 或用块 ID 替代。自定义协议被宿主阻止时，仍输出完整地址并注明限制。用户明确要求审计全部会话时，才在正文后附加测试会话和历史 missing 会话。
 
@@ -621,7 +625,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 {{call listSessions}}
 
-逐项验证：进度页唯一；状态块与事件属性完整；普通事件无重复 eventId；启动核验三层（投影一致性、本地新鲜度、降级）在异常场景下能给出正确警示；知识型更新只有一个 provenance/进度事件；事件引用真实会话和原子；原子反链能返回事件；两个 query_embed 能显示相应记录；新会话能仅凭进度页、事件和原子恢复当前阶段、下一步与阻塞。报告成功、冲突、降级和未写入项，不以“工具调用成功”代替回读证据。
+逐项验证：进度页唯一；状态块与事件属性完整；普通事件无重复 eventId；启动核验（按工作线的投影一致性、Tier A 哈希、增量新鲜度、降级）在异常场景下能给出正确警示；知识型更新只有一个 provenance/进度事件；事件引用真实会话和原子；原子反链能返回事件；两个 query_embed 能显示相应记录；新会话能仅凭进度页、事件和原子恢复当前阶段、下一步与阻塞。报告成功、冲突、降级和未写入项，不以“工具调用成功”代替回读证据。
 `,
         calls: {
             bootstrap: call('system', 'bootstrap'),
@@ -639,6 +643,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             findStates: call('search', 'query_sql', { stmt: "SELECT b.id, b.content, b.updated FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='<project-id>') AND EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value IN ('project-profile','stage-ledger','artifact-index','project-state','workstream-state')) ORDER BY b.updated DESC LIMIT 50", maxRows: 50 }),
             resolveArtifact: call('file', 'resolve_project_source', { projectId: '<project-id>', relativePath: '<authoritative-relative-path>' }),
             allEvents: call('search', 'query_sql', { stmt: "SELECT b.id, b.content, b.created FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value='event') AND (EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='<project-id>') OR EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-provenance-project-id' AND p.value='<project-id>')) ORDER BY b.created DESC LIMIT 200 OFFSET 0", maxRows: 200 }),
+            eventAttrs: call('search', 'query_sql', { stmt: "SELECT block_id, name, value FROM attributes WHERE block_id IN ('<event-id-1>','<event-id-2>') AND name IN ('custom-progress-workstream','custom-progress-kind','custom-progress-occurred-at','custom-progress-provider','custom-progress-session-id','custom-provenance-occurred-at','custom-provenance-source-provider','custom-provenance-source-session','custom-provenance-compile-provider','custom-provenance-compile-session') ORDER BY block_id, name", maxRows: 1000 }),
             knowledgeSearch: call('search', 'knowledge', { query: '<current project task>', pageSize: 12, candidateSize: 30, activeScopes: ['<project-scope>'] }),
             readDetails: call('block', 'batch_kramdown', { ids: ['<filtered-block-id-1>', '<filtered-block-id-2>'], mode: 'md' }),
             discoverSession: call('provenance', 'discover_session', { provider: '<current-provider>', limit: 10 }),
