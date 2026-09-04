@@ -194,6 +194,15 @@
             ],
         },
         {
+            category: "project",
+            icon: "🧭",
+            groupKey: "Project Memory",
+            iconSvg: ICON_SVGS.layers,
+            actions: [
+                { key: "snapshot", title: "Project Snapshot", description: "Read a bounded shared-project-memory snapshot with diagnostics and a host-side probe baseline." },
+            ],
+        },
+        {
             category: "search",
             icon: "🔍",
             groupKey: "Search",

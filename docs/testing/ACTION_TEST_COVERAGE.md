@@ -1,12 +1,12 @@
 # Action Test Coverage
 
-本文档记录当前源码中 15 个聚合工具 action 的自动化测试覆盖口径。它补充 `AI_INTERFACE_TEST.md` 的人工/真实思源回归流程，重点回答一个问题：
+本文档记录当前源码中 16 个聚合工具 action 的自动化测试覆盖口径。它补充 `AI_INTERFACE_TEST.md` 的人工/真实思源回归流程，重点回答一个问题：
 
 > 每个已声明 action 是否至少有一条自动化测试能跑到运行时调用路径？
 
 ## 覆盖结论
 
-截至当前代码，源码中声明的静态 action 总数为 163 个；`extension` 还会按官方注册表生成动态 action。
+截至当前代码，源码中声明的静态 action 总数为 164 个；`extension` 还会按官方注册表生成动态 action。
 
 | 工具 | action 数 | 覆盖方式 |
 | --- | ---: | --- |

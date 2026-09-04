@@ -40,6 +40,7 @@ export const CATEGORY_TAB_DEFS: CategoryTabDefinition[] = [
     { category: "block", groupKey: "Blocks", iconKey: "layout" },
     { category: "av", groupKey: "Databases", iconKey: "database" },
     { category: "file", groupKey: "Files", iconKey: "paperclip" },
+    { category: "project", groupKey: "Project Memory", iconKey: "layers" },
     { category: "search", groupKey: "Search", iconKey: "search" },
     { category: "provenance", groupKey: "Agent Provenance", iconKey: "layers" },
     { category: "tag", groupKey: "Tags", iconKey: "tagIcon" },

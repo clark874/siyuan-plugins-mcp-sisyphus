@@ -7403,6 +7403,77 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
       "tool": "notebook",
     },
   },
+  "project": {
+    "actions": {
+      "snapshot": {
+        "action": "snapshot",
+        "example": {
+          "action": "snapshot",
+        },
+        "examples": [
+          {
+            "mcp": {
+              "action": "snapshot",
+              "cwd": "/absolute/project/path",
+              "eventLimit": 10,
+              "sessionLimit": 20,
+              "validateSessions": true,
+            },
+            "title": "Recover the current project from the Agent working directory",
+          },
+        ],
+        "fullDocResource": "siyuan://help/action/project/snapshot",
+        "guidance": [
+          "Use project.snapshot as the single machine-readable project recovery view; query_embed remains a human-facing projection.",
+          "Provide exactly one of cwd, projectId, or projectName. Project names use exact normalized matching; use file.list_project_sources for fallback candidates.",
+          "Resolved absolute paths are limited to entries already present in the project artifact index; workspaceRoot is never returned.",
+        ],
+        "hint": "Read a bounded project snapshot with state, workstreams, events, sessions, knowledge products, artifacts, diagnostics, and a host-side probe baseline.",
+        "requiredFields": [],
+        "requiresConfirmation": false,
+        "shapes": [
+          "action only",
+        ],
+        "tool": "project",
+      },
+    },
+    "description": "🧭 读取跨 Agent 项目共享记忆的结构化快照与服务端诊断。 Use the "action" field to select the operation.
+
+Common actions: snapshot. Required fields: snapshot: no additional fields.
+
+Parameter contract per action (fields outside the action's optional list should not be sent):
+project.snapshot: required [] | optional [cwd, projectId, projectName, eventLimit, sessionLimit, validateSessions]
+
+snapshot 是 Agent 恢复项目状态的唯一机器读取入口；query_embed 仅供人类界面展示。 cwd、projectId、projectName 三选一；项目名只做精确匹配，失败后由 Skill 使用 file.list_project_sources 展示候选。",
+    "overview": {
+      "actionSummaries": {
+        "snapshot": "Read a bounded project snapshot with state, workstreams, events, sessions, knowledge products, artifacts, diagnostics, and a host-side probe baseline.",
+      },
+      "actions": {
+        "snapshot": {
+          "hint": "Read a bounded project snapshot with state, workstreams, events, sessions, knowledge products, artifacts, diagnostics, and a host-side probe baseline.",
+          "requiresConfirmation": false,
+        },
+      },
+      "advancedActions": [],
+      "commonActions": [
+        "snapshot",
+      ],
+      "detailsHint": "Call project(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
+      "guidance": [
+        "Use project.snapshot as the single machine-readable project recovery view; query_embed remains a human-facing projection.",
+        "Provide exactly one of cwd, projectId, or projectName. Project names use exact normalized matching; use file.list_project_sources for fallback candidates.",
+        "Resolved absolute paths are limited to entries already present in the project artifact index; workspaceRoot is never returned.",
+      ],
+      "helpResources": [
+        "siyuan://help/action/project/{action}",
+        "siyuan://help/tool-overview",
+        "siyuan://help/examples",
+        "siyuan://help/ai-layout-guide",
+      ],
+      "tool": "project",
+    },
+  },
   "provenance": {
     "actions": {
       "discover_session": {
@@ -7480,8 +7551,8 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
           },
         ],
         "cliExamples": [
-          "siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --validate-only",
-          "siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+          "siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --workstream <workstream> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --validate-only",
+          "siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --workstream <workstream> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
         ],
         "cliFlags": {
           "optional": [
@@ -7499,6 +7570,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
             "--project-id",
             "--event-id",
             "--operation",
+            "--workstream",
             "--source-session-json",
             "--target-atom-ids",
           ],
@@ -7515,11 +7587,12 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
           "targetAtomIds": [
             "<targetAtomIdsItem>",
           ],
+          "workstream": "<workstream>",
         },
         "examples": [
           {
-            "description": "siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --validate-only
-siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
+            "description": "siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --workstream <workstream> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --validate-only
+siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --project-id <projectId> --event-id <eventId> --operation <operation> --workstream <workstream> --source-session-json '{"provider":"codex"}' --target-atom-ids <targetAtomIdsItem> --expected-state-hash <preflight-credential> --request-id <uuidv7>",
             "mcp": {
               "action": "record_event",
               "eventId": "<eventId>",
@@ -7532,6 +7605,7 @@ siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --pr
               "targetAtomIds": [
                 "<targetAtomIdsItem>",
               ],
+              "workstream": "<workstream>",
             },
             "title": "Canonical CLI",
           },
@@ -7549,12 +7623,13 @@ siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --pr
           "projectId",
           "eventId",
           "operation",
+          "workstream",
           "sourceSession",
           "targetAtomIds",
         ],
         "requiresConfirmation": false,
         "shapes": [
-          "projectBlockId + projectId + eventId + operation + sourceSession + targetAtomIds",
+          "projectBlockId + projectId + eventId + operation + workstream + sourceSession + targetAtomIds",
         ],
         "tool": "provenance",
         "writeSafety": {
@@ -7704,13 +7779,13 @@ siyuan-sisyphus provenance register-session --project-block-id <projectBlockId> 
     },
     "description": "🔗 登记、查询并解析项目知识化事件与 Agent 会话之间的溯源关系。 Use the "action" field to select the operation.
 
-Common actions: register_session, record_event, list_project_sessions, list_atom_events, resolve_session_link, validate_session. Required fields: register_session: projectBlockId, projectId, session; record_event: projectBlockId, projectId, eventId, operation, sourceSession, targetAtomIds; list_project_sessions: projectId; list_atom_events: atomId; resolve_session_link: provider, sessionId; validate_session: provider, sessionId.
+Common actions: register_session, record_event, list_project_sessions, list_atom_events, resolve_session_link, validate_session. Required fields: register_session: projectBlockId, projectId, session; record_event: projectBlockId, projectId, eventId, operation, workstream, sourceSession, targetAtomIds; list_project_sessions: projectId; list_atom_events: atomId; resolve_session_link: provider, sessionId; validate_session: provider, sessionId.
 
 Additional actions: discover_session. Read siyuan://help/action/provenance/{action} for details, or call action="help" if resources are unavailable.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
 provenance.register_session: required [projectBlockId, projectId, session] | optional [occurredAt]
-provenance.record_event: required [projectBlockId, projectId, eventId, operation, sourceSession, targetAtomIds] | optional [occurredAt, compileSession, automationId]
+provenance.record_event: required [projectBlockId, projectId, eventId, operation, workstream, sourceSession, targetAtomIds] | optional [occurredAt, compileSession, automationId]
 provenance.discover_session: required [provider] | optional [limit, activeWindowSeconds]
 provenance.list_project_sessions: required [projectId] | optional [limit, validate]
 provenance.list_atom_events: required [atomId] | optional [limit]
@@ -8653,7 +8728,7 @@ siyuan-sisyphus system apply-change --plan-id <planID> --expected-state-hash <pr
             "mcp": {
               "action": "changelog",
               "includeRaw": true,
-              "version": "0.4.11",
+              "version": "0.4.12",
             },
             "title": "Read one exact release entry with raw Markdown",
           },

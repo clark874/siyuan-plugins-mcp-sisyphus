@@ -140,12 +140,22 @@ siyuan-sisyphus provenance discover-session --provider 'zcode' --limit '10' --js
 
 通过 Agent Kit 安装的本地客户端可执行 `node ~/.siyuan-sisyphus/bin/capture-agent-session.cjs`。命令未发现会话时应停止并请求显式会话标识。Hermes 优先读取 HERMES_SESSION_ID。`--provider zcode --infer-latest` 仅是经确认后的兼容路径。
 
-交互式知识化把当前会话同时作为 `sourceSession` 和 `compileSession`。定时编译或跨 Agent 转交必须分别记录原始讨论会话与执行编译会话；原始来源未知时留待补录，不得用编译会话冒充来源会话。
+交互式知识化把当前会话同时作为 `sourceSession` 和 `compileSession`。定时编译或跨 Agent 转交必须分别记录原始讨论会话与执行编译会话；原始来源未知时留待补录，不得用编译会话冒充来源会话。`record_event` 不再隐式登记会话，因此必须先分别登记两个真实会话并回读确认；两者相同时只登记一次：
+
+```bash
+siyuan-sisyphus provenance register-session --project-block-id '<project-hub-block-id>' --project-id '<registered-project-id>' --session-json '{"provider":"codex","sessionId":"<source-session-id>","hostAlias":"local","captureMethod":"environment"}' --occurred-at '<source-session-time>' --json
+```
+```bash
+siyuan-sisyphus provenance register-session --project-block-id '<project-hub-block-id>' --project-id '<registered-project-id>' --session-json '{"provider":"codex","sessionId":"<compile-session-id>","hostAlias":"local","captureMethod":"environment"}' --occurred-at '<compile-session-time>' --json
+```
+```bash
+siyuan-sisyphus provenance list-project-sessions --project-id '<registered-project-id>' --validate --limit '100' --json
+```
 
 原子和关系块完成后，以同一个稳定 `eventId` 登记一次知识化事件：
 
 ```bash
-siyuan-sisyphus provenance record-event --project-block-id '<project-hub-block-id>' --project-id '<registered-project-id>' --event-id '<stable-event-id>' --operation 'project-knowledge-compile' --source-session-json '{"provider":"codex","sessionId":"<source-session-id>","hostAlias":"local","captureMethod":"environment"}' --compile-session-json '{"provider":"codex","sessionId":"<compile-session-id>","hostAlias":"local","captureMethod":"environment"}' --target-atom-ids-json '["<atom-id>","<relation-block-id>"]' --json
+siyuan-sisyphus provenance record-event --project-block-id '<project-hub-block-id>' --project-id '<registered-project-id>' --event-id '<stable-event-id>' --operation 'project-knowledge-compile' --workstream '<project-workstream>' --source-session-json '{"provider":"codex","sessionId":"<source-session-id>","hostAlias":"local","captureMethod":"environment"}' --compile-session-json '{"provider":"codex","sessionId":"<compile-session-id>","hostAlias":"local","captureMethod":"environment"}' --target-atom-ids-json '["<atom-id>","<relation-block-id>"]' --json
 ```
 
 随后按项目与代表性原子回读。只有 `linkCapability=native` 才能表述为客户端原生深链；`launcher` 和 `resume_command` 必须保留能力分级：

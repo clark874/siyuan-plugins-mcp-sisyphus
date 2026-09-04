@@ -1,6 +1,6 @@
 {
   "name": "siyuan-sisyphus-agent-kit",
-  "version": "0.9.11",
+  "version": "0.9.12",
   "description": "为 Kimi Code 提供单一 Sisyphus MCP 网关的启动规则和安全工作流。",
   "author": "clark874",
   "homepage": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus",

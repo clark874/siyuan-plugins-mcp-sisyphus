@@ -78,6 +78,47 @@ describe('block tool', () => {
         expect(actionDescription).toContain('docs_info');
     });
 
+    it('enforces knowledge metadata transitions through set_attrs', async () => {
+        let attrs: Record<string, string> = { 'custom-verification-status': 'source-checked' };
+        let duplicateName = false;
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, any>) => {
+                if (endpoint === '/api/query/sql') {
+                    if (String(body?.stmt || '').includes("COALESCE(name, '')")) return duplicateName ? [{ id: 'other', box: 'nb-1', name: 'same-name' }] : [];
+                    return [{ id: 'block-1', root_id: 'doc-1', box: 'nb-1', path: '/doc-1.sy', hpath: '/Doc 1', content: 'Atom', type: 'p' }];
+                }
+                if (endpoint === '/api/attr/getBlockAttrs') return attrs;
+                if (endpoint === '/api/transactions') {
+                    const data = body?.transactions?.[0]?.doOperations?.[0]?.data;
+                    attrs = { ...attrs, ...JSON.parse(String(data || '{}')) };
+                    return null;
+                }
+                if (endpoint.startsWith('/api/ui/')) return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+
+        const accepted = parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: 'block-1', attrs: { 'custom-verification-status': 'evidence-verified' },
+        }, buildDefaultToolConfig().block, permMgr as never));
+        expect(accepted.verification).toMatchObject({ status: 'verified' });
+
+        attrs = { 'custom-verification-status': 'deprecated' };
+        const illegalTransition = parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: 'block-1', attrs: { 'custom-verification-status': 'source-checked' },
+        }, buildDefaultToolConfig().block, permMgr as never));
+        expect(illegalTransition.error.message).toContain('非法知识验证状态迁移');
+        const forgedKnowledge = parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: 'block-1', attrs: { 'custom-progress-kind': 'knowledge' },
+        }, buildDefaultToolConfig().block, permMgr as never));
+        expect(forgedKnowledge.error.message).toContain('只能由 provenance.record_event');
+        duplicateName = true;
+        const duplicate = parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: 'block-1', attrs: { name: 'same-name' },
+        }, buildDefaultToolConfig().block, { ...permMgr, getAll: () => ({ 'nb-1': 'rwd' }) } as never));
+        expect(duplicate.error.message).toContain('name 与既有可读块冲突');
+    });
+
     it('limits batch_kramdown to 20 IDs', () => {
         const variant = BLOCK_VARIANTS.find((item) => item.action === 'batch_kramdown');
 

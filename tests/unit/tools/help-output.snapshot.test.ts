@@ -33,6 +33,10 @@ function createAllEnabledConfig(): ToolConfig {
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.file.map((action) => [action, true])) as ToolConfig['file']['actions'],
             uploadLargeFileThresholdMB: 10,
         },
+        project: {
+            enabled: true,
+            actions: Object.fromEntries(ACTIONS_BY_CATEGORY.project.map((action) => [action, true])) as ToolConfig['project']['actions'],
+        },
         search: {
             enabled: true,
             actions: Object.fromEntries(ACTIONS_BY_CATEGORY.search.map((action) => [action, true])) as ToolConfig['search']['actions'],

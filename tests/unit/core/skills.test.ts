@@ -14,6 +14,7 @@ import {
     FLASHCARD_VARIANTS,
     FS_VARIANTS,
     NOTEBOOK_VARIANTS,
+    PROJECT_VARIANTS,
     PROVENANCE_VARIANTS,
     SEARCH_VARIANTS,
     SYSTEM_VARIANTS,
@@ -33,6 +34,7 @@ const variantsByTool: Record<string, Array<{ action: string; schema: Record<stri
     fs: FS_VARIANTS,
     notebook: NOTEBOOK_VARIANTS,
     provenance: PROVENANCE_VARIANTS,
+    project: PROJECT_VARIANTS,
     search: SEARCH_VARIANTS,
     system: SYSTEM_VARIANTS,
     tag: TAG_VARIANTS,
@@ -75,6 +77,8 @@ describe('core/skills', () => {
         expect(projectCompile?.text).toContain('custom-reuse-scope=public-candidate');
         expect(projectCompile?.text).toContain('produced-by');
         expect(projectCompile?.text).toContain('不把所有文字提及变成引用');
+        expect(projectCompile?.text).toContain('workstream=');
+        expect(projectCompile?.text.indexOf('provenance(action="register_session"')).toBeLessThan(projectCompile?.text.indexOf('provenance(action="record_event"'));
         expect(projectCoordinator?.text).toContain('公开命令只有“启动”“交接”“知识化”“收尾”');
         expect(projectCoordinator?.text).toContain('知识化\`：只处理本轮可长期复用');
         expect(projectCoordinator?.text).toContain('references/project-panorama-output-contract.md');
@@ -96,15 +100,19 @@ describe('core/skills', () => {
         expect(panoramaContract).toContain('不得截断 sessionId');
         expect(panoramaContract).toContain('项目进度页只保存相对路径');
         expect(projectCoordinator?.text).toContain('environment|client_context|explicit|inferred_latest_rollout');
-        expect(projectCoordinator?.text).toContain('file(action="identify_project"');
+        expect(projectCoordinator?.text).toContain('project(action="snapshot"');
+        expect(projectCoordinator?.text).toContain('references/project-progress-initialization.md');
+        expect(projectCoordinator?.text).not.toContain('search(action="query_sql"');
         expect(projectCoordinator?.text).toContain('不创建第二个检查点块');
         expect(projectCoordinator?.text).toContain('状态投影待重建');
         expect(projectCoordinator?.text).toContain('最多读取 5 个');
         expect(projectCoordinator?.text).toContain('本地权威文件 ↔ 项目源清单 ↔ 思源投影/知识');
-        expect(projectCoordinator?.text).toContain('每个工作线状态块只对应同一');
-        expect(projectCoordinator?.text).toContain('先检查 `find` 自身退出状态');
+        expect(projectCoordinator?.text).toContain('均直接使用 `snapshot.diagnostics`');
+        expect(projectCoordinator?.text).toContain('先检查命令退出状态');
         expect(projectCoordinator?.text).toContain('宿主私有 memory、旧 rollout 和聊天记录不得用于补全项目事实');
-        expect(projectCoordinator?.text).toContain('SELECT block_id, name, value FROM attributes WHERE block_id IN');
+        expect(projectCoordinator?.text).toContain('机器判断只以 snapshot 为准');
+        expect(projectCoordinator?.text).toContain('workstream=');
+        expect(projectCoordinator?.text.indexOf('provenance(action="register_session"')).toBeLessThan(projectCoordinator?.text.indexOf('provenance(action="record_event"'));
         expect(projectCoordinator?.text).not.toContain('800 token');
         expect(projectCoordinator?.text).not.toContain('LEFT JOIN attributes');
         expect(projectCoordinator?.text).not.toContain('COALESCE(t.value');

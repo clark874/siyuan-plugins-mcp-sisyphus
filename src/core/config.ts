@@ -1,6 +1,6 @@
 import type { SiYuanClient } from '../api/client';
 
-export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'search', 'provenance', 'tag', 'timeline', 'system', 'flashcard', 'extension', 'mascot', 'feedback'] as const;
+export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'project', 'search', 'provenance', 'tag', 'timeline', 'system', 'flashcard', 'extension', 'mascot', 'feedback'] as const;
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
@@ -10,6 +10,7 @@ export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'remove', 'move',
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'replace', 'delete', 'move', 'set_fold_state', 'get_kramdown', 'batch_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'recent_updated', 'word_count', 'add_to_daily_note', 'docs_info'] as const;
 export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values'] as const;
 export const FILE_ACTIONS = ['upload_asset', 'register_project_source', 'identify_project', 'scan_project_manifest', 'resolve_project_source', 'read_project_source', 'list_project_sources', 'list_templates', 'read_template', 'create_template', 'update_template', 'delete_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc'] as const;
+export const PROJECT_ACTIONS = ['snapshot'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'check_anchor', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'search_assets', 'fulltext_asset_content', 'list_invalid_refs', 'criteria_list', 'criteria_save', 'criteria_remove'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'compare_recent', 'delete_node', 'rollback_document', 'rollback_block'] as const;
@@ -78,6 +79,7 @@ export type DocumentAction = typeof DOCUMENT_ACTIONS[number];
 export type BlockAction = typeof BLOCK_ACTIONS[number];
 export type AvAction = typeof AV_ACTIONS[number];
 export type FileAction = typeof FILE_ACTIONS[number];
+export type ProjectAction = typeof PROJECT_ACTIONS[number];
 export type SearchAction = typeof SEARCH_ACTIONS[number];
 export type TagAction = typeof TAG_ACTIONS[number];
 export type TimelineAction = typeof TIMELINE_ACTIONS[number];
@@ -98,6 +100,7 @@ export type ToolActionMap = {
     block: BlockAction;
     av: AvAction;
     file: FileAction;
+    project: ProjectAction;
     search: SearchAction;
     tag: TagAction;
     timeline: TimelineAction;
@@ -148,7 +151,7 @@ export interface WriteSafetyConfig {
 
 /**
  * Some MCP clients react to `isError: true` by re-sending the full tools/list
- * payload as a self-correction hint. With 15 aggregated tools that payload is
+ * payload as a self-correction hint. With 16 aggregated tools that payload is
  * around 118 KB, so a single mistyped argument can burn tens of thousands of
  * tokens of client context. Opting in downgrades only agent-correctable
  * failures to a non-error result; the structured `error` payload is preserved
@@ -165,6 +168,7 @@ export type ToolConfig = {
     block: CategoryToolConfig<BlockAction>;
     av: CategoryToolConfig<AvAction>;
     file: FileCategoryToolConfig<FileAction>;
+    project: CategoryToolConfig<ProjectAction>;
     search: CategoryToolConfig<SearchAction>;
     tag: CategoryToolConfig<TagAction>;
     timeline: TimelineCategoryToolConfig;
@@ -204,6 +208,7 @@ export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolAct
     block: BLOCK_ACTIONS,
     av: AV_ACTIONS,
     file: FILE_ACTIONS,
+    project: PROJECT_ACTIONS,
     search: SEARCH_ACTIONS,
     tag: TAG_ACTIONS,
     timeline: TIMELINE_ACTIONS,
@@ -265,6 +270,9 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         remove_unused_assets: 'advanced', rename_asset: 'advanced',
         delete_asset: 'advanced',
     },
+    project: {
+        snapshot: 'basic',
+    },
     search: {
         fulltext: 'basic', semantic: 'basic', knowledge: 'basic', check_anchor: 'basic', query_sql: 'basic',
         get_backlinks: 'basic',
@@ -320,6 +328,7 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     block: new Set(['delete', 'move']),
     av: new Set(),
     file: new Set(['upload_asset', 'register_project_source', 'scan_project_manifest', 'resolve_project_source', 'delete_template', 'remove_unused_assets', 'delete_asset']),
+    project: new Set(),
     search: new Set(['find_replace', 'criteria_save', 'criteria_remove']),
     tag: new Set(['remove']),
     timeline: new Set(['delete_node', 'rollback_document', 'rollback_block']),
@@ -368,6 +377,10 @@ export function buildDefaultToolConfig(): ToolConfig {
             enabled: true,
             actions: createActionsRecord(FILE_ACTIONS, ['upload_asset', 'register_project_source', 'identify_project', 'scan_project_manifest', 'resolve_project_source', 'read_project_source', 'list_project_sources', 'list_templates', 'read_template', 'create_template', 'update_template', 'save_doc_as_template', 'render', 'export_md', 'export_resources', 'list_unused_assets', 'get_doc_assets', 'remove_unused_assets', 'rename_asset', 'delete_asset', 'extract_doc']),
             uploadLargeFileThresholdMB: 10,
+        },
+        project: {
+            enabled: true,
+            actions: createActionsRecord(PROJECT_ACTIONS, PROJECT_ACTIONS),
         },
         search: {
             enabled: true,

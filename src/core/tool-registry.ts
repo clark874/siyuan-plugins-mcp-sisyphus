@@ -17,6 +17,7 @@ import {
     callFsTool,
     callMascotTool,
     callNotebookTool,
+    callProjectTool,
     callProvenanceTool,
     callSearchTool,
     callSystemTool,
@@ -32,6 +33,7 @@ import {
     listFsTools,
     listMascotTools,
     listNotebookTools,
+    listProjectTools,
     listProvenanceTools,
     listSearchTools,
     listSystemTools,
@@ -74,6 +76,7 @@ const TOOL_TITLES: Record<ToolCategory, string> = {
     block: 'SiYuan Blocks',
     av: 'SiYuan Databases',
     file: 'SiYuan Assets and Exports',
+    project: 'SiYuan Project Memory',
     feedback: 'Sisyphus Feedback',
     search: 'SiYuan Search',
     tag: 'SiYuan Tags',
@@ -117,6 +120,7 @@ export const TOOL_REGISTRY: Record<ToolCategory, ToolModule> = {
     block: { category: 'block', listTools: listBlockTools as ToolModule['listTools'], callTool: callBlockTool as ToolModule['callTool'] },
     av: { category: 'av', listTools: listAvTools as ToolModule['listTools'], callTool: callAvTool as ToolModule['callTool'] },
     file: { category: 'file', listTools: listFileTools as ToolModule['listTools'], callTool: callFileTool as ToolModule['callTool'] },
+    project: { category: 'project', listTools: listProjectTools as ToolModule['listTools'], callTool: callProjectTool as ToolModule['callTool'] },
     feedback: { category: 'feedback', listTools: listFeedbackTools as ToolModule['listTools'], callTool: callFeedbackTool as ToolModule['callTool'] },
     search: { category: 'search', listTools: listSearchTools as ToolModule['listTools'], callTool: callSearchTool as ToolModule['callTool'] },
     tag: { category: 'tag', listTools: listTagTools as ToolModule['listTools'], callTool: callTagTool as ToolModule['callTool'] },
@@ -170,7 +174,7 @@ export function listAllTools(config: ToolConfig, runtime?: OfficialMcpRuntime): 
                 // Aggregated tools generally mix reads and writes. False is
                 // deliberately conservative; action-level semantics remain
                 // documented in the discriminated input schema and help.
-                readOnlyHint: false,
+                readOnlyHint: cat === 'project',
                 destructiveHint: enabledDangerousAction,
                 idempotentHint: false,
                 openWorldHint: true,

@@ -1,6 +1,6 @@
 # 工具索引
 
-这个页面汇总项目暴露的 15 个聚合工具。
+这个页面汇总项目暴露的 16 个聚合工具。
 
 适用场景：你已经知道大致领域，但还需要定位到具体工具页面。
 
@@ -17,6 +17,7 @@
 | `block` | 21 | [block 工具](./block.md) |
 | `av` | 13 | [av 工具](./av.md) |
 | `file` | 22 | [file 工具](./file.md) |
+| `project` | 1 | [project 工具](./project.md) |
 | `search` | 14 | [search 工具](./search.md) |
 | `provenance` | 6 | [provenance 工具](./provenance.md) |
 | `tag` | 3 | [tag 工具](./tag.md) |
@@ -35,6 +36,7 @@
 - `block`: insert, prepend, append, update, replace, delete, move, set_fold_state, get_kramdown, batch_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info
 - `av`: get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate, get_primary_key_values
 - `file`: upload_asset, list_templates, read_template, create_template, update_template, delete_template, save_doc_as_template, render, export_md, export_resources, list_unused_assets, get_doc_assets, remove_unused_assets, rename_asset, delete_asset, extract_doc
+- `project`: snapshot
 - `search`: fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs, criteria_list, criteria_save, criteria_remove
 - `provenance`: register_session, record_event, list_project_sessions, list_atom_events, resolve_session_link, validate_session
 - `tag`: list, rename, remove

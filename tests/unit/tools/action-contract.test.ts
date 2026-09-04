@@ -6,6 +6,7 @@ import { callDocumentTool, DOCUMENT_VARIANTS } from '@/tools/document';
 import { callFileTool, FILE_VARIANTS } from '@/tools/file';
 import { callFeedbackTool, FEEDBACK_VARIANTS } from '@/tools/feedback';
 import { callNotebookTool, NOTEBOOK_VARIANTS } from '@/tools/notebook';
+import { callProjectTool, PROJECT_VARIANTS } from '@/tools/project';
 import { callFsTool, FS_VARIANTS } from '@/tools/fs';
 import { callSearchTool, SEARCH_VARIANTS } from '@/tools/search';
 import { callSystemTool, SYSTEM_VARIANTS } from '@/tools/system';
@@ -335,6 +336,12 @@ describe('tool action contract coverage', () => {
             { action: 'rename_asset', args: { action: 'rename_asset', oldPath: 'assets/old.png', newName: 'new.png' }, expectedEndpoint: '/api/asset/renameAsset' },
             { action: 'delete_asset', args: { action: 'delete_asset', path: 'assets/old.png' }, expectedEndpoint: '/api/asset/removeUnusedAsset' },
             { action: 'extract_doc', args: { action: 'extract_doc', id: 'doc-1', outputDir: '/tmp/siyuan-contract-extract' }, expectedEndpoint: '/api/export/exportMdContent' },
+        ]);
+    });
+
+    it('covers every project action with a minimal endpoint contract', async () => {
+        await runContracts('project', PROJECT_VARIANTS, callProjectTool as ToolCaller, [
+            { action: 'snapshot', args: { action: 'snapshot', projectId: 'missing-project' } },
         ]);
     });
 

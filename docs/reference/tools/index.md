@@ -1,6 +1,6 @@
 # Tools Index
 
-This page summarizes the 15 aggregated tools exposed by the project.
+This page summarizes the 16 aggregated tools exposed by the project.
 
 When to read this page: you know the general domain but need the right tool page.
 
@@ -17,6 +17,7 @@ Related pages:
 | `block` | 21 | [block](./block.md) |
 | `av` | 13 | [av](./av.md) |
 | `file` | 22 | [file](./file.md) |
+| `project` | 1 | [project](./project.md) |
 | `search` | 14 | [search](./search.md) |
 | `provenance` | 6 | [provenance](./provenance.md) |
 | `tag` | 3 | [tag](./tag.md) |
@@ -35,6 +36,7 @@ Related pages:
 - `block`: insert, prepend, append, update, replace, delete, move, set_fold_state, get_kramdown, batch_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info
 - `av`: get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, rename, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate, get_primary_key_values
 - `file`: upload_asset, list_templates, read_template, create_template, update_template, delete_template, save_doc_as_template, render, export_md, export_resources, list_unused_assets, get_doc_assets, remove_unused_assets, rename_asset, delete_asset, extract_doc
+- `project`: snapshot
 - `search`: fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs, criteria_list, criteria_save, criteria_remove
 - `provenance`: register_session, record_event, list_project_sessions, list_atom_events, resolve_session_link, validate_session
 - `tag`: list, rename, remove

@@ -2,6 +2,15 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.12 - 2026-09-04
+
+- 新增第 16 个聚合工具 `project` 及只读 `project.snapshot`，集中返回项目身份、进度页、状态投影、事件、会话、知识产物、产物索引、服务端诊断和本地探针基线
+- `project.snapshot` 与 `file.identify_project` 复用同一 cwd 最长路径匹配；服务端以稳定 ID 分阶段读取，避免多重 attributes JOIN，并只解析已登记产物索引内的绝对路径
+- `provenance.record_event` 新增必填 `workstream`，取消隐式会话登记，一次写齐四个固定进度属性；相同 eventId 可修复历史缺失属性但拒绝冲突
+- `record_event` 的真实块引用回读增加 500ms 内有界重试，消除思源 refs 索引短暂延迟造成的误报；重放仍复用同一事件块
+- `block.set_attrs` 新增 name 唯一性、知识验证状态迁移、原子类型共现与普通进度事件完整性校验，预检与执行共用同一校验器并完成回读
+- 项目协调 Skill v0.6.0 改用 snapshot 作为机器读取真相，移除内嵌 SQL、会话排序、事件属性拼装和初始化长模板；CLI 提升至 `v0.4.12`
+
 ## v0.9.10 - 2026-09-03
 
 - 项目协调 Skill 新增"启动核验"：`启动`与`交接`输出全景前，只读核验投影一致性（状态块 `custom-progress-last-event-id` 对齐事件流最新块）、本地新鲜度（`identify_project` 绑定状态 + Git `log --since`/`status --porcelain` 探针 + 非 Git 目录 `find -newermt` 探针 + 产物索引相对路径悬空核验）与思源可用性；异常最多两行警示，不写入、不阻断、不落事件

@@ -44,12 +44,22 @@ export interface EventRecord {
     projectId: string;
     eventId: string;
     operation: string;
+    workstream: string;
     occurredAt: string;
     sourceSession: SessionRecord;
     compileSession: SessionRecord;
     targetAtomIds: string[];
     automationId?: string;
     replayed?: boolean;
+    attributes: Record<string, string>;
+    verification: {
+        status: 'verified';
+        eventAttributes: true;
+        targetAtomAttributes: true;
+        referencedSessionBlockIds: string[];
+        referencedAtomIds: string[];
+        verifiedReferences: string[];
+    };
 }
 
 const SESSION_CACHE = new Map<string, string>();
@@ -296,6 +306,21 @@ async function verifyAttrs(client: SiYuanClient, id: string, expected: Record<st
     return attrs;
 }
 
+async function verifyEventReferences(client: SiYuanClient, eventBlockId: string, expectedIds: string[]): Promise<string[]> {
+    const expected = [...new Set(expectedIds)];
+    let actual = new Set<string>();
+    for (const delayMs of [0, 50, 150, 300]) {
+        if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+        const rows = await searchApi.querySQL(client, `SELECT DISTINCT def_block_id FROM refs WHERE block_id='${sql(eventBlockId)}' LIMIT ${Math.max(20, expected.length + 5)}`);
+        actual = new Set(rows.flatMap((row) => row && typeof row === 'object' && typeof (row as Record<string, unknown>).def_block_id === 'string'
+            ? [(row as Record<string, string>).def_block_id]
+            : []));
+        if (expected.every((id) => actual.has(id))) return [...actual];
+    }
+    const missing = expected.filter((id) => !actual.has(id));
+    throw new Error(`知识化事件 ${eventBlockId} 的真实块引用回读不完整：${missing.join(', ')}。`);
+}
+
 async function findRecordByAttrs(client: SiYuanClient, kind: 'session' | 'event', projectId: string, uniqueName: string, uniqueValue: string, cacheKey: string, cache: Map<string, string>): Promise<string | null> {
     const cached = cache.get(cacheKey);
     if (cached) {
@@ -396,6 +421,7 @@ function assertEventReplayCompatible(existing: Record<string, string>, input: {
     projectId: string;
     eventId: string;
     operation: string;
+    workstream: string;
     occurredAt?: string;
     sourceSession: SessionIdentity;
     compileSession?: SessionIdentity;
@@ -417,6 +443,10 @@ function assertEventReplayCompatible(existing: Record<string, string>, input: {
         'custom-provenance-compile-capture-method': compile.captureMethod,
         'custom-provenance-target-atom-ids': JSON.stringify(input.targetAtomIds),
         'custom-automation-id': input.automationId || '',
+        'custom-progress-role': 'event',
+        'custom-progress-schema': '1',
+        'custom-progress-workstream': input.workstream,
+        'custom-progress-kind': 'knowledge',
     };
     if (input.occurredAt) expected['custom-provenance-occurred-at'] = input.occurredAt;
     for (const [name, value] of Object.entries(expected)) {
@@ -450,6 +480,7 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
     projectId: string;
     eventId: string;
     operation: string;
+    workstream: string;
     occurredAt?: string;
     sourceSession: SessionIdentity;
     compileSession?: SessionIdentity;
@@ -461,7 +492,16 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
     const replayed = Boolean(blockId);
     if (blockId) {
         const existing = await blockApi.getBlockAttrs(client, blockId);
-        assertEventReplayCompatible(existing, input);
+        const fixedProgressAttrs: Record<string, string> = {
+            'custom-progress-role': 'event',
+            'custom-progress-schema': '1',
+            'custom-progress-workstream': input.workstream,
+            'custom-progress-kind': 'knowledge',
+        };
+        for (const [name, value] of Object.entries(fixedProgressAttrs)) {
+            if (existing[name] && existing[name] !== value) throw new Error(`eventId ${input.eventId} 已用于不同的知识化事件，冲突字段：${name}。`);
+        }
+        assertEventReplayCompatible({ ...existing, ...fixedProgressAttrs }, input);
         const sourceSession = await readRegisteredSession(client, input.projectId, input.sourceSession);
         const compileSession = await readRegisteredSession(client, input.projectId, input.compileSession || input.sourceSession);
         const occurredAt = existing['custom-provenance-occurred-at'] || input.occurredAt || '';
@@ -484,22 +524,38 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
             await blockApi.batchSetBlockAttrs(client, repairs);
             for (const repair of repairs) await verifyAttrs(client, repair.id, atomAttrs);
         }
+        if (Object.entries(fixedProgressAttrs).some(([name, value]) => existing[name] !== value)) {
+            await blockApi.setBlockAttrs(client, blockId, fixedProgressAttrs);
+            await verifyAttrs(client, blockId, fixedProgressAttrs);
+        }
+        const verifiedEventAttrs = await blockApi.getBlockAttrs(client, blockId);
+        const verifiedReferences = await verifyEventReferences(client, blockId, [sourceSession.blockId, compileSession.blockId, ...input.targetAtomIds]);
         return {
             blockId,
             projectId: input.projectId,
             eventId: input.eventId,
             operation: input.operation,
+            workstream: input.workstream,
             occurredAt,
             sourceSession,
             compileSession,
             targetAtomIds: input.targetAtomIds,
             automationId: input.automationId,
             replayed: true,
+            attributes: verifiedEventAttrs,
+            verification: {
+                status: 'verified',
+                eventAttributes: true,
+                targetAtomAttributes: true,
+                referencedSessionBlockIds: [...new Set([sourceSession.blockId, compileSession.blockId])],
+                referencedAtomIds: input.targetAtomIds,
+                verifiedReferences,
+            },
         };
     }
     const occurredAt = input.occurredAt || nowIso();
-    const sourceSession = await registerProvenanceSession(client, input.projectBlockId, input.projectId, input.sourceSession, occurredAt);
-    const compileSession = await registerProvenanceSession(client, input.projectBlockId, input.projectId, input.compileSession || input.sourceSession, occurredAt);
+    const sourceSession = await readRegisteredSession(client, input.projectId, input.sourceSession);
+    const compileSession = await readRegisteredSession(client, input.projectId, input.compileSession || input.sourceSession);
     if (!blockId) {
         const targetRefs = input.targetAtomIds.map((id) => `((` + `${id} "知识原子"` + `))`).join('、');
         const compileRef = compileSession.blockId === sourceSession.blockId ? '' : `；编译 ((` + `${compileSession.blockId} "${compileSession.provider} 会话"` + `))`;
@@ -523,6 +579,10 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
         'custom-provenance-compile-host-alias': compileSession.hostAlias,
         'custom-provenance-compile-capture-method': compileSession.captureMethod,
         'custom-provenance-target-atom-ids': JSON.stringify(input.targetAtomIds),
+        'custom-progress-role': 'event',
+        'custom-progress-schema': '1',
+        'custom-progress-workstream': input.workstream,
+        'custom-progress-kind': 'knowledge',
     };
     if (input.automationId) attrs['custom-automation-id'] = input.automationId;
     await blockApi.setBlockAttrs(client, blockId, attrs);
@@ -537,7 +597,30 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
     });
     await blockApi.batchSetBlockAttrs(client, input.targetAtomIds.map((id) => ({ id, attrs: atomAttrs })));
     for (const atomId of input.targetAtomIds) await verifyAttrs(client, atomId, atomAttrs);
-    return { blockId, projectId: input.projectId, eventId: input.eventId, operation: input.operation, occurredAt, sourceSession, compileSession, targetAtomIds: input.targetAtomIds, automationId: input.automationId, replayed };
+    const verifiedEventAttrs = await blockApi.getBlockAttrs(client, blockId);
+    const verifiedReferences = await verifyEventReferences(client, blockId, [sourceSession.blockId, compileSession.blockId, ...input.targetAtomIds]);
+    return {
+        blockId,
+        projectId: input.projectId,
+        eventId: input.eventId,
+        operation: input.operation,
+        workstream: input.workstream,
+        occurredAt,
+        sourceSession,
+        compileSession,
+        targetAtomIds: input.targetAtomIds,
+        automationId: input.automationId,
+        replayed,
+        attributes: verifiedEventAttrs,
+        verification: {
+            status: 'verified',
+            eventAttributes: true,
+            targetAtomAttributes: true,
+            referencedSessionBlockIds: [...new Set([sourceSession.blockId, compileSession.blockId])],
+            referencedAtomIds: input.targetAtomIds,
+            verifiedReferences,
+        },
+    };
 }
 
 export async function listAtomProvenanceEvents(client: SiYuanClient, atomId: string, limit = 100): Promise<Array<Record<string, unknown>>> {

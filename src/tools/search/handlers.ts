@@ -1,5 +1,6 @@
 import * as searchApi from '../../api/search';
 import { redactText } from '../../control-plane/security';
+import { normalizeAnchorToken } from '../../core/attribute-governance';
 import type { SearchAction } from '../../core/config';
 import {
     expandTypeShortcodes,
@@ -112,10 +113,6 @@ function readStringField(row: Record<string, unknown>, ...keys: string[]): strin
 
 function sqlStringList(values: string[]): string {
     return values.map((value) => `'${escapeSqlString(value)}'`).join(', ');
-}
-
-function normalizeAnchorToken(value: string): string {
-    return value.normalize('NFKC').trim().toLocaleLowerCase('en-US');
 }
 
 function splitAnchorTokens(value: string): string[] {

@@ -14,7 +14,7 @@ src/
 ├── core/                     # MCP Server core
 │   ├── server.ts             # MCP Server creation & handler registration
 │   ├── http-transport.ts     # HTTP/S MCP transport layer
-│   ├── tool-registry.ts      # Registry of 15 aggregated tools, including dynamic extension actions
+│   ├── tool-registry.ts      # Registry of 16 aggregated tools, including dynamic extension actions
 │   ├── tool-lifecycle.ts     # Tool call AOP wrapper (analytics/telemetry/puppy)
 │   ├── permissions.ts        # Notebook-level 4-tier permission management
 │   ├── config.ts             # ToolConfig schema / defaults / migration
@@ -32,7 +32,7 @@ src/
 │   ├── normalize.ts          # Request parameter normalization
 │   └── noops/                # Explicit no-op schema validator for SDK v2
 │       └── noop-schema-validator.ts
-├── tools/                    # 15 aggregated tool implementations
+├── tools/                    # 16 aggregated tool implementations
 │   ├── index.ts              # Barrel export: re-exports all tool modules
 │   ├── internal/             # Shared infrastructure for the tool layer
 │   │   ├── types.ts          # Shared types for the tool layer
@@ -200,7 +200,7 @@ interface ToolModule {
 
 | Export | Description |
 |--------|-------------|
-| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | Compile-time mapping of 15 aggregated categories |
+| `TOOL_REGISTRY: Record<ToolCategory, ToolModule>` | Compile-time mapping of 16 aggregated categories |
 | `prepareAllTools(config, runtime)` | Run optional discovery/prepare hooks before dynamic validation or listing |
 | `listAllTools(config, runtime)` | Flatten and aggregate all enabled tool descriptors |
 | `resolveCategory(name)` | Reverse lookup category from tool name (e.g. `"notebook"`) |

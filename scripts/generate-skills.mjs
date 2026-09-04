@@ -11,6 +11,10 @@ const projectCoordinatorOutputContract = await readFile(
     path.join(root, 'skills/source/project-coordinator-output-contract.md'),
     'utf8',
 );
+const projectCoordinatorInitialization = await readFile(
+    path.join(root, 'skills/source/project-coordinator-initialization.md'),
+    'utf8',
+);
 const check = process.argv.includes('--check');
 const validArgs = new Set(['--check']);
 const unknownArgs = process.argv.slice(2).filter((arg) => !validArgs.has(arg));
@@ -137,7 +141,7 @@ for (const scenario of scenarios) {
         const name = runtime === 'mcp' ? scenario.mcpName : scenario.cliName;
         const base = `skills/${bundle}/${name}`;
         const skill = renderSkill(scenario, runtime);
-        if (runtime === 'mcp' && /\bsiyuan-sisyphus\s+(fs|notebook|document|block|av|file|search|provenance|tag|timeline|system|flashcard|mascot|feedback)\b/.test(skill)) {
+        if (runtime === 'mcp' && /\bsiyuan-sisyphus\s+(fs|notebook|document|block|av|file|project|search|provenance|tag|timeline|system|flashcard|mascot|feedback)\b/.test(skill)) {
             throw new Error(`MCP skill contains a CLI command: ${scenario.mcpName}`);
         }
         if (runtime === 'cli' && /\b[a-z]+\(action=/.test(skill)) {
@@ -156,10 +160,14 @@ for (const scenario of scenarios) {
                 `${base}/references/project-panorama-output-contract.md`,
                 projectCoordinatorOutputContract,
             );
+            await syncFile(
+                `${base}/references/project-progress-initialization.md`,
+                projectCoordinatorInitialization,
+            );
         }
     }
 }
 
 console.log(check
-    ? `Verified ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 4 runtime assets, and 1 portable entry skill.`
-    : `Generated ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 4 runtime assets, and 1 portable entry skill.`);
+    ? `Verified ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 6 runtime assets, and 1 portable entry skill.`
+    : `Generated ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 6 runtime assets, and 1 portable entry skill.`);

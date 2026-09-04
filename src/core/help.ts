@@ -13,6 +13,7 @@ import {
     type MascotAction,
     type FeedbackAction,
     type ProvenanceAction,
+    type ProjectAction,
     type FsAction,
     type ToolCategory,
 } from './config';
@@ -366,6 +367,16 @@ export const PROVENANCE_GUIDANCE: string[] = [
     'Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.',
 ];
 
+export const PROJECT_GUIDANCE: string[] = [
+    'Use project.snapshot as the single machine-readable project recovery view; query_embed remains a human-facing projection.',
+    'Provide exactly one of cwd, projectId, or projectName. Project names use exact normalized matching; use file.list_project_sources for fallback candidates.',
+    'Resolved absolute paths are limited to entries already present in the project artifact index; workspaceRoot is never returned.',
+];
+
+export const PROJECT_ACTION_HINTS: Partial<Record<ProjectAction, string>> = {
+    snapshot: 'Read a bounded project snapshot with state, workstreams, events, sessions, knowledge products, artifacts, diagnostics, and a host-side probe baseline.',
+};
+
 export const PROVENANCE_ACTION_HINTS: Partial<Record<ProvenanceAction, string>> = {
     register_session: 'Idempotently register or refresh one Agent session under a project hub block.',
     record_event: 'Record a knowledgeization event and write the latest provenance summary to its target atom blocks.',
@@ -386,6 +397,7 @@ export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
     block: BLOCK_GUIDANCE,
     av: AV_GUIDANCE,
     file: FILE_GUIDANCE,
+    project: PROJECT_GUIDANCE,
     search: SEARCH_GUIDANCE,
     tag: TAG_GUIDANCE,
     timeline: TIMELINE_GUIDANCE,
@@ -404,6 +416,7 @@ export const TOOL_ACTION_HINTS: Record<ToolCategory, Partial<Record<string, stri
     block: BLOCK_ACTION_HINTS,
     av: AV_ACTION_HINTS,
     file: FILE_ACTION_HINTS,
+    project: PROJECT_ACTION_HINTS,
     search: SEARCH_ACTION_HINTS,
     tag: TAG_ACTION_HINTS,
     timeline: TIMELINE_ACTION_HINTS,
@@ -422,6 +435,12 @@ export interface HelpExample {
 }
 
 export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, HelpExample[]>>> = {
+    project: {
+        snapshot: [{
+            title: 'Recover the current project from the Agent working directory',
+            mcp: { action: 'snapshot', cwd: '/absolute/project/path', eventLimit: 10, sessionLimit: 20, validateSessions: true },
+        }],
+    },
     document: {
         create: [
             {
@@ -716,7 +735,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
                 title: 'Read one exact release entry with raw Markdown',
                 mcp: {
                     action: 'changelog',
-                    version: '0.4.11',
+                    version: '0.4.12',
                     includeRaw: true,
                 },
             },

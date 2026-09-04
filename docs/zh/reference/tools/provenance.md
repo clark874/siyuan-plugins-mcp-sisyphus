@@ -16,7 +16,8 @@
 ## 数据模型
 
 - 项目会话唯一键为 `projectId + provider + hostAlias + sessionId`。
-- 事件分别记录 `sourceSession` 与 `compileSession`，不把讨论来源和执行写入者混为一谈。
+- 事件分别记录 `sourceSession` 与 `compileSession`，不把讨论来源和执行写入者混为一谈。两个会话都必须事先登记；`record_event` 不再隐式登记。
+- `record_event` 必须提供 `workstream`，并在同一次操作中写入进度角色、schema、工作线和 `kind=knowledge`。
 - 事件块通过真实思源块引用连接全部目标原子，反向查询不依赖正文解析。
 - 会话标识保存在自定义属性中。即使历史 rollout 被清理，知识原子正文仍保持自包含。
 

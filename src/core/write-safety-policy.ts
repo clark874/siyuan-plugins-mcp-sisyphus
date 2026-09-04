@@ -69,6 +69,7 @@ export const ACTION_SAFETY_POLICIES: {
         remove_unused_assets: mutation('manifest'), rename_asset: mutation('state'), delete_asset: mutation('state'),
         extract_doc: external(),
     },
+    project: { snapshot: read() },
     search: {
         fulltext: read(), semantic: read(), knowledge: read(), check_anchor: read(), query_sql: read(), get_backlinks: read(), search_refs: read(), search_assets: read(),
         fulltext_asset_content: read(), list_invalid_refs: read(), find_replace: mutation('manifest'),

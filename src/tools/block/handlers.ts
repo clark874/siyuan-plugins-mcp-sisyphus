@@ -2,6 +2,7 @@ import type { SiYuanClient } from '../../api/client';
 import * as attributeApi from '../../api/block';
 import * as blockApi from '../../api/block';
 import * as transactionApi from '../../api/transaction';
+import { validateBlockAttributeMutation } from '../../core/attribute-governance';
 import type { BlockAction } from '../../core/config';
 import { normalizeKramdownResult, stripZeroWidthChars } from '../../core/normalize';
 import {
@@ -784,6 +785,7 @@ const handleSetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) 
     const parsed = BlockSetAttrsSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
     if (denied) return denied;
+    await validateBlockAttributeMutation(client, permMgr, parsed.id, parsed.attrs);
     await transactionApi.performTransactions(client, [{
         doOperations: [{
             action: 'setAttrs',
@@ -792,7 +794,11 @@ const handleSetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) 
         }],
         undoOperations: [],
     }]);
-    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, attrs: parsed.attrs }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    const readback = await attributeApi.getBlockAttrs(client, parsed.id);
+    for (const [name, value] of Object.entries(parsed.attrs)) {
+        if (readback[name] !== value) throw new Error(`块 ${parsed.id} 的属性 ${name} 写入后回读不一致。`);
+    }
+    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, attrs: parsed.attrs, verification: { status: 'verified', method: 'attribute-readback' } }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
 const handleGetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {

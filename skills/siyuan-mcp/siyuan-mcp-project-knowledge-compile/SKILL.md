@@ -123,12 +123,22 @@ provenance(action="discover_session", provider="zcode", limit=10)
 
 通过 Agent Kit 安装的本地客户端可执行 `node ~/.siyuan-sisyphus/bin/capture-agent-session.cjs`。命令未发现会话时应停止并请求显式会话标识。Hermes 优先读取 HERMES_SESSION_ID。`--provider zcode --infer-latest` 仅是经确认后的兼容路径。
 
-交互式知识化把当前会话同时作为 `sourceSession` 和 `compileSession`。定时编译或跨 Agent 转交必须分别记录原始讨论会话与执行编译会话；原始来源未知时留待补录，不得用编译会话冒充来源会话。
+交互式知识化把当前会话同时作为 `sourceSession` 和 `compileSession`。定时编译或跨 Agent 转交必须分别记录原始讨论会话与执行编译会话；原始来源未知时留待补录，不得用编译会话冒充来源会话。`record_event` 不再隐式登记会话，因此必须先分别登记两个真实会话并回读确认；两者相同时只登记一次：
+
+```text
+provenance(action="register_session", projectBlockId="<project-hub-block-id>", projectId="<registered-project-id>", session={"provider":"codex","sessionId":"<source-session-id>","hostAlias":"local","captureMethod":"environment"}, occurredAt="<source-session-time>")
+```
+```text
+provenance(action="register_session", projectBlockId="<project-hub-block-id>", projectId="<registered-project-id>", session={"provider":"codex","sessionId":"<compile-session-id>","hostAlias":"local","captureMethod":"environment"}, occurredAt="<compile-session-time>")
+```
+```text
+provenance(action="list_project_sessions", projectId="<registered-project-id>", validate=true, limit=100)
+```
 
 原子和关系块完成后，以同一个稳定 `eventId` 登记一次知识化事件：
 
 ```text
-provenance(action="record_event", projectBlockId="<project-hub-block-id>", projectId="<registered-project-id>", eventId="<stable-event-id>", operation="project-knowledge-compile", sourceSession={"provider":"codex","sessionId":"<source-session-id>","hostAlias":"local","captureMethod":"environment"}, compileSession={"provider":"codex","sessionId":"<compile-session-id>","hostAlias":"local","captureMethod":"environment"}, targetAtomIds=["<atom-id>","<relation-block-id>"])
+provenance(action="record_event", projectBlockId="<project-hub-block-id>", projectId="<registered-project-id>", eventId="<stable-event-id>", operation="project-knowledge-compile", workstream="<project-workstream>", sourceSession={"provider":"codex","sessionId":"<source-session-id>","hostAlias":"local","captureMethod":"environment"}, compileSession={"provider":"codex","sessionId":"<compile-session-id>","hostAlias":"local","captureMethod":"environment"}, targetAtomIds=["<atom-id>","<relation-block-id>"])
 ```
 
 随后按项目与代表性原子回读。只有 `linkCapability=native` 才能表述为客户端原生深链；`launcher` 和 `resume_command` 必须保留能力分级：

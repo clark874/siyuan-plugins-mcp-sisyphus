@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FEEDBACK_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, PROVENANCE_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS, TIMELINE_ACTIONS } from "./config";
+import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FEEDBACK_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, PROJECT_ACTIONS, PROVENANCE_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS, TIMELINE_ACTIONS } from "./config";
 import type { NotebookConf } from "../types/shared";
 import { PROJECT_SOURCE_ACCESSES, PROJECT_SOURCE_COVERAGES, PROJECT_SOURCE_KINDS, PROJECT_SOURCE_ROLES, PROJECT_SOURCE_STATUSES } from "./project-source-contract";
 import { PROVENANCE_CAPTURE_METHODS, PROVENANCE_PROVIDERS } from "./provenance";
@@ -79,7 +79,23 @@ export const DocumentActionSchema = z.enum(DOCUMENT_ACTIONS);
 export const BlockActionSchema = z.enum(BLOCK_ACTIONS);
 export const AvActionSchema = z.enum(AV_ACTIONS);
 export const FileActionSchema = z.enum(FILE_ACTIONS);
+export const ProjectActionSchema = z.enum(PROJECT_ACTIONS);
 export const ProvenanceActionSchema = z.enum(PROVENANCE_ACTIONS);
+
+export const ProjectSnapshotSchema = z.object({
+    action: z.literal("snapshot"),
+    cwd: z.string().min(1).optional().describe("Absolute current working directory supplied by the Agent host"),
+    projectId: z.string().min(1).max(256).optional().describe("Exact registered project ID"),
+    projectName: z.string().min(1).max(256).optional().describe("Exact normalized project display name"),
+    eventLimit: z.number().int().min(1).max(100).optional().describe("Recent event limit, default 10"),
+    sessionLimit: z.number().int().min(1).max(100).optional().describe("Registered session limit, default 20"),
+    validateSessions: z.boolean().optional().describe("Validate local session records, default true"),
+}).superRefine((value, ctx) => {
+    const selectors = [value.cwd, value.projectId, value.projectName].filter((item) => typeof item === "string");
+    if (selectors.length !== 1) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide exactly one of cwd, projectId, or projectName." });
+    }
+});
 
 export const ProvenanceSessionIdentitySchema = z.object({
     provider: z.enum(PROVENANCE_PROVIDERS),
@@ -103,6 +119,7 @@ export const ProvenanceRecordEventSchema = ProvenanceProjectBaseSchema.extend({
     action: z.literal("record_event"),
     eventId: z.string().min(1).max(128),
     operation: z.string().min(1).max(256),
+    workstream: z.string().trim().min(1).max(128),
     occurredAt: z.string().datetime().optional(),
     sourceSession: ProvenanceSessionIdentitySchema,
     compileSession: ProvenanceSessionIdentitySchema.optional(),
@@ -1431,7 +1448,7 @@ export const SystemNotifySchema = z.object({
 
 export const SystemChangelogSchema = z.object({
     action: z.literal("changelog"),
-    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.4.11 or v0.4.11"),
+    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.4.12 or v0.4.12"),
     fromVersion: z.string().optional().describe("Previous plugin version; returns entries newer than this version"),
     limit: z.number().int().min(1).max(50).optional().describe("Maximum number of entries to return when version is omitted"),
     includeRaw: z.boolean().optional().describe("Include raw Markdown for each returned changelog entry"),

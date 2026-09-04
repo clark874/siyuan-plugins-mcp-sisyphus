@@ -6,6 +6,7 @@ import path from 'node:path';
 import util from 'node:util';
 
 import type { SiYuanClient } from '../api/client';
+import * as searchApi from '../api/search';
 import { redactText } from '../control-plane/security';
 import {
     PROJECT_SOURCE_ACCESSES,
@@ -1157,15 +1158,35 @@ export async function listProjectSources(
     if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new Error('pageSize must be between 1 and 100.');
     const query = input.query?.trim().toLowerCase() ?? '';
     const registry = await readRegistry(client);
+    const hubIds = registry.projects.map((record) => record.hubBlockId).filter((id): id is string => Boolean(id));
+    const hubNames = new Map<string, string>();
+    if (hubIds.length > 0) {
+        const ids = hubIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(',');
+        const rows = await searchApi.querySQL(client, `SELECT id, content, hpath FROM blocks WHERE id IN (${ids}) LIMIT ${hubIds.length}`);
+        for (const row of rows) {
+            if (!row || typeof row !== 'object') continue;
+            const item = row as Record<string, unknown>;
+            if (typeof item.id !== 'string') continue;
+            const pathParts = typeof item.hpath === 'string' ? item.hpath.split('/').filter(Boolean) : [];
+            const content = typeof item.content === 'string' ? item.content.trim() : '';
+            const genericHubTitle = /^(?:00\s*)?(?:项目)?知识中枢$/u.test(content);
+            const name = genericHubTitle && pathParts.length > 1
+                ? pathParts.at(-2) || content
+                : content || pathParts.at(-1) || '';
+            if (name) hubNames.set(item.id, name);
+        }
+    }
     const values = [];
     for (const record of registry.projects) {
-        if (query && ![record.projectId, record.repository, record.hubBlockId, record.manifestBlockId]
+        const displayName = record.hubBlockId ? hubNames.get(record.hubBlockId) : undefined;
+        if (query && ![record.projectId, displayName, record.repository, record.hubBlockId, record.manifestBlockId]
             .filter(Boolean).some((value) => value!.toLowerCase().includes(query))) continue;
         const binding = record.bindings[hostId];
         const inspected = await inspectBinding(record, binding);
         if (input.status && inspected.status !== input.status) continue;
         values.push({
             projectId: record.projectId,
+            displayName,
             hubBlockId: record.hubBlockId,
             manifestBlockId: record.manifestBlockId,
             sourceKind: record.sourceKind,
@@ -1204,15 +1225,30 @@ export async function listProjectSources(
     };
 }
 
+export type ProjectSourceCwdMatch =
+    | {
+        matched: false;
+        reason: 'cwd_unavailable_on_binding_host' | 'no_registered_project_for_cwd' | 'ambiguous_project_for_cwd';
+        bindingHostMatched: boolean;
+        candidates?: ProjectSourceRecord[];
+    }
+    | {
+        matched: true;
+        record: ProjectSourceRecord;
+        binding: ProjectHostBinding;
+        bindingStatus: ProjectSourceStatus;
+        matchType: 'exact' | 'descendant';
+    };
+
 /**
- * 依据宿主当前目录识别已登记项目。输入路径只用于本次匹配，不写入登记表，
- * 响应也不返回 cwd 或 workspaceRoot。
+ * project.snapshot 与 file.identify_project 共用的 cwd 匹配实现。
+ * 返回值供服务端内部继续读取登记项；任何工具响应都必须另行裁剪本地路径。
  */
-export async function identifyProjectSource(
+export async function matchProjectSourceByCwd(
     client: SiYuanClient,
     input: IdentifyProjectInput,
     options: ProjectSourceRuntimeOptions = {},
-) {
+): Promise<ProjectSourceCwdMatch> {
     if (!path.isAbsolute(input.cwd)) {
         throw projectSourceSemanticError(
             'invalid_arguments',
@@ -1237,7 +1273,6 @@ export async function identifyProjectSource(
             matched: false,
             reason: 'cwd_unavailable_on_binding_host',
             bindingHostMatched: false,
-            localPathsIncluded: false,
         };
     }
 
@@ -1273,7 +1308,6 @@ export async function identifyProjectSource(
             matched: false,
             reason: 'no_registered_project_for_cwd',
             bindingHostMatched: true,
-            localPathsIncluded: false,
         };
     }
 
@@ -1284,14 +1318,7 @@ export async function identifyProjectSource(
             matched: false,
             reason: 'ambiguous_project_for_cwd',
             bindingHostMatched: true,
-            candidates: finalists
-                .map(({ record }) => ({
-                    projectId: record.projectId,
-                    hubBlockId: record.hubBlockId,
-                    sourceKind: record.sourceKind,
-                }))
-                .sort((left, right) => left.projectId.localeCompare(right.projectId)),
-            localPathsIncluded: false,
+            candidates: finalists.map(({ record }) => record),
         };
     }
 
@@ -1299,11 +1326,43 @@ export async function identifyProjectSource(
     const inspected = await inspectBinding(record, binding);
     return {
         matched: true,
-        projectId: record.projectId,
-        hubBlockId: record.hubBlockId,
-        sourceKind: record.sourceKind,
+        record,
+        binding,
         bindingStatus: inspected.status,
         matchType,
+    };
+}
+
+/**
+ * 依据宿主当前目录识别已登记项目。输入路径只用于本次匹配，不写入登记表，
+ * 响应也不返回 cwd 或 workspaceRoot。
+ */
+export async function identifyProjectSource(
+    client: SiYuanClient,
+    input: IdentifyProjectInput,
+    options: ProjectSourceRuntimeOptions = {},
+) {
+    const match = await matchProjectSourceByCwd(client, input, options);
+    if (match.matched === false) {
+        return {
+            matched: false,
+            reason: match.reason,
+            bindingHostMatched: match.bindingHostMatched,
+            ...(match.candidates ? {
+                candidates: match.candidates
+                    .map((record) => ({ projectId: record.projectId, hubBlockId: record.hubBlockId, sourceKind: record.sourceKind }))
+                    .sort((left, right) => left.projectId.localeCompare(right.projectId)),
+            } : {}),
+            localPathsIncluded: false,
+        };
+    }
+    return {
+        matched: true,
+        projectId: match.record.projectId,
+        hubBlockId: match.record.hubBlockId,
+        sourceKind: match.record.sourceKind,
+        bindingStatus: match.bindingStatus,
+        matchType: match.matchType,
         localPathsIncluded: false,
     };
 }

@@ -9,6 +9,7 @@ import {
     hermesSessionExists,
     listProjectProvenanceSessions,
     recordProvenanceEvent,
+    registerProvenanceSession,
     readProvenanceWriteState,
     resolveAgentSessionLink,
     validateLocalAgentSession,
@@ -134,9 +135,18 @@ describe('Agent 会话溯源核心', () => {
     it('创建会话、事件与原子最近摘要，并以 eventId 幂等复跑', async () => {
         const attrs = new Map<string, Record<string, string>>();
         let inserted = 0;
+        let referenceReads = 0;
         const client = createMockClient({
             request: async (endpoint: string, body: Record<string, unknown>) => {
-                if (endpoint === '/api/query/sql') return [];
+                if (endpoint === '/api/query/sql') {
+                    const stmt = String(body.stmt || '');
+                    if (stmt.includes('FROM refs')) {
+                        referenceReads += 1;
+                        if (referenceReads === 1) return [];
+                        return ['new-1', 'new-2', 'atom-1'].map((id) => ({ def_block_id: id }));
+                    }
+                    return [];
+                }
                 if (endpoint === '/api/block/appendBlock') {
                     inserted += 1;
                     return [{ doOperations: [{ id: `new-${inserted}` }] }];
@@ -154,14 +164,17 @@ describe('Agent 会话溯源核心', () => {
             },
         });
         const input = {
-            projectBlockId: 'project-hub', projectId: 'project-a', eventId: 'event-1', operation: 'compile',
+            projectBlockId: 'project-hub', projectId: 'project-a', eventId: 'event-1', operation: 'compile', workstream: 'research-evidence',
             sourceSession: { provider: 'codex' as const, sessionId: 'codex-1', captureMethod: 'environment' as const },
             compileSession: { provider: 'zcode' as const, sessionId: 'sess-2', captureMethod: 'explicit' as const },
             targetAtomIds: ['atom-1'], occurredAt: '2026-09-01T00:00:00.000Z',
         };
+        await registerProvenanceSession(client, input.projectBlockId, input.projectId, input.sourceSession, input.occurredAt);
+        await registerProvenanceSession(client, input.projectBlockId, input.projectId, input.compileSession, input.occurredAt);
         const first = await recordProvenanceEvent(client, input);
         const completeState = await readProvenanceWriteState(client, 'record_event', input);
         delete attrs.get('atom-1')!['custom-compile-session'];
+        delete attrs.get(first.blockId)!['custom-progress-schema'];
         const incompleteState = await readProvenanceWriteState(client, 'record_event', input);
         expect(incompleteState.hash).not.toBe(completeState.hash);
         const second = await recordProvenanceEvent(client, input);
@@ -174,9 +187,30 @@ describe('Agent 会话溯源核心', () => {
             'custom-compile-session': 'sess-2',
             'custom-provenance-event': 'event-1',
         });
+        expect(attrs.get(first.blockId)).toMatchObject({
+            'custom-progress-role': 'event',
+            'custom-progress-schema': '1',
+            'custom-progress-workstream': 'research-evidence',
+            'custom-progress-kind': 'knowledge',
+        });
         expect(repairedState.hash).toBe(completeState.hash);
         await expect(recordProvenanceEvent(client, { ...input, operation: 'different-operation' }))
             .rejects.toThrow(/已用于不同的知识化事件/);
+        await expect(recordProvenanceEvent(client, { ...input, workstream: 'other-workstream' }))
+            .rejects.toThrow(/已用于不同的知识化事件/);
         expect(inserted).toBe(3);
+    });
+
+    it('拒绝引用尚未登记的会话', async () => {
+        const client = createMockClient({ request: async () => [] });
+        await expect(recordProvenanceEvent(client, {
+            projectBlockId: 'project-hub-missing',
+            projectId: 'project-missing-session',
+            eventId: 'event-missing-session',
+            operation: 'compile',
+            workstream: 'research-evidence',
+            sourceSession: { provider: 'codex', sessionId: 'not-registered', captureMethod: 'explicit' },
+            targetAtomIds: ['atom-1'],
+        })).rejects.toThrow(/会话记录缺失/);
     });
 });

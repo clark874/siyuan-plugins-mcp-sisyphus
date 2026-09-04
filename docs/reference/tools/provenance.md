@@ -16,7 +16,8 @@
 ## Data model
 
 - A project session is uniquely identified by `projectId + provider + hostAlias + sessionId`.
-- An event keeps separate `sourceSession` and `compileSession` references.
+- An event keeps separate `sourceSession` and `compileSession` references. Both sessions must already be registered; `record_event` no longer registers them implicitly.
+- `record_event` requires `workstream` and writes `custom-progress-role`, schema, workstream, and `kind=knowledge` in the same operation.
 - Event blocks contain real SiYuan block references to every target atom, enabling reverse lookup without parsing prose.
 - Session identifiers live in custom attributes. Atom content remains self-contained and readable when old rollout files have expired.
 

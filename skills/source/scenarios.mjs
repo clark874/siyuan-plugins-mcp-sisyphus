@@ -396,7 +396,11 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 通过 Agent Kit 安装的本地客户端可执行 \`node ~/.siyuan-sisyphus/bin/capture-agent-session.cjs\`。命令未发现会话时应停止并请求显式会话标识。Hermes 优先读取 HERMES_SESSION_ID。\`--provider zcode --infer-latest\` 仅是经确认后的兼容路径。
 
-交互式知识化把当前会话同时作为 \`sourceSession\` 和 \`compileSession\`。定时编译或跨 Agent 转交必须分别记录原始讨论会话与执行编译会话；原始来源未知时留待补录，不得用编译会话冒充来源会话。
+交互式知识化把当前会话同时作为 \`sourceSession\` 和 \`compileSession\`。定时编译或跨 Agent 转交必须分别记录原始讨论会话与执行编译会话；原始来源未知时留待补录，不得用编译会话冒充来源会话。\`record_event\` 不再隐式登记会话，因此必须先分别登记两个真实会话并回读确认；两者相同时只登记一次：
+
+{{call registerSourceSession}}
+{{call registerCompileSession}}
+{{call projectSessions}}
 
 原子和关系块完成后，以同一个稳定 \`eventId\` 登记一次知识化事件：
 
@@ -443,7 +447,9 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             relationAppend: call('block', 'append', { parentID: '<source-atom-id>', dataType: 'markdown', data: "**关系：produced-by。** 本证据由 ((<target-atom-id> 'target-method-name')) 所述流程产生；实现差异与适用边界是……。该关系不自动提升统计结论的验证状态。" }),
             relationAttrs: call('block', 'set_attrs', { id: '<relation-block-id>', attrs: { 'custom-relation-kind': 'produced-by' } }),
             discoverSession: call('provenance', 'discover_session', { provider: 'zcode', limit: 10 }),
-            recordEvent: call('provenance', 'record_event', { projectBlockId: '<project-hub-block-id>', projectId: '<registered-project-id>', eventId: '<stable-event-id>', operation: 'project-knowledge-compile', sourceSession: { provider: 'codex', sessionId: '<source-session-id>', hostAlias: 'local', captureMethod: 'environment' }, compileSession: { provider: 'codex', sessionId: '<compile-session-id>', hostAlias: 'local', captureMethod: 'environment' }, targetAtomIds: ['<atom-id>', '<relation-block-id>'] }),
+            registerSourceSession: call('provenance', 'register_session', { projectBlockId: '<project-hub-block-id>', projectId: '<registered-project-id>', session: { provider: 'codex', sessionId: '<source-session-id>', hostAlias: 'local', captureMethod: 'environment' }, occurredAt: '<source-session-time>' }),
+            registerCompileSession: call('provenance', 'register_session', { projectBlockId: '<project-hub-block-id>', projectId: '<registered-project-id>', session: { provider: 'codex', sessionId: '<compile-session-id>', hostAlias: 'local', captureMethod: 'environment' }, occurredAt: '<compile-session-time>' }),
+            recordEvent: call('provenance', 'record_event', { projectBlockId: '<project-hub-block-id>', projectId: '<registered-project-id>', eventId: '<stable-event-id>', operation: 'project-knowledge-compile', workstream: '<project-workstream>', sourceSession: { provider: 'codex', sessionId: '<source-session-id>', hostAlias: 'local', captureMethod: 'environment' }, compileSession: { provider: 'codex', sessionId: '<compile-session-id>', hostAlias: 'local', captureMethod: 'environment' }, targetAtomIds: ['<atom-id>', '<relation-block-id>'] }),
             projectSessions: call('provenance', 'list_project_sessions', { projectId: '<registered-project-id>', validate: true, limit: 100 }),
             atomEvents: call('provenance', 'list_atom_events', { atomId: '<atom-id>', limit: 100 }),
             readback: call('block', 'get_kramdown', { id: '<relation-block-id>' }),
@@ -504,70 +510,52 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 {{call memory}}
 {{call contract}}
 
-宿主能够提供绝对当前目录时，首先调用项目识别 action：
+宿主能够提供绝对当前目录时，先以 \`cwd\` 调用项目快照；服务端与 \`file.identify_project\` 共用最长根路径匹配逻辑：
 
-{{call identifyProject}}
+{{call projectSnapshotByCwd}}
 
-精确项目根和子目录都可命中；嵌套项目由服务端按最长根路径裁决。任一宿主没有本地目录或目录未命中时，都回退到“启动”后的自然语言项目名查询登记项。用户未给项目名时只提示补充自然语言名称；多个候选时只展示项目名称请用户选择，不要求用户输入内部 ID：
+没有本地目录或目录未命中时，若用户给出自然语言项目名，则以规范化精确名称重试：
+
+{{call projectSnapshotByName}}
+
+精确名称未命中后才调用项目源列表作候选发现；多个候选只展示项目名称，禁止要求用户输入内部 ID，也禁止猜测：
 
 {{call projectSources}}
 
-目录不存在于当前服务器主机、映射过期、多个候选或无法唯一匹配时不得猜测，也不得自动登记或修复项目源。取得内部 projectId 与 hubBlockId 后，先按属性查找进度页；不得仅按标题创建：
-
-{{call findProgressPage}}
-
-没有结果时，在项目中枢下创建“项目进度协作”页。初始 Markdown 先建立项目概览、阶段台账和权威产物索引，再用单个列表块承载当前状态，并保留普通事件标题；三个稳定投影应从项目内明确的当前入口、权威证据说明、阶段导航和最终验收文件生成，缺少证据时保留“待确认”，不得根据文件名臆测。两个 query_embed 按事件真实属性和 refs 动态查询，不复制知识正文：
-
-{{call createProgressPage}}
-
-创建后立即给文档和状态列表块设置属性，再按 ID 回读：
-
-{{call setProgressPageAttrs}}
-{{call setProjectProfileAttrs}}
-{{call setStageLedgerAttrs}}
-{{call setArtifactIndexAttrs}}
-{{call setProjectStateAttrs}}
-
-若已经存在同 projectId 的进度页，禁止创建第二份。首次基线只从当前中枢、既有原子和已登记项目文件形成草案；用户未认可草案时不写入实质研究状态，也不回填旧聊天。
+目录不存在于当前服务器主机、绑定过期或无法唯一匹配时不得自动登记或修复项目源。\`snapshot\` 返回 \`needs_initialization\` 时，先征得用户同意，再按需读取 [项目进度页初始化](references/project-progress-initialization.md)；主 Skill 不内嵌初始化模板，不自动创建页面。
 
 随后捕获并登记当前真实 Agent 会话。先调用 \`discover_session\`；只有唯一捕获结果或宿主可信注入的真实 sessionId 才能登记，不得自拟描述性 ID：
 
 {{call discoverSession}}
 {{call registerSession}}
-{{call listSessions}}
+{{call projectSnapshotById}}
 
-\`captureMethod\` 只能使用 \`environment|client_context|explicit|inferred_latest_rollout\`。宿主注入时分别用 environment 或 client_context；用户明确提供时用 explicit；从唯一且无并发歧义的 rollout 捕获时用 inferred_latest_rollout。禁止把说明文字或复合短语写进该字段。\`register_session\` 是严格写入动作：不得直接执行示例参数；先用完全相同的业务参数加 \`validateOnly=true\` 取得 \`expectedStateHash\`，再用返回凭据和新的 UUIDv7 \`requestId\` 执行一次。随后立即用 \`list_project_sessions(validate=true)\` 回读，确认当前 sessionId 已出现。捕获或登记失败时仍可只读恢复项目，但必须回复“当前会话未登记”；本次会话后续禁止写入，直至取得并验证真实 sessionId。
+\`captureMethod\` 只能使用 \`environment|client_context|explicit|inferred_latest_rollout\`。宿主注入时分别用 environment 或 client_context；用户明确提供时用 explicit；从唯一且无并发歧义的 rollout 捕获时用 inferred_latest_rollout。禁止把说明文字或复合短语写进该字段。\`register_session\` 是严格写入动作：不得直接执行示例参数；先用完全相同的业务参数加 \`validateOnly=true\` 取得 \`expectedStateHash\`，再用返回凭据和新的 UUIDv7 \`requestId\` 执行一次。随后再次调用 \`project.snapshot(projectId=...)\`，确认当前 sessionId 已出现在权威快照。捕获或登记失败时仍可只读恢复项目，但必须回复“当前会话未登记”；本次会话后续禁止写入，直至取得并验证真实 sessionId。
 
 \`启动\`与\`交接\`共用以下读取流程。采用“索引 → 筛选 → 详情”，从权威块实时生成用户可见的项目进度全景：
 
-1. 读取项目概览、阶段台账、权威产物索引、项目状态和相关工作线状态正文与属性；
-2. 对产物索引中的当前权威相对路径调用项目源解析或在当前本地项目中核验，形成可点击的完整绝对路径；宿主能读取本地文件时，对项目源清单中已有哈希的 Tier A 权威文件计算当前 SHA-256 并与清单值比较，不对其他文件做全量哈希；
-3. 严格使用下方单表 \`EXISTS\` 查询按块创建时间分页取得本项目事件 ID，不得为补取属性改写为多重 \`attributes LEFT JOIN + ORDER BY/LIMIT\`；需要事件属性时，再对已取得的事件 ID 单独查询 \`attributes\`；用输出契约的项目归属门排除工具开发、部署和协调器自测事件，不得只看 query_embed；
-4. 以当前任务检索最多 12 个知识候选；
-5. 综合语义、时间和 \`custom-verification-status\` 后，最多读取 5 个完整块，提炼核心观点、核心发现和解释边界；
-6. 读取按 \`lastSeenAt DESC\` 排序的项目会话表并核验当前会话；普通全景只保留当前会话以及产出实质项目事件或知识事件的会话；会话表读取上限 100，普通全景展示上限 20，\`lastSeenAt\` 在最近 48 小时内的会话标注“活跃”；
-7. 检查权威文件与投影、旧状态、draft、来源冲突和未核验内容，不把检索命中直接当作当前事实。
+1. 以第二次 \`project.snapshot\` 的项目身份、进度页、稳定投影、最近事件、会话、知识产物、产物索引和服务端诊断作为唯一机器读取结果；不得再自行拼接 SQL、排序会话、解析产物或重做投影诊断；
+2. 只对 \`localProbeBaseline.tierA\` 中已有哈希的权威文件计算当前 SHA-256，不对其他文件做全量哈希；
+3. 以当前任务检索最多 12 个知识候选；
+4. 综合语义、时间和 \`custom-verification-status\` 后，最多读取 5 个完整块，提炼核心观点、核心发现和解释边界；
+5. 用输出契约的项目归属门排除工具开发、部署和协调器自测事件；
+6. 检查旧状态、draft、来源冲突和未核验内容，不把检索命中直接当作当前事实。
 
-{{call findStates}}
-{{call resolveArtifact}}
-{{call allEvents}}
-{{call eventAttrs}}
 {{call knowledgeSearch}}
 {{call readDetails}}
-{{call listSessions}}
 
 \`启动\`与\`交接\`在输出全景前执行启动核验。核验只读，异常时最多在全景之前追加两行警示；不写入、不阻断、不把警示写成事件：
 
-1. 投影一致性（全宿主必做）：项目状态块的 \`custom-progress-last-event-id\` 对应全项目最新有效事件；每个工作线状态块只对应同一 \`custom-progress-workstream\` 的最新事件。该工作线没有事件时不强求指向全项目最新事件。不一致时提示“状态投影落后于事件流，收尾时将重建”。
+1. 投影一致性、孤儿会话、知识引用、绑定陈旧、产物悬空、重复 name 与历史事件分级均直接使用 \`snapshot.diagnostics\`；Skill 不重复实现。\`historical_repairable\` 是可重放修复提示，不表述为数据损坏。
 2. 本地与共享记忆对账（宿主可执行本地命令时）：按“本地权威文件 ↔ 项目源清单 ↔ 思源投影/知识”三方核验。Tier A 文件的当前 SHA-256 与清单哈希相同且投影无冲突才可写“已核验一致”；哈希不同写“本地领先共享记忆”，文件缺失写“本地缺失”，命令失败或缺少哈希写“无法确认”，不得用 mtime 证明内容一致。
-3. 增量新鲜度：\`identify_project\` 返回绑定状态 \`stale\` 即提示“项目清单登记落后于当前修订”。Git 项目优先以最近一次成功普通收尾（\`kind=handoff\`）的 UTC 时间为基准执行 \`git log --oneline --since=<occurred-at>\` 与 \`git status --porcelain\`；没有普通收尾时可暂用最新项目事件，但必须标注“弱基线”。非 Git 目录项目把 UTC 转为 \`YYYY-MM-DD HH:MM:SS UTC\` 后执行 \`find . -type f -newermt "<UTC 文本时间>" -not -path "*/.git/*" -not -path "*/node_modules/*"\`；先检查 \`find\` 自身退出状态，再截取前 20 条，禁止用管道成功掩盖日期解析失败。非空时提示“本地存在最后收尾之后修改的文件”并最多列出 3 个相对路径。产物缺失按一条汇总警示展示。
+3. 增量新鲜度：使用 \`localProbeBaseline.latestHandoffAt\`，缺失时回退 \`latestEventAt\` 并标注“弱基线”。Git 项目执行 \`git log --oneline --since=<baseline>\` 与 \`git status --porcelain\`；非 Git 目录项目把 UTC 转为 \`YYYY-MM-DD HH:MM:SS UTC\` 后执行 \`find . -type f -newermt "<UTC 文本时间>" -not -path "*/.git/*" -not -path "*/node_modules/*"\`。先检查命令退出状态，再截取前 20 条，禁止用管道成功掩盖失败。非空时最多列出 3 个相对路径。
 4. 思源不可用降级：\`bootstrap\` 或首个读取调用失败且重试一次仍失败时，停止访问共享记忆，提示“共享记忆不可用，本会话仅本地工作，恢复后请重新启动并收尾”；随后只执行不依赖思源的任务，降级状态下禁止任何项目写入。
 
 宿主私有 memory、旧 rollout 和聊天记录不得用于补全项目事实；rollout 仅可用于发现或验证真实会话标识。同一实时查询在一次启动中只执行一次，后续筛选使用已有结果。
 
 “项目进度全景”严格按输出契约的九节模板生成，不增加实现流水区。会话入口必须保留完整 sessionId、preferredUrl、launcherUrl 和 resumeCommand；不得截断、写成 \`[blocked]\` 或用块 ID 替代。自定义协议被宿主阻止时，仍输出完整地址并注明限制。用户明确要求审计全部会话时，才在正文后附加测试会话和历史 missing 会话。
 
-\`启动\`先完成登记和上述全景输出；附带任务时随后继续执行。\`交接\`每次都重新读数据，不复用旧报告；它不创建进度事件、不更新状态投影、不写知识。若只读恢复成功但当前会话未登记，仍输出全景并明确标记“当前会话未登记，禁止写入”。Agent 恢复直接读取 SQL、稳定块 ID 和 refs；页面中的 query_embed 仅供人类浏览，不能作为唯一机器数据源。
+\`启动\`先完成登记和上述全景输出；附带任务时随后继续执行。\`交接\`每次都重新调用 snapshot，不复用旧报告；它不创建进度事件、不更新状态投影、不写知识。若只读恢复成功但当前会话未登记，仍输出全景并明确标记“当前会话未登记，禁止写入”。页面中的 query_embed 仅供人类浏览，机器判断只以 snapshot 为准。
 
 ## 四、知识化
 
@@ -589,9 +577,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 {{call recordKnowledgeEvent}}
 
-\`record_event\` 返回的事件块就是本次进度事件。只给该块补充无法由 provenance 推导的四个属性：role、schema、workstream 和 \`kind=knowledge\`；不创建第二个检查点块，也不在知识原子上增加进度布尔值：
-
-{{call markKnowledgeEvent}}
+\`record_event\` 返回的事件块就是本次进度事件；服务端在同一次写入中固定建立 role、schema、workstream 和 \`kind=knowledge\` 四个进度属性并完成回读。Skill 不再拼装这些属性，不创建第二个检查点块，也不在知识原子上增加进度布尔值。
 
 知识写入成功而事件登记失败时，使用同一个 eventId 重试 record_event；其幂等重放不得重新创建知识原子。事件登记成功而状态更新失败时，保留事件并在下次调用时重建状态投影。
 
@@ -631,19 +617,10 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             bootstrap: call('system', 'bootstrap'),
             memory: call('fs', 'read', { path: '/AGENTS.md', blockStart: 0, blockLimit: 80, tokenBudget: 3000 }),
             contract: call('fs', 'read', { path: '/工作日志/00 导航与说明/知识编译契约', blockStart: 0, blockLimit: 100, tokenBudget: 8000 }),
-            identifyProject: call('file', 'identify_project', { cwd: '<absolute-current-working-directory-from-host>' }),
+            projectSnapshotByCwd: call('project', 'snapshot', { cwd: '<absolute-current-working-directory-from-host>', eventLimit: 10, sessionLimit: 20, validateSessions: true }),
+            projectSnapshotByName: call('project', 'snapshot', { projectName: '<natural-language-project-name>', eventLimit: 10, sessionLimit: 20, validateSessions: true }),
+            projectSnapshotById: call('project', 'snapshot', { projectId: '<project-id>', eventLimit: 10, sessionLimit: 20, validateSessions: true }),
             projectSources: call('file', 'list_project_sources', { query: '<natural-language-project-name>', page: 1, pageSize: 20 }),
-            findProgressPage: call('search', 'query_sql', { stmt: "SELECT b.id, b.root_id, b.hpath FROM blocks b JOIN attributes r ON r.block_id=b.id AND r.name='custom-progress-role' AND r.value='project-progress-page' JOIN attributes p ON p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='<project-id>' LIMIT 2", maxRows: 2 }),
-            createProgressPage: call('document', 'create', { notebook: '<notebook-id>', parentPath: '<project-hub-hpath>', title: '项目进度协作', markdown: "## 项目概览\n\n- 项目名称：<待确认>\n- 研究或建设对象：<待确认>\n- 核心问题：<待确认>\n- 当前交付目标：<待确认>\n- 核心观点与发现：<待确认；使用知识原子引用>\n\n## 阶段台账\n\n- <阶段｜时间｜实质工作｜权威产物｜当前效力>\n\n## 权威产物索引\n\n- <用途｜项目内相对路径｜状态>\n\n## 当前项目状态\n\n- 项目目标：<待确认>\n- 当前阶段：<待确认>\n- 当前焦点：<待确认>\n- 最近完成：<待确认>\n- 下一步：<待确认>\n- 阻塞：无\n- 已否决方案：无\n- 关键产物：无\n- 最近事件：无\n\n## 工作线状态\n\n## 普通进度事件\n\n## 最近活动\n\n{{ SELECT b.id, substr(b.content, 1, 160) AS event, b.created FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value='event') AND (EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='<project-id>') OR EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-provenance-project-id' AND p.value='<project-id>')) ORDER BY b.created DESC LIMIT 50 }}\n\n## 本项目知识产物\n\n{{ SELECT DISTINCT a.id, a.name, a.alias, v.value AS verification_status FROM refs rf JOIN blocks e ON e.id=rf.block_id JOIN blocks a ON a.id=rf.def_block_id JOIN attributes v ON v.block_id=a.id AND v.name='custom-verification-status' WHERE EXISTS (SELECT 1 FROM attributes k WHERE k.block_id=e.id AND k.name='custom-progress-kind' AND k.value='knowledge') AND EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=e.id AND p.name='custom-provenance-project-id' AND p.value='<project-id>') ORDER BY a.updated DESC LIMIT 100 }}" }),
-            setProgressPageAttrs: call('block', 'set_attrs', { id: '<progress-document-id>', attrs: { 'custom-progress-role': 'project-progress-page', 'custom-progress-schema': '1', 'custom-progress-project-id': '<project-id>' } }),
-            setProjectProfileAttrs: call('block', 'set_attrs', { id: '<project-profile-block-id>', attrs: { 'custom-progress-role': 'project-profile', 'custom-progress-project-id': '<project-id>', 'custom-progress-updated-at': '2026-09-03T00:00:00.000Z' } }),
-            setStageLedgerAttrs: call('block', 'set_attrs', { id: '<stage-ledger-block-id>', attrs: { 'custom-progress-role': 'stage-ledger', 'custom-progress-project-id': '<project-id>', 'custom-progress-updated-at': '2026-09-03T00:00:00.000Z' } }),
-            setArtifactIndexAttrs: call('block', 'set_attrs', { id: '<artifact-index-block-id>', attrs: { 'custom-progress-role': 'artifact-index', 'custom-progress-project-id': '<project-id>', 'custom-progress-updated-at': '2026-09-03T00:00:00.000Z' } }),
-            setProjectStateAttrs: call('block', 'set_attrs', { id: '<project-state-list-block-id>', attrs: { 'custom-progress-role': 'project-state', 'custom-progress-project-id': '<project-id>', 'custom-progress-workstream': 'project', 'custom-progress-updated-at': '2026-09-03T00:00:00.000Z', 'custom-progress-last-event-id': '<latest-event-block-id-or-empty>' } }),
-            findStates: call('search', 'query_sql', { stmt: "SELECT b.id, b.content, b.updated FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='<project-id>') AND EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value IN ('project-profile','stage-ledger','artifact-index','project-state','workstream-state')) ORDER BY b.updated DESC LIMIT 50", maxRows: 50 }),
-            resolveArtifact: call('file', 'resolve_project_source', { projectId: '<project-id>', relativePath: '<authoritative-relative-path>' }),
-            allEvents: call('search', 'query_sql', { stmt: "SELECT b.id, b.content, b.created FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value='event') AND (EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='<project-id>') OR EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-provenance-project-id' AND p.value='<project-id>')) ORDER BY b.created DESC LIMIT 200 OFFSET 0", maxRows: 200 }),
-            eventAttrs: call('search', 'query_sql', { stmt: "SELECT block_id, name, value FROM attributes WHERE block_id IN ('<event-id-1>','<event-id-2>') AND name IN ('custom-progress-workstream','custom-progress-kind','custom-progress-occurred-at','custom-progress-provider','custom-progress-session-id','custom-provenance-occurred-at','custom-provenance-source-provider','custom-provenance-source-session','custom-provenance-compile-provider','custom-provenance-compile-session') ORDER BY block_id, name", maxRows: 1000 }),
             knowledgeSearch: call('search', 'knowledge', { query: '<current project task>', pageSize: 12, candidateSize: 30, activeScopes: ['<project-scope>'] }),
             readDetails: call('block', 'batch_kramdown', { ids: ['<filtered-block-id-1>', '<filtered-block-id-2>'], mode: 'md' }),
             discoverSession: call('provenance', 'discover_session', { provider: '<current-provider>', limit: 10 }),
@@ -654,8 +631,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             updateState: call('block', 'update', { id: '<state-list-block-id>', dataType: 'markdown', data: "- 项目目标：<goal>\n- 当前阶段：<phase>\n- 当前焦点：<focus>\n- 最近完成：<latest completion>\n- 下一步：<single next action>\n- 阻塞：<blockers>\n- 已否决方案：<rejected options>\n- 关键产物：<artifacts>\n- 最近事件：((<event-block-id> '最近事件'))" }),
             readState: call('block', 'get_kramdown', { id: '<state-list-block-id>' }),
             structuralSnapshot: call('timeline', 'create_node', { name: '项目进度结构调整前-<date>', scope: 'document', documentId: '<progress-document-id>' }),
-            recordKnowledgeEvent: call('provenance', 'record_event', { projectBlockId: '<project-hub-block-id>', projectId: '<project-id>', eventId: '<stable-event-id>', operation: '<concise knowledge delta>', sourceSession: { provider: '<current-provider>', sessionId: '<real-session-id>', hostAlias: 'local', captureMethod: 'inferred_latest_rollout' }, targetAtomIds: ['<knowledge-atom-id>'] }),
-            markKnowledgeEvent: call('block', 'set_attrs', { id: '<provenance-event-block-id>', attrs: { 'custom-progress-role': 'event', 'custom-progress-schema': '1', 'custom-progress-workstream': '<workstream>', 'custom-progress-kind': 'knowledge' } }),
+            recordKnowledgeEvent: call('provenance', 'record_event', { projectBlockId: '<project-hub-block-id>', projectId: '<project-id>', eventId: '<stable-event-id>', operation: '<concise knowledge delta>', workstream: '<workstream>', sourceSession: { provider: '<current-provider>', sessionId: '<real-session-id>', hostAlias: 'local', captureMethod: 'inferred_latest_rollout' }, compileSession: { provider: '<current-provider>', sessionId: '<real-session-id>', hostAlias: 'local', captureMethod: 'inferred_latest_rollout' }, targetAtomIds: ['<knowledge-atom-id>'] }),
         },
     },
     {

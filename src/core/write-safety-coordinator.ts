@@ -5,6 +5,7 @@ import { WriteOutcomeUnknownError } from '../api/client';
 import * as searchApi from '../api/search';
 import { normalizeTemplatePath, readTemplateSource } from '../api/template';
 import { readPuppyStats } from './puppy-state';
+import { validateBlockAttributeMutation } from './attribute-governance';
 import type { PermissionManager } from './permissions';
 import type { ToolResult } from '../tools/internal/shared';
 import { stringifyToolJson } from '../tools/internal/json-serialization';
@@ -549,6 +550,13 @@ async function probeCurrentState(
         }
     } else if (category === 'file') {
         await appendFileState(client, action, args, state);
+    } else if (category === 'block' && action === 'set_attrs') {
+        const id = typeof args.id === 'string' ? args.id : '';
+        const attrs = args.attrs && typeof args.attrs === 'object' && !Array.isArray(args.attrs)
+            ? args.attrs as Record<string, string>
+            : {};
+        await validateBlockAttributeMutation(client, permMgr, id, attrs);
+        await appendBlockRows(client, args, state);
     } else if (category === 'search' && (action === 'criteria_save' || action === 'criteria_remove')) {
         const name = typeof args.name === 'string' ? args.name : '';
         const criterion = (await searchApi.getCriteria(client)).find((item) => item.name === name);

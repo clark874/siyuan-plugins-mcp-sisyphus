@@ -54,7 +54,7 @@ Commands:
   ${PRIMARY_CLI_COMMAND} --version | -v                       Show version
 
 Tools:
-  fs, notebook, document, block, av, file, search, tag, timeline, system, flashcard, extension, mascot, feedback
+  fs, notebook, document, block, av, file, project, search, tag, timeline, system, flashcard, extension, mascot, provenance, feedback
 
 Alias:
   ${CLI_COMMAND_ALIAS}                                         Same CLI, shorter command name
