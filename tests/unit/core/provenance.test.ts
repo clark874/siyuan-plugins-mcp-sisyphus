@@ -172,6 +172,8 @@ describe('Agent 会话溯源核心', () => {
         await registerProvenanceSession(client, input.projectBlockId, input.projectId, input.sourceSession, input.occurredAt);
         await registerProvenanceSession(client, input.projectBlockId, input.projectId, input.compileSession, input.occurredAt);
         const first = await recordProvenanceEvent(client, input);
+        expect(first.transactionState).toBe('committed');
+        expect(first.verification.status).toBe('verified');
         const completeState = await readProvenanceWriteState(client, 'record_event', input);
         delete attrs.get('atom-1')!['custom-compile-session'];
         delete attrs.get(first.blockId)!['custom-progress-schema'];
@@ -237,5 +239,45 @@ describe('Agent 会话溯源核心', () => {
             sourceSession: { provider: 'codex', sessionId: 'not-registered', captureMethod: 'explicit' },
             targetAtomIds: ['atom-1'],
         })).rejects.toThrow(/会话记录缺失/);
+    });
+
+    it('引用索引延迟时明确返回已提交而不是抛出假失败', async () => {
+        const attrs = new Map<string, Record<string, string>>();
+        let inserted = 0;
+        const client = createMockClient({
+            request: async (endpoint: string, body: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql') return [];
+                if (endpoint === '/api/ref/refreshBacklink') return null;
+                if (endpoint === '/api/block/appendBlock') return [{ doOperations: [{ id: `deferred-${++inserted}` }] }];
+                if (endpoint === '/api/attr/setBlockAttrs') {
+                    attrs.set(String(body.id), { ...(attrs.get(String(body.id)) || {}), ...(body.attrs as Record<string, string>) });
+                    return null;
+                }
+                if (endpoint === '/api/attr/batchSetBlockAttrs') {
+                    for (const item of body.blockAttrs as Array<{ id: string; attrs: Record<string, string> }>) {
+                        attrs.set(item.id, { ...(attrs.get(item.id) || {}), ...item.attrs });
+                    }
+                    return null;
+                }
+                if (endpoint === '/api/attr/getBlockAttrs') return attrs.get(String(body.id)) || {};
+                return null;
+            },
+        });
+        const session = { provider: 'codex' as const, sessionId: 'deferred-session', captureMethod: 'explicit' as const };
+        await registerProvenanceSession(client, 'hub', 'project-deferred', session, '2026-09-05T00:00:00.000Z');
+        const event = await recordProvenanceEvent(client, {
+            projectBlockId: 'hub', projectId: 'project-deferred', eventId: 'event-deferred', operation: 'compile', workstream: 'tooling',
+            sourceSession: session, targetAtomIds: ['atom-deferred'], occurredAt: '2026-09-05T00:00:00.000Z',
+        });
+        expect(event).toMatchObject({
+            transactionState: 'committed',
+            replayed: false,
+            verification: {
+                status: 'committed_but_verification_deferred',
+                referenceAttempts: 4,
+            },
+        });
+        expect(event.verification.missingReferenceIds).toHaveLength(2);
+        expect(inserted).toBe(2);
     });
 });

@@ -107,7 +107,8 @@ describe('project tool', () => {
             profile: { id: 'profile', root_id: 'page', box: 'nb', path: '/page.sy', content: 'Profile', type: 'p' },
             stages: { id: 'stages', root_id: 'page', box: 'nb', path: '/page.sy', content: 'Stages', type: 'p' },
             artifacts: { id: 'artifacts', root_id: 'page', box: 'nb', path: '/page.sy', content: 'Artifacts', type: 'p' },
-            state: { id: 'state', root_id: 'page', box: 'nb', path: '/page.sy', content: 'State', type: 'p' },
+            state: { id: 'state', root_id: 'page', parent_id: 'page', box: 'nb', path: '/page.sy', content: 'Current Project State', type: 'h', sort: 10 },
+            'state-body': { id: 'state-body', root_id: 'page', parent_id: 'page', box: 'nb', path: '/page.sy', content: 'State body', type: 'p', sort: 20 },
             workstream: { id: 'workstream', root_id: 'page', box: 'nb', path: '/page.sy', content: 'Workstream', type: 'p' },
             event: { id: 'event', root_id: 'hub', box: 'nb', path: '/hub.sy', content: 'Event', type: 'p', created: '20260904010000' },
             backfill: { id: 'backfill', root_id: 'hub', box: 'nb', path: '/hub.sy', content: 'Backfill', type: 'p', created: '20260905010000' },
@@ -123,6 +124,7 @@ describe('project tool', () => {
                         || stmt.match(/WHERE id = '([^']+)' LIMIT 1/)?.[1];
                     if (exactId) return rows[exactId] ? [rows[exactId]] : [];
                     if (stmt.includes("custom-progress-role' AND r.value IN")) return ['page', 'profile', 'stages', 'artifacts', 'state', 'workstream'].map((id) => rows[id]);
+                    if (stmt.includes("WHERE root_id='page' ORDER BY sort ASC LIMIT 500")) return [rows.state, rows['state-body']];
                     if (stmt.includes('ORDER BY b.created DESC LIMIT 501')) return [rows.backfill, rows.event];
                     if (stmt.includes('FROM refs')) return [
                         { block_id: 'event', def_block_id: 'atom-1' },
@@ -160,14 +162,27 @@ describe('project tool', () => {
             });
             expect(result.knowledgeProducts).toMatchObject([{ id: 'atom-1', name: 'atom-one', verificationStatus: 'source-checked' }]);
             expect(result.artifacts[0].resolvedPath).toBe(path.join(fs.realpathSync(root), 'result.txt'));
-            expect(result.diagnostics).toEqual([]);
+            expect(result.diagnostics).toMatchObject([{ code: 'legacy_projection_layout', status: 'stale' }]);
+            expect(result.repairPlan).toMatchObject({
+                status: 'preview',
+                action: 'block.set_attrs',
+                items: expect.arrayContaining([
+                    { id: 'state-body', attrs: expect.objectContaining({ 'custom-progress-role': 'project-state' }) },
+                    { id: 'state', attrs: expect.objectContaining({ 'custom-progress-role': '' }) },
+                ]),
+            });
             expect(result.progressPage).not.toHaveProperty('kramdown');
+            expect(result.projections.projectProfile).not.toHaveProperty('kramdown');
+            expect(result.events[0]).not.toHaveProperty('kramdown');
             expect(result.project).not.toHaveProperty('workspaceRoot');
             expect(result).not.toHaveProperty('workspaceRoot');
             const byName = parseResult(await callProjectTool(client, { action: 'snapshot', projectName: 'Project A' }, buildDefaultToolConfig().project, createMockPermissionManager()));
             expect(byName.project).toMatchObject({ projectId: 'project-a', matchType: 'project-name' });
             const byCwd = parseResult(await callProjectTool(client, { action: 'snapshot', cwd: fs.realpathSync(root) }, buildDefaultToolConfig().project, createMockPermissionManager()));
             expect(byCwd.project).toMatchObject({ projectId: 'project-a', matchType: 'exact' });
+            const full = parseResult(await callProjectTool(client, { action: 'snapshot', projectId: 'project-a', view: 'full' }, buildDefaultToolConfig().project, createMockPermissionManager()));
+            expect(full.projections.projectProfile.kramdown).toBe('Profile');
+            expect(full.events[0].kramdown).toBe('Event');
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
         }

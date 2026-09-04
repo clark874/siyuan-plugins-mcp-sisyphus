@@ -2,7 +2,7 @@ import type { SiYuanClient } from '../../api/client';
 import * as attributeApi from '../../api/block';
 import * as blockApi from '../../api/block';
 import * as transactionApi from '../../api/transaction';
-import { validateBlockAttributeMutation } from '../../core/attribute-governance';
+import { validateBlockAttributeMutations } from '../../core/attribute-governance';
 import type { BlockAction } from '../../core/config';
 import { normalizeKramdownResult, stripZeroWidthChars } from '../../core/normalize';
 import {
@@ -783,22 +783,37 @@ const handleTransferReferences: BlockActionHandler = async ({ client, permMgr, r
 
 const handleSetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockSetAttrsSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
-    if (denied) return denied;
-    await validateBlockAttributeMutation(client, permMgr, parsed.id, parsed.attrs);
+    const items = parsed.items ?? [{ id: parsed.id!, attrs: parsed.attrs! }];
+    const contexts = [];
+    for (const item of items) {
+        const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, item.id, 'write');
+        if (denied) return denied;
+        contexts.push(context);
+    }
+    await validateBlockAttributeMutations(client, permMgr, items);
     await transactionApi.performTransactions(client, [{
-        doOperations: [{
+        doOperations: items.map((item) => ({
             action: 'setAttrs',
-            id: parsed.id,
-            data: JSON.stringify(parsed.attrs),
-        }],
+            id: item.id,
+            data: JSON.stringify(item.attrs),
+        })),
         undoOperations: [],
     }]);
-    const readback = await attributeApi.getBlockAttrs(client, parsed.id);
-    for (const [name, value] of Object.entries(parsed.attrs)) {
-        if (readback[name] !== value) throw new Error(`块 ${parsed.id} 的属性 ${name} 写入后回读不一致。`);
+    const readbacks = [];
+    for (const item of items) {
+        const readback = await attributeApi.getBlockAttrs(client, item.id);
+        for (const [name, value] of Object.entries(item.attrs)) {
+            if (readback[name] !== value) throw new Error(`块 ${item.id} 的属性 ${name} 写入后回读不一致。`);
+        }
+        readbacks.push({ id: item.id, attrs: item.attrs });
     }
-    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, attrs: parsed.attrs, verification: { status: 'verified', method: 'attribute-readback' } }), [{ type: 'reloadProtyle', id: context.documentId }]);
+    const refreshes = [...new Set(contexts.map((context) => context.documentId))]
+        .map((id) => ({ type: 'reloadProtyle' as const, id }));
+    return applyUiRefresh(client, createJsonResult({
+        success: true,
+        ...(parsed.items ? { items: readbacks } : { id: parsed.id, attrs: parsed.attrs }),
+        verification: { status: 'verified', method: 'attribute-readback', itemCount: items.length },
+    }), refreshes);
 };
 
 const handleGetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {

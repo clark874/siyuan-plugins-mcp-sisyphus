@@ -2,6 +2,13 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.15 - 2026-09-05
+
+- `provenance.record_event` 在事件、属性和引用正文已经落盘而 refs 索引暂未追平时，不再抛出会诱发重复重试的假失败；返回 `transactionState=committed` 与 `verification.status=committed_but_verification_deferred`，同一 eventId 可幂等重放完成核验
+- `block.set_attrs` 支持最多 100 个块的 `items` 批量写入；全部项目先通过同一治理与权限预检，再由单次思源事务提交并逐块回读。错误近似字段 `custom-progress-recent-event-id` 会在预检阶段被拒绝并提示规范字段
+- `project.snapshot` 默认使用 `view=summary` 省略投影和事件完整 Kramdown，`view=full` 按需读取；旧“标题块承载投影属性、正文位于后继块”的结构返回只读 `repairPlan`，不自动改写
+- 协调 Skill v0.6.3 使用稳定 Skills-over-MCP 资源加载专业知识流程，不再要求本地安装全部场景 Skill；状态投影属性通过一次批量 `set_attrs` 更新。CLI 提升至 `v0.4.15`
+
 ## v0.9.14 - 2026-09-04
 
 - 严格写入的所有 `validateOnly` 响应现在由服务端签发新鲜 UUIDv7 `issuedRequestId`；缺少 request ID 的拒绝响应也附带恢复 ID，Agent 无需自行实现 UUIDv7

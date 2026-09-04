@@ -5,7 +5,7 @@ import { WriteOutcomeUnknownError } from '../api/client';
 import * as searchApi from '../api/search';
 import { normalizeTemplatePath, readTemplateSource } from '../api/template';
 import { readPuppyStats } from './puppy-state';
-import { validateBlockAttributeMutation } from './attribute-governance';
+import { validateBlockAttributeMutations } from './attribute-governance';
 import type { PermissionManager } from './permissions';
 import type { ToolResult } from '../tools/internal/shared';
 import { stringifyToolJson } from '../tools/internal/json-serialization';
@@ -558,11 +558,16 @@ async function probeCurrentState(
     } else if (category === 'file') {
         await appendFileState(client, action, args, state);
     } else if (category === 'block' && action === 'set_attrs') {
-        const id = typeof args.id === 'string' ? args.id : '';
-        const attrs = args.attrs && typeof args.attrs === 'object' && !Array.isArray(args.attrs)
-            ? args.attrs as Record<string, string>
-            : {};
-        await validateBlockAttributeMutation(client, permMgr, id, attrs);
+        const items = Array.isArray(args.items)
+            ? args.items.filter(isRecord).map((item) => ({
+                id: typeof item.id === 'string' ? item.id : '',
+                attrs: isRecord(item.attrs) ? item.attrs as Record<string, string> : {},
+            }))
+            : [{
+                id: typeof args.id === 'string' ? args.id : '',
+                attrs: isRecord(args.attrs) ? args.attrs as Record<string, string> : {},
+            }];
+        await validateBlockAttributeMutations(client, permMgr, items);
         await appendBlockRows(client, args, state);
     } else if (category === 'search' && (action === 'criteria_save' || action === 'criteria_remove')) {
         const name = typeof args.name === 'string' ? args.name : '';
@@ -1013,6 +1018,11 @@ function collectNotebookBoxes(value: unknown, boxes: Set<string>): void {
 
 function collectTargetSelectors(args: Record<string, unknown>): string[] {
     const values = new Set<string>();
+    if (Array.isArray(args.items)) {
+        for (const item of args.items) {
+            if (isRecord(item) && typeof item.id === 'string' && item.id.trim()) values.add(item.id.trim());
+        }
+    }
     for (const [key, value] of Object.entries(args)) {
         if (!/(?:^id$|^ids$|ID$|IDs$|^projectId$|^notebook$|^path$|^from$|^to$|^oldPath$|^tag$|^label$|^oldLabel$)/.test(key)) continue;
         if (typeof value === 'string' && value.trim()) values.add(value.trim());

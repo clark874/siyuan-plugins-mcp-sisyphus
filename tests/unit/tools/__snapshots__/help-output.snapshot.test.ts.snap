@@ -1761,39 +1761,39 @@ siyuan-sisyphus block replace --id 20240318112233-abc123 --edit-json '{"old":"OR
       },
       "set_attrs": {
         "action": "set_attrs",
+        "arrayContracts": [
+          {
+            "field": "items",
+            "flag": "--items",
+            "minItems": 1,
+          },
+        ],
         "cliExamples": [
-          "siyuan-sisyphus block set-attrs --id 20240318112233-abc123 --attrs-json '{"custom-mcp":"demo"}' --validate-only",
-          "siyuan-sisyphus block set-attrs --id 20240318112233-abc123 --attrs-json '{"custom-mcp":"demo"}' --expected-state-hash <preflight-credential> --request-id <issued-request-id>",
+          "siyuan-sisyphus block set-attrs --validate-only",
+          "siyuan-sisyphus block set-attrs --expected-state-hash <preflight-credential> --request-id <issued-request-id>",
         ],
         "cliFlags": {
-          "optional": [],
+          "optional": [
+            "--id",
+            "--attrs-json",
+            "--items-json",
+          ],
           "protocol": [
             "--validate-only",
             "--request-id",
             "--expected-state-hash",
           ],
-          "required": [
-            "--id",
-            "--attrs-json",
-          ],
+          "required": [],
         },
         "example": {
           "action": "set_attrs",
-          "attrs": {
-            "custom-mcp": "demo",
-          },
-          "id": "20240318112233-abc123",
         },
         "examples": [
           {
-            "description": "siyuan-sisyphus block set-attrs --id 20240318112233-abc123 --attrs-json '{"custom-mcp":"demo"}' --validate-only
-siyuan-sisyphus block set-attrs --id 20240318112233-abc123 --attrs-json '{"custom-mcp":"demo"}' --expected-state-hash <preflight-credential> --request-id <issued-request-id>",
+            "description": "siyuan-sisyphus block set-attrs --validate-only
+siyuan-sisyphus block set-attrs --expected-state-hash <preflight-credential> --request-id <issued-request-id>",
             "mcp": {
               "action": "set_attrs",
-              "attrs": {
-                "custom-mcp": "demo",
-              },
-              "id": "20240318112233-abc123",
             },
             "title": "Canonical CLI",
           },
@@ -1812,14 +1812,11 @@ siyuan-sisyphus block set-attrs --id 20240318112233-abc123 --attrs-json '{"custo
           "block(action="recent_updated") now presents the document-grouped summary as the primary user-facing view while keeping the raw block stream for advanced consumers.",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential and issuedRequestId without changing any business argument. Execute once with expectedStateHash and the returned issuedRequestId, then read the target back.",
         ],
-        "hint": "Use attrs to write block attributes such as custom metadata. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.",
-        "requiredFields": [
-          "id",
-          "attrs",
-        ],
+        "hint": "Use id + attrs for one block, or items for an atomic batch of up to 100 blocks. Every item passes the same governance checks and post-write attribute readback. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.",
+        "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
-          "id + attrs",
+          "action only",
         ],
         "tool": "block",
         "writeSafety": {
@@ -2144,7 +2141,7 @@ block.get_kramdown: required [id] | optional []
 block.batch_kramdown: required [ids] | optional [mode]
 block.get_children: required [id] | optional [page, pageSize]
 block.transfer_references: required [fromID, toID] | optional [refIDs]
-block.set_attrs: required [id, attrs] | optional []
+block.set_attrs: required [] | optional [id, attrs, items]
 block.get_attrs: required [id] | optional []
 block.info: required [id] | optional []
 block.breadcrumb: required [id] | optional [excludeTypes]
@@ -2173,7 +2170,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
         "prepend": "parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Use #tag# syntax in markdown when you want SiYuan to register a real tag.",
         "recent_updated": "Returns recent updates across the workspace, then MCP filters unreadable notebooks and applies count when provided. documents is the primary user-facing summary; items remains the raw block stream.",
         "replace": "Use id + edit to replace exact text inside one block kramdown content only. First read block(action="get_kramdown", id=...) and copy old from the block body. For inline formatting, old must be rendered logical text without Markdown delimiters such as **, *, \`, or ~~; the writeback preserves the existing inline structure and IAL metadata while rejecting attribute edits. Naked ((id)) refs are normalized; footnotes and siyuan://blocks links are allowed but do not create backlinks.",
-        "set_attrs": "Use attrs to write block attributes such as custom metadata. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.",
+        "set_attrs": "Use id + attrs for one block, or items for an atomic batch of up to 100 blocks. Every item passes the same governance checks and post-write attribute readback. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.",
         "set_fold_state": "Use a foldable block ID + folded (true to fold, false to unfold).",
         "transfer_references": "requires: fromID, toID",
         "update": "Use dataType + data + id to replace block content. Existing IAL attributes such as name, alias, icon, bookmark, and custom-* are preserved automatically; id and updated are kernel-managed and are not restored. Change metadata separately with set_attrs. Returns a slim success object instead of raw DOM operations. block(action="update") is best for single-block replacement; multi-line markdown may be truncated to the first line by SiYuan, so use append/prepend/insert when you need multiple blocks or tables. If the content should create tags, write them as #tag#.",
@@ -2242,7 +2239,7 @@ block(action="prepend") or block(action="append") with a document ID targets the
           "requiresConfirmation": false,
         },
         "set_attrs": {
-          "hint": "Use attrs to write block attributes such as custom metadata. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.",
+          "hint": "Use id + attrs for one block, or items for an atomic batch of up to 100 blocks. Every item passes the same governance checks and post-write attribute readback. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.",
           "requiresConfirmation": false,
         },
         "set_fold_state": {
@@ -7451,7 +7448,7 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
           "Provide exactly one of cwd, projectId, or projectName. Project names use exact normalized matching; use file.list_project_sources for fallback candidates.",
           "Resolved absolute paths are limited to entries already present in the project artifact index; workspaceRoot is never returned.",
         ],
-        "hint": "Read a bounded project snapshot whose event chronology is sorted by occurredAt, with explicit completeness, project/workstream heads, diagnostics, and a host-side probe baseline.",
+        "hint": "Read a bounded project snapshot whose event chronology is sorted by occurredAt. view=summary is the default; view=full adds bounded projection and event Kramdown. Legacy heading-based projections are returned as a read-only repairPlan.",
         "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
@@ -7465,16 +7462,16 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
 Common actions: snapshot. Required fields: snapshot: no additional fields.
 
 Parameter contract per action (fields outside the action's optional list should not be sent):
-project.snapshot: required [] | optional [cwd, projectId, projectName, eventLimit, sessionLimit, validateSessions]
+project.snapshot: required [] | optional [cwd, projectId, projectName, eventLimit, sessionLimit, validateSessions, view]
 
 snapshot 是 Agent 恢复项目状态的唯一机器读取入口；query_embed 仅供人类界面展示。 cwd、projectId、projectName 三选一；项目名只做精确匹配，失败后由 Skill 使用 file.list_project_sources 展示候选。",
     "overview": {
       "actionSummaries": {
-        "snapshot": "Read a bounded project snapshot whose event chronology is sorted by occurredAt, with explicit completeness, project/workstream heads, diagnostics, and a host-side probe baseline.",
+        "snapshot": "Read a bounded project snapshot whose event chronology is sorted by occurredAt. view=summary is the default; view=full adds bounded projection and event Kramdown. Legacy heading-based projections are returned as a read-only repairPlan.",
       },
       "actions": {
         "snapshot": {
-          "hint": "Read a bounded project snapshot whose event chronology is sorted by occurredAt, with explicit completeness, project/workstream heads, diagnostics, and a host-side probe baseline.",
+          "hint": "Read a bounded project snapshot whose event chronology is sorted by occurredAt. view=summary is the default; view=full adds bounded projection and event Kramdown. Legacy heading-based projections are returned as a read-only repairPlan.",
           "requiresConfirmation": false,
         },
       },
@@ -8760,7 +8757,7 @@ siyuan-sisyphus system apply-change --plan-id <planID> --expected-state-hash <pr
             "mcp": {
               "action": "changelog",
               "includeRaw": true,
-              "version": "0.4.14",
+              "version": "0.4.15",
             },
             "title": "Read one exact release entry with raw Markdown",
           },

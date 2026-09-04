@@ -17,6 +17,7 @@ system(action="bootstrap")
 Use the returned notebooks, capability flags, path guide, and `nextCalls` as the live source of truth. `operation.readOnly=true` describes only the bootstrap action; the connection may still expose mutations according to notebook permissions and enabled actions. If `toolConfiguration.current=false`, treat capability data as fallback metadata rather than a health check.
 
 Use the narrowest scenario skill that matches the task. For unfamiliar fields, inspect `siyuan://help/tool-overview` and the relevant `siyuan://help/action/{tool}/{action}` resource before calling an action; live action help is the parameter-level source of truth.
+If a scenario Skill is not installed as a local folder, read its stable Skills-over-MCP resource at `siyuan://skills/<skill-name>`; do not treat local installation of all scenario Skills as a prerequisite.
 
 ## Scenario routing
 

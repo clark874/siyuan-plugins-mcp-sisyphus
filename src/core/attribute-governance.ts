@@ -21,6 +21,9 @@ export async function validateBlockAttributeMutation(
     id: string,
     attrs: Record<string, string>,
 ): Promise<Record<string, string>> {
+    if (Object.prototype.hasOwnProperty.call(attrs, 'custom-progress-recent-event-id')) {
+        throw new Error('未知进度属性 custom-progress-recent-event-id；请使用唯一合法字段 custom-progress-last-event-id。');
+    }
     const current = await blockApi.getBlockAttrs(client, id);
     const next = { ...current, ...attrs };
 
@@ -77,4 +80,25 @@ export async function validateBlockAttributeMutation(
         if (missing.length > 0) throw new Error(`普通进度事件缺少必要属性：${missing.join(', ')}。`);
     }
     return current;
+}
+
+export async function validateBlockAttributeMutations(
+    client: SiYuanClient,
+    permMgr: PermissionManager,
+    items: Array<{ id: string; attrs: Record<string, string> }>,
+): Promise<void> {
+    const requestedNames = new Map<string, string>();
+    for (const item of items) {
+        if (!Object.prototype.hasOwnProperty.call(item.attrs, 'name')) continue;
+        const normalized = normalizeAnchorToken(item.attrs.name);
+        if (!normalized) continue;
+        const previous = requestedNames.get(normalized);
+        if (previous && previous !== item.id) {
+            throw new Error(`批量属性写入包含重复的知识原子 name：${item.attrs.name}。`);
+        }
+        requestedNames.set(normalized, item.id);
+    }
+    for (const item of items) {
+        await validateBlockAttributeMutation(client, permMgr, item.id, item.attrs);
+    }
 }

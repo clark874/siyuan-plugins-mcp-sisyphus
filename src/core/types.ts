@@ -90,6 +90,7 @@ export const ProjectSnapshotSchema = z.object({
     eventLimit: z.number().int().min(1).max(100).optional().describe("Recent event limit, default 10"),
     sessionLimit: z.number().int().min(1).max(100).optional().describe("Registered session limit, default 20"),
     validateSessions: z.boolean().optional().describe("Validate local session records, default true"),
+    view: z.enum(["summary", "full"]).optional().describe("Response detail level, default summary; full includes bounded projection and event Kramdown"),
 }).superRefine((value, ctx) => {
     const selectors = [value.cwd, value.projectId, value.projectName].filter((item) => typeof item === "string");
     if (selectors.length !== 1) {
@@ -739,10 +740,32 @@ export const BlockTransferReferencesSchema = z.object({
     refIDs: z.array(z.string()).optional().describe("Reference block IDs"),
 });
 
+const BlockSetAttrsItemSchema = z.object({
+    id: z.string().min(1).describe("Block ID"),
+    attrs: z.record(z.string(), z.string()).describe("Block attributes"),
+});
+
 export const BlockSetAttrsSchema = z.object({
     action: z.literal("set_attrs"),
-    id: z.string().describe("Block ID"),
-    attrs: z.record(z.string(), z.string()).describe("Block attributes"),
+    id: z.string().min(1).optional().describe("Single block ID"),
+    attrs: z.record(z.string(), z.string()).optional().describe("Single-block attributes"),
+    items: z.array(BlockSetAttrsItemSchema).min(1).max(100).optional().describe("Atomic batch of block attribute updates"),
+}).superRefine((value, ctx) => {
+    const hasSingle = typeof value.id === "string" || value.attrs !== undefined;
+    const hasBatch = value.items !== undefined;
+    if (hasSingle === hasBatch || (hasSingle && (!value.id || !value.attrs))) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Provide either id + attrs or items, but not both.",
+        });
+    }
+    if (value.items && new Set(value.items.map((item) => item.id)).size !== value.items.length) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["items"],
+            message: "items must not contain duplicate block IDs.",
+        });
+    }
 });
 
 export const BlockGetAttrsSchema = z.object({
@@ -1448,7 +1471,7 @@ export const SystemNotifySchema = z.object({
 
 export const SystemChangelogSchema = z.object({
     action: z.literal("changelog"),
-    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.4.14 or v0.4.14"),
+    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.4.15 or v0.4.15"),
     fromVersion: z.string().optional().describe("Previous plugin version; returns entries newer than this version"),
     limit: z.number().int().min(1).max(50).optional().describe("Maximum number of entries to return when version is omitted"),
     includeRaw: z.boolean().optional().describe("Include raw Markdown for each returned changelog entry"),

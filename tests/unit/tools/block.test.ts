@@ -112,11 +112,48 @@ describe('block tool', () => {
             action: 'set_attrs', id: 'block-1', attrs: { 'custom-progress-kind': 'knowledge' },
         }, buildDefaultToolConfig().block, permMgr as never));
         expect(forgedKnowledge.error.message).toContain('只能由 provenance.record_event');
+        const nearMiss = parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: 'block-1', attrs: { 'custom-progress-recent-event-id': 'event-1' },
+        }, buildDefaultToolConfig().block, permMgr as never));
+        expect(nearMiss.error.message).toContain('custom-progress-last-event-id');
         duplicateName = true;
         const duplicate = parseResult(await callBlockTool(client, {
             action: 'set_attrs', id: 'block-1', attrs: { name: 'same-name' },
         }, buildDefaultToolConfig().block, { ...permMgr, getAll: () => ({ 'nb-1': 'rwd' }) } as never));
         expect(duplicate.error.message).toContain('name 与既有可读块冲突');
+    });
+
+    it('在一次事务中批量写入并逐块回读属性', async () => {
+        const attrs = new Map<string, Record<string, string>>([['block-1', {}], ['block-2', {}]]);
+        const transactions: unknown[] = [];
+        const client = createMockClient({
+            request: vi.fn(async (endpoint: string, body?: Record<string, any>) => {
+                if (endpoint === '/api/query/sql') {
+                    const id = String(body?.stmt || '').match(/id = '([^']+)'/)?.[1];
+                    return id ? [{ id, root_id: 'doc-1', box: 'nb-1', path: '/doc-1.sy', content: id, type: 'p' }] : [];
+                }
+                if (endpoint === '/api/attr/getBlockAttrs') return attrs.get(String(body?.id)) || {};
+                if (endpoint === '/api/transactions') {
+                    transactions.push(body);
+                    for (const operation of body?.transactions?.[0]?.doOperations || []) {
+                        attrs.set(operation.id, { ...(attrs.get(operation.id) || {}), ...JSON.parse(operation.data) });
+                    }
+                    return null;
+                }
+                if (endpoint.startsWith('/api/ui/')) return null;
+                throw new Error(`Unexpected endpoint: ${endpoint}`);
+            }),
+        });
+        const result = parseResult(await callBlockTool(client, {
+            action: 'set_attrs',
+            items: [
+                { id: 'block-1', attrs: { 'custom-progress-last-event-id': 'event-1' } },
+                { id: 'block-2', attrs: { 'custom-progress-last-event-id': 'event-1' } },
+            ],
+        }, buildDefaultToolConfig().block, permMgr as never));
+        expect(result).toMatchObject({ success: true, verification: { status: 'verified', itemCount: 2 } });
+        expect(result.items).toHaveLength(2);
+        expect(transactions).toHaveLength(1);
     });
 
     it('limits batch_kramdown to 20 IDs', () => {

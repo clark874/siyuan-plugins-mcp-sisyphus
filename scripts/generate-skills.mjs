@@ -22,6 +22,15 @@ if (unknownArgs.length) {
     throw new Error(`Unknown argument(s): ${unknownArgs.join(', ')}`);
 }
 
+const scenarioIds = new Set(scenarios.map((scenario) => scenario.id));
+for (const scenario of scenarios) {
+    for (const match of scenario.body.matchAll(/\{\{skill ([a-z0-9-]+)\}\}/g)) {
+        if (!scenarioIds.has(match[1])) {
+            throw new Error(`${scenario.id}: referenced scenario skill does not exist: ${match[1]}`);
+        }
+    }
+}
+
 const CLI_ENTRY_GUARD = `## Resolve the CLI entry first
 
 Before the first SiYuan CLI call in every new session, verify that the local command is available:

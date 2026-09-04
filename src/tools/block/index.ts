@@ -43,7 +43,7 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
     createZodActionVariant('batch_kramdown', BlockBatchKramdownSchema, 'Get kramdown content for up to 20 blocks while preserving input order and per-item errors.'),
     createZodActionVariant('get_children', BlockGetChildrenSchema, 'Get child blocks of a parent with pagination support.'),
     createZodActionVariant('transfer_references', BlockTransferReferencesSchema, 'Transfer block references from one block to another.'),
-    createZodActionVariant('set_attrs', BlockSetAttrsSchema, 'Set block attributes.'),
+    createZodActionVariant('set_attrs', BlockSetAttrsSchema, 'Set one block attributes with id + attrs, or atomically set up to 100 blocks with items.'),
     createZodActionVariant('get_attrs', BlockGetAttrsSchema, 'Get block attributes.'),
     createZodActionVariant('info', BlockInfoSchema, 'Get block position and root document metadata.'),
     createZodActionVariant('breadcrumb', BlockBreadcrumbSchema, 'Get the breadcrumb path for a block.'),

@@ -51,14 +51,17 @@ export interface EventRecord {
     targetAtomIds: string[];
     automationId?: string;
     replayed?: boolean;
+    transactionState: 'committed';
     attributes: Record<string, string>;
     verification: {
-        status: 'verified';
+        status: 'verified' | 'committed_but_verification_deferred';
         eventAttributes: true;
         targetAtomAttributes: true;
         referencedSessionBlockIds: string[];
         referencedAtomIds: string[];
         verifiedReferences: string[];
+        missingReferenceIds: string[];
+        referenceAttempts: number;
         atomSummaryUpdates: Array<{
             atomId: string;
             disposition: 'advanced' | 'repaired' | 'preserved_newer' | 'preserved_equal_time' | 'preserved_unparseable_time';
@@ -315,19 +318,41 @@ async function verifyAttrs(client: SiYuanClient, id: string, expected: Record<st
     return attrs;
 }
 
-async function verifyEventReferences(client: SiYuanClient, eventBlockId: string, expectedIds: string[]): Promise<string[]> {
+async function verifyEventReferences(client: SiYuanClient, eventBlockId: string, expectedIds: string[]): Promise<{
+    status: 'verified' | 'deferred';
+    verifiedReferences: string[];
+    missingReferenceIds: string[];
+    attempts: number;
+}> {
     const expected = [...new Set(expectedIds)];
     let actual = new Set<string>();
+    let attempts = 0;
     for (const delayMs of [0, 50, 150, 300]) {
         if (delayMs > 0) await new Promise((resolve) => setTimeout(resolve, delayMs));
+        attempts += 1;
         const rows = await searchApi.querySQL(client, `SELECT DISTINCT def_block_id FROM refs WHERE block_id='${sql(eventBlockId)}' LIMIT ${Math.max(20, expected.length + 5)}`);
         actual = new Set(rows.flatMap((row) => row && typeof row === 'object' && typeof (row as Record<string, unknown>).def_block_id === 'string'
             ? [(row as Record<string, string>).def_block_id]
             : []));
-        if (expected.every((id) => actual.has(id))) return [...actual];
+        if (expected.every((id) => actual.has(id))) {
+            return { status: 'verified', verifiedReferences: [...actual], missingReferenceIds: [], attempts };
+        }
+        if (attempts === 1) {
+            for (const id of expected) {
+                try {
+                    await searchApi.refreshBacklink(client, id);
+                } catch {
+                    // 索引刷新失败不影响已经提交的事件；继续走 SQL 有界重试。
+                }
+            }
+        }
     }
-    const missing = expected.filter((id) => !actual.has(id));
-    throw new Error(`知识化事件 ${eventBlockId} 的真实块引用回读不完整：${missing.join(', ')}。`);
+    return {
+        status: 'deferred',
+        verifiedReferences: [...actual],
+        missingReferenceIds: expected.filter((id) => !actual.has(id)),
+        attempts,
+    };
 }
 
 async function findRecordByAttrs(client: SiYuanClient, kind: 'session' | 'event', projectId: string, uniqueName: string, uniqueValue: string, cacheKey: string, cache: Map<string, string>): Promise<string | null> {
@@ -579,7 +604,7 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
             await verifyAttrs(client, blockId, fixedProgressAttrs);
         }
         const verifiedEventAttrs = await blockApi.getBlockAttrs(client, blockId);
-        const verifiedReferences = await verifyEventReferences(client, blockId, [sourceSession.blockId, compileSession.blockId, ...input.targetAtomIds]);
+        const referenceVerification = await verifyEventReferences(client, blockId, [sourceSession.blockId, compileSession.blockId, ...input.targetAtomIds]);
         return {
             blockId,
             projectId: input.projectId,
@@ -592,14 +617,17 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
             targetAtomIds: input.targetAtomIds,
             automationId: input.automationId,
             replayed: true,
+            transactionState: 'committed',
             attributes: verifiedEventAttrs,
             verification: {
-                status: 'verified',
+                status: referenceVerification.status === 'verified' ? 'verified' : 'committed_but_verification_deferred',
                 eventAttributes: true,
                 targetAtomAttributes: true,
                 referencedSessionBlockIds: [...new Set([sourceSession.blockId, compileSession.blockId])],
                 referencedAtomIds: input.targetAtomIds,
-                verifiedReferences,
+                verifiedReferences: referenceVerification.verifiedReferences,
+                missingReferenceIds: referenceVerification.missingReferenceIds,
+                referenceAttempts: referenceVerification.attempts,
                 atomSummaryUpdates,
             },
         };
@@ -655,7 +683,7 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
         atomAttrs,
     );
     const verifiedEventAttrs = await blockApi.getBlockAttrs(client, blockId);
-    const verifiedReferences = await verifyEventReferences(client, blockId, [sourceSession.blockId, compileSession.blockId, ...input.targetAtomIds]);
+    const referenceVerification = await verifyEventReferences(client, blockId, [sourceSession.blockId, compileSession.blockId, ...input.targetAtomIds]);
     return {
         blockId,
         projectId: input.projectId,
@@ -668,14 +696,17 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
         targetAtomIds: input.targetAtomIds,
         automationId: input.automationId,
         replayed,
+        transactionState: 'committed',
         attributes: verifiedEventAttrs,
         verification: {
-            status: 'verified',
+            status: referenceVerification.status === 'verified' ? 'verified' : 'committed_but_verification_deferred',
             eventAttributes: true,
             targetAtomAttributes: true,
             referencedSessionBlockIds: [...new Set([sourceSession.blockId, compileSession.blockId])],
             referencedAtomIds: input.targetAtomIds,
-            verifiedReferences,
+            verifiedReferences: referenceVerification.verifiedReferences,
+            missingReferenceIds: referenceVerification.missingReferenceIds,
+            referenceAttempts: referenceVerification.attempts,
             atomSummaryUpdates,
         },
     };

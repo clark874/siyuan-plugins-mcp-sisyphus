@@ -20,6 +20,7 @@ Start every newly connected session with one read-only bootstrap call:
 Use the returned notebooks, capability flags, path guide, and \`nextCalls\` as the live source of truth. \`operation.readOnly=true\` describes only the bootstrap action; the connection may still expose mutations according to notebook permissions and enabled actions. If \`toolConfiguration.current=false\`, treat capability data as fallback metadata rather than a health check.
 
 Use the narrowest scenario skill that matches the task. For unfamiliar fields, inspect {{help * *}} before calling an action; live action help is the parameter-level source of truth.
+If a scenario Skill is not installed as a local folder, read its stable Skills-over-MCP resource at \`siyuan://skills/<skill-name>\`; do not treat local installation of all scenario Skills as a prerequisite.
 
 ## Scenario routing
 
@@ -549,6 +550,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 \`启动\`与\`交接\`在输出全景前执行启动核验。核验只读，异常时最多在全景之前追加两行警示；不写入、不阻断、不把警示写成事件：
 
 1. 投影一致性、孤儿会话、知识引用、绑定陈旧、产物悬空、重复 name 与历史事件分级均直接使用 \`snapshot.diagnostics\`；Skill 不重复实现。\`historical_repairable\` 是可重放修复提示，不表述为数据损坏。若 \`chronology.complete=false\` 或出现 \`event_chronology_truncated\`，禁止更新项目或工作线状态投影。
+   若 snapshot 返回 \`repairPlan\`，它只是旧投影结构的修复预览：启动和交接不得执行。只有用户明确要求修复时，先为进度文档创建时间线节点，再把预览中的 \`items\` 原样交给一次批量 \`block.set_attrs\`，随后重新 snapshot；不得自行扩展修复范围。
 2. 本地与共享记忆对账（宿主可执行本地命令时）：按“本地权威文件 ↔ 项目源清单 ↔ 思源投影/知识”三方核验。Tier A 文件的当前 SHA-256 与清单哈希相同且投影无冲突才可写“已核验一致”；哈希不同写“本地领先共享记忆”，文件缺失写“本地缺失”，命令失败或缺少哈希写“无法确认”，不得用 mtime 证明内容一致。
 3. 增量新鲜度：使用 \`localProbeBaseline.latestHandoffAt\`，缺失时回退 \`latestEventAt\` 并标注“弱基线”。Git 项目执行 \`git log --oneline --since=<baseline>\` 与 \`git status --porcelain\`；非 Git 目录项目把 UTC 转为 \`YYYY-MM-DD HH:MM:SS UTC\` 后执行 \`find . -type f -newermt "<UTC 文本时间>" -not -path "*/.git/*" -not -path "*/node_modules/*"\`。先检查命令退出状态，再截取前 20 条，禁止用管道成功掩盖失败。非空时最多列出 3 个相对路径。
 4. 思源不可用降级：\`bootstrap\` 或首个读取调用失败且重试一次仍失败时，停止访问共享记忆，提示“共享记忆不可用，本会话仅本地工作，恢复后请重新启动并收尾”；随后只执行不依赖思源的任务，降级状态下禁止任何项目写入。
@@ -576,11 +578,11 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 只处理本轮新增或修订的研究决策、可复用方法、已核验证据、长期警告、失败原因和否决结论。没有知识增量时零写入，并直接说明“本轮没有需要知识化的增量”。
 
-按来源读取并执行现有 Skill，不在这里复制其查重、写入、验证或来源协议：
+按来源读取并执行 Sisyphus 发布的稳定场景 Skill，不在这里复制其查重、写入、验证或来源协议。本地未安装对应 Skill 文件时，直接读取同名 Skills-over-MCP 资源；不得因此中断，也不得重新安装全部场景 Skill：
 
-- 本地项目文件、脚本、输出和研究结果：{{skill project-knowledge-compile}}；
-- 既有原子的查重、合并、改名和验证状态：{{skill knowledge-governance}}；
-- 网页、发布说明等外部来源：{{skill knowledge-ingest}}。
+- 本地项目文件、脚本、输出和研究结果：\`siyuan://skills/siyuan-mcp-project-knowledge-compile\`；
+- 既有原子的查重、合并、改名和验证状态：\`siyuan://skills/siyuan-mcp-knowledge-governance\`；
+- 网页、发布说明等外部来源：\`siyuan://skills/siyuan-mcp-knowledge-ingest\`。
 
 待核验结论从一开始就在知识位置以 \`custom-verification-status=draft\` 保存，核验后原地更新，不在进度页保存候选正文。
 
@@ -588,7 +590,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 {{call recordKnowledgeEvent}}
 
-\`record_event\` 返回的事件块就是本次进度事件；服务端在同一次写入中固定建立 role、schema、workstream 和 \`kind=knowledge\` 四个进度属性并完成回读。事件的 \`recordedAt\` 来自思源块创建时间；Skill 不再拼装这些属性，不创建第二个检查点块，也不在知识原子上增加进度布尔值。回执必须说明原子摘要是 advanced、repaired 还是因较新/同时间/时间异常而保留。
+\`record_event\` 返回的事件块就是本次进度事件；服务端在同一次写入中固定建立 role、schema、workstream 和 \`kind=knowledge\` 四个进度属性并完成回读。事件的 \`recordedAt\` 来自思源块创建时间；Skill 不再拼装这些属性，不创建第二个检查点块，也不在知识原子上增加进度布尔值。回执必须说明原子摘要是 advanced、repaired 还是因较新/同时间/时间异常而保留。若返回 \`transactionState=committed\` 且 \`verification.status=committed_but_verification_deferred\`，事件已经落盘，禁止换 eventId 重建；只允许稍后用同一 eventId 幂等重放完成引用核验。
 
 知识写入成功而事件登记失败时，使用同一个 eventId 重试 record_event；其幂等重放不得重新创建知识原子。事件登记成功而状态更新失败时，保留事件并在下次调用时重建状态投影。
 
@@ -605,9 +607,10 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 {{call appendProgressEvent}}
 {{call setProgressEventAttrs}}
 
-只有当前增量事件晚于 snapshot 对应工作线头部且 \`chronology.complete=true\` 时，才更新相关工作线状态并根据全部工作线状态重算项目状态。历史补录与未解决的历史冲突只保留事件及必要的阶段台账关系，禁止更新当前状态投影。严格写入先 validateOnly，再原样使用返回的 \`issuedRequestId\` 与凭据单次执行；每块更新后立即回读：
+只有当前增量事件晚于 snapshot 对应工作线头部且 \`chronology.complete=true\` 时，才更新相关工作线状态并根据全部工作线状态重算项目状态。历史补录与未解决的历史冲突只保留事件及必要的阶段台账关系，禁止更新当前状态投影。正文更新后，使用一次批量 \`set_attrs(items=...)\` 为受影响的项目状态和工作线状态写入规范字段 \`custom-progress-last-event-id\` 与 \`custom-progress-updated-at\`；禁止使用近似字段 \`custom-progress-recent-event-id\`。严格写入先 validateOnly，再原样使用返回的 \`issuedRequestId\` 与凭据单次执行；批量属性写入整体预检、一次提交并逐块回读：
 
 {{call updateState}}
+{{call updateProjectionAttrs}}
 {{call readState}}
 
 若哈希冲突，保留已追加事件，重读状态后只合并一次。第二次仍冲突则停止覆写并报告“状态投影待重建”。普通收尾不创建时间线节点；只有模板迁移、批量重建或高风险改写前才建立文档级节点：
@@ -628,9 +631,9 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             bootstrap: call('system', 'bootstrap'),
             memory: call('fs', 'read', { path: '/AGENTS.md', blockStart: 0, blockLimit: 80, tokenBudget: 3000 }),
             contract: call('fs', 'read', { path: '/工作日志/00 导航与说明/知识编译契约', blockStart: 0, blockLimit: 100, tokenBudget: 8000 }),
-            projectSnapshotByCwd: call('project', 'snapshot', { cwd: '<absolute-current-working-directory-from-host>', eventLimit: 10, sessionLimit: 20, validateSessions: true }),
-            projectSnapshotByName: call('project', 'snapshot', { projectName: '<natural-language-project-name>', eventLimit: 10, sessionLimit: 20, validateSessions: true }),
-            projectSnapshotById: call('project', 'snapshot', { projectId: '<project-id>', eventLimit: 10, sessionLimit: 20, validateSessions: true }),
+            projectSnapshotByCwd: call('project', 'snapshot', { cwd: '<absolute-current-working-directory-from-host>', eventLimit: 10, sessionLimit: 20, validateSessions: true, view: 'summary' }),
+            projectSnapshotByName: call('project', 'snapshot', { projectName: '<natural-language-project-name>', eventLimit: 10, sessionLimit: 20, validateSessions: true, view: 'summary' }),
+            projectSnapshotById: call('project', 'snapshot', { projectId: '<project-id>', eventLimit: 10, sessionLimit: 20, validateSessions: true, view: 'full' }),
             projectSources: call('file', 'list_project_sources', { query: '<natural-language-project-name>', page: 1, pageSize: 20 }),
             knowledgeSearch: call('search', 'knowledge', { query: '<current project task>', pageSize: 12, candidateSize: 30, activeScopes: ['<project-scope>'] }),
             readDetails: call('block', 'batch_kramdown', { ids: ['<filtered-block-id-1>', '<filtered-block-id-2>'], mode: 'md' }),
@@ -640,6 +643,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             appendProgressEvent: call('block', 'insert', { nextID: '<recent-activity-heading-id>', dataType: 'markdown', data: "**[<local-time>] <provider> · <workstream>**　完成：<durable delta>；下一步：<single next action>；阻塞：<none or blocker>；产物：<paths or block references>；会话：((<session-record-block-id> 'Agent 会话'))" }),
             setProgressEventAttrs: call('block', 'set_attrs', { id: '<progress-event-block-id>', attrs: { 'custom-progress-role': 'event', 'custom-progress-schema': '1', 'custom-progress-project-id': '<project-id>', 'custom-progress-event-id': '<stable-event-id>', 'custom-progress-workstream': '<workstream>', 'custom-progress-kind': 'handoff', 'custom-progress-occurred-at': '2026-09-03T00:00:00.000Z', 'custom-progress-provider': '<current-provider>', 'custom-progress-session-id': '<real-session-id>' } }),
             updateState: call('block', 'update', { id: '<state-list-block-id>', dataType: 'markdown', data: "- 项目目标：<goal>\n- 当前阶段：<phase>\n- 当前焦点：<focus>\n- 最近完成：<latest completion>\n- 下一步：<single next action>\n- 阻塞：<blockers>\n- 已否决方案：<rejected options>\n- 关键产物：<artifacts>\n- 最近事件：((<event-block-id> '最近事件'))" }),
+            updateProjectionAttrs: call('block', 'set_attrs', { items: [{ id: '<project-state-block-id>', attrs: { 'custom-progress-last-event-id': '<event-block-id>', 'custom-progress-updated-at': '<occurred-at>' } }, { id: '<workstream-state-block-id>', attrs: { 'custom-progress-last-event-id': '<event-block-id>', 'custom-progress-updated-at': '<occurred-at>' } }] }),
             readState: call('block', 'get_kramdown', { id: '<state-list-block-id>' }),
             structuralSnapshot: call('timeline', 'create_node', { name: '项目进度结构调整前-<date>', scope: 'document', documentId: '<progress-document-id>' }),
             recordKnowledgeEvent: call('provenance', 'record_event', { projectBlockId: '<project-hub-block-id>', projectId: '<project-id>', eventId: '<stable-event-id>', operation: '<concise knowledge delta or 历史补录: ...>', workstream: '<workstream>', occurredAt: '<evidence-backed-event-time>', sourceSession: { provider: '<current-provider>', sessionId: '<real-session-id>', hostAlias: 'local', captureMethod: 'inferred_latest_rollout' }, compileSession: { provider: '<current-provider>', sessionId: '<real-session-id>', hostAlias: 'local', captureMethod: 'inferred_latest_rollout' }, targetAtomIds: ['<knowledge-atom-id>'] }),

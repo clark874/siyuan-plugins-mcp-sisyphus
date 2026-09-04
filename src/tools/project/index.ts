@@ -26,11 +26,14 @@ type BlockRow = {
     id: string;
     box?: string;
     root_id?: string;
+    parent_id?: string;
     content?: string;
     created?: string;
     updated?: string;
     hpath?: string;
     type?: string;
+    subtype?: string;
+    sort?: number;
 };
 
 type SnapshotDiagnostic = {
@@ -252,6 +255,81 @@ function eventSessionKeys(attrs: Record<string, string>): string[] {
     return [...new Set(keys)];
 }
 
+function projectionRoleFromHeading(content: string): { role: string; workstream?: string } | null {
+    const normalized = content.normalize('NFKC').trim().replace(/\s+/g, ' ');
+    if (/^(?:项目概览|project profile)$/iu.test(normalized)) return { role: 'project-profile' };
+    if (/^(?:阶段台账|stage ledger)$/iu.test(normalized)) return { role: 'stage-ledger' };
+    if (/^(?:权威产物索引|artifact index)$/iu.test(normalized)) return { role: 'artifact-index' };
+    if (/^(?:当前项目状态|project state)$/iu.test(normalized)) return { role: 'project-state' };
+    const workstream = normalized.match(/^(?:工作线状态|workstream state)\s*[:：]\s*(.+)$/iu)?.[1]?.trim();
+    return workstream ? { role: 'workstream-state', workstream } : null;
+}
+
+async function buildProjectionRepairPlan(
+    client: SiYuanClient,
+    projectId: string,
+    progressPageId: string | undefined,
+    projections: Array<BlockRow & { role?: string; workstream?: string; attributes: Record<string, string> }>,
+) {
+    const misplaced = projections.filter((item) => item.type === 'h' && item.role && item.role !== 'project-progress-page');
+    const presentRoles = new Set(projections.map((item) => item.role).filter(Boolean));
+    const missingRequired = ['project-profile', 'stage-ledger', 'artifact-index', 'project-state']
+        .some((role) => !presentRoles.has(role));
+    if (!progressPageId || (misplaced.length === 0 && !missingRequired)) return null;
+
+    const rawRows = await searchApi.querySQL(client, `SELECT id, root_id, parent_id, content, type, subtype, sort FROM blocks WHERE root_id='${escapeSqlString(progressPageId)}' ORDER BY sort ASC LIMIT 500`);
+    const rows = rawRows.map(asBlockRow).filter((row): row is BlockRow => Boolean(row));
+    const attrsById = await batchAttrs(client, rows.map((row) => row.id));
+    const items = new Map<string, Record<string, string>>();
+    const evidence: Array<{ headingId: string; targetId: string; role: string; workstream?: string }> = [];
+
+    for (let index = 0; index < rows.length; index += 1) {
+        const heading = rows[index];
+        if (heading.type !== 'h') continue;
+        const inferred = projectionRoleFromHeading(heading.content || '');
+        const headingAttrs = attrsById[heading.id] || {};
+        const existingRole = headingAttrs['custom-progress-role'];
+        const role = existingRole && existingRole !== 'project-progress-page' ? existingRole : inferred?.role;
+        if (!role || role === 'project-progress-page') continue;
+        let target: BlockRow | undefined;
+        for (const candidate of rows.slice(index + 1)) {
+            if (candidate.parent_id !== heading.parent_id) continue;
+            if (candidate.type === 'h') break;
+            target = candidate;
+            break;
+        }
+        if (!target) continue;
+        const targetAttrs = attrsById[target.id] || {};
+        if (targetAttrs['custom-progress-role'] === role) continue;
+        const workstream = headingAttrs['custom-progress-workstream'] || inferred?.workstream;
+        if (role === 'workstream-state' && !workstream) continue;
+
+        const moved = Object.fromEntries(Object.entries(headingAttrs).filter(([name]) => name.startsWith('custom-progress-')));
+        const targetPatch: Record<string, string> = {
+            ...moved,
+            'custom-progress-role': role,
+            'custom-progress-project-id': projectId,
+        };
+        if (workstream) targetPatch['custom-progress-workstream'] = workstream;
+        items.set(target.id, { ...(items.get(target.id) || {}), ...targetPatch });
+
+        if (existingRole) {
+            const clearPatch = Object.fromEntries(Object.keys(moved).map((name) => [name, '']));
+            items.set(heading.id, { ...(items.get(heading.id) || {}), ...clearPatch });
+        }
+        evidence.push({ headingId: heading.id, targetId: target.id, role, ...(workstream ? { workstream } : {}) });
+    }
+    if (items.size === 0) return null;
+    return {
+        status: 'preview',
+        reason: 'legacy_heading_projection_layout',
+        requiresTimelineNode: true,
+        action: 'block.set_attrs',
+        items: [...items.entries()].map(([id, attrs]) => ({ id, attrs })),
+        evidence,
+    };
+}
+
 async function buildSnapshot(
     client: SiYuanClient,
     permMgr: PermissionManager,
@@ -279,6 +357,7 @@ async function buildSnapshot(
     const escapedProjectId = escapeSqlString(projectId);
     const eventLimit = parsed.eventLimit ?? 10;
     const sessionLimit = parsed.sessionLimit ?? 20;
+    const view = parsed.view ?? 'summary';
 
     const projectionRowsRaw = await searchApi.querySQL(client, `SELECT b.id, b.root_id, b.content, b.created, b.updated, b.hpath, b.type FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='${escapedProjectId}') AND EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value IN ('project-progress-page','project-profile','stage-ledger','artifact-index','project-state','workstream-state')) LIMIT 100`);
     const allEventRowsRaw = await searchApi.querySQL(client, `SELECT b.id, b.box, b.root_id, b.content, b.created, b.updated, b.hpath, b.type FROM blocks b WHERE (EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value='event') AND EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='${escapedProjectId}')) OR (EXISTS (SELECT 1 FROM attributes k WHERE k.block_id=b.id AND k.name='custom-provenance-kind' AND k.value='event') AND EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-provenance-project-id' AND p.value='${escapedProjectId}')) ORDER BY b.created DESC LIMIT 501`);
@@ -298,7 +377,11 @@ async function buildSnapshot(
     const visibleEventRows = chronologicalEvents.slice(0, eventLimit);
     const detailIds = await readableIds(client, permMgr, [...projectionRows.map((row) => row.id), ...visibleEventRows.map((row) => row.id)]);
     const attrsById = await batchAttrs(client, detailIds);
-    const kramdownById = await batchKramdown(client, detailIds);
+    const artifactIndexRow = projectionRows.find((row) => attrsById[row.id]?.['custom-progress-role'] === 'artifact-index');
+    const kramdownIds = view === 'full'
+        ? detailIds
+        : artifactIndexRow ? [artifactIndexRow.id] : [];
+    const kramdownById = await batchKramdown(client, kramdownIds);
 
     const projections = projectionRows
         .filter((row) => detailIds.includes(row.id))
@@ -306,16 +389,18 @@ async function buildSnapshot(
             ...row,
             role: attrsById[row.id]?.['custom-progress-role'],
             workstream: attrsById[row.id]?.['custom-progress-workstream'] || undefined,
-            kramdown: attrsById[row.id]?.['custom-progress-role'] === 'project-progress-page'
-                ? ''
-                : clip(kramdownById[row.id], 8000),
+            ...(view === 'full' ? {
+                kramdown: attrsById[row.id]?.['custom-progress-role'] === 'project-progress-page'
+                    ? ''
+                    : clip(kramdownById[row.id], 8000),
+            } : {}),
             attributes: filteredAttrs(attrsById[row.id] || {}),
         }));
     const events = visibleEventRows
         .filter((row) => detailIds.includes(row.id))
         .map((row) => ({
             ...row,
-            kramdown: clip(kramdownById[row.id], 1600),
+            ...(view === 'full' ? { kramdown: clip(kramdownById[row.id], 1600) } : {}),
             attributes: filteredAttrs(allEventAttrs[row.id] || attrsById[row.id] || {}),
         }));
 
@@ -353,6 +438,8 @@ async function buildSnapshot(
         atomType: atomAttrs[id]?.['custom-atom-type'] || '',
     }));
 
+    const progressPage = projections.filter((item) => item.role === 'project-progress-page');
+    const repairPlan = await buildProjectionRepairPlan(client, projectId, progressPage[0]?.id, projections);
     const diagnostics: SnapshotDiagnostic[] = [];
     for (const role of SNAPSHOT_ROLES) {
         const matching = projections.filter((item) => item.role === role);
@@ -362,6 +449,7 @@ async function buildSnapshot(
     }
     if (selection.bindingStatus && selection.bindingStatus !== 'available') diagnostics.push({ code: 'project_binding_stale', severity: 'warning', status: 'stale', message: `项目绑定状态为 ${selection.bindingStatus}。` });
     if (!chronologyComplete) diagnostics.push({ code: 'event_chronology_truncated', severity: 'error', status: 'invalid', message: '事件超过 500 条，时间线窗口不完整；不得据此更新状态投影。' });
+    if (repairPlan) diagnostics.push({ code: 'legacy_projection_layout', severity: 'warning', status: 'stale', message: '检测到“标题块承载投影属性、内容块承载正文”的旧结构；可在建立文档时间线节点后执行 repairPlan。' });
 
     const latestEvent = chronologicalEvents[0];
     const projectState = projections.find((item) => item.role === 'project-state');
@@ -425,7 +513,7 @@ async function buildSnapshot(
     }
 
     const artifactIndex = projections.find((item) => item.role === 'artifact-index');
-    const artifactEntries = parseArtifactPaths(artifactIndex?.kramdown || '', record.manifest?.entries || []);
+    const artifactEntries = parseArtifactPaths(artifactIndex ? kramdownById[artifactIndex.id] || '' : '', record.manifest?.entries || []);
     const artifacts = [];
     for (const entry of artifactEntries.slice(0, 100)) {
         const resolved = await resolveProjectSource(client, { projectId, relativePath: entry.relativePath });
@@ -433,8 +521,8 @@ async function buildSnapshot(
         if (!resolved.exists) diagnostics.push({ code: 'artifact_missing', severity: 'warning', status: 'missing', message: `权威产物不存在：${entry.relativePath}。` });
     }
 
-    const progressPage = projections.filter((item) => item.role === 'project-progress-page');
     return {
+        view,
         status: progressPage.length === 0 ? 'needs_initialization' : 'ready',
         project: {
             projectId,
@@ -464,6 +552,7 @@ async function buildSnapshot(
         knowledgeProducts,
         artifacts,
         diagnostics,
+        repairPlan,
         chronology: {
             complete: chronologyComplete,
             scannedCount: allEventIds.length,
@@ -496,7 +585,7 @@ async function buildSnapshot(
 }
 
 export const PROJECT_VARIANTS: ActionVariant<ProjectAction>[] = [
-    createZodActionVariant('snapshot', ProjectSnapshotSchema, 'Read one bounded project snapshot with projections, events, sessions, knowledge products, artifacts, diagnostics, and a host-side probe baseline.'),
+    createZodActionVariant('snapshot', ProjectSnapshotSchema, 'Read one bounded project snapshot; summary is the default, while full adds bounded projection and event Kramdown.'),
 ];
 
 const projectTool = defineTool<ProjectAction>({
@@ -510,7 +599,7 @@ const projectTool = defineTool<ProjectAction>({
             'cwd、projectId、projectName 三选一；项目名只做精确匹配，失败后由 Skill 使用 file.list_project_sources 展示候选。',
             '返回的绝对路径仅来自已登记 artifact-index，不包含 workspaceRoot，也不支持任意路径探测。',
         ],
-        actionHints: { snapshot: '读取有界项目快照；只读，不初始化、不修复、不执行本地 shell。' },
+        actionHints: { snapshot: '读取有界项目快照；默认 summary，按需用 full 读取正文；只读返回修复预览，不自动写入。' },
     },
     handlers: {
         snapshot: async ({ client, rawArgs, permMgr }) => {

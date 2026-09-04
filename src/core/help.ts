@@ -218,7 +218,7 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
     append: 'parentID can be either a document ID or block ID; behavior differs. Returns a slim success object with the created block ID. Prefer append when you need to add multi-line markdown, tables, or multiple new blocks. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
     update: 'Use dataType + data + id to replace block content. Existing IAL attributes such as name, alias, icon, bookmark, and custom-* are preserved automatically; id and updated are kernel-managed and are not restored. Change metadata separately with set_attrs. Returns a slim success object instead of raw DOM operations. block(action="update") is best for single-block replacement; multi-line markdown may be truncated to the first line by SiYuan, so use append/prepend/insert when you need multiple blocks or tables. If the content should create tags, write them as #tag#.',
     replace: 'Use id + edit to replace exact text inside one block kramdown content only. First read block(action="get_kramdown", id=...) and copy old from the block body. For inline formatting, old must be rendered logical text without Markdown delimiters such as **, *, `, or ~~; the writeback preserves the existing inline structure and IAL metadata while rejecting attribute edits. Naked ((id)) refs are normalized; footnotes and siyuan://blocks links are allowed but do not create backlinks.',
-    set_attrs: 'Use attrs to write block attributes such as custom metadata. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.',
+    set_attrs: 'Use id + attrs for one block, or items for an atomic batch of up to 100 blocks. Every item passes the same governance checks and post-write attribute readback. For flashcards, this only writes metadata such as {"custom-riff-decks":"<deck-id>"}; prefer flashcard(action="create_card") when you want a block to become a real review card.',
     delete: 'This action requires explicit user confirmation.',
     move: 'Provide id or ids plus previousID, parentID, or both to describe the destination. When ids is provided, pass IDs in the desired final order; MCP calls SiYuan from last to first internally and returns apiCallOrder for debugging. This action requires explicit user confirmation.',
     set_fold_state: 'Use a foldable block ID + folded (true to fold, false to unfold).',
@@ -376,7 +376,7 @@ export const PROJECT_GUIDANCE: string[] = [
 ];
 
 export const PROJECT_ACTION_HINTS: Partial<Record<ProjectAction, string>> = {
-    snapshot: 'Read a bounded project snapshot whose event chronology is sorted by occurredAt, with explicit completeness, project/workstream heads, diagnostics, and a host-side probe baseline.',
+    snapshot: 'Read a bounded project snapshot whose event chronology is sorted by occurredAt. view=summary is the default; view=full adds bounded projection and event Kramdown. Legacy heading-based projections are returned as a read-only repairPlan.',
 };
 
 export const PROVENANCE_ACTION_HINTS: Partial<Record<ProvenanceAction, string>> = {
@@ -737,7 +737,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
                 title: 'Read one exact release entry with raw Markdown',
                 mcp: {
                     action: 'changelog',
-                    version: '0.4.14',
+                    version: '0.4.15',
                     includeRaw: true,
                 },
             },
