@@ -59,6 +59,10 @@ export interface EventRecord {
         referencedSessionBlockIds: string[];
         referencedAtomIds: string[];
         verifiedReferences: string[];
+        atomSummaryUpdates: Array<{
+            atomId: string;
+            disposition: 'advanced' | 'repaired' | 'preserved_newer' | 'preserved_equal_time' | 'preserved_unparseable_time';
+        }>;
     };
 }
 
@@ -80,6 +84,11 @@ function sql(value: string): string {
 
 function nowIso(): string {
     return new Date().toISOString();
+}
+
+function isoTimeValue(value: string): number | null {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeHostAlias(value?: string): string {
@@ -475,6 +484,51 @@ function buildAtomSummaryAttrs(input: {
     return attrs;
 }
 
+async function updateAtomProvenanceSummaries(
+    client: SiYuanClient,
+    atomIds: string[],
+    eventId: string,
+    occurredAt: string,
+    attrs: Record<string, string>,
+): Promise<Array<{
+    atomId: string;
+    disposition: 'advanced' | 'repaired' | 'preserved_newer' | 'preserved_equal_time' | 'preserved_unparseable_time';
+}>> {
+    const writes: Array<{ id: string; attrs: Record<string, string> }> = [];
+    const results: Array<{
+        atomId: string;
+        disposition: 'advanced' | 'repaired' | 'preserved_newer' | 'preserved_equal_time' | 'preserved_unparseable_time';
+    }> = [];
+    const incomingTime = isoTimeValue(occurredAt);
+    for (const atomId of atomIds) {
+        const current = await blockApi.getBlockAttrs(client, atomId);
+        const currentEvent = current['custom-provenance-event'];
+        const currentTimeText = current['custom-provenance-updated-at'];
+        let disposition: typeof results[number]['disposition'];
+        if (currentEvent === eventId) {
+            disposition = 'repaired';
+        } else if (!currentTimeText) {
+            disposition = 'advanced';
+        } else {
+            const currentTime = isoTimeValue(currentTimeText);
+            if (currentTime === null || incomingTime === null) disposition = 'preserved_unparseable_time';
+            else if (incomingTime > currentTime) disposition = 'advanced';
+            else if (incomingTime < currentTime) disposition = 'preserved_newer';
+            else disposition = 'preserved_equal_time';
+        }
+        if ((disposition === 'advanced' || disposition === 'repaired')
+            && Object.entries(attrs).some(([name, value]) => current[name] !== value)) {
+            writes.push({ id: atomId, attrs });
+        }
+        results.push({ atomId, disposition });
+    }
+    if (writes.length > 0) {
+        await blockApi.batchSetBlockAttrs(client, writes);
+        for (const write of writes) await verifyAttrs(client, write.id, attrs);
+    }
+    return results;
+}
+
 export async function recordProvenanceEvent(client: SiYuanClient, input: {
     projectBlockId: string;
     projectId: string;
@@ -513,17 +567,13 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
             occurredAt,
             automationId: input.automationId,
         });
-        const repairs: Array<{ id: string; attrs: Record<string, string> }> = [];
-        for (const atomId of input.targetAtomIds) {
-            const current = await blockApi.getBlockAttrs(client, atomId);
-            const currentEvent = current['custom-provenance-event'];
-            if (currentEvent && currentEvent !== input.eventId) continue;
-            if (Object.entries(atomAttrs).some(([name, value]) => current[name] !== value)) repairs.push({ id: atomId, attrs: atomAttrs });
-        }
-        if (repairs.length > 0) {
-            await blockApi.batchSetBlockAttrs(client, repairs);
-            for (const repair of repairs) await verifyAttrs(client, repair.id, atomAttrs);
-        }
+        const atomSummaryUpdates = await updateAtomProvenanceSummaries(
+            client,
+            input.targetAtomIds,
+            input.eventId,
+            occurredAt,
+            atomAttrs,
+        );
         if (Object.entries(fixedProgressAttrs).some(([name, value]) => existing[name] !== value)) {
             await blockApi.setBlockAttrs(client, blockId, fixedProgressAttrs);
             await verifyAttrs(client, blockId, fixedProgressAttrs);
@@ -550,16 +600,18 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
                 referencedSessionBlockIds: [...new Set([sourceSession.blockId, compileSession.blockId])],
                 referencedAtomIds: input.targetAtomIds,
                 verifiedReferences,
+                atomSummaryUpdates,
             },
         };
     }
-    const occurredAt = input.occurredAt || nowIso();
+    const recordedAt = nowIso();
+    const occurredAt = input.occurredAt || recordedAt;
     const sourceSession = await readRegisteredSession(client, input.projectId, input.sourceSession);
     const compileSession = await readRegisteredSession(client, input.projectId, input.compileSession || input.sourceSession);
     if (!blockId) {
         const targetRefs = input.targetAtomIds.map((id) => `((` + `${id} "知识原子"` + `))`).join('、');
         const compileRef = compileSession.blockId === sourceSession.blockId ? '' : `；编译 ((` + `${compileSession.blockId} "${compileSession.provider} 会话"` + `))`;
-        const markdown = `知识化事件：${input.operation}；来源 ((` + `${sourceSession.blockId} "${sourceSession.provider} 会话"` + `))${compileRef}；目标 ${targetRefs}`;
+        const markdown = `知识化事件：${input.operation}；发生于 ${occurredAt}；登记于 ${recordedAt}；来源 ((` + `${sourceSession.blockId} "${sourceSession.provider} 会话"` + `))${compileRef}；目标 ${targetRefs}`;
         blockId = extractCreatedId(await blockApi.appendBlock(client, 'markdown', markdown, input.projectBlockId));
         boundedSet(EVENT_CACHE, key, blockId);
     }
@@ -595,8 +647,13 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
         occurredAt,
         automationId: input.automationId,
     });
-    await blockApi.batchSetBlockAttrs(client, input.targetAtomIds.map((id) => ({ id, attrs: atomAttrs })));
-    for (const atomId of input.targetAtomIds) await verifyAttrs(client, atomId, atomAttrs);
+    const atomSummaryUpdates = await updateAtomProvenanceSummaries(
+        client,
+        input.targetAtomIds,
+        input.eventId,
+        occurredAt,
+        atomAttrs,
+    );
     const verifiedEventAttrs = await blockApi.getBlockAttrs(client, blockId);
     const verifiedReferences = await verifyEventReferences(client, blockId, [sourceSession.blockId, compileSession.blockId, ...input.targetAtomIds]);
     return {
@@ -619,12 +676,14 @@ export async function recordProvenanceEvent(client: SiYuanClient, input: {
             referencedSessionBlockIds: [...new Set([sourceSession.blockId, compileSession.blockId])],
             referencedAtomIds: input.targetAtomIds,
             verifiedReferences,
+            atomSummaryUpdates,
         },
     };
 }
 
 export async function listAtomProvenanceEvents(client: SiYuanClient, atomId: string, limit = 100): Promise<Array<Record<string, unknown>>> {
-    const rows = await searchApi.querySQL(client, `SELECT DISTINCT b.id FROM refs r JOIN blocks b ON b.id=r.block_id JOIN attributes k ON k.block_id=b.id AND k.name='custom-provenance-kind' AND k.value='event' WHERE r.def_block_id='${sql(atomId)}' ORDER BY b.created DESC LIMIT ${Math.max(1, Math.min(500, limit))}`);
+    const boundedLimit = Math.max(1, Math.min(500, limit));
+    const rows = await searchApi.querySQL(client, `SELECT DISTINCT b.id FROM refs r JOIN blocks b ON b.id=r.block_id JOIN attributes k ON k.block_id=b.id AND k.name='custom-provenance-kind' AND k.value='event' WHERE r.def_block_id='${sql(atomId)}' ORDER BY b.created DESC LIMIT 500`);
     const events: Array<Record<string, unknown>> = [];
     for (const row of rows) {
         const id = row && typeof row === 'object' && typeof (row as Record<string, unknown>).id === 'string' ? (row as Record<string, string>).id : '';
@@ -632,7 +691,10 @@ export async function listAtomProvenanceEvents(client: SiYuanClient, atomId: str
         const attrs = await blockApi.getBlockAttrs(client, id);
         events.push({ blockId: id, projectId: attrs['custom-provenance-project-id'], eventId: attrs['custom-provenance-event-id'], operation: attrs['custom-provenance-operation'], occurredAt: attrs['custom-provenance-occurred-at'], sourceProvider: attrs['custom-provenance-source-provider'], sourceSessionId: attrs['custom-provenance-source-session'], compileProvider: attrs['custom-provenance-compile-provider'], compileSessionId: attrs['custom-provenance-compile-session'], targetAtomIds: JSON.parse(attrs['custom-provenance-target-atom-ids'] || '[]'), automationId: attrs['custom-automation-id'] || undefined });
     }
-    return events;
+    return events
+        .sort((left, right) => String(right.occurredAt || '').localeCompare(String(left.occurredAt || ''))
+            || String(right.blockId || '').localeCompare(String(left.blockId || '')))
+        .slice(0, boundedLimit);
 }
 
 export async function readProvenanceWriteState(client: SiYuanClient, action: string, args: Record<string, unknown>): Promise<{ hash: string; targetIds: string[]; summary: Record<string, unknown> }> {

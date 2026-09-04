@@ -194,11 +194,36 @@ describe('Agent 会话溯源核心', () => {
             'custom-progress-kind': 'knowledge',
         });
         expect(repairedState.hash).toBe(completeState.hash);
+        expect(second.verification.atomSummaryUpdates).toEqual([{ atomId: 'atom-1', disposition: 'repaired' }]);
         await expect(recordProvenanceEvent(client, { ...input, operation: 'different-operation' }))
             .rejects.toThrow(/已用于不同的知识化事件/);
         await expect(recordProvenanceEvent(client, { ...input, workstream: 'other-workstream' }))
             .rejects.toThrow(/已用于不同的知识化事件/);
         expect(inserted).toBe(3);
+
+        attrs.set('atom-1', {
+            ...(attrs.get('atom-1') || {}),
+            'custom-provenance-event': 'event-current',
+            'custom-provenance-updated-at': '2026-09-04T00:00:00.000Z',
+            'custom-source-session': 'current-session',
+        });
+        const historicalInput = {
+            ...input,
+            eventId: 'event-historical',
+            operation: 'historical-backfill',
+            occurredAt: '2026-08-31T00:00:00.000Z',
+        };
+        const historical = await recordProvenanceEvent(client, historicalInput);
+        expect(historical.verification.atomSummaryUpdates).toEqual([{ atomId: 'atom-1', disposition: 'preserved_newer' }]);
+        expect(attrs.get('atom-1')).toMatchObject({
+            'custom-provenance-event': 'event-current',
+            'custom-provenance-updated-at': '2026-09-04T00:00:00.000Z',
+            'custom-source-session': 'current-session',
+        });
+        const historicalReplay = await recordProvenanceEvent(client, historicalInput);
+        expect(historicalReplay.replayed).toBe(true);
+        expect(historicalReplay.verification.atomSummaryUpdates).toEqual([{ atomId: 'atom-1', disposition: 'preserved_newer' }]);
+        expect(inserted).toBe(4);
     });
 
     it('拒绝引用尚未登记的会话', async () => {

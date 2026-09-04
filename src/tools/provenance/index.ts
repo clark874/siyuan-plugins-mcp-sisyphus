@@ -30,15 +30,16 @@ export const PROVENANCE_GUIDANCE = [
     '交互式知识化应把当前 Agent 会话同时作为 sourceSession 与 compileSession。',
     '定时编译必须区分原始讨论会话和本轮编译会话；未知来源时不得猜测。',
     'record_event 要求 sourceSession 与 compileSession 已登记，并显式提供 workstream；服务端不会隐式注册会话。',
+    '知识事件按 occurredAt 表达事实顺序；迟到补录不会回退目标原子的最新溯源摘要。',
     'linkCapability 决定能否一键打开；不得把 resume_command 宣称为原生深链。',
 ];
 
 export const PROVENANCE_ACTION_HINTS: Partial<Record<ProvenanceAction, string>> = {
     register_session: '幂等登记一个项目 Agent 会话；本机会话注册即校验，描述性 ID 会收到告警。',
-    record_event: '为已登记会话创建唯一知识化事件，一次写齐固定进度属性并回读真实块引用。',
+    record_event: '为已登记会话创建唯一知识化事件，一次写齐固定进度属性；按 occurredAt 单调更新原子最新溯源摘要。',
     discover_session: '列出本机最近活跃的 Agent 会话候选；不推断调用方，供注册前选定真实 sessionId。',
     list_project_sessions: '汇总项目内全部已登记 Agent 会话与可用回链。',
-    list_atom_events: '从知识原子反查全部知识化事件。',
+    list_atom_events: '从知识原子反查全部知识化事件，并按 occurredAt 排列事实顺序。',
     resolve_session_link: '解析原生链接、统一启动链接或恢复命令。',
     validate_session: '检查本机会话是否仍有可恢复记录。',
 };

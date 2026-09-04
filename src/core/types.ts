@@ -1448,7 +1448,7 @@ export const SystemNotifySchema = z.object({
 
 export const SystemChangelogSchema = z.object({
     action: z.literal("changelog"),
-    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.4.12 or v0.4.12"),
+    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.4.13 or v0.4.13"),
     fromVersion: z.string().optional().describe("Previous plugin version; returns entries newer than this version"),
     limit: z.number().int().min(1).max(50).optional().describe("Maximum number of entries to return when version is omitted"),
     includeRaw: z.boolean().optional().describe("Include raw Markdown for each returned changelog entry"),

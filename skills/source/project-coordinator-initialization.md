@@ -12,7 +12,7 @@
 4. 当前项目状态；
 5. 工作线状态；
 6. 普通进度事件；
-7. 最近活动 `query_embed`；
+7. 最近登记 `query_embed`，按块创建时间显示追加审计顺序，不作为项目事实时间线；
 8. 本项目知识产物 `query_embed`。
 
 项目概览、阶段台账和权威产物索引只从项目中枢、既有知识原子及已登记项目清单生成。证据不足的字段写“待确认”，不得从文件名推断事实，也不得回填历史聊天。
@@ -24,4 +24,4 @@
 - 项目状态：`custom-progress-role=project-state`、项目 ID、`workstream=project`、更新时间、最近事件 ID；
 - 工作线状态：`custom-progress-role=workstream-state`、项目 ID、工作线、更新时间、最近事件 ID。
 
-元数据必须通过 `block.set_attrs` 写入。先建立文档级时间线节点，再逐块严格预检、执行和回读。页面查询嵌入只服务人类界面，机器恢复一律调用 `project.snapshot`。
+元数据必须通过 `block.set_attrs` 写入。先建立文档级时间线节点，再逐块严格预检、执行和回读。页面查询嵌入只服务人类界面；机器恢复与“最近实质更新”一律调用 `project.snapshot`，按事件 `occurredAt` 排序。

@@ -41,6 +41,13 @@ type SnapshotDiagnostic = {
     blockId?: string;
 };
 
+type SnapshotEvent = BlockRow & {
+    occurredAt: string;
+    recordedAt: string;
+    timeBasis: 'progress' | 'provenance' | 'created_fallback';
+    attributes: Record<string, string>;
+};
+
 const SNAPSHOT_ROLES = new Set([
     'project-progress-page',
     'project-profile',
@@ -75,6 +82,54 @@ function rowId(row: unknown): string {
 function asBlockRow(row: unknown): BlockRow | null {
     const id = rowId(row);
     return id ? row as BlockRow : null;
+}
+
+function timestampValue(value?: string): number {
+    if (!value) return 0;
+    if (/^\d{14}$/.test(value)) {
+        const parsed = new Date(
+            Number(value.slice(0, 4)),
+            Number(value.slice(4, 6)) - 1,
+            Number(value.slice(6, 8)),
+            Number(value.slice(8, 10)),
+            Number(value.slice(10, 12)),
+            Number(value.slice(12, 14)),
+        ).getTime();
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeSnapshotEvent(row: BlockRow, attrs: Record<string, string>): SnapshotEvent {
+    const progressTime = attrs['custom-progress-occurred-at'];
+    const provenanceTime = attrs['custom-provenance-occurred-at'];
+    return {
+        ...row,
+        occurredAt: progressTime || provenanceTime || row.created || '',
+        recordedAt: row.created || '',
+        timeBasis: progressTime ? 'progress' : provenanceTime ? 'provenance' : 'created_fallback',
+        attributes: attrs,
+    };
+}
+
+function compareSnapshotEvents(left: SnapshotEvent, right: SnapshotEvent): number {
+    return timestampValue(right.occurredAt) - timestampValue(left.occurredAt)
+        || timestampValue(right.recordedAt) - timestampValue(left.recordedAt)
+        || right.id.localeCompare(left.id);
+}
+
+function eventHead(event: SnapshotEvent | undefined) {
+    if (!event) return null;
+    return {
+        id: event.id,
+        eventId: event.attributes['custom-progress-event-id'] || event.attributes['custom-provenance-event-id'] || '',
+        workstream: event.attributes['custom-progress-workstream'] || '',
+        kind: event.attributes['custom-progress-kind'] || '',
+        occurredAt: event.occurredAt,
+        recordedAt: event.recordedAt,
+        timeBasis: event.timeBasis,
+    };
 }
 
 function chunks<T>(values: T[], size: number): T[][] {
@@ -226,18 +281,22 @@ async function buildSnapshot(
     const sessionLimit = parsed.sessionLimit ?? 20;
 
     const projectionRowsRaw = await searchApi.querySQL(client, `SELECT b.id, b.root_id, b.content, b.created, b.updated, b.hpath, b.type FROM blocks b WHERE EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='${escapedProjectId}') AND EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value IN ('project-progress-page','project-profile','stage-ledger','artifact-index','project-state','workstream-state')) LIMIT 100`);
-    const eventRowsRaw = await searchApi.querySQL(client, `SELECT b.id, b.root_id, b.content, b.created, b.updated, b.hpath, b.type FROM blocks b WHERE (EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value='event') AND EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='${escapedProjectId}')) OR (EXISTS (SELECT 1 FROM attributes k WHERE k.block_id=b.id AND k.name='custom-provenance-kind' AND k.value='event') AND EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-provenance-project-id' AND p.value='${escapedProjectId}')) ORDER BY b.created DESC LIMIT ${eventLimit + 1}`);
-    const allEventRows = await searchApi.querySQL(client, `SELECT b.id, b.box FROM blocks b WHERE (EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value='event') AND EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='${escapedProjectId}')) OR (EXISTS (SELECT 1 FROM attributes k WHERE k.block_id=b.id AND k.name='custom-provenance-kind' AND k.value='event') AND EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-provenance-project-id' AND p.value='${escapedProjectId}')) ORDER BY b.created DESC LIMIT 500`);
+    const allEventRowsRaw = await searchApi.querySQL(client, `SELECT b.id, b.box, b.root_id, b.content, b.created, b.updated, b.hpath, b.type FROM blocks b WHERE (EXISTS (SELECT 1 FROM attributes r WHERE r.block_id=b.id AND r.name='custom-progress-role' AND r.value='event') AND EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-progress-project-id' AND p.value='${escapedProjectId}')) OR (EXISTS (SELECT 1 FROM attributes k WHERE k.block_id=b.id AND k.name='custom-provenance-kind' AND k.value='event') AND EXISTS (SELECT 1 FROM attributes p WHERE p.block_id=b.id AND p.name='custom-provenance-project-id' AND p.value='${escapedProjectId}')) ORDER BY b.created DESC LIMIT 501`);
 
     const projectionRows = projectionRowsRaw.map(asBlockRow).filter((row): row is BlockRow => Boolean(row));
-    const eventRows = eventRowsRaw.map(asBlockRow).filter((row): row is BlockRow => Boolean(row));
-    const allEventIds = allEventRows
-        .filter((row) => row && typeof row === 'object' && typeof (row as BlockRow).box === 'string' && permMgr.canRead((row as BlockRow).box!))
+    const chronologyComplete = allEventRowsRaw.length <= 500;
+    const allEventRows = allEventRowsRaw.slice(0, 500).map(asBlockRow).filter((row): row is BlockRow => Boolean(row));
+    const readableEventRows = allEventRows.filter((row) => typeof row.box === 'string' && permMgr.canRead(row.box));
+    const allEventIds = readableEventRows
         .map(rowId)
         .filter(Boolean);
     const allEventAttrs = await batchAttrs(client, allEventIds);
+    const chronologicalEvents = readableEventRows
+        .map((row) => normalizeSnapshotEvent(row, allEventAttrs[row.id] || {}))
+        .sort(compareSnapshotEvents);
     const knowledgeEventIds = allEventIds.filter((id) => allEventAttrs[id]?.['custom-provenance-kind'] === 'event');
-    const detailIds = await readableIds(client, permMgr, [...projectionRows.map((row) => row.id), ...eventRows.map((row) => row.id)]);
+    const visibleEventRows = chronologicalEvents.slice(0, eventLimit);
+    const detailIds = await readableIds(client, permMgr, [...projectionRows.map((row) => row.id), ...visibleEventRows.map((row) => row.id)]);
     const attrsById = await batchAttrs(client, detailIds);
     const kramdownById = await batchKramdown(client, detailIds);
 
@@ -252,12 +311,12 @@ async function buildSnapshot(
                 : clip(kramdownById[row.id], 8000),
             attributes: filteredAttrs(attrsById[row.id] || {}),
         }));
-    const events = eventRows.slice(0, eventLimit)
+    const events = visibleEventRows
         .filter((row) => detailIds.includes(row.id))
         .map((row) => ({
             ...row,
             kramdown: clip(kramdownById[row.id], 1600),
-            attributes: filteredAttrs(attrsById[row.id] || {}),
+            attributes: filteredAttrs(allEventAttrs[row.id] || attrsById[row.id] || {}),
         }));
 
     const sessionCandidates = await listProjectProvenanceSessions(client, projectId, 100);
@@ -302,15 +361,21 @@ async function buildSnapshot(
         if (!expectedMany && matching.length > 1) diagnostics.push({ code: `${role}_duplicate`, severity: 'error', status: 'invalid', message: `${role} 投影不唯一。` });
     }
     if (selection.bindingStatus && selection.bindingStatus !== 'available') diagnostics.push({ code: 'project_binding_stale', severity: 'warning', status: 'stale', message: `项目绑定状态为 ${selection.bindingStatus}。` });
+    if (!chronologyComplete) diagnostics.push({ code: 'event_chronology_truncated', severity: 'error', status: 'invalid', message: '事件超过 500 条，时间线窗口不完整；不得据此更新状态投影。' });
 
-    const latestEvent = events[0];
+    const latestEvent = chronologicalEvents[0];
     const projectState = projections.find((item) => item.role === 'project-state');
-    if (latestEvent && projectState && projectState.attributes['custom-progress-last-event-id'] !== latestEvent.id) {
+    if (chronologyComplete && latestEvent && projectState && projectState.attributes['custom-progress-last-event-id'] !== latestEvent.id) {
         diagnostics.push({ code: 'project_state_lagging', severity: 'warning', status: 'stale', blockId: projectState.id, message: '项目状态投影落后于事件流。' });
     }
+    const workstreamHeads = new Map<string, SnapshotEvent>();
+    for (const event of chronologicalEvents) {
+        const workstream = event.attributes['custom-progress-workstream'];
+        if (workstream && !workstreamHeads.has(workstream)) workstreamHeads.set(workstream, event);
+    }
     for (const state of projections.filter((item) => item.role === 'workstream-state')) {
-        const latestId = allEventIds.find((eventId) => allEventAttrs[eventId]?.['custom-progress-workstream'] === state.workstream);
-        if (latestId && state.attributes['custom-progress-last-event-id'] !== latestId) diagnostics.push({ code: 'workstream_state_lagging', severity: 'warning', status: 'stale', blockId: state.id, message: `工作线 ${state.workstream || '未命名'} 的状态投影落后。` });
+        const latestId = workstreamHeads.get(state.workstream || '')?.id;
+        if (chronologyComplete && latestId && state.attributes['custom-progress-last-event-id'] !== latestId) diagnostics.push({ code: 'workstream_state_lagging', severity: 'warning', status: 'stale', blockId: state.id, message: `工作线 ${state.workstream || '未命名'} 的状态投影落后。` });
     }
 
     const refsByEvent = new Map<string, string[]>();
@@ -399,10 +464,18 @@ async function buildSnapshot(
         knowledgeProducts,
         artifacts,
         diagnostics,
+        chronology: {
+            complete: chronologyComplete,
+            scannedCount: allEventIds.length,
+            projectHead: chronologyComplete ? eventHead(latestEvent) : null,
+            workstreamHeads: chronologyComplete
+                ? [...workstreamHeads.entries()].map(([workstream, event]) => ({ workstream, ...eventHead(event) }))
+                : [],
+        },
         localProbeBaseline: {
-            latestEventAt: latestEvent?.attributes['custom-progress-occurred-at'] || latestEvent?.attributes['custom-provenance-occurred-at'] || latestEvent?.created || null,
-            latestHandoffAt: events.find((event) => event.attributes['custom-progress-kind'] === 'handoff')?.attributes['custom-progress-occurred-at'] || null,
-            weakBaseline: !events.some((event) => event.attributes['custom-progress-kind'] === 'handoff'),
+            latestEventAt: chronologyComplete ? latestEvent?.occurredAt || null : null,
+            latestHandoffAt: chronologyComplete ? chronologicalEvents.find((event) => event.attributes['custom-progress-kind'] === 'handoff')?.occurredAt || null : null,
+            weakBaseline: !chronologyComplete || !chronologicalEvents.some((event) => event.attributes['custom-progress-kind'] === 'handoff'),
             tierA: (record.manifest?.entries || []).filter((entry) => entry.tier === 'A').map((entry) => ({
                 relativePath: entry.relativePath,
                 size: entry.size,
@@ -412,10 +485,10 @@ async function buildSnapshot(
             })),
         },
         pagination: {
-            events: { limit: eventLimit, hasMore: eventRowsRaw.length > eventLimit },
+            events: { limit: eventLimit, hasMore: chronologicalEvents.length > eventLimit || !chronologyComplete },
             sessions: { limit: sessionLimit, hasMore: readableSessions.length > sessionLimit },
             artifacts: { limit: 100, hasMore: artifactEntries.length > 100 },
-            diagnostics: { limit: 500, hasMore: allEventRows.length >= 500 },
+            diagnostics: { limit: 500, hasMore: !chronologyComplete },
         },
         localPathsIncluded: artifacts.length > 0,
         localPathDisclosure: 'Only artifact-index entries are resolved; workspaceRoot and arbitrary relative paths are not returned.',

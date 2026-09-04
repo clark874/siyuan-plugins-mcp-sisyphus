@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前版本为 `v0.9.12`（CLI `v0.4.12`）。本版本新增只读 `project.snapshot`，并把会话、事件属性与知识元数据的确定性校验下沉到 MCP。
+> **LLM Wiki 分支：** 当前版本为 `v0.9.13`（CLI `v0.4.13`）。本版本以事实发生时间恢复项目时间线，并阻止历史补录回退当前头部与原子溯源摘要。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.9.12`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；“项目协同”通过 `project.snapshot` 读取共享项目记忆。CLI `v0.4.12` 要求 Node.js 20+。**建议思源内核升级到 `3.8.2+`**。
+> **当前 LLM Wiki 版本：**`v0.9.13`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；“项目协同”通过 `project.snapshot` 按事实时间读取共享项目记忆。CLI `v0.4.13` 要求 Node.js 20+。**建议思源内核升级到 `3.8.2+`**。
 
 ## Project Direction Update
 

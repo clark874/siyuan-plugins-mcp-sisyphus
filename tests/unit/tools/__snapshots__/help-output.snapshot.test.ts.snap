@@ -7425,10 +7425,11 @@ Use notebook IDs for set_open_state, rename, get_conf, and set_conf. notebook(ac
         "fullDocResource": "siyuan://help/action/project/snapshot",
         "guidance": [
           "Use project.snapshot as the single machine-readable project recovery view; query_embed remains a human-facing projection.",
+          "Project and workstream heads follow occurredAt after TypeScript-side sorting. When chronology.complete is false, do not update current-state projections.",
           "Provide exactly one of cwd, projectId, or projectName. Project names use exact normalized matching; use file.list_project_sources for fallback candidates.",
           "Resolved absolute paths are limited to entries already present in the project artifact index; workspaceRoot is never returned.",
         ],
-        "hint": "Read a bounded project snapshot with state, workstreams, events, sessions, knowledge products, artifacts, diagnostics, and a host-side probe baseline.",
+        "hint": "Read a bounded project snapshot whose event chronology is sorted by occurredAt, with explicit completeness, project/workstream heads, diagnostics, and a host-side probe baseline.",
         "requiredFields": [],
         "requiresConfirmation": false,
         "shapes": [
@@ -7447,11 +7448,11 @@ project.snapshot: required [] | optional [cwd, projectId, projectName, eventLimi
 snapshot 是 Agent 恢复项目状态的唯一机器读取入口；query_embed 仅供人类界面展示。 cwd、projectId、projectName 三选一；项目名只做精确匹配，失败后由 Skill 使用 file.list_project_sources 展示候选。",
     "overview": {
       "actionSummaries": {
-        "snapshot": "Read a bounded project snapshot with state, workstreams, events, sessions, knowledge products, artifacts, diagnostics, and a host-side probe baseline.",
+        "snapshot": "Read a bounded project snapshot whose event chronology is sorted by occurredAt, with explicit completeness, project/workstream heads, diagnostics, and a host-side probe baseline.",
       },
       "actions": {
         "snapshot": {
-          "hint": "Read a bounded project snapshot with state, workstreams, events, sessions, knowledge products, artifacts, diagnostics, and a host-side probe baseline.",
+          "hint": "Read a bounded project snapshot whose event chronology is sorted by occurredAt, with explicit completeness, project/workstream heads, diagnostics, and a host-side probe baseline.",
           "requiresConfirmation": false,
         },
       },
@@ -7462,6 +7463,7 @@ snapshot 是 Agent 恢复项目状态的唯一机器读取入口；query_embed �
       "detailsHint": "Call project(action="help", topic="<actionName>") for required fields, shapes, and a minimal example.",
       "guidance": [
         "Use project.snapshot as the single machine-readable project recovery view; query_embed remains a human-facing projection.",
+        "Project and workstream heads follow occurredAt after TypeScript-side sorting. When chronology.complete is false, do not update current-state projections.",
         "Provide exactly one of cwd, projectId, or projectName. Project names use exact normalized matching; use file.list_project_sources for fallback candidates.",
         "Resolved absolute paths are limited to entries already present in the project artifact index; workspaceRoot is never returned.",
       ],
@@ -7487,6 +7489,7 @@ snapshot 是 Agent 恢复项目状态的唯一机器读取入口；query_embed �
           "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
           "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
           "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+          "Use occurredAt for fact chronology. Late backfills remain visible as events but never roll an atom latest-summary pointer backward.",
         ],
         "requiredFields": [
           "provider",
@@ -7508,8 +7511,9 @@ snapshot 是 Agent 恢复项目状态的唯一机器读取入口；query_embed �
           "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
           "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
           "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+          "Use occurredAt for fact chronology. Late backfills remain visible as events but never roll an atom latest-summary pointer backward.",
         ],
-        "hint": "List knowledgeization events that contain a real block reference to one atom.",
+        "hint": "List knowledgeization events that contain a real block reference to one atom, ordered by occurredAt.",
         "requiredFields": [
           "atomId",
         ],
@@ -7530,6 +7534,7 @@ snapshot 是 Agent 恢复项目状态的唯一机器读取入口；query_embed �
           "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
           "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
           "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+          "Use occurredAt for fact chronology. Late backfills remain visible as events but never roll an atom latest-summary pointer backward.",
         ],
         "hint": "List all Agent sessions registered for a project, optionally with local validation.",
         "requiredFields": [
@@ -7615,9 +7620,10 @@ siyuan-sisyphus provenance record-event --project-block-id <projectBlockId> --pr
           "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
           "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
           "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+          "Use occurredAt for fact chronology. Late backfills remain visible as events but never roll an atom latest-summary pointer backward.",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
-        "hint": "Record a knowledgeization event and write the latest provenance summary to its target atom blocks.",
+        "hint": "Record a knowledgeization event and advance target atom provenance summaries only when occurredAt is newer.",
         "requiredFields": [
           "projectBlockId",
           "projectId",
@@ -7698,6 +7704,7 @@ siyuan-sisyphus provenance register-session --project-block-id <projectBlockId> 
           "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
           "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
           "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+          "Use occurredAt for fact chronology. Late backfills remain visible as events but never roll an atom latest-summary pointer backward.",
           "Strict-write protocol (guarded): Call the action with validateOnly=true and the complete business arguments; nothing is written. Copy the returned expectedStateHash credential without changing any business argument. Execute once with expectedStateHash and a fresh UUIDv7 requestId, then read the target back.",
         ],
         "hint": "Idempotently register or refresh one Agent session under a project hub block.",
@@ -7740,6 +7747,7 @@ siyuan-sisyphus provenance register-session --project-block-id <projectBlockId> 
           "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
           "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
           "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+          "Use occurredAt for fact chronology. Late backfills remain visible as events but never roll an atom latest-summary pointer backward.",
         ],
         "hint": "Resolve the verified native link, Sisyphus launcher link, or resume command for a session.",
         "requiredFields": [
@@ -7764,6 +7772,7 @@ siyuan-sisyphus provenance register-session --project-block-id <projectBlockId> 
           "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
           "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
           "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+          "Use occurredAt for fact chronology. Late backfills remain visible as events but never roll an atom latest-summary pointer backward.",
         ],
         "hint": "Check whether the local Agent session record still exists without returning its conversation content.",
         "requiredFields": [
@@ -7796,9 +7805,9 @@ provenance.validate_session: required [provider, sessionId] | optional [hostAlia
     "overview": {
       "actionSummaries": {
         "discover_session": "requires: provider",
-        "list_atom_events": "List knowledgeization events that contain a real block reference to one atom.",
+        "list_atom_events": "List knowledgeization events that contain a real block reference to one atom, ordered by occurredAt.",
         "list_project_sessions": "List all Agent sessions registered for a project, optionally with local validation.",
-        "record_event": "Record a knowledgeization event and write the latest provenance summary to its target atom blocks.",
+        "record_event": "Record a knowledgeization event and advance target atom provenance summaries only when occurredAt is newer.",
         "register_session": "Idempotently register or refresh one Agent session under a project hub block.",
         "resolve_session_link": "Resolve the verified native link, Sisyphus launcher link, or resume command for a session.",
         "validate_session": "Check whether the local Agent session record still exists without returning its conversation content.",
@@ -7808,7 +7817,7 @@ provenance.validate_session: required [provider, sessionId] | optional [hostAlia
           "requiresConfirmation": false,
         },
         "list_atom_events": {
-          "hint": "List knowledgeization events that contain a real block reference to one atom.",
+          "hint": "List knowledgeization events that contain a real block reference to one atom, ordered by occurredAt.",
           "requiresConfirmation": false,
         },
         "list_project_sessions": {
@@ -7816,7 +7825,7 @@ provenance.validate_session: required [provider, sessionId] | optional [hostAlia
           "requiresConfirmation": false,
         },
         "record_event": {
-          "hint": "Record a knowledgeization event and write the latest provenance summary to its target atom blocks.",
+          "hint": "Record a knowledgeization event and advance target atom provenance summaries only when occurredAt is newer.",
           "requiresConfirmation": false,
         },
         "register_session": {
@@ -7848,6 +7857,7 @@ provenance.validate_session: required [provider, sessionId] | optional [hostAlia
         "Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.",
         "Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.",
         "Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.",
+        "Use occurredAt for fact chronology. Late backfills remain visible as events but never roll an atom latest-summary pointer backward.",
       ],
       "helpResources": [
         "siyuan://help/action/provenance/{action}",
@@ -8728,7 +8738,7 @@ siyuan-sisyphus system apply-change --plan-id <planID> --expected-state-hash <pr
             "mcp": {
               "action": "changelog",
               "includeRaw": true,
-              "version": "0.4.12",
+              "version": "0.4.13",
             },
             "title": "Read one exact release entry with raw Markdown",
           },

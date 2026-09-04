@@ -109,8 +109,16 @@ describe('core/skills', () => {
         expect(projectCoordinator?.text).toContain('本地权威文件 ↔ 项目源清单 ↔ 思源投影/知识');
         expect(projectCoordinator?.text).toContain('均直接使用 `snapshot.diagnostics`');
         expect(projectCoordinator?.text).toContain('先检查命令退出状态');
-        expect(projectCoordinator?.text).toContain('宿主私有 memory、旧 rollout 和聊天记录不得用于补全项目事实');
+        expect(projectCoordinator?.text).toContain('宿主私有 memory、旧 rollout 和聊天记录不得用于补全当前项目事实');
         expect(projectCoordinator?.text).toContain('机器判断只以 snapshot 为准');
+        expect(projectCoordinator?.text).toContain('当前增量');
+        expect(projectCoordinator?.text).toContain('历史补录');
+        expect(projectCoordinator?.text).toContain('历史冲突');
+        expect(projectCoordinator?.text).toContain('重复内容');
+        expect(projectCoordinator?.text).toContain('chronology.complete=false');
+        expect(projectCoordinator?.text).toContain('runStartedAt');
+        expect(projectCoordinator?.text).toContain('occurredAt="<evidence-backed-event-time>"');
+        expect(panoramaContract).toContain('按 `occurredAt` 排序');
         expect(projectCoordinator?.text).toContain('workstream=');
         expect(projectCoordinator?.text.indexOf('provenance(action="register_session"')).toBeLessThan(projectCoordinator?.text.indexOf('provenance(action="record_event"'));
         expect(projectCoordinator?.text).not.toContain('800 token');

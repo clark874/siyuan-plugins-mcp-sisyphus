@@ -20,6 +20,8 @@
 - `record_event` requires `workstream` and writes `custom-progress-role`, schema, workstream, and `kind=knowledge` in the same operation.
 - Event blocks contain real SiYuan block references to every target atom, enabling reverse lookup without parsing prose.
 - Session identifiers live in custom attributes. Atom content remains self-contained and readable when old rollout files have expired.
+- Event content records both fact occurrence time and block registration time. `list_atom_events` reads event attributes and sorts by `occurredAt`, so a late registration is not treated as the newest fact.
+- The target atom's latest provenance summary advances monotonically. Historical backfills still create events and references without overwriting a newer summary; the response reports `advanced`, `repaired`, or the applicable preservation reason for each atom.
 
 ## Link capability
 

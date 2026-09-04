@@ -365,23 +365,25 @@ export const PROVENANCE_GUIDANCE: string[] = [
     'Capture the calling Agent session on the client side and pass it explicitly; the shared MCP server cannot safely infer which concurrent client initiated a write.',
     'Use the same identity for sourceSession and compileSession for interactive knowledgeization. Keep them distinct for scheduled compilation or cross-Agent handoff.',
     'Treat linkCapability as authoritative: native is a verified client deep link, launcher is the Sisyphus adapter, and resume_command requires a terminal.',
+    'Use occurredAt for fact chronology. Late backfills remain visible as events but never roll an atom latest-summary pointer backward.',
 ];
 
 export const PROJECT_GUIDANCE: string[] = [
     'Use project.snapshot as the single machine-readable project recovery view; query_embed remains a human-facing projection.',
+    'Project and workstream heads follow occurredAt after TypeScript-side sorting. When chronology.complete is false, do not update current-state projections.',
     'Provide exactly one of cwd, projectId, or projectName. Project names use exact normalized matching; use file.list_project_sources for fallback candidates.',
     'Resolved absolute paths are limited to entries already present in the project artifact index; workspaceRoot is never returned.',
 ];
 
 export const PROJECT_ACTION_HINTS: Partial<Record<ProjectAction, string>> = {
-    snapshot: 'Read a bounded project snapshot with state, workstreams, events, sessions, knowledge products, artifacts, diagnostics, and a host-side probe baseline.',
+    snapshot: 'Read a bounded project snapshot whose event chronology is sorted by occurredAt, with explicit completeness, project/workstream heads, diagnostics, and a host-side probe baseline.',
 };
 
 export const PROVENANCE_ACTION_HINTS: Partial<Record<ProvenanceAction, string>> = {
     register_session: 'Idempotently register or refresh one Agent session under a project hub block.',
-    record_event: 'Record a knowledgeization event and write the latest provenance summary to its target atom blocks.',
+    record_event: 'Record a knowledgeization event and advance target atom provenance summaries only when occurredAt is newer.',
     list_project_sessions: 'List all Agent sessions registered for a project, optionally with local validation.',
-    list_atom_events: 'List knowledgeization events that contain a real block reference to one atom.',
+    list_atom_events: 'List knowledgeization events that contain a real block reference to one atom, ordered by occurredAt.',
     resolve_session_link: 'Resolve the verified native link, Sisyphus launcher link, or resume command for a session.',
     validate_session: 'Check whether the local Agent session record still exists without returning its conversation content.',
 };
@@ -735,7 +737,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
                 title: 'Read one exact release entry with raw Markdown',
                 mcp: {
                     action: 'changelog',
-                    version: '0.4.12',
+                    version: '0.4.13',
                     includeRaw: true,
                 },
             },

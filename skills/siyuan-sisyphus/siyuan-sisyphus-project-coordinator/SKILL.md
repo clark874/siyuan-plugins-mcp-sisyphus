@@ -38,7 +38,7 @@ siyuan-sisyphus system bootstrap --json
 
 ## 二、固定数据边界
 
-项目中枢下最多有一个带 `custom-progress-role=project-progress-page` 和当前 `custom-progress-project-id` 的“项目进度协作”页。标题只用于人类阅读，属性才是机器定位契约。页面包含：项目概览、阶段台账、权威产物索引三个稳定投影，一个当前项目状态块、每条工作线一个状态块、普通进度事件追加区，以及“最近活动”“本项目知识产物”两个 `query_embed` 只读投影。
+项目中枢下最多有一个带 `custom-progress-role=project-progress-page` 和当前 `custom-progress-project-id` 的“项目进度协作”页。标题只用于人类阅读，属性才是机器定位契约。页面包含：项目概览、阶段台账、权威产物索引三个稳定投影，一个当前项目状态块、每条工作线一个状态块、普通进度事件追加区，以及“最近登记”“本项目知识产物”两个 `query_embed` 只读投影。“最近登记”按块创建时间展示追加审计顺序，不等同于项目事实时间线；机器时间线只以 snapshot 的 `occurredAt` 排序结果为准。
 
 当前状态和工作线状态都只是可重建投影。每个状态块正文固定记录：项目目标、当前阶段、当前焦点、最近完成事项、唯一下一步、阻塞、已否决方案、关键产物和最近事件引用。知识正文只保存在知识原子；进度事件只写短摘要和真实块引用。
 
@@ -74,6 +74,8 @@ siyuan-sisyphus fs read --path '/工作日志/00 导航与说明/知识编译契
 siyuan-sisyphus project snapshot --cwd '<absolute-current-working-directory-from-host>' --event-limit '10' --session-limit '20' --validate-sessions --json
 ```
 
+收到命令时立即在当前运行内存中保存 `runStartedAt`。第一次 snapshot 返回后，在登记会话前保存当前 sessionId 原有的 `lastSeenAt`；恢复旧会话时，该值只作为历史事实时间的次级依据，不能作为本次运行基线。本次“启动→收尾”的差量基线始终是 `runStartedAt`。
+
 没有本地目录或目录未命中时，若用户给出自然语言项目名，则以规范化精确名称重试：
 
 ```bash
@@ -104,7 +106,7 @@ siyuan-sisyphus project snapshot --project-id '<project-id>' --event-limit '10' 
 
 `启动`与`交接`共用以下读取流程。采用“索引 → 筛选 → 详情”，从权威块实时生成用户可见的项目进度全景：
 
-1. 以第二次 `project.snapshot` 的项目身份、进度页、稳定投影、最近事件、会话、知识产物、产物索引和服务端诊断作为唯一机器读取结果；不得再自行拼接 SQL、排序会话、解析产物或重做投影诊断；
+1. 以第二次 `project.snapshot` 的项目身份、进度页、稳定投影、按事实时间排序的最近事件、`chronology` 头部、会话、知识产物、产物索引和服务端诊断作为唯一机器读取结果；不得再自行拼接 SQL、排序会话、解析产物或重做投影诊断；
 2. 只对 `localProbeBaseline.tierA` 中已有哈希的权威文件计算当前 SHA-256，不对其他文件做全量哈希；
 3. 以当前任务检索最多 12 个知识候选；
 4. 综合语义、时间和 `custom-verification-status` 后，最多读取 5 个完整块，提炼核心观点、核心发现和解释边界；
@@ -120,12 +122,12 @@ siyuan-sisyphus block batch-kramdown --ids-json '["<filtered-block-id-1>","<filt
 
 `启动`与`交接`在输出全景前执行启动核验。核验只读，异常时最多在全景之前追加两行警示；不写入、不阻断、不把警示写成事件：
 
-1. 投影一致性、孤儿会话、知识引用、绑定陈旧、产物悬空、重复 name 与历史事件分级均直接使用 `snapshot.diagnostics`；Skill 不重复实现。`historical_repairable` 是可重放修复提示，不表述为数据损坏。
+1. 投影一致性、孤儿会话、知识引用、绑定陈旧、产物悬空、重复 name 与历史事件分级均直接使用 `snapshot.diagnostics`；Skill 不重复实现。`historical_repairable` 是可重放修复提示，不表述为数据损坏。若 `chronology.complete=false` 或出现 `event_chronology_truncated`，禁止更新项目或工作线状态投影。
 2. 本地与共享记忆对账（宿主可执行本地命令时）：按“本地权威文件 ↔ 项目源清单 ↔ 思源投影/知识”三方核验。Tier A 文件的当前 SHA-256 与清单哈希相同且投影无冲突才可写“已核验一致”；哈希不同写“本地领先共享记忆”，文件缺失写“本地缺失”，命令失败或缺少哈希写“无法确认”，不得用 mtime 证明内容一致。
 3. 增量新鲜度：使用 `localProbeBaseline.latestHandoffAt`，缺失时回退 `latestEventAt` 并标注“弱基线”。Git 项目执行 `git log --oneline --since=<baseline>` 与 `git status --porcelain`；非 Git 目录项目把 UTC 转为 `YYYY-MM-DD HH:MM:SS UTC` 后执行 `find . -type f -newermt "<UTC 文本时间>" -not -path "*/.git/*" -not -path "*/node_modules/*"`。先检查命令退出状态，再截取前 20 条，禁止用管道成功掩盖失败。非空时最多列出 3 个相对路径。
 4. 思源不可用降级：`bootstrap` 或首个读取调用失败且重试一次仍失败时，停止访问共享记忆，提示“共享记忆不可用，本会话仅本地工作，恢复后请重新启动并收尾”；随后只执行不依赖思源的任务，降级状态下禁止任何项目写入。
 
-宿主私有 memory、旧 rollout 和聊天记录不得用于补全项目事实；rollout 仅可用于发现或验证真实会话标识。同一实时查询在一次启动中只执行一次，后续筛选使用已有结果。
+宿主私有 memory、旧 rollout 和聊天记录不得用于补全当前项目事实；rollout 仅可用于发现或验证真实会话标识。恢复旧会话时，旧聊天中的成果只能作为待核验的历史补录候选，不能覆盖 snapshot 当前状态。同一实时查询在一次启动中只执行一次，后续筛选使用已有结果。
 
 “项目进度全景”严格按输出契约的九节模板生成，不增加实现流水区。会话入口必须保留完整 sessionId、preferredUrl、launcherUrl 和 resumeCommand；不得截断、写成 `[blocked]` 或用块 ID 替代。自定义协议被宿主阻止时，仍输出完整地址并注明限制。用户明确要求审计全部会话时，才在正文后附加测试会话和历史 missing 会话。
 
@@ -137,6 +139,15 @@ siyuan-sisyphus block batch-kramdown --ids-json '["<filtered-block-id-1>","<filt
 
 写入前确认当前 sessionId 存在于项目会话注册表。普通事件核对 `custom-progress-provider/session-id`，知识事件核对 provenance source/compile session；当前会话未登记时，本 Skill 必须拒绝创建事件并报告孤儿事件风险。这是协调协议的写前义务，不是通用 `block.insert` 的服务端硬门。历史孤儿事件只在显式验收时通过 lint 报告。
 
+写入前重新读取 snapshot，并按适用版本与范围、证据强度、验证状态、是否已被取代和事实时间，将每项候选裁决为以下四类：
+
+- 当前增量：晚于当前项目或工作线头部且仍有效；允许知识化并推进当前状态投影；
+- 历史补录：早于头部、与当前结论兼容且有独立证据或演化价值；以真实旧 `occurredAt` 登记，但不得更新 `project-state` 或 `workstream-state`；
+- 历史冲突：与当前知识或状态矛盾；只路由既有知识治理，未解决前不得覆盖原子或状态；若今天正式裁决旧证据修正当前结论，则修订事件发生于今天，旧会话只作为 sourceSession；
+- 重复内容：没有新增证据、决策理由或复用价值；零写入。
+
+`occurredAt` 的依据顺序为：可验证的工具结果、文件证据或 Git 提交时间 → 登记前保存的原 session `lastSeenAt` → 用户明确提供的日期或时间。只有日期时按用户本地时区生成日期级时间，并在事件正文标注“日期级依据”。均不可得时不得默认填今天，停止事件登记并请用户提供大致时间。
+
 只处理本轮新增或修订的研究决策、可复用方法、已核验证据、长期警告、失败原因和否决结论。没有知识增量时零写入，并直接说明“本轮没有需要知识化的增量”。
 
 按来源读取并执行现有 Skill，不在这里复制其查重、写入、验证或来源协议：
@@ -147,13 +158,13 @@ siyuan-sisyphus block batch-kramdown --ids-json '["<filtered-block-id-1>","<filt
 
 待核验结论从一开始就在知识位置以 `custom-verification-status=draft` 保存，核验后原地更新，不在进度页保存候选正文。
 
-知识落位后，以同一个稳定 eventId 调用一次 provenance 事件：
+知识落位后，以同一个稳定 eventId 和已经取证的 `occurredAt` 调用一次 provenance 事件。历史补录的 operation 正文必须明确写“历史补录”：
 
 ```bash
-siyuan-sisyphus provenance record-event --project-block-id '<project-hub-block-id>' --project-id '<project-id>' --event-id '<stable-event-id>' --operation '<concise knowledge delta>' --workstream '<workstream>' --source-session-json '{"provider":"<current-provider>","sessionId":"<real-session-id>","hostAlias":"local","captureMethod":"inferred_latest_rollout"}' --compile-session-json '{"provider":"<current-provider>","sessionId":"<real-session-id>","hostAlias":"local","captureMethod":"inferred_latest_rollout"}' --target-atom-ids-json '["<knowledge-atom-id>"]' --json
+siyuan-sisyphus provenance record-event --project-block-id '<project-hub-block-id>' --project-id '<project-id>' --event-id '<stable-event-id>' --operation '<concise knowledge delta or 历史补录: ...>' --workstream '<workstream>' --occurred-at '<evidence-backed-event-time>' --source-session-json '{"provider":"<current-provider>","sessionId":"<real-session-id>","hostAlias":"local","captureMethod":"inferred_latest_rollout"}' --compile-session-json '{"provider":"<current-provider>","sessionId":"<real-session-id>","hostAlias":"local","captureMethod":"inferred_latest_rollout"}' --target-atom-ids-json '["<knowledge-atom-id>"]' --json
 ```
 
-`record_event` 返回的事件块就是本次进度事件；服务端在同一次写入中固定建立 role、schema、workstream 和 `kind=knowledge` 四个进度属性并完成回读。Skill 不再拼装这些属性，不创建第二个检查点块，也不在知识原子上增加进度布尔值。
+`record_event` 返回的事件块就是本次进度事件；服务端在同一次写入中固定建立 role、schema、workstream 和 `kind=knowledge` 四个进度属性并完成回读。事件的 `recordedAt` 来自思源块创建时间；Skill 不再拼装这些属性，不创建第二个检查点块，也不在知识原子上增加进度布尔值。回执必须说明原子摘要是 advanced、repaired 还是因较新/同时间/时间异常而保留。
 
 知识写入成功而事件登记失败时，使用同一个 eventId 重试 record_event；其幂等重放不得重新创建知识原子。事件登记成功而状态更新失败时，保留事件并在下次调用时重建状态投影。
 
@@ -161,9 +172,9 @@ siyuan-sisyphus provenance record-event --project-block-id '<project-hub-block-i
 
 ## 五、收尾
 
-`收尾`包含但不限于知识化：先执行第四节，复用已经成功登记的知识事件，不重复创建知识原子或知识事件；再汇总本次会话的工作差量。若本轮没有先执行“启动”，先完成项目识别和会话登记，并将本次可确认的最早会话活动作为基线，明确说明无法恢复更早的启动快照。
+`收尾`包含但不限于知识化：先执行第四节，复用已经成功登记的知识事件，不重复创建知识原子或知识事件；再汇总本次运行的工作差量。若本轮没有先执行“启动”，先完成项目识别和会话登记，以本次收尾命令的接收时间作为运行基线，并明确说明无法恢复更早的启动快照。
 
-本轮差量以当前会话注册记录的 `firstSeenAt`、本会话事件、当前对话中的真实工具结果和项目文件差异为证据。Git 项目可读取 `git status --short`、`git diff --stat` 与 `git diff --name-status`；非 Git 或宿主不能读取文件差异时，只报告已被工具结果证明的产物变化并标记该限制。还要读取同一时段其他 Agent 的项目事件，单列“并发 Agent 更新”，不得把它们冒充本会话成果。所有候选差量先通过输出契约的项目归属门；工具开发、部署或用当前项目作样本的协调器测试不得写入当前项目事件和状态。
+本轮差量以 `runStartedAt`、本次运行产生的事件、当前对话中的真实工具结果和项目文件差异为证据，不使用历史 `firstSeenAt` 重算整个旧会话。Git 项目可读取 `git status --short`、`git diff --stat` 与 `git diff --name-status`；非 Git 或宿主不能读取文件差异时，只报告已被工具结果证明的产物变化并标记该限制。旧聊天中的既往成果单列为历史补录候选；同时存在当前增量和历史补录时分别创建事件，不得混成一条。还要读取同一时段其他 Agent 的项目事件，单列“并发 Agent 更新”，不得把它们冒充本次运行成果。所有候选差量先通过输出契约的项目归属门；工具开发、部署或用当前项目作样本的协调器测试不得写入当前项目事件和状态。
 
 有非重复进度差量时，在普通事件区追加一个 `kind=handoff` 的单段事件块；正文只记录本轮完成、下一步、阻塞、产物、知识事件引用和会话引用。知识正文仍只在原子中。生成一次 UUIDv7 事件 ID，重试前按事件 ID 查询；已有即复用：
 
@@ -174,7 +185,7 @@ siyuan-sisyphus block insert --next-id '<recent-activity-heading-id>' --data-typ
 siyuan-sisyphus block set-attrs --id '<progress-event-block-id>' --attrs-json '{"custom-progress-role":"event","custom-progress-schema":"1","custom-progress-project-id":"<project-id>","custom-progress-event-id":"<uuidv7>","custom-progress-workstream":"<workstream>","custom-progress-kind":"handoff","custom-progress-occurred-at":"2026-09-03T00:00:00.000Z","custom-progress-provider":"<current-provider>","custom-progress-session-id":"<real-session-id>"}' --json
 ```
 
-事件成功后更新相关工作线状态，再根据全部工作线状态重算项目状态。严格写入先 validateOnly，再使用凭据和新 requestId 单次执行；每块更新后立即回读：
+只有当前增量事件晚于 snapshot 对应工作线头部且 `chronology.complete=true` 时，才更新相关工作线状态并根据全部工作线状态重算项目状态。历史补录与未解决的历史冲突只保留事件及必要的阶段台账关系，禁止更新当前状态投影。严格写入先 validateOnly，再使用凭据和新 requestId 单次执行；每块更新后立即回读：
 
 ```bash
 siyuan-sisyphus block update --id '<state-list-block-id>' --data-type 'markdown' --data '- 项目目标：<goal>
