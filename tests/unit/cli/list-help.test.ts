@@ -112,7 +112,7 @@ describe('cli/list-help', () => {
         const io = captureStdIO();
         const config = buildDefaultToolConfig();
         config.document.enabled = false;
-        config.mascot.actions.buy = false;
+        config.tag.actions.remove = false;
         vi.spyOn(SiYuanClient.prototype, 'readFile').mockResolvedValue(JSON.stringify(config));
 
         const overviewCode = await runList({
@@ -123,7 +123,7 @@ describe('cli/list-help', () => {
         } as ParsedArgs);
         const actionCode = await runList({
             command: 'list',
-            tool: 'mascot',
+            tool: 'tag',
             rest: [],
             json: false,
             debug: false,
@@ -132,8 +132,8 @@ describe('cli/list-help', () => {
         expect(overviewCode).toBe(0);
         expect(actionCode).toBe(0);
         expect(io.stdout).not.toContain('document —');
-        expect(io.stdout).toContain('mascot actions');
-        expect(io.stdout).not.toContain('buy —');
+        expect(io.stdout).toContain('tag actions');
+        expect(io.stdout).not.toContain('remove —');
         io.restore();
     });
 
@@ -255,13 +255,13 @@ describe('cli/list-help', () => {
     it('does not show action help for an action disabled by the plugin UI config', async () => {
         const io = captureStdIO();
         const config = buildDefaultToolConfig();
-        config.mascot.actions.buy = false;
+        config.tag.actions.remove = false;
         vi.spyOn(SiYuanClient.prototype, 'readFile').mockResolvedValue(JSON.stringify(config));
 
         const code = await runHelp({
             command: 'help',
-            tool: 'mascot',
-            action: 'buy',
+            tool: 'tag',
+            action: 'remove',
             rest: [],
             json: false,
             debug: false,
@@ -269,7 +269,7 @@ describe('cli/list-help', () => {
 
         expect(code).toBe(1);
         expect(io.stderr).toContain('[unknown_help_topic]');
-        expect(io.stderr).toContain('Unknown help topic "buy" for tool "mascot".');
+        expect(io.stderr).toContain('Unknown help topic "remove" for tool "tag".');
         io.restore();
     });
 });

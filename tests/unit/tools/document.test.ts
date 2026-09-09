@@ -12,78 +12,16 @@ describe('document tool extended actions', () => {
         const [tool] = listDocumentTools(config.document);
         const actionDescription = tool.inputSchema.properties.action.description;
         expect(actionDescription).toContain('lookup');
-        expect(actionDescription).toContain('duplicate');
+        expect(actionDescription).not.toContain('duplicate');
         expect(actionDescription).not.toContain('create_empty');
         expect(actionDescription).not.toContain('get_path');
         expect(actionDescription).not.toContain('get_hpath');
         expect(actionDescription).not.toContain('get_ids');
-        expect(actionDescription).toContain('heading_to_doc');
-        expect(actionDescription).toContain('doc_to_heading');
+        expect(actionDescription).not.toContain('heading_to_doc');
+        expect(actionDescription).not.toContain('doc_to_heading');
         expect(actionDescription).toContain('get_outline');
-        expect(actionDescription).toContain('get_child_sort_mode');
-        expect(actionDescription).toContain('set_child_sort_mode');
-    });
-});
-
-describe('document child sort mode', () => {
-    it('reads the declared and effective child sort modes', async () => {
-        const request = vi.fn(async (endpoint: string) => {
-            if (endpoint === '/api/query/sql') return [{
-                id: 'doc-parent', root_id: 'doc-parent', box: 'nb-1', path: '/parent.sy', hpath: '/Parent', type: 'd',
-            }];
-            if (endpoint === '/api/filetree/listDocsByPath') return { box: 'nb-1', path: '/parent.sy', effectiveSortMode: 13, files: [] };
-            if (endpoint === '/api/attr/getBlockAttrs') return { 'custom-sy-subdoc-sort-mode': '2' };
-            throw new Error(`Unexpected endpoint: ${endpoint}`);
-        });
-        const permMgr = {
-            reload: vi.fn(async () => undefined), canRead: () => true, canWrite: () => true, get: () => 'rw',
-        };
-
-        const result = await callDocumentTool(createMockClient({ request }), {
-            action: 'get_child_sort_mode', id: 'doc-parent',
-        }, buildDefaultToolConfig().document, permMgr as never);
-
-        expect(parseResult(result)).toMatchObject({
-            id: 'doc-parent',
-            notebook: 'nb-1',
-            declaredSortMode: 2,
-            declaredSortModeName: 'updated_ascending',
-            effectiveSortMode: 13,
-            effectiveSortModeName: 'child_count_ascending',
-            inherited: false,
-        });
-    });
-
-    it('sets and exactly reads back a document child sort mode', async () => {
-        let declared: string | undefined;
-        const request = vi.fn(async (endpoint: string, body?: Record<string, any>) => {
-            if (endpoint === '/api/query/sql') return [{
-                id: 'doc-parent', root_id: 'doc-parent', box: 'nb-1', path: '/parent.sy', hpath: '/Parent', type: 'd',
-            }];
-            if (endpoint === '/api/filetree/setDocSortMode') {
-                declared = String(body?.sortMode);
-                return null;
-            }
-            if (endpoint === '/api/filetree/listDocsByPath') return { box: 'nb-1', path: '/parent.sy', effectiveSortMode: Number(declared), files: [] };
-            if (endpoint === '/api/attr/getBlockAttrs') return declared === undefined ? {} : { 'custom-sy-subdoc-sort-mode': declared };
-            if (endpoint.startsWith('/api/ui/')) return null;
-            throw new Error(`Unexpected endpoint: ${endpoint}`);
-        });
-        const permMgr = {
-            reload: vi.fn(async () => undefined), canRead: () => true, canWrite: () => true, get: () => 'rw',
-        };
-
-        const result = await callDocumentTool(createMockClient({ request }), {
-            action: 'set_child_sort_mode', id: 'doc-parent', sortMode: 6,
-        }, buildDefaultToolConfig().document, permMgr as never);
-
-        expect(request).toHaveBeenCalledWith('/api/filetree/setDocSortMode', { id: 'doc-parent', sortMode: 6 });
-        expect(parseResult(result)).toMatchObject({
-            success: true,
-            id: 'doc-parent',
-            declaredSortMode: 6,
-            effectiveSortMode: 6,
-        });
+        expect(actionDescription).not.toContain('get_child_sort_mode');
+        expect(actionDescription).not.toContain('set_child_sort_mode');
     });
 });
 

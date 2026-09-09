@@ -20,23 +20,6 @@
                 { key: "list_nodes", title: "列出节点", description: "在 App 中刷新全局或文档时间线。" },
                 { key: "compare_node", title: "比较节点", description: "在同一界面查看历史版本 Diff。" },
                 { key: "create_node", title: "创建节点", description: "手动创建全局或文档快照节点。" },
-                { key: "delete_node", title: "删除节点", description: "移除节点标签并保留底层快照。" },
-                { key: "rollback_document", title: "回退整个文档", description: "由用户确认后恢复历史文档。" },
-                { key: "rollback_block", title: "恢复单个块", description: "由用户在 Diff 中选择需要恢复的块。" },
-            ],
-        },
-        {
-            key: "flashcardReview", icon: "🃏", title: "闪卡复习",
-            description: "AI 选择本轮卡片，答案揭示与评分只在复习 App 中完成。",
-            actions: [{ key: "review_card", title: "提交复习评分", description: "允许 App 写入重来、困难、良好、简单或跳过结果。" }],
-        },
-        {
-            key: "mascotShop", icon: "🐾", title: "猫猫商店",
-            description: "AI 只负责打开商店；刷新、选择和购买均由你操作。",
-            actions: [
-                { key: "get_balance", title: "读取余额", description: "允许 App 显示当前金币。" },
-                { key: "shop", title: "刷新商品", description: "允许 App 加载商品与最新余额。" },
-                { key: "buy", title: "购买商品", description: "允许用户在 App 中消费金币。" },
             ],
         },
     ];

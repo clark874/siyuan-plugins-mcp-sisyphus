@@ -1,6 +1,6 @@
 ---
 name: siyuan-mcp-search-query
-description: MCP playbook for retrieving existing SiYuan content. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, assets, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.
+description: MCP playbook for retrieving existing SiYuan content. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.
 compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
 ---
 
@@ -35,10 +35,6 @@ search(action="get_backlinks", id="<block-or-doc-id>", mode="both")
 ```text
 search(action="search_refs", id="<block-id>", beforeLen=512)
 ```
-```text
-search(action="search_assets", query="diagram", exts=["png","jpg","webp"])
-```
-
 SQL must be read-only and must include `LIMIT`. Useful tables include `blocks`, `blocks_fts`, `attributes`, `refs`, `spans`, and `assets`.
 
 ## Find and replace

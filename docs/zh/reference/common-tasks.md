@@ -116,7 +116,7 @@ siyuan search fulltext --query "TODO"
 siyuan av get --id <attribute-view-id>
 ```
 
-## 比较并恢复文档时间线
+## 比较文档时间线
 
 使用 `timeline` 工具列出现有节点，并为当前文档创建命名基线：
 
@@ -152,25 +152,13 @@ siyuan av get --id <attribute-view-id>
 }
 ```
 
-调用 `rollback_document`、`rollback_block` 或 `delete_node` 前，必须指出准确的文档和节点、说明影响，并获得用户明确确认。需要可恢复测试时，先为当前状态创建保护节点。确认后，整篇文档回退使用：
-
-```json
-{
-  "action": "rollback_document",
-  "documentId": "<文档 ID>",
-  "tag": "<时间线 tag>"
-}
-```
-
-回退后重新读取文档验证结果。`rollback_block` 还需要最近一次 `compare_node` 返回的不透明 `changeKey`。`delete_node` 只移除保护 tag，底层快照仍然保留。
+当前 MCP 与 CLI 的时间线能力有意限定为读取和比较，只提供 `list_nodes`、`create_node`、`compare_node` 与 `compare_recent`；不暴露回退和删除时间线节点的动作。
 
 对应 CLI 命令：
 
 ```bash
 siyuan-sisyphus timeline create-node --name "改写前" --scope document --document-id <文档 ID> --json
 siyuan-sisyphus timeline compare-node --document-id <文档 ID> --tag <时间线 tag> --page-size 20 --json
-# 仅在用户明确确认后执行：
-siyuan-sisyphus timeline rollback-document --document-id <文档 ID> --tag <时间线 tag> --json
 ```
 
 ## 同名文档

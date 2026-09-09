@@ -1,6 +1,6 @@
 ---
 name: siyuan-sisyphus-create-edit
-description: CLI-only playbook for bounded, ordinary SiYuan document and block edits with siyuan-sisyphus. Use for path-based creation, append/insert/update, metadata, daily notes, and verified edits. Use knowledge-governance for name/alias or cross-reference governance, and database for AV cells.
+description: CLI-only playbook for bounded, ordinary SiYuan document and block edits with siyuan-sisyphus. Use for path-based creation, append/insert/update, metadata, and verified edits. Use knowledge-governance for name/alias or cross-reference governance, and database for AV cells.
 compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
@@ -63,13 +63,10 @@ Use block `update` only when replacing the whole block is intended. Prefer a sco
 siyuan-sisyphus block replace --id '<block-id>' --edit-json '{"old":"draft","new":"final"}' --json
 ```
 
-## Metadata and daily notes
+## Metadata
 
 ```bash
 siyuan-sisyphus block set-attrs --id '<block-id>' --attrs-json '{"custom-source":"agent"}' --json
-```
-```bash
-siyuan-sisyphus document create-daily-note --notebook '<notebook-id>' --json
 ```
 
 Before rename, move, delete, or broad replacement, resolve the exact target, show the affected scope, and obtain approval. After every mutation, read by stable ID when possible. Use `siyuan-sisyphus help block append` when any parameter is uncertain.

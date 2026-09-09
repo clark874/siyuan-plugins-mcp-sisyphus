@@ -1,78 +1,14 @@
-# block 工具
+# 块工具
 
-这个工具覆盖块插入、块更新、块移动、元数据、引用与文档上下文辅助操作。
+`block` 提供 16 个块级动作。
 
-适用场景：你需要直接操作块内容，而不是在整篇文档级别工作。
+| 用途 | 动作 |
+| --- | --- |
+| 创建或编辑 | `insert`、`prepend`、`append`、`update`、`replace`、`move` |
+| 读取内容 | `get_kramdown`、`batch_kramdown`、`get_children`、`dom` |
+| 引用与属性 | `transfer_references`、`set_attrs`、`get_attrs` |
+| 元数据 | `info`、`breadcrumb`、`docs_info` |
 
-相关页面：
+修改前读取目标，修改后重新回读。启用严格安全写入时，按动作 schema 使用 `validateOnly` 返回的请求编号或哈希凭据。`move` 需要明确确认。
 
-- [权限模型](../permissions.md)
-- [document 工具](./document.md)
-
-## 常见动作
-
-| 分组 | 动作 |
-|------|---------|
-| 插入与更新 | `insert`, `prepend`, `append`, `update` |
-| 移动与结构 | `move`, `set_fold_state`, `get_children`, `breadcrumb` |
-| 元数据 | `set_attrs`, `get_attrs`, `info`, `dom`, `get_kramdown`, `batch_kramdown` |
-| 引用 / 工具类 | `transfer_references`, `word_count`, `recent_updated` |
-| 日记辅助 | `add_to_daily_note` |
-| 文档上下文 | `docs_info` |
-
-## 参数与语义
-
-- `dataType` 通常是 `markdown` 或 `dom`。
-- `prepend` 和 `append` 既可以作用于文档，也可以作用于块的子列表。
-- `update` 更适合单块替换。
-- `move` 至少需要一个目标定位字段，例如 `parentID` 或 `previousID`。
-- 批量 `move` 时，`ids` 按期望的最终顺序传入。工具只会在内部倒序调用思源底层 API，并在结果中返回 `apiCallOrder` 便于排查。
-- `add_to_daily_note` 通过 `position` 把内容追加或前置到当天日记。
-- `batch_kramdown` 接受 1–20 个块或文档 ID，对每个输入项解析读取权限，再用一次内核请求获取允许读取的内容。响应与输入顺序一致，重复 ID 会保留；无权限或不存在的 ID 以逐项错误返回。
-
-## 安全规则
-
-- `delete` 和 `move` 需要显式确认。
-- 多行内容优先使用 `append`、`prepend` 或 `insert`，不要滥用 `update`。
-
-## 示例
-
-MCP：
-
-```json
-{
-  "action": "append",
-  "parentID": "<doc-id>",
-  "dataType": "markdown",
-  "data": "- [ ] Todo item"
-}
-```
-
-CLI：
-
-```bash
-siyuan block append --parent-id <doc-id> --data-type markdown --data "- [ ] Todo item"
-```
-
-## 动作列表
-
-- `insert`
-- `prepend`
-- `append`
-- `update`
-- `delete`
-- `move`
-- `set_fold_state`
-- `get_kramdown`
-- `batch_kramdown`
-- `get_children`
-- `transfer_references`
-- `set_attrs`
-- `get_attrs`
-- `info`
-- `breadcrumb`
-- `dom`
-- `recent_updated`
-- `word_count`
-- `add_to_daily_note`
-- `docs_info`
+块删除、折叠、最近更新流、字数辅助和日记快捷动作均不再暴露。

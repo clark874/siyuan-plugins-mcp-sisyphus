@@ -10,7 +10,7 @@ Sisyphus MCP：http://127.0.0.1:36806/mcp
 
 ## 只安装工作流 Skill
 
-支持 Agent Skills 规范的客户端可以单独安装15个 MCP 工作流 Skill：
+支持 Agent Skills 规范的客户端可以单独安装 14 个 MCP 工作流 Skill：
 
 ```bash
 npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y
@@ -25,7 +25,7 @@ npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/m
 1. 读取稳定通道清单：
 
 ```text
-https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/release-channel.json
+https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/main/release-channel.json
 ```
 2. 使用清单中的 `agentKit.url` 下载并解压当前稳定版，不要从本文猜测或拼接版本号。
 3. 阅读解压目录中的 `delivery.json`，确认其 `packageVersion` 与稳定通道一致，且唯一外部 endpoint 为 `36806/mcp`。
@@ -66,7 +66,7 @@ node ~/.siyuan-sisyphus/bin/capture-agent-session.cjs
 
 Codex、ZCode 或其他客户端若注入会话变量，结果会标记为 `environment`。只有在客户端没有注入标识、并且已经确认没有并发会话时，才可使用 `--provider zcode --infer-latest`；该结果会永久标记为 `inferred_latest_rollout`，不得改写成自动捕获。
 
-只有满足以下条件时，才可报告接入完成：`schemaVersion=2`、`toolConfiguration.current=true`，并且返回了当前可读笔记本和能力摘要。
+只有满足以下条件时，才可报告接入完成：`schemaVersion=3`、`toolConfiguration.current=true`，并且返回了当前可读笔记本和能力摘要。
 
 ## 后续统一更新
 
@@ -87,7 +87,7 @@ node scripts/update-sisyphus.mjs --apply
 稳定通道清单：
 
 ```text
-https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/release-channel.json
+https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/main/release-channel.json
 ```
 
 当前稳定版发布页：
@@ -99,5 +99,5 @@ https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/latest
 后续交给其他本地 Agent 时，优先提供本文件的常青地址；需要审计具体发布物时，再以稳定通道中的版本化地址和 SHA-256 为准：
 
 ```text
-https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/agent-kit/START-HERE.md
+https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/main/agent-kit/START-HERE.md
 ```

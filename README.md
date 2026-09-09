@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki branch:** current version is `v0.9.16` (CLI `v0.4.16`). This release aligns with SiYuan `v3.8.3`, keeps the document-timeline command registered once, and refreshes frontend settings after cross-instance data changes without restarting the MCP gateway.
+> **LLM Wiki branch:** current version is `v0.9.17` (CLI `v0.4.17`). This release aligns with SiYuan `v3.8.3` and narrows the MCP surface to 13 text-workflow tools with 94 maintained actions.
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,15 +25,15 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.9.16`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；本版适配思源 `v3.8.3` 的命令注册与插件数据变更生命周期。CLI `v0.4.16` 要求 Node.js 20+。**建议思源内核升级到 `3.8.3+`**。
+> **当前 LLM Wiki 版本：**`v0.9.17`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；本版将 MCP 工具面收敛为 13 类、94 个 action。CLI `v0.4.17` 要求 Node.js 20+。**建议思源内核升级到 `3.8.3+`**。
 
 ## Project Direction Update
 
 I originally built SiYuan Sisyphus simply because I wanted my own SiYuan notes to connect more naturally with external AI agents. Now that SiYuan provides an official MCP implementation, I am glad to see a broader shared ecosystem taking shape. As one plugin developer within that ecosystem, I want Sisyphus to preserve its existing workflows while embracing official MCP and working alongside other plugins to make the connection between SiYuan and external agents smoother and more reliable.
 
-This does not replace the existing project:
+The maintained LLM Wiki branch now uses a deliberately reduced surface:
 
-- the 16 Sisyphus aggregate tools, parameter conventions, notebook permissions, and existing agent workflows remain compatible;
+- 13 Sisyphus aggregate tools and 94 actions cover the current text knowledge workflow;
 - Sisyphus now connects to SiYuan's official MCP endpoint and discovers tools registered by other plugins;
 - native SiYuan MCP tools can also be included explicitly, but remain disabled by default because they have a different security boundary;
 - permission management, the document timeline, and multiple connection options continue to be maintained.
@@ -50,7 +50,7 @@ The boundary is deliberate: Sisyphus-owned capabilities—including `fs`, the do
 
 | Tool source | Default | Best suited for | Compatibility and security boundary |
 |---|---|---|---|
-| **Sisyphus aggregate tools** | Enabled | Stable read, search, edit, database, permission, and automation workflows | Existing actions and parameters remain compatible and pass through Sisyphus permissions and dangerous-action controls |
+| **Sisyphus aggregate tools** | Enabled | Stable read, search, edit, database, project-source, permission, and provenance workflows | Maintained actions pass through Sisyphus permissions and dangerous-action controls |
 | **Official plugin MCP tools** | Enabled | New capabilities registered by other SiYuan plugins through official MCP | Dynamically discovered by `extension`; the official tool name becomes the action |
 | **Native SiYuan MCP tools** | Disabled | Testing and comparison in trusted local environments | Execute with the administrator session or API Token and bypass Sisyphus notebook permissions and dangerous-action confirmation |
 
@@ -89,35 +89,33 @@ For complete installation and connection instructions, see [Getting Started](./d
 ## Core Capabilities
 
 - **Official MCP plugin ecosystem integration**: discover tools registered by other plugins through SiYuan's official MCP and expose them to external agents.
-- **Existing agent workflow compatibility**: retain the original Sisyphus aggregate tools, actions, CLI, and permission configuration.
+- **Focused text knowledge workflow**: expose only the actions used by the maintained private text-note workflow and project-source mapping.
 - **AI-friendly note access**: use human-readable `fs` paths such as `/Notebook/Project/Note` without requiring agents to understand block IDs or document-tree internals.
 - **MCP and CLI entry points**: use MCP for multi-step agent workflows and CLI for scripts, automation, and small one-shot tasks.
 - **Notebook-level safety**: assign each notebook `none`, `r`, `rw`, or `rwd` access.
-- **Low-context tool design**: group 100+ SiYuan capabilities into 16 action-routed tools and load detailed guidance only when needed.
+- **Low-context tool design**: group 94 SiYuan actions into 13 action-routed tools and load detailed guidance only when needed.
 - **Agent session provenance**: record source and compile sessions for project knowledgeization, query a project's cross-Agent session history, and resolve verified links or resume commands without placing session identifiers in note content.
-- **Scenario Skills for agents**: provide guidance for browsing, editing, search, knowledge ingestion, knowledge-atom governance, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup.
-- **MCP Apps views**: dedicated launch tools open flashcard review, document timeline, and mascot shop exactly once; ordinary aggregate tools never render duplicate Apps, and human actions are managed on a separate MCP Apps settings page.
-- **Git-like document timeline**: create named timeline nodes, compare snapshots, and roll back a document when needed.
+- **Scenario Skills for agents**: provide guidance for browsing, editing, search, knowledge ingestion, knowledge-atom governance, databases, project-source text, tags, document timelines, system safety, and SiYuan markup.
+- **MCP App view**: one dedicated launcher opens the document timeline for listing, creating, and comparing snapshots.
+- **Git-like document timeline**: create named timeline nodes and compare snapshots without exposing deletion or rollback to MCP clients.
 - **Practical connection setup**: generate connection snippets for common AI clients and local, remote, and Docker deployments.
 
 ## MCP Apps: Interactive Workflows Inside The Conversation
 
-Version 0.6.0 adds three inline MCP Apps for clients that negotiate `io.modelcontextprotocol/ui`. Instead of turning an interactive task into a long sequence of chat messages, the agent prepares the required context once and opens a focused interface where the user finishes the workflow directly.
+Clients that negotiate `io.modelcontextprotocol/ui` can open one focused timeline App.
 
 | App | Dedicated launcher | What happens in the App |
 |-----|--------------------|-------------------------|
-| Flashcard review | `flashcard_review_session` | The agent selects 1–20 due cards from a fixed, permission-checked candidate snapshot. The user reveals each answer and rates it Again / Hard / Good / Easy without exposing the remaining cards in chat. After the round, the user can ask the agent to explain the reviewed material. |
-| Document timeline | `timeline_app` | Browse and create named nodes, compare a snapshot with the current document, inspect a compact block-level diff, and restore the whole document or one supported block. Pass `documentId` for a document timeline; omitting it intentionally opens a global-only view that can show only global nodes. Rollback uses an in-place second-click confirmation, so the target button does not move under the pointer. |
-| Mascot shop | `mascot_shop_app` | Browse the pixel-art vending machine, queue items in the pickup slot, and complete a purchase only when the item is collected. A successful pickup also triggers the desktop mascot's item and heart animation. |
+| Document timeline | `timeline_app` | Browse and create named nodes, compare a snapshot with the current document, and inspect a compact block-level diff. Pass `documentId` for a document timeline; omitting it opens a global-only view. |
 
-The Apps follow a deliberately separated interaction model:
+The App follows a deliberately separated interaction model:
 
-- **One launcher, one App:** only the dedicated launcher carries the UI resource. Ordinary `flashcard`, `timeline`, and `mascot` calls remain data tools and never produce duplicate App panels.
-- **The agent prepares; the user decides:** once an App opens, it becomes the sole interaction surface for that round. The model does not answer flashcards, choose ratings, roll back notes, or purchase items on the user's behalf.
-- **Independent human-action permissions:** App actions are hidden from the model with `visibility: ["app"]` and can be enabled individually under Settings → MCP → MCP Apps. Notebook permissions, action switches, and server-side confirmation for high-risk operations still apply.
+- **One launcher, one App:** only `timeline_app` carries the UI resource; ordinary `timeline` calls never produce duplicate App panels.
+- **Read and compare focus:** App actions are limited to list, create, and compare. Delete and rollback are not exposed.
+- **Independent human-action permissions:** App actions are hidden from the model with `visibility: ["app"]` and can be enabled individually under Settings → MCP → MCP Apps.
 - **Graceful compatibility:** clients that do not advertise MCP Apps support do not receive the launchers or App-only actions. Existing aggregate-tool responses, `structuredContent`, and standalone CLI behavior remain unchanged.
 
-See the detailed guides for [flashcard review](./docs/reference/tools/flashcard.md), the [timeline App](./docs/reference/tools/timeline.md), and the [mascot shop](./docs/reference/tools/mascot.md).
+See the [timeline reference](./docs/reference/tools/timeline.md).
 
 ## Official MCP Ecosystem Integration
 
@@ -203,7 +201,7 @@ Modern dangerous calls use MCP multi-round-trip input: the operation is not disp
 
 New agents should first call `system(action="bootstrap")`. It refreshes notebook permissions and returns the current configured capabilities and enabled next calls. `operation.readOnly=true` applies only to bootstrap, not necessarily to the whole connection.
 
-The MCP server includes scenario-oriented guidance for browsing, editing, search, external-source ingestion, complete research-project compilation, knowledge-atom governance, cross-project method-reuse closure, databases, exports, tags, flashcards, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. Use `siyuan-mcp-knowledge-ingest` for web sources, `siyuan-mcp-project-knowledge-compile` for local project packages and internal semantic relations, `siyuan-mcp-knowledge-governance` for atom and anchor governance, and `siyuan-mcp-cross-project-relation-closure` for verified project-to-public-method reuse. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
+The MCP server includes scenario-oriented guidance for browsing, editing, search, external-source ingestion, complete research-project compilation, knowledge-atom governance, cross-project method-reuse closure, databases, controlled project-source text, tags, document timelines, system safety, and SiYuan markup. A regular MCP client does not need to install anything: it can read `siyuan://skills/index`, then load the matching `siyuan://skills/{name}` resource. Use `siyuan-mcp-knowledge-ingest` for web sources, `siyuan-mcp-project-knowledge-compile` for local project packages and internal semantic relations, `siyuan-mcp-knowledge-governance` for atom and anchor governance, and `siyuan-mcp-cross-project-relation-closure` for verified project-to-public-method reuse. The matching MCP prompts are user-invoked workflow starters; they are not applied automatically.
 
 Agents that support installable `SKILL.md` packages can install the same guidance locally:
 
@@ -213,7 +211,7 @@ siyuan-sisyphus skill install --bundle all # MCP and CLI bundles
 npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y
 ```
 
-The `npx skills add` command installs only the 15 curated MCP Skills. It does not register `http://127.0.0.1:36806/mcp`, configure a bearer token, or install the SiYuan plugin. Plain `siyuan-sisyphus skill install` remains the CLI bundle for backward compatibility. Skills describe workflows and safety decisions; the current parameter source of truth remains `siyuan://help/action/{tool}/{action}` or the corresponding `action="help"` response.
+The `npx skills add` command installs only the 14 curated MCP Skills. It does not register `http://127.0.0.1:36806/mcp`, configure a bearer token, or install the SiYuan plugin. Plain `siyuan-sisyphus skill install` remains the CLI bundle for backward compatibility. Skills describe workflows and safety decisions; the current parameter source of truth remains `siyuan://help/action/{tool}/{action}` or the corresponding `action="help"` response.
 
 Draft SEP-2640 Skills-over-MCP support is enabled by default for both HTTP and stdio transports and publishes all bundled workflow skills. For the plugin's built-in HTTP server, it can be toggled under Connection Config → HTTP/HTTPS Connection → Skills over MCP; saving restarts the server. Standalone servers can disable it with `SIYUAN_MCP_SKILLS_EXTENSION=false`. The extension advertises `io.modelcontextprotocol/skills`, implements `skills/list` and `skills/get`, and serves digest-addressed `skill://.../SKILL.md` resources. Because SEP-2640 is still a draft, the existing `siyuan://skills/*` resources and prompts remain the stable fallback.
 
@@ -226,7 +224,7 @@ Kimi Code, ZCode, and similar local clients should start from [`agent-kit/START-
 Sisyphus-owned tools are designed around explicit user control:
 
 - each notebook can be read-only, writable, deletable, or hidden from AI;
-- dangerous actions such as delete, move, replace, and asset upload are treated separately;
+- dangerous actions such as delete, move, replace, project-source registration, and local-path disclosure are treated separately;
 - MCP and CLI share the same core behavior, so switching entry points does not create a second permission model;
 - remote and Docker use cases go through the SiYuan HTTP API instead of assuming direct access to local workspace files.
 
@@ -243,12 +241,7 @@ The project will focus on improving the complete experience of connecting extern
 - task-oriented Skills, help, and progressive disclosure;
 - real-world validation and experience comparisons across agent products.
 
-Bug reports, experience notes, and design suggestions are welcome:
-
-- [GitHub Issues](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/issues) for public discussion of problems, requests, and design ideas;
-- the built-in `feedback` tool, which agents can call as `feedback(action="submit", description="...")`.
-
-Do not include API tokens, secrets, private note content, or sensitive local paths in feedback.
+Bug reports, experience notes, and design suggestions are welcome through [GitHub Issues](https://github.com/yangtaihong59/siyuan-plugins-mcp-sisyphus/issues). Do not include API tokens, secrets, private note content, or sensitive local paths.
 
 ## Read The Docs
 

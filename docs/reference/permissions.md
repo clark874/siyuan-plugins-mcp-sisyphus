@@ -21,7 +21,7 @@ Related pages:
 Notes:
 
 - New notebooks default to `r` (read-only) unless configured otherwise
-- Permissions are managed through `notebook(action="set_permission")`
+- Permissions are managed through the plugin settings or the file-tree badges
 - Changes apply to subsequent calls immediately
 
 ## File-Tree Status Display
@@ -32,24 +32,16 @@ Click a badge to cycle through `NONE → R → RW → RWD → NONE` and save imm
 
 ## High-Risk Actions
 
-These actions require explicit user confirmation:
+These currently exposed destructive or structure-changing actions require explicit user confirmation:
 
-- `notebook.remove`
-- `notebook.set_permission`
-- `document.remove`
+- `fs.rm`
+- `fs.mv`
 - `document.move`
-- `block.delete`
 - `block.move`
-- `file.upload_asset`
-- `file.remove_unused_assets`
-- `file.delete_asset`
+- `av.remove_rows`
+- `av.remove_column`
 - `search.find_replace`
-- `system.workspace_info`
-- `system.perform_sync`
+- `search.criteria_remove`
 - `tag.remove`
-- `flashcard.remove_card`
 
-Additional notes:
-
-- `file.upload_asset` also requires special confirmation for large files
-- `file.export_resources` with a local `outputPath` should be treated as high-risk operationally
+The `file` category only manages registered project-source text. It does not upload, export, or delete SiYuan assets.

@@ -238,24 +238,6 @@ export async function batchUpdateBlock(
     return client.requestWrite('/api/block/batchUpdateBlock', { blocks });
 }
 
-export async function appendDailyNoteBlock(
-    client: SiYuanClient,
-    notebook: string,
-    dataType: DataType,
-    data: string,
-): Promise<unknown> {
-    return client.requestWrite('/api/block/appendDailyNoteBlock', { notebook, dataType, data });
-}
-
-export async function prependDailyNoteBlock(
-    client: SiYuanClient,
-    notebook: string,
-    dataType: DataType,
-    data: string,
-): Promise<unknown> {
-    return client.requestWrite('/api/block/prependDailyNoteBlock', { notebook, dataType, data });
-}
-
 export async function getDocsInfo(
     client: SiYuanClient,
     ids: string[],

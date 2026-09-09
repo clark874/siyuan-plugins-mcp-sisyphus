@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { getCurrentTime, getVersion, performSync } from '@/api/system';
+import { getCurrentTime, getVersion } from '@/api/system';
 
 describe('system api wrappers', () => {
     it('requests the current SiYuan version', async () => {
@@ -25,15 +25,4 @@ describe('system api wrappers', () => {
         expect(request).toHaveBeenCalledWith('/api/system/currentTime');
     });
 
-    it('requests an immediate SiYuan sync', async () => {
-        const response = { synced: true };
-        const request = vi.fn().mockResolvedValueOnce(response);
-        const client = {
-            request,
-            requestWrite: request,
-        } as never;
-
-        await expect(performSync(client)).resolves.toBe(response);
-        expect(request).toHaveBeenCalledWith('/api/sync/performSync', {});
-    });
 });

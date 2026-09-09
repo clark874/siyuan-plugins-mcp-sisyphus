@@ -166,7 +166,7 @@ describe('HTTP MCP concurrency', () => {
         expect(toolsB.tools.map((tool) => tool.name)).toContain('system');
         expect(parseToolResultText(versionAResult)).toEqual({ version: '3.1.0' });
         expect(parseToolResultText(versionBResult)).toEqual({ version: '3.1.0' });
-        expect(storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/puppyStats.json']).toBeTruthy();
+        expect(storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/puppyStats.json']).toBeUndefined();
     });
 
     it('accepts five concurrent HTTP clients across repeated read-only requests', async () => {
@@ -260,16 +260,16 @@ describe('HTTP MCP concurrency', () => {
         await client.connect(transport);
         const tools = await client.listTools();
         const versionResult = await client.callTool({ name: 'system', arguments: { action: 'get_version' } });
-        const syncResult = await client.callTool({ name: 'system', arguments: { action: 'perform_sync' } });
+        const removedResult = await client.callTool({ name: 'system', arguments: { action: 'perform_sync' } });
 
         expect(client.getNegotiatedProtocolVersion()).toBe('2026-07-28');
         expect(client.getDiscoverResult()?.supportedVersions).toContain('2026-07-28');
         expect(transport.sessionId).toBeUndefined();
         expect(tools.tools.map((tool) => tool.name)).toContain('system');
         expect(parseToolResultText(versionResult)).toEqual({ version: '3.1.0' });
-        expect(confirm).toHaveBeenCalledTimes(1);
-        expect(syncResult.isError).not.toBe(true);
-        expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/api/sync/performSync'))).toBe(true);
+        expect(confirm).not.toHaveBeenCalled();
+        expect(removedResult.isError).toBe(true);
+        expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/api/sync/performSync'))).toBe(false);
     });
 
     it('rejects untrusted browser origins before MCP dispatch', async () => {

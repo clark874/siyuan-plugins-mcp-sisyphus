@@ -285,7 +285,7 @@ describe('extension tool', () => {
         expect(callTool).toHaveBeenCalledWith(native.name, { action: 'semantic', query: 'knowledge' });
     });
 
-    it('allows only explicitly listed actions on mixed native tools', async () => {
+    it('rejects removed history forwarding even when the native registry still reports it', async () => {
         const config = buildDefaultToolConfig().extension;
         config.includeNativeTools = true;
         config.blockedTools = [];
@@ -303,8 +303,8 @@ describe('extension tool', () => {
             permMgr,
             runtime,
         );
-        expect(allowed.isError).not.toBe(true);
-        expect(callTool).toHaveBeenCalledWith('history', { action: 'list', page: 1 });
+        expect(allowed.isError).toBe(true);
+        expect(allowed.content[0].text).toContain('Unknown official MCP tool "history"');
 
         const rejected = await callExtensionTool(
             createMockClient(),
@@ -314,9 +314,8 @@ describe('extension tool', () => {
             runtime,
         );
         expect(rejected.isError).toBe(true);
-        expect(rejected.content[0].text).toContain('native_action_not_allowed');
-        expect(rejected.content[0].text).toContain('list');
-        expect(callTool).toHaveBeenCalledTimes(1);
+        expect(rejected.content[0].text).toContain('Unknown official MCP tool "history"');
+        expect(callTool).not.toHaveBeenCalled();
     });
 
     it('rejects unknown native actions instead of trusting a readOnly tool-level hint', async () => {
@@ -366,7 +365,7 @@ describe('extension tool', () => {
         expect(callTool).not.toHaveBeenCalled();
     });
 
-    it('fails closed for workspace-reading native actions when any notebook is restricted', async () => {
+    it('rejects removed repository forwarding before permission evaluation', async () => {
         const config = buildDefaultToolConfig().extension;
         config.includeNativeTools = true;
         config.blockedTools = [];
@@ -386,7 +385,7 @@ describe('extension tool', () => {
         );
 
         expect(result.isError).toBe(true);
-        expect(result.content[0].text).toContain('native_permission_boundary');
+        expect(result.content[0].text).toContain('Unknown official MCP tool "repo"');
         expect(callTool).not.toHaveBeenCalled();
     });
 

@@ -8,24 +8,17 @@ import type { DocumentAction } from '../../core/config';
 import type { PermissionManager } from '../../core/permissions';
 import {
     DocumentCreateSchema,
-    DocumentCreateDailyNoteSchema,
-    DocumentDocToHeadingSchema,
-    DocumentDuplicateSchema,
     DocumentGetChildBlocksSchema,
     DocumentGetChildDocsSchema,
-    DocumentGetChildSortModeSchema,
     DocumentGetDocSchema,
     DocumentGetOutlineSchema,
-    DocumentHeadingToDocSchema,
     DocumentListTreeSchema,
     DocumentMoveSchema,
     DocumentReorderSchema,
     DocumentLookupSchema,
-    DocumentRemoveSchema,
     DocumentRenameSchema,
     DocumentSearchDocsSchema,
     DocumentSetAttrSchema,
-    DocumentSetChildSortModeSchema,
 } from '../../core/types';
 import {
     ensurePermissionForDocumentId,
@@ -45,12 +38,7 @@ import { stripRedundantTitleHeading } from '../internal/kramdown-safe';
 import { readDocumentBlockWindow } from '../internal/document-kramdown';
 import { createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks } from '../internal/kramdown-safe';
 import { normalizeMarkdownInputRefs } from '../internal/markdown-input';
-import {
-    applyDocumentReorder,
-    getDocumentSortModeName,
-    readDocumentChildSortMode,
-    readDocumentReorderState,
-} from '../internal/helpers/document-reorder';
+import { applyDocumentReorder, readDocumentReorderState } from '../internal/helpers/document-reorder';
 import { isNotebookRootPath, listDocumentSubtreeNodes, listNotebookRootTreeNodes } from '../internal/helpers/doc-tree';
 import { createSemanticError } from '../internal/validation';
 
@@ -493,60 +481,6 @@ const handleRename: DocumentActionHandler = async ({ client, permMgr, rawArgs })
     }), [{ type: 'reloadFiletree' }]);
 };
 
-const handleRemove: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentRemoveSchema.parse(rawArgs);
-    if (parsed.ids) {
-        const reloadIds: string[] = [];
-        for (const id of parsed.ids) {
-            const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, id, 'delete');
-            if (denied) return denied;
-            reloadIds.push(context.documentId);
-        }
-        for (const id of parsed.ids) {
-            await documentApi.removeDocByID(client, id);
-        }
-        return applyUiRefresh(client, createJsonResult({ success: true, ids: parsed.ids, count: parsed.ids.length }), [
-            ...reloadIds.map((id) => ({ type: 'reloadProtyle' as const, id })),
-            { type: 'reloadFiletree' },
-        ]);
-    }
-    if (parsed.paths) {
-        for (const path of parsed.paths) {
-            const notebook = await resolveNotebookForPath(client, path);
-            if (!notebook) {
-                throw createSemanticError('invalid_path', `Unable to resolve notebook for storage path "${path}" while checking permissions.`);
-            }
-            const denied = await ensurePermissionForNotebook(permMgr, notebook, 'delete');
-            if (denied) return denied;
-        }
-        await documentApi.removeDocs(client, parsed.paths);
-        return applyUiRefresh(client, createJsonResult({
-            success: true,
-            paths: parsed.paths,
-            count: parsed.paths.length,
-        }), [{ type: 'reloadFiletree' }]);
-    }
-    if (parsed.id) {
-        const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'delete');
-        if (denied) return denied;
-        await documentApi.removeDocByID(client, parsed.id);
-        return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id }), [
-            { type: 'reloadProtyle', id: context.documentId },
-            { type: 'reloadFiletree' },
-        ]);
-    }
-    if (parsed.notebook) {
-        const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'delete');
-        if (denied) return denied;
-    }
-    await documentApi.removeDoc(client, parsed.notebook!, parsed.path!);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        notebook: parsed.notebook,
-        path: parsed.path,
-    }), [{ type: 'reloadFiletree' }]);
-};
-
 const handleMove: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = DocumentMoveSchema.parse(rawArgs);
     if (parsed.toNotebook) {
@@ -615,52 +549,6 @@ const handleReorder: DocumentActionHandler = async ({ client, permMgr, rawArgs }
         parentID: parsed.parentID,
         notebook: targetNotebook,
         ...result,
-    }), [{ type: 'reloadFiletree' }]);
-};
-
-const handleGetChildSortMode: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentGetChildSortModeSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
-    if (denied) return denied;
-    if (context.documentId !== parsed.id) {
-        throw createSemanticError('invalid_arguments', `id must identify a document root, got content block "${parsed.id}".`);
-    }
-    const state = await readDocumentChildSortMode(client, context.notebook, parsed.id, context.path);
-    return createJsonResult({
-        id: parsed.id,
-        notebook: context.notebook,
-        path: context.path,
-        declaredSortMode: state.declaredSortMode,
-        declaredSortModeName: getDocumentSortModeName(state.declaredSortMode),
-        effectiveSortMode: state.effectiveSortMode,
-        effectiveSortModeName: getDocumentSortModeName(state.effectiveSortMode),
-        inherited: state.declaredSortMode === null,
-        supported: state.supportsDocumentSortMode,
-    });
-};
-
-const handleSetChildSortMode: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentSetChildSortModeSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
-    if (denied) return denied;
-    if (context.documentId !== parsed.id) {
-        throw createSemanticError('invalid_arguments', `id must identify a document root, got content block "${parsed.id}".`);
-    }
-    await documentApi.setDocSortMode(client, parsed.id, parsed.sortMode);
-    const state = await readDocumentChildSortMode(client, context.notebook, parsed.id, context.path);
-    if (state.declaredSortMode !== parsed.sortMode) {
-        throw new Error(`SiYuan did not retain the requested document child sort mode. Expected ${String(parsed.sortMode)}, got ${String(state.declaredSortMode)}.`);
-    }
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        id: parsed.id,
-        notebook: context.notebook,
-        path: context.path,
-        declaredSortMode: state.declaredSortMode,
-        declaredSortModeName: getDocumentSortModeName(state.declaredSortMode),
-        effectiveSortMode: state.effectiveSortMode,
-        effectiveSortModeName: getDocumentSortModeName(state.effectiveSortMode),
-        inherited: state.declaredSortMode === null,
     }), [{ type: 'reloadFiletree' }]);
 };
 
@@ -835,92 +723,12 @@ const handleGetOutline: DocumentActionHandler = async ({ client, permMgr, rawArg
     });
 };
 
-const handleCreateDailyNote: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentCreateDailyNoteSchema.parse(rawArgs);
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
-    if (denied) return denied;
-    const result = await documentApi.createDailyNote(client, parsed.notebook, parsed.app);
-    let hPath: string | undefined;
-    try {
-        hPath = await documentApi.getHPathByID(client, result.id);
-    } catch {
-        hPath = undefined;
-    }
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        notebook: parsed.notebook,
-        ...result,
-        ...(hPath ? { hPath } : {}),
-        iconHint: createSetIconReminder('document'),
-    }), [
-        { type: 'reloadProtyle', id: result.id },
-        { type: 'reloadFiletree' },
-    ]);
-};
-
-const handleDuplicate: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentDuplicateSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
-    if (denied) return denied;
-    const result = await documentApi.duplicateDoc(client, parsed.id);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        sourceID: parsed.id,
-        ...result,
-    }), [
-        { type: 'reloadProtyle', id: context.documentId },
-        { type: 'reloadFiletree' },
-    ]);
-};
-
-const handleHeadingToDoc: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentHeadingToDocSchema.parse(rawArgs);
-    const source = await ensurePermissionForDocumentId(client, permMgr, parsed.headingID, 'write');
-    if (source.denied) return source.denied;
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.targetNotebook, 'write');
-    if (denied) return denied;
-    await documentApi.headingToDoc(client, parsed.headingID, parsed.targetNotebook, parsed.targetPath, parsed.previousPath);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        headingID: parsed.headingID,
-        targetNotebook: parsed.targetNotebook,
-        ...(parsed.targetPath ? { targetPath: parsed.targetPath } : {}),
-        ...(parsed.previousPath ? { previousPath: parsed.previousPath } : {}),
-    }), [
-        { type: 'reloadProtyle', id: source.context.documentId },
-        { type: 'reloadFiletree' },
-    ]);
-};
-
-const handleDocToHeading: DocumentActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = DocumentDocToHeadingSchema.parse(rawArgs);
-    const source = await ensurePermissionForDocumentId(client, permMgr, parsed.srcID, 'write');
-    if (source.denied) return source.denied;
-    const target = await ensurePermissionForDocumentId(client, permMgr, parsed.targetID, 'write');
-    if (target.denied) return target.denied;
-    const result = await documentApi.docToHeading(client, parsed.srcID, parsed.targetID, parsed.after ?? false);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        srcID: parsed.srcID,
-        targetID: parsed.targetID,
-        after: parsed.after ?? false,
-        ...result,
-    }), [
-        { type: 'reloadProtyle', id: source.context.documentId },
-        { type: 'reloadProtyle', id: target.context.documentId },
-        { type: 'reloadFiletree' },
-    ]);
-};
-
 export const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = {
     create: handleCreate,
     lookup: handleLookup,
     rename: handleRename,
-    remove: handleRemove,
     move: handleMove,
     reorder: handleReorder,
-    get_child_sort_mode: handleGetChildSortMode,
-    set_child_sort_mode: handleSetChildSortMode,
     get_child_blocks: handleGetChildBlocks,
     get_child_docs: handleGetChildDocs,
     set_attr: handleSetAttr,
@@ -928,8 +736,4 @@ export const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHand
     search_docs: handleSearchDocs,
     get_doc: handleGetDoc,
     get_outline: handleGetOutline,
-    create_daily_note: handleCreateDailyNote,
-    duplicate: handleDuplicate,
-    heading_to_doc: handleHeadingToDoc,
-    doc_to_heading: handleDocToHeading,
 };

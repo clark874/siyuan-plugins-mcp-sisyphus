@@ -95,7 +95,6 @@ const ITEM_DROP_KEYS = new Set([
     'icon',
     'newFlashcardCount',
     'dueFlashcardCount',
-    'flashcardCount',
 ]);
 
 const CONTENT_VALUE_ARRAY_KEYS = new Set([

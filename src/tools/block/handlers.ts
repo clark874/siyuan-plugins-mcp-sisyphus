@@ -6,14 +6,11 @@ import { validateBlockAttributeMutations } from '../../core/attribute-governance
 import type { BlockAction } from '../../core/config';
 import { normalizeKramdownResult, stripZeroWidthChars } from '../../core/normalize';
 import {
-    BlockAddToDailyNoteSchema,
     BlockAppendSchema,
     BlockBatchKramdownSchema,
     BlockBreadcrumbSchema,
-    BlockDeleteSchema,
     BlockDomSchema,
     BlockDocsInfoSchema,
-    BlockSetFoldStateSchema,
     BlockGetAttrsSchema,
     BlockGetChildrenSchema,
     BlockGetKramdownSchema,
@@ -21,15 +18,13 @@ import {
     BlockInsertSchema,
     BlockMoveSchema,
     BlockPrependSchema,
-    BlockRecentUpdatedSchema,
     BlockReplaceSchema,
     BlockSetAttrsSchema,
     BlockTransferReferencesSchema,
     BlockUpdateSchema,
-    BlockWordCountSchema,
 } from '../../core/types';
 import { isMissingBlockError } from '../internal/errorTranslation';
-import { createResultResolutionCache, ensurePermissionForDocumentId, ensurePermissionForNotebook, resolveDocumentContextById, resolveResultItemContext } from '../internal/context';
+import { createResultResolutionCache, ensurePermissionForDocumentId, resolveDocumentContextById, resolveResultItemContext } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
 import { filterItemsByPermission } from '../search';
 import { createJsonResult, createPaginatedResult, createWriteSuccessResult, paginate, type ToolResult } from '../internal/shared';
@@ -577,19 +572,6 @@ const handleReplace: BlockActionHandler = async ({ client, permMgr, rawArgs }) =
     }), changed ? [{ type: 'reloadProtyle', id: context.documentId }] : []);
 };
 
-const handleDelete: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockDeleteSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'delete');
-    if (denied) return denied;
-    const isDatabaseBlock = await getBlockType(client, parsed.id) === 'av';
-    await blockApi.deleteBlock(client, parsed.id);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        id: parsed.id,
-        ...(isDatabaseBlock ? createDatabaseBlockHint('block.delete') : {}),
-    }), [{ type: 'reloadProtyle', id: context.documentId }]);
-};
-
 const handleMove: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockMoveSchema.parse(rawArgs);
     const sourceIds = parsed.ids ?? [parsed.id!];
@@ -634,18 +616,6 @@ const handleMove: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
         ...(parsed.previousID ? { previousID: parsed.previousID } : {}),
         ...(parsed.parentID ? { parentID: parsed.parentID } : {}),
     }, result), operations);
-};
-
-const handleSetFoldState: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockSetFoldStateSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
-    if (denied) return denied;
-    if (parsed.folded) {
-        await blockApi.foldBlock(client, parsed.id);
-    } else {
-        await blockApi.unfoldBlock(client, parsed.id);
-    }
-    return applyUiRefresh(client, createJsonResult({ success: true, id: parsed.id, folded: parsed.folded }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
 const handleGetKramdown: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -848,59 +818,6 @@ const handleDom: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     return createJsonResult(result);
 };
 
-const handleRecentUpdated: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockRecentUpdatedSchema.parse(rawArgs);
-    const result = await blockApi.getRecentUpdatedBlocks(client);
-    const items = Array.isArray(result) ? result : [];
-    const filtered = await filterItemsByPermission(client, items, permMgr);
-    const count = typeof parsed.count === 'number' ? parsed.count : undefined;
-    const truncatedItems = typeof count === 'number' ? filtered.items.slice(0, count) : filtered.items;
-    const aggregated = await aggregateRecentUpdatedDocuments(client, truncatedItems);
-    return createJsonResult({
-        documents: aggregated.documents,
-        documentCount: aggregated.documents.length,
-        count: truncatedItems.length,
-        containsLowLevelBlocks: aggregated.containsLowLevelBlocks,
-        grouping: 'document',
-        primaryView: 'documents',
-        items: truncatedItems,
-        hint: 'documents is the user-facing summary grouped by root document; items remains the raw recent block stream for advanced consumers.',
-        ...(filtered.removedCount > 0 ? {
-            partial: true,
-            filteredOutCount: filtered.removedCount,
-            reason: 'permission_filtered',
-        } : {}),
-    });
-};
-
-const handleWordCount: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockWordCountSchema.parse(rawArgs);
-    for (const id of parsed.ids) {
-        const { denied } = await ensurePermissionForDocumentId(client, permMgr, id, 'read');
-        if (denied) return denied;
-    }
-    const result = await blockApi.getBlocksWordCount(client, parsed.ids);
-    return createJsonResult(result);
-};
-
-const handleAddToDailyNote: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockAddToDailyNoteSchema.parse(rawArgs);
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
-    if (denied) return denied;
-    const data = await normalizeWriteData(client, parsed.dataType, parsed.data, 'block.add_to_daily_note');
-    const result = parsed.position === 'append'
-        ? await blockApi.appendDailyNoteBlock(client, parsed.notebook, parsed.dataType, data)
-        : await blockApi.prependDailyNoteBlock(client, parsed.notebook, parsed.dataType, data);
-    return applyUiRefresh(client, createJsonResult({
-        success: true,
-        action: 'add_to_daily_note',
-        notebook: parsed.notebook,
-        dataType: parsed.dataType,
-        position: parsed.position,
-        transactions: result,
-    }), [{ type: 'reloadFiletree' }]);
-};
-
 const handleDocsInfo: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockDocsInfoSchema.parse(rawArgs);
     const ids = parsed.ids ?? [parsed.id!];
@@ -918,9 +835,7 @@ export const BLOCK_ACTION_HANDLERS: Record<BlockAction, BlockActionHandler> = {
     append: handleAppend,
     update: handleUpdate,
     replace: handleReplace,
-    delete: handleDelete,
     move: handleMove,
-    set_fold_state: handleSetFoldState,
     get_kramdown: handleGetKramdown,
     batch_kramdown: handleBatchKramdown,
     get_children: handleGetChildren,
@@ -930,8 +845,5 @@ export const BLOCK_ACTION_HANDLERS: Record<BlockAction, BlockActionHandler> = {
     info: handleInfo,
     breadcrumb: handleBreadcrumb,
     dom: handleDom,
-    recent_updated: handleRecentUpdated,
-    word_count: handleWordCount,
-    add_to_daily_note: handleAddToDailyNote,
     docs_info: handleDocsInfo,
 };

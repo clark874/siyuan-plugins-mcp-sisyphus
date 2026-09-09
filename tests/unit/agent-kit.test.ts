@@ -55,8 +55,9 @@ describe('portable agent kit', () => {
             distribution: {
                 startHere: expect.stringContaining(`/v${packageManifest.version}/agent-kit/START-HERE.md`),
                 archive: expect.stringContaining(`/v${packageManifest.version}/siyuan-agent-kit.zip`),
-                stableChannel: expect.stringContaining('/codex/local-maintenance/release-channel.json'),
+                stableChannel: expect.stringContaining('/main/release-channel.json'),
             },
+            firstCall: { tool: 'system', action: 'bootstrap', expectedSchemaVersion: 3 },
             externalGateway: expect.objectContaining({
                 url: 'http://127.0.0.1:36806/mcp',
                 clientRegistration: 'required',
@@ -90,7 +91,7 @@ describe('portable agent kit', () => {
         expect(start).toContain('release-channel.json');
         expect(start).toContain('agentKit.url');
         expect(start).toContain('/releases/latest');
-        expect(start).toContain('/codex/local-maintenance/agent-kit/START-HERE.md');
+        expect(start).toContain('/main/agent-kit/START-HERE.md');
         expect(start).toContain('tree/main/skills/siyuan-mcp');
         expect(start).toContain('只安装 Skill');
         expect(start).toContain('不会注册');

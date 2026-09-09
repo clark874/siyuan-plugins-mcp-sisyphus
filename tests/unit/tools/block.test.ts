@@ -74,7 +74,7 @@ describe('block tool', () => {
         expect(actionDescription).toContain('update');
         expect(actionDescription).toContain('replace');
         expect(actionDescription).toContain('batch_kramdown');
-        expect(actionDescription).toContain('add_to_daily_note');
+        expect(actionDescription).not.toContain('add_to_daily_note');
         expect(actionDescription).toContain('docs_info');
     });
 
@@ -260,26 +260,6 @@ describe('block tool', () => {
         const batchInsertBlocks = properties.blocks as Record<string, unknown>;
 
         expect(batchInsertBlocks.description).toContain('top-level');
-    });
-
-    it('calls append daily note block endpoint', async () => {
-        const client = createMockClient({
-            request: async (endpoint: string, body: unknown) => {
-                expect(endpoint).toBe('/api/block/appendDailyNoteBlock');
-                expect(body).toMatchObject({ notebook: 'nb', dataType: 'markdown', data: 'hello' });
-                return [{ doOperations: [] }];
-            },
-        });
-
-        const result = await callBlockTool(client, {
-            action: 'add_to_daily_note',
-            notebook: 'nb',
-            dataType: 'markdown',
-            data: 'hello',
-            position: 'append',
-        }, buildDefaultToolConfig().block, permMgr as never);
-
-        expect(parseResult(result).success).toBe(true);
     });
 
     it('converts plain DOM block references and tags before block update', async () => {
@@ -522,47 +502,6 @@ describe('block tool', () => {
             dataType: 'markdown',
             data: '降级为普通文本',
         });
-    });
-
-    it('allows deleting an attribute-view block but returns av tool guidance', async () => {
-        const client = createMockClient({
-            request: vi.fn(async (endpoint: string) => {
-                if (endpoint === '/api/query/sql') {
-                    return [{
-                        id: 'av-block-1',
-                        root_id: 'doc-1',
-                        box: 'nb-1',
-                        path: '/doc-1.sy',
-                        hpath: '/Doc 1',
-                        content: 'Doc 1',
-                        type: 'av',
-                    }];
-                }
-                if (endpoint === '/api/block/deleteBlock') return {};
-                if (endpoint.startsWith('/api/ui/')) return null;
-                return null;
-            }),
-        });
-
-        const result = await callBlockTool(client, {
-            action: 'delete',
-            id: 'av-block-1',
-        }, {
-            ...buildDefaultToolConfig().block,
-            actions: {
-                ...buildDefaultToolConfig().block.actions,
-                delete: true,
-            },
-        }, permMgr as never);
-        const parsed = parseResult(result);
-
-        expect(parsed).toMatchObject({
-            success: true,
-            id: 'av-block-1',
-            databaseBlock: true,
-        });
-        expect(parsed.warning).toContain('use av');
-        expect(client.request).toHaveBeenCalledWith('/api/block/deleteBlock', { id: 'av-block-1' });
     });
 
     it('replaces the first exact match inside one block', async () => {
@@ -878,7 +817,7 @@ describe('block tool', () => {
                 message: 'Invalid arguments for block(action="insert").',
                 tool: 'block',
                 action: 'insert',
-                hint: 'nextID inserts BEFORE that block; previousID inserts AFTER that block. Provide at least one of nextID, previousID, or parentID. Returns a slim success object with the created block ID. Use #tag# syntax in markdown when you want SiYuan to register a real tag.',
+                hint: 'Provide nextID, previousID, or parentID.',
                 fields: [{
                     path: 'blocks[1].previousID',
                     message: 'Provide nextID, previousID, or parentID for each block, or set a top-level parentID/previousID/nextID.',

@@ -3,8 +3,6 @@ import { SiYuanClient } from '@/api/client';
 import * as notebookApi from '@/api/notebook';
 import * as documentApi from '@/api/document';
 import * as blockApi from '@/api/block';
-import * as fileApi from '@/api/file';
-import * as templateApi from '@/api/template';
 import * as searchApi from '@/api/search';
 import { PermissionManager } from '@/core/permissions';
 
@@ -44,20 +42,6 @@ describe('MCP End-to-End Flow', () => {
             expect(result.notebooks).toHaveLength(2);
         });
 
-        it('should create notebook and return result', async () => {
-            const createdData = { notebook: 'nb-new' };
-
-            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: createdData }));
-
-            const result = await notebookApi.createNotebook(client, 'New Notebook');
-            expect(result).toEqual(createdData);
-        });
-
-        it('should handle notebook not found error', async () => {
-            mockFetch.mockResolvedValue(jsonResponse({ code: 3, msg: 'Data not found', data: null }));
-
-            await expect(notebookApi.openNotebook(client, 'non-existent')).rejects.toThrow();
-        });
     });
 
     describe('Document API Flow', () => {
@@ -161,17 +145,6 @@ describe('MCP End-to-End Flow', () => {
 
             const result = await searchApi.searchTag(client, 'tag');
             expect(result.tags).toHaveLength(2);
-        });
-    });
-
-    describe('File API Flow', () => {
-        it('should render template', async () => {
-            const templateData = { content: 'Rendered content' };
-
-            mockFetch.mockResolvedValue(jsonResponse({ code: 0, msg: 'success', data: templateData }));
-
-            const result = await templateApi.renderTemplate(client, 'tpl123', '/path/to/template');
-            expect(result).toEqual(templateData);
         });
     });
 

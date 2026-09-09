@@ -1,48 +1,21 @@
 # 工具索引
 
-这个页面汇总项目暴露的 16 个聚合工具。
+当前 LLM Wiki 工具面包含 13 个聚合工具、94 个 action。每个工具还接受 `action="help"`；`extension` 动态发现的官方插件 action 不计入 94 个固定 action。
 
-适用场景：你已经知道大致领域，但还需要定位到具体工具页面。
+| 工具 | 现行 action |
+| --- | --- |
+| `fs` | ls, tree, read, write, replace, rm, mv, reorder, search |
+| `notebook` | list, get_conf, get_permissions, get_child_docs |
+| `document` | create, lookup, rename, move, reorder, get_child_blocks, get_child_docs, set_attr, list_tree, search_docs, get_doc, get_outline |
+| `block` | insert, prepend, append, update, replace, move, get_kramdown, batch_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, docs_info |
+| `av` | get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, rename, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate, get_primary_key_values |
+| `file` | register_project_source, identify_project, scan_project_manifest, resolve_project_source, read_project_source, list_project_sources |
+| `project` | snapshot |
+| `search` | fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, list_invalid_refs, criteria_list, criteria_save, criteria_remove |
+| `provenance` | register_session, record_event, discover_session, list_project_sessions, list_atom_events, resolve_session_link, validate_session |
+| `tag` | list, rename, remove |
+| `timeline` | list_nodes, create_node, compare_node, compare_recent |
+| `system` | changelog, get_version, get_current_time, bootstrap, audit_environment, validate_source_audit |
+| `extension` | list，以及明确列入白名单的官方插件 action |
 
-相关页面：
-
-- [参考首页](../index.md)
-- [常见任务](../common-tasks.md)
-
-| 工具 | 动作数量 | 页面 |
-|------|-------------|------|
-| `fs` | 9 | [fs 工具](./fs.md) |
-| `notebook` | 11 | [notebook 工具](./notebook.md) |
-| `document` | 19 | [document 工具](./document.md) |
-| `block` | 21 | [block 工具](./block.md) |
-| `av` | 13 | [av 工具](./av.md) |
-| `file` | 22 | [file 工具](./file.md) |
-| `project` | 1 | [project 工具](./project.md) |
-| `search` | 14 | [search 工具](./search.md) |
-| `provenance` | 6 | [provenance 工具](./provenance.md) |
-| `tag` | 3 | [tag 工具](./tag.md) |
-| `timeline` | 7 | [timeline 工具](./timeline.md) |
-| `system` | 27 | [system 工具](./system.md) |
-| `flashcard` | 6 | [flashcard 工具](./flashcard.md) |
-| `extension` | 动态 | [extension 工具](./extension.md) |
-| `mascot` | 3 | [mascot 工具](./mascot.md) |
-| `feedback` | 1 | [feedback 工具](./feedback.md) |
-
-## 动作汇总
-
-- `fs`: ls, tree, read, write, replace, rm, mv, search
-- `notebook`: list, create, set_open_state, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs
-- `document`: create, lookup, rename, remove, move, get_child_blocks, get_child_docs, set_attr, list_tree, search_docs, get_doc, get_outline, create_daily_note, duplicate, heading_to_doc, doc_to_heading
-- `block`: insert, prepend, append, update, replace, delete, move, set_fold_state, get_kramdown, batch_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info
-- `av`: get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate, get_primary_key_values
-- `file`: upload_asset, list_templates, read_template, create_template, update_template, delete_template, save_doc_as_template, render, export_md, export_resources, list_unused_assets, get_doc_assets, remove_unused_assets, rename_asset, delete_asset, extract_doc
-- `project`: snapshot
-- `search`: fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs, criteria_list, criteria_save, criteria_remove
-- `provenance`: register_session, record_event, list_project_sessions, list_atom_events, resolve_session_link, validate_session
-- `tag`: list, rename, remove
-- `timeline`: list_nodes, create_node, compare_node, compare_recent, delete_node, rollback_document, rollback_block
-- `system`: workspace_info, network, conf, notify, changelog, perform_sync, get_version, get_current_time, audit_environment, list_packages
-- `flashcard`: list_cards, get_decks, get_cards, review_card, create_card, remove_card
-- `extension`: list，以及已启用官方插件工具和可选思源原生 MCP 工具对应的动态 action
-- `mascot`: get_balance, shop, buy
-- `feedback`: submit
+已删除的猫猫、feedback、闪卡、资产/OCR、模板/导入导出、history/repo/inbox 转发和时间线删除/回退动作不提供兼容别名；客户端应停止调用。

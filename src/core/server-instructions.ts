@@ -184,16 +184,10 @@ Each tool exposes common actions in its description. For detailed help on any ac
 
 ## MCP App presentation and human handoff
 
-- MCP App UI resources are attached only to the dedicated launch tools: \`timeline_app\`, \`flashcard_review_session\`, and \`mascot_shop_app\`. Ordinary \`timeline\`, \`flashcard\`, and \`mascot\` calls do not open Apps.
+- The only MCP App UI resource is attached to the dedicated \`timeline_app\` launcher. Ordinary \`timeline\` calls do not open Apps.
 - Call a launch tool at most once for the requested surface. After it succeeds, hand control to the user and stop instead of opening more Apps.
 - Before calling \`timeline_app\`, determine whether the user requested a particular document. Pass its \`documentId\` before launch; the App has no target-document picker after launch. If \`documentId\` is omitted, the App is global-only and can display only global timeline nodes, not document-specific nodes. Omit \`documentId\` only when the user wants the global timeline.
-- After \`timeline_app\` succeeds, never call timeline rollback actions yourself and never simulate rollback with \`block(action="delete")\`, document rewrites, or other editing tools. Reply exactly “时间线界面已打开，请在界面中选择节点并执行操作。” and stop.
-- After \`mascot_shop_app\` succeeds, do not call \`mascot(action="buy")\` or purchase on the user’s behalf. Reply exactly “猫猫商店已打开，请在界面中选择并购买物品。” and stop.
-
-- If the dedicated \`flashcard_review_session\` tool is available and succeeds, its MCP App is the sole review surface for that round. The complete prompts and reference answers remain available in structured output for reasoning and compatibility, but you MUST NOT list, quote, restate, or reveal them in the conversation.
-- After a successful \`flashcard_review_session\` call, do not start Q1, ask the user to answer in chat, assess an answer, assign ratings, or call \`flashcard(action="review_card")\` yourself. Reply with exactly “复习界面已打开，请在卡片中完成本轮。” and stop.
-- Resume discussing card content only if the user explicitly exits the App and requests chat-based review, or after the App sends its explicit post-review teaching handoff.
-- If \`flashcard_review_session\` is unavailable, ordinary \`flashcard\` results retain their complete content and may be used for a text-based review flow.
+- After \`timeline_app\` succeeds, reply exactly “时间线界面已打开，请在界面中查看节点或执行比较。” and stop.
 
 ## Path semantics (critical — the most common error source)
 
@@ -206,9 +200,9 @@ For basic path-style notebook and document operations, use \`fs\` whenever the t
 - Search Markdown under a path: \`fs(action="search", path="/Notebook/Folder", query="...")\`
 - Delete, move, or rename by path: \`fs(action="rm", path="/Notebook/Folder/Doc")\`, \`fs(action="mv", from="/Notebook/Old", to="/Notebook/New")\` after explicit confirmation.
 
-\`fs\` paths are human-readable workspace paths and \`fs\` hides notebook IDs, block IDs, and storage paths. Prefer \`fs\` for basic browse/read/write/edit/search/move/delete workflows. Use the lower-level \`document\`, \`block\`, \`search\`, and \`av\` tools only when you need SiYuan-specific block layout, metadata, SQL, backlinks, assets, database operations, or direct block IDs.
+\`fs\` paths are human-readable workspace paths and \`fs\` hides notebook IDs, block IDs, and storage paths. Prefer \`fs\` for basic browse/read/write/edit/search/move/delete workflows. Use the lower-level \`document\`, \`block\`, \`search\`, and \`av\` tools only when you need SiYuan-specific block layout, metadata, SQL, backlinks, database operations, or direct block IDs.
 
-\`fs\` is a Markdown-oriented convenience layer. It converts document content through Markdown and Kramdown for reading and writing, so it is not a full-fidelity editor for complex SiYuan-native structures. Use it for ordinary prose, headings, lists, simple tables, exact paragraph/heading text replacement, and path-based file workflows. Prefer lower-level tools when the task involves precise block tree structure, block attributes, embeds, media, query embeds, database rows and cells, flashcard deck bindings, or other native structures that are not naturally represented as Markdown.
+\`fs\` is a Markdown-oriented convenience layer. It converts document content through Markdown and Kramdown for reading and writing, so it is not a full-fidelity editor for complex SiYuan-native structures. Use it for ordinary prose, headings, lists, simple tables, exact paragraph/heading text replacement, and path-based file workflows. Prefer lower-level tools when the task involves precise block tree structure, block attributes, embeds, query embeds, database rows and cells, or other native structures that are not naturally represented as Markdown.
 
 There are exactly two path types. Do not mix them.
 
@@ -228,15 +222,10 @@ Before calling any of the following actions, you MUST clearly describe the actio
 
 **Actions that require confirmation:**
 ${dangerousActionsList}
-- \`file(action=”export_resources”, outputPath=...)\`
 
 Flow: State “I will do X. Proceed?” and only call the tool after the user explicitly agrees.
 
-Additional rules:
-- file(action=”upload_asset”) reads a local file path and uploads it into SiYuan assets. Treat this as high-risk.
-- If file(action=”upload_asset”) targets a file larger than the configured large-upload threshold (10 MB by default), you MUST stop, tell the user, and only retry after explicit confirmation using confirmLargeFile=true.
-- file(action=”export_resources”) without outputPath only generates a ZIP in SiYuan's managed temp area.
-- file(action=”export_resources”, outputPath=...) writes to the local filesystem and MUST be treated as high-risk.
+Additional rule: project-source registration and local absolute-path disclosure remain confirmation-gated. Prefer controlled UTF-8 text reads over path disclosure.
 
 ## Block insertion semantics
 
@@ -281,31 +270,18 @@ Additional rules:
 - To read database internals, use av(action=”get”, id=...) for the full payload or av(action=”render”, id=..., blockID=...) when a specific rendered block view is needed. In the av tool, get/render use id for the attribute view ID, while write actions such as add_rows, set_cells, remove_rows, add_column, and remove_column use avID.
 - To add rows, use av(action=”add_rows”, avID=..., blockIDs=[...]) for bound rows or primaryKeyTexts=[...] for detached rows, then use av(action=”set_cells”) for non-primary-key values.
 - To update cells, use av(action=”set_cells”, avID=..., cells=[{rowID, columnID, valueType, ...}]). rowID is the AV row item ID stored in value.blockID or returned by add_rows, not the cell value id and not necessarily the bound source block id.
-- To delete rows or columns, use av(action=”remove_rows”, avID=..., srcIDs=[...]) or av(action=”remove_column”, avID=..., keyID=...). To delete the entire visible database block container, use block.delete only after explicit confirmation.
+- To delete rows or columns, use av(action=”remove_rows”, avID=..., srcIDs=[...]) or av(action=”remove_column”, avID=..., keyID=...). Deleting the entire visible database block container is not exposed through this MCP surface.
 - Do not use fs.write overwrite, block.update, or block.replace to edit AV rows/cells. Those operations can replace or delete the database block container but cannot safely edit the database internals.
-
-## Flashcard semantics
-
-- To turn a block into a flashcard, prefer flashcard(action=”create_card”), which writes “custom-riff-decks” and registers the riff card together.
-- block(action=”set_attrs”) with “custom-riff-decks” only writes the metadata binding and is not the full “make flashcard” workflow by itself.
-- Common pattern: h2 heading as the question, following blocks as the answer.
-- Cloze: \`==answer==\` is treated as a cloze answer in flashcard review.
-- For scheduled review and deck operations, prefer the dedicated \`flashcard\` tool.
-- To read decks, use flashcard(action=”get_decks”). To list due cards, use flashcard(action=”list_cards”, scope=”all”|"deck"|"notebook"|"tree", filter=”due”|"new"|"old"). To audit all cards in a deck, use flashcard(action=”get_cards”, deckID=..., page=..., pageSize=...).
-- To add cards, create or locate the intended content block IDs first, then call flashcard(action=”create_card”, deckID=..., blockIDs=[...]). Document block IDs are rejected; pass content blocks such as headings or paragraphs.
-- To review cards, call flashcard(action=”review_card”, deckID=..., cardID=..., rating=1..4) or skip=true. Use a concrete deckID from get_cards/list_cards; an empty deckID is not valid for review.
-- To remove cards from a deck, use flashcard(action=”remove_card”, deckID=..., blockIDs=[...]) only after explicit user confirmation. Removing a flashcard binding is separate from deleting the underlying note blocks.
 
 ## SiYuan layout model (summary)
 
 When the user asks for polished SiYuan content, consider native layout features instead of plain paragraphs:
 1. Start with headings, paragraphs, lists, task lists, blockquotes, callouts, tables, math blocks, and code blocks.
-2. When the user asks for a diary entry, journal, daily log, or today’s note in a notebook, prefer \`document(action="create_daily_note")\` instead of manually creating a dated path and then appending content.
-3. For side-by-side comparison, cards, or dashboards, use Kramdown super blocks (\`{{{col\` / \`{{{row\`).
-4. For metadata, workflow markers, or styling, use block attributes (\`name\`, \`alias\`, \`memo\`, \`bookmark\`, \`custom-*\`, \`style\`).
-5. For diagrams, charts, mind maps, use renderer code blocks (\`mindmap\`, \`mermaid\`, \`flowchart\`, \`graphviz\`, \`plantuml\`, \`echarts\`, \`abc\`).
-6. For playback, embeds, dynamic queries, or structured records, use \`video\`, \`audio\`, \`iframe\`, \`html\`, \`query_embed\`, or database blocks \`av\`.
-7. For real database operations, prefer the dedicated \`av\` tool instead of describing an \`av\` block abstractly.
+2. For side-by-side comparison, cards, or dashboards, use Kramdown super blocks (\`{{{col\` / \`{{{row\`).
+3. For metadata, workflow markers, or styling, use block attributes (\`name\`, \`alias\`, \`memo\`, \`bookmark\`, \`custom-*\`, \`style\`).
+4. For diagrams, charts, mind maps, use renderer code blocks (\`mindmap\`, \`mermaid\`, \`flowchart\`, \`graphviz\`, \`plantuml\`, \`echarts\`, \`abc\`).
+5. For playback, embeds, dynamic queries, or structured records, use \`video\`, \`audio\`, \`iframe\`, \`html\`, \`query_embed\`, or database blocks \`av\`.
+6. For real database operations, prefer the dedicated \`av\` tool instead of describing an \`av\` block abstractly.
 
 Critical anti-patterns — do NOT:
 - Use \`::: row\`, raw HTML \`<div>\`, or \`===\` separators as super block substitutes.
@@ -319,7 +295,6 @@ For the full layout guide with formatting inventory, distinctions, and daily heu
 
 - Bookmarks🔖: Collect existing blocks through block attributes; do not use bookmarks as inline tags.
 - Tags🏷️: Use inline markdown tokens such as \`#tag#\`; do not use tags as block-level bookmarks.
-- Flashcards🧠: Treat flashcards as review semantics, not layout; choose layout and flashcard marking independently.
 - MCP✍️: Prefer creating final content directly instead of describing UI-only steps such as \`/AI 编写\`.
 ${userRulesReminder}
 `;

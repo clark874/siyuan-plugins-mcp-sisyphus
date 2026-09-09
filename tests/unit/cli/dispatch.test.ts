@@ -239,13 +239,13 @@ describe('cli/dispatch', () => {
 
     it('passes kebab-case snake_case fields through to MCP payloads', async () => {
         const io = captureStdIO();
-        const callToolSpy = vi.spyOn(TOOL_REGISTRY.mascot, 'callTool').mockResolvedValue(okResult());
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.file, 'callTool').mockResolvedValue(okResult());
 
         const code = await runDispatch({
             command: 'dispatch',
-            tool: 'mascot',
-            action: 'buy',
-            rest: ['--item-id', 'milk'],
+            tool: 'file',
+            action: 'read_project_source',
+            rest: ['--project-id', 'project-1', '--relative-path', 'notes.md'],
             url: 'http://127.0.0.1:6806',
             json: true,
             debug: false,
@@ -255,8 +255,9 @@ describe('cli/dispatch', () => {
         expect(callToolSpy).toHaveBeenCalledTimes(1);
         expect(runToolCall).toHaveBeenCalledTimes(1);
         expect(callToolSpy.mock.calls[0]?.[1]).toEqual({
-            action: 'buy',
-            item_id: 'milk',
+            action: 'read_project_source',
+            projectId: 'project-1',
+            relativePath: 'notes.md',
         });
         expect(io.stderr).toBe('');
         io.restore();
@@ -404,13 +405,13 @@ describe('cli/dispatch', () => {
         vi.mocked(pluginCheck.ensureRequiredPluginInstalled).mockRejectedValue(
             new Error('This CLI requires the SiYuan plugin "siyuan-plugins-mcp-sisyphus".'),
         );
-        const callToolSpy = vi.spyOn(TOOL_REGISTRY.mascot, 'callTool').mockResolvedValue(okResult());
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.tag, 'callTool').mockResolvedValue(okResult());
 
         const code = await runDispatch({
             command: 'dispatch',
-            tool: 'mascot',
-            action: 'buy',
-            rest: ['--item-id', 'milk'],
+            tool: 'tag',
+            action: 'remove',
+            rest: ['--label', 'obsolete'],
             url: 'http://127.0.0.1:6806',
             json: true,
             debug: false,
@@ -425,15 +426,15 @@ describe('cli/dispatch', () => {
     it('refuses to dispatch a tool disabled by the plugin UI config', async () => {
         const io = captureStdIO();
         const config = buildDefaultToolConfig();
-        config.mascot.enabled = false;
+        config.tag.enabled = false;
         vi.spyOn(SiYuanClient.prototype, 'readFile').mockResolvedValueOnce(JSON.stringify(config));
-        const callToolSpy = vi.spyOn(TOOL_REGISTRY.mascot, 'callTool');
+        const callToolSpy = vi.spyOn(TOOL_REGISTRY.tag, 'callTool');
 
         const code = await runDispatch({
             command: 'dispatch',
-            tool: 'mascot',
-            action: 'buy',
-            rest: ['--item-id', 'milk'],
+            tool: 'tag',
+            action: 'remove',
+            rest: ['--label', 'obsolete'],
             url: 'http://127.0.0.1:6806',
             json: false,
             debug: false,
@@ -441,21 +442,21 @@ describe('cli/dispatch', () => {
 
         expect(code).toBe(1);
         expect(callToolSpy).not.toHaveBeenCalled();
-        expect(io.stdout).toContain('Tool "mascot" is disabled.');
+        expect(io.stdout).toContain('Tool "tag" is disabled.');
         io.restore();
     });
 
     it('returns action_disabled for an action disabled by the plugin UI config', async () => {
         const io = captureStdIO();
         const config = buildDefaultToolConfig();
-        config.mascot.actions.buy = false;
+        config.tag.actions.remove = false;
         vi.spyOn(SiYuanClient.prototype, 'readFile').mockResolvedValueOnce(JSON.stringify(config));
 
         const code = await runDispatch({
             command: 'dispatch',
-            tool: 'mascot',
-            action: 'buy',
-            rest: ['--item-id', 'milk'],
+            tool: 'tag',
+            action: 'remove',
+            rest: ['--label', 'obsolete'],
             url: 'http://127.0.0.1:6806',
             json: false,
             debug: false,
@@ -463,7 +464,7 @@ describe('cli/dispatch', () => {
 
         expect(code).toBe(1);
         expect(io.stderr).toContain('[action_disabled]');
-        expect(io.stderr).toContain('Action "buy" is disabled for tool "mascot".');
+        expect(io.stderr).toContain('Action "remove" is disabled for tool "tag".');
         io.restore();
     });
 

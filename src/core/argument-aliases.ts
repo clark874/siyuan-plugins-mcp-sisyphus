@@ -76,31 +76,6 @@ function normalizeAvRenderArgs(args: Record<string, unknown>): void {
     delete args.avID;
 }
 
-function normalizeBlockWordCountArgs(args: Record<string, unknown>): void {
-    if (!hasOwn(args, 'ids') && nonEmptyString(args.id)) {
-        args.ids = [args.id];
-    }
-    delete args.id;
-}
-
-function normalizeFlashcardBlockIdsArgs(args: Record<string, unknown>): void {
-    if (!hasOwn(args, 'blockIDs') && nonEmptyString(args.blockID)) {
-        args.blockIDs = [args.blockID];
-    }
-    delete args.blockID;
-}
-
-function normalizeFileUploadAssetArgs(args: Record<string, unknown>): void {
-    const looksLikeRemovedBase64Shape = hasOwn(args, 'file') && hasOwn(args, 'fileName') && !hasOwn(args, 'localFilePath');
-    if (!looksLikeRemovedBase64Shape && !hasOwn(args, 'localFilePath') && nonEmptyString(args.file)) {
-        args.localFilePath = args.file;
-        delete args.file;
-    }
-    if (!hasOwn(args, 'assetsDirPath')) {
-        args.assetsDirPath = '/assets/';
-    }
-}
-
 function normalizeSearchRefsArgs(args: Record<string, unknown>): void {
     if (!hasOwn(args, 'k')) {
         if (typeof args.keyword === 'string') args.k = args.keyword;
@@ -119,9 +94,6 @@ export function normalizeToolArguments(category: ToolCategory, rawArgs: Record<s
 
     if (category === 'fs' && action === 'replace') normalizeFsReplaceArgs(args);
     if (category === 'av' && action === 'render') normalizeAvRenderArgs(args);
-    if (category === 'block' && action === 'word_count') normalizeBlockWordCountArgs(args);
-    if (category === 'flashcard' && (action === 'create_card' || action === 'remove_card')) normalizeFlashcardBlockIdsArgs(args);
-    if (category === 'file' && action === 'upload_asset') normalizeFileUploadAssetArgs(args);
     if (category === 'search' && action === 'search_refs') normalizeSearchRefsArgs(args);
 
     return args;
@@ -150,24 +122,6 @@ export function getFlagAliasRules(context?: Partial<ArgumentAliasContext>): Flag
     if (context.category === 'av' && action === 'render') {
         return [
             { canonical: 'id', aliases: ['avID', 'av-id', 'av_id'], schema: STRING_SCHEMA },
-        ];
-    }
-
-    if (context.category === 'block' && action === 'word_count') {
-        return [
-            { canonical: 'ids', aliases: ['id'], schema: { type: 'array', items: STRING_SCHEMA } },
-        ];
-    }
-
-    if (context.category === 'flashcard' && (action === 'create_card' || action === 'remove_card')) {
-        return [
-            { canonical: 'blockIDs', aliases: ['blockID', 'block-id', 'block_id'], schema: { type: 'array', items: STRING_SCHEMA } },
-        ];
-    }
-
-    if (context.category === 'file' && action === 'upload_asset') {
-        return [
-            { canonical: 'localFilePath', aliases: ['file'], schema: STRING_SCHEMA },
         ];
     }
 

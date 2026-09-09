@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { stableStringify } from '../control-plane/security';
+import { stableStringify } from './text-security';
 import { sha256Hex } from './crypto';
 
 const InventoryItemSchema = z.object({

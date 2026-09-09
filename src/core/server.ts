@@ -26,18 +26,12 @@ import { OfficialMcpBridge, type OfficialMcpRuntime } from './official-mcp-bridg
 
 import { PermissionManager } from './permissions';
 import {
-    callFlashcardReviewSessionTool,
-    callMascotShopAppTool,
     callTimelineAppTool,
     compactMcpAppToolResult,
     decorateToolsWithMcpApps,
-    FLASHCARD_REVIEW_SESSION_TOOL_NAME,
-    FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME,
     listMcpAppResources,
     MCP_APPS_EXTENSION_ID,
     MCP_APP_MIME_TYPE,
-    MASCOT_SHOP_APP_ACTION_TOOL_NAME,
-    MASCOT_SHOP_APP_TOOL_NAME,
     readMcpAppResource,
     supportsMcpApps,
     TIMELINE_APP_ACTION_TOOL_NAME,
@@ -336,10 +330,6 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         const appToolNames = new Set([
             TIMELINE_APP_TOOL_NAME,
             TIMELINE_APP_ACTION_TOOL_NAME,
-            FLASHCARD_REVIEW_SESSION_TOOL_NAME,
-            FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME,
-            MASCOT_SHOP_APP_TOOL_NAME,
-            MASCOT_SHOP_APP_ACTION_TOOL_NAME,
         ]);
         if (appToolNames.has(name) && !appsEnabled) {
             return {
@@ -347,47 +337,29 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
                 isError: true,
             };
         }
-        if ([FLASHCARD_REVIEW_SESSION_TOOL_NAME, TIMELINE_APP_TOOL_NAME, MASCOT_SHOP_APP_TOOL_NAME].includes(name)) {
+        if (name === TIMELINE_APP_TOOL_NAME) {
             const config = await getToolConfig();
-            const appEnabled = name === FLASHCARD_REVIEW_SESSION_TOOL_NAME
-                ? config.mcpApps.flashcardReview.enabled
-                : name === TIMELINE_APP_TOOL_NAME
-                    ? config.mcpApps.timeline.enabled
-                    : config.mcpApps.mascotShop.enabled;
-            if (!appEnabled) {
+            if (!config.mcpApps.timeline.enabled) {
                 return {
                     content: [{ type: 'text' as const, text: `Tool "${name}" is disabled.` }],
                     isError: true,
                 };
             }
-            if (name === FLASHCARD_REVIEW_SESSION_TOOL_NAME && (!config.flashcard.enabled || config.flashcard.actions.list_cards !== true)) {
-                return { content: [{ type: 'text' as const, text: 'flashcard_review_session requires flashcard(action="list_cards") to be enabled for candidate selection.' }], isError: true };
-            }
             try {
-                const result = name === FLASHCARD_REVIEW_SESSION_TOOL_NAME
-                    ? await callFlashcardReviewSessionTool(client, permMgr, args, config.mcpApps.flashcardReview)
-                    : name === TIMELINE_APP_TOOL_NAME
-                        ? await callTimelineAppTool(client, permMgr, args, config.mcpApps.timeline)
-                        : await callMascotShopAppTool(client, permMgr, args, config.mcpApps.mascotShop);
+                const result = await callTimelineAppTool(client, permMgr, args, config.mcpApps.timeline);
                 return server.projectCallToolResult(result, GENERIC_TOOL_OUTPUT_SCHEMA);
             } catch (error) {
                 const message = error instanceof Error ? error.message : String(error);
                 return server.projectCallToolResult(withStructuredContent({
                     content: [{ type: 'text' as const, text: JSON.stringify({
-                        action: FLASHCARD_REVIEW_SESSION_TOOL_NAME,
+                        action: TIMELINE_APP_TOOL_NAME,
                         error: { message },
                     }, null, 2) }],
                     isError: true,
                 }), GENERIC_TOOL_OUTPUT_SCHEMA);
             }
         }
-        const appActionCategory = name === TIMELINE_APP_ACTION_TOOL_NAME
-            ? 'timeline'
-            : name === FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME
-                ? 'flashcard'
-                : name === MASCOT_SHOP_APP_ACTION_TOOL_NAME
-                    ? 'mascot'
-                    : undefined;
+        const appActionCategory = name === TIMELINE_APP_ACTION_TOOL_NAME ? 'timeline' : undefined;
         const category = appActionCategory ?? resolveCategory(name);
         if (!category) {
             return {
@@ -397,13 +369,7 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         }
 
         const config = await getToolConfig();
-        const appActionConfig = name === TIMELINE_APP_ACTION_TOOL_NAME
-            ? config.mcpApps.timeline
-            : name === FLASHCARD_REVIEW_APP_ACTION_TOOL_NAME
-                ? config.mcpApps.flashcardReview
-                : name === MASCOT_SHOP_APP_ACTION_TOOL_NAME
-                    ? config.mcpApps.mascotShop
-                    : undefined;
+        const appActionConfig = name === TIMELINE_APP_ACTION_TOOL_NAME ? config.mcpApps.timeline : undefined;
         if (appActionConfig ? !appActionConfig.enabled : !config[category].enabled) {
             return {
                 content: [{ type: 'text' as const, text: `Tool "${name}" is disabled.` }],

@@ -1,45 +1,14 @@
-# system 工具
+# system
 
-这个工具覆盖思源系统读取、网络状态、配置读取、用户通知与主动触发同步。
+当前系统工具包含六个 action：
 
-适用场景：你需要运行时状态，而不是笔记本或文档内容。
+| action | 用途 |
+| --- | --- |
+| `changelog` | 读取指定版本或某版本之后的更新记录。 |
+| `get_version` | 读取思源内核版本。 |
+| `get_current_time` | 读取内核时间。 |
+| `bootstrap` | 刷新权限并返回实际能力面。 |
+| `audit_environment` | 只读返回浅层配置键和扩展包数量。 |
+| `validate_source_audit` | 校验冻结的外部来源审计交接包。 |
 
-相关页面：
-
-- [权限模型](../permissions.md)
-
-## 动作
-
-| 分组 | 动作 |
-|------|---------|
-| 基础信息 | `bootstrap`, `get_version`, `get_current_time`, `changelog` |
-| 配置 / 环境 | `conf`, `network`, `workspace_info`, `audit_environment`, `validate_source_audit`, `list_packages` |
-| 通知 | `notify` |
-| 同步 | `perform_sync` |
-
-## 安全规则
-
-- `bootstrap` 是新 Agent 的首选调用。它会刷新笔记本权限，隐藏权限为 `none` 的笔记本身份，并从当前 MCP 工具配置生成能力和后续调用。存在 `/AGENTS.md` 且 `fs.read` 已启用时，读取该路由记忆位于 `nextCalls` 首位；若 `fs.read` 被禁用，只返回记忆状态与提示，不生成不可执行调用。`memory.status` 仅按保存时间判断，`contentVerified=false` 明确表示路径、数量和项目状态仍需实时核验。`operation.readOnly=true` 只表示本动作不写入；连接仍可能依据权限和 action 配置开放写入。若 `toolConfiguration.current=false`，能力摘要来自默认退化配置，不应视为实时健康检查。
-- `workspace_info` 属于高风险操作，因为会暴露工作区绝对路径，需要确认。
-- `conf` 是兼容保留的精确配置读取动作，默认关闭；通常使用 `audit_environment` 即可。只有明确需要某个非敏感字段时才单独启用，所有密钥、令牌、密码、Cookie、凭据和私钥字段都会按字段名强制遮蔽。
-- `changelog` 是只读操作。插件升级后可传 `fromVersion` 查看更新内容，并识别可能影响用户规则、`/AGENTS.md` 记忆、权限、外观、连接片段、时间线设置或工具配置的变更。
-- `audit_environment` 是只读操作，返回脱敏配置概览、各类已安装扩展包数量及插件状态统计。
-- `validate_source_audit` 只验证外部冻结交接包的结构、引用完整性与摘要，不读取源码、不重新执行差异分析，也不据此推断项目结论。它接受解析后的 `inventory.json`、`usage-map.json` 与原始 `baselines.md`。
-- `list_packages` 是只读操作，分页返回已安装扩展包的精简元数据，不读取第三方插件配置文件。
-- `notify` 通过 `msg`、`level` 和可选 `timeout` 显示思源通知。
-- `perform_sync` 会通过 `/api/sync/performSync` 立即触发思源同步。该动作需要确认后执行。
-
-## 动作列表
-
-- `workspace_info`
-- `network`
-- `conf`
-- `notify`
-- `changelog`
-- `perform_sync`
-- `get_version`
-- `get_current_time`
-- `bootstrap`
-- `audit_environment`
-- `validate_source_audit`
-- `list_packages`
+扩展包管理、集市浏览、插件存储读取、通知、同步、工作区路径披露和计划/执行/回退控制面动作均不属于当前 MCP 工具面。

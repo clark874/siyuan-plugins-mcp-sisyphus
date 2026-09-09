@@ -49,15 +49,14 @@ If a scenario Skill is not installed as a local folder, read its stable Skills-o
 | Compile and govern named knowledge atoms, aliases, hubs, and safe renames | `siyuan-sisyphus-knowledge-governance` |
 | Close verified project-to-public-method reuse relations across projects | `siyuan-sisyphus-cross-project-relation-closure` |
 | Attribute views, columns, rows, and cells | `siyuan-sisyphus-database` |
-| Assets, extraction, and exports | `siyuan-sisyphus-file-export` |
-| Tags, decks, cards, and review | `siyuan-sisyphus-tag-flashcard` |
-| Timeline nodes, snapshot comparison, and rollback | `siyuan-sisyphus-timeline` |
+| Registered project sources and controlled text reading | `siyuan-sisyphus-project-source` |
+| Timeline nodes and snapshot comparison | `siyuan-sisyphus-timeline` |
 | Permissions, system information, and dangerous operations | `siyuan-sisyphus-system-cli` |
 | Rich Markdown, math, diagrams, and SiYuan markup | `siyuan-markup-guide` |
 
 ## Tool choice
 
-Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `av` for real databases rather than Markdown tables. Use `timeline` for named snapshots, document diffs, and rollback. Use `provenance` after project knowledgeization to register source and compile Agent sessions and to answer project-session history queries. Low-complexity `feedback` and `mascot` actions need no separate scenario skill.
+Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `av` for real databases rather than Markdown tables. Use `timeline` for named snapshots and document diffs. Use `provenance` after project knowledgeization to register source and compile Agent sessions and to answer project-session history queries. Tags are a small independent tool family and need no separate scenario skill.
 
 ```bash
 siyuan-sisyphus fs tree --path '/Notebook' --max-depth '3' --json
@@ -74,4 +73,4 @@ siyuan-sisyphus fs read --path '/Notebook/Folder/Doc' --block-start '0' --block-
 - When strict safe writes are enabled, inspect the action schema. Guarded mutations expose an expected-hash field: call `validateOnly=true`, then execute once with the returned `preconditionField` credential and `issuedRequestId`. Additive request-id-only actions expose no expected-hash field: call `validateOnly=true` when the client does not already have a fresh UUIDv7, then execute once with the returned `issuedRequestId`; their preflight issues no hash credential and is not a failure. Never handcraft UUIDv7 values.
 - For document reads, continue with `nextWindow` or explicit `blockStart`/`blockLimit`/`tokenBudget`; for list and search results, use their page parameters.
 - Missing results may be caused by notebook permissions or indexing delay.
-- Obtain explicit approval before deletes, moves, bulk replacement, permission changes, local upload/export, or sensitive workspace disclosure.
+- Obtain explicit approval before deletes, moves, bulk replacement, permission changes, project-source registration or path disclosure, or sensitive workspace disclosure.

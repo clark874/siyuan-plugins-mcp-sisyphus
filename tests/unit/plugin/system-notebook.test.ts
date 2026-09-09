@@ -2,45 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CategoryToolConfig } from '@/core/config';
 import { callNotebookTool } from '@/tools/notebook';
-import { callSystemTool } from '@/tools/system';
 
 import * as notebookApi from '@/api/notebook';
-import * as systemApi from '@/api/system';
 import * as contextTools from '@/tools/internal/context';
 
 import { parseResult } from '../../helpers/parse-result';
 
-const notebookConfig: CategoryToolConfig<'list' | 'create' | 'open' | 'close' | 'remove' | 'rename' | 'get_conf' | 'set_conf' | 'set_icon' | 'get_permissions' | 'set_permission' | 'get_child_docs'> = {
+const notebookConfig: CategoryToolConfig<'list' | 'get_conf' | 'get_permissions' | 'get_child_docs'> = {
     enabled: true,
     actions: {
         list: true,
-        create: true,
-        open: true,
-        close: true,
-        remove: true,
-        rename: true,
         get_conf: true,
-        set_conf: true,
-        set_icon: true,
         get_permissions: true,
-        set_permission: true,
         get_child_docs: true,
-    },
-};
-
-const systemConfig: CategoryToolConfig<'workspace_info' | 'network' | 'changelog' | 'conf' | 'sys_fonts' | 'boot_progress' | 'push_msg' | 'push_err_msg' | 'get_version' | 'get_current_time'> = {
-    enabled: true,
-    actions: {
-        workspace_info: true,
-        network: true,
-        changelog: true,
-        conf: true,
-        sys_fonts: true,
-        boot_progress: true,
-        push_msg: true,
-        push_err_msg: true,
-        get_version: true,
-        get_current_time: true,
     },
 };
 
@@ -73,19 +47,6 @@ describe('system and notebook behavior', () => {
 
         expect(parsed.notebooks).toHaveLength(2);
         expect(parsed.notebooks[1].permission).toBe('r');
-    });
-
-    it('adds an icon reminder to notebook create results', async () => {
-        vi.spyOn(notebookApi, 'createNotebook').mockResolvedValue({
-            notebook: { id: 'nb-1', name: 'One' },
-        } as never);
-
-        const result = await callNotebookTool({} as never, { action: 'create', name: 'One' }, notebookConfig, permMgr as never);
-        const parsed = parseResult(result);
-
-        expect(parsed.id).toBe('nb-1');
-        expect(parsed.iconHint).toContain('notebook(action="set_icon")');
-        expect(parsed.iconHint).toContain('Unicode hex code string');
     });
 
     it('returns all notebook permissions when notebook is "all"', async () => {
@@ -132,68 +93,6 @@ describe('system and notebook behavior', () => {
         expect(parsed.error.message).toContain('Notebook "missing" not found.');
         expect(parsed.error.tool).toBe('notebook');
         expect(parsed.error.action).toBe('get_permissions');
-    });
-
-    it('uses conf-prefixed keyPath examples in summary hints', async () => {
-        vi.spyOn(systemApi, 'getConf').mockResolvedValue({
-            conf: {
-                appearance: { mode: 0 },
-                langs: [{ label: '中文', name: 'zh_CN' }],
-            },
-            isPublish: false,
-            start: false,
-        });
-
-        const result = await callSystemTool({} as never, { action: 'conf', mode: 'summary' }, systemConfig, permMgr as never);
-        const parsed = parseResult(result);
-
-        expect(parsed.hints[1]).toContain('conf.appearance.mode');
-        expect(parsed.hints[1]).toContain('conf.langs[0]');
-    });
-
-    it('reads config values using conf-prefixed keyPath examples', async () => {
-        vi.spyOn(systemApi, 'getConf').mockResolvedValue({
-            conf: {
-                appearance: { mode: 0 },
-                langs: [{ label: '中文', name: 'zh_CN' }],
-            },
-            isPublish: false,
-            start: false,
-        });
-
-        const result = await callSystemTool({} as never, { action: 'conf', mode: 'get', keyPath: 'conf.appearance.mode' }, systemConfig, permMgr as never);
-        const parsed = parseResult(result);
-
-        expect(parsed.keyPath).toBe('conf.appearance.mode');
-        expect(parsed.value.value).toBe(0);
-    });
-
-    it('redacts sensitive configuration fields even when they are requested directly', async () => {
-        vi.spyOn(systemApi, 'getConf').mockResolvedValue({
-            conf: {
-                ai: {
-                    providers: [{ apiKey: 'live-secret-value', baseURL: 'https://example.com/v1' }],
-                },
-            },
-        });
-
-        const direct = await callSystemTool({} as never, {
-            action: 'conf',
-            mode: 'get',
-            keyPath: 'conf.ai.providers[0].apiKey',
-        }, systemConfig, permMgr as never);
-        const subtree = await callSystemTool({} as never, {
-            action: 'conf',
-            mode: 'get',
-            keyPath: 'conf.ai.providers[0]',
-            maxDepth: 3,
-        }, systemConfig, permMgr as never);
-
-        expect(direct.content[0].text).not.toContain('live-secret-value');
-        expect(parseResult(direct).value.value).toBe('[REDACTED]');
-        expect(subtree.content[0].text).not.toContain('live-secret-value');
-        expect(parseResult(subtree).value.entries.apiKey.value).toBe('[REDACTED]');
-        expect(parseResult(subtree).value.entries.baseURL.value).toBe('https://example.com/v1');
     });
 
     it('returns a retryable notebook-state error for get_child_docs right after close', async () => {

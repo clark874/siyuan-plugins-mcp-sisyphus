@@ -8,7 +8,6 @@ import type {
     IReqListDocsByPath,
     IReqMoveDocs,
     IReqMoveDocsByID,
-    IReqRemoveDoc,
     IReqRemoveDocByID,
     IReqRenameDoc,
     IReqRenameDocByID,
@@ -62,20 +61,6 @@ export async function renameDocByID(
         id,
         title,
     } as IReqRenameDocByID);
-}
-
-/**
- * Remove a document by path
- */
-export async function removeDoc(
-    client: SiYuanClient,
-    notebook: string,
-    path: string
-): Promise<null> {
-    return client.requestWrite<null>('/api/filetree/removeDoc', {
-        notebook,
-        path,
-    } as IReqRemoveDoc);
 }
 
 /**
@@ -211,12 +196,10 @@ export async function listDocTree(
 export async function searchDocs(
     client: SiYuanClient,
     keyword: string,
-    flashcard?: boolean,
     excludeIDs?: string[],
 ): Promise<unknown> {
     return client.requestRead('/api/filetree/searchDocs', {
         k: keyword,
-        flashcard,
         excludeIDs,
     });
 }
@@ -247,31 +230,6 @@ export async function getDocOutline(
     });
 }
 
-export async function createDailyNote(
-    client: SiYuanClient,
-    notebook: string,
-    app?: string,
-): Promise<{ id: string }> {
-    return client.requestWrite<{ id: string }>('/api/filetree/createDailyNote', {
-        notebook,
-        app,
-    });
-}
-
-export async function duplicateDoc(
-    client: SiYuanClient,
-    id: string,
-): Promise<{ id: string; notebook: string; path: string; hPath?: string }> {
-    return client.requestWrite('/api/filetree/duplicateDoc', { id });
-}
-
-export async function removeDocs(
-    client: SiYuanClient,
-    paths: string[],
-): Promise<null> {
-    return client.requestWrite('/api/filetree/removeDocs', { paths });
-}
-
 export async function createEmptyDoc(
     client: SiYuanClient,
     notebook: string,
@@ -281,28 +239,4 @@ export async function createEmptyDoc(
     sorts?: string[],
 ): Promise<{ id: string }> {
     return client.requestWrite('/api/filetree/createDoc', { notebook, path, title, md, sorts });
-}
-
-export async function headingToDoc(
-    client: SiYuanClient,
-    srcHeadingID: string,
-    targetNotebook: string,
-    targetPath?: string,
-    previousPath?: string,
-): Promise<null> {
-    return client.requestWrite('/api/filetree/heading2Doc', {
-        srcHeadingID,
-        targetNoteBook: targetNotebook,
-        targetPath,
-        previousPath,
-    });
-}
-
-export async function docToHeading(
-    client: SiYuanClient,
-    srcID: string,
-    targetID: string,
-    after = false,
-): Promise<{ srcTreeBox: string; srcTreePath: string }> {
-    return client.requestWrite('/api/filetree/doc2Heading', { srcID, targetID, after });
 }

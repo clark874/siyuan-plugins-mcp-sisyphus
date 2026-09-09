@@ -1,12 +1,11 @@
 <script lang="ts">
     import SettingPanel from "../../shared/setting-panel.svelte";
     import type { ToolConfig } from "../tool-config";
-    import type { PuppySettings, VersionControlSettings } from "../tool-config-storage";
+    import type { VersionControlSettings } from "../tool-config-storage";
 
     export let group: string;
     export let display = false;
     export let config: ToolConfig;
-    export let puppySettings: PuppySettings;
     export let versionControlSettings: VersionControlSettings;
     export let getLabel: (key: string, fallback: string) => string;
     export let onChanged: (event: CustomEvent<ChangeEvent>) => void | Promise<void>;
@@ -15,7 +14,6 @@
 
     function buildDebugItems(
         currentConfig: ToolConfig,
-        currentPuppySettings: PuppySettings,
         currentVersionControlSettings: VersionControlSettings,
         label: (key: string, fallback: string) => string,
     ): ISettingItem[] {
@@ -68,33 +66,10 @@
                 title: label("version_control_show_debug_meta_title", "Timeline Debug Metadata"),
                 description: label("version_control_show_debug_meta_desc", "Show document/block IDs and raw diff statuses in the snapshot and diff docks."),
             },
-            {
-                type: "checkbox",
-                key: "puppy__testModeEnabled",
-                value: currentPuppySettings.testModeEnabled,
-                title: label("puppy_testMode_title", "Random Mascot Test"),
-                description: label("puppy_testMode_desc", "Randomly cycle real MCP actions for animation testing without calling tools."),
-                layout: "inline",
-                children: [
-                    ...(currentPuppySettings.testModeEnabled
-                        ? [{
-                            type: "number" as const,
-                            key: "puppy__testModeIntervalMs",
-                            value: currentPuppySettings.testModeIntervalMs,
-                            title: label("puppy_testMode_interval_title", "Interval"),
-                            description: label("puppy_testMode_interval_desc", "Delay between random test actions."),
-                            inputCompact: true,
-                            unit: "ms",
-                        }]
-                        : []),
-                ],
-            },
         ];
     }
 
-    $: debugItems = buildDebugItems(config, puppySettings, versionControlSettings, getLabel);
-    $: runtimeItems = debugItems.slice(0, 5);
-    $: testItems = debugItems.slice(5);
+    $: runtimeItems = buildDebugItems(config, versionControlSettings, getLabel);
 </script>
 
 <div class="debug-settings" class:fn__none={!display}>
@@ -113,20 +88,6 @@
         <SettingPanel {group} settingItems={runtimeItems} display={true} on:changed={onChanged} />
     </section>
 
-    <section class="debug-section">
-        <div class="debug-section__heading">
-            <span class="debug-section__icon debug-section__icon--test" aria-hidden="true">
-                <svg viewBox="0 0 24 24">
-                    <path d="M10 2h4v2h-1v3.1l5.75 9.96A3.3 3.3 0 0 1 15.9 22H8.1a3.3 3.3 0 0 1-2.85-4.94L11 7.1V4h-1V2Zm.54 9-3.56 6.06A1.3 1.3 0 0 0 8.1 19h7.8a1.3 1.3 0 0 0 1.12-1.94L13.46 11h-2.92Z"/>
-                </svg>
-            </span>
-            <div>
-                <h3>{getLabel("debug_test_section", "Visual testing")}</h3>
-                <p>{getLabel("debug_test_section_desc", "Preview mascot action states without invoking MCP tools.")}</p>
-            </div>
-        </div>
-        <SettingPanel {group} settingItems={testItems} display={true} on:changed={onChanged} />
-    </section>
 </div>
 
 <style>
@@ -161,12 +122,6 @@
         height: 32px;
         justify-content: center;
         width: 32px;
-    }
-
-    .debug-section__icon--test {
-        background: color-mix(in srgb, var(--b3-theme-warning, #d99a24) 10%, transparent);
-        border-color: color-mix(in srgb, var(--b3-theme-warning, #d99a24) 24%, transparent);
-        color: var(--b3-theme-warning, #d99a24);
     }
 
     .debug-section__icon svg {

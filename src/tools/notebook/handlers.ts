@@ -3,22 +3,14 @@ import * as notebookApi from '../../api/notebook';
 import type { NotebookAction } from '../../core/config';
 import type { PermissionManager } from '../../core/permissions';
 import {
-    NotebookCreateSchema,
     NotebookGetConfSchema,
     NotebookGetChildDocsSchema,
     NotebookGetPermissionsSchema,
     NotebookListSchema,
-    NotebookSetOpenStateSchema,
-    NotebookRemoveSchema,
-    NotebookRenameSchema,
-    NotebookSetConfSchema,
-    NotebookSetIconSchema,
-    NotebookSetPermissionSchema,
 } from '../../core/types';
 import { ensurePermissionForNotebook, listChildDocumentsByPath } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
-import { createErrorResult, createJsonResult, createPaginatedResult, createSetIconReminder, paginate, type ToolResult } from '../internal/shared';
-import { applyUiRefresh } from '../internal/ui-refresh';
+import { createErrorResult, createJsonResult, createPaginatedResult, paginate, type ToolResult } from '../internal/shared';
 
 export const NOTEBOOK_TOOL_NAME = 'notebook';
 
@@ -101,69 +93,12 @@ const handleList: NotebookActionHandler = async ({ client, rawArgs }) => {
     return createJsonResult(result.notebooks);
 };
 
-const handleCreate: NotebookActionHandler = async ({ client, rawArgs }) => {
-    const parsed = NotebookCreateSchema.parse(rawArgs);
-    const result = await notebookApi.createNotebook(client, parsed.name);
-    if (parsed.icon) {
-        await notebookApi.setNotebookIcon(client, result.notebook.id, parsed.icon);
-        result.notebook.icon = parsed.icon;
-    }
-    return applyUiRefresh(client, createJsonResult({
-        ...result.notebook,
-        iconHint: createSetIconReminder('notebook', Boolean(parsed.icon)),
-    }), parsed.icon ? [{ type: 'reloadIcon' }] : [{ type: 'reloadFiletree' }]);
-};
-
-const handleSetOpenState: NotebookActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = NotebookSetOpenStateSchema.parse(rawArgs);
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
-    if (denied) return denied;
-    if (parsed.opened) {
-        await notebookApi.openNotebook(client, parsed.notebook);
-    } else {
-        await notebookApi.closeNotebook(client, parsed.notebook);
-    }
-    return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, opened: parsed.opened }), [{ type: 'reloadFiletree' }]);
-};
-
-const handleRemove: NotebookActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = NotebookRemoveSchema.parse(rawArgs);
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'delete');
-    if (denied) return denied;
-    await notebookApi.removeNotebook(client, parsed.notebook);
-    return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook }), [{ type: 'reloadFiletree' }]);
-};
-
-const handleRename: NotebookActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = NotebookRenameSchema.parse(rawArgs);
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
-    if (denied) return denied;
-    await notebookApi.renameNotebook(client, parsed.notebook, parsed.name);
-    return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, name: parsed.name }), [{ type: 'reloadFiletree' }]);
-};
-
 const handleGetConf: NotebookActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = NotebookGetConfSchema.parse(rawArgs);
     const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'read');
     if (denied) return denied;
     const result = await notebookApi.getNotebookConf(client, parsed.notebook);
     return createJsonResult(result);
-};
-
-const handleSetConf: NotebookActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = NotebookSetConfSchema.parse(rawArgs);
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
-    if (denied) return denied;
-    const result = await notebookApi.setNotebookConf(client, parsed.notebook, parsed.conf);
-    return applyUiRefresh(client, createJsonResult(result), [{ type: 'reloadFiletree' }]);
-};
-
-const handleSetIcon: NotebookActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = NotebookSetIconSchema.parse(rawArgs);
-    const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook, 'write');
-    if (denied) return denied;
-    await notebookApi.setNotebookIcon(client, parsed.notebook, parsed.icon);
-    return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, icon: parsed.icon }), [{ type: 'reloadIcon' }]);
 };
 
 const handleGetPermissions: NotebookActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -188,12 +123,6 @@ const handleGetPermissions: NotebookActionHandler = async ({ client, permMgr, ra
     }
 
     return createJsonResult({ notebook });
-};
-
-const handleSetPermission: NotebookActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = NotebookSetPermissionSchema.parse(rawArgs);
-    await permMgr.set(parsed.notebook, parsed.permission);
-    return applyUiRefresh(client, createJsonResult({ success: true, notebook: parsed.notebook, permission: parsed.permission }), [{ type: 'reloadFiletree' }]);
 };
 
 const handleGetChildDocs: NotebookActionHandler = async ({ client, permMgr, rawArgs }) => {
@@ -226,14 +155,7 @@ const handleGetChildDocs: NotebookActionHandler = async ({ client, permMgr, rawA
 
 export const NOTEBOOK_ACTION_HANDLERS: Record<NotebookAction, NotebookActionHandler> = {
     list: handleList,
-    create: handleCreate,
-    set_open_state: handleSetOpenState,
-    remove: handleRemove,
-    rename: handleRename,
     get_conf: handleGetConf,
-    set_conf: handleSetConf,
-    set_icon: handleSetIcon,
     get_permissions: handleGetPermissions,
-    set_permission: handleSetPermission,
     get_child_docs: handleGetChildDocs,
 };

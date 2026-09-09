@@ -1,10 +1,6 @@
-import fs from 'node:fs';
-
 import type { SiYuanClient } from '../api/client';
 import { WriteOutcomeUnknownError } from '../api/client';
 import * as searchApi from '../api/search';
-import { normalizeTemplatePath, readTemplateSource } from '../api/template';
-import { readPuppyStats } from './puppy-state';
 import { validateBlockAttributeMutations } from './attribute-governance';
 import type { PermissionManager } from './permissions';
 import type { ToolResult } from '../tools/internal/shared';
@@ -25,7 +21,7 @@ import {
     USER_RULES_VIRTUAL_PATH,
     type ToolCategory,
 } from './config';
-import { hashWriteBytes, hashWriteState, parseWriteHashCredential } from './write-safety-hash';
+import { hashWriteState, parseWriteHashCredential } from './write-safety-hash';
 import {
     WritePreflightLeasePool,
     type WritePreflightLease,
@@ -276,11 +272,7 @@ export class WriteSafetyCoordinator {
         let after: StateProbe | undefined;
         try {
             const postWriteArgs = derivePostWriteProbeArgs(category, action, args, result);
-            after = category === 'notebook' && action === 'create'
-                ? await probeCreatedNotebook(client, result)
-                : policy.precondition === 'source'
-                ? await probeUploadedResult(client, result, before!)
-                : await probePostWriteState(client, permMgr, category, action, postWriteArgs, policy, before);
+            after = await probePostWriteState(client, permMgr, category, action, postWriteArgs, policy, before);
             await verifyPostWriteSemanticState(client, permMgr, category, action, args);
         } catch (error) {
             await this.recordUnknown(requestId, category, action, inspected!.argsHash, targetIds, error);
@@ -315,7 +307,7 @@ export class WriteSafetyCoordinator {
             writeAttempted: true,
             writeExecuted: true,
             replayed: false,
-            transactionState: policy.precondition !== 'source' && before && after.hash === before.hash ? 'no_change' : 'committed',
+            transactionState: before && after.hash === before.hash ? 'no_change' : 'committed',
             previousHash: before?.hash,
             resultHash: after.hash,
         };
@@ -385,9 +377,6 @@ function derivePostWriteProbeArgs(
     result: ToolResult,
 ): Record<string, unknown> {
     const payload = parseResultObject(result);
-    if (category === 'document' && action === 'duplicate' && payload && typeof payload.id === 'string') {
-        return { ...args, id: payload.id };
-    }
     if (category === 'av' && action === 'duplicate' && payload && typeof payload.avID === 'string') {
         return {
             ...args,
@@ -396,33 +385,6 @@ function derivePostWriteProbeArgs(
         };
     }
     return args;
-}
-
-async function probeCreatedNotebook(client: SiYuanClient, result: ToolResult): Promise<StateProbe> {
-    const payload = parseResultObject(result);
-    const notebookID = payload && typeof payload.id === 'string' ? payload.id : '';
-    if (!notebookID) {
-        throw safetyError('readback_mismatch', 'The notebook creation response did not identify the new notebook.');
-    }
-
-    let notebook: Record<string, unknown> | undefined;
-    for (const delay of [0, 50, 100, 200, 400]) {
-        if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
-        const listed = await client.requestRead<{ notebooks?: Array<Record<string, unknown>> }>('/api/notebook/lsNotebooks');
-        notebook = (listed?.notebooks ?? []).find((item) => item.id === notebookID);
-        if (notebook) break;
-    }
-    if (!notebook) {
-        throw safetyError('readback_mismatch', `The created notebook ${notebookID} was not observed during bounded readback.`);
-    }
-
-    const conf = await client.requestRead('/api/notebook/getNotebookConf', { notebook: notebookID });
-    const state = { category: 'notebook', action: 'create', notebook, conf };
-    return {
-        hash: hashWriteState(state),
-        targetIds: [notebookID],
-        summary: { targetCount: 1 },
-    };
 }
 
 async function probePostWriteState(
@@ -448,30 +410,6 @@ async function probePostWriteState(
     return after;
 }
 
-async function probeUploadedResult(client: SiYuanClient, result: ToolResult, source: StateProbe): Promise<StateProbe> {
-    const payload = parseResultObject(result);
-    const succMap = payload && isRecord(payload.succMap) ? payload.succMap : undefined;
-    const uploadedPath = succMap
-        ? Object.values(succMap).find((value): value is string => typeof value === 'string')
-        : undefined;
-    if (!uploadedPath) {
-        throw safetyError('readback_mismatch', 'The upload response did not identify the stored asset.');
-    }
-    const workspacePath = uploadedPath.startsWith('/data/')
-        ? uploadedPath
-        : `/data/${uploadedPath.replace(/^\/+/, '')}`;
-    const bytes = await client.readFileBinary(workspacePath);
-    const uploadedHash = hashWriteBytes(bytes);
-    if (uploadedHash !== source.hash) {
-        throw safetyError('readback_mismatch', 'The uploaded asset digest does not match the validated source file.');
-    }
-    return {
-        hash: uploadedHash,
-        targetIds: [workspacePath],
-        summary: { uploadedPath: workspacePath, uploadedSize: bytes.byteLength },
-    };
-}
-
 async function probeCurrentState(
     client: SiYuanClient,
     permMgr: PermissionManager,
@@ -480,17 +418,6 @@ async function probeCurrentState(
     args: Record<string, unknown>,
     policy: Extract<ActionSafetyPolicy, { mode: 'mutation' }>,
 ): Promise<StateProbe> {
-    if (policy.precondition === 'source') {
-        const localFilePath = typeof args.localFilePath === 'string' ? args.localFilePath : '';
-        if (!localFilePath) throw safetyError('precondition_required', 'localFilePath is required to fingerprint the upload source.');
-        const bytes = await fs.promises.readFile(localFilePath);
-        return {
-            hash: hashWriteBytes(bytes),
-            targetIds: [localFilePath],
-            summary: { sourceSize: bytes.byteLength },
-        };
-    }
-
     let targetIds = collectTargetSelectors(args);
     const state: Record<string, unknown> = {
         category,
@@ -504,57 +431,8 @@ async function probeCurrentState(
         targetIds = reorder.targetIds;
     } else if (category === 'fs') {
         await appendHumanPathState(client, args, state);
-    } else if (category === 'mascot') {
-        state.mascot = await readPuppyStats(client);
-    } else if (category === 'notebook') {
-        const notebooks = await client.requestRead<{ notebooks?: Array<Record<string, unknown>> }>('/api/notebook/lsNotebooks');
-        const selected = (notebooks?.notebooks ?? []).filter((item) => {
-            const id = typeof item.id === 'string' ? item.id : '';
-            return targetIds.length === 0 || targetIds.includes(id);
-        });
-        state.notebooks = selected;
-        for (const item of selected) {
-            const id = typeof item.id === 'string' ? item.id : '';
-            if (id) state[`conf:${id}`] = await client.requestRead('/api/notebook/getNotebookConf', { notebook: id });
-        }
-        if (action === 'set_permission') state.permissions = permMgr.getAll();
     } else if (category === 'av' && typeof args.avID === 'string') {
         state.av = await client.requestRead('/api/av/getAttributeView', { id: args.avID });
-    } else if (category === 'flashcard') {
-        if (typeof args.deckID === 'string') {
-            const cards = await client.requestRead<Record<string, unknown>>('/api/riff/getRiffCards', {
-                id: args.deckID,
-                page: 1,
-                pageSize: 999,
-            });
-            const cardID = typeof args.cardID === 'string' ? args.cardID : undefined;
-            const blockIDs = Array.isArray(args.blockIDs)
-                ? args.blockIDs.filter((item): item is string => typeof item === 'string')
-                : [];
-            const rows = Array.isArray(cards.cards)
-                ? cards.cards
-                : Array.isArray(cards.blocks)
-                    ? cards.blocks
-                    : [];
-            const selectedRows = cardID
-                ? rows.filter((item) => item && typeof item === 'object' && (item as Record<string, unknown>).cardID === cardID)
-                : blockIDs.length > 0
-                    ? rows.filter((item) => {
-                        if (!item || typeof item !== 'object') return false;
-                        const row = item as Record<string, unknown>;
-                        const blockID = typeof row.blockID === 'string' ? row.blockID : typeof row.id === 'string' ? row.id : '';
-                        return blockIDs.includes(blockID);
-                    })
-                    : rows;
-            state.flashcards = normalizeFlashcardState(selectedRows);
-        } else {
-            const blockIDs = Array.isArray(args.blockIDs)
-                ? args.blockIDs.filter((item): item is string => typeof item === 'string')
-                : [];
-            state.flashcards = blockIDs.length > 0
-                ? await client.requestRead('/api/riff/getRiffCardsByBlockIDs', { blockIDs })
-                : [];
-        }
     } else if (category === 'file') {
         await appendFileState(client, action, args, state);
     } else if (category === 'block' && action === 'set_attrs') {
@@ -588,24 +466,11 @@ async function probeCurrentState(
             };
         }
         await appendBlockRows(client, args, state);
-    } else if (category === 'system') {
-        state.system = await client.requestRead('/api/system/getConf', {});
     } else {
         await appendBlockRows(client, args, state);
     }
 
-    const managesNotebookPermission = category === 'notebook' && action === 'set_permission';
-    if (category === 'notebook' && !managesNotebookPermission) {
-        for (const notebook of targetIds) {
-            const allowed = isDangerousAction(category, action)
-                ? permMgr.canDelete(notebook)
-                : permMgr.canWrite(notebook);
-            if (!allowed) throw safetyError('permission_denied', `Notebook ${notebook} does not allow this write.`);
-        }
-    }
-    if (!managesNotebookPermission) {
-        enforceNotebookPermission(permMgr, state, targetIds, isDangerousAction(category, action));
-    }
+    enforceNotebookPermission(permMgr, state, targetIds, isDangerousAction(category, action));
     return {
         hash: hashWriteState(state),
         targetIds,
@@ -679,47 +544,6 @@ async function appendFileState(
         const { readProjectSourceState } = await import('./project-sources');
         state.projectSource = await readProjectSourceState(client, args.projectId);
         return;
-    }
-    const templateActions = new Set(['create_template', 'update_template', 'delete_template']);
-    if (templateActions.has(action) && typeof args.path === 'string') {
-        try {
-            const source = await readTemplateSource(client, args.path);
-            state.template = { path: normalizeTemplatePath(args.path).relativePath, markdown: source.markdown };
-        } catch (error) {
-            state.template = { path: normalizeTemplatePath(args.path).relativePath, missing: true };
-        }
-        return;
-    }
-    if (action === 'save_doc_as_template' && typeof args.name === 'string') {
-        const relativePath = `${args.name.replace(/\.md$/i, '')}.md`;
-        try {
-            const source = await readTemplateSource(client, relativePath);
-            state.destinationTemplate = { path: relativePath, markdown: source.markdown };
-        } catch {
-            state.destinationTemplate = { path: relativePath, missing: true };
-        }
-        await appendBlockRows(client, args, state);
-        return;
-    }
-    if (action === 'remove_unused_assets') {
-        state.unusedAssets = await client.requestRead('/api/asset/getUnusedAssets', {});
-        return;
-    }
-    const assetPath = typeof args.oldPath === 'string'
-        ? args.oldPath
-        : typeof args.path === 'string'
-            ? args.path
-            : undefined;
-    if (assetPath) {
-        const workspacePath = assetPath.startsWith('/data/')
-            ? assetPath
-            : `/data/${assetPath.replace(/^\/+/, '')}`;
-        try {
-            const bytes = await client.readFileBinary(workspacePath);
-            state.asset = { path: workspacePath, hash: hashWriteBytes(bytes), size: bytes.byteLength };
-        } catch {
-            state.asset = { path: workspacePath, missing: true };
-        }
     }
     await appendBlockRows(client, args, state);
 }
@@ -865,20 +689,6 @@ function normalizeLiveBlockState(value: unknown): unknown {
     return normalized;
 }
 
-function normalizeFlashcardState(value: unknown): unknown {
-    if (Array.isArray(value)) return value.map(normalizeFlashcardState);
-    if (!value || typeof value !== 'object') return normalizeLiveBlockState(value);
-    const normalized: Record<string, unknown> = {};
-    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-        // 内核每次读取新卡片时都会派生新的亚秒级到期时间。
-        // 卡片身份、牌组绑定、复习次数、状态和 lastReview 可作为稳定前置条件，
-        // 派生的 due 不可以。
-        if (key === 'due') continue;
-        normalized[key] = normalizeFlashcardState(nested);
-    }
-    return normalizeLiveBlockState(normalized);
-}
-
 function canonicalizeKramdownIal(value: string): string {
     return value.replace(/\{:\s*([^}]*)\}/g, (_match, body: string) => {
         const attributes: Array<{ key: string; token: string }> = [];
@@ -900,17 +710,6 @@ async function verifyPostWriteSemanticState(
     action: string,
     args: Record<string, unknown>,
 ): Promise<void> {
-    if (category === 'document' && action === 'set_child_sort_mode') {
-        const id = typeof args.id === 'string' ? args.id : '';
-        const expected = typeof args.sortMode === 'number' ? args.sortMode : null;
-        const attrs = await client.requestRead<Record<string, string>>('/api/attr/getBlockAttrs', { id });
-        const raw = attrs['custom-sy-subdoc-sort-mode'];
-        const actual = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : null;
-        if (actual !== expected) {
-            throw safetyError('readback_mismatch', `The document did not retain the requested child sort mode. Expected ${String(expected)}, got ${String(actual)}.`);
-        }
-        return;
-    }
     if ((category === 'fs' || category === 'document') && action === 'reorder') {
         const { state } = await probeDocumentReorderState(client, permMgr, category, args);
         const currentIDs = Array.isArray(state.children)

@@ -92,7 +92,7 @@ and ledger failures remain hard errors.
 
 ## Boundaries
 
-Third-party and native SiYuan tools forwarded through `extension` are outside Sisyphus control and do not receive this guarantee. Local exports, notifications, sync, and feedback are also external side effects that cannot be verified through SiYuan state readback: `validateOnly` rejects without executing, while a real call still uses single-attempt transport and returns `writeSafetyGuaranteed: false`.
+Third-party and native SiYuan tools forwarded through `extension` are outside Sisyphus control and do not receive this guarantee. Only the allowlisted native read operations are forwarded by the current surface; other extension actions are rejected.
 
 This is not a kernel-level compare-and-swap transaction. The coordinator serializes every write that passes through Sisyphus, but the SiYuan UI, another plugin, or a direct kernel API caller can still write between the last state check and execution. Post-write readback exposes an abnormal final state but does not roll it back; inspect the target before acting on `outcome_unknown` or `readback_mismatch`.
 

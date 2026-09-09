@@ -11,7 +11,7 @@
 1. **MCP Server 插件**：作为 SiYuan 插件运行，对外暴露 MCP（Model Context Protocol）服务。AI 客户端（Claude Desktop、Cursor、Cherry Studio 等）通过 HTTP 或 stdio 连接。
 2. **独立 CLI `siyuan-sisyphus`**：发布到 npm 的包名 `siyuan-sisyphus`，安装后提供 `siyuan-sisyphus` / `siyuan` 命令。直接通过思源 HTTP API 执行单次操作后退出，无需 MCP 客户端。
 
-两种接口共享同一套底层能力（16 个聚合工具、164 个注册 action，不含各工具的 `help` 与动态 `extension` action；`extension` 另桥接经过固定白名单筛选的官方原生 MCP 工具）。
+两种接口共享同一套底层能力（13 个聚合工具、94 个注册 action，不含各工具的 `help` 与动态 `extension` action；`extension` 另桥接经过固定白名单筛选的官方原生 MCP 工具）。
 
 ### LLM Wiki 分支产品边界
 
@@ -20,7 +20,7 @@
 - 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.9.16`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.4.16`）
+- 当前版本：`0.9.17`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.4.17`）
 
 ---
 
@@ -40,7 +40,7 @@
 **关键约束**：
 - 所有产物为 **CommonJS (CJS)**。
 - 插件在 Electron 渲染进程以 CJS 运行；MCP Server 以 Node 进程运行；CLI 为自包含 CJS bundle。
-- **必须兼容远程场景**：任何读写操作都经过思源 HTTP API（`http://127.0.0.1:6806` 或用户配置地址），**禁止直接访问本地文件系统**。特许例外仅有两处：① CLI 自身配置（`~/.siyuan-sisyphus/config.json`）；② 上传/下载/导出类 action（如 `upload_asset`、`export_resources`），因 SiYuan API 不支持流式二进制传输，必须通过本地文件系统中转。
+- **必须兼容远程场景**：思源数据读写经过思源 HTTP API（`http://127.0.0.1:6806` 或用户配置地址）。本地文件系统只用于 CLI 自身配置和已明确登记的项目来源文本工作流。
 
 ---
 
@@ -60,31 +60,27 @@ siyuan-plugins-mcp-sisyphus/
 │   │   ├── block.ts             # /api/block/*
 │   │   ├── av.ts                # /api/av/*（attribute view / 数据库）
 │   │   ├── search.ts            # /api/search/*、/api/query/sql
-│   │   ├── file.ts              # /api/file/*、/api/export/*、/api/asset/*
+│   │   ├── file.ts              # /api/file/* 与虚拟文件系统支持
 │   │   ├── system.ts            # /api/system/*
 │   │   ├── tag.ts               # /api/tag/*
-│   │   ├── flashcard.ts         # /api/riff/*
 │   │   └── transaction.ts       # /api/transaction 批量操作
 │   │
 │   ├── core/                    # MCP 服务器核心与工具元数据
 │   │   ├── server.ts            # MCP Server 入口：createSiYuanServer()、startMcpServer()
 │   │   ├── http-transport.ts    # HTTP MCP 2026 无状态 + legacy 有会话双协议传输
-│   │   ├── tool-registry.ts     # TOOL_REGISTRY：16 个聚合工具的注册表
-│   │   ├── tool-lifecycle.ts    # 工具调用生命周期：analytics、telemetry、token 计数、错误包装
+│   │   ├── tool-registry.ts     # TOOL_REGISTRY：13 个聚合工具的注册表
+│   │   ├── tool-lifecycle.ts    # 工具调用生命周期：响应压缩与界面刷新元数据过滤
 │   │   ├── config.ts            # ToolConfig 类型、默认值、配置迁移（扁平 → 嵌套）、危险动作定义
 │   │   ├── permissions.ts       # PermissionManager：笔记本级权限（rwd/rw/r/none）
 │   │   ├── types.ts             # 所有 action 的 Zod schema 定义
 │   │   ├── resources.ts         # MCP Resources：help 文档资源路由
 │   │   ├── help.ts              # 各工具的帮助文案与提示
 │   │   ├── normalize.ts         # 请求参数归一化（类型短码展开、sortBy 别名等）
-│   │   ├── analytics.ts         # 调用统计与洞察数据聚合
-│   │   ├── telemetry.ts         # 调用事件遥测上报
 │   │   ├── token-usage.ts       # 请求/响应近似 token 计算
-│   │   ├── puppy-state.ts       # 桌面悬浮宠物（ToolPuppy）状态管理
 │   │   ├── server-instructions.ts # 服务端 instructions 文本构建
 │   │   └── runtime.ts           # 运行时环境检测（isPluginMode 等）
 │   │
-│   ├── tools/                   # 10 个聚合工具的实现
+│   ├── tools/                   # 13 个聚合工具的实现
 │   │   ├── index.ts             # barrel export：统一导出所有工具模块
 │   │   ├── internal/            # 工具层共享基础设施（非独立工具）
 │   │   │   ├── define-tool.ts   # defineTool() 工厂：统一工具定义模式
@@ -103,8 +99,8 @@ siyuan-plugins-mcp-sisyphus/
 │   │   ├── file/                # file 工具
 │   │   ├── tag/                 # tag 工具
 │   │   ├── system/              # system 工具
-│   │   ├── flashcard/           # flashcard 工具
-│   │   └── mascot/              # mascot（吉祥物余额）工具
+│   │   ├── provenance/          # Agent 会话与知识来源链
+│   │   └── extension/           # 官方 MCP 只读白名单桥接
 │   │
 │   ├── cli/                     # 独立 CLI 源码（被 cli Vite target 打包）
 │   │   ├── index.ts             # CLI 入口：命令分发（dispatch/list/help/init/config/version）
@@ -244,25 +240,22 @@ pnpm update-version     # 同步版本号到 plugin.json 与 cli/package.json
 
 ### 聚合工具模型（Aggregated Tools）
 
-所有思源能力被收敛为 **16 个聚合工具**（`TOOL_CATEGORIES`，权威清单定义于 `src/core/config.ts` 的 `*_ACTIONS` 常量），每个工具通过 `action` 字段路由到具体 operation：
+当前维护能力被收敛为 **13 个聚合工具、94 个 action**（`TOOL_CATEGORIES`，权威清单定义于 `src/core/config.ts` 的 `*_ACTIONS` 常量），每个工具通过 `action` 字段路由到具体 operation：
 
 ```
 fs          → 9  actions（ls, tree, read, write, replace, rm, mv, reorder, search）
-notebook    → 11 actions（list, create, set_open_state, remove, rename, get_conf, ...）
-document    → 19 actions（create, lookup, rename, remove, move, list_tree, get_doc, ...）
-block       → 21 actions（insert, prepend, append, update, replace, delete, move, ...）
+notebook    → 4  actions（list, get_conf, get_permissions, get_child_docs）
+document    → 12 actions（create, lookup, rename, move, reorder, get_child_blocks, get_child_docs, set_attr, list_tree, search_docs, get_doc, get_outline）
+block       → 16 actions（insert, prepend, append, update, replace, move, get_kramdown, batch_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, docs_info）
 av          → 13 actions（get, render, get_attribute_view_keys, add_rows, set_cells, ...）
-file        → 22 actions（upload_asset, register_project_source, identify_project, scan_project_manifest, resolve_project_source, list_project_sources, export_md, ...）
+file        → 6  actions（register_project_source, identify_project, scan_project_manifest, resolve_project_source, read_project_source, list_project_sources）
 project     → 1  action（snapshot）
-search      → 14 actions（fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, ...）
+search      → 12 actions（fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, list_invalid_refs, criteria_list, criteria_save, criteria_remove）
 provenance  → 7  actions（register_session, record_event, discover_session, list_project_sessions, list_atom_events, resolve_session_link, validate_session）
 tag         → 3  actions（list, rename, remove）
-timeline    → 7  actions（list_nodes, create_node, compare_node, compare_recent, ...）
-system      → 27 actions（bootstrap, get_version, notify, workspace_info, plan_change, ...）
-flashcard   → 6  actions（list_cards, get_decks, review_card, create_card, ...）
-extension   → 官方原生 MCP 工具桥接（list 动态发现：search, ref, outline, history, inbox, repo, web_fetch, web_search；图片工具永久拒绝）
-mascot      → 3  actions（get_balance, shop, buy）
-feedback    → 1  action（submit）
+timeline    → 4  actions（list_nodes, create_node, compare_node, compare_recent）
+system      → 6  actions（changelog, get_version, get_current_time, bootstrap, audit_environment, validate_source_audit）
+extension   → 1 个聚合入口；只转发 search.semantic、ref.backlinks/forwardlinks、outline.get、web_fetch、web_search
 ```
 
 **约定**：不要拆散这个模型。每个 action 不是独立工具，而是聚合工具的参数分支。这降低了 MCP 的上下文占用，也保持了 CLI 命令的一致性。修改任一工具的 action 清单时，以 `src/core/config.ts` 的 `*_ACTIONS` 为唯一事实源同步本表。
@@ -332,7 +325,7 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 
 - 每个 notebook 可配置四级权限：`rwd`（读写删）、`rw`（读写）、`r`（只读）、`none`（无访问）。
 - `PermissionManager` 在 `src/core/permissions.ts` 中实现，基于思源 API 读取的权限文件。
-- 危险动作（delete、remove、find_replace、upload_asset、set_permission 等）在 MCP 2026-07-28 模式下先经过多轮 elicitation 确认；legacy 客户端通过 instructions/help 明示确认要求。
+- 删除、移动、批量替换和登记项目来源等高风险动作在 MCP 2026-07-28 模式下先经过 elicitation 确认；legacy 客户端通过 instructions/help 明示确认要求。
 
 ### 渐进式披露（Progressive Disclosure）
 
@@ -348,7 +341,7 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 - 所有数据交互必须经过 `SiYuanClient` → 思源 HTTP API。
 - 特许例外仅有两处：
   1. **CLI 自身配置**：`~/.siyuan-sisyphus/config.json` 及构建脚本的本地读写。
-  2. **上传/下载/导出类 action**：如 `upload_asset`、`export_resources`，因 SiYuan API 不支持流式二进制传输，必须通过本地文件系统中转。新增此类例外必须经过评审并在代码中显式标注。
+  2. **登记项目来源文本**：只在 `file` 项目来源工作流中读取已登记、已入清单并通过文本与敏感信息校验的文件。
 
 ### UI 刷新
 
@@ -382,7 +375,7 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 - 对 `fetch` 使用 `vi.fn()` mock，在 `afterEach` 中自动恢复（由 `tests/setup.ts` 处理）。
 - `tests/mocks/siyuan.ts` 提供 `siyuan` 模块的 mock，避免在 Node 测试中加载真实 SiYuan 前端模块。
 - CLI 测试覆盖参数解析、flag 映射、配置读写、dispatch 路由、render 输出。
-- MCP 测试覆盖配置迁移、权限校验、telemetry、analytics、token 计算、工具生命周期。
+- MCP 测试覆盖工具表面、配置迁移、权限校验、严格安全写入、响应压缩和工具生命周期。
 
 ---
 
@@ -422,13 +415,13 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
    - 绑定非回环地址（`0.0.0.0`）时必须启用 token 认证。
 
 3. **危险动作确认**：
-   - MCP 2026-07-28 模式下，delete、remove、find_replace、upload_asset、set_permission 等操作在执行前通过协议级多轮 elicitation 要求用户显式确认；拒绝或取消不会进入工具生命周期。
+   - MCP 2026-07-28 模式下，删除、移动、批量替换和登记项目来源等高风险操作在执行前通过协议级 elicitation 要求用户显式确认；拒绝或取消不会进入工具生命周期。
    - legacy MCP 客户端保留 instructions/help 警告路径，避免破坏旧协议兼容性。
    - CLI 模式下不做二次确认（命令行输入即视为确认）。
 
 4. **权限隔离**：
    - 笔记本级权限防止 AI 越权访问敏感笔记本。
-   - `workspace_info` 等敏感系统操作也被标记为 dangerous，需要确认。
+   - 系统工具只保留只读诊断与来源审计校验，不再暴露工作区配置、同步或通知副作用。
 
 ---
 
@@ -449,7 +442,7 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 
 4. **关联到 SiYuan 时使用 `pnpm make-link`**，它会在思源插件目录创建指向 `dev/` 的符号链接。
 
-5. **不要假设本地文件系统可访问**：即使是 standalone 模式，配置也应通过 `SiYuanClient.readFile()` / `writeFile()` 走思源 API。特许例外仅有两处：① CLI 自身配置（`~/.siyuan-sisyphus/config.json`）；② 上传/下载/导出类 action（如 `upload_asset`、`export_resources`），因必须通过本地文件系统中转二进制数据。新增例外必须经过评审。
+5. **不要假设本地文件系统可访问**：配置应通过 `SiYuanClient.readFile()` / `writeFile()` 走思源 API；仅 CLI 自身配置与已经登记、纳入清单的项目来源文本允许本地访问。
 
 6. **保持 CLI 与插件行为一致**：如果某个能力在插件侧可用，CLI 侧也应通过同一 `callTool()` 路径暴露，避免逻辑分叉。
 

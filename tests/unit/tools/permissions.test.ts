@@ -454,65 +454,6 @@ describe('tool permission and filtering behavior', () => {
         expect(parsed.backlinks[0].id).toBe('1');
     });
 
-    it('filters recent updates before applying count', async () => {
-        vi.spyOn(blockApi, 'getRecentUpdatedBlocks').mockResolvedValue([
-            { id: '1', box: 'allowed', root_id: 'doc-a', path: '/doc-a.sy', type: 'p', content: 'a' },
-            { id: '2', box: 'blocked', root_id: 'doc-b', path: '/doc-b.sy', type: 'p', content: 'b' },
-            { id: '3', box: 'allowed', root_id: 'doc-a', path: '/doc-a.sy', type: 'h', content: 'c' },
-        ]);
-        vi.spyOn(searchApi, 'querySQL').mockImplementation(async (_client, stmt) => {
-            if (stmt.includes("WHERE id = 'doc-a'")) {
-                return [{
-                    id: 'doc-a',
-                    root_id: 'doc-a',
-                    box: 'allowed',
-                    path: '/doc-a.sy',
-                    hpath: '/Doc A',
-                    content: 'Doc A',
-                    type: 'd',
-                }];
-            }
-            return [];
-        });
-        vi.spyOn(blockApi, 'getDocInfo').mockResolvedValue({
-            id: 'doc-a',
-            rootID: 'doc-a',
-            name: 'Doc A.sy',
-        } as never);
-        vi.spyOn(documentApi, 'getPathByID').mockResolvedValue({
-            notebook: 'allowed',
-            path: '/doc-a.sy',
-        });
-
-        const result = await callBlockTool({} as never, {
-            action: 'recent_updated',
-            count: 2,
-        }, blockConfig, permMgr as never);
-        const parsed = parseResult(result);
-
-        expect(parsed.items).toHaveLength(2);
-        expect(parsed.items[0].id).toBe('1');
-        expect(parsed.documents).toEqual([{
-            documentId: 'doc-a',
-            notebook: 'allowed',
-            path: '/doc-a.sy',
-            hPath: '/Doc A',
-            name: 'Doc A',
-            updatedBlockCount: 2,
-            sampleBlocks: [
-                { id: '1', type: 'p', content: 'a', path: '/doc-a.sy' },
-                { id: '3', type: 'h', content: 'c', path: '/doc-a.sy' },
-            ],
-        }]);
-        expect(parsed.primaryView).toBe('documents');
-        expect(parsed.count).toBe(2);
-        expect(parsed.documentCount).toBe(1);
-        expect(parsed.containsLowLevelBlocks).toBe(true);
-        expect(parsed.grouping).toBe('document');
-        expect(parsed.filteredOutCount).toBe(1);
-        expect(parsed.partial).toBe(true);
-    });
-
     it('applies storage-path filtering to search_docs results', async () => {
         vi.spyOn(documentApi, 'searchDocs').mockResolvedValue({
             files: [
@@ -605,24 +546,6 @@ describe('tool permission and filtering behavior', () => {
         expect(parsed.id).toBe('doc-real');
         expect(parsed.path).toBe('/AI Interface Root 202604270724/Child Doc 202604270724');
         expect(parsed.resolvedParentPath).toBe('/AI Interface Root 202604270724');
-    });
-
-    it('adds an icon reminder to daily note create results', async () => {
-        vi.spyOn(documentApi, 'createDailyNote').mockResolvedValue({
-            id: 'daily-1',
-            path: '/daily/2026-04-03.sy',
-        } as never);
-        vi.spyOn(documentApi, 'getHPathByID').mockResolvedValue('/Daily Note/2026-04-03');
-
-        const result = await callDocumentTool({} as never, {
-            action: 'create_daily_note',
-            notebook: 'allowed',
-        }, documentConfig, permMgr as never);
-        const parsed = parseResult(result);
-
-        expect(parsed.id).toBe('daily-1');
-        expect(parsed.iconHint).toContain('document(action="set_attr"');
-        expect(parsed.iconHint).toContain('Unicode hex code string');
     });
 
     it('caches repeated getDocInfo lookups while enriching list_tree', async () => {

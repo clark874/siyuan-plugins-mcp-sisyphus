@@ -1,100 +1,13 @@
-# document 工具
+# 文档工具
 
-这个工具覆盖文档 CRUD、树结构查询、元数据，以及与日记/转换相关的文档操作。
+`document` 提供 12 个文档级动作。
 
-适用场景：你需要创建、移动、查询或转换文档。
+| 用途 | 动作 |
+| --- | --- |
+| 创建或组织 | `create`、`rename`、`move`、`reorder` |
+| 解析与浏览 | `lookup`、`get_child_blocks`、`get_child_docs`、`list_tree`、`search_docs` |
+| 读取或设置元数据 | `get_doc`、`get_outline`、`set_attr` |
 
-相关页面：
+使用 `lookup` 区分稳定 ID、笔记本内人类可读路径和 `.sy` 存储路径；回读优先使用稳定 ID。`move` 需要明确确认，启用严格模式时受预检协议约束。
 
-- [路径语义](../path-semantics.md)
-- [权限模型](../permissions.md)
-
-## 常见动作
-
-| 分组 | 动作 |
-|------|---------|
-| 创建与读取 | `create`, `lookup`, `get_doc`, `get_outline` |
-| 树结构查询 | `get_child_blocks`, `get_child_docs`, `get_child_sort_mode`, `list_tree`, `search_docs` |
-| 元数据与修改 | `rename`, `move`, `reorder`, `set_child_sort_mode`, `remove`, `set_attr`, `duplicate` |
-| 日记 / 转换 | `create_daily_note`, `heading_to_doc`, `doc_to_heading` |
-
-## 参数与语义
-
-- `create` 支持人类可读 `path`，也支持 `parentPath` + `title`；省略 `markdown` 即创建空文档。创建子文档时优先使用 `path`。`parentPath` + `title` 可传人类可读父路径，也可传 `lookup` 返回的 `.sy` 结尾 storage path。
-- `lookup` 可按 `id`、存储 `path`、人类可读 `hpath` / `hPath` 查找；用 `include` 请求 `id`、`ids`、`path`、`hpath` 或 `docInfo`。
-- `lookup` 返回的 `idPath` 会包含可用的 `id` / `ids`。当同一 hpath 有多个同名文档时，`include: ["ids"]` 会返回全部匹配 ID；内部已包含 SQL 兜底。
-- `rename`、`remove`、`move` 在非 ID 模式下通常需要存储路径。
-- 思源 3.8.1 及以上版本中，`get_child_sort_mode` 会同时返回文档本地声明与继承后实际生效的子文档排序模式。`set_child_sort_mode` 接受 `0`–`14`；传 `null` 会删除本地声明并恢复继承。
-- `reorder` 接受笔记本或父文档 `parentID`，以及包含全部可见直属子文档且无重复的 `orderedIDs`。思源 3.8.1 及以上版本中，父文档重排只会把该父文档切换为手动排序模式 `6`，不再改动整个笔记本；笔记本根重排仍修改笔记本排序，旧内核保留笔记本级兼容回退。
-
-排序模式取值：`0/1` 名称升/降序，`2/3` 更新时间，`4/5` 自然字母数字，`6` 手动排序，`7/8` 引用数，`9/10` 创建时间，`11/12` 大小，`13/14` 子文档数。
-- `get_child_docs` 必须传文档 `id`，不接受 `notebook + path`。
-- `list_tree` 使用 `notebook + path`，其中 `path` 是 `/` 或 `/20240318112233-abc123.sy` 这类存储路径，不是人类可读路径。
-- `list_tree` 查询 `/` 时，一级文档子树读取的并发上限为 8。响应会返回 `partial`、`errors`、`topLevelDocumentCount` 和 `failedTopLevelDocumentCount`；当 `partial` 为 `true` 时，不得把空 `children` 直接判定为真实叶节点。该底层工具会在错误项中返回文档 ID 与存储路径，便于精确追查。
-- 如果批量 `remove` 遇到思源短暂的 `indexing` 窗口，请改用 `notebook + storage path` 逐个删除并重试。
-- `set_attr` 按文档 ID 写入文档元数据属性。内置 `icon` 存在于文档根块 IAL 中，可能不会出现在 SQL `attributes` 表；应使用文档 ID 调用 `block.get_attrs` 验证。
-- `get_outline` 调用思源原生大纲接口，不读取正文即可返回标题树、标题块 ID、嵌套关系和 `headingCount`。如果还需要可编辑 Markdown，请使用 `get_doc`。
-
-## Markdown 与标题规则
-
-- `create` 的 `markdown` 不需要写同名 `# 标题`；如果写了，工具会自动剥离，避免双标题。
-- `create` 支持直接写 `((id '标题'))`、裸 `((id))` 和 `#标签#`。裸双链会自动补齐锚文本；如果解析失败，会降级为 `((id 'id'))` 并返回 warning。
-- `create` 允许 `[^1]` 脚注式引用和 `[text](siyuan://blocks/id)` 写入，但结果会提示它们不会创建思源真实反链。
-- `get_doc` 返回与 `fs.read` 一致的可编辑 Markdown，保留 `((id '标题'))` 和 `#标签#`。
-- `get_doc mode="markdown"` 始终返回完整展示块窗口。可使用 `nextWindow` 继续读取，或传入 `blockStart`、`blockLimit` 和 `tokenBudget`；响应同时包含全文标题 `outline`。`includeBlockIds=true` 会增加独立块引用，不改变 `content`。
-- 字符级 `page/pageSize` 分页已经移除。`mode="html"` 仍返回不分页的当前视图 HTML，并继续使用 `size`。
-
-## 安全规则
-
-- `remove`、`move` 需要显式确认。
-- 按路径修改前先确认路径类型。
-
-## 示例
-
-MCP：
-
-```json
-{
-  "action": "create",
-  "notebook": "<notebook-id>",
-  "path": "/Inbox/Weekly Note",
-  "markdown": "周报正文"
-}
-```
-
-```json
-{
-  "action": "lookup",
-  "id": "<doc-id>",
-  "include": "path"
-}
-```
-
-CLI：
-
-```bash
-siyuan document create --notebook <notebook-id> --path "/Inbox/Weekly Note" --markdown "周报正文"
-siyuan document lookup --id <doc-id> --include path
-```
-
-## 动作列表
-
-- `create`
-- `lookup`
-- `rename`
-- `remove`
-- `move`
-- `reorder`
-- `get_child_sort_mode`
-- `set_child_sort_mode`
-- `get_child_blocks`
-- `get_child_docs`
-- `set_attr`
-- `list_tree`
-- `search_docs`
-- `get_doc`
-- `get_outline`
-- `create_daily_note`
-- `duplicate`
-- `heading_to_doc`
-- `doc_to_heading`
+文档删除、复制、日记创建、标题转换和子文档排序辅助动作均不再暴露。

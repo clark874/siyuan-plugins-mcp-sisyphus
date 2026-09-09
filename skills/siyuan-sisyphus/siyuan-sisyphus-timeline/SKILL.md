@@ -1,6 +1,6 @@
 ---
 name: siyuan-sisyphus-timeline
-description: CLI-only playbook for SiYuan document timelines with siyuan-sisyphus. Use to list or create named snapshot nodes, compare document versions, remove node tags, and safely roll back a document or one changed block.
+description: CLI-only playbook for SiYuan document timelines with siyuan-sisyphus. Use to list or create named snapshot nodes and compare document versions.
 compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
@@ -50,24 +50,4 @@ For a read-only answer to “what changed recently?”, use:
 siyuan-sisyphus timeline compare-recent --document-id '<doc-id>' --page '1' --page-size '20' --json
 ```
 
-`compare_recent` creates no workspace snapshot and exposes no rollback. It scans at most five native SiYuan document-history checkpoints, selects the newest one whose parsed block content differs from the current document, and returns section breadcrumbs plus paginated before/current Markdown. Native document history is checkpoint-based rather than a keystroke log.
-
-## Delete or roll back
-
-`delete_node` removes the protective tag but retains the underlying snapshot. `rollback_document` restores only the selected document file, not the whole workspace. `rollback_block` accepts only a fresh opaque `changeKey` from `compare_node`; it recalculates the diff and rejects stale or unsafe changes.
-
-Before any delete or rollback, show the exact document, node name/tag, and consequence, then obtain explicit approval. These actions require `rwd` permission and may be disabled by default. Never bypass an unavailable dangerous action; inspect `siyuan-sisyphus help timeline rollback-document` and ask the user to enable it when appropriate.
-
-After approval, use the narrowest operation that satisfies the request:
-
-```bash
-siyuan-sisyphus timeline rollback-block --document-id '<doc-id>' --tag '<timeline-tag>' --change-key '<fresh-change-key>' --json
-```
-```bash
-siyuan-sisyphus timeline rollback-document --document-id '<doc-id>' --tag '<timeline-tag>' --json
-```
-```bash
-siyuan-sisyphus timeline delete-node --tag '<timeline-tag>' --document-id '<doc-id>' --json
-```
-
-After rollback, read the document again. After node creation or deletion, list nodes again. For a reversible rollback test, create a named protection node for the current state, roll back to the target, verify it, then restore from the protection node and verify again; obtain approval for both rollback operations.
+`compare_recent` creates no workspace snapshot and exposes no rollback. It scans at most five native SiYuan document-history checkpoints, selects the newest one whose parsed block content differs from the current document, and returns section breadcrumbs plus paginated before/current Markdown. Native document history is checkpoint-based rather than a keystroke log. Deletion and rollback are intentionally outside the MCP and CLI action surface.

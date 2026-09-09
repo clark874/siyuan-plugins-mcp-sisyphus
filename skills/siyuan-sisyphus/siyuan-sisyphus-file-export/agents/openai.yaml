@@ -1,4 +1,0 @@
-interface:
-  display_name: "SiYuan Files & Export CLI"
-  short_description: "安全处理思源资产、导出与项目源映射"
-  default_prompt: "使用 $siyuan-sisyphus-file-export 安全处理思源资产、导出或项目源映射。"

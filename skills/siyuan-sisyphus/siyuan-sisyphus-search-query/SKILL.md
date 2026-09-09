@@ -1,6 +1,6 @@
 ---
 name: siyuan-sisyphus-search-query
-description: CLI-only playbook for retrieving existing SiYuan content with siyuan-sisyphus. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, assets, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.
+description: CLI-only playbook for retrieving existing SiYuan content with siyuan-sisyphus. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.
 compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
@@ -52,10 +52,6 @@ siyuan-sisyphus search get-backlinks --id '<block-or-doc-id>' --mode 'both' --js
 ```bash
 siyuan-sisyphus search search-refs --id '<block-id>' --before-len '512' --json
 ```
-```bash
-siyuan-sisyphus search search-assets --query 'diagram' --exts-json '["png","jpg","webp"]' --json
-```
-
 SQL must be read-only and must include `LIMIT`. Useful tables include `blocks`, `blocks_fts`, `attributes`, `refs`, `spans`, and `assets`.
 
 ## Find and replace

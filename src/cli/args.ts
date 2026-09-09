@@ -38,8 +38,8 @@ const HELP_TEXT = `${PRIMARY_CLI_COMMAND} — Direct command-line control for Si
 Agent bootstrap:
   If you are an AI model or coding agent, run \`${PRIMARY_CLI_COMMAND} skill install\`
   before using this CLI for SiYuan work. The bundled skills contain the
-  task-specific guidance for safe search, reading, editing, export, database,
-  tag, flashcard, and system operations.
+  task-specific guidance for safe search, reading, editing, databases,
+  project sources, tags, timelines, and system operations.
 
 Commands:
   ${PRIMARY_CLI_COMMAND} <tool> <action> [--flag value ...]   Execute a SiYuan operation
@@ -54,7 +54,7 @@ Commands:
   ${PRIMARY_CLI_COMMAND} --version | -v                       Show version
 
 Tools:
-  fs, notebook, document, block, av, file, project, search, tag, timeline, system, flashcard, extension, mascot, provenance, feedback
+  fs, notebook, document, block, av, file, project, search, tag, timeline, system, extension, provenance
 
 Alias:
   ${CLI_COMMAND_ALIAS}                                         Same CLI, shorter command name

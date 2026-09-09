@@ -1,26 +1,22 @@
 import * as searchApi from '../../api/search';
-import { redactText } from '../../control-plane/security';
+import { redactText } from '../../shared/text-security';
 import { normalizeAnchorToken } from '../../core/attribute-governance';
 import type { SearchAction } from '../../core/config';
 import {
     expandTypeShortcodes,
-    getAssetContentSortName,
     getFulltextSortName,
     getSearchMethodName,
     normalizeSearchBlocksForAi,
-    resolveAssetContentSortAlias,
     resolveSearchMethod,
     resolveSortAlias,
     resolveTypeRecord,
 } from '../../core/normalize';
 import {
-    SearchAssetsSchema,
     SearchCheckAnchorSchema,
     SearchCriteriaListSchema,
     SearchCriteriaRemoveSchema,
     SearchCriteriaSaveSchema,
     SearchFindReplaceSchema,
-    SearchFulltextAssetContentSchema,
     SearchFulltextSchema,
     SearchGetBacklinksSchema,
     SearchListInvalidRefsSchema,
@@ -46,7 +42,6 @@ import { assertReadOnlySql, getBacklinksWithDiagnostics } from './sql-builder';
 const SEARCH_TOOL_NAME = 'search';
 
 type SearchFulltextArgs = ReturnType<(typeof SearchFulltextSchema)['parse']>;
-type SearchFulltextAssetContentArgs = ReturnType<(typeof SearchFulltextAssetContentSchema)['parse']>;
 type SearchFindReplaceArgs = ReturnType<(typeof SearchFindReplaceSchema)['parse']>;
 type SearchKnowledgeArgs = ReturnType<(typeof SearchKnowledgeSchema)['parse']>;
 type SearchSemanticArgs = ReturnType<(typeof SearchSemanticSchema)['parse']>;
@@ -896,25 +891,6 @@ function createSqlQueryResult(
     });
 }
 
-function createFulltextAssetContentResult(
-    typed: Record<string, unknown>,
-    assetContents: unknown[],
-    removedCount: number,
-    resolvedArgs?: Record<string, unknown>,
-): ToolResult {
-    const truncated = applyTruncation(assetContents, 20, 'Use page/pageSize parameters to paginate asset content results.');
-    const total = assetContents.length;
-    return createJsonResult({
-        ...typed,
-        assetContents: truncated.items,
-        data: truncated.items,
-        total,
-        ...buildTruncationSummary(total, truncated.meta),
-        ...createPartialMetadata(removedCount),
-        ...(resolvedArgs ? { resolvedArgs } : {}),
-    });
-}
-
 export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
     fulltext: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchFulltextSchema.parse(rawArgs);
@@ -1145,47 +1121,6 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
                 }).resolvedArgs,
             } : {}),
         });
-    },
-    search_assets: async ({ client, rawArgs }) => {
-        const parsed = SearchAssetsSchema.parse(rawArgs);
-        const query = resolveAliasString(parsed.k, parsed.query) ?? '';
-        const result = await searchApi.searchAsset(client, query, parsed.exts);
-        if (parsed.query === undefined) {
-            return createJsonResult(result);
-        }
-        return createJsonResult({
-            ...(result && typeof result === 'object' && !Array.isArray(result) ? result as Record<string, unknown> : { data: result }),
-            resolvedArgs: { query },
-        });
-    },
-    fulltext_asset_content: async ({ client, permMgr, rawArgs }) => {
-        const parsed = SearchFulltextAssetContentSchema.parse(rawArgs) as SearchFulltextAssetContentArgs;
-        if (parsed.assetId) {
-            const result = await searchApi.getAssetContent(client, parsed.assetId, parsed.query ?? '', parsed.queryMethod ?? 0);
-            return createJsonResult(result);
-        }
-        const resolvedMethod = resolveSearchMethodMeta(parsed);
-        const resolvedOrderBy = resolveAssetContentSortAlias(parsed.sortBy, parsed.orderBy);
-        const result = await searchApi.fullTextSearchAssetContent(client, {
-            query: parsed.query!,
-            ...(parsed.types ? { types: parsed.types } : {}),
-            ...(resolvedMethod.method !== undefined ? { method: resolvedMethod.method } : {}),
-            ...(resolvedOrderBy !== undefined ? { orderBy: resolvedOrderBy } : {}),
-            ...(parsed.page !== undefined ? { page: parsed.page } : {}),
-            ...(parsed.pageSize !== undefined ? { pageSize: parsed.pageSize } : {}),
-        });
-        const typed = result && typeof result === 'object' ? result as Record<string, unknown> : {};
-        const assetContents = Array.isArray(typed.assetContents) ? typed.assetContents : [];
-        const filtered = await filterItemsByPermission(client, assetContents, permMgr);
-        const shouldExposeResolvedArgs = parsed.methodName !== undefined || parsed.sortBy !== undefined;
-        return createFulltextAssetContentResult(typed, filtered.items, filtered.removedCount, shouldExposeResolvedArgs
-            ? buildResolvedArgs({
-                query: parsed.query,
-                ...resolvedMethod,
-                ...(resolvedOrderBy !== undefined ? { orderBy: resolvedOrderBy } : {}),
-                ...(resolvedOrderBy !== undefined ? { sortBy: getAssetContentSortName(resolvedOrderBy) } : {}),
-            }).resolvedArgs
-            : undefined);
     },
     list_invalid_refs: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchListInvalidRefsSchema.parse(rawArgs);

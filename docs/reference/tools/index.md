@@ -1,48 +1,21 @@
 # Tools Index
 
-This page summarizes the 16 aggregated tools exposed by the project.
+The maintained LLM Wiki surface contains 13 aggregated tools and 94 actions. Each tool also accepts `action="help"`; dynamic official-plugin actions discovered through `extension` are not counted.
 
-When to read this page: you know the general domain but need the right tool page.
+| Tool | Actions |
+| --- | --- |
+| `fs` | ls, tree, read, write, replace, rm, mv, reorder, search |
+| `notebook` | list, get_conf, get_permissions, get_child_docs |
+| `document` | create, lookup, rename, move, reorder, get_child_blocks, get_child_docs, set_attr, list_tree, search_docs, get_doc, get_outline |
+| `block` | insert, prepend, append, update, replace, move, get_kramdown, batch_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, docs_info |
+| `av` | get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, rename, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate, get_primary_key_values |
+| `file` | register_project_source, identify_project, scan_project_manifest, resolve_project_source, read_project_source, list_project_sources |
+| `project` | snapshot |
+| `search` | fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, list_invalid_refs, criteria_list, criteria_save, criteria_remove |
+| `provenance` | register_session, record_event, discover_session, list_project_sessions, list_atom_events, resolve_session_link, validate_session |
+| `tag` | list, rename, remove |
+| `timeline` | list_nodes, create_node, compare_node, compare_recent |
+| `system` | changelog, get_version, get_current_time, bootstrap, audit_environment, validate_source_audit |
+| `extension` | list, plus explicitly allowlisted official-plugin actions |
 
-Related pages:
-
-- [Reference Home](../index.md)
-- [Common Tasks](../common-tasks.md)
-
-| Tool | Actions | Page |
-|------|---------|------|
-| `fs` | 9 | [fs](./fs.md) |
-| `notebook` | 11 | [notebook](./notebook.md) |
-| `document` | 19 | [document](./document.md) |
-| `block` | 21 | [block](./block.md) |
-| `av` | 13 | [av](./av.md) |
-| `file` | 22 | [file](./file.md) |
-| `project` | 1 | [project](./project.md) |
-| `search` | 14 | [search](./search.md) |
-| `provenance` | 6 | [provenance](./provenance.md) |
-| `tag` | 3 | [tag](./tag.md) |
-| `timeline` | 7 | [timeline](./timeline.md) |
-| `system` | 27 | [system](./system.md) |
-| `flashcard` | 6 | [flashcard](./flashcard.md) |
-| `extension` | dynamic | [extension](./extension.md) |
-| `mascot` | 3 | [mascot](./mascot.md) |
-| `feedback` | 1 | [feedback](./feedback.md) |
-
-## Action Summary
-
-- `fs`: ls, tree, read, write, replace, rm, mv, search
-- `notebook`: list, create, set_open_state, remove, rename, get_conf, set_conf, set_icon, get_permissions, set_permission, get_child_docs
-- `document`: create, lookup, rename, remove, move, get_child_blocks, get_child_docs, set_attr, list_tree, search_docs, get_doc, get_outline, create_daily_note, duplicate, heading_to_doc, doc_to_heading
-- `block`: insert, prepend, append, update, replace, delete, move, set_fold_state, get_kramdown, batch_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, recent_updated, word_count, add_to_daily_note, docs_info
-- `av`: get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, rename, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate, get_primary_key_values
-- `file`: upload_asset, list_templates, read_template, create_template, update_template, delete_template, save_doc_as_template, render, export_md, export_resources, list_unused_assets, get_doc_assets, remove_unused_assets, rename_asset, delete_asset, extract_doc
-- `project`: snapshot
-- `search`: fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, search_assets, fulltext_asset_content, list_invalid_refs, criteria_list, criteria_save, criteria_remove
-- `provenance`: register_session, record_event, list_project_sessions, list_atom_events, resolve_session_link, validate_session
-- `tag`: list, rename, remove
-- `timeline`: list_nodes, create_node, compare_node, compare_recent, delete_node, rollback_document, rollback_block
-- `system`: workspace_info, network, conf, notify, changelog, perform_sync, get_version, get_current_time, audit_environment, list_packages
-- `flashcard`: list_cards, get_decks, get_cards, review_card, create_card, remove_card
-- `extension`: list, plus dynamic actions for enabled official plugin tools and optionally native SiYuan MCP tools
-- `mascot`: get_balance, shop, buy
-- `feedback`: submit
+The removed mascot, feedback, flashcard, asset/OCR, template/import/export, history/repository/inbox forwarding, and timeline deletion/rollback actions are not compatibility aliases; clients must stop calling them.

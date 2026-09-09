@@ -35,15 +35,14 @@ If a scenario Skill is not installed as a local folder, read its stable Skills-o
 | Compile and govern named knowledge atoms, aliases, hubs, and safe renames | {{skill knowledge-governance}} |
 | Close verified project-to-public-method reuse relations across projects | {{skill cross-project-relation-closure}} |
 | Attribute views, columns, rows, and cells | {{skill database}} |
-| Assets, extraction, and exports | {{skill file-export}} |
-| Tags, decks, cards, and review | {{skill tag-flashcard}} |
-| Timeline nodes, snapshot comparison, and rollback | {{skill timeline}} |
+| Registered project sources and controlled text reading | {{skill project-source}} |
+| Timeline nodes and snapshot comparison | {{skill timeline}} |
 | Permissions, system information, and dangerous operations | {{skill system-safety}} |
 | Rich Markdown, math, diagrams, and SiYuan markup | {{skill markup-guide}} |
 
 ## Tool choice
 
-Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \`block\` for IDs, storage paths, metadata, or block-granular changes. Use \`av\` for real databases rather than Markdown tables. Use \`timeline\` for named snapshots, document diffs, and rollback. Use \`provenance\` after project knowledgeization to register source and compile Agent sessions and to answer project-session history queries. Low-complexity \`feedback\` and \`mascot\` actions need no separate scenario skill.
+Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \`block\` for IDs, storage paths, metadata, or block-granular changes. Use \`av\` for real databases rather than Markdown tables. Use \`timeline\` for named snapshots and document diffs. Use \`provenance\` after project knowledgeization to register source and compile Agent sessions and to answer project-session history queries. Tags are a small independent tool family and need no separate scenario skill.
 
 {{call tree}}
 {{call read}}
@@ -56,7 +55,7 @@ Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \
 - When strict safe writes are enabled, inspect the action schema. Guarded mutations expose an expected-hash field: call \`validateOnly=true\`, then execute once with the returned \`preconditionField\` credential and \`issuedRequestId\`. Additive request-id-only actions expose no expected-hash field: call \`validateOnly=true\` when the client does not already have a fresh UUIDv7, then execute once with the returned \`issuedRequestId\`; their preflight issues no hash credential and is not a failure. Never handcraft UUIDv7 values.
 - For document reads, continue with \`nextWindow\` or explicit \`blockStart\`/\`blockLimit\`/\`tokenBudget\`; for list and search results, use their page parameters.
 - Missing results may be caused by notebook permissions or indexing delay.
-- Obtain explicit approval before deletes, moves, bulk replacement, permission changes, local upload/export, or sensitive workspace disclosure.
+- Obtain explicit approval before deletes, moves, bulk replacement, permission changes, project-source registration or path disclosure, or sensitive workspace disclosure.
 `,
         calls: {
             bootstrap: call('system', 'bootstrap'),
@@ -120,8 +119,8 @@ Never derive a storage path from a title. Resolve the document first and reuse t
         id: 'create-edit',
         cliName: 'siyuan-sisyphus-create-edit',
         mcpName: 'siyuan-mcp-create-edit',
-        cliDescription: 'CLI-only playbook for bounded, ordinary SiYuan document and block edits with siyuan-sisyphus. Use for path-based creation, append/insert/update, metadata, daily notes, and verified edits. Use knowledge-governance for name/alias or cross-reference governance, and database for AV cells.',
-        mcpDescription: 'MCP playbook for bounded, ordinary SiYuan document and block edits. Use for path-based creation, append/insert/update, metadata, daily notes, and verified edits. Use knowledge-governance for name/alias or cross-reference governance, and database for AV cells.',
+        cliDescription: 'CLI-only playbook for bounded, ordinary SiYuan document and block edits with siyuan-sisyphus. Use for path-based creation, append/insert/update, metadata, and verified edits. Use knowledge-governance for name/alias or cross-reference governance, and database for AV cells.',
+        mcpDescription: 'MCP playbook for bounded, ordinary SiYuan document and block edits. Use for path-based creation, append/insert/update, metadata, and verified edits. Use knowledge-governance for name/alias or cross-reference governance, and database for AV cells.',
         title: 'Create and Edit SiYuan Content',
         displayName: 'SiYuan Create & Edit',
         shortDescription: 'Create and edit SiYuan note content',
@@ -150,10 +149,9 @@ Use block \`update\` only when replacing the whole block is intended. Prefer a s
 
 {{call replace}}
 
-## Metadata and daily notes
+## Metadata
 
 {{call attrs}}
-{{call daily}}
 
 Before rename, move, delete, or broad replacement, resolve the exact target, show the affected scope, and obtain approval. After every mutation, read by stable ID when possible. Use {{help block append}} when any parameter is uncertain.
 `,
@@ -165,7 +163,6 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             update: call('block', 'update', { id: '<block-id>', dataType: 'markdown', data: 'Replacement block content.' }),
             replace: call('block', 'replace', { id: '<block-id>', edit: { old: 'draft', new: 'final' } }),
             attrs: call('block', 'set_attrs', { id: '<block-id>', attrs: { 'custom-source': 'agent' } }),
-            daily: call('document', 'create_daily_note', { notebook: '<notebook-id>' }),
         },
     },
     {
@@ -772,8 +769,8 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
         id: 'search-query',
         cliName: 'siyuan-sisyphus-search-query',
         mcpName: 'siyuan-mcp-search-query',
-        cliDescription: 'CLI-only playbook for retrieving existing SiYuan content with siyuan-sisyphus. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, assets, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.',
-        mcpDescription: 'MCP playbook for retrieving existing SiYuan content. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, assets, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.',
+        cliDescription: 'CLI-only playbook for retrieving existing SiYuan content with siyuan-sisyphus. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.',
+        mcpDescription: 'MCP playbook for retrieving existing SiYuan content. Use for semantic discovery, fulltext, read-only SQL, backlinks, references, and safe find-replace. Do not use check_anchor to retrieve existing content; it is only a pre-write name/alias collision check.',
         title: 'Search and Query SiYuan',
         displayName: 'SiYuan Search & Query',
         shortDescription: 'Search and query SiYuan knowledge',
@@ -793,8 +790,6 @@ If one of the first three deduplicated \`knowledge\` results is a named project 
 {{call sql}}
 {{call backlinks}}
 {{call refs}}
-{{call assets}}
-
 SQL must be read-only and must include \`LIMIT\`. Useful tables include \`blocks\`, \`blocks_fts\`, \`attributes\`, \`refs\`, \`spans\`, and \`assets\`.
 
 ## Find and replace
@@ -813,7 +808,6 @@ Read the changed blocks again. Recent writes can take time to enter the search i
             sql: call('search', 'query_sql', { stmt: "SELECT id, hpath, content FROM blocks WHERE type = 'p' ORDER BY updated DESC LIMIT 10" }),
             backlinks: call('search', 'get_backlinks', { id: '<block-or-doc-id>', mode: 'both' }),
             refs: call('search', 'search_refs', { id: '<block-id>', beforeLen: 512 }),
-            assets: call('search', 'search_assets', { query: 'diagram', exts: ['png', 'jpg', 'webp'] }),
             findReplace: call('search', 'find_replace', { k: 'old text', r: 'new text', ids: ['<doc-id>'] }),
         },
     },
@@ -935,28 +929,16 @@ Before writing cells, render the current view and map column names to column IDs
         },
     },
     {
-        id: 'file-export',
-        cliName: 'siyuan-sisyphus-file-export',
-        mcpName: 'siyuan-mcp-file-export',
-        cliDescription: '思源文件与导出 CLI 工作流。用于附件上传、Markdown 导出、文档提取、资源 ZIP、模板、安全资产维护，以及项目知识与本机源文件目录的受控映射。',
-        mcpDescription: '思源文件与导出 MCP 工作流。用于附件上传、Markdown 导出、文档提取、资源 ZIP、模板、安全资产维护，以及项目知识与本机源文件目录的受控映射。',
-        title: 'Handle SiYuan Files and Exports',
-        displayName: 'SiYuan Files & Export',
-        shortDescription: '安全处理思源资产、导出与项目源映射',
-        defaultPrompt: '使用 $NAME 安全处理思源资产、导出或项目源映射。',
-        body: `File actions are the explicit exception to the normal remote-only data path: uploads and local exports may touch the machine running the server. Confirm local paths and scope first.
-
-{{call upload}}
-{{call exportMd}}
-{{call extract}}
-{{call exportResources}}
-{{call assets}}
-
-Large uploads must stop and require explicit confirmation before retrying with the large-file confirmation field. A document extraction output directory may be cleared; use a task-specific empty directory. Before renaming, deleting, or removing unused assets, list the exact targets and obtain approval. Verify returned paths after the operation. Read {{help file upload_asset}} for current size and path constraints.
-
-## 项目知识与源文件映射
-
-项目笔记需要引用工作目录中的真实文件时，先登记稳定项目身份和当前主机绑定，再生成受限清单：
+        id: 'project-source',
+        cliName: 'siyuan-sisyphus-project-source',
+        mcpName: 'siyuan-mcp-project-source',
+        cliDescription: '思源项目源 CLI 工作流。用于登记本机项目、生成受限清单、识别项目并受控读取安全 UTF-8 文本。',
+        mcpDescription: '思源项目源 MCP 工作流。用于登记本机项目、生成受限清单、识别项目并受控读取安全 UTF-8 文本。',
+        title: 'Read Registered SiYuan Project Sources',
+        displayName: 'SiYuan Project Source',
+        shortDescription: '登记并受控读取项目源文本',
+        defaultPrompt: '使用 $NAME 安全登记、扫描或读取思源项目源。',
+        body: `项目笔记需要引用工作目录中的真实文件时，先登记稳定项目身份和当前主机绑定，再生成受限清单：
 
 {{call registerProject}}
 {{call scanProject}}
@@ -969,11 +951,6 @@ Large uploads must stop and require explicit confirmation before retrying with t
 \`register_project_source\` 与 \`scan_project_manifest\` 会更新插件私有登记表，必须先确认；扫描同时受条目数、单文件哈希字节数和总哈希读取量限制。\`read_project_source\` 是只读动作，只允许读取当前清单中已列出、绑定可用且未逃逸根目录的安全 UTF-8 文本；单文件上限 1 MiB，每次最多返回 20,000 字符，分页在脱敏后进行，响应分别报告 \`listed\`、\`readable\`、\`contentRead\` 与 \`revisionVerified\`。二进制、敏感、超限、未列入清单或绑定陈旧的文件不返回内容。\`resolve_project_source\` 会披露一个本机绝对路径，必须先确认；除非确需把路径交给已有本机工作区权限的客户端，否则优先使用受控读取。不得把解析成功、清单收录或文件可读报告为内容已经核验。
 `,
         calls: {
-            upload: call('file', 'upload_asset', { assetsDirPath: '/assets/', localFilePath: '/absolute/path/to/source.pdf' }),
-            exportMd: call('file', 'export_md', { id: '<doc-id>' }),
-            extract: call('file', 'extract_doc', { id: '<doc-id>', outputDir: '/tmp/siyuan-extract' }),
-            exportResources: call('file', 'export_resources', { paths: ['assets/file.txt', 'assets/file.pdf'] }),
-            assets: call('file', 'get_doc_assets', { id: '<doc-id>', assetType: 'all' }),
             registerProject: call('file', 'register_project_source', {
                 projectId: 'water-paper',
                 workspaceRoot: '/absolute/path/to/project',
@@ -992,54 +969,15 @@ Large uploads must stop and require explicit confirmation before retrying with t
         },
     },
     {
-        id: 'tag-flashcard',
-        cliName: 'siyuan-sisyphus-tag-flashcard',
-        mcpName: 'siyuan-mcp-tag-flashcard',
-        cliDescription: 'CLI-only playbook for SiYuan tags and flashcards with siyuan-sisyphus. Use for inline tags, tag discovery and rename, deck discovery, card creation, due/new review, and safe removal.',
-        mcpDescription: 'MCP playbook for SiYuan tags and flashcards. Use for inline tags, tag discovery and rename, deck discovery, card creation, due/new review, and safe removal.',
-        title: 'Manage SiYuan Tags and Flashcards',
-        displayName: 'SiYuan Tags & Flashcards',
-        shortDescription: 'Manage SiYuan tags and flashcards',
-        defaultPrompt: 'Use $NAME to manage these SiYuan tags or flashcards.',
-        body: `Create tags by writing \`#tag#\` into Markdown. Create flashcards with the flashcard action so both riff registration and block metadata remain consistent.
-
-{{call tagWrite}}
-{{call tags}}
-{{call rename}}
-
-## Flashcard workflow
-
-Create or identify a heading block, discover the target deck, then register the block as a card:
-
-{{call prompt}}
-{{call decks}}
-{{call create}}
-{{call due}}
-{{call review}}
-
-Ratings are 1 through 4, with larger values representing easier recall. Do not imitate flashcard creation with block attributes alone. Before removing a tag or card, show the exact label, deck, and block IDs and obtain approval. Newly written tags and headings may need a short indexing delay before discovery actions show them.
-`,
-        calls: {
-            tagWrite: call('block', 'append', { parentID: '<doc-id>', dataType: 'markdown', data: '#project# #project/phase1#' }),
-            tags: call('tag', 'list', { keyword: 'project' }),
-            rename: call('tag', 'rename', { oldLabel: 'old-tag', newLabel: 'new-tag' }),
-            prompt: call('block', 'append', { parentID: '<doc-id>', dataType: 'markdown', data: '## What is spaced repetition?\n\nReview just before forgetting.' }),
-            decks: call('flashcard', 'get_decks'),
-            create: call('flashcard', 'create_card', { deckID: '<deck-id>', blockIDs: ['<heading-block-id>'] }),
-            due: call('flashcard', 'list_cards', { scope: 'deck', deckID: '<deck-id>', filter: 'due' }),
-            review: call('flashcard', 'review_card', { deckID: '<deck-id>', cardID: '<card-id>', rating: 3 }),
-        },
-    },
-    {
         id: 'timeline',
         cliName: 'siyuan-sisyphus-timeline',
         mcpName: 'siyuan-mcp-timeline',
-        cliDescription: 'CLI-only playbook for SiYuan document timelines with siyuan-sisyphus. Use to list or create named snapshot nodes, compare document versions, remove node tags, and safely roll back a document or one changed block.',
-        mcpDescription: 'MCP playbook for SiYuan document timelines. Use to list or create named snapshot nodes, compare document versions, remove node tags, and safely roll back a document or one changed block.',
+        cliDescription: 'CLI-only playbook for SiYuan document timelines with siyuan-sisyphus. Use to list or create named snapshot nodes and compare document versions.',
+        mcpDescription: 'MCP playbook for SiYuan document timelines. Use to list or create named snapshot nodes and compare document versions.',
         title: 'Manage SiYuan Document Timelines',
         displayName: 'SiYuan Timeline',
-        shortDescription: 'Compare and restore SiYuan document versions',
-        defaultPrompt: 'Use $NAME to inspect or update this SiYuan document timeline safely.',
+        shortDescription: 'Compare SiYuan document versions',
+        defaultPrompt: 'Use $NAME to inspect or create this SiYuan document timeline safely.',
         body: `Resolve and read the document first. Use document-scoped nodes for one document and global nodes only when the same named snapshot should be discoverable across documents.
 
 ## Create and compare nodes
@@ -1059,30 +997,13 @@ For a read-only answer to “what changed recently?”, use:
 
 {{call compareRecent}}
 
-\`compare_recent\` creates no workspace snapshot and exposes no rollback. It scans at most five native SiYuan document-history checkpoints, selects the newest one whose parsed block content differs from the current document, and returns section breadcrumbs plus paginated before/current Markdown. Native document history is checkpoint-based rather than a keystroke log.
-
-## Delete or roll back
-
-\`delete_node\` removes the protective tag but retains the underlying snapshot. \`rollback_document\` restores only the selected document file, not the whole workspace. \`rollback_block\` accepts only a fresh opaque \`changeKey\` from \`compare_node\`; it recalculates the diff and rejects stale or unsafe changes.
-
-Before any delete or rollback, show the exact document, node name/tag, and consequence, then obtain explicit approval. These actions require \`rwd\` permission and may be disabled by default. Never bypass an unavailable dangerous action; inspect {{help timeline rollback_document}} and ask the user to enable it when appropriate.
-
-After approval, use the narrowest operation that satisfies the request:
-
-{{call rollbackBlock}}
-{{call rollbackDocument}}
-{{call delete}}
-
-After rollback, read the document again. After node creation or deletion, list nodes again. For a reversible rollback test, create a named protection node for the current state, roll back to the target, verify it, then restore from the protection node and verify again; obtain approval for both rollback operations.
+\`compare_recent\` creates no workspace snapshot and exposes no rollback. It scans at most five native SiYuan document-history checkpoints, selects the newest one whose parsed block content differs from the current document, and returns section breadcrumbs plus paginated before/current Markdown. Native document history is checkpoint-based rather than a keystroke log. Deletion and rollback are intentionally outside the MCP and CLI action surface.
 `,
         calls: {
             list: call('timeline', 'list_nodes', { scope: 'document', documentId: '<doc-id>', page: 1, pageSize: 50 }),
             create: call('timeline', 'create_node', { name: 'Before revision', scope: 'document', documentId: '<doc-id>' }),
             compare: call('timeline', 'compare_node', { documentId: '<doc-id>', tag: '<timeline-tag>', page: 1, pageSize: 20, includeUnchanged: false }),
             compareRecent: call('timeline', 'compare_recent', { documentId: '<doc-id>', page: 1, pageSize: 20 }),
-            rollbackBlock: call('timeline', 'rollback_block', { documentId: '<doc-id>', tag: '<timeline-tag>', changeKey: '<fresh-change-key>' }),
-            rollbackDocument: call('timeline', 'rollback_document', { documentId: '<doc-id>', tag: '<timeline-tag>' }),
-            delete: call('timeline', 'delete_node', { tag: '<timeline-tag>', documentId: '<doc-id>' }),
         },
     },
     {
@@ -1105,12 +1026,9 @@ Notebook permissions are \`rwd\`, \`rw\`, \`r\`, and \`none\`. Missing content c
 
 ## Confirmation boundary
 
-Obtain explicit approval before notebook/document/block deletion or move, bulk replacement, asset upload or deletion, local-path export, tag/card removal, permission changes, and workspace path disclosure. State the exact target and consequence. A prior request to inspect or diagnose is not approval to mutate.
+Obtain explicit approval before notebook/document/block deletion or move, bulk replacement, tag removal, permission changes, and workspace path disclosure. State the exact target and consequence. A prior request to inspect or diagnose is not approval to mutate.
 
 {{call audit}}
-{{call network}}
-{{call notify}}
-
 If an action or field is rejected, inspect {{help * *}} instead of guessing. Search results can lag recent writes; direct ID/path reads do not depend on indexing.
 
 For a frozen external source-audit handoff, validate its contract without reading the source tree or inferring conclusions:
@@ -1125,8 +1043,6 @@ For a frozen external source-audit handoff, validate its contract without readin
             permissions: call('notebook', 'get_permissions'),
             audit: call('system', 'audit_environment'),
             sourceAudit: call('system', 'validate_source_audit', { inventory: '<parsed-inventory-json>', usageMap: '<parsed-usage-map-json>', baselinesMarkdown: '<exact-baselines-markdown>' }),
-            network: call('system', 'network'),
-            notify: call('system', 'notify', { msg: 'Task complete', level: 'info', timeout: 5000 }),
         },
         runtime: {
             cli: `## CLI setup

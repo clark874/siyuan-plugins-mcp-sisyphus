@@ -317,17 +317,6 @@ describe('buildAggregatedTool', () => {
         expect(result[0].description).toContain('Be careful');
     });
 
-    it('should include confirmation note for dangerous actions', () => {
-        const configWithDangerous = {
-            enabled: true,
-            actions: { list: true, create: true, remove: true },
-        };
-        const result = buildAggregatedTool('notebook', 'Test tool', configWithDangerous, variants);
-
-        expect(result[0].description).toContain('confirmation');
-        expect(result[0].description).toContain('remove');
-    });
-
     it('should preserve nested array item schemas', () => {
         const nestedVariants: ActionVariant<string>[] = [{
             action: 'create',

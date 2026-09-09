@@ -4,13 +4,11 @@ import { SEARCH_ACTION_HINTS, SEARCH_GUIDANCE } from '../../core/help';
 import type { PermissionManager } from '../../core/permissions';
 import {
     SearchActionSchema,
-    SearchAssetsSchema,
     SearchCriteriaListSchema,
     SearchCriteriaRemoveSchema,
     SearchCriteriaSaveSchema,
     SearchFindReplaceSchema,
     SearchCheckAnchorSchema,
-    SearchFulltextAssetContentSchema,
     SearchFulltextSchema,
     SearchGetBacklinksSchema,
     SearchListInvalidRefsSchema,
@@ -41,8 +39,6 @@ export const SEARCH_VARIANTS: ActionVariant<SearchAction>[] = [
     createZodActionVariant('get_backlinks', SearchGetBacklinksSchema, 'Find documents/blocks that link to or mention the given block.'),
     createZodActionVariant('search_refs', SearchRefsSchema, 'Search blocks that reference a given block or document.'),
     createZodActionVariant('find_replace', SearchFindReplaceSchema, 'Find and replace text in documents or blocks.'),
-    createZodActionVariant('search_assets', SearchAssetsSchema, 'Search asset files by filename.'),
-    createZodActionVariant('fulltext_asset_content', SearchFulltextAssetContentSchema, 'Full-text search indexed asset contents.'),
     createZodActionVariant('list_invalid_refs', SearchListInvalidRefsSchema, 'List invalid block references.'),
     createZodActionVariant('criteria_list', SearchCriteriaListSchema, 'List workspace saved-search criteria (name + opaque kernel condition object).'),
     createZodActionVariant('criteria_save', SearchCriteriaSaveSchema, 'Save or overwrite a named search criterion. Requires user confirmation.'),

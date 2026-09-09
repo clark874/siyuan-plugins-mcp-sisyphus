@@ -22,13 +22,13 @@
     { "id": "web-read-only", "prompt": "只阅读并总结这个网页，不要写入任何笔记软件。", "expectedSkill": null, "reason": "纯网页阅读不应触发思源知识摄取。" },
     { "id": "private-web-read", "prompt": "打开公司内网链接帮我概括内容，不要保存到思源。", "expectedSkill": null, "reason": "私密网页阅读不应交给思源摄取或外部正文提取器。" },
     { "id": "ordinary-edit", "prompt": "在思源现有项目文档末尾追加一段会议摘要并回读确认。", "expectedSkill": "siyuan-mcp-create-edit", "reason": "这是有界普通编辑，不涉及知识锚点或 AV。" },
-    { "id": "daily-note", "prompt": "在今天的思源日记中新增三条待办事项并验证写入结果。", "expectedSkill": "siyuan-mcp-create-edit", "reason": "日记和普通块写入属于创建编辑。" },
+    { "id": "daily-note", "prompt": "在今天的思源日记中新增三条待办事项并验证写入结果。", "expectedSkill": null, "reason": "自动创建或定位当天日记的动作已不再通过当前 MCP 工具面暴露。" },
     { "id": "av-cells", "prompt": "在水商品化项目数据库中更新两行状态单元格并重新渲染核对。", "expectedSkill": "siyuan-mcp-database", "reason": "真实 AV 单元格修改必须使用数据库工作流。" },
     { "id": "av-schema", "prompt": "检查思源属性视图的列类型，并新增一个日期列。", "expectedSkill": "siyuan-mcp-database", "reason": "AV 元数据和列变更属于数据库工作流。" },
     { "id": "siyuan-markup", "prompt": "在思源中写一个带属性、超级块、块引用和 Mermaid 图的说明页。", "expectedSkill": "siyuan-mcp-markup-guide", "reason": "使用了思源特有富文本和块语法。" },
     { "id": "plain-markdown", "prompt": "帮我把这段普通 Markdown 的标题加粗，不涉及思源。", "expectedSkill": null, "reason": "标准 Markdown 不应触发思源专用排版指南。" },
     { "id": "browse-tree", "prompt": "列出工作日志笔记本前三层目录并读取指定子文档。", "expectedSkill": "siyuan-mcp-browse-read", "reason": "路径树和文档读取属于浏览读取。" },
-    { "id": "export-markdown", "prompt": "把这个思源文档导出为 Markdown，并列出生成的资源文件。", "expectedSkill": "siyuan-mcp-file-export", "reason": "文档导出和资源处理属于文件工作流。" },
+    { "id": "export-markdown", "prompt": "把这个思源文档导出为 Markdown，并列出生成的资源文件。", "expectedSkill": null, "reason": "文档导出和资源处理动作已不再通过当前 MCP 工具面暴露。" },
     { "id": "timeline-diff", "prompt": "比较这个思源文档最近两个时间线节点，但先不要回滚。", "expectedSkill": "siyuan-mcp-timeline", "reason": "快照比较属于时间线工作流。" },
     { "id": "permissions", "prompt": "检查当前思源笔记本权限和 MCP 连接状态，不执行任何修改。", "expectedSkill": "siyuan-mcp-system-safety", "reason": "权限与连接诊断属于系统安全。" }
   ]

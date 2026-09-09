@@ -48,9 +48,6 @@ export default defineConfig({
               items: [
                 { text: 'Architecture Home', link: '/architecture/' },
                 { text: 'Overview', link: '/architecture/overview' },
-                { text: 'Modules', link: '/architecture/modules' },
-                { text: 'Data Flow', link: '/architecture/data-flow' },
-                { text: 'Design Decisions', link: '/architecture/design-decisions' },
                 { text: 'Extension Points', link: '/architecture/extension-points' },
               ],
             },
@@ -113,9 +110,6 @@ export default defineConfig({
               items: [
                 { text: '架构首页', link: '/zh/architecture/' },
                 { text: '总览', link: '/zh/architecture/overview' },
-                { text: '模块划分', link: '/zh/architecture/modules' },
-                { text: '数据流', link: '/zh/architecture/data-flow' },
-                { text: '设计决策', link: '/zh/architecture/design-decisions' },
                 { text: '扩展点', link: '/zh/architecture/extension-points' },
               ],
             },

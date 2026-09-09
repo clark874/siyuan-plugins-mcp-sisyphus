@@ -30,12 +30,6 @@ describe('write safety action policy', () => {
             mode: 'mutation', precondition: 'none',
         });
         expect(getActionSafetyPolicy('av', 'render')).toEqual({ mode: 'read' });
-        expect(getActionSafetyPolicy('file', 'create_template')).toMatchObject({
-            mode: 'mutation', precondition: 'none',
-        });
-        expect(getActionSafetyPolicy('file', 'create_template', { overwrite: true })).toMatchObject({
-            mode: 'mutation', precondition: 'state',
-        });
         expect(getActionSafetyPolicy('file', 'register_project_source')).toEqual({
             mode: 'mutation', precondition: 'state', validateOnly: true,
         });
@@ -51,10 +45,6 @@ describe('write safety action policy', () => {
         });
         expect(getActionSafetyPolicy('document', 'reorder')).toMatchObject({
             mode: 'mutation', precondition: 'structure',
-        });
-        expect(getActionSafetyPolicy('document', 'get_child_sort_mode')).toEqual({ mode: 'read' });
-        expect(getActionSafetyPolicy('document', 'set_child_sort_mode')).toMatchObject({
-            mode: 'mutation', precondition: 'state',
         });
         expect(getActionSafetyPolicy('extension', 'third_party_write')).toEqual({ mode: 'external' });
     });

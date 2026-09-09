@@ -2,11 +2,9 @@ import type { BlockAction } from '../../core/config';
 import { BLOCK_ACTION_HINTS, BLOCK_GUIDANCE } from '../../core/help';
 import {
     BlockActionSchema,
-    BlockAddToDailyNoteSchema,
     BlockAppendSchema,
     BlockBatchKramdownSchema,
     BlockBreadcrumbSchema,
-    BlockDeleteSchema,
     BlockDocsInfoSchema,
     BlockDomSchema,
     BlockGetAttrsSchema,
@@ -16,13 +14,10 @@ import {
     BlockInsertSchema,
     BlockMoveSchema,
     BlockPrependSchema,
-    BlockRecentUpdatedSchema,
     BlockReplaceSchema,
     BlockSetAttrsSchema,
-    BlockSetFoldStateSchema,
     BlockTransferReferencesSchema,
     BlockUpdateSchema,
-    BlockWordCountSchema,
 } from '../../core/types';
 import { defineTool } from '../internal/define-tool';
 import { createZodActionVariant, type ActionVariant } from '../internal/shared';
@@ -36,9 +31,7 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
     createZodActionVariant('append', BlockAppendSchema, 'Insert a block at the end of a parent.'),
     createZodActionVariant('update', BlockUpdateSchema, 'Update one or more blocks.'),
     createZodActionVariant('replace', BlockReplaceSchema, 'Apply exact old/new text replacement edits inside one block body and patch the original DOM.'),
-    createZodActionVariant('delete', BlockDeleteSchema, 'Delete a block by ID.'),
     createZodActionVariant('move', BlockMoveSchema, 'Move a block to a new position.'),
-    createZodActionVariant('set_fold_state', BlockSetFoldStateSchema, 'Set the fold state of a foldable block.'),
     createZodActionVariant('get_kramdown', BlockGetKramdownSchema, 'Get block content in kramdown format.'),
     createZodActionVariant('batch_kramdown', BlockBatchKramdownSchema, 'Get kramdown content for up to 20 blocks while preserving input order and per-item errors.'),
     createZodActionVariant('get_children', BlockGetChildrenSchema, 'Get child blocks of a parent with pagination support.'),
@@ -48,9 +41,6 @@ export const BLOCK_VARIANTS: ActionVariant<BlockAction>[] = [
     createZodActionVariant('info', BlockInfoSchema, 'Get block position and root document metadata.'),
     createZodActionVariant('breadcrumb', BlockBreadcrumbSchema, 'Get the breadcrumb path for a block.'),
     createZodActionVariant('dom', BlockDomSchema, 'Get rendered DOM for a block.'),
-    createZodActionVariant('recent_updated', BlockRecentUpdatedSchema, 'Get recently updated blocks.'),
-    createZodActionVariant('word_count', BlockWordCountSchema, 'Get word-count statistics for blocks.'),
-    createZodActionVariant('add_to_daily_note', BlockAddToDailyNoteSchema, 'Add a block to today\'s daily note, creating the note if needed.'),
     createZodActionVariant('docs_info', BlockDocsInfoSchema, 'Get document info for one or more documents.'),
 ];
 

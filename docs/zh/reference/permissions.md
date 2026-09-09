@@ -21,7 +21,7 @@
 说明：
 
 - 未显式配置的笔记本默认是 `r`（只读）
-- 通过 `notebook(action="set_permission")` 管理权限
+- 通过插件设置页或文件树徽标管理权限
 - 修改后会立即影响后续调用
 
 ## 文件树状态显示
@@ -32,24 +32,16 @@
 
 ## 高危操作
 
-以下操作必须获得用户明确确认：
+以下当前仍暴露的删除或结构变更动作必须获得用户明确确认：
 
-- `notebook.remove`
-- `notebook.set_permission`
-- `document.remove`
+- `fs.rm`
+- `fs.mv`
 - `document.move`
-- `block.delete`
 - `block.move`
-- `file.upload_asset`
-- `file.remove_unused_assets`
-- `file.delete_asset`
+- `av.remove_rows`
+- `av.remove_column`
 - `search.find_replace`
-- `system.workspace_info`
-- `system.perform_sync`
+- `search.criteria_remove`
 - `tag.remove`
-- `flashcard.remove_card`
 
-补充说明：
-
-- `file.upload_asset` 对大文件还需要额外确认
-- `file.export_resources` 如果带本地 `outputPath`，在操作上也应按高风险处理
+`file` 类别现在只管理已登记的项目来源文本，不再上传、导出或删除思源资源文件。

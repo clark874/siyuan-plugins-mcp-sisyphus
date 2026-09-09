@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "packageVersion": "0.9.16",
+  "packageVersion": "0.9.17",
   "distribution": {
-    "startHere": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.9.16/agent-kit/START-HERE.md",
-    "archive": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.9.16/siyuan-agent-kit.zip",
-    "stableChannel": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/release-channel.json"
+    "startHere": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.9.17/agent-kit/START-HERE.md",
+    "archive": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.9.17/siyuan-agent-kit.zip",
+    "stableChannel": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/main/release-channel.json"
   },
   "externalGateway": {
     "name": "siyuan",
@@ -24,7 +24,7 @@
   "firstCall": {
     "tool": "system",
     "action": "bootstrap",
-    "expectedSchemaVersion": 2
+    "expectedSchemaVersion": 3
   },
   "installers": {
     "kimiCode": "node scripts/install-agent-kit.mjs --client kimi",

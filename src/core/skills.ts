@@ -13,8 +13,7 @@ import knowledgeGovernanceSkill from '../../skills/siyuan-mcp/siyuan-mcp-knowled
 import crossProjectRelationClosureSkill from '../../skills/siyuan-mcp/siyuan-mcp-cross-project-relation-closure/SKILL.md?raw';
 import searchQuerySkill from '../../skills/siyuan-mcp/siyuan-mcp-search-query/SKILL.md?raw';
 import databaseSkill from '../../skills/siyuan-mcp/siyuan-mcp-database/SKILL.md?raw';
-import fileExportSkill from '../../skills/siyuan-mcp/siyuan-mcp-file-export/SKILL.md?raw';
-import tagFlashcardSkill from '../../skills/siyuan-mcp/siyuan-mcp-tag-flashcard/SKILL.md?raw';
+import projectSourceSkill from '../../skills/siyuan-mcp/siyuan-mcp-project-source/SKILL.md?raw';
 import timelineSkill from '../../skills/siyuan-mcp/siyuan-mcp-timeline/SKILL.md?raw';
 import systemSafetySkill from '../../skills/siyuan-mcp/siyuan-mcp-system-safety/SKILL.md?raw';
 import markupGuideSkill from '../../skills/siyuan-mcp/siyuan-mcp-markup-guide/SKILL.md?raw';
@@ -95,8 +94,7 @@ export const MCP_SKILLS: readonly McpSkillDefinition[] = [
     createMcpSkill(crossProjectRelationClosureSkill),
     createMcpSkill(searchQuerySkill),
     createMcpSkill(databaseSkill),
-    createMcpSkill(fileExportSkill),
-    createMcpSkill(tagFlashcardSkill),
+    createMcpSkill(projectSourceSkill),
     createMcpSkill(timelineSkill),
     createMcpSkill(systemSafetySkill),
     createMcpSkill(markupGuideSkill),

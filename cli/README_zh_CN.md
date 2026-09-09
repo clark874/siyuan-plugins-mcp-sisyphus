@@ -4,11 +4,11 @@
 
 > ⚠️ **前置要求：本 CLI 需要配合本仓库的 `siyuan-plugins-mcp-sisyphus` 插件使用。** 请先在 SiYuan 中安装并启用该插件，然后打开插件设置面板完成权限配置后再执行 CLI 工具命令。CLI 现在会主动检查这一前置条件；如果插件未安装或尚未初始化，会直接提示并退出。
 
-这是一个用于直接通过命令行操作 [SiYuan Note](https://b3log.org/siyuan) 的 CLI。你可以把它理解成思源版的 `obsidian-cli`：每个 MCP 工具（`fs`、`block`、`document`、`notebook`、`av`、`search`、`provenance`、`tag`、`file`、`timeline`、`system`、`flashcard`、`extension`、`mascot`、`feedback`）都会暴露成可在 shell 中直接调用的子命令。
+这是一个用于直接通过命令行操作 [SiYuan Note](https://b3log.org/siyuan) 的 CLI。13 个 MCP 聚合工具（`fs`、`notebook`、`document`、`block`、`av`、`file`、`project`、`search`、`provenance`、`tag`、`timeline`、`system`、`extension`）都会暴露成可在 shell 中直接调用的子命令。
 
-> **LLM Wiki 版本：** `v0.4.16` 与插件 `v0.9.16` 的思源 `v3.8.3` 兼容发布同步。
+> **LLM Wiki 版本：** `v0.4.17` 与插件 `v0.9.17` 的 13 类、94 action 文本工作流发布同步。
 
-> **给 AI 模型和编码 Agent 的要求：** 在使用本 CLI 继续处理任何思源任务前，请先运行 `siyuan-sisyphus skill install`。随包 skills 会提供安全搜索、阅读、编辑、导出、数据库、标签、闪卡、时间线和系统操作等任务的专用规则。
+> **给 AI 模型和编码 Agent 的要求：** 在使用本 CLI 继续处理任何思源任务前，请先运行 `siyuan-sisyphus skill install`。随包 skills 会提供安全搜索、阅读、编辑、项目来源、数据库、标签、时间线、溯源和系统诊断等任务的专用规则。
 
 发布到 npm 的包名是 `siyuan-sisyphus`。安装后主命令为 `siyuan-sisyphus`，同时也提供更短的别名 `sisyphus`，避免与思源官方 CLI 冲突。
 

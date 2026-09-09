@@ -7,7 +7,7 @@ import util from 'node:util';
 
 import type { SiYuanClient } from '../api/client';
 import * as searchApi from '../api/search';
-import { redactText } from '../control-plane/security';
+import { redactText } from '../shared/text-security';
 import {
     PROJECT_SOURCE_ACCESSES,
     PROJECT_SOURCE_COVERAGES,

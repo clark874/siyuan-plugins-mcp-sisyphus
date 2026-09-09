@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FEEDBACK_ACTIONS, FILE_ACTIONS, FLASHCARD_ACTIONS, FS_ACTIONS, MASCOT_ACTIONS, NOTEBOOK_ACTIONS, PROJECT_ACTIONS, PROVENANCE_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS, TIMELINE_ACTIONS } from "./config";
+import { AV_ACTIONS, BLOCK_ACTIONS, DOCUMENT_ACTIONS, FILE_ACTIONS, FS_ACTIONS, NOTEBOOK_ACTIONS, PROJECT_ACTIONS, PROVENANCE_ACTIONS, SEARCH_ACTIONS, SYSTEM_ACTIONS, TAG_ACTIONS, TIMELINE_ACTIONS } from "./config";
 import type { NotebookConf } from "../types/shared";
 import { PROJECT_SOURCE_ACCESSES, PROJECT_SOURCE_COVERAGES, PROJECT_SOURCE_KINDS, PROJECT_SOURCE_ROLES, PROJECT_SOURCE_STATUSES } from "./project-source-contract";
 import { PROVENANCE_CAPTURE_METHODS, PROVENANCE_PROVIDERS } from "./provenance";
@@ -158,9 +158,6 @@ export const ProvenanceDiscoverSessionSchema = z.object({
     limit: z.number().int().min(1).max(50).optional(),
     activeWindowSeconds: z.number().int().min(1).max(3600).optional(),
 });
-export const FlashcardActionSchema = z.enum(FLASHCARD_ACTIONS);
-export const MascotActionSchema = z.enum(MASCOT_ACTIONS);
-export const FeedbackActionSchema = z.enum(FEEDBACK_ACTIONS);
 export const TimelineActionSchema = z.enum(TIMELINE_ACTIONS);
 
 export const FsLsSchema = z.object({
@@ -246,55 +243,14 @@ export const NotebookListSchema = z.object({
     action: z.literal("list"),
 });
 
-export const NotebookCreateSchema = z.object({
-    action: z.literal("create"),
-    name: z.string().describe("Notebook name"),
-    icon: z.string().optional().describe("Optional notebook icon. Prefer a Unicode hex code string such as '1f4d4' for 📔 instead of a raw emoji character."),
-});
-
-export const NotebookSetOpenStateSchema = z.object({
-    action: z.literal("set_open_state"),
-    notebook: z.string().describe("Notebook ID"),
-    opened: z.boolean().describe("true to open, false to close"),
-});
-
-export const NotebookRemoveSchema = z.object({
-    action: z.literal("remove"),
-    notebook: z.string().describe("Notebook ID"),
-});
-
-export const NotebookRenameSchema = z.object({
-    action: z.literal("rename"),
-    notebook: z.string().describe("Notebook ID"),
-    name: z.string().describe("New notebook name"),
-});
-
 export const NotebookGetConfSchema = z.object({
     action: z.literal("get_conf"),
     notebook: z.string().describe("Notebook ID"),
 });
 
-export const NotebookSetConfSchema = z.object({
-    action: z.literal("set_conf"),
-    notebook: z.string().describe("Notebook ID"),
-    conf: NotebookConfSchema.describe("Notebook configuration"),
-});
-
-export const NotebookSetIconSchema = z.object({
-    action: z.literal("set_icon"),
-    notebook: z.string().describe("Notebook ID"),
-    icon: z.string().describe("Icon value. Prefer a Unicode hex code string such as '1f4d4' for 📔; raw emoji characters may not render correctly. Custom icon paths are also supported."),
-});
-
 export const NotebookGetPermissionsSchema = z.object({
     action: z.literal("get_permissions"),
     notebook: z.string().optional().describe('Notebook ID, or "all" to return every notebook permission entry. Omit to return all notebooks.'),
-});
-
-export const NotebookSetPermissionSchema = z.object({
-    action: z.literal("set_permission"),
-    notebook: z.string().describe("Notebook ID"),
-    permission: z.enum(["none", "r", "rw", "rwd"]).describe('Permission level: "none" blocks all access, "r" allows read only, "rw" allows read and write without delete, "rwd" allows read, write, and delete'),
 });
 
 export const NotebookGetChildDocsSchema = z.object({
@@ -369,26 +325,6 @@ export const DocumentRenameSchema = z.object({
     title: z.string().describe("New document title"),
 }).and(DocumentPathReferenceSchema);
 
-export const DocumentRemoveSchema = z.object({
-    action: z.literal("remove"),
-    ids: z.array(z.string()).min(1).optional().describe("One or more document IDs to remove"),
-    paths: z.array(z.string()).min(1).optional().describe("One or more storage paths to remove in batch"),
-}).and(DocumentReferenceSchema).superRefine((value, ctx) => {
-    const modes = [
-        typeof value.id === "string",
-        typeof value.notebook === "string" || typeof value.path === "string",
-        Array.isArray(value.ids),
-        Array.isArray(value.paths),
-    ].filter(Boolean).length;
-    if (modes !== 1) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide exactly one removal mode: id, notebook + path, ids, or paths." });
-        return;
-    }
-    if ((value.notebook || value.path) && (!value.notebook || !value.path)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Both notebook and path are required for path-based remove." });
-    }
-});
-
 export const DocumentMoveSchema = z.object({
     action: z.literal("move"),
 }).and(DocumentMoveReferenceSchema);
@@ -397,20 +333,6 @@ export const DocumentReorderSchema = z.object({
     action: z.literal("reorder"),
     parentID: z.string().describe("Notebook ID or parent document ID"),
     orderedIDs: z.array(z.string()).min(1).describe("Complete ordered list of all visible direct child document IDs"),
-});
-
-export const DocumentGetChildSortModeSchema = z.object({
-    action: z.literal("get_child_sort_mode"),
-    id: z.string().describe("Parent document ID"),
-});
-
-export const DocumentSetChildSortModeSchema = z.object({
-    action: z.literal("set_child_sort_mode"),
-    id: z.string().describe("Parent document ID"),
-    sortMode: z.union([
-        z.number().int().min(0).max(14),
-        z.null(),
-    ]).describe("Child-document sort mode 0-14, or null to restore inheritance"),
 });
 
 export const DocumentGetChildBlocksSchema = z.object({
@@ -485,125 +407,6 @@ export const DocumentGetOutlineSchema = z.object({
     action: z.literal("get_outline"),
     id: z.string().describe("Document ID"),
     preview: z.boolean().optional().describe("Use SiYuan preview-mode outline semantics (default false)"),
-});
-
-export const DocumentCreateDailyNoteSchema = z.object({
-    action: z.literal("create_daily_note"),
-    notebook: z.string().describe("Notebook ID"),
-    app: z.string().optional().describe("Optional app identifier passed through to SiYuan"),
-});
-
-export const DocumentDuplicateSchema = z.object({
-    action: z.literal("duplicate"),
-    id: z.string().describe("Source document ID"),
-});
-
-export const DocumentHeadingToDocSchema = z.object({
-    action: z.literal("heading_to_doc"),
-    headingID: z.string().describe("Heading block ID to convert into a document"),
-    targetNotebook: z.string().describe("Target notebook ID"),
-    targetPath: z.string().optional().describe("Optional target storage path"),
-    previousPath: z.string().optional().describe("Optional previous sibling storage path"),
-});
-
-export const DocumentDocToHeadingSchema = z.object({
-    action: z.literal("doc_to_heading"),
-    srcID: z.string().describe("Source document ID"),
-    targetID: z.string().describe("Target document or heading block ID"),
-    after: z.boolean().optional().describe("When true, insert after the target heading instead of before it"),
-});
-
-export const MascotGetBalanceSchema = z.object({
-    action: z.literal("get_balance"),
-});
-
-export const MascotShopSchema = z.object({
-    action: z.literal("shop"),
-});
-
-export const MascotBuySchema = z.object({
-    action: z.literal("buy"),
-    item_id: z.string().describe("Stable shop item ID returned by mascot(action=\"shop\")"),
-});
-
-export const FeedbackSubmitSchema = z.object({
-    action: z.literal("submit"),
-    description: z.string().trim().min(1).max(4000).describe("Required feedback text. Prefer a GitHub Issue-style body for bugs, confusing behavior, or rough workflows, with headings such as ## Summary, ## What happened, ## Expected behavior, ## Steps or context, ## Impact, and ## Suggested fix."),
-    impact: z.string().trim().max(1000).optional().describe("Optional one- or two-sentence impact summary, such as affected workflow, error risk, confusion, or inconvenience."),
-    suggestion: z.string().trim().max(1000).optional().describe("Optional direct improvement suggestion; keep it focused and avoid repeating the full description."),
-    agent: z.string().trim().max(200).optional().describe("Optional Agent product and model name, such as Claude Desktop / Claude Sonnet 4.5. Defaults to 无."),
-    source: z.string().trim().max(100).optional().describe("Internal source label. Defaults to the current runtime transport."),
-});
-
-const FlashcardScopeSchema = z.enum(["all", "deck", "notebook", "tree"]);
-const FlashcardFilterSchema = z.enum(["due", "new", "old"]);
-
-export const FlashcardListCardsSchema = z.object({
-    action: z.literal("list_cards"),
-    scope: FlashcardScopeSchema.describe('Query scope: "all", "deck", "notebook", or "tree"'),
-    filter: FlashcardFilterSchema.describe('Filter returned cards: "due", "new", or "old"'),
-    deckID: z.string().optional().describe('Deck ID, required when scope=deck. For scope="all", omit deckID; an empty string is treated as omitted.'),
-    notebook: z.string().optional().describe("Notebook ID, required when scope=notebook"),
-    rootID: z.string().optional().describe("Root document/block ID, required when scope=tree"),
-    reviewedCards: z.array(z.object({
-        cardID: z.string().describe("Reviewed card ID"),
-    }).passthrough()).optional().describe("Optional already-reviewed cards; SiYuan reads reviewedCards[].cardID"),
-}).superRefine((value, ctx) => {
-    const hasDeck = typeof value.deckID === "string" && value.deckID.length > 0;
-    const hasNotebook = typeof value.notebook === "string";
-    const hasRoot = typeof value.rootID === "string";
-
-    if (value.scope === "all" && (hasDeck || hasNotebook || hasRoot)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'scope="all" does not accept deckID, notebook, or rootID.' });
-    }
-    if (value.scope === "deck" && !hasDeck) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["deckID"], message: 'deckID is required when scope="deck".' });
-    }
-    if (value.scope === "notebook" && !hasNotebook) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["notebook"], message: 'notebook is required when scope="notebook".' });
-    }
-    if (value.scope === "tree" && !hasRoot) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["rootID"], message: 'rootID is required when scope="tree".' });
-    }
-});
-
-export const FlashcardGetDecksSchema = z.object({
-    action: z.literal("get_decks"),
-});
-
-export const FlashcardReviewCardSchema = z.object({
-    action: z.literal("review_card"),
-    deckID: z.string().describe("Deck ID"),
-    cardID: z.string().describe("Card ID"),
-    rating: z.number().optional().describe("Review rating passed through to the kernel"),
-    skip: z.boolean().optional().describe("When true, skip the current card instead of submitting a rating"),
-    reviewedCards: z.array(z.object({
-        cardID: z.string().describe("Reviewed card ID"),
-    }).passthrough()).optional().describe("Optional already-reviewed cards; SiYuan reads reviewedCards[].cardID"),
-}).superRefine((value, ctx) => {
-    if (value.skip !== true && value.rating === undefined) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "rating is required unless skip=true.", path: ["rating"] });
-    }
-});
-
-export const FlashcardCreateCardSchema = z.object({
-    action: z.literal("create_card"),
-    deckID: z.string().describe("Deck ID"),
-    blockIDs: z.array(z.string()).min(1).describe("Existing block IDs to turn into flashcards"),
-    mode: z.enum(["full", "attach"]).optional().describe('Compatibility option. SiYuan addRiffCards writes deck attrs and registers cards in both modes.'),
-});
-
-export const FlashcardRemoveCardSchema = z.object({
-    action: z.literal("remove_card"),
-    deckID: z.string().describe("Deck ID"),
-    blockIDs: z.array(z.string()).min(1).describe("Existing block IDs to remove from flashcards"),
-});
-
-export const FlashcardGetCardsSchema = z.object({
-    action: z.literal("get_cards"),
-    deckID: z.string().describe("Deck ID (use empty string to query across all decks)"),
-    page: z.number().int().min(1).optional().describe("Page number (1-based), default 1"),
-    pageSize: z.number().int().min(1).max(512).optional().describe("Cards per page, default 32"),
 });
 
 export const BlockInsertSchema = z.object({
@@ -681,11 +484,6 @@ export const BlockReplaceSchema = z.object({
     ]).describe("One replacement edit or an array of edits to apply sequentially within the same block kramdown"),
 });
 
-export const BlockDeleteSchema = z.object({
-    action: z.literal("delete"),
-    id: z.string().describe("Block ID"),
-});
-
 export const BlockMoveSchema = z.object({
     action: z.literal("move"),
     id: z.string().optional().describe("Single block ID"),
@@ -707,12 +505,6 @@ export const BlockMoveSchema = z.object({
             path: ["previousID"],
         });
     }
-});
-
-export const BlockSetFoldStateSchema = z.object({
-    action: z.literal("set_fold_state"),
-    id: z.string().describe("Foldable block ID"),
-    folded: z.boolean().describe("true to fold, false to unfold"),
 });
 
 export const BlockGetKramdownSchema = z.object({
@@ -787,24 +579,6 @@ export const BlockBreadcrumbSchema = z.object({
 export const BlockDomSchema = z.object({
     action: z.literal("dom"),
     id: z.string().describe("Block ID"),
-});
-
-export const BlockRecentUpdatedSchema = z.object({
-    action: z.literal("recent_updated"),
-    count: z.number().optional().describe("Maximum number of recent readable blocks to return after permission filtering"),
-});
-
-export const BlockWordCountSchema = z.object({
-    action: z.literal("word_count"),
-    ids: z.array(z.string()).describe("One or more block IDs"),
-});
-
-export const BlockAddToDailyNoteSchema = z.object({
-    action: z.literal("add_to_daily_note"),
-    notebook: z.string().describe("Notebook ID"),
-    dataType: z.enum(["markdown", "dom"]).describe("Data format"),
-    data: z.string().describe("Block content"),
-    position: z.enum(["append", "prepend"]).describe("Where to add content in today's daily note"),
 });
 
 export const BlockDocsInfoSchema = z.object({
@@ -1036,13 +810,6 @@ export const AvGetPrimaryKeyValuesSchema = z.object({
     pageSize: z.number().int().min(1).optional().describe("Rows per page, default all"),
 });
 
-export const FileUploadAssetSchema = z.object({
-    action: z.literal("upload_asset"),
-    assetsDirPath: z.string().describe("Asset directory path (e.g., /assets/)"),
-    localFilePath: z.string().describe("Local file path to read and upload into the assets directory"),
-    confirmLargeFile: z.boolean().optional().describe("Set to true only after the user explicitly confirms uploading a file larger than the configured safety threshold."),
-});
-
 const ProjectCoreFileSchema = z.object({
     relativePath: z.string().min(1).describe("Project-relative core file path. Absolute paths and parent traversal are rejected."),
     role: z.enum(PROJECT_SOURCE_ROLES).describe("Core file role: source, data, output, manuscript, evidence, or config."),
@@ -1103,110 +870,10 @@ export const FileListProjectSourcesSchema = z.object({
     pageSize: z.number().int().min(1).max(100).optional().describe("Projects per page, default 20."),
 });
 
-export const FileListTemplatesSchema = z.object({
-    action: z.literal("list_templates"),
-    query: z.string().optional().describe("Optional keyword used by SiYuan's template picker. Omit or pass an empty string to list all templates."),
-    page: z.number().int().min(1).optional().describe("Page number (1-based), default 1"),
-    pageSize: z.number().int().min(1).max(128).optional().describe("Templates per page, default 20"),
-});
-
-export const FileReadTemplateSchema = z.object({
-    action: z.literal("read_template"),
-    path: z.string().describe("Template path returned by list_templates, /data/templates/... path, /templates/... static path, or path relative to data/templates"),
-    offset: z.number().int().min(0).optional().describe("Character offset for partial template source reading, default 0"),
-    limit: z.number().int().min(1).max(20000).optional().describe("Maximum characters to return, default 8000"),
-});
-
-export const FileCreateTemplateSchema = z.object({
-    action: z.literal("create_template"),
-    path: z.string().describe("Template path to create under data/templates. Accepts relative paths such as reports/monthly.md."),
-    markdown: z.string().describe("Full Markdown template source to write."),
-    overwrite: z.boolean().optional().describe("When true, replace an existing template at the same path. Defaults to false."),
-});
-
-export const FileUpdateTemplateSchema = z.object({
-    action: z.literal("update_template"),
-    path: z.string().describe("Existing template path returned by list_templates, /data/templates/... path, /templates/... static path, or path relative to data/templates."),
-    markdown: z.string().describe("Full Markdown template source to replace the existing template with."),
-});
-
-export const FileDeleteTemplateSchema = z.object({
-    action: z.literal("delete_template"),
-    path: z.string().describe("Existing template path returned by list_templates, /data/templates/... path, /templates/... static path, or path relative to data/templates."),
-});
-
-export const FileSaveDocAsTemplateSchema = z.object({
-    action: z.literal("save_doc_as_template"),
-    id: z.string().describe("Document ID to save as a root-level template."),
-    name: z.string().describe("Root template name. Slashes are not supported; .md suffix is optional."),
-    overwrite: z.boolean().optional().describe("When true, replace an existing template with the same root name. Defaults to false."),
-});
-
-export const FileRenderSchema = z.object({
-    action: z.literal("render"),
-    engine: z.enum(["template", "sprig"]).describe("Template engine to use"),
-    id: z.string().optional().describe("Document ID for template context"),
-    path: z.string().optional().describe("Template file path inside the SiYuan workspace"),
-    template: z.string().optional().describe("Sprig template content"),
-    preview: z.boolean().optional().describe("When engine=\"template\", ask SiYuan to render preview DOM instead of insertion DOM."),
-}).superRefine((value, ctx) => {
-    if (value.engine === "template") {
-        if (!value.id) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "id is required when engine=\"template\".", path: ["id"] });
-        if (!value.path) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "path is required when engine=\"template\".", path: ["path"] });
-    }
-    if (value.engine === "sprig" && !value.template) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "template is required when engine=\"sprig\".", path: ["template"] });
-    }
-});
-
-export const FileExportMdSchema = z.object({
-    action: z.literal("export_md"),
-    id: z.string().describe("Document ID to export"),
-});
-
-export const FileExportResourcesSchema = z.object({
-    action: z.literal("export_resources"),
-    paths: z.array(z.string()).describe("Paths to export"),
-    name: z.string().optional().describe("Export file name"),
-    outputPath: z.string().optional().describe("Optional local absolute or relative filesystem path to save the exported ZIP"),
-});
-
-export const FileListUnusedAssetsSchema = z.object({
-    action: z.literal("list_unused_assets"),
-});
-
-export const FileGetDocAssetsSchema = z.object({
-    action: z.literal("get_doc_assets"),
-    id: z.string().describe("Document ID"),
-    assetType: z.enum(['all', 'image']).optional().describe("Filter asset type: 'all' (default) returns all assets, 'image' returns only image assets."),
-});
-
-export const FileRemoveUnusedAssetsSchema = z.object({
-    action: z.literal("remove_unused_assets"),
-});
-
-export const FileRenameAssetSchema = z.object({
-    action: z.literal("rename_asset"),
-    oldPath: z.string().describe("Existing asset path"),
-    newName: z.string().describe("New asset file name"),
-});
-
-export const FileDeleteAssetSchema = z.object({
-    action: z.literal("delete_asset"),
-    path: z.string().describe("Asset path to delete"),
-});
-
-export const FileExtractDocSchema = z.object({
-    action: z.literal("extract_doc"),
-    id: z.string().describe("Document ID to extract"),
-    outputDir: z.string().optional().describe("Output root directory. Defaults to ~/siyuan-extracted/ (resolved to absolute path)."),
-});
-
 export const SearchActionSchema = z.enum(SEARCH_ACTIONS);
 
 const SearchMethodNameSchema = z.enum(["keyword", "query", "query_syntax", "sql", "regex"]);
 const SearchSortNameSchema = z.enum(["relevance", "date", "updated_desc", "updated_asc", "created_desc", "created_asc", "type"]);
-const SearchAssetSortNameSchema = z.enum(["relevance", "relevance_desc", "relevance_asc", "updated_asc", "updated_desc"]);
 
 export const SearchFulltextSchema = z.object({
     action: z.literal("fulltext"),
@@ -1310,39 +977,6 @@ export const SearchFindReplaceSchema = z.object({
     replaceTypes: z.record(z.string(), z.boolean()).optional().describe("Replace target kinds such as text, code, docTitle, blockRef"),
 });
 
-export const SearchAssetsSchema = z.object({
-    action: z.literal("search_assets"),
-    k: z.string().optional().describe("Legacy asset filename keyword field"),
-    query: z.string().optional().describe("Semantic alias for k. Overrides k when both are provided."),
-    exts: z.array(z.string()).optional().describe("Optional extension filters"),
-}).superRefine((value, ctx) => {
-    if (!value.k && !value.query) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Provide k or query.",
-            path: ['k'],
-        });
-    }
-});
-
-export const SearchFulltextAssetContentSchema = z.object({
-    action: z.literal("fulltext_asset_content"),
-    query: z.string().optional().describe("Search query string"),
-    assetId: z.string().optional().describe("Asset content ID for an exact content lookup"),
-    queryMethod: z.number().optional().describe("Query method for assetId lookup: 0=keyword, 1=query syntax, 2=SQL, 3=regex"),
-    types: z.record(z.string(), z.boolean()).optional().describe("Asset type filter"),
-    method: z.number().optional().describe("Search method: 0=keyword, 1=query syntax, 2=SQL, 3=regex"),
-    methodName: SearchMethodNameSchema.optional().describe('Semantic alias for method: "keyword" | "query_syntax" | "sql" | "regex". The short alias "query" also maps to query syntax and overrides method when both are provided.'),
-    orderBy: z.number().optional().describe("Legacy numeric sort order: 0=relevance DESC, 1=relevance ASC, 2=updated ASC, 3=updated DESC"),
-    sortBy: SearchAssetSortNameSchema.optional().describe('Semantic sort alias: "relevance_desc", "relevance_asc", "updated_asc", or "updated_desc". The shorthand "relevance" maps to relevance_desc. Overrides orderBy if both are provided.'),
-    page: z.number().int().min(1).optional().describe("Page number (1-based)"),
-    pageSize: z.number().int().min(1).max(128).optional().describe("Results per page"),
-}).superRefine((value, ctx) => {
-    if (!value.query && !value.assetId) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide query or assetId.", path: ["query"] });
-    }
-});
-
 export const SearchListInvalidRefsSchema = z.object({
     action: z.literal("list_invalid_refs"),
     page: z.number().int().min(1).optional().describe("Page number (1-based)"),
@@ -1425,60 +1059,14 @@ export const TimelineCompareRecentSchema = z.object({
     pageSize: z.number().int().min(1).max(100).optional().describe("Blocks per page (default 20)"),
 });
 
-export const TimelineDeleteNodeSchema = z.object({
-    action: z.literal("delete_node"),
-    tag: z.string().min(1).describe("Timeline tag to remove"),
-    documentId: z.string().optional().describe("Required for document-scoped tags; omit for global tags"),
-});
-
-export const TimelineRollbackDocumentSchema = z.object({
-    action: z.literal("rollback_document"),
-    documentId: z.string().describe("Document ID to restore"),
-    tag: z.string().min(1).describe("Timeline tag identifying the historical node"),
-});
-
-export const TimelineRollbackBlockSchema = z.object({
-    action: z.literal("rollback_block"),
-    documentId: z.string().describe("Document ID containing the block change"),
-    tag: z.string().min(1).describe("Timeline tag identifying the historical node"),
-    changeKey: z.string().min(1).describe("Opaque changeKey returned by the latest compare_node call"),
-});
-
 export const SystemActionSchema = z.enum(SYSTEM_ACTIONS);
-
-export const SystemWorkspaceInfoSchema = z.object({
-    action: z.literal("workspace_info"),
-});
-
-export const SystemNetworkSchema = z.object({
-    action: z.literal("network"),
-});
-
-export const SystemConfSchema = z.object({
-    action: z.literal("conf"),
-    mode: z.enum(["summary", "get"]).optional().describe('Read mode: "summary" returns a navigable overview, "get" reads a specific key path'),
-    keyPath: z.string().optional().describe('Dot/bracket path to a specific config field, e.g. "conf.appearance.mode" or "conf.langs[0]"'),
-    maxDepth: z.number().int().min(0).max(5).optional().describe('Maximum object traversal depth for summary/get responses'),
-    maxItems: z.number().int().min(1).max(100).optional().describe('Maximum keys/items to include per level'),
-});
-
-export const SystemNotifySchema = z.object({
-    action: z.literal("notify"),
-    msg: z.string().describe("Message content"),
-    level: z.enum(["info", "error"]).describe("Notification level"),
-    timeout: z.number().optional().describe("Display timeout in milliseconds"),
-});
 
 export const SystemChangelogSchema = z.object({
     action: z.literal("changelog"),
-    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.4.16 or v0.4.16"),
+    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.9.17 or v0.9.17"),
     fromVersion: z.string().optional().describe("Previous plugin version; returns entries newer than this version"),
     limit: z.number().int().min(1).max(50).optional().describe("Maximum number of entries to return when version is omitted"),
     includeRaw: z.boolean().optional().describe("Include raw Markdown for each returned changelog entry"),
-});
-
-export const SystemPerformSyncSchema = z.object({
-    action: z.literal("perform_sync"),
 });
 
 export const SystemGetVersionSchema = z.object({
@@ -1505,150 +1093,4 @@ export const SystemValidateSourceAuditSchema = z.object({
     inventory: z.unknown().describe("Parsed inventory.json value from an external frozen source audit"),
     usageMap: z.unknown().describe("Parsed usage-map.json value from an external frozen source audit"),
     baselinesMarkdown: z.string().min(1).max(1_000_000).describe("Exact baselines.md text containing full Git commits and SHA-256 evidence"),
-});
-
-export const SystemListPackagesSchema = z.object({
-    action: z.literal("list_packages"),
-    kind: z.enum(["plugin", "widget", "theme", "icon", "template"]).describe("Installed package type to list"),
-    keyword: z.string().max(200).optional().describe("Optional package-name, display-name, author, or keyword filter"),
-    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
-    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
-    pageSize: z.number().int().min(1).max(100).optional().describe("Packages per page; defaults to 50"),
-});
-
-const SystemBazaarPackageKindSchema = z.enum(["plugin", "widget", "theme", "icon", "template"]);
-
-export const SystemSearchBazaarSchema = z.object({
-    action: z.literal("search_bazaar"),
-    kind: SystemBazaarPackageKindSchema.describe("Online bazaar package type"),
-    keyword: z.string().max(200).optional().describe("Optional package name, display name, author, description, or keyword query"),
-    installation: z.enum(["all", "installed", "not_installed"]).optional().describe("Installation-state filter; defaults to all"),
-    compatibility: z.enum(["all", "compatible", "incompatible"]).optional().describe("Current SiYuan compatibility filter; defaults to all"),
-    sortBy: z.enum(["downloads", "stars", "updated", "name"]).optional().describe("Sort field; defaults to downloads"),
-    sortOrder: z.enum(["asc", "desc"]).optional().describe("Sort direction; defaults to desc except name"),
-    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
-    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
-    pageSize: z.number().int().min(1).max(100).optional().describe("Bazaar packages per page; defaults to 20"),
-});
-
-export const SystemGetBazaarPackageSchema = z.object({
-    action: z.literal("get_bazaar_package"),
-    kind: SystemBazaarPackageKindSchema.describe("Online bazaar package type"),
-    packageName: z.string().trim().min(1).max(128).describe("Exact bazaar package name"),
-    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
-});
-
-export const SystemReadBazaarReadmeSchema = z.object({
-    action: z.literal("read_bazaar_readme"),
-    kind: SystemBazaarPackageKindSchema.describe("Online bazaar package type"),
-    packageName: z.string().trim().min(1).max(128).describe("Exact bazaar package name; repository coordinates are resolved server-side"),
-    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
-    maxChars: z.number().int().min(1).max(32000).optional().describe("Maximum returned plain-text characters; defaults to 12000"),
-});
-
-export const SystemGetPluginSchema = z.object({
-    action: z.literal("get_plugin"),
-    pluginName: z.string().trim().min(1).max(128).describe("Exact installed plugin package name"),
-    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
-});
-
-export const SystemListPluginUpdatesSchema = z.object({
-    action: z.literal("list_plugin_updates"),
-    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin compatibility checks; defaults to desktop"),
-    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
-    pageSize: z.number().int().min(1).max(100).optional().describe("Plugins per page; defaults to 50"),
-});
-
-export const SystemListSnippetsSchema = z.object({
-    action: z.literal("list_snippets"),
-    type: z.enum(["all", "js", "css"]).optional().describe("Snippet type; defaults to all"),
-    enabled: z.enum(["all", "enabled", "disabled"]).optional().describe("Enabled-state filter; defaults to all"),
-    keyword: z.string().max(200).optional().describe("Optional name or content keyword"),
-    snippetID: z.string().max(128).optional().describe("Optional exact snippet ID"),
-    includeContent: z.boolean().optional().describe("Return redacted, truncated content only when snippetID is provided"),
-    maxChars: z.number().int().min(1).max(32000).optional().describe("Maximum returned content characters; defaults to 12000"),
-    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
-    pageSize: z.number().int().min(1).max(100).optional().describe("Snippets per page; defaults to 50"),
-}).superRefine((value, ctx) => {
-    if (value.includeContent && !value.snippetID) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["snippetID"], message: "snippetID is required when includeContent=true." });
-    }
-});
-
-export const SystemListPluginStorageSchema = z.object({
-    action: z.literal("list_plugin_storage"),
-    pluginName: z.string().trim().min(1).max(128).describe("Exact installed plugin package name"),
-    path: z.string().max(512).optional().describe("Safe relative path inside the plugin storage root"),
-    recursive: z.boolean().optional().describe("Recursively list safe subdirectories; defaults to false"),
-    maxDepth: z.number().int().min(0).max(4).optional().describe("Maximum recursion depth; defaults to 2 when recursive"),
-    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin validation; defaults to desktop"),
-    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
-    pageSize: z.number().int().min(1).max(100).optional().describe("Entries per page; defaults to 50"),
-});
-
-export const SystemReadPluginStorageSchema = z.object({
-    action: z.literal("read_plugin_storage"),
-    pluginName: z.string().trim().min(1).max(128).describe("Exact installed plugin package name"),
-    path: z.string().min(1).max(512).describe("Safe relative text-file path inside the plugin storage root"),
-    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin validation; defaults to desktop"),
-    maxChars: z.number().int().min(1).max(32000).optional().describe("Maximum returned characters after redaction; defaults to 12000"),
-});
-
-export const SystemInspectPluginSchema = z.object({
-    action: z.literal("inspect_plugin"),
-    pluginName: z.string().trim().min(1).max(128).describe("Exact installed plugin package name"),
-    frontend: SystemFrontendSchema.optional().describe("SiYuan frontend used for plugin validation; defaults to desktop"),
-});
-
-const SystemSnippetChangeSchema = z.object({
-    id: z.string().trim().min(1).max(128).describe("Stable snippet ID"),
-    name: z.string().trim().min(1).max(256).describe("Snippet display name"),
-    type: z.enum(["js", "css"]).describe("Snippet type"),
-    enabled: z.boolean().describe("Whether the snippet is enabled"),
-    disabledInPublish: z.boolean().optional().default(false).describe("Disable the snippet in publish mode"),
-    content: z.string().max(131072).describe("Complete snippet content; credential-like content is rejected"),
-});
-
-export const SystemControlChangeRequestSchema = z.discriminatedUnion("kind", [
-    z.object({ kind: z.literal("plugin_state"), pluginName: z.string().trim().min(1).max(128), enabled: z.boolean(), frontend: SystemFrontendSchema.optional() }),
-    z.object({ kind: z.literal("snippet_upsert"), snippet: SystemSnippetChangeSchema }),
-    z.object({ kind: z.literal("snippet_remove"), snippetID: z.string().trim().min(1).max(128) }),
-    z.object({ kind: z.literal("plugin_storage_write"), pluginName: z.string().trim().min(1).max(128), path: z.string().min(1).max(512), content: z.string().max(131072), frontend: SystemFrontendSchema.optional() }),
-    z.object({ kind: z.literal("plugin_install"), packageName: z.string().trim().min(1).max(128), repoURL: z.string().url().max(512), repoHash: z.string().min(7).max(64), frontend: SystemFrontendSchema.optional() }),
-    z.object({ kind: z.literal("plugin_uninstall"), pluginName: z.string().trim().min(1).max(128), frontend: SystemFrontendSchema.optional() }),
-    z.object({ kind: z.literal("setting_patch"), section: z.enum(["editor", "export", "fileTree", "search", "keymap", "appearance", "flashcard", "snippet"]), patch: z.record(z.string(), z.unknown()) }),
-]);
-
-export const SystemPlanChangeSchema = z.object({
-    action: z.literal("plan_change"),
-    change: SystemControlChangeRequestSchema.describe("One reversible workspace-control operation"),
-    ttlMinutes: z.number().int().min(1).max(1440).optional().describe("Plan validity in minutes; defaults to 30"),
-});
-
-export const SystemApplyChangeSchema = z.object({
-    action: z.literal("apply_change"),
-    planID: z.string().uuid().describe("Plan ID returned by plan_change"),
-});
-
-export const SystemRollbackChangeSchema = z.object({
-    action: z.literal("rollback_change"),
-    changeID: z.string().uuid().describe("Applied change ID returned by apply_change"),
-});
-
-export const SystemDiscardChangePlanSchema = z.object({
-    action: z.literal("discard_change_plan"),
-    planID: z.string().uuid().describe("Unapplied plan ID to discard"),
-});
-
-export const SystemListControlChangesSchema = z.object({
-    action: z.literal("list_control_changes"),
-    kind: z.enum(["plan", "change", "all"]).optional().describe("Record kind; defaults to all"),
-    page: z.number().int().min(1).optional().describe("Result page, starting at 1"),
-    pageSize: z.number().int().min(1).max(100).optional().describe("Records per page; defaults to 50"),
-});
-
-export const SystemGetControlChangeSchema = z.object({
-    action: z.literal("get_control_change"),
-    kind: z.enum(["plan", "change"]).describe("Record kind"),
-    id: z.string().uuid().describe("Plan or change ID"),
 });

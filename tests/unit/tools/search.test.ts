@@ -217,7 +217,7 @@ describe('search tool filtering', () => {
         const actionDescription = tool.inputSchema.properties.action.description;
         expect(actionDescription).toContain('search_refs');
         expect(actionDescription).toContain('find_replace');
-        expect(actionDescription).toContain('search_assets');
+        expect(actionDescription).not.toContain('search_assets');
         expect(actionDescription).toContain('list_invalid_refs');
         expect(actionDescription).toContain('knowledge');
         expect(actionDescription).toContain('check_anchor');
@@ -819,31 +819,6 @@ describe('search tool filtering', () => {
         const parsed = parseResult(result);
         expect(parsed.data).toEqual([]);
         expect(parsed.total).toBe(0);
-    });
-
-    it('calls search asset endpoint', async () => {
-        const client = createMockClient({
-            request: async (endpoint: string, body: unknown) => {
-                expect(endpoint).toBe('/api/search/searchAsset');
-                expect(body).toMatchObject({ k: 'diagram', exts: ['png'] });
-                return [{ path: 'assets/diagram.png' }];
-            },
-        });
-        const permMgr = {
-            reload: async () => undefined,
-            canWrite: () => true,
-            canRead: () => true,
-            canDelete: () => true,
-            get: () => 'rwd',
-        };
-
-        const result = await callSearchTool(client, {
-            action: 'search_assets',
-            k: 'diagram',
-            exts: ['png'],
-        }, buildDefaultToolConfig().search, permMgr as never);
-
-        expect(parseResult(result)).toEqual([{ path: 'assets/diagram.png' }]);
     });
 
     it('maps search_refs keyword alias to k while still requiring id', async () => {

@@ -1,0 +1,4 @@
+interface:
+  display_name: "SiYuan Project Source CLI"
+  short_description: "登记并受控读取项目源文本"
+  default_prompt: "使用 $siyuan-sisyphus-project-source 安全登记、扫描或读取思源项目源。"

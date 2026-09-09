@@ -5,21 +5,14 @@ import {
     TimelineCompareNodeSchema,
     TimelineCompareRecentSchema,
     TimelineCreateNodeSchema,
-    TimelineDeleteNodeSchema,
     TimelineListNodesSchema,
-    TimelineRollbackBlockSchema,
-    TimelineRollbackDocumentSchema,
 } from '../../core/types';
 import {
     compareTimelineNode,
     createTimelineNode,
-    deleteTimelineNode,
     listTimelineNodes,
-    rollbackTimelineBlock,
-    rollbackTimelineDocument,
 } from '../../shared/timeline-service';
 import { compareRecentDocumentHistory } from '../../shared/recent-history-service';
-import { isGlobalTimelineTag } from '../../ui/version-control/timeline';
 import { ensurePermissionForDocumentId } from '../internal/context';
 import { defineTool } from '../internal/define-tool';
 import { createJsonResult, createZodActionVariant, type ActionVariant } from '../internal/shared';
@@ -32,14 +25,11 @@ export const TIMELINE_VARIANTS: ActionVariant<TimelineAction>[] = [
     createZodActionVariant('create_node', TimelineCreateNodeSchema, 'Create a named global or document timeline node.'),
     createZodActionVariant('compare_node', TimelineCompareNodeSchema, 'Compare one document with a timeline node.'),
     createZodActionVariant('compare_recent', TimelineCompareRecentSchema, 'Compare one document with its newest different native history checkpoint.'),
-    createZodActionVariant('delete_node', TimelineDeleteNodeSchema, 'Delete a timeline node tag while retaining its snapshot.'),
-    createZodActionVariant('rollback_document', TimelineRollbackDocumentSchema, 'Restore one document file from a timeline node.'),
-    createZodActionVariant('rollback_block', TimelineRollbackBlockSchema, 'Restore one changed block from a timeline node.'),
 ];
 
 const timelineTool = defineTool<TimelineAction>({
     name: TIMELINE_TOOL_NAME,
-    description: '🕓 Grouped document timeline, snapshot diff, and rollback operations.',
+    description: '🕓 Grouped document timeline and snapshot comparison operations.',
     variants: TIMELINE_VARIANTS,
     actionSchema: TimelineActionSchema,
     aggregateOptions: {
@@ -79,40 +69,6 @@ const timelineTool = defineTool<TimelineAction>({
             const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.documentId, 'read');
             if (denied) return denied;
             return createJsonResult(await compareRecentDocumentHistory(client, parsed));
-        },
-        delete_node: async ({ client, permMgr, rawArgs }) => {
-            const parsed = TimelineDeleteNodeSchema.parse(rawArgs);
-            if (!isGlobalTimelineTag(parsed.tag)) {
-                if (!parsed.documentId) throw new Error('documentId is required for document-scoped timeline tags.');
-                const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.documentId, 'delete');
-                if (denied) return denied;
-                return applyUiRefresh(
-                    client,
-                    createJsonResult(await deleteTimelineNode(client, parsed)),
-                    [{ type: 'reloadProtyle', id: context.documentId }],
-                );
-            }
-            return createJsonResult(await deleteTimelineNode(client, parsed));
-        },
-        rollback_document: async ({ client, permMgr, rawArgs }) => {
-            const parsed = TimelineRollbackDocumentSchema.parse(rawArgs);
-            const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.documentId, 'delete');
-            if (denied) return denied;
-            return applyUiRefresh(
-                client,
-                createJsonResult(await rollbackTimelineDocument(client, parsed)),
-                [{ type: 'reloadProtyle', id: context.documentId }],
-            );
-        },
-        rollback_block: async ({ client, permMgr, rawArgs }) => {
-            const parsed = TimelineRollbackBlockSchema.parse(rawArgs);
-            const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.documentId, 'delete');
-            if (denied) return denied;
-            return applyUiRefresh(
-                client,
-                createJsonResult(await rollbackTimelineBlock(client, parsed)),
-                [{ type: 'reloadProtyle', id: context.documentId }],
-            );
         },
     },
 });

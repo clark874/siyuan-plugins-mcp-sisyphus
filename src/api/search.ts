@@ -104,37 +104,6 @@ export async function findReplace(
     return client.requestWrite<null>('/api/search/findReplace', params);
 }
 
-export async function searchAsset(
-    client: SiYuanClient,
-    k: string,
-    exts?: string[],
-): Promise<unknown> {
-    return client.requestRead('/api/search/searchAsset', { k, exts });
-}
-
-export async function getAssetContent(
-    client: SiYuanClient,
-    id: string,
-    query: string,
-    queryMethod = 0,
-): Promise<unknown> {
-    return client.requestRead('/api/search/getAssetContent', { id, query, queryMethod });
-}
-
-export async function fullTextSearchAssetContent(
-    client: SiYuanClient,
-    params: {
-        query: string;
-        types?: Record<string, boolean>;
-        method?: number;
-        orderBy?: number;
-        page?: number;
-        pageSize?: number;
-    },
-): Promise<unknown> {
-    return client.requestRead('/api/search/fullTextSearchAssetContent', params);
-}
-
 export async function listInvalidBlockRefs(
     client: SiYuanClient,
     page?: number,

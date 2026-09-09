@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { callAvTool } from '@/tools/av';
 import { callBlockTool } from '@/tools/block';
 import { callDocumentTool } from '@/tools/document';
-import { callNotebookTool } from '@/tools/notebook';
 import { callTagTool } from '@/tools/tag';
 
 
@@ -40,11 +39,6 @@ vi.mock('@/api/block', () => ({
 
 vi.mock('@/api/document', () => ({
     createDoc: vi.fn(),
-}));
-
-vi.mock('@/api/notebook', () => ({
-    createNotebook: vi.fn(),
-    setNotebookIcon: vi.fn(),
 }));
 
 vi.mock('@/api/tag', () => ({
@@ -106,14 +100,6 @@ describe('UI refresh integration', () => {
         },
     } as const;
 
-    const notebookConfig = {
-        enabled: true,
-        actions: {
-            create: true,
-            set_icon: true,
-        },
-    } as const;
-
     const tagConfig = {
         enabled: true,
         actions: {
@@ -134,7 +120,6 @@ describe('UI refresh integration', () => {
         client.request = vi.fn(async () => null);
         const blockApi = await import('@/api/block');
         const documentApi = await import('@/api/document');
-        const notebookApi = await import('@/api/notebook');
         const tagApi = await import('@/api/tag');
         const avApi = await import('@/api/av');
         const transactionApi = await import('@/api/transaction');
@@ -146,8 +131,6 @@ describe('UI refresh integration', () => {
         vi.mocked(blockApi.getBlockAttrs).mockReset();
         vi.mocked(blockApi.checkBlockExist).mockReset();
         vi.mocked(documentApi.createDoc).mockReset();
-        vi.mocked(notebookApi.createNotebook).mockReset();
-        vi.mocked(notebookApi.setNotebookIcon).mockReset();
         vi.mocked(tagApi.renameTag).mockReset();
         vi.mocked(avApi.getAttributeView).mockReset();
         vi.mocked(avApi.addAttributeViewBlocks).mockReset();
@@ -162,8 +145,6 @@ describe('UI refresh integration', () => {
         vi.mocked(blockApi.updateBlock).mockResolvedValue({ updated: '20260408010101' } as never);
         vi.mocked(blockApi.getBlockAttrs).mockResolvedValue({});
         vi.mocked(documentApi.createDoc).mockResolvedValue('doc-new');
-        vi.mocked(notebookApi.createNotebook).mockResolvedValue({ notebook: { id: 'nb-new', name: 'New Notebook' } } as never);
-        vi.mocked(notebookApi.setNotebookIcon).mockResolvedValue(null as never);
         vi.mocked(tagApi.renameTag).mockResolvedValue(null);
         vi.mocked(avApi.addAttributeViewBlocks).mockResolvedValue(null);
         vi.mocked(avApi.addAttributeViewKey).mockResolvedValue(null);
@@ -305,41 +286,6 @@ describe('UI refresh integration', () => {
             markdown: '# Test',
             icon: '1f4d4',
         }, documentConfig as never, permMgr);
-
-        const parsed = parseResult(result);
-        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
-        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadIcon', {});
-    });
-
-    it('reloads filetree after notebook create', async () => {
-        const result = await callNotebookTool(client, {
-            action: 'create',
-            name: 'New Notebook',
-        }, notebookConfig as never, permMgr);
-
-        const parsed = parseResult(result);
-        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadFiletree' }]);
-        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
-    });
-
-    it('reloads icon UI after notebook create with icon', async () => {
-        const result = await callNotebookTool(client, {
-            action: 'create',
-            name: 'New Notebook',
-            icon: '1f4d4',
-        }, notebookConfig as never, permMgr);
-
-        const parsed = parseResult(result);
-        expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);
-        expect(client.request).toHaveBeenCalledWith('/api/ui/reloadIcon', {});
-    });
-
-    it('reloads icon UI after notebook set_icon', async () => {
-        const result = await callNotebookTool(client, {
-            action: 'set_icon',
-            notebook: 'nb-1',
-            icon: '1f4d4',
-        }, notebookConfig as never, permMgr);
 
         const parsed = parseResult(result);
         expect(parsed.uiRefresh.operations).toEqual([{ type: 'reloadIcon' }]);

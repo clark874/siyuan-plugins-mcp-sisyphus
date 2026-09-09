@@ -268,7 +268,7 @@ describe('cli/flag-mapper', () => {
         expect(warnings).toEqual([]);
     });
 
-    it('maps avID and single block id aliases to canonical fields', () => {
+    it('maps avID to the canonical render field', () => {
         const avSchema = {
             type: 'object',
             properties: {
@@ -276,17 +276,7 @@ describe('cli/flag-mapper', () => {
                 id: { type: 'string' },
             },
         };
-        const blockSchema = {
-            type: 'object',
-            properties: {
-                action: { type: 'string' },
-                ids: { type: 'array', items: { type: 'string' } },
-            },
-        };
-
         expect(mapFlagsToArgs(['--av-id', 'av-1'], avSchema, { category: 'av', action: 'render' }).args)
             .toEqual({ id: 'av-1' });
-        expect(mapFlagsToArgs(['--id', 'block-1'], blockSchema, { category: 'block', action: 'word_count' }).args)
-            .toEqual({ ids: ['block-1'] });
     });
 });

@@ -19,7 +19,7 @@ import { promisify } from 'node:util';
 
 const executeFile = promisify(execFile);
 const PLUGIN_NAME = 'siyuan-plugins-mcp-sisyphus';
-const DEFAULT_CHANNEL_URL = 'https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/codex/local-maintenance/release-channel.json';
+const DEFAULT_CHANNEL_URL = 'https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/main/release-channel.json';
 const MAX_ARCHIVE_BYTES = 128 * 1024 * 1024;
 const MAX_ENTRY_COUNT = 10_000;
 const MAX_UNCOMPRESSED_BYTES = 512 * 1024 * 1024;

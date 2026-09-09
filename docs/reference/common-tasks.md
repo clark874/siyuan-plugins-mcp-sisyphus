@@ -111,7 +111,7 @@ siyuan search fulltext --query "TODO"
 siyuan av get --id <attribute-view-id>
 ```
 
-## Compare and restore a document timeline
+## Compare a document timeline
 
 Use the `timeline` tool to list existing nodes and create a named document baseline:
 
@@ -147,25 +147,13 @@ Keep the returned `tag`. After editing the document, compare it with that node:
 }
 ```
 
-Before `rollback_document`, `rollback_block`, or `delete_node`, identify the exact document and node, explain the consequence, and obtain explicit user approval. For a reversible test, first create a protection node for the current state. After approval, a whole-document rollback uses:
-
-```json
-{
-  "action": "rollback_document",
-  "documentId": "<doc-id>",
-  "tag": "<timeline-tag>"
-}
-```
-
-Then read the document again to verify the result. `rollback_block` instead requires a fresh opaque `changeKey` from the latest `compare_node` response. `delete_node` removes the protective tag but retains the underlying snapshot.
+The current MCP and CLI timeline surface is intentionally read-and-compare oriented: it supports `list_nodes`, `create_node`, `compare_node`, and `compare_recent`. Rollback and timeline-node deletion are not exposed.
 
 CLI equivalents:
 
 ```bash
 siyuan-sisyphus timeline create-node --name "Before revision" --scope document --document-id <doc-id> --json
 siyuan-sisyphus timeline compare-node --document-id <doc-id> --tag <timeline-tag> --page-size 20 --json
-# Run only after explicit approval:
-siyuan-sisyphus timeline rollback-document --document-id <doc-id> --tag <timeline-tag> --json
 ```
 
 ## Duplicate document names

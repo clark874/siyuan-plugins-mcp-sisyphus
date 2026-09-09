@@ -10,13 +10,11 @@ import "./index.scss";
 import {
     buildDefaultHttpServerSettings,
     buildDefaultPermissionDisplaySettings,
-    buildDefaultPuppySettings,
     buildDefaultVersionControlSettings,
     hasValidHttpTlsFiles,
     loadPersistedHttpServerSettings,
     loadPersistedPermissionDisplaySettings,
     normalizePermissionDisplaySettings,
-    loadPersistedPuppySettings,
     loadPersistedToolConfigState,
     loadPersistedVersionControlSettings,
     savePersistedHttpServerSettings,
@@ -24,7 +22,6 @@ import {
     savePersistedVersionControlSettings,
     type HttpServerSettings,
     type PermissionDisplaySettings,
-    type PuppySettings,
     type VersionControlSettings,
 } from "@/ui/setting/tool-config-storage";
 import {
@@ -39,9 +36,7 @@ import {
     type PermissionTreeLabels,
 } from "@/ui/permission-tree-indicator";
 import { emitToolConfigWarningOnce } from "@/core/config";
-import { submitFeedback, type FeedbackInput, type FeedbackSubmitResult } from "@/core/feedback";
 import McpConfig from "@/ui/setting/mcp-config.svelte";
-import ToolPuppy from "@/ui/components/ToolPuppy.svelte";
 import SnapshotPanel from "@/ui/version-control/SnapshotPanel.svelte";
 import VersionDiffPanel from "@/ui/version-control/VersionDiffPanel.svelte";
 import RecentDocumentsPanel from "@/ui/recent-documents/RecentDocumentsPanel.svelte";
@@ -59,7 +54,6 @@ import {
 
 import { HttpServerLauncher, appendHttpLifecycleLog } from "@/server-launcher";
 
-const PUPPY_ROOT_ID = "sy-puppy-root";
 const SNAPSHOT_DOCK_TYPE = "sisyphusSnapshotDock";
 const SNAPSHOT_DOCK_POSITION = "LeftTop";
 const SNAPSHOT_DOCK_ROOT_ID = "SisyphusSnapshotDockPanel";
@@ -97,7 +91,6 @@ export default class SiyuanMCP extends Plugin {
     private handleAgentSessionUrl = (event: CustomEvent<{ url: string }>) => {
         void this.openAgentSessionUrl(event.detail?.url);
     };
-    private puppyComponent: ToolPuppy | null = null;
     private snapshotPanel: SnapshotPanel | null = null;
     private diffPanel: VersionDiffPanel | null = null;
     private recentDocumentsPanel: RecentDocumentsPanel | null = null;
@@ -108,9 +101,6 @@ export default class SiyuanMCP extends Plugin {
     private timelineSelection: TimelineNodeSelection | null = null;
     private recentHistorySelection: RecentHistoryDiffSelection | null = null;
     private recentDocumentDiffSummaries: Record<string, RecentDocumentDiffSummary> = {};
-    private puppyContainer: HTMLElement | null = null;
-    private puppySettings: PuppySettings = buildDefaultPuppySettings();
-    private puppySettingsLoaded = false;
     private layoutReady = false;
     private versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
     private snapshotDockRegistered = false;
@@ -156,11 +146,6 @@ export default class SiyuanMCP extends Plugin {
             });
         }
         await savePersistedToolConfig(normalized, this);
-        this.puppySettings = await loadPersistedPuppySettings(this);
-        this.puppySettingsLoaded = true;
-        if (this.layoutReady) {
-            this.mountPuppy();
-        }
         this.httpSettings = await loadPersistedHttpServerSettings(this);
         this.versionControlSettings = await loadPersistedVersionControlSettings(this);
         this.versionControlSettingsLoaded = true;
@@ -203,13 +188,11 @@ export default class SiyuanMCP extends Plugin {
 
     async onDataChanged(reason?: "sync" | "overwrite") {
         appendHttpLifecycleLog(`[plugin] data changed: reason=${reason ?? "unknown"}`);
-        const [puppySettings, versionControlSettings, permissionDisplaySettings] = await Promise.all([
-            loadPersistedPuppySettings(this),
+        const [versionControlSettings, permissionDisplaySettings] = await Promise.all([
             loadPersistedVersionControlSettings(this),
             loadPersistedPermissionDisplaySettings(this),
         ]);
 
-        this.updatePuppyTestSettings(puppySettings);
         this.versionControlSettings = versionControlSettings;
         this.permissionDisplaySettings = permissionDisplaySettings;
         this.syncVersionControlFeature();
@@ -301,79 +284,13 @@ export default class SiyuanMCP extends Plugin {
         return this.refreshHttpServerAfterInstructionConfigChange();
     }
 
-    private mountPuppy() {
-        const existingRoots = Array.from(document.querySelectorAll<HTMLElement>(`#${PUPPY_ROOT_ID}`));
-        const isMounted =
-            Boolean(this.puppyComponent) &&
-            this.puppyContainer instanceof HTMLElement &&
-            this.puppyContainer.id === PUPPY_ROOT_ID &&
-            this.puppyContainer.isConnected;
-        const hasForeignOrDuplicateRoot = existingRoots.some((root) => root !== this.puppyContainer);
-
-        if (isMounted && !hasForeignOrDuplicateRoot) {
-            return;
-        }
-
-        this.unmountPuppy();
-        for (const root of existingRoots) {
-            root.remove();
-        }
-
-        this.puppyContainer = document.createElement("div");
-        this.puppyContainer.id = PUPPY_ROOT_ID;
-        document.body.appendChild(this.puppyContainer);
-        this.puppyComponent = new ToolPuppy({
-            target: this.puppyContainer,
-            props: {
-                visible: this.puppySettings.visible,
-                testModeEnabled: this.puppySettings.testModeEnabled,
-                testModeIntervalMs: this.puppySettings.testModeIntervalMs,
-                showBubble: this.puppySettings.showBubble,
-                showClickHint: this.puppySettings.showClickHint,
-                appearance: this.puppySettings.appearance,
-            },
-        });
-    }
-
-    private unmountPuppy() {
-        this.puppyComponent?.$destroy();
-        this.puppyComponent = null;
-
-        if (this.puppyContainer) {
-            this.puppyContainer.remove();
-            this.puppyContainer = null;
-        }
-
-        const orphanRoots = document.querySelectorAll<HTMLElement>(`#${PUPPY_ROOT_ID}`);
-        for (const root of orphanRoots) {
-            root.remove();
-        }
-    }
-
     onLayoutReady() {
         this.layoutReady = true;
-        if (this.puppySettingsLoaded) {
-            this.mountPuppy();
-        }
         if (this.versionControlSettingsLoaded) this.syncVersionControlFeature();
         if (this.versionControlSettingsLoaded) this.syncRecentDocumentsFeature();
         if (this.permissionDisplaySettingsLoaded) this.syncPermissionTreeFeature();
     }
 
-
-    updatePuppyTestSettings(settings: PuppySettings) {
-        this.puppySettings = settings;
-        if (this.puppyComponent) {
-            this.puppyComponent.$set({
-                visible: settings.visible,
-                testModeEnabled: settings.testModeEnabled,
-                testModeIntervalMs: settings.testModeIntervalMs,
-                showBubble: settings.showBubble,
-                showClickHint: settings.showClickHint,
-                appearance: settings.appearance,
-            });
-        }
-    }
 
     async updateVersionControlSettings(settings: VersionControlSettings): Promise<void> {
         this.versionControlSettings = await savePersistedVersionControlSettings(settings, this);
@@ -396,68 +313,6 @@ export default class SiyuanMCP extends Plugin {
         this.schedulePermissionTreeDecoration();
     }
 
-    async submitFeedback(input: FeedbackInput): Promise<FeedbackSubmitResult> {
-        return submitFeedback(input, this.createFeedbackFetch());
-    }
-
-    private createFeedbackFetch(): typeof fetch {
-        const req = this.getNodeRequire();
-        if (req) {
-            try {
-                const https = req("https") as typeof import("https");
-                const http = req("http") as typeof import("http");
-                return ((url: string, init: RequestInit = {}) => new Promise<Response>((resolve, reject) => {
-                    const target = new URL(url);
-                    const transport = target.protocol === "http:" ? http : https;
-                    const headers = init.headers instanceof Headers
-                        ? Object.fromEntries(init.headers.entries())
-                        : (init.headers ?? {}) as Record<string, string>;
-                    const rawBody = init.body
-                        ? (typeof init.body === "string" || Buffer.isBuffer(init.body) ? init.body : String(init.body))
-                        : undefined;
-                    const request = transport.request(target, {
-                        method: init.method ?? "GET",
-                        headers: {
-                            ...headers,
-                            ...(rawBody && !Object.keys(headers).some((key) => key.toLowerCase() === "content-length")
-                                ? { "Content-Length": Buffer.byteLength(rawBody) }
-                                : {}),
-                        },
-                    }, (response) => {
-                        const chunks: Buffer[] = [];
-                        response.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-                        response.on("end", () => {
-                            const responseHeaders = new Headers();
-                            for (const [key, value] of Object.entries(response.headers)) {
-                                if (Array.isArray(value)) {
-                                    for (const item of value) responseHeaders.append(key, item);
-                                } else if (typeof value === "string") {
-                                    responseHeaders.set(key, value);
-                                }
-                            }
-                            resolve(new Response(Buffer.concat(chunks), {
-                                status: response.statusCode ?? 0,
-                                statusText: response.statusMessage ?? "",
-                                headers: responseHeaders,
-                            }));
-                        });
-                    });
-                    request.on("error", reject);
-                    if (rawBody) {
-                        request.write(rawBody);
-                    }
-                    request.end();
-                })) as typeof fetch;
-            } catch {
-                // Fall through to global fetch below.
-            }
-        }
-        if (typeof fetch === "function") {
-            return fetch.bind(globalThis);
-        }
-        throw new Error("Feedback submission is unavailable in this environment.");
-    }
-
     private getNodeRequire(): NodeRequire | undefined {
         if (typeof require === "function") {
             try {
@@ -476,13 +331,11 @@ export default class SiyuanMCP extends Plugin {
         appendHttpLifecycleLog("[plugin] onunload begin");
         this.unregisterAgentSessionUrlHandler();
         this.layoutReady = false;
-        this.puppySettingsLoaded = false;
         this.permissionDisplaySettingsLoaded = false;
         this.disablePermissionTreeFeature();
         this.disableRecentDocumentsFeature();
         this.unregisterVersionControlEvents();
         this.unmountVersionControlDocks();
-        this.unmountPuppy();
         if (this.httpLauncher) {
             try {
                 await this.stopHttpServer();

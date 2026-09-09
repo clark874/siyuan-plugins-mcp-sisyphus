@@ -1,4 +1,4 @@
 interface:
-  display_name: "SiYuan Data and Files"
-  short_description: "Operate databases, assets, and exports"
-  default_prompt: "Handle this SiYuan database or file workflow safely."
+  display_name: "SiYuan Data and Project Sources"
+  short_description: "Operate databases and project-source text"
+  default_prompt: "Handle this SiYuan database or project-source workflow safely."

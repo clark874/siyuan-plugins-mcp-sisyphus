@@ -46,7 +46,7 @@ describe('core/resources', () => {
 
     it('renders static and action help resources with parameter summaries', () => {
         const overview = readHelpResource('siyuan://help/tool-overview');
-        const action = readHelpResource('siyuan://help/action/notebook/create');
+        const action = readHelpResource('siyuan://help/action/notebook/list');
 
         expect(overview).toEqual(expect.objectContaining({
             uri: 'siyuan://help/tool-overview',
@@ -56,7 +56,7 @@ describe('core/resources', () => {
         expect(overview?.text).toContain('Use `fs` first for basic path-style notebook and document operations');
         expect(overview?.text).toContain('fs(action="ls"|"tree"|"read"|"write"|"replace"|"search"|"rm"|"mv")');
         expect(readHelpResource('siyuan://help/changelog')?.text).toContain('AI upgrade review workflow');
-        expect(action?.text).toContain('# notebook(action="create")');
+        expect(action?.text).toContain('# notebook(action="list")');
         expect(action?.text).toContain('## Valid shapes');
         expect(action?.text).toContain('```json');
     });
