@@ -93,12 +93,19 @@ describe('core/skills', () => {
         const panoramaContract = projectCoordinator?.files.find(
             (file) => file.path === 'references/project-panorama-output-contract.md',
         )?.text ?? '';
+        const initializationContract = projectCoordinator?.files.find(
+            (file) => file.path === 'references/project-progress-initialization.md',
+        )?.text ?? '';
         expect(panoramaContract).toContain('## 三、固定输出模板');
         expect(panoramaContract).toContain('## 1. 项目是什么');
         expect(panoramaContract).toContain('## 5. 当前权威文件');
         expect(panoramaContract).toContain('如果项目协调器、MCP 或验收环境不存在');
         expect(panoramaContract).toContain('不得截断 sessionId');
         expect(panoramaContract).toContain('项目进度页只保存相对路径');
+        expect(initializationContract).toContain('不得把含 `<project-id>` 的模板交给用户替换');
+        expect(initializationContract).toContain("AND p.value = '<project-id>'");
+        expect(initializationContract).toContain("AND r.value = 'event'");
+        expect(initializationContract).toContain('先用 `search.query_sql` 执行同一条物化 SQL');
         expect(projectCoordinator?.text).toContain('environment|client_context|explicit|inferred_latest_rollout');
         expect(projectCoordinator?.text).toContain('project(action="snapshot"');
         expect(projectCoordinator?.text).toContain('references/project-progress-initialization.md');

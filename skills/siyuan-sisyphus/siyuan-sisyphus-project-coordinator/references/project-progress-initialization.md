@@ -37,4 +37,33 @@
 - 项目状态：`custom-progress-role=project-state`、项目 ID、`workstream=project`、更新时间、最近事件 ID；
 - 工作线状态：`custom-progress-role=workstream-state`、项目 ID、工作线、更新时间、最近事件 ID。
 
+## 最近登记查询嵌入
+
+初始化 Agent 必须使用已经登记并回读的真实 `projectId` 在运行内存中物化“最近登记”SQL，再写入 `query_embed`。不得把含 `<project-id>` 的模板交给用户替换，也不得把占位符原样写进思源。事件角色固定为 `event`，不得写成 `progress-event`。
+
+物化后的查询采用 `attributes` 表按属性名和值匹配：
+
+```sql
+SELECT b.*
+FROM blocks AS b
+WHERE EXISTS (
+    SELECT 1
+    FROM attributes AS p
+    WHERE p.block_id = b.id
+      AND p.name = 'custom-progress-project-id'
+      AND p.value = '<project-id>'
+)
+AND EXISTS (
+    SELECT 1
+    FROM attributes AS r
+    WHERE r.block_id = b.id
+      AND r.name = 'custom-progress-role'
+      AND r.value = 'event'
+)
+ORDER BY b.created DESC
+LIMIT 20
+```
+
+上例中的 `<project-id>` 只表示运行时插值位置。写入前必须确认 SQL 已包含真实 `projectId`，且不含任何尖括号占位符、Markdown 反斜杠转义（如 `\*`、`\_`）或 HTML 空格实体（如 `&#x20;`）。先用 `search.query_sql` 执行同一条物化 SQL：初始化事件尚未登记时允许返回空集，但不得出现语法或只读校验错误；首条事件登记后必须返回该事件。最后回读 `query_embed` 的 Kramdown，确认其中仍是同一条已物化的原始 SQL。
+
 元数据必须通过 `block.set_attrs` 写入。先建立文档级时间线节点，再逐块严格预检、复制返回的 `issuedRequestId` 与凭据、执行和回读。页面查询嵌入只服务人类界面；机器恢复与“最近实质更新”一律调用 `project.snapshot`，按事件 `occurredAt` 排序。
