@@ -6,7 +6,7 @@
 
 Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Every MCP tool, including the read-only `project snapshot` interface, is exposed as a subcommand you can call directly from a shell.
 
-> **LLM Wiki version:** `v0.4.15` tracks plugin `v0.9.15` with summary project snapshots, atomic batch attribute updates, and deferred knowledge-event verification states.
+> **LLM Wiki version:** `v0.4.16` tracks plugin `v0.9.16` and its SiYuan `v3.8.3` compatibility release.
 
 > **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide the task-specific operating rules for safe search, reading, editing, export, database, tag, flashcard, timeline, and system workflows.
 

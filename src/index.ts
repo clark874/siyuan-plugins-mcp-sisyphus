@@ -164,6 +164,7 @@ export default class SiyuanMCP extends Plugin {
         this.httpSettings = await loadPersistedHttpServerSettings(this);
         this.versionControlSettings = await loadPersistedVersionControlSettings(this);
         this.versionControlSettingsLoaded = true;
+        this.registerVersionControlCommand();
         this.permissionDisplaySettings = await loadPersistedPermissionDisplaySettings(this);
         this.permissionDisplaySettingsLoaded = true;
         appendHttpLifecycleLog(`[plugin] settings loaded: httpEnabled=${this.httpSettings.enabled} timelineEnabled=${this.versionControlSettings.enabled} recentDocumentsEnabled=${this.versionControlSettings.recentDocumentsEnabled}`);
@@ -197,6 +198,25 @@ export default class SiyuanMCP extends Plugin {
         } catch (err) {
             appendHttpLifecycleLog(`[plugin] failed to init HTTP launcher: ${err instanceof Error ? err.message : String(err)}`);
             console.error("[MCP] failed to init HttpServerLauncher:", err);
+        }
+    }
+
+    async onDataChanged(reason?: "sync" | "overwrite") {
+        appendHttpLifecycleLog(`[plugin] data changed: reason=${reason ?? "unknown"}`);
+        const [puppySettings, versionControlSettings, permissionDisplaySettings] = await Promise.all([
+            loadPersistedPuppySettings(this),
+            loadPersistedVersionControlSettings(this),
+            loadPersistedPermissionDisplaySettings(this),
+        ]);
+
+        this.updatePuppyTestSettings(puppySettings);
+        this.versionControlSettings = versionControlSettings;
+        this.permissionDisplaySettings = permissionDisplaySettings;
+        this.syncVersionControlFeature();
+        this.syncRecentDocumentsFeature();
+        this.syncPermissionTreeFeature();
+        if (this.layoutReady && this.permissionDisplaySettings.showInFileTree) {
+            await this.loadPermissionTreePermissions();
         }
     }
 
@@ -1052,7 +1072,6 @@ export default class SiyuanMCP extends Plugin {
 
     private disableVersionControlFeature() {
         appendHttpLifecycleLog("[timeline] disable feature");
-        this.unregisterVersionControlCommand();
         this.unregisterVersionControlEvents();
         this.timelineSelection = null;
         this.unmountVersionControlPanels();
@@ -1080,19 +1099,6 @@ export default class SiyuanMCP extends Plugin {
             editorCallback: (protyle: any) => this.openVersionControl(protyle),
         });
         this.versionControlCommandRegistered = true;
-    }
-
-    private unregisterVersionControlCommand() {
-        if (!this.versionControlCommandRegistered) return;
-        const commands = (this as any).commands;
-        if (Array.isArray(commands)) {
-            for (let i = commands.length - 1; i >= 0; i--) {
-                if (commands[i]?.langKey === "openSnapshotVersionControl") {
-                    commands.splice(i, 1);
-                }
-            }
-        }
-        this.versionControlCommandRegistered = false;
     }
 
     private registerVersionControlDocks() {

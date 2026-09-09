@@ -8757,7 +8757,7 @@ siyuan-sisyphus system apply-change --plan-id <planID> --expected-state-hash <pr
             "mcp": {
               "action": "changelog",
               "includeRaw": true,
-              "version": "0.4.15",
+              "version": "0.4.16",
             },
             "title": "Read one exact release entry with raw Markdown",
           },

@@ -885,7 +885,7 @@ describe('HTTP settings sync', () => {
         expect(addDock).toHaveBeenCalledTimes(6);
     });
 
-    it('disables the timeline dock, command, events, and panel when persisted setting is off', async () => {
+    it('keeps the timeline command registered while persisted setting is off', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
         const addCommand = vi.fn((command) => {
             (plugin as any).commands.push(command);
@@ -905,7 +905,8 @@ describe('HTTP settings sync', () => {
         const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
         expect(addDock).toHaveBeenCalledTimes(1);
         expect(addDock.mock.calls[0][0].type).toBe(RECENT_DOCUMENTS_DOCK_TYPE);
-        expect(addCommand).not.toHaveBeenCalled();
+        expect(addCommand).toHaveBeenCalledTimes(1);
+        expect((plugin as any).commands).toHaveLength(1);
         expect(eventBusOn).toHaveBeenCalledTimes(2);
         expect(snapshotPanelInstances).toHaveLength(0);
         expect(diffPanelInstances).toHaveLength(0);
@@ -917,7 +918,7 @@ describe('HTTP settings sync', () => {
         expect(showMessage).toHaveBeenCalledWith('文档时间树已关闭');
     });
 
-    it('unregisters timeline runtime hooks when settings are turned off after enablement', async () => {
+    it('keeps one timeline command while runtime hooks are toggled', async () => {
         delete (globalThis as any).window.siyuan.config.system.workspaceDir;
         const addCommand = vi.fn((command) => {
             (plugin as any).commands.push(command);
@@ -939,7 +940,7 @@ describe('HTTP settings sync', () => {
 
         const rightDock = (globalThis as any).window.siyuan.layout.rightDock;
         const leftDock = (globalThis as any).window.siyuan.layout.leftDock;
-        expect((plugin as any).commands).toHaveLength(0);
+        expect((plugin as any).commands).toHaveLength(1);
         expect(eventBusOff).toHaveBeenCalledTimes(4);
         expect(snapshotPanelInstances[0].$destroy).toHaveBeenCalledTimes(1);
         expect(diffPanelInstances[0].$destroy).toHaveBeenCalledTimes(1);
@@ -947,6 +948,39 @@ describe('HTTP settings sync', () => {
         expect(leftDock.remove).toHaveBeenCalledWith(SNAPSHOT_REGISTERED_DOCK_TYPE);
         expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_REGISTERED_DOCK_TYPE);
         expect(rightDock.remove).toHaveBeenCalledWith(TIMELINE_DOCK_TYPE);
+
+        await plugin.updateVersionControlSettings({ enabled: true, recentDocumentsEnabled: true, showDebugMeta: true });
+
+        expect(addCommand).toHaveBeenCalledTimes(1);
+        expect((plugin as any).commands).toHaveLength(1);
+    });
+
+    it('refreshes frontend settings after overwrite without restarting the HTTP server', async () => {
+        delete (globalThis as any).window.siyuan.config.system.workspaceDir;
+        const addCommand = vi.fn((command) => {
+            (plugin as any).commands.push(command);
+        });
+        Object.assign(plugin, { addCommand });
+
+        await plugin.onload();
+        plugin.onLayoutReady();
+        launcherStart.mockClear();
+        launcherStop.mockClear();
+        loadData.mockImplementation((storageName: string) => {
+            if (storageName === 'puppySettings') return Promise.resolve({ visible: true });
+            if (storageName === 'versionControlSettings') {
+                return Promise.resolve({ enabled: false, recentDocumentsEnabled: false, showDebugMeta: true });
+            }
+            if (storageName === 'permissionDisplaySettings') return Promise.resolve({ showInFileTree: false });
+            return Promise.resolve(undefined);
+        });
+
+        await plugin.onDataChanged('overwrite');
+
+        expect(puppyInstances[0].$set).toHaveBeenLastCalledWith(expect.objectContaining({ visible: true }));
+        expect(addCommand).toHaveBeenCalledTimes(1);
+        expect(launcherStop).not.toHaveBeenCalled();
+        expect(launcherStart).not.toHaveBeenCalled();
     });
 
     it('does not stop a running HTTP server when timeline is disabled', async () => {

@@ -737,7 +737,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
                 title: 'Read one exact release entry with raw Markdown',
                 mcp: {
                     action: 'changelog',
-                    version: '0.4.15',
+                    version: '0.4.16',
                     includeRaw: true,
                 },
             },
