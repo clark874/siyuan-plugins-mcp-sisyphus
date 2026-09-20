@@ -13,9 +13,9 @@ describe('system 工具', () => {
     });
 
     it('返回当前版本', async () => {
-        const client = createMockClient({ request: async () => '3.8.3' });
+        const client = createMockClient({ request: async () => '3.8.4' });
         const result = await callSystemTool(client, { action: 'get_version' }, buildDefaultToolConfig().system, {} as never);
-        expect(parseResult(result)).toEqual({ version: '3.8.3' });
+        expect(parseResult(result)).toEqual({ version: '3.8.4' });
     });
 
     it('校验冻结的来源审计交接包', async () => {

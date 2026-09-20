@@ -1093,7 +1093,7 @@ describe('fs tool', () => {
         expect(parsed.warning).toContain('Use av');
         expect(parsed.nonFidelityWarning).toContain('pure Markdown');
         expect(parsed.complexBlockTypes).toEqual(['av']);
-        expect(parsed.recommendedReads).toEqual(['file.export_md', 'block.dom']);
+        expect(parsed.recommendedReads).toEqual(['block.dom']);
     });
 
     it('writes agent memory through the virtual root file while preserving config', async () => {

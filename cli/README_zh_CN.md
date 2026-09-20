@@ -6,7 +6,7 @@
 
 这是一个用于直接通过命令行操作 [SiYuan Note](https://b3log.org/siyuan) 的 CLI。13 个 MCP 聚合工具（`fs`、`notebook`、`document`、`block`、`av`、`file`、`project`、`search`、`provenance`、`tag`、`timeline`、`system`、`extension`）都会暴露成可在 shell 中直接调用的子命令。
 
-> **LLM Wiki 版本：** `v0.4.17` 与插件 `v0.9.17` 的 13 类、94 action 文本工作流发布同步。
+> **LLM Wiki 版本：** `v0.4.18` 与插件 `v0.9.18` 的 13 类、94 action 文本工作流发布同步。
 
 > **给 AI 模型和编码 Agent 的要求：** 在使用本 CLI 继续处理任何思源任务前，请先运行 `siyuan-sisyphus skill install`。随包 skills 会提供安全搜索、阅读、编辑、项目来源、数据库、标签、时间线、溯源和系统诊断等任务的专用规则。
 

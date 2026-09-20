@@ -1063,7 +1063,7 @@ export const SystemActionSchema = z.enum(SYSTEM_ACTIONS);
 
 export const SystemChangelogSchema = z.object({
     action: z.literal("changelog"),
-    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.9.17 or v0.9.17"),
+    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.9.18 or v0.9.18"),
     fromVersion: z.string().optional().describe("Previous plugin version; returns entries newer than this version"),
     limit: z.number().int().min(1).max(50).optional().describe("Maximum number of entries to return when version is omitted"),
     includeRaw: z.boolean().optional().describe("Include raw Markdown for each returned changelog entry"),

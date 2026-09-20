@@ -1,6 +1,6 @@
 {
   "name": "siyuan-plugins-mcp-sisyphus",
-  "version": "0.9.17",
+  "version": "0.9.18",
   "type": "module",
   "description": "Let AI control text knowledge in SiYuan through 13 aggregated tools and 94 maintained actions, including project sources, provenance, timeline comparison, and official plugin tool bridging.",
   "repository": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus",

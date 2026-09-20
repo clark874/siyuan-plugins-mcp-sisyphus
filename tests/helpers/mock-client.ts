@@ -13,6 +13,7 @@ export function createMockClient(overrides: Record<string, unknown> = {}) {
     return {
         request,
         requestRead: request,
+        requestReadEnvelope: vi.fn(async (...args: unknown[]) => ({ code: 0, msg: '', data: await request(...args) })),
         requestWrite: request,
         requestFormData,
         requestFormDataRead: requestFormData,

@@ -995,10 +995,10 @@ describe('search tool filtering', () => {
             content: `Row ${index + 1}`,
         }));
         const client = createMockClient({
-            request: async (endpoint: string, body: unknown) => {
+            requestReadEnvelope: async (endpoint: string, body: unknown) => {
                 expect(endpoint).toBe('/api/query/sql');
                 expect(body).toMatchObject({ stmt: 'SELECT * FROM blocks LIMIT 60' });
-                return rows;
+                return { code: 0, msg: '', data: rows, limit: 64, truncated: true };
             },
         });
         const permMgr = {
@@ -1022,7 +1022,9 @@ describe('search tool filtering', () => {
         expect(parsed.totalRows).toBe(60);
         expect(parsed.showing).toBe(50);
         expect(parsed.truncated).toBe(true);
-        expect(parsed.hint).toContain('LIMIT and OFFSET');
+        expect(parsed.kernelLimit).toBe(64);
+        expect(parsed.kernelTruncated).toBe(true);
+        expect(parsed.hint).toContain('default limit of 64 rows');
         expect(parsed.resolvedArgs).toEqual({ stmt: 'SELECT * FROM blocks LIMIT 60' });
     });
 

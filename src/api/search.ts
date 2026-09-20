@@ -39,6 +39,22 @@ export async function querySQL(client: SiYuanClient, stmt: string): Promise<unkn
     return Array.isArray(result) ? result : [];
 }
 
+export interface SqlQueryResult {
+    rows: unknown[];
+    kernelLimit?: number;
+    kernelTruncated: boolean;
+}
+
+export async function querySQLWithMeta(client: SiYuanClient, stmt: string): Promise<SqlQueryResult> {
+    const request: IReqQuerySQL = { stmt };
+    const response = await client.requestReadEnvelope<unknown[] | null>('/api/query/sql', request);
+    return {
+        rows: Array.isArray(response.data) ? response.data : [],
+        ...(typeof response.limit === 'number' ? { kernelLimit: response.limit } : {}),
+        kernelTruncated: response.truncated === true,
+    };
+}
+
 export async function searchTag(client: SiYuanClient, k: string): Promise<IResSearchTag> {
     const request: IReqSearchTag = { k };
     return client.requestRead<IResSearchTag>('/api/search/searchTag', request);

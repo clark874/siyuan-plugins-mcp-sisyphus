@@ -121,11 +121,11 @@ export class SiYuanClient {
         }, 'read');
     }
 
-    private async readData<T>(url: string, init: RequestInit, semantics: RequestSemantics): Promise<T> {
+    private async readEnvelope<T>(url: string, init: RequestInit, semantics: RequestSemantics): Promise<SiYuanResponse<T>> {
         const response = await this.fetchWithTimeout(url, init, semantics);
         const rawText = await response.text();
         if (rawText.trim() === '') {
-            return null as T;
+            return { code: 0, msg: '', data: null as T };
         }
 
         let result: SiYuanResponse<T>;
@@ -141,7 +141,11 @@ export class SiYuanClient {
             throw new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
         }
 
-        return result.data;
+        return result;
+    }
+
+    private async readData<T>(url: string, init: RequestInit, semantics: RequestSemantics): Promise<T> {
+        return (await this.readEnvelope<T>(url, init, semantics)).data;
     }
 
     async readFile(path: string): Promise<string> {
@@ -282,6 +286,14 @@ export class SiYuanClient {
 
     async requestRead<T>(endpoint: string, data?: object): Promise<T> {
         return this.readData<T>(`${this.baseUrl}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
+            body: JSON.stringify(data ?? {}),
+        }, 'read');
+    }
+
+    async requestReadEnvelope<T>(endpoint: string, data?: object): Promise<SiYuanResponse<T>> {
+        return this.readEnvelope<T>(`${this.baseUrl}${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
             body: JSON.stringify(data ?? {}),

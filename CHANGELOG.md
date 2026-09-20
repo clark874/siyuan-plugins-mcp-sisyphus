@@ -2,6 +2,14 @@
 
 本文件记录项目的主要版本变更。
 
+## v0.9.18 - 2026-09-20
+
+- 适配思源 `v3.8.4`，推荐版本提升至 `3.8.4`，`minAppVersion` 继续保持 `2.9.0`；插件开发依赖 `siyuan@1.2.7` 已是当前公开最新版，无需为适配虚增依赖升级
+- 对接 `/api/query/sql` 新增的 `limit` 与 `truncated` 顶层元数据：`search.query_sql` 现在返回 `kernelLimit`、`kernelTruncated`，并在内核默认上限截断时明确提示使用 `LIMIT/OFFSET`，不再把不完整结果误报为完整
+- 在 3.8.4 活动实例确认专用 REST SQL、全文与语义知识检索、项目快照、项目源和官方 MCP 白名单桥接可用；`knowledge` 的 `lexical_exact` 仍表示本地精确词优先，强制语义路径可正常返回 `semantic_fallback`
+- 受益于思源 #19187，宿主前端写入插件存储时不再把 `onDataChanged` 广播回发起实例；Sisyphus 继续只刷新本地显示设置，不重启 MCP 网关
+- 移除 `fs` 诊断中残留的 `file.export_md` 推荐，重新生成 Agent Kit 与场景 Skill；不新增 MCP action，不重新引入资源、图片、OCR、模板、闪卡或时间线回退能力，CLI 同步提升至 `v0.4.18`
+
 ## v0.9.17 - 2026-09-09
 
 - 面向当前私有文本知识治理流程重审完整 MCP 工具面，将 16 类、163 个业务 action 收敛为 13 类、94 个现行 action；保留路径读写、文档与块、AV、项目源、项目快照、检索、溯源、标签、时间线比较、系统引导和受控扩展

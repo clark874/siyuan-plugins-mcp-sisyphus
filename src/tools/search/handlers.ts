@@ -869,14 +869,24 @@ function createSqlQueryResult(
     },
     maxRows: number,
     resolvedArgs?: Record<string, unknown>,
+    kernelMeta?: { kernelLimit?: number; kernelTruncated: boolean },
 ): ToolResult {
-    const truncated = applyTruncation(rows, maxRows, 'Add LIMIT and OFFSET to your SQL for pagination, or increase maxRows up to 1000.');
+    const locallyTruncated = applyTruncation(rows, maxRows, 'Add LIMIT and OFFSET to your SQL for pagination, or increase maxRows up to 1000.');
     const total = rows.length;
+    const kernelTruncated = kernelMeta?.kernelTruncated === true;
+    const truncated = kernelTruncated || locallyTruncated.meta?.truncated === true;
+    const hint = kernelTruncated
+        ? `SiYuan truncated the REST SQL response${kernelMeta?.kernelLimit ? ` at its default limit of ${kernelMeta.kernelLimit} rows` : ''}. Add explicit LIMIT and OFFSET clauses to paginate deterministically.`
+        : locallyTruncated.meta?.hint;
     return createJsonResult({
-        data: truncated.items,
+        data: locallyTruncated.items,
         total,
         totalRows: total,
-        ...buildTruncationSummary(total, truncated.meta),
+        showing: locallyTruncated.items.length,
+        truncated,
+        ...(hint ? { hint } : {}),
+        ...(kernelMeta?.kernelLimit !== undefined ? { kernelLimit: kernelMeta.kernelLimit } : {}),
+        kernelTruncated,
         ...createPartialMetadata(permission.removedCount),
         ...(permission.permissionDeniedCount > 0 ? { permissionDeniedCount: permission.permissionDeniedCount } : {}),
         ...(permission.unresolvedContextFilteredCount > 0 ? {
@@ -1012,13 +1022,13 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
                 { tool: SEARCH_TOOL_NAME, action: 'query_sql', rawArgs },
             );
         }
-        const result = await searchApi.querySQL(client, stmt ?? '');
-        const rows = Array.isArray(result) ? result : [];
+        const result = await searchApi.querySQLWithMeta(client, stmt ?? '');
+        const rows = result.rows;
         const filtered = await filterItemsByPermission(client, rows, permMgr);
         const resolvedArgs = parsed.sql !== undefined
             ? buildResolvedArgs({ stmt }).resolvedArgs
             : undefined;
-        return createSqlQueryResult(filtered.items, filtered, parsed.maxRows ?? 200, resolvedArgs);
+        return createSqlQueryResult(filtered.items, filtered, parsed.maxRows ?? 200, resolvedArgs, result);
     },
     get_backlinks: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchGetBacklinksSchema.parse(rawArgs);

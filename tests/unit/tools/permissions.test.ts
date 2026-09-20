@@ -152,7 +152,10 @@ describe('tool permission and filtering behavior', () => {
         ['recursive CTE', 'WITH RECURSIVE walk(id) AS (SELECT 1) SELECT COUNT(*) AS total FROM walk LIMIT 1', [{ total: 1 }]],
     ])('keeps unattributed %s rows when every notebook is readable', async (_label, stmt, rows) => {
         permMgr.getAll.mockReturnValue({ allowed: 'rwd' });
-        vi.spyOn(searchApi, 'querySQL').mockResolvedValue(rows);
+        vi.spyOn(searchApi, 'querySQLWithMeta').mockResolvedValue({
+            rows,
+            kernelTruncated: false,
+        });
 
         const result = await callSearchTool({} as never, {
             action: 'query_sql',
@@ -183,13 +186,14 @@ describe('tool permission and filtering behavior', () => {
 
     it('does not resolve ownership row by row when SQL rows already expose box', async () => {
         permMgr.getAll.mockReturnValue({ allowed: 'rwd' });
-        const querySpy = vi.spyOn(searchApi, 'querySQL').mockResolvedValue(
-            Array.from({ length: 300 }, (_, index) => ({
+        const querySpy = vi.spyOn(searchApi, 'querySQLWithMeta').mockResolvedValue({
+            rows: Array.from({ length: 300 }, (_, index) => ({
                 id: `block-${index}`,
                 box: 'allowed',
                 content: `row-${index}`,
             })),
-        );
+            kernelTruncated: false,
+        });
 
         const result = await callSearchTool({} as never, {
             action: 'query_sql',
@@ -205,9 +209,10 @@ describe('tool permission and filtering behavior', () => {
 
     it('returns 100 analysis rows by default instead of truncating at 50', async () => {
         permMgr.getAll.mockReturnValue({ allowed: 'rwd' });
-        vi.spyOn(searchApi, 'querySQL').mockResolvedValue(
-            Array.from({ length: 100 }, (_, index) => ({ box: 'allowed', rank: index + 1 })),
-        );
+        vi.spyOn(searchApi, 'querySQLWithMeta').mockResolvedValue({
+            rows: Array.from({ length: 100 }, (_, index) => ({ box: 'allowed', rank: index + 1 })),
+            kernelTruncated: false,
+        });
 
         const result = await callSearchTool({} as never, {
             action: 'query_sql',

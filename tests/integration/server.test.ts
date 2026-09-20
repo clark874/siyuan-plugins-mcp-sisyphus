@@ -42,7 +42,7 @@ describe('MCP 服务集成', () => {
                 return jsonResponse({ code: 0, msg: 'success', data: null });
             }
             if (urlStr.includes('/api/system/version')) {
-                return jsonResponse({ code: 0, msg: 'success', data: '3.8.3' });
+                return jsonResponse({ code: 0, msg: 'success', data: '3.8.4' });
             }
             return jsonResponse({ code: 0, msg: 'success', data: {} });
         });
@@ -78,7 +78,7 @@ describe('MCP 服务集成', () => {
 
         const result = await client.callTool({ name: 'system', arguments: { action: 'get_version' } });
         expect(result.isError).not.toBe(true);
-        expect(result.structuredContent).toEqual(expect.objectContaining({ version: '3.8.3' }));
+        expect(result.structuredContent).toEqual(expect.objectContaining({ version: '3.8.4' }));
     });
 
     it('协商 MCP Apps 后只提供时间线界面', async () => {

@@ -79,7 +79,7 @@ function createFsNonFidelityHint(blocks: Array<{ type?: string }>): Record<strin
     return {
         nonFidelityWarning: 'fs is intentionally limited to pure Markdown-style document operations. This document contains SiYuan-native structures; inspect or modify those blocks with advanced tools instead of fs.',
         complexBlockTypes,
-        recommendedReads: ['file.export_md', 'block.dom'],
+        recommendedReads: ['block.dom'],
     };
 }
 
@@ -111,7 +111,7 @@ function createComplexBlocksNotSupportedResult(
                     path,
                     id: documentId,
                     complexBlocks,
-                    recommendedTools: ['file.export_md', 'block.dom', 'block.update', 'block.append', 'av'],
+                    recommendedTools: ['block.dom', 'block.update', 'block.append', 'av'],
                     hint: 'Use fs for pure Markdown content only. For database blocks, super blocks, embeds, widgets, HTML/media, or precise native structure changes, inspect with block.dom and edit with the matching advanced tool.',
                 },
             }, null, 2),
@@ -1007,7 +1007,7 @@ const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         ...(skippedComplexBlocks.length > 0 ? {
             warning: 'This document contains SiYuan-native complex blocks. fs.replace edited only matched non-complex Markdown blocks; complex blocks were skipped.',
             skippedComplexBlocks,
-            recommendedTools: ['block.dom', 'block.update', 'av', 'file.export_md'],
+            recommendedTools: ['block.dom', 'block.update', 'av'],
         } : {}),
         ...(hasSiyuanBlockLinks(changedMarkdown) ? createSiyuanBlockLinkHint() : {}),
         ...(hasFootnoteReferences(changedMarkdown) ? createFootnoteReferenceHint() : {}),

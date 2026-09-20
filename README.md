@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki branch:** current version is `v0.9.17` (CLI `v0.4.17`). This release aligns with SiYuan `v3.8.3` and narrows the MCP surface to 13 text-workflow tools with 94 maintained actions.
+> **LLM Wiki branch:** current version is `v0.9.18` (CLI `v0.4.18`). This release aligns with SiYuan `v3.8.4` while retaining the 13-tool, 94-action text workflow surface.
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 版本：**`v0.9.17`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；本版将 MCP 工具面收敛为 13 类、94 个 action。CLI `v0.4.17` 要求 Node.js 20+。**建议思源内核升级到 `3.8.3+`**。
+> **当前 LLM Wiki 版本：**`v0.9.18`。本分支只服务文本知识治理，不提供图片读取或图片型知识写入；MCP 工具面保持 13 类、94 个 action。CLI `v0.4.18` 要求 Node.js 20+。**建议思源内核升级到 `3.8.4+`**。
 
 ## Project Direction Update
 
