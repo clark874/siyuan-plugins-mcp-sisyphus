@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki branch:** the current development tree is `v0.10.0` (CLI `v0.4.19`), verified with SiYuan `v3.8.5`, and exposes 14 tools with 102 actions.
+> **LLM Wiki branch:** the current development tree is `v0.10.1` (CLI `v0.4.19`), verified with SiYuan `v3.8.5`, and exposes 14 tools with 102 actions.
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +25,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 开发版本：**`v0.10.0`。本分支服务文本知识治理，并通过只读 `literature` 工具访问本地 Zotero、定位 Markdown 引文与汇总思源论文入链；不提供图片读取或图片型知识写入。MCP 工具面为 14 类、102 个 action。CLI `v0.4.19` 要求 Node.js 20+。已在思源 `3.8.5` 实例验证。
+> **当前 LLM Wiki 开发版本：**`v0.10.1`。本分支服务文本知识治理，并通过只读 `literature` 工具访问本地 Zotero、定位 Markdown 引文与汇总思源论文入链；不提供图片读取或图片型知识写入。MCP 工具面为 14 类、102 个 action。CLI `v0.4.19` 要求 Node.js 20+。已在思源 `3.8.5` 实例验证。
 
 ## Project Direction Update
 

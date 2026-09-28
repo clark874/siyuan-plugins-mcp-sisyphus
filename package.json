@@ -1,6 +1,6 @@
 {
   "name": "siyuan-plugins-mcp-sisyphus",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "type": "module",
   "description": "Let AI control text knowledge in SiYuan and read local Zotero literature through 14 aggregated tools and 102 maintained actions.",
   "repository": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus",
