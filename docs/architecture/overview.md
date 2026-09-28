@@ -5,17 +5,18 @@ SiYuan Sisyphus exposes one deliberately bounded text-workflow surface through b
 ## Layers
 
 1. MCP clients connect over stdio or authenticated HTTP(S); the CLI calls the same registry directly.
-2. `TOOL_REGISTRY` publishes 13 aggregate tools and routes their 94 actions.
+2. `TOOL_REGISTRY` publishes 14 aggregate tools and routes their 102 actions.
 3. Permission checks, strict write preflight, response shaping, and optional UI refresh wrap each call.
-4. `SiYuanClient` uses SiYuan HTTP APIs. The `file` tool separately reads only registered, manifest-listed local project text.
+4. `SiYuanClient` uses SiYuan HTTP APIs. The `file` tool separately reads only registered, manifest-listed local project text; `literature` reaches only the fixed read-only allowlist of the local Zotero MCP over loopback.
 
-The aggregate tools are `fs`, `notebook`, `document`, `block`, `av`, `file`, `project`, `search`, `provenance`, `tag`, `timeline`, `system`, and `extension`. The source of truth is `src/core/config.ts`.
+The aggregate tools are `fs`, `notebook`, `document`, `block`, `av`, `file`, `project`, `search`, `literature`, `provenance`, `tag`, `timeline`, `system`, and `extension`. The source of truth is `src/core/config.ts`.
 
 ## Boundaries
 
 - Mascot, feedback, flashcard, analytics, telemetry, asset/OCR, template/import/export, and timeline rollback/delete are not part of the MCP or CLI surface.
 - The native SiYuan version-control panel may still perform local rollback and timeline-node deletion. It is independent of MCP exposure.
 - `extension` forwards only the native read allowlist: `search.semantic`, `ref.backlinks`, `ref.forwardlinks`, `outline.get`, `web_fetch`, and `web_search`.
+- `literature` permits only eight paper-reading Zotero tools; Zotero mutations, semantic-index management, and absolute local attachment paths are not exposed.
 - Every stateful write uses notebook permissions and the strict preflight/readback protocol when enabled.
 
 ## Products

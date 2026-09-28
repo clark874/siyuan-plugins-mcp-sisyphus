@@ -1,0 +1,4 @@
+interface:
+  display_name: "Zotero Literature Source CLI"
+  short_description: "Search and read local Zotero papers safely"
+  default_prompt: "Use $siyuan-sisyphus-literature-source to locate and read the requested papers or annotations from the local Zotero library."

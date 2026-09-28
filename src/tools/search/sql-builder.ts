@@ -361,8 +361,8 @@ async function countBacklinkRefs(client: SiYuanClient, id: string): Promise<{ ba
 }
 
 /**
- * get_backlinks 的统一取数路径：原生端点优先；载荷缺失时先刷新一次反链索引并重试，
- * 仍缺失才落到 refs 表 SQL 兜底，并附上刷新结果与原生/索引偏差诊断。
+ * get_backlinks 的统一取数路径：无来源范围时查询全局 SQL 索引；有范围时优先使用原生端点，
+ * 载荷缺失则刷新一次并重试，仍缺失才用 SQL 兜底并附上诊断。
  */
 export async function getBacklinksWithDiagnostics(
     client: SiYuanClient,
@@ -379,6 +379,14 @@ export async function getBacklinksWithDiagnostics(
 }> {
     const needLinks = options.mode !== 'mentions';
     const needMentions = options.mode !== 'links';
+
+    if (!options.refTreeID?.trim()) {
+        const [backlinks, backmentions] = await Promise.all([
+            needLinks ? queryFallbackBacklinkRows(client, id, options.keyword) : Promise.resolve([] as unknown[]),
+            needMentions ? queryFallbackBackmentionRows(client, id, options.keyword) : Promise.resolve([] as unknown[]),
+        ]);
+        return { backlinks, backmentions, fallbackQuery: 'sql', resultConfidence: 'fallback' };
+    }
 
     const [nativeLinks, nativeMentions] = await Promise.all([
         needLinks ? searchApi.getBacklinkDoc(client, id, options.keyword, options.refTreeID) : Promise.resolve(null),

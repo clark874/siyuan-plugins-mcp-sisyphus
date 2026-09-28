@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import indexSkill from '../../skills/siyuan-mcp/siyuan-mcp-sisyphus/SKILL.md?raw';
 import browseReadSkill from '../../skills/siyuan-mcp/siyuan-mcp-browse-read/SKILL.md?raw';
+import literatureSourceSkill from '../../skills/siyuan-mcp/siyuan-mcp-literature-source/SKILL.md?raw';
 import createEditSkill from '../../skills/siyuan-mcp/siyuan-mcp-create-edit/SKILL.md?raw';
 import knowledgeIngestSkill from '../../skills/siyuan-mcp/siyuan-mcp-knowledge-ingest/SKILL.md?raw';
 import knowledgeIngestNormalizeScript from '../../skills/siyuan-mcp/siyuan-mcp-knowledge-ingest/scripts/normalize-source.mjs?raw';
@@ -71,6 +72,7 @@ function createMcpSkill(
 export const MCP_SKILLS: readonly McpSkillDefinition[] = [
     createMcpSkill(indexSkill),
     createMcpSkill(browseReadSkill),
+    createMcpSkill(literatureSourceSkill),
     createMcpSkill(createEditSkill),
     createMcpSkill(knowledgeIngestSkill, [{
         path: 'scripts/normalize-source.mjs',

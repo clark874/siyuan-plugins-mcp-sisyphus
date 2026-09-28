@@ -10,6 +10,7 @@ export { callBlockTool, listBlockTools, BLOCK_VARIANTS } from './block';
 export { callDocumentTool, listDocumentTools, DOCUMENT_VARIANTS } from './document';
 export { callFileTool, listFileTools, FILE_VARIANTS } from './file';
 export { callProjectTool, listProjectTools, PROJECT_VARIANTS } from './project';
+export { callLiteratureTool, listLiteratureTools, LITERATURE_VARIANTS } from './literature';
 export { callProvenanceTool, listProvenanceTools, PROVENANCE_VARIANTS } from './provenance';
 export { callExtensionTool, getExposedExtensionTools, listExtensionTools, prepareExtensionTools, EXTENSION_VARIANTS } from './extension';
 export { callFsTool, listFsTools, FS_VARIANTS } from './fs';

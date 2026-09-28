@@ -259,6 +259,7 @@ describe('tool permission and filtering behavior', () => {
         const result = await callSearchTool({} as never, {
             action: 'get_backlinks',
             id: 'root-doc',
+            refTreeID: 'source-doc',
             mode: 'links',
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);
@@ -323,6 +324,7 @@ describe('tool permission and filtering behavior', () => {
         const result = await callSearchTool({} as never, {
             action: 'get_backlinks',
             id: 'target-block',
+            refTreeID: 'source-doc',
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);
 
@@ -377,6 +379,7 @@ describe('tool permission and filtering behavior', () => {
         const result = await callSearchTool({} as never, {
             action: 'get_backlinks',
             id: 'target-block',
+            refTreeID: 'source-doc',
             mode: 'mentions',
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);
@@ -450,6 +453,7 @@ describe('tool permission and filtering behavior', () => {
         const result = await callSearchTool({} as never, {
             action: 'get_backlinks',
             id: 'doc-in-allowed',
+            refTreeID: 'source-doc',
             mode: 'links',
         }, searchConfig, permMgr as never);
         const parsed = parseResult(result);

@@ -41,6 +41,7 @@ If a scenario Skill is not installed as a local folder, read its stable Skills-o
 | Scenario | Skill |
 | --- | --- |
 | Browse notebooks, documents, paths, IDs, and blocks | `siyuan-sisyphus-browse-read` |
+| Search or read Zotero papers, collections, full text, and annotations | `siyuan-sisyphus-literature-source` |
 | Create documents or edit blocks | `siyuan-sisyphus-create-edit` |
 | Fulltext, SQL, backlinks, references, and replacement | `siyuan-sisyphus-search-query` |
 | Capture web sources, deduplicate them, and merge knowledge with provenance | `siyuan-sisyphus-knowledge-ingest` |
@@ -56,7 +57,7 @@ If a scenario Skill is not installed as a local folder, read its stable Skills-o
 
 ## Tool choice
 
-Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `av` for real databases rather than Markdown tables. Use `timeline` for named snapshots and document diffs. Use `provenance` after project knowledgeization to register source and compile Agent sessions and to answer project-session history queries. Tags are a small independent tool family and need no separate scenario skill.
+Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `literature` for bounded read-only Zotero access; do not register the upstream Zotero MCP beside Sisyphus in the external client. Use `av` for real databases rather than Markdown tables. Use `timeline` for named snapshots and document diffs. Use `provenance` after project knowledgeization to register source and compile Agent sessions and to answer project-session history queries. Tags are a small independent tool family and need no separate scenario skill.
 
 ```bash
 siyuan-sisyphus fs tree --path '/Notebook' --max-depth '3' --json

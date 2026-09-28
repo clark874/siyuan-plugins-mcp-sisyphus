@@ -6,6 +6,7 @@ import {
     type FileAction,
     type FsAction,
     type NotebookAction,
+    type LiteratureAction,
     type ProjectAction,
     type ProvenanceAction,
     type SearchAction,
@@ -53,6 +54,12 @@ export const SEARCH_GUIDANCE = [
     'Use knowledge for governed retrieval, fulltext for lexical search, semantic for embedding candidates, and query_sql for bounded read-only SQL.',
     'find_replace is the mutating exception and must follow strict write preflight.',
     'Asset filename, OCR, and asset-content search are intentionally excluded.',
+];
+export const LITERATURE_GUIDANCE = [
+    'Use status first when Zotero availability or upstream tool drift is uncertain.',
+    'Use get_citations for paper-wide incoming SiYuan links and locate_quote for exact Zotero Markdown evidence.',
+    'The gateway exposes fixed read-only paper, collection, full-text, and annotation operations.',
+    'Local attachment paths, Zotero mutations, and semantic-index management remain outside this surface.',
 ];
 export const TAG_GUIDANCE = [
     'List tags before rename or remove, then reread the global tag state after mutation.',
@@ -127,6 +134,16 @@ export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     criteria_save: 'Overwrites the named saved-search criterion after strict validation.',
     criteria_remove: 'Removes one named saved-search criterion after strict validation.',
 };
+export const LITERATURE_ACTION_HINTS: Partial<Record<LiteratureAction, string>> = {
+    status: 'Checks live connectivity, formal tool discovery, advertised-contract drift, libraries, and semantic-index state.',
+    list_collections: 'Defaults to the complete nested collection tree.',
+    list_collection_items: 'Lists bounded items for one exact collection key.',
+    search_papers: 'Searches bibliographic metadata and can add a bounded full-text condition.',
+    get_paper: 'Combines bibliographic metadata with bounded content unless includeContent=false.',
+    get_citations: 'Lists indexed references to the paper document and all its original-text blocks, with citing context.',
+    locate_quote: 'Locates exact text in a Zotero Markdown attachment and returns source lines, heading, and SHA-256.',
+    get_annotations: 'Provide exactly one of itemKey or query.',
+};
 export const TAG_ACTION_HINTS: Partial<Record<TagAction, string>> = {
     rename: 'Renames a workspace tag label everywhere it appears.',
     remove: 'Removes one global tag label after strict validation.',
@@ -156,7 +173,7 @@ export const EXTENSION_ACTION_HINTS: Partial<Record<string, string>> = {
 export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
     fs: FS_GUIDANCE, notebook: NOTEBOOK_GUIDANCE, document: DOCUMENT_GUIDANCE,
     block: BLOCK_GUIDANCE, av: AV_GUIDANCE, file: FILE_GUIDANCE,
-    project: PROJECT_GUIDANCE, search: SEARCH_GUIDANCE, provenance: PROVENANCE_GUIDANCE,
+    project: PROJECT_GUIDANCE, search: SEARCH_GUIDANCE, literature: LITERATURE_GUIDANCE, provenance: PROVENANCE_GUIDANCE,
     tag: TAG_GUIDANCE, timeline: TIMELINE_GUIDANCE, system: SYSTEM_GUIDANCE,
     extension: EXTENSION_GUIDANCE,
 };
@@ -164,7 +181,7 @@ export const TOOL_GUIDANCE_BY_CATEGORY: Record<ToolCategory, string[]> = {
 export const TOOL_ACTION_HINTS: Record<ToolCategory, Partial<Record<string, string>>> = {
     fs: FS_ACTION_HINTS, notebook: NOTEBOOK_ACTION_HINTS, document: DOCUMENT_ACTION_HINTS,
     block: BLOCK_ACTION_HINTS, av: AV_ACTION_HINTS, file: FILE_ACTION_HINTS,
-    project: PROJECT_ACTION_HINTS, search: SEARCH_ACTION_HINTS, provenance: PROVENANCE_ACTION_HINTS,
+    project: PROJECT_ACTION_HINTS, search: SEARCH_ACTION_HINTS, literature: LITERATURE_ACTION_HINTS, provenance: PROVENANCE_ACTION_HINTS,
     tag: TAG_ACTION_HINTS, timeline: TIMELINE_ACTION_HINTS, system: SYSTEM_ACTION_HINTS,
     extension: EXTENSION_ACTION_HINTS,
 };
@@ -185,6 +202,7 @@ export const TOOL_ACTION_EXAMPLES: Record<ToolCategory, Partial<Record<string, H
     file: EMPTY_EXAMPLES,
     project: { snapshot: [{ title: 'Recover project state', mcp: { action: 'snapshot', cwd: '/absolute/project/path' } }] },
     search: EMPTY_EXAMPLES,
+    literature: { status: [{ title: 'Check Zotero source', mcp: { action: 'status' } }] },
     provenance: EMPTY_EXAMPLES,
     tag: EMPTY_EXAMPLES,
     timeline: EMPTY_EXAMPLES,

@@ -1233,6 +1233,34 @@ describe('search knowledge lexical-first pre-check', () => {
 });
 
 describe('search get_backlinks refresh and diagnostics', () => {
+    it('keeps the unscoped backlink call working through the global SQL index', async () => {
+        const request = vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+            if (endpoint === '/api/query/sql') {
+                const stmt = String(body?.stmt);
+                if (stmt.includes("WHERE id = 'doc-1'") && stmt.includes('LIMIT 1')) {
+                    return [{ id: 'doc-1', root_id: 'doc-1', box: 'nb-1', path: '/doc-1.sy', type: 'd' }];
+                }
+                if (stmt.includes('FROM spans s')) {
+                    return [{ id: 'ref-1', root_id: 'other-doc', box: 'nb-1', path: '/other-doc.sy', type: 'p', content: 'ref' }];
+                }
+            }
+            return [];
+        });
+
+        const result = await callSearchTool(createMockClient({ request }), {
+            action: 'get_backlinks',
+            id: 'doc-1',
+            mode: 'links',
+        }, buildDefaultToolConfig().search, { reload: vi.fn(async () => undefined), canRead: () => true } as never);
+
+        const parsed = parseResult(result);
+        expect(parsed.backlinks).toHaveLength(1);
+        expect(parsed.backlinks[0].id).toBe('ref-1');
+        expect(parsed.fallbackQuery).toBe('sql');
+        expect(parsed.sourcePayloadMissing).toBeUndefined();
+        expect(request).not.toHaveBeenCalledWith('/api/ref/getBacklinkDoc', expect.anything());
+    });
+
     it('refreshes the backlink index once and recovers the native payload', async () => {
         let backlinkCalls = 0;
         let refreshCalls = 0;
@@ -1258,6 +1286,7 @@ describe('search get_backlinks refresh and diagnostics', () => {
         const result = await callSearchTool(createMockClient({ request }), {
             action: 'get_backlinks',
             id: 'doc-1',
+            refTreeID: 'source-doc',
             mode: 'links',
         }, buildDefaultToolConfig().search, { reload: vi.fn(async () => undefined), canRead: () => true } as never);
 
@@ -1294,6 +1323,7 @@ describe('search get_backlinks refresh and diagnostics', () => {
         const result = await callSearchTool(createMockClient({ request }), {
             action: 'get_backlinks',
             id: 'doc-1',
+            refTreeID: 'source-doc',
             mode: 'links',
         }, buildDefaultToolConfig().search, { reload: vi.fn(async () => undefined), canRead: () => true } as never);
 

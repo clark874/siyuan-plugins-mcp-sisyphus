@@ -946,8 +946,8 @@ export const SearchGetBacklinksSchema = z.object({
     action: z.literal("get_backlinks"),
     id: z.string().describe("Block or document ID to find backlinks for"),
     keyword: z.string().optional().describe("Filter backlinks by keyword"),
-    refTreeID: z.string().optional().describe("Optional document tree ID to narrow backlink scope"),
-    scopeRootId: z.string().optional().describe("Semantic alias for refTreeID. Overrides refTreeID when both are provided."),
+    refTreeID: z.string().optional().describe("Optional source document tree ID for the kernel backlink query; when omitted, query the global SQL index."),
+    scopeRootId: z.string().optional().describe("Alias for refTreeID. Overrides refTreeID when both are provided."),
     mode: z.enum(["links", "mentions", "both"]).optional().describe('Result mode: "links", "mentions", or "both" (default).'),
 });
 
@@ -1063,7 +1063,7 @@ export const SystemActionSchema = z.enum(SYSTEM_ACTIONS);
 
 export const SystemChangelogSchema = z.object({
     action: z.literal("changelog"),
-    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.9.18 or v0.9.18"),
+    version: z.string().optional().describe("Exact plugin version to read, e.g. 0.10.0 or v0.10.0"),
     fromVersion: z.string().optional().describe("Previous plugin version; returns entries newer than this version"),
     limit: z.number().int().min(1).max(50).optional().describe("Maximum number of entries to return when version is omitted"),
     includeRaw: z.boolean().optional().describe("Include raw Markdown for each returned changelog entry"),

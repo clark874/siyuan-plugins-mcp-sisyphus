@@ -64,6 +64,10 @@ export const ACTION_SAFETY_POLICIES: {
         list_invalid_refs: read(), find_replace: mutation('manifest'),
         criteria_list: read(), criteria_save: mutation('state'), criteria_remove: mutation('state'),
     },
+    literature: {
+        status: read(), list_collections: read(), list_collection_items: read(),
+        search_papers: read(), get_paper: read(), get_citations: read(), locate_quote: read(), get_annotations: read(),
+    },
     tag: { list: read(), rename: mutation('manifest'), remove: mutation('manifest') },
     timeline: {
         list_nodes: read(), compare_node: read(), compare_recent: read(), create_node: mutation(),

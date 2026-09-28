@@ -1,6 +1,6 @@
 # 工具索引
 
-当前 LLM Wiki 工具面包含 13 个聚合工具、94 个 action。每个工具还接受 `action="help"`；`extension` 动态发现的官方插件 action 不计入 94 个固定 action。
+当前 LLM Wiki 工具面包含 14 个聚合工具、102 个 action。每个工具还接受 `action="help"`；`extension` 动态发现的官方插件 action 不计入 102 个固定 action。
 
 | 工具 | 现行 action |
 | --- | --- |
@@ -12,6 +12,7 @@
 | `file` | register_project_source, identify_project, scan_project_manifest, resolve_project_source, read_project_source, list_project_sources |
 | `project` | snapshot |
 | `search` | fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, list_invalid_refs, criteria_list, criteria_save, criteria_remove |
+| `literature` | status, list_collections, list_collection_items, search_papers, get_paper, get_citations, locate_quote, get_annotations |
 | `provenance` | register_session, record_event, discover_session, list_project_sessions, list_atom_events, resolve_session_link, validate_session |
 | `tag` | list, rename, remove |
 | `timeline` | list_nodes, create_node, compare_node, compare_recent |

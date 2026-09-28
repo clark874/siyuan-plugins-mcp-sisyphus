@@ -10,7 +10,7 @@ const MCP_URL = process.env.SIYUAN_MCP_URL || 'http://127.0.0.1:36806/mcp';
 const HTTP_SETTINGS_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpHttpSettings';
 const EXPECTED_TOOLS = [
     'fs', 'notebook', 'document', 'block', 'av', 'file', 'project',
-    'search', 'provenance', 'tag', 'timeline', 'system', 'extension',
+    'search', 'literature', 'provenance', 'tag', 'timeline', 'system', 'extension',
 ];
 const EXPECTED_EXTENSION_ACTIONS = ['list', 'outline', 'ref', 'search', 'web_fetch', 'web_search'];
 const REMOVED = [
@@ -31,7 +31,7 @@ function assertSurface(tools, expectNativeExtensions = false) {
     const extension = tools.find((tool) => tool.name === 'extension');
     const extensionActions = (extension?.inputSchema?.properties?.action?.enum ?? []).filter((action) => action !== 'help');
     assert.deepEqual(extensionActions, expectNativeExtensions ? EXPECTED_EXTENSION_ACTIONS : ['list']);
-    assert.equal(actions.length, expectNativeExtensions ? 99 : 94);
+    assert.equal(actions.length, expectNativeExtensions ? 107 : 102);
     const surface = JSON.stringify({ names: tools.map((tool) => tool.name), actions });
     for (const removed of REMOVED) assert.equal(surface.includes(`"${removed}"`), false, `仍暴露旧动作：${removed}`);
 }
@@ -94,8 +94,9 @@ async function main() {
     });
     if (!response.ok) throw new Error(`无法连接思源：${SIYUAN_URL}`);
     const version = await runInMemory();
-    await runHttp();
-    console.log(`Live smoke passed: SiYuan ${version}, 13 tools, 94 maintained actions, 5 allowlisted native extension entrypoints.`);
+    const inMemoryOnly = process.argv.includes('--in-memory-only');
+    if (!inMemoryOnly) await runHttp();
+    console.log(`Live smoke passed: SiYuan ${version}, 14 tools, 102 maintained actions${inMemoryOnly ? ' (new build, in-memory gateway)' : ', 5 allowlisted native extension entrypoints'}.`);
 }
 
 main().catch((error) => {

@@ -13,6 +13,7 @@ import {
     FILE_VARIANTS,
     FS_VARIANTS,
     NOTEBOOK_VARIANTS,
+    LITERATURE_VARIANTS,
     PROJECT_VARIANTS,
     PROVENANCE_VARIANTS,
     SEARCH_VARIANTS,
@@ -31,6 +32,7 @@ const variantsByTool: Record<string, Array<{ action: string; schema: Record<stri
     file: FILE_VARIANTS,
     fs: FS_VARIANTS,
     notebook: NOTEBOOK_VARIANTS,
+    literature: LITERATURE_VARIANTS,
     provenance: PROVENANCE_VARIANTS,
     project: PROJECT_VARIANTS,
     search: SEARCH_VARIANTS,
@@ -40,10 +42,10 @@ const variantsByTool: Record<string, Array<{ action: string; schema: Record<stri
 };
 
 describe('core/skills', () => {
-    it('embeds fourteen valid MCP skills without CLI invocation examples', () => {
-        expect(MCP_SKILLS).toHaveLength(14);
-        expect(new Set(MCP_SKILLS.map((skill) => skill.name)).size).toBe(14);
-        expect(new Set(MCP_SKILLS.map((skill) => skill.promptName)).size).toBe(14);
+    it('embeds fifteen valid MCP skills without CLI invocation examples', () => {
+        expect(MCP_SKILLS).toHaveLength(15);
+        expect(new Set(MCP_SKILLS.map((skill) => skill.name)).size).toBe(15);
+        expect(new Set(MCP_SKILLS.map((skill) => skill.promptName)).size).toBe(15);
 
         for (const skill of MCP_SKILLS) {
             expect(skill.text).toContain(`name: ${skill.name}`);
@@ -230,7 +232,8 @@ describe('core/skills', () => {
         const prompt = getMcpPrompt('siyuan_create_edit', 'Append a summary.');
 
         expect(index).toContain('siyuan://help/action/{tool}/{action}');
-        expect(prompts).toHaveLength(14);
+        expect(prompts).toHaveLength(15);
+        expect(index).toContain('siyuan-mcp-literature-source');
         expect(index).toContain('siyuan-mcp-timeline');
         expect(index).toContain('siyuan-mcp-knowledge-ingest');
         expect(index).toContain('siyuan-mcp-project-knowledge-compile');

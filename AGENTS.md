@@ -11,7 +11,7 @@
 1. **MCP Server 插件**：作为 SiYuan 插件运行，对外暴露 MCP（Model Context Protocol）服务。AI 客户端（Claude Desktop、Cursor、Cherry Studio 等）通过 HTTP 或 stdio 连接。
 2. **独立 CLI `siyuan-sisyphus`**：发布到 npm 的包名 `siyuan-sisyphus`，安装后提供 `siyuan-sisyphus` / `siyuan` 命令。直接通过思源 HTTP API 执行单次操作后退出，无需 MCP 客户端。
 
-两种接口共享同一套底层能力（13 个聚合工具、94 个注册 action，不含各工具的 `help` 与动态 `extension` action；`extension` 另桥接经过固定白名单筛选的官方原生 MCP 工具）。
+两种接口共享同一套底层能力（14 个聚合工具、102 个注册 action，不含各工具的 `help` 与动态 `extension` action；`extension` 另桥接经过固定白名单筛选的官方原生 MCP 工具）。
 
 ### LLM Wiki 分支产品边界
 
@@ -20,7 +20,7 @@
 - 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.9.18`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.4.18`）
+- 当前版本：`0.10.0`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.4.19`）
 
 ---
 
@@ -68,7 +68,7 @@ siyuan-plugins-mcp-sisyphus/
 │   ├── core/                    # MCP 服务器核心与工具元数据
 │   │   ├── server.ts            # MCP Server 入口：createSiYuanServer()、startMcpServer()
 │   │   ├── http-transport.ts    # HTTP MCP 2026 无状态 + legacy 有会话双协议传输
-│   │   ├── tool-registry.ts     # TOOL_REGISTRY：13 个聚合工具的注册表
+│   │   ├── tool-registry.ts     # TOOL_REGISTRY：14 个聚合工具的注册表
 │   │   ├── tool-lifecycle.ts    # 工具调用生命周期：响应压缩与界面刷新元数据过滤
 │   │   ├── config.ts            # ToolConfig 类型、默认值、配置迁移（扁平 → 嵌套）、危险动作定义
 │   │   ├── permissions.ts       # PermissionManager：笔记本级权限（rwd/rw/r/none）
@@ -80,7 +80,7 @@ siyuan-plugins-mcp-sisyphus/
 │   │   ├── server-instructions.ts # 服务端 instructions 文本构建
 │   │   └── runtime.ts           # 运行时环境检测（isPluginMode 等）
 │   │
-│   ├── tools/                   # 13 个聚合工具的实现
+│   ├── tools/                   # 14 个聚合工具的实现
 │   │   ├── index.ts             # barrel export：统一导出所有工具模块
 │   │   ├── internal/            # 工具层共享基础设施（非独立工具）
 │   │   │   ├── define-tool.ts   # defineTool() 工厂：统一工具定义模式
@@ -240,7 +240,7 @@ pnpm update-version     # 同步版本号到 plugin.json 与 cli/package.json
 
 ### 聚合工具模型（Aggregated Tools）
 
-当前维护能力被收敛为 **13 个聚合工具、94 个 action**（`TOOL_CATEGORIES`，权威清单定义于 `src/core/config.ts` 的 `*_ACTIONS` 常量），每个工具通过 `action` 字段路由到具体 operation：
+当前维护能力被收敛为 **14 个聚合工具、102 个 action**（`TOOL_CATEGORIES`，权威清单定义于 `src/core/config.ts` 的 `*_ACTIONS` 常量），每个工具通过 `action` 字段路由到具体 operation：
 
 ```
 fs          → 9  actions（ls, tree, read, write, replace, rm, mv, reorder, search）
@@ -251,6 +251,7 @@ av          → 13 actions（get, render, get_attribute_view_keys, add_rows, set
 file        → 6  actions（register_project_source, identify_project, scan_project_manifest, resolve_project_source, read_project_source, list_project_sources）
 project     → 1  action（snapshot）
 search      → 12 actions（fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, list_invalid_refs, criteria_list, criteria_save, criteria_remove）
+literature  → 8  actions（status, list_collections, list_collection_items, search_papers, get_paper, get_citations, locate_quote, get_annotations）
 provenance  → 7  actions（register_session, record_event, discover_session, list_project_sessions, list_atom_events, resolve_session_link, validate_session）
 tag         → 3  actions（list, rename, remove）
 timeline    → 4  actions（list_nodes, create_node, compare_node, compare_recent）

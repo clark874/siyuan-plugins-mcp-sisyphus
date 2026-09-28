@@ -70,13 +70,13 @@ describe('portable agent kit', () => {
         expect(releaseChannel).toEqual(expect.objectContaining({
             schemaVersion: 1,
             channel: 'stable',
-            version: packageManifest.version,
+            version: expect.stringMatching(/^\d+\.\d+\.\d+$/),
             package: expect.objectContaining({
-                url: expect.stringContaining(`/v${packageManifest.version}/package.zip`),
+                url: expect.stringContaining(`/v${releaseChannel.version}/package.zip`),
                 sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
             }),
             agentKit: expect.objectContaining({
-                url: expect.stringContaining(`/v${packageManifest.version}/siyuan-agent-kit.zip`),
+                url: expect.stringContaining(`/v${releaseChannel.version}/siyuan-agent-kit.zip`),
                 sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
             }),
         }));

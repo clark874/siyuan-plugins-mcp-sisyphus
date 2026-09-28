@@ -1,6 +1,6 @@
 import type { SiYuanClient } from '../api/client';
 
-export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'project', 'search', 'provenance', 'tag', 'timeline', 'system', 'extension'] as const;
+export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'file', 'project', 'search', 'literature', 'provenance', 'tag', 'timeline', 'system', 'extension'] as const;
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
@@ -12,6 +12,7 @@ export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attr
 export const FILE_ACTIONS = ['register_project_source', 'identify_project', 'scan_project_manifest', 'resolve_project_source', 'read_project_source', 'list_project_sources'] as const;
 export const PROJECT_ACTIONS = ['snapshot'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'check_anchor', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'list_invalid_refs', 'criteria_list', 'criteria_save', 'criteria_remove'] as const;
+export const LITERATURE_ACTIONS = ['status', 'list_collections', 'list_collection_items', 'search_papers', 'get_paper', 'get_citations', 'locate_quote', 'get_annotations'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'compare_recent'] as const;
 export const TIMELINE_APP_ACTIONS = ['list_nodes', 'create_node', 'compare_node'] as const;
@@ -66,6 +67,7 @@ export type AvAction = typeof AV_ACTIONS[number];
 export type FileAction = typeof FILE_ACTIONS[number];
 export type ProjectAction = typeof PROJECT_ACTIONS[number];
 export type SearchAction = typeof SEARCH_ACTIONS[number];
+export type LiteratureAction = typeof LITERATURE_ACTIONS[number];
 export type TagAction = typeof TAG_ACTIONS[number];
 export type TimelineAction = typeof TIMELINE_ACTIONS[number];
 export type TimelineAppAction = typeof TIMELINE_APP_ACTIONS[number];
@@ -82,6 +84,7 @@ export type ToolActionMap = {
     file: FileAction;
     project: ProjectAction;
     search: SearchAction;
+    literature: LiteratureAction;
     tag: TagAction;
     timeline: TimelineAction;
     system: SystemAction;
@@ -122,7 +125,7 @@ export interface WriteSafetyConfig {
 
 /**
  * Some MCP clients react to `isError: true` by re-sending the full tools/list
- * payload as a self-correction hint. With 13 aggregated tools that payload is
+ * payload as a self-correction hint. With 14 aggregated tools that payload is
  * around 118 KB, so a single mistyped argument can burn tens of thousands of
  * tokens of client context. Opting in downgrades only agent-correctable
  * failures to a non-error result; the structured `error` payload is preserved
@@ -141,6 +144,7 @@ export type ToolConfig = {
     file: CategoryToolConfig<FileAction>;
     project: CategoryToolConfig<ProjectAction>;
     search: CategoryToolConfig<SearchAction>;
+    literature: CategoryToolConfig<LiteratureAction>;
     tag: CategoryToolConfig<TagAction>;
     timeline: TimelineCategoryToolConfig;
     system: CategoryToolConfig<SystemAction>;
@@ -178,6 +182,7 @@ export const ACTIONS_BY_CATEGORY: { [Category in ToolCategory]: readonly ToolAct
     file: FILE_ACTIONS,
     project: PROJECT_ACTIONS,
     search: SEARCH_ACTIONS,
+    literature: LITERATURE_ACTIONS,
     tag: TAG_ACTIONS,
     timeline: TIMELINE_ACTIONS,
     system: SYSTEM_ACTIONS,
@@ -232,6 +237,10 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         search_refs: 'advanced', find_replace: 'advanced', list_invalid_refs: 'advanced',
         criteria_list: 'advanced', criteria_save: 'advanced', criteria_remove: 'advanced',
     },
+    literature: {
+        status: 'basic', list_collections: 'basic', list_collection_items: 'basic',
+        search_papers: 'basic', get_paper: 'basic', get_citations: 'basic', locate_quote: 'basic', get_annotations: 'basic',
+    },
     tag: {
         list: 'basic', rename: 'basic',
         remove: 'advanced',
@@ -265,6 +274,7 @@ export const DANGEROUS_ACTIONS: Record<ToolCategory, Set<string>> = {
     file: new Set(['register_project_source', 'scan_project_manifest', 'resolve_project_source']),
     project: new Set(),
     search: new Set(['find_replace', 'criteria_save', 'criteria_remove']),
+    literature: new Set(),
     tag: new Set(['remove']),
     timeline: new Set(),
     system: new Set(),
@@ -316,6 +326,10 @@ export function buildDefaultToolConfig(): ToolConfig {
         search: {
             enabled: true,
             actions: createActionsRecord(SEARCH_ACTIONS, SEARCH_ACTIONS),
+        },
+        literature: {
+            enabled: true,
+            actions: createActionsRecord(LITERATURE_ACTIONS, LITERATURE_ACTIONS),
         },
         tag: {
             enabled: true,

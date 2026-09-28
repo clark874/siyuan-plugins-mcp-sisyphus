@@ -6,7 +6,7 @@
 
 Direct command-line control for [SiYuan Note](https://b3log.org/siyuan). Every MCP tool, including the read-only `project snapshot` interface, is exposed as a subcommand you can call directly from a shell.
 
-> **LLM Wiki version:** `v0.4.18` tracks plugin `v0.9.18` and its 13-tool, 94-action text workflow surface.
+> **LLM Wiki development version:** `v0.4.19` tracks plugin `v0.10.0`; the current surface has 14 tools and 102 actions.
 
 > **For AI models and coding agents:** before doing any SiYuan work with this CLI, run `siyuan-sisyphus skill install` first. The bundled skills provide task-specific rules for safe search, reading, editing, project sources, databases, tags, timelines, provenance, and system diagnostics.
 
