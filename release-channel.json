@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "channel": "stable",
-  "version": "0.10.1",
-  "releaseUrl": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/tag/v0.10.1",
+  "version": "0.11.0",
+  "releaseUrl": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/tag/v0.11.0",
   "package": {
-    "url": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.10.1/package.zip",
-    "sha256": "d0780cc32b04d4e23ecac95166d759dfcede9b6d581a719de7a1eb5b3dd74ba9"
+    "url": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.11.0/package.zip",
+    "sha256": "8098a9471cdd52923c19912d9d25fa4b046105b208c0e40d842051ba981b6bba"
   },
   "agentKit": {
-    "url": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.10.1/siyuan-agent-kit.zip",
-    "sha256": "0cb3af3b1d06f899b5091a6a101ccc80149adbfbb8025f324e66c41f3cd3cd76"
+    "url": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.11.0/siyuan-agent-kit.zip",
+    "sha256": "dde50ffc0340612d2c006661cd797d24510839fa74a08806fba414cd93739509"
   },
   "minimumSiYuanVersion": "2.9.0",
-  "recommendedSiYuanVersion": "3.8.5"
+  "recommendedSiYuanVersion": "3.8.6"
 }
