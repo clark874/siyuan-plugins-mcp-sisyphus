@@ -19,11 +19,11 @@ describe('project tool', () => {
         else process.env.SIYUAN_MCP_HOST_ID = originalHostId;
     });
 
-    it('exposes a read-only snapshot action', () => {
+    it('保留只读快照并披露原生导图写入动作', () => {
         const [tool] = listProjectTools(buildDefaultToolConfig().project);
         expect(tool.inputSchema.properties.action).toBeDefined();
         expect(JSON.stringify(tool.inputSchema)).toContain('projectName');
-        expect(listAllTools(buildDefaultToolConfig()).find((item) => item.name === 'project')?.annotations?.readOnlyHint).toBe(true);
+        expect(listAllTools(buildDefaultToolConfig()).find((item) => item.name === 'project')?.annotations?.readOnlyHint).toBe(false);
     });
 
     it('returns one bounded snapshot without exposing workspaceRoot', async () => {

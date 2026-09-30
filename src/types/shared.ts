@@ -17,6 +17,8 @@ export interface NotebookConf {
 }
 
 export type BlockType =
+    | 'mindmap'
+    | 'mindmap_item'
     | 'd'
     | 'p'
     | 'query_embed'

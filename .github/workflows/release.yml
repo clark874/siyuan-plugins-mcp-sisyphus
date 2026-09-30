@@ -58,9 +58,13 @@ jobs:
       - name: Build for production
         run: pnpm build
 
+      - name: 提取当前版本说明
+        run: awk '/^## / { count++ } count == 1 { print }' CHANGELOG.md > release-notes.md
+
       - name: Release
         uses: ncipollo/release-action@v1
         with:
+          bodyFile: release-notes.md
           allowUpdates: true
           artifactErrorsFailBuild: true
           artifacts: "package.zip,siyuan-agent-kit.zip"

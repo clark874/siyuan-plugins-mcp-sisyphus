@@ -84,7 +84,9 @@ const provenanceTool = defineTool<ProvenanceAction>({
                 if (permission.denied) return permission.denied;
             }
             const event = await recordProvenanceEvent(client, parsed);
-            return createJsonResult({ action: parsed.action, event });
+            const { syncEnabledProjectMindmaps } = await import('../project');
+            const mindmapSync = await syncEnabledProjectMindmaps(client, permMgr, [parsed.projectId]);
+            return createJsonResult({ action: parsed.action, event, ...(mindmapSync.length ? { mindmapSync } : {}) });
         },
         list_project_sessions: async ({ client, rawArgs, permMgr }) => {
             const parsed = ProvenanceListProjectSessionsSchema.parse(rawArgs);

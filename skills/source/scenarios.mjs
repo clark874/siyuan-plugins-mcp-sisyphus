@@ -633,6 +633,8 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 \`启动\`先完成登记和上述全景输出；附带任务时随后继续执行。\`交接\`每次都重新调用 snapshot，不复用旧报告；它不创建进度事件、不更新状态投影、不写知识。若只读恢复成功但当前会话未登记，仍输出全景并明确标记“当前会话未登记，禁止写入”。页面中的 query_embed 仅供人类浏览，机器判断只以 snapshot 为准。
 
+项目原生思维导图需要思源 3.8.6。用户要求生成时，先以同一组业务参数调用 \`project.sync_mindmap(projectId=..., validateOnly=true)\`，再复制返回的 \`issuedRequestId\` 与 \`stateHash\` 作为 \`requestId\` 和 \`expectedStateHash\` 执行一次。首次生成后，该项目经 Sisyphus 提交事件、项目正文或状态属性会自动同步；无需重复手动生成。启动和交接保持只读，不擅自为现有项目启用导图。返回 \`mindmapSync.status=pending\` 时明确报告原因，人工冲突未解决前不得重建或覆盖。管理节点之外保存备注；停用自动同步使用同一严格流程并设置 \`autoSync=false\`。本地文件变化需先通过既有项目工作流提交事实，导图不直接监听文件。
+
 ## 四、知识化
 
 用户显式调用“知识化”即授权本轮必要的知识写入。若本轮没有先“启动”，先完成项目识别、会话发现、登记和回读。只有原子冲突、目标中枢歧义或事实无法确认时才中断询问。

@@ -58,7 +58,7 @@ export const ACTION_SAFETY_POLICIES: {
         identify_project: read(), resolve_project_source: read(), read_project_source: read(), list_project_sources: read(),
         register_project_source: mutation('state'), scan_project_manifest: mutation('state'),
     },
-    project: { snapshot: read() },
+    project: { snapshot: read(), sync_mindmap: mutation('state') },
     search: {
         fulltext: read(), semantic: read(), knowledge: read(), check_anchor: read(), query_sql: read(), get_backlinks: read(), search_refs: read(),
         list_invalid_refs: read(), find_replace: mutation('manifest'),

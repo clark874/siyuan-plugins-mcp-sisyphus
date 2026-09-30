@@ -435,6 +435,9 @@ async function probeCurrentState(
         state.av = await client.requestRead('/api/av/getAttributeView', { id: args.avID });
     } else if (category === 'file') {
         await appendFileState(client, action, args, state);
+    } else if (category === 'project' && action === 'sync_mindmap') {
+        const { readProjectMindmapWriteState } = await import('../tools/project');
+        return readProjectMindmapWriteState(client, permMgr, args);
     } else if (category === 'block' && action === 'set_attrs') {
         const items = Array.isArray(args.items)
             ? args.items.filter(isRecord).map((item) => ({

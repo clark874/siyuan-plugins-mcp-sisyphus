@@ -1,6 +1,6 @@
 # Tools Index
 
-The maintained LLM Wiki surface contains 14 aggregated tools and 102 actions. Each tool also accepts `action="help"`; dynamic official-plugin actions discovered through `extension` are not counted.
+The maintained LLM Wiki surface contains 14 aggregated tools and 103 actions. Each tool also accepts `action="help"`; dynamic official-plugin actions discovered through `extension` are not counted.
 
 | Tool | Actions |
 | --- | --- |
@@ -10,7 +10,7 @@ The maintained LLM Wiki surface contains 14 aggregated tools and 102 actions. Ea
 | `block` | insert, prepend, append, update, replace, move, get_kramdown, batch_kramdown, get_children, transfer_references, set_attrs, get_attrs, info, breadcrumb, dom, docs_info |
 | `av` | get, render, get_attribute_view_keys, get_attribute_view_filter_sort, search, rename, add_rows, remove_rows, add_column, remove_column, set_cells, duplicate, get_primary_key_values |
 | `file` | register_project_source, identify_project, scan_project_manifest, resolve_project_source, read_project_source, list_project_sources |
-| `project` | snapshot |
+| `project` | snapshot, sync_mindmap |
 | `search` | fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, list_invalid_refs, criteria_list, criteria_save, criteria_remove |
 | `literature` | status, list_collections, list_collection_items, search_papers, get_paper, get_citations, locate_quote, get_annotations |
 | `provenance` | register_session, record_event, discover_session, list_project_sessions, list_atom_events, resolve_session_link, validate_session |

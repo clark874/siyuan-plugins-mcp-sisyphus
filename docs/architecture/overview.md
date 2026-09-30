@@ -5,7 +5,7 @@ SiYuan Sisyphus exposes one deliberately bounded text-workflow surface through b
 ## Layers
 
 1. MCP clients connect over stdio or authenticated HTTP(S); the CLI calls the same registry directly.
-2. `TOOL_REGISTRY` publishes 14 aggregate tools and routes their 102 actions.
+2. `TOOL_REGISTRY` publishes 14 aggregate tools and routes their 103 actions.
 3. Permission checks, strict write preflight, response shaping, and optional UI refresh wrap each call.
 4. `SiYuanClient` uses SiYuan HTTP APIs. The `file` tool separately reads only registered, manifest-listed local project text; `literature` reaches only the fixed read-only allowlist of the local Zotero MCP over loopback.
 

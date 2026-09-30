@@ -328,6 +328,7 @@ describe('block tool', () => {
                         'block-2': { id: 'block-2', updated: '2', alias: '原子二', 'custom-scope': 'test' },
                     };
                 }
+                if (endpoint === '/api/attr/getBlockAttrs') return {};
                 if (endpoint === '/api/block/batchUpdateBlock') return [{ doOperations: [] }];
                 if (endpoint === '/api/attr/batchSetBlockAttrs') return null;
                 if (endpoint.startsWith('/api/ui/')) return null;

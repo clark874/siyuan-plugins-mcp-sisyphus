@@ -3,6 +3,7 @@ import * as attributeApi from '../../api/block';
 import * as blockApi from '../../api/block';
 import * as transactionApi from '../../api/transaction';
 import { validateBlockAttributeMutations } from '../../core/attribute-governance';
+import type { PermissionManager } from '../../core/permissions';
 import type { BlockAction } from '../../core/config';
 import { normalizeKramdownResult, stripZeroWidthChars } from '../../core/normalize';
 import {
@@ -490,6 +491,19 @@ const handleAppend: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
     }, data)), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
+/** 只从写后回读的项目角色触发导图，不扫描普通笔记。 */
+async function syncMindmapsForBlocks(client: SiYuanClient, permMgr: PermissionManager, ids: string[]) {
+    const projects: string[] = [];
+    for (const id of ids) {
+        const attrs = await attributeApi.getBlockAttrs(client, id) || {};
+        if (['project-profile', 'stage-ledger', 'artifact-index', 'project-state', 'workstream-state', 'event'].includes(attrs['custom-progress-role'])
+            && attrs['custom-progress-project-id']) projects.push(attrs['custom-progress-project-id']);
+    }
+    if (!projects.length) return [];
+    const { syncEnabledProjectMindmaps } = await import('../project');
+    return syncEnabledProjectMindmaps(client, permMgr, projects);
+}
+
 const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockUpdateSchema.parse(rawArgs);
     if (parsed.items) {
@@ -505,10 +519,12 @@ const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
             reloadIds.add(context.documentId);
         }
         const { result, preservedAttributeCount } = await batchUpdateBlocksPreservingAttrs(client, items);
+        const mindmapSync = await syncMindmapsForBlocks(client, permMgr, items.map((item) => item.id));
         return applyUiRefresh(client, createJsonResult({
             success: true,
             action: 'update',
             count: parsed.items.length,
+            ...(mindmapSync.length ? { mindmapSync } : {}),
             transactions: result,
             attributesPreserved: true,
             preservedAttributeCount,
@@ -528,12 +544,14 @@ const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
         dataType: parsed.dataType!,
         data,
     });
+    const mindmapSync = await syncMindmapsForBlocks(client, permMgr, [parsed.id!]);
     return applyUiRefresh(client, createUpdateResult(result, {
         id: parsed.id!,
         dataType: parsed.dataType!,
         data,
         attributesPreserved: true,
         preservedAttributeCount,
+        ...(mindmapSync.length ? { mindmapSync } : {}),
         ...(isDatabaseBlock ? createDatabaseBlockHint('block.update') : {}),
     }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
@@ -560,8 +578,10 @@ const handleReplace: BlockActionHandler = async ({ client, permMgr, rawArgs }) =
         });
     }
 
+    const mindmapSync = changed ? await syncMindmapsForBlocks(client, permMgr, [parsed.id]) : [];
     return applyUiRefresh(client, createJsonResult({
         success: true,
+        ...(mindmapSync.length ? { mindmapSync } : {}),
         action: 'replace',
         id: parsed.id,
         changed,
@@ -770,19 +790,25 @@ const handleSetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) 
         undoOperations: [],
     }]);
     const readbacks = [];
+    const mindmapProjects: string[] = [];
     for (const item of items) {
         const readback = await attributeApi.getBlockAttrs(client, item.id);
         for (const [name, value] of Object.entries(item.attrs)) {
             if (readback[name] !== value) throw new Error(`块 ${item.id} 的属性 ${name} 写入后回读不一致。`);
         }
         readbacks.push({ id: item.id, attrs: item.attrs });
+        if (['project-profile', 'stage-ledger', 'artifact-index', 'project-state', 'workstream-state', 'event'].includes(readback['custom-progress-role'])
+            && readback['custom-progress-project-id']) mindmapProjects.push(readback['custom-progress-project-id']);
     }
+    const { syncEnabledProjectMindmaps } = await import('../project');
+    const mindmapSync = await syncEnabledProjectMindmaps(client, permMgr, mindmapProjects);
     const refreshes = [...new Set(contexts.map((context) => context.documentId))]
         .map((id) => ({ type: 'reloadProtyle' as const, id }));
     return applyUiRefresh(client, createJsonResult({
         success: true,
         ...(parsed.items ? { items: readbacks } : { id: parsed.id, attrs: parsed.attrs }),
         verification: { status: 'verified', method: 'attribute-readback', itemCount: items.length },
+        ...(mindmapSync.length ? { mindmapSync } : {}),
     }), refreshes);
 };
 

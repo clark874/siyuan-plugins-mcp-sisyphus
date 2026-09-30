@@ -166,7 +166,7 @@ export function listAllTools(config: ToolConfig, runtime?: OfficialMcpRuntime): 
                 // Aggregated tools generally mix reads and writes. False is
                 // deliberately conservative; action-level semantics remain
                 // documented in the discriminated input schema and help.
-                readOnlyHint: cat === 'project' || cat === 'literature',
+                readOnlyHint: cat === 'literature' || (cat === 'project' && config.project.actions.sync_mindmap !== true),
                 destructiveHint: enabledDangerousAction,
                 idempotentHint: false,
                 openWorldHint: true,

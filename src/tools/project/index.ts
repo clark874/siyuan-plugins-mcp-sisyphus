@@ -1,7 +1,10 @@
 import type { SiYuanClient } from '../../api/client';
 import * as blockApi from '../../api/block';
 import * as searchApi from '../../api/search';
-import type { CategoryToolConfig, ProjectAction } from '../../core/config';
+import { loadToolConfigFromApiFileWithStatus, type CategoryToolConfig, type ProjectAction } from '../../core/config';
+import { getVersion } from '../../api/system';
+import { hashWriteState } from '../../core/write-safety-hash';
+import { executeMindmapPlan, readMindmapPlan, MINDMAP_ROOT_ATTR, MINDMAP_AUTO_ATTR } from './mindmap';
 import {
     listProjectSources,
     matchProjectSourceByCwd,
@@ -15,12 +18,62 @@ import {
     validateLocalAgentSession,
 } from '../../core/provenance';
 import type { PermissionManager } from '../../core/permissions';
-import { ProjectActionSchema, ProjectSnapshotSchema } from '../../core/types';
+import { ProjectActionSchema, ProjectSnapshotSchema, ProjectSyncMindmapSchema } from '../../core/types';
 import { ensurePermissionForDocumentId, escapeSqlString } from '../internal/context';
 import { defineTool } from '../internal/define-tool';
 import { createJsonResult, createZodActionVariant, type ActionVariant, type ToolResult } from '../internal/shared';
+import { applyUiRefresh } from '../internal/ui-refresh';
 
 export const PROJECT_TOOL_NAME = 'project';
+
+async function requireMindmapKernel(client: SiYuanClient): Promise<void> {
+    const version = await getVersion(client);
+    const match = /^(\d+)\.(\d+)\.(\d+)(?:$|[-+])/.exec(version);
+    if (!match || Number(match[1]) < 3 || (Number(match[1]) === 3 && (Number(match[2]) < 8 || (Number(match[2]) === 8 && Number(match[3]) < 6)))) {
+        throw new Error('项目原生思维导图需要思源 3.8.6 或更新版本；未执行写入。');
+    }
+}
+
+async function projectMindmapPlan(client: SiYuanClient, permMgr: PermissionManager, projectId: string) {
+    await requireMindmapKernel(client);
+    const snapshot = await buildSnapshot(client, permMgr, { action: 'snapshot', projectId, validateSessions: false });
+    return readMindmapPlan(client, permMgr, snapshot);
+}
+
+export async function readProjectMindmapWriteState(client: SiYuanClient, permMgr: PermissionManager, args: Record<string, unknown>) {
+    const parsed = ProjectSyncMindmapSchema.parse(args);
+    const plan = await projectMindmapPlan(client, permMgr, parsed.projectId);
+    return { hash: hashWriteState(plan), targetIds: [plan.pageId, ...(plan.previous ? [plan.previous.rootId] : [])],
+        summary: { projectId: parsed.projectId, nodeCount: plan.desired.length, existingRootId: plan.previous?.rootId || null } };
+}
+
+/** 在外层严格写入的串行区内运行；内部不递归申请同一个写锁。 */
+export async function syncEnabledProjectMindmaps(client: SiYuanClient, permMgr: PermissionManager, projectIds: string[]) {
+    const ids = [...new Set(projectIds)];
+    if (ids.length === 0) return [];
+    const loaded = await loadToolConfigFromApiFileWithStatus(client);
+    if (!loaded.ok) return ids.map((projectId) => ({ projectId, status: 'pending', message: '无法读取工具配置，未同步导图。' }));
+    if (!loaded.config.project.enabled || loaded.config.project.actions.sync_mindmap !== true) return [];
+    // 写后快照依赖 SQL 索引，先让内核完成刚提交的事务和索引队列。
+    try { await client.requestWrite('/api/sqlite/flushTransaction', {}); }
+    catch { return ids.map((projectId) => ({ projectId, status: 'pending', message: '项目索引刷新失败，未同步导图。' })); }
+    const results = [];
+    for (const projectId of ids) {
+        try {
+            const snapshot = await buildSnapshot(client, permMgr, { action: 'snapshot', projectId, validateSessions: false });
+            if (!snapshot.mindmap?.rootId || snapshot.mindmap.autoSync !== true) continue;
+            await requireMindmapKernel(client);
+            const plan = await readMindmapPlan(client, permMgr, snapshot);
+            const synced = await executeMindmapPlan(client, plan, true);
+            await readMindmapPlan(client, permMgr, snapshot);
+            await applyUiRefresh(client, createJsonResult(synced), [{ type: 'reloadProtyle', id: plan.pageId }]);
+            results.push(synced);
+        } catch (error) {
+            results.push({ projectId, status: 'pending', message: error instanceof Error ? error.message : String(error) });
+        }
+    }
+    return results;
+}
 
 type BlockRow = {
     id: string;
@@ -540,6 +593,10 @@ async function buildSnapshot(
             updated: progressPage[0].updated,
             attributes: progressPage[0].attributes,
         } : null,
+        mindmap: progressPage[0] ? {
+            rootId: attrsById[progressPage[0].id]?.[MINDMAP_ROOT_ATTR] || null,
+            autoSync: attrsById[progressPage[0].id]?.[MINDMAP_AUTO_ATTR] === 'true',
+        } : null,
         projections: {
             projectProfile: projections.find((item) => item.role === 'project-profile') || null,
             stageLedger: projections.find((item) => item.role === 'stage-ledger') || null,
@@ -586,11 +643,12 @@ async function buildSnapshot(
 
 export const PROJECT_VARIANTS: ActionVariant<ProjectAction>[] = [
     createZodActionVariant('snapshot', ProjectSnapshotSchema, 'Read one bounded project snapshot; summary is the default, while full adds bounded projection and event Kramdown.'),
+    createZodActionVariant('sync_mindmap', ProjectSyncMindmapSchema, '在既有项目进度页生成或增量同步原生思维导图；要求思源 3.8.6，人工修改冲突时停止。'),
 ];
 
 const projectTool = defineTool<ProjectAction>({
     name: PROJECT_TOOL_NAME,
-    description: '🧭 读取跨 Agent 项目共享记忆的结构化快照与服务端诊断。',
+    description: '🧭 读取项目快照与诊断，生成并增量同步项目原生思维导图。',
     variants: PROJECT_VARIANTS,
     actionSchema: ProjectActionSchema,
     aggregateOptions: {
@@ -599,9 +657,20 @@ const projectTool = defineTool<ProjectAction>({
             'cwd、projectId、projectName 三选一；项目名只做精确匹配，失败后由 Skill 使用 file.list_project_sources 展示候选。',
             '返回的绝对路径仅来自已登记 artifact-index，不包含 workspaceRoot，也不支持任意路径探测。',
         ],
-        actionHints: { snapshot: '读取有界项目快照；默认 summary，按需用 full 读取正文；只读返回修复预览，不自动写入。' },
+        actionHints: {
+            snapshot: '读取有界项目快照；默认 summary，按需用 full 读取正文；只读返回修复预览，不自动写入。',
+            sync_mindmap: '先严格预检，再以返回的状态凭据和请求标识同步；首次生成后自动同步，autoSync=false 可停止后续自动同步。',
+        },
     },
     handlers: {
+        sync_mindmap: async ({ client, rawArgs, permMgr }) => {
+            const parsed = ProjectSyncMindmapSchema.parse(rawArgs);
+            const plan = await projectMindmapPlan(client, permMgr, parsed.projectId);
+            const result = await executeMindmapPlan(client, plan, parsed.autoSync ?? true);
+            // 回读实际正文和层级，不能仅用管理属性作为成功证据。
+            await projectMindmapPlan(client, permMgr, parsed.projectId);
+            return applyUiRefresh(client, createJsonResult(result), [{ type: 'reloadProtyle', id: plan.pageId }]);
+        },
         snapshot: async ({ client, rawArgs, permMgr }) => {
             const parsed = ProjectSnapshotSchema.parse(rawArgs);
             const result = await buildSnapshot(client, permMgr, parsed);

@@ -51,6 +51,8 @@ export const DEFAULT_DOCUMENT_BLOCK_LIMIT = 50;
 export const DEFAULT_DOCUMENT_TOKEN_BUDGET = 2000;
 
 const SELF_CONTAINED_BLOCK_TYPES = new Set([
+    'mindmap',
+    'mindmap_item',
     'l',
     'b',
     'callout',
@@ -75,6 +77,8 @@ function normalizeBlockType(type: string | undefined): string | undefined {
     if (!normalized) return undefined;
     const lower = normalized.toLowerCase();
     if (!lower.startsWith('node')) return normalized;
+    if (lower === 'nodemindmapitem') return 'mindmap_item';
+    if (lower === 'nodemindmap') return 'mindmap';
     if (lower.includes('paragraph')) return 'p';
     if (lower.includes('heading')) return 'h';
     if (lower.includes('listitem')) return 'i';

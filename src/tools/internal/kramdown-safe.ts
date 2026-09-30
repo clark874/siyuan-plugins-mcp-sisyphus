@@ -182,7 +182,7 @@ function updateFenceState(line: string, state: { marker: string; length: number 
 }
 
 function stripListItemIalMarkers(markdown: string, blockType?: string): string {
-    if (blockType !== 'l') return markdown.trimEnd();
+    if (!['l', 'mindmap', 'mindmap_item'].includes(blockType ?? '')) return markdown.trimEnd();
 
     const lines: string[] = [];
     let fenceState: { marker: string; length: number } | null = null;

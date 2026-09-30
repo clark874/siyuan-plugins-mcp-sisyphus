@@ -5,7 +5,7 @@ SiYuan Sisyphus 通过 MCP 与 CLI 共同暴露一个明确收敛的文本工作
 ## 分层
 
 1. MCP 客户端通过 stdio 或带认证的 HTTP(S) 连接；CLI 直接调用同一注册表。
-2. `TOOL_REGISTRY` 发布 14 个聚合工具，并路由其中 102 个动作。
+2. `TOOL_REGISTRY` 发布 14 个聚合工具，并路由其中 103 个动作。
 3. 每次调用依次经过权限检查、严格安全写入预检、响应整形和可选界面刷新。
 4. `SiYuanClient` 使用思源 HTTP API；`file` 工具只额外读取已经登记并列入清单的本地项目文本；`literature` 只通过回环地址连接本地 Zotero MCP 的固定只读白名单。
 

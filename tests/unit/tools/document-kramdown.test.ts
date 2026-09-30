@@ -38,6 +38,17 @@ function createWindowClient() {
 }
 
 describe('document block windows', () => {
+    it('将原生思维导图作为整体读取一次并清理子节点属性', async () => {
+        const request = vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+            if (endpoint === '/api/block/getChildBlocks') return body?.id === 'doc' ? [{ id: 'map', type: 'NodeMindmap' }] : [{ id: 'child', type: 'mindmap_item' }];
+            if (endpoint === '/api/block/getBlockKramdown') return { id: 'map', kramdown: '- 项目\n  - 子节点\n  {: id="child"}\n{: id="map"}' };
+            return {};
+        });
+        const window = await readDocumentBlockWindow(createMockClient({ request }), 'doc');
+        expect(window.content.match(/子节点/g)).toHaveLength(1);
+        expect(window.content).not.toContain('{:');
+        expect(request.mock.calls.filter(([endpoint]) => endpoint === '/api/block/getChildBlocks')).toHaveLength(1);
+    });
     it('uses tree-ordered complete blocks and returns a full outline with optional IDs', async () => {
         const client = createWindowClient();
         const blocks = await listDocumentBlocksInTreeOrder(client, 'doc');

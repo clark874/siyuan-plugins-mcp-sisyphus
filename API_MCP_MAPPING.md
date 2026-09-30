@@ -34,6 +34,12 @@
 - MCP tool 处理器：`src/tools/`
 - HTTP wrapper：`src/api/`
 
+## 项目原生思维导图（0.11.0）
+
+`project.snapshot` 仍为只读。`project.sync_mindmap` 复用快照，要求思源 3.8.6，使用 `/api/block/getChildBlocks`、`getBlockDOM`、属性读取与 `/api/transactions`。首次明确生成时登记根块与自动同步开关；写后回读正文、层级和页登记。严格预检与执行必须使用同一组业务参数。
+
+`provenance.record_event`、`block.update/replace/set_attrs` 写后只同步已启用的相关项目，先完成内核事务与 SQL 索引刷新。冲突返回 `mindmapSync.status=pending`，保留已经提交的项目事实；不会另建副本。新块类型 `mindmap` 和 `mindmap_item` 为自包含容器，文档读取不重复遍历其子节点。
+
 ## 运行时入口
 
 ### 思源侧接口入口

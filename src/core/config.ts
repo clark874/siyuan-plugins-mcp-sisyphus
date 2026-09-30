@@ -10,7 +10,7 @@ export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'move', 'reorder'
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'replace', 'move', 'get_kramdown', 'batch_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'docs_info'] as const;
 export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values'] as const;
 export const FILE_ACTIONS = ['register_project_source', 'identify_project', 'scan_project_manifest', 'resolve_project_source', 'read_project_source', 'list_project_sources'] as const;
-export const PROJECT_ACTIONS = ['snapshot'] as const;
+export const PROJECT_ACTIONS = ['snapshot', 'sync_mindmap'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'check_anchor', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'list_invalid_refs', 'criteria_list', 'criteria_save', 'criteria_remove'] as const;
 export const LITERATURE_ACTIONS = ['status', 'list_collections', 'list_collection_items', 'search_papers', 'get_paper', 'get_citations', 'locate_quote', 'get_annotations'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
@@ -229,7 +229,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         register_project_source: 'advanced', scan_project_manifest: 'advanced',
     },
     project: {
-        snapshot: 'basic',
+        snapshot: 'basic', sync_mindmap: 'advanced',
     },
     search: {
         fulltext: 'basic', semantic: 'basic', knowledge: 'basic', check_anchor: 'basic', query_sql: 'basic',

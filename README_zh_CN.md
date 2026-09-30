@@ -1,6 +1,8 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki 分支：** 当前开发版为 `v0.10.1`（CLI `v0.4.19`），已在思源 `v3.8.5` 验证；MCP 工具面为 14 类、102 个 action。
+项目原生思维导图：思源 3.8.6 及以上可调用 `project.sync_mindmap`，首次严格预检并生成后，经 Sisyphus 提交项目事件、正文或状态属性时自动增量同步。保留存续块 ID 和显示配置；人工改写管理节点或结构时停止并报告待同步。具体边界与用法见 [升级方案](https://github.com/clark874/siyuan-plugins-mcp-sisyphus/blob/main/docs/plans/2026-09-30-v0.11.0-project-mindmap.md)。
+
+> **LLM Wiki 分支：** 当前开发版为 `v0.11.0`（CLI `v0.4.20`），已在思源 `v3.8.6` 验证；MCP 工具面为 14 类、103 个 action。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +27,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 开发版本：**`v0.10.1`。本分支服务文本知识治理，并通过只读 `literature` 工具访问本地 Zotero、定位 Markdown 引文与汇总思源论文入链；不提供图片读取或图片型知识写入。MCP 工具面为 14 类、102 个 action。CLI `v0.4.19` 要求 Node.js 20+。已在思源 `3.8.5` 实例验证。
+> **当前 LLM Wiki 开发版本：**`v0.11.0`。本分支服务文本知识治理，并通过只读 `literature` 工具访问本地 Zotero、定位 Markdown 引文与汇总思源论文入链；不提供图片读取或图片型知识写入。MCP 工具面为 14 类、103 个 action。CLI `v0.4.20` 要求 Node.js 20+。已在思源 `3.8.6` 实例验证。
 
 ## 项目方向调整
 
@@ -37,7 +39,7 @@ SiYuan Sisyphus 最初诞生于一个朴素的愿望：让思源笔记能够连�
 
 当前维护的 LLM Wiki 分支采用主动收敛后的工具面：
 
-- 14 个 Sisyphus 聚合工具和 102 个 action 覆盖当前文本知识与只读论文源工作流；
+- 14 个 Sisyphus 聚合工具和 103 个 action 覆盖当前文本知识与只读论文源工作流；
 - Sisyphus 已接入思源官方 MCP 端点，会发现并加载其他插件注册的 Tool；
 - 思源官方原生 MCP Tool 也可以选择接入，但由于权限边界不同，默认关闭；
 - 权限管理、文档时间线、多种连接方式等增强能力继续维护。
@@ -97,7 +99,7 @@ sisyphus notebook list
 - **AI 友好的笔记访问方式**：`fs` 支持 `/笔记本/项目/文档` 这类人类可读路径，让 AI 不必理解块 ID 和文档树细节。
 - **MCP 与 CLI 双入口**：MCP 适合多步 Agent 工作流，CLI 适合脚本、自动化和小型单次任务。
 - **笔记本级安全边界**：每个笔记本可独立设置 `none`、`r`、`rw`、`rwd` 权限。
-- **低上下文工具设计**：把 102 个 action 收敛为 14 个按 action 路由的聚合工具，详细说明按需读取。
+- **低上下文工具设计**：把 103 个 action 收敛为 14 个按 action 路由的聚合工具，详细说明按需读取。
 - **Agent 会话溯源**：记录项目知识化的来源会话与编译会话，汇总跨 Agent 会话历史，并按已验证能力返回原生链接或恢复命令；会话标识只保存在块属性中。
 - **面向 Agent 的场景 Skill**：内置浏览、编辑、搜索、知识摄取、知识原子治理、数据库、项目源文本、标签、文档时间线、系统安全和思源排版指南。
 - **MCP App 交互界面**：只保留文档时间线 App，用于列出、创建和比较快照。

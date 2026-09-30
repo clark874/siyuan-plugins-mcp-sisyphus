@@ -3,12 +3,12 @@ import { ACTIONS_BY_CATEGORY, TOOL_CATEGORIES, buildDefaultToolConfig } from '@/
 import { listAllTools } from '@/core/tool-registry';
 
 describe('MCP 精简工具面', () => {
-    it('固定为 14 个聚合工具和 102 个动作', () => {
+    it('固定为 14 个聚合工具和 103 个动作', () => {
         expect(TOOL_CATEGORIES).toEqual([
             'fs', 'notebook', 'document', 'block', 'av', 'file', 'project',
             'search', 'literature', 'provenance', 'tag', 'timeline', 'system', 'extension',
         ]);
-        expect(Object.values(ACTIONS_BY_CATEGORY).reduce((sum, actions) => sum + actions.length, 0)).toBe(102);
+        expect(Object.values(ACTIONS_BY_CATEGORY).reduce((sum, actions) => sum + actions.length, 0)).toBe(103);
         expect(listAllTools(buildDefaultToolConfig()).map((tool) => tool.name)).toEqual(TOOL_CATEGORIES);
     });
 

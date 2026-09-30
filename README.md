@@ -1,6 +1,8 @@
 # SiYuan Sisyphus MCP & CLI
 
-> **LLM Wiki branch:** the current development tree is `v0.10.1` (CLI `v0.4.19`), verified with SiYuan `v3.8.5`, and exposes 14 tools with 102 actions.
+项目原生思维导图：思源 3.8.6 及以上可调用 `project.sync_mindmap`，首次严格预检并生成后，经 Sisyphus 提交项目事件、正文或状态属性时自动增量同步。保留存续块 ID 和显示配置；人工改写管理节点或结构时停止并报告待同步。具体边界与用法见 [升级方案](https://github.com/clark874/siyuan-plugins-mcp-sisyphus/blob/main/docs/plans/2026-09-30-v0.11.0-project-mindmap.md)。
+
+> **LLM Wiki branch:** the current development tree is `v0.11.0` (CLI `v0.4.20`), verified with SiYuan `v3.8.6`, and exposes 14 tools with 103 actions.
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -25,7 +27,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **当前 LLM Wiki 开发版本：**`v0.10.1`。本分支服务文本知识治理，并通过只读 `literature` 工具访问本地 Zotero、定位 Markdown 引文与汇总思源论文入链；不提供图片读取或图片型知识写入。MCP 工具面为 14 类、102 个 action。CLI `v0.4.19` 要求 Node.js 20+。已在思源 `3.8.5` 实例验证。
+> **当前 LLM Wiki 开发版本：**`v0.11.0`。本分支服务文本知识治理，并通过只读 `literature` 工具访问本地 Zotero、定位 Markdown 引文与汇总思源论文入链；不提供图片读取或图片型知识写入。MCP 工具面为 14 类、103 个 action。CLI `v0.4.20` 要求 Node.js 20+。已在思源 `3.8.6` 实例验证。
 
 ## Project Direction Update
 
@@ -33,7 +35,7 @@ I originally built SiYuan Sisyphus simply because I wanted my own SiYuan notes t
 
 The maintained LLM Wiki branch now uses a deliberately reduced surface:
 
-- 14 Sisyphus aggregate tools and 102 actions cover the current text-knowledge and read-only literature workflow;
+- 14 Sisyphus aggregate tools and 103 actions cover the current text-knowledge and read-only literature workflow;
 - Sisyphus now connects to SiYuan's official MCP endpoint and discovers tools registered by other plugins;
 - native SiYuan MCP tools can also be included explicitly, but remain disabled by default because they have a different security boundary;
 - permission management, the document timeline, and multiple connection options continue to be maintained.
@@ -93,7 +95,7 @@ For complete installation and connection instructions, see [Getting Started](./d
 - **AI-friendly note access**: use human-readable `fs` paths such as `/Notebook/Project/Note` without requiring agents to understand block IDs or document-tree internals.
 - **MCP and CLI entry points**: use MCP for multi-step agent workflows and CLI for scripts, automation, and small one-shot tasks.
 - **Notebook-level safety**: assign each notebook `none`, `r`, `rw`, or `rwd` access.
-- **Low-context tool design**: group 102 actions into 14 action-routed tools and load detailed guidance only when needed.
+- **Low-context tool design**: group 103 actions into 14 action-routed tools and load detailed guidance only when needed.
 - **Agent session provenance**: record source and compile sessions for project knowledgeization, query a project's cross-Agent session history, and resolve verified links or resume commands without placing session identifiers in note content.
 - **Scenario Skills for agents**: provide guidance for browsing, editing, search, knowledge ingestion, knowledge-atom governance, databases, project-source text, tags, document timelines, system safety, and SiYuan markup.
 - **MCP App view**: one dedicated launcher opens the document timeline for listing, creating, and comparing snapshots.

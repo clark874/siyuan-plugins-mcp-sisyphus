@@ -105,6 +105,12 @@ export const ProvenanceSessionIdentitySchema = z.object({
     captureMethod: z.enum(PROVENANCE_CAPTURE_METHODS),
 });
 
+export const ProjectSyncMindmapSchema = z.object({
+    action: z.literal('sync_mindmap'),
+    projectId: z.string().min(1).max(256).describe('已登记项目的精确标识'),
+    autoSync: z.boolean().optional().describe('生成后自动同步；默认 true，false 停止后续自动同步'),
+});
+
 const ProvenanceProjectBaseSchema = z.object({
     projectBlockId: z.string().min(1),
     projectId: z.string().min(1).max(256),

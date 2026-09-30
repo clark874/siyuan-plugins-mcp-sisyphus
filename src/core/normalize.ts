@@ -53,6 +53,8 @@ const TYPE_SHORTCODE_MAP: Record<string, string> = {
     video: 'video',
     audio: 'audio',
     widget: 'widget',
+    mindmap: 'mindmap',
+    mindmap_item: 'mindmapItem',
 };
 
 const SEARCH_METHOD_ALIAS_MAP: Record<string, number> = {

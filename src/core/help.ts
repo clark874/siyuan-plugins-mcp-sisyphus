@@ -124,6 +124,7 @@ export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
 };
 export const PROJECT_ACTION_HINTS: Partial<Record<ProjectAction, string>> = {
     snapshot: 'Returns bounded project, workstream, session, and event recovery state.',
+    sync_mindmap: '在思源 3.8.6 及以上生成并增量同步项目原生思维导图；首次生成启用自动同步，人工修改时停止。',
 };
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     semantic: 'Returns candidates from the configured embedding index; verify source attributes before reuse.',

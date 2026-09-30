@@ -229,7 +229,7 @@ interface IReqUpload {
 }
 
 type BlockId = string;
-type BlockType = 'd' | 'p' | 'query_embed' | 'l' | 'i' | 'h' | 'iframe' | 'tb' | 'b' | 's' | 'c' | 'widget' | 't' | 'html' | 'm' | 'av' | 'audio' | 'q' | 'toc' | 'video' | 'task' | 'code' | 'bookmark' | 'formula';
+type BlockType = 'd' | 'p' | 'query_embed' | 'l' | 'i' | 'h' | 'iframe' | 'tb' | 'b' | 's' | 'c' | 'widget' | 't' | 'html' | 'm' | 'av' | 'audio' | 'q' | 'toc' | 'video' | 'task' | 'code' | 'bookmark' | 'formula' | 'mindmap' | 'mindmap_item';
 type BlockSubType = 'd1' | 'd2' | 's1' | 's2' | 's3' | 't1' | 't2' | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'table' | 'task' | 'toggle' | 'latex' | 'quote' | 'html' | 'code' | 'footnote' | 'cite' | 'collection' | 'bookmark' | 'attachment' | 'comment' | 'mindmap' | 'spreadsheet' | 'calendar' | 'image' | 'audio' | 'video' | 'other' | 'u' | 'o' | 'li' | 'hr';
 type DataType = 'markdown' | 'dom';
 
