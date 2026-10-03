@@ -4,7 +4,8 @@ import type { SiYuanClient } from '../api/client';
 import { hashWriteState } from './write-safety-hash';
 import type { ToolCategory } from './config';
 
-export const WRITE_SAFETY_LEDGER_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/writeSafetyLedger';
+export const WRITE_SAFETY_LEDGER_PATH = '/data/storage/sisyphus-runtime/writeSafetyLedger';
+const LEGACY_LEDGER_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/writeSafetyLedger';
 export const WRITE_SAFETY_LEDGER_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const WRITE_SAFETY_LEDGER_MAX_ENTRIES = 2048;
 
@@ -35,6 +36,7 @@ interface LedgerFile {
 export class WriteSafetyLedger {
     private readonly client: SiYuanClient;
     private loaded = false;
+    private loading?: Promise<void>;
     private entries = new Map<string, WriteLedgerEntry>();
     private serial: Promise<void> = Promise.resolve();
 
@@ -96,36 +98,47 @@ export class WriteSafetyLedger {
 
     private async ensureLoaded(): Promise<void> {
         if (this.loaded) return;
+        if (!this.loading) {
+            this.loading = this.load().finally(() => { this.loading = undefined; });
+        }
+        return this.loading;
+    }
+
+    private async load(): Promise<void> {
         try {
-            const raw = await this.client.readFile(WRITE_SAFETY_LEDGER_PATH);
-            if (raw.trim()) {
-                const parsed = JSON.parse(raw) as Partial<LedgerFile> | FileApiErrorEnvelope;
-                // 思源 /api/file/getFile 对缺失文件返回带 JSON 错误信封的 HTTP 202，
-                // 而不是 HTTP 404。通用 readFile() 会按设计返回原始正文，
-                // 因此新建账本必须把该信封识别为“空”。
-                if (isMissingFileEnvelope(parsed)) {
-                    this.prune(Date.now());
-                    this.loaded = true;
-                    return;
-                }
-                if (isFileApiErrorEnvelope(parsed)) {
-                    throw new Error(`SiYuan file API error: ${parsed.code} - ${parsed.msg}`);
-                }
-                if (parsed.version !== 1 || !Array.isArray(parsed.entries)) {
-                    throw new Error('Unsupported or malformed write-safety ledger.');
-                }
-                for (const entry of parsed.entries) {
-                    if (isLedgerEntry(entry)) this.entries.set(entry.requestId, entry);
-                }
+            const current = await this.readLedger(WRITE_SAFETY_LEDGER_PATH);
+            const legacy = current === null ? await this.readLedger(LEGACY_LEDGER_PATH) : null;
+            this.entries = new Map((current ?? legacy)?.entries.map((entry) => [entry.requestId, entry]) ?? []);
+            this.prune(Date.now());
+            // 旧文件保留用于恢复；迁移落盘成功之前，禁止执行依赖账本的写操作。
+            if (legacy !== null) {
+                await this.persist();
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            if (!/HTTP error: 404|not found|does not exist/i.test(message)) {
-                throw safetyError('write_ledger_unavailable', `Cannot load the write-safety ledger: ${message}`);
-            }
+            throw safetyError('write_ledger_unavailable', `Cannot load the write-safety ledger: ${message}`);
         }
-        this.prune(Date.now());
         this.loaded = true;
+    }
+
+    private async readLedger(path: string): Promise<LedgerFile | null> {
+        let raw: string;
+        try {
+            raw = await this.client.readFile(path);
+        } catch (error) {
+            if (/HTTP error: 404\b/i.test(error instanceof Error ? error.message : String(error))) return null;
+            throw error;
+        }
+        const parsed = JSON.parse(raw) as Partial<LedgerFile> | FileApiErrorEnvelope;
+        // 思源 getFile 可通过 HTTP 202 返回缺失文件的 JSON 错误信封。
+        if (isMissingFileEnvelope(parsed)) return null;
+        if (isFileApiErrorEnvelope(parsed)) {
+            throw new Error(`SiYuan file API error: ${parsed.code} - ${parsed.msg}`);
+        }
+        if (parsed.version !== 1 || !Array.isArray(parsed.entries) || !parsed.entries.every(isLedgerEntry)) {
+            throw new Error('Unsupported or malformed write-safety ledger.');
+        }
+        return parsed as LedgerFile;
     }
 
     private prune(now: number): void {
@@ -168,8 +181,7 @@ function isFileApiErrorEnvelope(value: unknown): value is FileApiErrorEnvelope {
 }
 
 function isMissingFileEnvelope(value: unknown): value is FileApiErrorEnvelope {
-    return isFileApiErrorEnvelope(value)
-        && (value.code === 404 || /not found|does not exist/i.test(value.msg));
+    return isFileApiErrorEnvelope(value) && value.code === 404;
 }
 
 export function stripSafetyFields(args: Record<string, unknown>): Record<string, unknown> {

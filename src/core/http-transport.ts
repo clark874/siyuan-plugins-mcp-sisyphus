@@ -203,8 +203,8 @@ export async function startHttpMcpServer(opts: HttpServerOptions): Promise<HttpM
         ? (require('https') as typeof import('https')).createServer(loadTlsCredentials(opts.tls!), requestHandler)
         : createHttpServer(requestHandler);
 
-    // Prevent Node.js default keepAliveTimeout (5s) from dropping idle SSE connections.
-    httpServer.keepAliveTimeout = 0;
+    // 仅回收响应结束后的空闲连接；尚未结束的 SSE 与工具调用保持可用。
+    httpServer.keepAliveTimeout = 60000;
     httpServer.timeout = 0;
     httpServer.headersTimeout = 60000;
 

@@ -1,4 +1,5 @@
 import { createServer } from 'node:net';
+import * as http from 'node:http';
 
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSiYuanServer } from '@/core/server';
 import { startHttpMcpServer, type HttpMcpServerHandle } from '@/core/http-transport';
 
+vi.mock('node:http', async () => {
+    const actual = await vi.importActual<typeof http>('node:http');
+    return { ...actual, createServer: vi.fn(actual.createServer) };
+});
 
 const TOOL_CONFIG_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/mcpToolsConfig';
 const PERMISSIONS_PATH = '/data/storage/petal/siyuan-plugins-mcp-sisyphus/notebookPermissions';
@@ -69,7 +74,7 @@ describe('HTTP MCP concurrency', () => {
                 const body = init?.body ? JSON.parse(String(init.body)) as { path?: string } : {};
                 return {
                     ok: true,
-                    text: async () => storedFiles[body.path ?? ''] ?? '',
+                    text: async () => storedFiles[body.path ?? ''] ?? JSON.stringify({ code: 404, msg: 'file does not exist', data: null }),
                 } as Response;
             }
 
@@ -294,6 +299,63 @@ describe('HTTP MCP concurrency', () => {
         );
 
         expect(response.status).toBe(403);
+    });
+
+    it('响应完成后回收空闲连接，但保留尚未结束的 SSE', async () => {
+        let actualServer!: http.Server;
+        const { createServer: create } = await vi.importActual<typeof http>('node:http');
+        vi.mocked(http.createServer).mockImplementation(((...args: Parameters<typeof create>) => {
+            actualServer = create(...args);
+            return actualServer;
+        }) as typeof create);
+        serverHandle = await startHttpMcpServer({ host: '127.0.0.1', port: 0, serverFactory: createSiYuanServer });
+        expect(actualServer.keepAliveTimeout).toBe(60000);
+        expect(actualServer.timeout).toBe(0);
+        // 缩短测试时钟，保持生产环境相同的响应结束后回收机制。
+        actualServer.keepAliveTimeout = 50;
+        const agent = new http.Agent({ keepAlive: true });
+        try {
+            await new Promise<void>((resolve, reject) => {
+                const request = http.get(`http://127.0.0.1:${serverHandle!.port}/missing`, { agent }, (response) => {
+                    response.resume();
+                    response.socket!.once('close', () => resolve());
+                });
+                request.once('error', reject);
+            });
+            const endpoint = `http://127.0.0.1:${serverHandle.port}/mcp`;
+            const headers = { Accept: 'application/json, text/event-stream', 'Content-Type': 'application/json', 'Mcp-Protocol-Version': '2025-03-26' };
+            const initialized = await originalFetch(endpoint, {
+                method: 'POST', headers,
+                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {
+                    protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'idle-sse-test', version: '1.0.0' },
+                } }),
+            });
+            const sessionId = initialized.headers.get('mcp-session-id');
+            await initialized.text();
+            expect(sessionId).toBeTruthy();
+            const ready = await originalFetch(endpoint, { method: 'POST', headers: { ...headers, 'Mcp-Session-Id': sessionId! },
+                body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
+            await ready.text();
+            const request = http.get(`http://127.0.0.1:${serverHandle.port}/mcp`, {
+                agent,
+                headers: { Accept: 'text/event-stream', 'Mcp-Session-Id': sessionId!, 'Mcp-Protocol-Version': '2025-03-26' },
+            });
+            try {
+                const response = await new Promise<http.IncomingMessage>((resolve, reject) => {
+                    request.once('response', resolve);
+                    request.once('error', reject);
+                });
+                expect(response.statusCode).toBe(200);
+                response.resume();
+                await new Promise((resolve) => setTimeout(resolve, 150));
+                expect(response.destroyed).toBe(false);
+                expect(response.socket?.destroyed).toBe(false);
+            } finally {
+                request.destroy();
+            }
+        } finally {
+            agent.destroy();
+        }
     });
 
     it('returns 404 for an unknown legacy session and keeps missing-session requests at 400', async () => {
