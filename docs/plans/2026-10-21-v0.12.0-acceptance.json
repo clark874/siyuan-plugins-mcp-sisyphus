@@ -1,0 +1,122 @@
+{
+  "version": "0.12.0",
+  "siyuan": "3.8.8",
+  "date": "2026-10-21",
+  "scope": "仅6808隔离工作区；正式笔记未写入",
+  "tests": {
+    "files": 91,
+    "passed": 975
+  },
+  "builds": [
+    "插件renderer",
+    "MCP server",
+    "MCP App",
+    "Agent Kit",
+    "CLI 0.5.0"
+  ],
+  "reports": {
+    "av-fixed-report.json": {
+      "sha256": "1cbdb8be5dfd16aff85a395453d7769e278f752669bc980a3080d46c968b0c87",
+      "checks": {
+        "kernel": "3.8.8",
+        "sourceWriteAllowed": true,
+        "targetWriteAllowed": false,
+        "preflightPassed": true,
+        "sourceWriteReportedSuccess": false,
+        "permissionDenied": true,
+        "writeAttempted": false,
+        "targetRowsBefore": 2,
+        "targetRowsAfter": 2,
+        "crossNotebookAutomationObserved": false
+      }
+    },
+    "collection-fixed-report.json": {
+      "sha256": "0b230c13b16815089c63c1c6de79460c00e6b1a2386d3cc6af35d2c59a50089b",
+      "checks": {
+        "kernel": "3.8.8",
+        "permissionManager": "真实 PermissionManager",
+        "sourceWriteAllowed": true,
+        "targetWriteAllowed": false,
+        "action": "block.set_attrs",
+        "preflightPassed": true,
+        "sourceWriteReportedSuccess": false,
+        "permissionDenied": true,
+        "writeAttempted": false,
+        "targetRowsBefore": 2,
+        "targetRowsAfter": 2,
+        "collectionToReadOnlyTarget": false,
+        "wasPreviouslyMatching": true
+      }
+    },
+    "av-extension-report.json": {
+      "sha256": "b6a91b9c28256fd0a063d6b35ffb03942b5a1ca473815621ef4e658392d0d5ea",
+      "checks": {
+        "strictSave": true,
+        "ruleReadback": true,
+        "collectionPreview": true,
+        "manualCollection": true,
+        "collectionTemplateAssignment": true,
+        "templatePreview": true,
+        "changedTemplateAssignment": true,
+        "temporarySort": true,
+        "persistedSortUnchanged": true,
+        "collectionPreviewAfterWrite": true,
+        "templatePreviewDoesNotPersist": true
+      }
+    },
+    "mindmap-display-report.json": {
+      "sha256": "1f38ce62fd145280c187158d5eb479990cc393f7d6db7b27abe5a03f4ef147ef",
+      "checks": {
+        "realPermissionManager": true,
+        "strictDisplayCreation": true,
+        "automaticUpdatePreservedDisplay": true,
+        "stableNodeIds": true,
+        "eventRetirementWithRootTitle": true,
+        "staleReferencesRemoved": true,
+        "summaryShrunkWithStableId": true,
+        "invalidSummaryZeroWrite": true,
+        "nativeDOMReadback": true
+      }
+    },
+    "av-bound-readonly-report.json": {
+      "sha256": "d43689027497d0c500e702f4824bdd6eccd9f134f94066d05698f110c697af2c",
+      "checks": {
+        "targetAVWritable": true,
+        "boundSourceReadOnly": true,
+        "strictDeniedBeforeSourceOrTargetWrite": true,
+        "legacyDeniedBeforeSourceOrTargetWrite": true
+      }
+    },
+    "rule-change-report.json": {
+      "sha256": "a85d71f8b586c447656e6b121b0281af60b1fa4d42e20e404247f2f8560b0b93",
+      "checks": {
+        "kernel": "3.8.8",
+        "unrelatedCollectorRuleChangeInvalidatesCredential": true,
+        "sourceUnchanged": true
+      }
+    }
+  },
+  "limitations": [
+    "未测试锁定加密笔记本写入；只枚举内核可执行的已解锁加密边界。",
+    "外部前端可在最后检查后修改规则，内核未提供包含插件权限的原子执行上下文；不承诺跨客户端原子隔离。",
+    "导图以原生DOM与属性验收，未进行图形界面截图验收。"
+  ],
+  "artifactSmoke": {
+    "builtServerLoads": true,
+    "actualMCPVersionCall": true,
+    "tools": 14,
+    "newActionsExposed": true,
+    "cliVersion": "0.5.0",
+    "cliKernelVersion": "3.8.8"
+  },
+  "artifacts": {
+    "package.zip": {
+      "sha256": "0fd6c2bded2bede6b403d97bdf979b0e8b175c25759bbb09a0a1350655e28b1e",
+      "bytes": 927063
+    },
+    "siyuan-agent-kit.zip": {
+      "sha256": "83ac15e86e72d1d607ff4eb77573aa2976ce953f768ba096918e093978fb595f",
+      "bytes": 95486
+    }
+  }
+}

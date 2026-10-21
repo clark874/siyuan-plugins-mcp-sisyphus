@@ -633,7 +633,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 \`启动\`先完成登记和上述全景输出；附带任务时随后继续执行。\`交接\`每次都重新调用 snapshot，不复用旧报告；它不创建进度事件、不更新状态投影、不写知识。若只读恢复成功但当前会话未登记，仍输出全景并明确标记“当前会话未登记，禁止写入”。页面中的 query_embed 仅供人类浏览，机器判断只以 snapshot 为准。
 
-项目原生思维导图需要思源 3.8.6。用户要求生成时，先以同一组业务参数调用 \`project.sync_mindmap(projectId=..., validateOnly=true)\`，再复制返回的 \`issuedRequestId\` 与 \`stateHash\` 作为 \`requestId\` 和 \`expectedStateHash\` 执行一次。首次生成后，该项目经 Sisyphus 提交事件、项目正文或状态属性会自动同步；无需重复手动生成。启动和交接保持只读，不擅自为现有项目启用导图。返回 \`mindmapSync.status=pending\` 时明确报告原因，人工冲突未解决前不得重建或覆盖。管理节点之外保存备注；停用自动同步使用同一严格流程并设置 \`autoSync=false\`。本地文件变化需先通过既有项目工作流提交事实，导图不直接监听文件。
+项目原生思维导图需要思源 3.8.6；思源 3.8.8 可通过 \`display\` 设置标题、连线、节点样式、关系、概要与锁定。先预检取得 \`nodes[{key,parent,label}]\`，以稳定 key 定位；未传字段保留，显式关系或概要数组替换对应部分，空数组清空；自动同步保留存续节点显示配置。用户要求生成时，先以同一组业务参数调用 \`project.sync_mindmap(projectId=..., validateOnly=true)\`，再复制返回的 \`issuedRequestId\` 与 \`stateHash\` 作为 \`requestId\` 和 \`expectedStateHash\` 执行一次。首次生成后，该项目经 Sisyphus 提交事件、项目正文或状态属性会自动同步；无需重复手动生成。启动和交接保持只读，不擅自为现有项目启用导图。返回 \`mindmapSync.status=pending\` 时明确报告原因，人工冲突未解决前不得重建或覆盖。管理节点之外保存备注；停用自动同步使用同一严格流程并设置 \`autoSync=false\`。本地文件变化需先通过既有项目工作流提交事实，导图不直接监听文件。
 
 ## 四、知识化
 
@@ -981,6 +981,8 @@ A 类自动写入必须同时满足：目标唯一且现行；项目有明确使
 {{call locate}}
 {{call render}}
 {{call search}}
+
+思源 3.8.8 新增自动化工作流：先调用 {{help av get_automations}} 与 {{help av set_automations}} 读取完整配置，再按同一严格写入协议整体保存；规则变更使旧预检凭据失效。设置启用规则要求来源块及派生目标所有镜像可写；普通块更新触发的全局收集也受同一权限检查。使用 {{help av preview_collection}} 分页只读预览，然后通过 {{help av collect_blocks}} 收集明确 blockIDs；内核会重新匹配，不自动清理旧条目。使用 {{help av preview_template}} 对真实条目求值，再把模板字段配置交给原生规则执行；关联、资源和计算目标字段不支持。{{help av render}} 的 temporarySort={column,order} 仅影响本次读取，不保存共享排序。
 
 数据库读取固定采用三步法：先以 \`ignoreRows=true\` 查看视图和列，再以 \`query\` 或 \`get_primary_key_values\` 定位行，最后用小页渲染读取所需值。除非明确诊断内核原始字段，不得设置 \`verbose=true\`，也不得无过滤全量渲染。
 

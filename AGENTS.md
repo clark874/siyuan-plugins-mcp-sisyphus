@@ -11,7 +11,7 @@
 1. **MCP Server 插件**：作为 SiYuan 插件运行，对外暴露 MCP（Model Context Protocol）服务。AI 客户端（Claude Desktop、Cursor、Cherry Studio 等）通过 HTTP 或 stdio 连接。
 2. **独立 CLI `siyuan-sisyphus`**：发布到 npm 的包名 `siyuan-sisyphus`，安装后提供 `siyuan-sisyphus` / `siyuan` 命令。直接通过思源 HTTP API 执行单次操作后退出，无需 MCP 客户端。
 
-两种接口共享同一套底层能力（14 个聚合工具、103 个注册 action，不含各工具的 `help` 与动态 `extension` action；`extension` 另桥接经过固定白名单筛选的官方原生 MCP 工具）。
+两种接口共享同一套底层能力（14 个聚合工具、108 个注册 action，不含各工具的 `help` 与动态 `extension` action；`extension` 另桥接经过固定白名单筛选的官方原生 MCP 工具）。
 
 ### LLM Wiki 分支产品边界
 
@@ -20,7 +20,7 @@
 - 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.11.1`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.4.21`）
+- 当前版本：`0.12.0`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.5.0`）
 
 ---
 
@@ -240,7 +240,7 @@ pnpm update-version     # 同步版本号到 plugin.json 与 cli/package.json
 
 ### 聚合工具模型（Aggregated Tools）
 
-当前维护能力被收敛为 **14 个聚合工具、103 个 action**（`TOOL_CATEGORIES`，权威清单定义于 `src/core/config.ts` 的 `*_ACTIONS` 常量），每个工具通过 `action` 字段路由到具体 operation：
+当前维护能力被收敛为 **14 个聚合工具、108 个 action**（`TOOL_CATEGORIES`，权威清单定义于 `src/core/config.ts` 的 `*_ACTIONS` 常量），每个工具通过 `action` 字段路由到具体 operation：
 
 ```
 fs          → 9  actions（ls, tree, read, write, replace, rm, mv, reorder, search）

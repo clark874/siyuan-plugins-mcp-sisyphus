@@ -166,7 +166,7 @@ function extractValueIdFromValue(value: unknown): string | undefined {
     return getStringField(value, ['id']);
 }
 
-function extractAvRowLookup(avData: unknown): AvRowLookup {
+export function extractAvRowLookup(avData: unknown): AvRowLookup {
     const rowsById = new Map<string, AvRowBinding>();
     const rowsInOrder: AvRowBinding[] = [];
     if (!avData || typeof avData !== 'object') {
@@ -621,7 +621,7 @@ function createAvBlockContextErrorResult(
     };
 }
 
-async function ensurePermissionForAvId(
+export async function ensurePermissionForAvId(
     client: SiYuanClient,
     permMgr: PermissionManager,
     avID: string,
@@ -1405,6 +1405,7 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
         groupPaging: parsed.groupPaging,
         createIfNotExist: parsed.createIfNotExist,
         ignoreRows: parsed.ignoreRows,
+        ...(parsed.temporarySort ? { temporarySort: parsed.temporarySort } : {}),
     });
 
     let materializedBlockID: string | undefined;
@@ -2123,7 +2124,7 @@ async function handleGetPrimaryKeyValues({ client, permMgr, rawArgs }: ToolHandl
     });
 }
 
-export const AV_ACTION_HANDLERS: Record<AvAction, ToolActionHandler> = {
+export const AV_ACTION_HANDLERS = {
     get: handleGet,
     render: handleRender,
     get_attribute_view_keys: handleGetAttributeViewKeys,
@@ -2137,4 +2138,4 @@ export const AV_ACTION_HANDLERS: Record<AvAction, ToolActionHandler> = {
     set_cells: handleSetCells,
     duplicate: handleDuplicate,
     get_primary_key_values: handleGetPrimaryKeyValues,
-};
+} satisfies Partial<Record<AvAction, ToolActionHandler>>;

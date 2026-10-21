@@ -37,6 +37,7 @@ export const BLOCK_GUIDANCE = [
     'Strict writes require validateOnly preflight followed by the issued request ID and matching state credential.',
 ];
 export const AV_GUIDANCE = [
+    '自动化与模板扩展要求思源 3.8.8；先读取完整规则，预览后再执行严格写入，来源与派生目标都须有相应权限。',
     'Discover the AV schema before changing rows, columns, or cells.',
     'Use returned rowID and columnID values; do not infer database identifiers.',
     'After a mutation, reread the affected AV state.',
@@ -110,7 +111,12 @@ export const BLOCK_ACTION_HINTS: Partial<Record<BlockAction, string>> = {
     set_attrs: 'Use one id plus attrs or an atomic items batch.',
 };
 export const AV_ACTION_HINTS: Partial<Record<AvAction, string>> = {
-    render: 'Use schema-only discovery before widening row output.',
+    get_automations: '读取所有镜像共享的完整规则配置。',
+    set_automations: '整体保存规则，新增、修改、停用与移除均先读取原配置并严格预检；不会删除已有条目。',
+    preview_collection: '分页预览已保存且启用的块规则；只读，不会创建条目。',
+    collect_blocks: '提交预览后选定的来源块；来源块及目标数据库均需写权限，执行时内核重新匹配。',
+    preview_template: '用实际源条目求值模板，只返回目标字段值；不保存、不触发规则。',
+    render: '先用 ignoreRows=true 发现结构；temporarySort={column,order} 只影响本次渲染，不修改共享排序。',
     add_rows: 'Reuse returned rowID values for subsequent cell writes.',
     set_cells: 'Each cell needs the exact rowID, columnID, and matching value type.',
     duplicate: 'Matches SiYuan copy-as-mirror behavior: call the kernel duplicate API, spin the AV block DOM, then commit an insert transaction. previousID overrides the insertion target; otherwise MCP uses blockID or the resolved owning database block.',
@@ -124,7 +130,7 @@ export const FILE_ACTION_HINTS: Partial<Record<FileAction, string>> = {
 };
 export const PROJECT_ACTION_HINTS: Partial<Record<ProjectAction, string>> = {
     snapshot: 'Returns bounded project, workstream, session, and event recovery state.',
-    sync_mindmap: '在思源 3.8.6 及以上生成并增量同步项目原生思维导图；首次生成启用自动同步，人工修改时停止。',
+    sync_mindmap: '原生导图兼容思源 3.8.6；display 配置要求 3.8.8。以预检返回的节点 key 设置标题、连线、样式、关系、概要与锁定，自动同步保留配置。',
 };
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     semantic: 'Returns candidates from the configured embedding index; verify source attributes before reuse.',

@@ -25,6 +25,8 @@ if (!Number.isFinite(__sisyphusNodeMajor) || __sisyphusNodeMajor < 20) {
 }`;
 
 const serverExternals = [
+    'async_hooks',
+    'node:async_hooks',
     "siyuan",
     "process",
     "path",

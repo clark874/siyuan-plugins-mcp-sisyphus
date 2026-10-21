@@ -1,6 +1,6 @@
 # Tools Index
 
-The maintained LLM Wiki surface contains 14 aggregated tools and 103 actions. Each tool also accepts `action="help"`; dynamic official-plugin actions discovered through `extension` are not counted.
+The maintained LLM Wiki surface contains 14 aggregated tools and 108 actions. Each tool also accepts `action="help"`; dynamic official-plugin actions discovered through `extension` are not counted.
 
 | Tool | Actions |
 | --- | --- |

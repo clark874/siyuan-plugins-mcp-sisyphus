@@ -1,4 +1,5 @@
 import type { SiYuanClient } from '../api/client';
+import { readAutomationStateHash, withAutomationWriteGuard } from './automation-safety';
 import { WriteOutcomeUnknownError } from '../api/client';
 import * as searchApi from '../api/search';
 import { validateBlockAttributeMutations } from './attribute-governance';
@@ -79,7 +80,7 @@ export class WriteSafetyCoordinator {
                     'This action has an external or local side effect that cannot be verified by the strict write coordinator. Nothing was executed.',
                 );
             }
-            return addSafetyMetadata(await execution.execute(stripSafetyFields(execution.args)), {
+            return addSafetyMetadata(await withAutomationWriteGuard(execution.client, execution.permMgr, () => execution.execute(stripSafetyFields(execution.args))), {
                 writeSafetyMode: execution.strictMode ? 'strict' : 'legacy',
                 writeSafetyGuaranteed: false,
                 reason: 'external_uncontrolled',
@@ -92,7 +93,7 @@ export class WriteSafetyCoordinator {
                     'Strict safe writes are disabled. The preflight did not execute the mutation.',
                 );
             }
-            return addSafetyMetadata(await execution.execute(stripSafetyFields(execution.args)), {
+            return addSafetyMetadata(await withAutomationWriteGuard(execution.client, execution.permMgr, () => execution.execute(stripSafetyFields(execution.args))), {
                 writeSafetyMode: 'legacy',
                 writeSafetyGuaranteed: false,
             });
@@ -221,7 +222,7 @@ export class WriteSafetyCoordinator {
 
         let result: ToolResult;
         try {
-            result = await execution.execute(stripSafetyFields(args));
+            result = await withAutomationWriteGuard(client, permMgr, () => execution.execute(stripSafetyFields(args)));
         } catch (error) {
             await this.recordUnknown(requestId, category, action, inspected!.argsHash, targetIds, error);
             if (activeLease) this.preflightLeases.consume(activeLease);
@@ -411,6 +412,22 @@ async function probePostWriteState(
 }
 
 async function probeCurrentState(
+    client: SiYuanClient,
+    permMgr: PermissionManager,
+    category: ToolCategory,
+    action: string,
+    args: Record<string, unknown>,
+    policy: Extract<ActionSafetyPolicy, { mode: 'mutation' }>,
+): Promise<StateProbe> {
+    const probe = await probeCurrentStateWithoutAutomation(client, permMgr, category, action, args, policy);
+    if (['av', 'block', 'document', 'fs', 'project', 'tag', 'search'].includes(category)) {
+        const automations = await readAutomationStateHash(client);
+        if (automations !== undefined) probe.hash = hashWriteState({ target: probe.hash, automations });
+    }
+    return probe;
+}
+
+async function probeCurrentStateWithoutAutomation(
     client: SiYuanClient,
     permMgr: PermissionManager,
     category: ToolCategory,

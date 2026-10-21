@@ -18,7 +18,7 @@ import {
     validateLocalAgentSession,
 } from '../../core/provenance';
 import type { PermissionManager } from '../../core/permissions';
-import { ProjectActionSchema, ProjectSnapshotSchema, ProjectSyncMindmapSchema } from '../../core/types';
+import { ProjectActionSchema, ProjectSnapshotSchema, ProjectSyncMindmapSchema, type ProjectMindmapDisplay } from '../../core/types';
 import { ensurePermissionForDocumentId, escapeSqlString } from '../internal/context';
 import { defineTool } from '../internal/define-tool';
 import { createJsonResult, createZodActionVariant, type ActionVariant, type ToolResult } from '../internal/shared';
@@ -26,25 +26,27 @@ import { applyUiRefresh } from '../internal/ui-refresh';
 
 export const PROJECT_TOOL_NAME = 'project';
 
-async function requireMindmapKernel(client: SiYuanClient): Promise<void> {
+async function requireMindmapKernel(client: SiYuanClient, display?: ProjectMindmapDisplay): Promise<void> {
     const version = await getVersion(client);
     const match = /^(\d+)\.(\d+)\.(\d+)(?:$|[-+])/.exec(version);
-    if (!match || Number(match[1]) < 3 || (Number(match[1]) === 3 && (Number(match[2]) < 8 || (Number(match[2]) === 8 && Number(match[3]) < 6)))) {
-        throw new Error('项目原生思维导图需要思源 3.8.6 或更新版本；未执行写入。');
+    const minimumPatch = display ? 8 : 6;
+    if (!match || Number(match[1]) < 3 || (Number(match[1]) === 3 && (Number(match[2]) < 8 || (Number(match[2]) === 8 && Number(match[3]) < minimumPatch)))) {
+        throw new Error(`项目原生思维导图${display ? '显示配置' : ''}需要思源 3.8.${minimumPatch} 或更新版本；未执行写入。`);
     }
 }
 
-async function projectMindmapPlan(client: SiYuanClient, permMgr: PermissionManager, projectId: string) {
-    await requireMindmapKernel(client);
+async function projectMindmapPlan(client: SiYuanClient, permMgr: PermissionManager, projectId: string, display?: ProjectMindmapDisplay) {
+    await requireMindmapKernel(client, display);
     const snapshot = await buildSnapshot(client, permMgr, { action: 'snapshot', projectId, validateSessions: false });
-    return readMindmapPlan(client, permMgr, snapshot);
+    return readMindmapPlan(client, permMgr, snapshot, display);
 }
 
 export async function readProjectMindmapWriteState(client: SiYuanClient, permMgr: PermissionManager, args: Record<string, unknown>) {
     const parsed = ProjectSyncMindmapSchema.parse(args);
-    const plan = await projectMindmapPlan(client, permMgr, parsed.projectId);
+    const plan = await projectMindmapPlan(client, permMgr, parsed.projectId, parsed.display);
     return { hash: hashWriteState(plan), targetIds: [plan.pageId, ...(plan.previous ? [plan.previous.rootId] : [])],
-        summary: { projectId: parsed.projectId, nodeCount: plan.desired.length, existingRootId: plan.previous?.rootId || null } };
+        summary: { projectId: parsed.projectId, nodeCount: plan.desired.length, existingRootId: plan.previous?.rootId || null,
+            nodes: plan.desired.map(({ key, parent, label }) => ({ key, parent, label })) } };
 }
 
 /** 在外层严格写入的串行区内运行；内部不递归申请同一个写锁。 */
@@ -665,7 +667,7 @@ const projectTool = defineTool<ProjectAction>({
     handlers: {
         sync_mindmap: async ({ client, rawArgs, permMgr }) => {
             const parsed = ProjectSyncMindmapSchema.parse(rawArgs);
-            const plan = await projectMindmapPlan(client, permMgr, parsed.projectId);
+            const plan = await projectMindmapPlan(client, permMgr, parsed.projectId, parsed.display);
             const result = await executeMindmapPlan(client, plan, parsed.autoSync ?? true);
             // 回读实际正文和层级，不能仅用管理属性作为成功证据。
             await projectMindmapPlan(client, permMgr, parsed.projectId);

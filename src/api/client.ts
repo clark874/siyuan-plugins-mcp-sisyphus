@@ -1,4 +1,5 @@
 import type { SiYuanResponse } from '../types/shared';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 export interface SiYuanClientConfig {
     baseUrl?: string;
@@ -33,6 +34,7 @@ export interface LimitedBinaryReadResult {
 }
 
 export class SiYuanClient {
+    private readonly writeGuards = new AsyncLocalStorage<(endpoint: string, data: object) => Promise<void>>();
     private baseUrl: string;
     private timeout: number;
     private token: string = '';
@@ -47,6 +49,11 @@ export class SiYuanClient {
 
     setToken(token: string): void {
         this.token = token;
+    }
+
+    /** 每次工具执行独享防护上下文，内部同步任务继承同一权限检查。 */
+    withWriteGuard<T>(guard: (endpoint: string, data: object) => Promise<void>, execute: () => Promise<T>): Promise<T> {
+        return this.writeGuards.run(guard, execute);
     }
 
     getBaseUrl(): string {
@@ -263,6 +270,7 @@ export class SiYuanClient {
     }
 
     async requestFormDataWrite<T>(endpoint: string, formData: FormData): Promise<T> {
+        await this.writeGuards.getStore()?.(endpoint, formData);
         try {
             return await this.requestFormDataWithSemantics(endpoint, formData, 'write');
         } catch (error) {
@@ -301,6 +309,7 @@ export class SiYuanClient {
     }
 
     async requestWrite<T>(endpoint: string, data?: object): Promise<T> {
+        await this.writeGuards.getStore()?.(endpoint, data ?? {});
         try {
             return await this.readData<T>(`${this.baseUrl}${endpoint}`, {
                 method: 'POST',

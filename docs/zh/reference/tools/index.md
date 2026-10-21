@@ -1,6 +1,6 @@
 # 工具索引
 
-当前 LLM Wiki 工具面包含 14 个聚合工具、103 个 action。每个工具还接受 `action="help"`；`extension` 动态发现的官方插件 action 不计入 103 个固定 action。
+当前 LLM Wiki 工具面包含 14 个聚合工具、108 个 action。每个工具还接受 `action="help"`；`extension` 动态发现的官方插件 action 不计入 108 个固定 action。
 
 | 工具 | 现行 action |
 | --- | --- |

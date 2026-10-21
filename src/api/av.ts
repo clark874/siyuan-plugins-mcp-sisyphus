@@ -24,6 +24,7 @@ export async function renderAttributeView(
         groupPaging?: Record<string, unknown>;
         createIfNotExist?: boolean;
         ignoreRows?: boolean;
+        temporarySort?: { column: string; order: "ASC" | "DESC"; valueSource?: "stored" | "rendered"; dateEndpoint?: "start" | "end" };
     },
 ): Promise<Record<string, unknown>> {
     return client.requestWrite<Record<string, unknown>>('/api/av/renderAttributeView', payload);
@@ -152,4 +153,12 @@ export async function getAttributeViewPrimaryKeyValues(
     },
 ): Promise<{ name: string; blockIDs: string[]; rows: any }> {
     return client.requestRead<{ name: string; blockIDs: string[]; rows: any }>('/api/av/getAttributeViewPrimaryKeyValues', payload);
+}
+
+export interface AttributeViewCollectionMatch { id: string; rootID: string; content: string; hPath: string; collected: boolean }
+export async function previewAttributeViewCollection(client: SiYuanClient, payload: { avID: string; ruleID: string; page?: number }): Promise<{ blocks: AttributeViewCollectionMatch[]; hasMore: boolean }> {
+    return client.requestRead('/api/av/previewAttributeViewCollection', payload);
+}
+export async function previewAttributeViewTemplate(client: SiYuanClient, payload: { avID: string; targetAvID?: string; itemID: string; keyID: string; template: string; timeZone: string; triggerTime?: string; inputs?: Record<string, string> }): Promise<AttributeViewCellValue> {
+    return client.requestRead('/api/av/previewAttributeViewTemplate', payload);
 }

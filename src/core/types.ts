@@ -105,10 +105,50 @@ export const ProvenanceSessionIdentitySchema = z.object({
     captureMethod: z.enum(PROVENANCE_CAPTURE_METHODS),
 });
 
+const ProjectMindmapNodeStyleSchema = z.object({
+    textColor: z.string().max(128).optional(),
+    backgroundColor: z.string().max(128).optional(),
+    borderColor: z.string().max(128).optional(),
+    lineColor: z.string().max(128).optional(),
+    fontSize: z.number().min(0).max(256).optional(),
+    borderWidth: z.number().min(0).max(32).optional(),
+    borderRadius: z.number().min(0).max(256).optional(),
+    lineWidth: z.number().min(0).max(32).optional(),
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
+    lineDash: z.boolean().optional(),
+}).strict();
+const ProjectMindmapKeySchema = z.string().min(1).max(256);
+export const ProjectMindmapDisplaySchema = z.object({
+    rootTitle: z.string().max(256).optional().describe('导图根标题；不改动项目名'),
+    connectorStyle: z.enum(['spline', 'orthogonal', 'bezier', 'rounded']).optional().describe('树形连线样式'),
+    viewLocked: z.boolean().optional().describe('是否锁定导图视图'),
+    nodes: z.record(ProjectMindmapKeySchema, ProjectMindmapNodeStyleSchema).refine((value) => Object.keys(value).length <= 160, '最多配置 160 个节点').optional().describe('按快照稳定节点键指定样式；仅覆盖提供的样式字段'),
+    relations: z.array(z.object({
+        id: z.string().min(1).max(128).optional().describe('稳定关系标识；省略时复用相同端点的标识或生成稳定标识'),
+        fromKey: ProjectMindmapKeySchema.describe('关系起点的稳定节点键，$root 代表根'),
+        toKey: ProjectMindmapKeySchema.describe('关系终点的稳定节点键，$root 代表根'),
+        label: z.string().max(256).optional(),
+        color: z.string().max(128).optional(),
+        width: z.number().min(0).max(32).optional(),
+        dash: z.boolean().optional(),
+        arrowDirection: z.enum(['forward', 'reverse', 'both', 'none']).optional(),
+    }).strict()).max(160).optional().describe('显式传入时替换关系集合；空数组清空，省略则保留'),
+    summaries: z.array(z.object({
+        id: z.string().min(1).max(128).optional().describe('稳定概要标识；省略时按相同范围复用或生成'),
+        parentKey: ProjectMindmapKeySchema.describe('共同父节点的稳定键；$root 代表顶级范围'),
+        nodeKeys: z.array(ProjectMindmapKeySchema).min(1).max(160).describe('同父、连续且按导图顺序排列的节点键；概要范围可嵌套但不能交叉'),
+        label: z.string().max(256).optional(),
+        color: z.string().max(128).optional(),
+    }).strict()).max(160).optional().describe('显式传入时替换概要集合；空数组清空，省略则保留；使用原生第 2 版元数据'),
+}).strict().describe('思源 3.8.8 导图显示配置；未指定字段保留原值，不修改管理正文或结构');
+export type ProjectMindmapDisplay = z.infer<typeof ProjectMindmapDisplaySchema>;
+
 export const ProjectSyncMindmapSchema = z.object({
     action: z.literal('sync_mindmap'),
     projectId: z.string().min(1).max(256).describe('已登记项目的精确标识'),
     autoSync: z.boolean().optional().describe('生成后自动同步；默认 true，false 停止后续自动同步'),
+    display: ProjectMindmapDisplaySchema.optional(),
 });
 
 const ProvenanceProjectBaseSchema = z.object({
@@ -655,6 +695,88 @@ const AvCellUpdateItemSchema = z.object({
     columnID: z.string().describe("Column key ID"),
 }).and(AvSetCellValueFieldsSchema);
 
+const AvAutomationIDSchema = z.string().min(1).max(256);
+const AvAutomationTemplateSchema = z.string().max(8192).refine(value => new TextEncoder().encode(value).byteLength <= 8192, "模板的 UTF-8 编码不得超过 8 KiB");
+const AvAutomationContentSchema = z.object({ content: z.string().max(65536).describe("字段文本") }).strict();
+const AvAutomationValueSchema = z.object({
+    type: z.enum(["block", "text", "number", "date", "select", "mSelect", "url", "email", "phone", "checkbox"]).describe("允许的文本知识字段类型；不接受关联和资源值"),
+    id: AvAutomationIDSchema.optional().describe("值标识"),
+    keyID: AvAutomationIDSchema.optional().describe("字段标识"),
+    blockID: AvAutomationIDSchema.optional().describe("条目标识"),
+    block: AvAutomationContentSchema.optional().describe("主键文本"),
+    text: AvAutomationContentSchema.optional().describe("文本载荷"),
+    url: AvAutomationContentSchema.optional().describe("链接载荷"),
+    email: AvAutomationContentSchema.optional().describe("邮箱载荷"),
+    phone: AvAutomationContentSchema.optional().describe("电话载荷"),
+    number: z.object({ content: z.number().finite(), isNotEmpty: z.boolean(), format: z.string().max(128).optional(), formattedContent: z.string().max(1024).optional() }).strict().optional().describe("数字载荷"),
+    date: z.object({ content: z.number().int(), isNotEmpty: z.boolean(), hasEndDate: z.boolean().optional(), isNotTime: z.boolean().optional(), content2: z.number().int().optional(), isNotEmpty2: z.boolean().optional(), formattedContent: z.string().max(1024).optional() }).strict().optional().describe("日期载荷，时间单位为毫秒"),
+    mSelect: z.array(z.object({ content: z.string().max(1024), color: z.string().max(128).optional() }).strict()).max(1000).optional().describe("已存在的选项"),
+    checkbox: z.object({ checked: z.boolean() }).strict().optional().describe("复选框载荷"),
+}).strict();
+const AvAutomationRelativeDateSchema = z.object({ count: z.number().int().min(-100000).max(100000), unit: z.number().int().min(0).max(10), direction: z.number().int().min(-1).max(1) }).strict();
+const AvAutomationFilterFields = {
+    column: AvAutomationIDSchema.optional().describe("筛选字段标识"),
+    valueSource: z.enum(["stored", "rendered"]).optional().describe("使用保存值或显示值"),
+    quantifier: z.string().max(32).optional().describe("内核筛选量词"),
+    operator: z.enum(["", "=", "!=", ">", ">=", "<", "<=", "Contains", "Does not contains", "Contains any item", "Does not contain any item", "Is empty", "Is not empty", "Starts with", "Ends with", "Is between", "Is true", "Is false"]).optional().describe("内核筛选运算符"),
+    value: AvAutomationValueSchema.nullable().optional().describe("筛选值"),
+    relativeDate: AvAutomationRelativeDateSchema.optional().describe("相对日期条件"),
+    relativeDate2: AvAutomationRelativeDateSchema.optional().describe("第二个相对日期条件"),
+    dateEndpoint: z.enum(["start", "end"]).optional().describe("日期范围端点"),
+    combination: z.enum(["and", "or"]).optional().describe("条件组合方式"),
+};
+const AvAutomationFilterSchema = z.object({
+    ...AvAutomationFilterFields,
+    filters: z.array(z.object(AvAutomationFilterFields).strict()).max(100).optional().describe("嵌套筛选条件，最多一层"),
+}).strict();
+const AvAutomationFieldSchema = z.object({
+    mode: z.enum(["static", "source", "currentTime", "triggerItem", "template"]).describe("赋值方式；关联和资源目标不在本插件支持范围内"),
+    keyID: AvAutomationIDSchema.optional().describe("源字段标识"),
+    value: AvAutomationValueSchema.optional().describe("固定值"),
+    template: AvAutomationTemplateSchema.optional().describe("原生 .action 模板；UTF-8 编码不得超过 8 KiB"),
+}).strict();
+export const AvAutomationConfigSchema = z.object({
+    spec: z.number().int().min(1).max(4).describe("原生自动化格式版本，模板至少为 2，块子类型至少为 3，标签收集对象至少为 4"),
+    rules: z.array(z.object({
+        id: z.string().regex(/^\d{14}-[a-z0-9]{7}$/).describe("符合思源块标识格式的规则标识"),
+        name: z.string().min(1).max(512).describe("规则名称"),
+        enabled: z.boolean().describe("是否启用"),
+        trigger: z.enum(["added", "changed", "block"]).describe("条目新增、字段修改或来源块匹配"),
+        keyID: AvAutomationIDSchema.optional().describe("监听的字段标识"),
+        conditions: z.array(AvAutomationFilterSchema).max(100).optional().describe("条目条件"),
+        actions: z.array(z.object({
+            type: z.enum(["add", "edit", "collect"]).describe("新增游离条目、编辑或收集来源块"),
+            target: z.enum(["current", "related", "filtered"]).describe("当前库、关联条目或指定库筛选结果"),
+            avID: AvAutomationIDSchema.optional().describe("目标数据库标识"),
+            relationKeyID: AvAutomationIDSchema.optional().describe("选择关联条目的源关联字段标识"),
+            filters: z.array(AvAutomationFilterSchema).max(100).optional().describe("目标条目筛选条件；空数组匹配全部"),
+            fields: z.record(AvAutomationIDSchema, AvAutomationFieldSchema).refine(v => Object.keys(v).length <= 100, "一次操作最多赋值 100 个字段").describe("目标字段标识到赋值规则的映射"),
+        }).strict()).min(1).max(20).describe("自动执行的操作，最多 20 项"),
+        blockSource: z.object({
+            notebookIDs: z.array(AvAutomationIDSchema).max(100).optional().describe("监听笔记本范围"),
+            documentIDs: z.array(AvAutomationIDSchema).max(100).optional().describe("监听文档及子文档范围"),
+            types: z.array(z.string().min(1).max(128)).max(100).optional().describe("来源块类型或子类型"),
+            tags: z.array(z.string().min(1).max(512)).max(20).optional().describe("精确匹配的标签"),
+            attributes: z.array(z.object({ name: z.string().min(1).max(256), operator: z.enum(["equals", "contains", "exists", "notExists"]), value: z.string().max(65536).optional() }).strict()).max(20).optional().describe("来源块属性条件"),
+            tagMatch: z.enum(["", "and", "or"]).optional().describe("标签匹配方式"),
+            tagTarget: z.enum(["", "block", "container"]).optional().describe("标签来源、直接块或最近合格容器"),
+            attributeMatch: z.enum(["", "and", "or"]).optional().describe("属性匹配方式"),
+        }).strict().refine(value => (value.notebookIDs?.length ?? 0) + (value.documentIDs?.length ?? 0) >= 1 && (value.notebookIDs?.length ?? 0) + (value.documentIDs?.length ?? 0) <= 100, "来源笔记本与文档合计应为 1 至 100 项").optional().describe("块收集来源范围"),
+        timeZone: z.string().min(1).max(128).optional().describe("IANA 时区，例如 Asia/Shanghai"),
+        notifyOnSuccess: z.boolean().optional().describe("实际产生变更后是否发送成功通知"),
+    }).strict()).max(100).describe("完整规则列表；空数组删除全部规则配置但保留既有条目"),
+}).strict();
+export const AvGetAutomationsSchema = z.object({ action: z.literal("get_automations"), avID: AvAutomationIDSchema.describe("数据库标识"), blockID: AvAutomationIDSchema.optional().describe("准确的数据库块上下文") });
+export const AvSetAutomationsSchema = z.object({ action: z.literal("set_automations"), avID: AvAutomationIDSchema.describe("数据库标识"), blockID: AvAutomationIDSchema.optional().describe("准确的数据库块上下文"), config: AvAutomationConfigSchema.describe("整体保存的规则配置；请先读取旧配置") });
+export const AvPreviewCollectionSchema = z.object({ action: z.literal("preview_collection"), avID: AvAutomationIDSchema.describe("数据库标识"), blockID: AvAutomationIDSchema.optional().describe("准确的数据库块上下文"), ruleID: AvAutomationIDSchema.describe("已保存且启用的块收集规则标识"), page: z.number().int().min(1).max(100000).optional().describe("页码，从 1 开始，每页最多 100 块") });
+export const AvCollectBlocksSchema = z.object({ action: z.literal("collect_blocks"), avID: AvAutomationIDSchema.describe("数据库标识"), blockID: AvAutomationIDSchema.optional().describe("准确的数据库块上下文"), ruleID: AvAutomationIDSchema.describe("已保存且启用的块收集规则标识"), blockIDs: z.array(AvAutomationIDSchema).min(1).max(100).describe("预览后明确选择收集的来源块；逐块要求写权限") });
+export const AvPreviewTemplateSchema = z.object({
+    action: z.literal("preview_template"), avID: AvAutomationIDSchema.describe("源数据库标识"), blockID: AvAutomationIDSchema.optional().describe("准确的数据库块上下文"),
+    targetAvID: AvAutomationIDSchema.optional().describe("目标数据库标识，默认使用源数据库"), itemID: AvAutomationIDSchema.describe("实际源条目标识"), keyID: AvAutomationIDSchema.describe("目标字段标识"),
+    template: AvAutomationTemplateSchema.describe("只求值不持久化的原生 .action 模板"), timeZone: z.string().min(1).max(128).describe("IANA 时区"), triggerTime: z.string().max(128).optional().describe("可选 ISO 触发时间"),
+    inputs: z.record(AvAutomationIDSchema, z.string().max(65536)).refine(v => Object.keys(v).length <= 100, "最多覆盖 100 个输入").optional().describe("仅覆盖本次预览的字段输入"),
+});
+
 export const AvGetSchema = z.object({
     action: z.literal("get"),
     id: z.string().describe("Attribute view ID"),
@@ -672,6 +794,7 @@ export const AvRenderSchema = z.object({
     groupPaging: z.record(z.string(), z.unknown()).optional().describe("Optional group paging map passed through to SiYuan"),
     createIfNotExist: z.boolean().optional().describe("Create the default view only when explicitly true; provide blockID when creating a new AV"),
     ignoreRows: z.boolean().optional().describe("Return view/schema metadata without row values to reduce output size"),
+    temporarySort: z.object({ column: AvAutomationIDSchema.describe("临时排序字段标识"), order: z.enum(["ASC", "DESC"]).describe("升序或降序"), valueSource: z.enum(["stored", "rendered"]).optional().describe("按保存值或显示值排序"), dateEndpoint: z.enum(["start", "end"]).optional().describe("日期范围端点") }).strict().optional().describe("仅影响本次渲染，不修改视图排序配置"),
     verbose: z.boolean().optional().describe("Include raw kernel rows in data[] in addition to the compact table; default false"),
 });
 

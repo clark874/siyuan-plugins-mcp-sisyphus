@@ -82,3 +82,15 @@ siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "Plain text r
 - `set_cells`
 - `duplicate`
 - `get_primary_key_values`
+
+
+## 思源 3.8.8 扩展
+
+- `get_automations` 读取完整规则；`set_automations` 经严格预检整体保存配置，支持新增、修改、停用和移除。所有视图、镜像共享该配置；移除规则不会删除既有条目。
+- `preview_collection` 分页预览启用规则匹配的块；`collect_blocks` 提交选定 `blockIDs`，内核重新匹配后绑定。来源块与目标数据库都需要写权限，不自动清理旧条目。
+- `preview_template` 对实际源条目求值，允许临时 `inputs` 覆盖，不保存或触发规则。通过规则的 `fields` 使用 `mode="template"` 完成自动赋值；模板必须符合思源原生语法。
+- `render.temporarySort={column,order}` 仅影响本次读取，`order` 为 `ASC` 或 `DESC`，不会改变持久视图排序。
+- 所有内容写入均检查可能触发的自动化：包括普通块自动收集、跨库目标、共享镜像与被编辑主键绑定的来源块。严格模式的预检摘要包含规则配置；规则变化后须重新预检。
+- 自动化仍沿用文本知识边界，不写入关联、资源和计算字段。无法完整验证范围时拒绝内容写入。
+
+先调用对应动作的 `help` 取得完整参数，使用真实规则、条目、字段和块标识；不要复制占位标识执行。严格写入使用相同业务参数预检，再携带返回的 `issuedRequestId` 与对应摘要凭据执行一次。

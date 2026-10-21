@@ -51,6 +51,8 @@ export const ACTION_SAFETY_POLICIES: {
     av: {
         get: read(), render: mutation(), get_attribute_view_keys: read(), get_attribute_view_filter_sort: read(),
         search: read(), get_primary_key_values: read(),
+        get_automations: read(), preview_collection: read(), preview_template: read(),
+        set_automations: mutation('state'), collect_blocks: mutation('manifest'),
         rename: mutation('state'), add_rows: mutation(), remove_rows: mutation('manifest'), add_column: mutation('state'),
         remove_column: mutation('state'), set_cells: mutation('manifest'), duplicate: mutation('state'),
     },
