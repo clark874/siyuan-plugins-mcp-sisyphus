@@ -125,7 +125,12 @@ describe('project tool', () => {
                     if (exactId) return rows[exactId] ? [rows[exactId]] : [];
                     if (stmt.includes("custom-progress-role' AND r.value IN")) return ['page', 'profile', 'stages', 'artifacts', 'state', 'workstream'].map((id) => rows[id]);
                     if (stmt.includes("WHERE root_id='page' ORDER BY sort ASC LIMIT 500")) return [rows.state, rows['state-body']];
-                    if (stmt.includes('ORDER BY b.created DESC LIMIT 501')) return [rows.backfill, rows.event];
+                    if (stmt.includes('ORDER BY b.created DESC LIMIT 501')) {
+                        expect(stmt).toContain('WHERE b.id IN (SELECT block_id FROM attributes');
+                        expect(stmt).toContain(' UNION ');
+                        expect(stmt).not.toContain('EXISTS');
+                        return [rows.backfill, rows.event];
+                    }
                     if (stmt.includes('FROM refs')) return [
                         { block_id: 'event', def_block_id: 'atom-1' },
                         { block_id: 'backfill', def_block_id: 'atom-1' },

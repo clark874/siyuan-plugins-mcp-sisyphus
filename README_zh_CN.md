@@ -1,10 +1,10 @@
 # SiYuan Sisyphus MCP & CLI
 
-0.12.0 对齐思源 3.8.8：接入知识块收集、数据库自动化规则与模板、项目导图显示配置和临时排序；修复自动化派生写入绕过只读笔记本权限。验收与使用说明见 [升级交付记录](docs/plans/2026-10-21-v0.12.0-delivery.md)。
+0.12.1 修复真实文库中项目事件查询超时，使项目快照和原生导图能够读取已有大型文库；保留 0.12.0 的思源 3.8.8 扩展与权限修复。见 [PM 项目导图实测](docs/plans/2026-10-21-v0.12.1-pm-mindmap.md)。
 
 项目原生思维导图：思源 3.8.6 及以上可调用 `project.sync_mindmap`，首次严格预检并生成后，经 Sisyphus 提交项目事件、正文或状态属性时自动增量同步。保留存续块 ID 和显示配置；人工改写管理节点或结构时停止并报告待同步。具体边界与用法见 [升级方案](https://github.com/clark874/siyuan-plugins-mcp-sisyphus/blob/main/docs/plans/2026-09-30-v0.11.0-project-mindmap.md)。
 
-> **LLM Wiki 分支：** 当前开发版为 `v0.12.0`（CLI `v0.5.0`），已在思源 `v3.8.8` 验证；MCP 工具面为 14 类、108 个 action。
+> **LLM Wiki 分支：** 当前开发版为 `v0.12.1`（CLI `v0.5.1`），已在思源 `v3.8.8` 验证；MCP 工具面为 14 类、108 个 action。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
@@ -29,7 +29,7 @@
 
 > 连接外部 AI Agent、Sisyphus 原有工具与思源官方 MCP 插件生态。
 
-> **当前 LLM Wiki 开发版本：**`v0.12.0`。本分支服务文本知识治理，并通过只读 `literature` 工具访问本地 Zotero、定位 Markdown 引文与汇总思源论文入链；不提供图片读取或图片型知识写入。MCP 工具面为 14 类、108 个 action。CLI `v0.5.0` 要求 Node.js 20+。已在思源 `3.8.8` 实例验证。
+> **当前 LLM Wiki 开发版本：**`v0.12.1`。本分支服务文本知识治理，并通过只读 `literature` 工具访问本地 Zotero、定位 Markdown 引文与汇总思源论文入链；不提供图片读取或图片型知识写入。MCP 工具面为 14 类、108 个 action。CLI `v0.5.1` 要求 Node.js 20+。已在思源 `3.8.8` 实例验证。
 
 ## 项目方向调整
 
