@@ -118,5 +118,22 @@
       "sha256": "83ac15e86e72d1d607ff4eb77573aa2976ce953f768ba096918e093978fb595f",
       "bytes": 95486
     }
+  },
+  "release": {
+    "url": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/tag/v0.12.0",
+    "tagCommit": "24ef970",
+    "assetsDownloadedAndHashesMatched": true,
+    "stableChannel": "0.12.0",
+    "githubActionsTriggered": false
+  },
+  "localInstallation": {
+    "pluginVersion": "0.12.0",
+    "indexAndServerMatchReleaseBuild": true,
+    "pluginReloaded": true,
+    "newActionsDiscovered": true,
+    "bootstrapReadOnlySuccess": true,
+    "tools": 14,
+    "kernel": "3.8.8",
+    "backup": "/Users/moongoat/Downloads/SiYuan/data/plugins/.sisyphus-backups/2026-10-21T07-26-30-947Z-0.11.1"
   }
 }
