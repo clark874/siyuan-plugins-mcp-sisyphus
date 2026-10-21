@@ -20,7 +20,7 @@
 - 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.12.3`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.5.1`）
+- 当前版本：`0.12.4`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.5.1`）
 
 ---
 
@@ -327,6 +327,10 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 - 每个 notebook 可配置四级权限：`rwd`（读写删）、`rw`（读写）、`r`（只读）、`none`（无访问）。
 - `PermissionManager` 在 `src/core/permissions.ts` 中实现，基于思源 API 读取的权限文件。
 - 删除、移动、批量替换和登记项目来源等高风险动作在 MCP 2026-07-28 模式下先经过 elicitation 确认；legacy 客户端通过 instructions/help 明示确认要求。
+
+### 项目进度文件地址
+
+用户可见的产物索引、项目与工作线状态、阶段台账、事件正文和响应中的本地文件／目录地址必须使用已核实的完整绝对路径，优先提供可点击文件链接；不得只留相对路径、波浪号缩写、文件名或省略号地址。以当前宿主的项目绑定解析；缺失历史文件标注“路径缺失，待核验”，归属或候选不明时标注“路径待确认”，不猜地址。内部来源清单及工具 `relativePath` 参数仍使用项目内相对路径；网页、思源块引用和会话协议不改写。完整规则由 `skills/source/project-coordinator-output-contract.md` 维护并生成到插件及 Agent Kit。
 
 ### 渐进式披露（Progressive Disclosure）
 

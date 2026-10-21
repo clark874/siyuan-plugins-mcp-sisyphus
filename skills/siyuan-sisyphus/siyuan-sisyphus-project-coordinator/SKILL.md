@@ -40,12 +40,12 @@ siyuan-sisyphus system bootstrap --json
 
 项目中枢下最多有一个带 `custom-progress-role=project-progress-page` 和当前 `custom-progress-project-id` 的“项目进度协作”页。标题只用于人类阅读，属性才是机器定位契约。页面包含：项目概览、阶段台账、权威产物索引三个稳定投影，一个当前项目状态块、每条工作线一个状态块、普通进度事件追加区，以及“最近登记”“本项目知识产物”两个 `query_embed` 只读投影。“最近登记”按块创建时间展示追加审计顺序，不等同于项目事实时间线；机器时间线只以 snapshot 的 `occurredAt` 排序结果为准。
 
-当前状态和工作线状态都只是可重建投影。每个状态块正文固定记录：项目目标、当前阶段、当前焦点、最近完成事项、唯一下一步、阻塞、已否决方案、关键产物和最近事件引用。知识正文只保存在知识原子；进度事件只写短摘要和真实块引用。
+当前状态和工作线状态都只是可重建投影。每个状态块正文固定记录：项目目标、当前阶段、当前焦点、最近完成事项、唯一下一步、阻塞、已否决方案、关键产物和最近事件引用。知识正文只保存在知识原子；进度事件只写短摘要和真实块引用。本地文件及目录地址必须先核实项目归属与存在，再在所有用户可见进度正文中保存完整绝对路径及可点击链接；不得只写相对路径、波浪号缩写、文件名或省略号。缺失的历史文件标注路径缺失；归属或候选不明时写路径待确认，不猜地址。网页、思源块引用和会话入口保留原协议。
 
 机器契约使用 custom 属性，不用标签：
 
 - 进度页：`custom-progress-role=project-progress-page`、`custom-progress-schema=1`、`custom-progress-project-id`；
-- 稳定投影：`custom-progress-role=project-profile|stage-ledger|artifact-index`、项目 ID、更新时间；其中产物索引只保存项目内相对路径；
+- 稳定投影：`custom-progress-role=project-profile|stage-ledger|artifact-index`、项目 ID、更新时间；其中产物索引保存已核实的完整绝对路径及可点击链接，内部来源清单和工具的 `relativePath` 参数仍用项目内相对路径；
 - 状态块：`custom-progress-role=project-state|workstream-state`、项目 ID、工作线、更新时间、最近事件 ID；
 - 普通事件：`custom-progress-role=event`、schema、项目 ID、事件 ID、工作线、事件类型、UTC 时间、provider、session ID；
 - 事件类型只用 `progress|decision|blocker|handoff|milestone|knowledge`。
@@ -125,7 +125,7 @@ siyuan-sisyphus block batch-kramdown --ids-json '["<filtered-block-id-1>","<filt
 1. 投影一致性、孤儿会话、知识引用、绑定陈旧、产物悬空、重复 name 与历史事件分级均直接使用 `snapshot.diagnostics`；Skill 不重复实现。`historical_repairable` 是可重放修复提示，不表述为数据损坏。若 `chronology.complete=false` 或出现 `event_chronology_truncated`，禁止更新项目或工作线状态投影。
    若 snapshot 返回 `repairPlan`，它只是旧投影结构的修复预览：启动和交接不得执行。只有用户明确要求修复时，先为进度文档创建时间线节点，再把预览中的 `items` 原样交给一次批量 `block.set_attrs`，随后重新 snapshot；不得自行扩展修复范围。
 2. 本地与共享记忆对账（宿主可执行本地命令时）：按“本地权威文件 ↔ 项目源清单 ↔ 思源投影/知识”三方核验。Tier A 文件的当前 SHA-256 与清单哈希相同且投影无冲突才可写“已核验一致”；哈希不同写“本地领先共享记忆”，文件缺失写“本地缺失”，命令失败或缺少哈希写“无法确认”，不得用 mtime 证明内容一致。
-3. 增量新鲜度：使用 `localProbeBaseline.latestHandoffAt`，缺失时回退 `latestEventAt` 并标注“弱基线”。Git 项目执行 `git log --oneline --since=<baseline>` 与 `git status --porcelain`；非 Git 目录项目把 UTC 转为 `YYYY-MM-DD HH:MM:SS UTC` 后执行 `find . -type f -newermt "<UTC 文本时间>" -not -path "*/.git/*" -not -path "*/node_modules/*"`。先检查命令退出状态，再截取前 20 条，禁止用管道成功掩盖失败。非空时最多列出 3 个相对路径。
+3. 增量新鲜度：使用 `localProbeBaseline.latestHandoffAt`，缺失时回退 `latestEventAt` 并标注“弱基线”。Git 项目执行 `git log --oneline --since=<baseline>` 与 `git status --porcelain`；非 Git 目录项目把 UTC 转为 `YYYY-MM-DD HH:MM:SS UTC` 后执行 `find . -type f -newermt "<UTC 文本时间>" -not -path "*/.git/*" -not -path "*/node_modules/*"`。先检查命令退出状态，再截取前 20 条，禁止用管道成功掩盖失败。非空时最多列出 3 个已核实的完整绝对路径。
 4. 思源不可用降级：`bootstrap` 或首个读取调用失败且重试一次仍失败时，停止访问共享记忆，提示“共享记忆不可用，本会话仅本地工作，恢复后请重新启动并收尾”；随后只执行不依赖思源的任务，降级状态下禁止任何项目写入。
 
 宿主私有 memory、旧 rollout 和聊天记录不得用于补全当前项目事实；rollout 仅可用于发现或验证真实会话标识。恢复旧会话时，旧聊天中的成果只能作为待核验的历史补录候选，不能覆盖 snapshot 当前状态。同一实时查询在一次启动中只执行一次，后续筛选使用已有结果。

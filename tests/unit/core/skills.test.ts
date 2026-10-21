@@ -101,7 +101,7 @@ describe('core/skills', () => {
         expect(panoramaContract).toContain('## 5. 当前权威文件');
         expect(panoramaContract).toContain('如果项目协调器、MCP 或验收环境不存在');
         expect(panoramaContract).toContain('不得截断 sessionId');
-        expect(panoramaContract).toContain('项目进度页只保存相对路径');
+        expect(panoramaContract).toContain('一律写完整绝对路径');
         expect(initializationContract).toContain('不得把含 `<project-id>` 的模板交给用户替换');
         expect(initializationContract).toContain("AND p.value = '<project-id>'");
         expect(initializationContract).toContain("AND r.value = 'event'");
