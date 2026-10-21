@@ -10,6 +10,7 @@ function fixture() {
     let state: any;
     let edited = false;
     let sourceLabel: string | undefined;
+    let activeReads = 0, peakReads = 0;
     const pageAttrs: Record<string, string> = {};
     const rootAttrs: Record<string, string> = {};
     const transaction = vi.fn(async (body: any) => {
@@ -29,7 +30,12 @@ function fixture() {
             }
         }
     });
-    const client = createMockClient({ request: async (endpoint: string, body: any) => {
+    const client = createMockClient({ request: vi.fn(async (endpoint: string, body: any) => {
+        if (endpoint === '/api/block/getChildBlocks' || endpoint === '/api/block/getBlockDOM') {
+            peakReads = Math.max(peakReads, ++activeReads);
+            await new Promise<void>((resolve) => setImmediate(resolve));
+            activeReads--;
+        }
         if (endpoint === '/api/transactions') return transaction(body);
         if (endpoint === '/api/query/sql') return [{ id: pageId, root_id: pageId, box: 'nb', path: '/page.sy' }];
         if (endpoint === '/api/attr/getBlockAttrs') return body.id === pageId ? pageAttrs : { ...rootAttrs, 'custom-project-mindmap-state': JSON.stringify(state) };
@@ -40,16 +46,16 @@ function fixture() {
                 : state.nodes.filter((n: any) => n.parent === state.nodes.find((p: any) => p.listId === body.id)?.key).map((n: any) => n.id);
             return children.map((id: string) => ({ id }));
         }
-        if (endpoint === '/api/block/getBlockDOM') {
-            const node = state.nodes.find((n: any) => n.paragraphId === body.id);
+        if (endpoint === '/api/block/getBlockDOMs') return Object.fromEntries(body.ids.map((id: string) => {
+            const node = state.nodes.find((n: any) => n.paragraphId === id);
             const content = node ? (edited && node.sourceId ? '人工改写' : node.sourceId === sourceId && sourceLabel !== undefined ? sourceLabel : node.label) : '';
-            return { dom: `<div data-node-id="${body.id}"><div contenteditable="true">${node?.sourceId ? `<span data-type="block-ref" data-id="${node.sourceId}">${content}</span>` : content}</div></div>` };
-        }
+            return [id, `<div data-node-id="${id}"><div contenteditable="true">${node?.sourceId ? `<span data-type="block-ref" data-id="${node.sourceId}">${content}</span>` : content}</div></div>`];
+        }));
         throw new Error(`未预期的接口：${endpoint}`);
-    } });
+    }) });
     const snapshot = { project: { projectId: '验收项目', bindingStatus: 'available' }, progressPage: { id: pageId }, chronology: { complete: true }, diagnostics: [], projections: { projectState: { id: sourceId, content: '当前状态' }, workstreams: [] }, knowledgeProducts: [], events: [] as any[] };
     const plan: MindmapPlan = { projectId: '验收项目', pageId, title: '验收项目', desired: [{ key: 'stages', parent: null, label: '阶段' }, { key: 'project-state', parent: 'stages', label: '当前状态', sourceId }], pageAttrs, rootAttrs: {}, actual: {} };
-    return { client, transaction, snapshot, plan, getState: () => state, getDisplay: () => JSON.parse(rootAttrs['custom-sy-list-mindmap-data']), edit: () => { edited = true; }, refreshSource: (label?: string) => { sourceLabel = label; } };
+    return { client, transaction, snapshot, plan, getState: () => state, getPeakReads: () => peakReads, getDisplay: () => JSON.parse(rootAttrs['custom-sy-list-mindmap-data']), edit: () => { edited = true; }, refreshSource: (label?: string) => { sourceLabel = label; } };
 }
 
 describe('项目原生导图', () => {
@@ -80,6 +86,9 @@ describe('项目原生导图', () => {
         f.snapshot.projections.projectState.content = '已完成 $& ';
         f.refreshSource('已完成 $& ');
         const plan = await readMindmapPlan(f.client, createMockPermissionManager(), f.snapshot, { connectorStyle: 'rounded', nodes: { stages: { italic: true } }, relations: [{ fromKey: '$root', toKey: 'stages', label: '更新关系' }, relations[1]] });
+        expect(f.getPeakReads()).toBeGreaterThan(1);
+        expect(f.getPeakReads()).toBeLessThanOrEqual(6);
+        expect(f.client.request.mock.calls.filter(([endpoint]: any[]) => endpoint === '/api/block/getBlockDOMs')).toHaveLength(1);
         plan.desired = previous.nodes.map(({ id, paragraphId, listId, ...node }: any) => ({ ...node, label: node.sourceId ? '已完成 $&' : node.label }));
         expect((await executeMindmapPlan(f.client, plan, true)).status).toBe('updated');
         f.refreshSource();

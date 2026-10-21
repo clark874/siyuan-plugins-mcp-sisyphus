@@ -67,8 +67,10 @@ export async function syncEnabledProjectMindmaps(client: SiYuanClient, permMgr: 
             await requireMindmapKernel(client);
             const plan = await readMindmapPlan(client, permMgr, snapshot);
             const synced = await executeMindmapPlan(client, plan, true);
-            await readMindmapPlan(client, permMgr, snapshot);
-            await applyUiRefresh(client, createJsonResult(synced), [{ type: 'reloadProtyle', id: plan.pageId }]);
+            if (synced.status !== 'unchanged') {
+                await readMindmapPlan(client, permMgr, snapshot);
+                await applyUiRefresh(client, createJsonResult(synced), [{ type: 'reloadProtyle', id: plan.pageId }]);
+            }
             results.push(synced);
         } catch (error) {
             results.push({ projectId, status: 'pending', message: error instanceof Error ? error.message : String(error) });
@@ -670,6 +672,8 @@ const projectTool = defineTool<ProjectAction>({
             const parsed = ProjectSyncMindmapSchema.parse(rawArgs);
             const plan = await projectMindmapPlan(client, permMgr, parsed.projectId, parsed.display);
             const result = await executeMindmapPlan(client, plan, parsed.autoSync ?? true);
+            // 无变化时未写笔记，外层严格协议仍执行状态回读，无须再检查和刷新整页。
+            if (result.status === 'unchanged') return createJsonResult(result);
             // 回读实际正文和层级，不能仅用管理属性作为成功证据。
             await projectMindmapPlan(client, permMgr, parsed.projectId);
             return applyUiRefresh(client, createJsonResult(result), [{ type: 'reloadProtyle', id: plan.pageId }]);

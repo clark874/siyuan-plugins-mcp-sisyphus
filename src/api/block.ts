@@ -206,6 +206,10 @@ export async function getBlockDOM(client: SiYuanClient, id: string): Promise<{ i
     return client.requestRead<{ id: string; dom: string }>('/api/block/getBlockDOM', { id });
 }
 
+export async function getBlockDOMs(client: SiYuanClient, ids: string[]): Promise<Record<string, string>> {
+    return client.requestRead<Record<string, string>>('/api/block/getBlockDOMs', { ids });
+}
+
 export async function getRecentUpdatedBlocks(client: SiYuanClient): Promise<unknown> {
     return client.requestRead('/api/block/getRecentUpdatedBlocks', {});
 }

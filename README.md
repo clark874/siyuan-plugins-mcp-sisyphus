@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-0.12.2 修复项目导图的知识成果窗口：先筛选已登记知识原子，再取前 30 项，避免普通关系审计记录挤占；沿用 0.12.1 的大型文库查询修复。见 [PM 项目导图实测](docs/plans/2026-10-21-v0.12.1-pm-mindmap.md)。
+0.12.3 优化项目导图同步：原生批量读取正文、最多六项并发核验结构，无变化时跳过额外回读与整页刷新；保留严格预检、人工修改保护和思源 3.8.8 显示配置。
 
 项目原生思维导图：思源 3.8.6 及以上可调用 `project.sync_mindmap`，首次严格预检并生成后，经 Sisyphus 提交项目事件、正文或状态属性时自动增量同步。保留存续块 ID 和显示配置；人工改写管理节点或结构时停止并报告待同步。具体边界与用法见 [升级方案](https://github.com/clark874/siyuan-plugins-mcp-sisyphus/blob/main/docs/plans/2026-09-30-v0.11.0-project-mindmap.md)。
 

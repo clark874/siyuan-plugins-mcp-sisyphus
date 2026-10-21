@@ -6,6 +6,7 @@ import { hashWriteState } from '../../core/write-safety-hash';
 import type { PermissionManager } from '../../core/permissions';
 import type { ProjectMindmapDisplay } from '../../core/types';
 import { ensurePermissionForDocumentId } from '../internal/context';
+import PromiseLimitPool from '../../shared/promise-pool';
 
 export const MINDMAP_ROOT_ATTR = 'custom-project-mindmap-root-id';
 export const MINDMAP_AUTO_ATTR = 'custom-project-mindmap-auto-sync';
@@ -323,15 +324,22 @@ export async function readMindmapPlan(client: SiYuanClient, permMgr: PermissionM
         expected[node.id!] = [node.paragraphId!, ...(node.listId ? [node.listId] : [])];
         if (node.listId) expected[node.listId] = plan.previous.nodes.filter((child) => child.parent === node.key).map((child) => child.id!);
     }
-    for (const [id, children] of Object.entries(expected)) {
+    // 原生批量接口仍逐块渲染；缺失任一块即停止，不以管理属性代替正文核验。
+    const domIds = [...Object.keys(expected).filter((id) => id !== rootId), ...plan.previous.nodes.map((node) => node.paragraphId!)];
+    const doms = await blockApi.getBlockDOMs(client, domIds);
+    if (domIds.some((id) => typeof doms[id] !== 'string' || !doms[id])) throw new Error('导图正文读取不完整，停止同步。');
+    // 独立只读检查最多并发六项；不缓存或跳过任何节点的结构核验。
+    const reads = new PromiseLimitPool<void>(6);
+    for (const [id, children] of Object.entries(expected)) reads.add(async () => {
         const actual = (await blockApi.getChildBlocks(client, id)).map((row) => row.id);
         if (JSON.stringify(actual) !== JSON.stringify(children)) throw new Error('导图结构已被人工修改，停止同步。');
         // 根块正文不参与增量写入；其自定义属性顺序由内核渲染，不能作为稳定预检状态。
-        plan.actual[id] = { children: actual, ...(id === rootId ? {} : { dom: (await blockApi.getBlockDOM(client, id)).dom }) };
-    }
+        plan.actual[id] = { children: actual, ...(id === rootId ? {} : { dom: doms[id] }) };
+    });
     const desiredByKey = new Map(plan.desired.map((node) => [node.key, node]));
+    await reads.awaitAll();
     for (const node of plan.previous.nodes) {
-        const dom = (await blockApi.getBlockDOM(client, node.paragraphId!)).dom;
+        const dom = doms[node.paragraphId!];
         const actual = signature(dom);
         const desired = desiredByKey.get(node.key);
         // 内核会刷新引用锚文本；仅接受同一来源的当前生成文本，其他人工改写仍停止。
