@@ -211,7 +211,7 @@ function displayMetadata(plan: MindmapPlan, nodes: MindmapNode[], rootId: string
 }
 
 function text(value: unknown): string {
-    return typeof value === 'string' ? value.replace(/[\u200B\uFEFF]/g, '').replace(/\s+/g, ' ').trim().slice(0, 100) : '';
+    return typeof value === 'string' ? value.replace(/[\u200B\uFEFF]/g, '').replace(/\s+/g, ' ').trim().slice(0, 100).trim() : '';
 }
 
 /** 只投影快照中的事实和来源，不生成新的项目结论。 */
@@ -229,7 +229,8 @@ export function projectMindmapNodes(snapshot: any): MindmapNode[] {
     source('stages', 'project-state', snapshot.projections.projectState, '当前项目状态');
     for (const row of snapshot.projections.workstreams) source('stages', `workstream:${row.id}`, row, row.workstream || '工作线');
     group('knowledge', '知识成果（快照窗口）');
-    for (const row of snapshot.knowledgeProducts.slice(0, 30)) source('knowledge', `knowledge:${row.id}`, row, row.name || '知识成果');
+    // 事件目标还可能包含普通关系记录；先筛选已登记知识原子，再应用展示窗口。
+    for (const row of snapshot.knowledgeProducts.filter((row: any) => row.name || row.atomType).slice(0, 30)) source('knowledge', `knowledge:${row.id}`, row, row.name || '知识成果');
     group('artifacts', '权威产物索引');
     source('artifacts', 'artifact-index', snapshot.projections.artifactIndex, '权威产物索引原文');
     group('events', '最近实质更新（最多十项）');
@@ -325,12 +326,17 @@ export async function readMindmapPlan(client: SiYuanClient, permMgr: PermissionM
     for (const [id, children] of Object.entries(expected)) {
         const actual = (await blockApi.getChildBlocks(client, id)).map((row) => row.id);
         if (JSON.stringify(actual) !== JSON.stringify(children)) throw new Error('导图结构已被人工修改，停止同步。');
-        plan.actual[id] = { children: actual, dom: (await blockApi.getBlockDOM(client, id)).dom };
+        // 根块正文不参与增量写入；其自定义属性顺序由内核渲染，不能作为稳定预检状态。
+        plan.actual[id] = { children: actual, ...(id === rootId ? {} : { dom: (await blockApi.getBlockDOM(client, id)).dom }) };
     }
+    const desiredByKey = new Map(plan.desired.map((node) => [node.key, node]));
     for (const node of plan.previous.nodes) {
         const dom = (await blockApi.getBlockDOM(client, node.paragraphId!)).dom;
         const actual = signature(dom);
-        if (actual.label !== node.label || JSON.stringify(actual.refs) !== JSON.stringify(node.sourceId ? [node.sourceId] : [])) {
+        const desired = desiredByKey.get(node.key);
+        // 内核会刷新引用锚文本；仅接受同一来源的当前生成文本，其他人工改写仍停止。
+        const refreshedSource = node.sourceId && desired?.sourceId === node.sourceId && actual.label === desired.label;
+        if ((!refreshedSource && actual.label !== node.label.trim()) || JSON.stringify(actual.refs) !== JSON.stringify(node.sourceId ? [node.sourceId] : [])) {
             throw new Error('导图管理正文已被人工修改，停止同步。');
         }
         plan.actual[node.paragraphId!] = { children: [], dom };

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { executeMindmapPlan, readMindmapPlan, type MindmapPlan } from '@/tools/project/mindmap';
+import { executeMindmapPlan, projectMindmapNodes, readMindmapPlan, type MindmapPlan } from '@/tools/project/mindmap';
 import { createMockClient } from '../../helpers/mock-client';
 import { createMockPermissionManager } from '../../helpers/mock-permissions';
 
@@ -9,6 +9,7 @@ const sourceId = '20260930000000-bbbbbbb';
 function fixture() {
     let state: any;
     let edited = false;
+    let sourceLabel: string | undefined;
     const pageAttrs: Record<string, string> = {};
     const rootAttrs: Record<string, string> = {};
     const transaction = vi.fn(async (body: any) => {
@@ -41,17 +42,29 @@ function fixture() {
         }
         if (endpoint === '/api/block/getBlockDOM') {
             const node = state.nodes.find((n: any) => n.paragraphId === body.id);
-            const content = node ? (edited && node.sourceId ? '人工改写' : node.label) : '';
+            const content = node ? (edited && node.sourceId ? '人工改写' : node.sourceId === sourceId && sourceLabel !== undefined ? sourceLabel : node.label) : '';
             return { dom: `<div data-node-id="${body.id}"><div contenteditable="true">${node?.sourceId ? `<span data-type="block-ref" data-id="${node.sourceId}">${content}</span>` : content}</div></div>` };
         }
         throw new Error(`未预期的接口：${endpoint}`);
     } });
     const snapshot = { project: { projectId: '验收项目', bindingStatus: 'available' }, progressPage: { id: pageId }, chronology: { complete: true }, diagnostics: [], projections: { projectState: { id: sourceId, content: '当前状态' }, workstreams: [] }, knowledgeProducts: [], events: [] as any[] };
     const plan: MindmapPlan = { projectId: '验收项目', pageId, title: '验收项目', desired: [{ key: 'stages', parent: null, label: '阶段' }, { key: 'project-state', parent: 'stages', label: '当前状态', sourceId }], pageAttrs, rootAttrs: {}, actual: {} };
-    return { client, transaction, snapshot, plan, getState: () => state, getDisplay: () => JSON.parse(rootAttrs['custom-sy-list-mindmap-data']), edit: () => { edited = true; } };
+    return { client, transaction, snapshot, plan, getState: () => state, getDisplay: () => JSON.parse(rootAttrs['custom-sy-list-mindmap-data']), edit: () => { edited = true; }, refreshSource: (label?: string) => { sourceLabel = label; } };
 }
 
 describe('项目原生导图', () => {
+    it('普通关系记录不占用知识原子的展示窗口', () => {
+        const snapshot = fixture().snapshot;
+        const knowledgeProducts = [
+            ...Array.from({ length: 30 }, (_, index) => ({ id: `关系${index}`, title: '跨项目关系记录' })),
+            { id: sourceId, title: '当前方法原子', name: '方法原子' },
+        ];
+        const nodes = projectMindmapNodes({ ...snapshot, knowledgeProducts });
+        expect(nodes.filter((node) => node.parent === 'knowledge')).toEqual([
+            { key: `knowledge:${sourceId}`, parent: 'knowledge', sourceId, label: '当前方法原子' },
+        ]);
+    });
+
     it('首次创建、原地更新及重复执行保持标识并避免重复写入', async () => {
         const f = fixture();
         f.snapshot.events = [{ id: '20260930000000-ccccccc', content: '旧事件' }, { id: '20260930000000-ddddddd', content: '保留事件' }];
@@ -64,9 +77,12 @@ describe('项目原生导图', () => {
         expect((await executeMindmapPlan(f.client, f.plan, true)).status).toBe('created');
         const previous = f.getState();
         const originalDisplay = f.getDisplay();
+        f.snapshot.projections.projectState.content = '已完成 $& ';
+        f.refreshSource('已完成 $& ');
         const plan = await readMindmapPlan(f.client, createMockPermissionManager(), f.snapshot, { connectorStyle: 'rounded', nodes: { stages: { italic: true } }, relations: [{ fromKey: '$root', toKey: 'stages', label: '更新关系' }, relations[1]] });
         plan.desired = previous.nodes.map(({ id, paragraphId, listId, ...node }: any) => ({ ...node, label: node.sourceId ? '已完成 $&' : node.label }));
         expect((await executeMindmapPlan(f.client, plan, true)).status).toBe('updated');
+        f.refreshSource();
         expect(f.getState().nodes.map((n: any) => n.id)).toEqual(previous.nodes.map((n: any) => n.id));
         const updatedDisplay = f.getDisplay();
         expect(updatedDisplay).toMatchObject({ version: 2, rootTitle: '项目导图', connectorStyle: 'rounded', viewLocked: true, nodes: { [previous.nodes[0].id]: { textColor: '#123456', bold: true, italic: true } } });
