@@ -106,6 +106,8 @@ export const ProvenanceSessionIdentitySchema = z.object({
 });
 
 const ProjectMindmapNodeStyleSchema = z.object({
+    width: z.number().min(0).max(4096).optional(),
+    branchColor: z.number().int().min(0).max(63).optional(),
     textColor: z.string().max(128).optional(),
     backgroundColor: z.string().max(128).optional(),
     borderColor: z.string().max(128).optional(),
@@ -123,6 +125,13 @@ export const ProjectMindmapDisplaySchema = z.object({
     rootTitle: z.string().max(256).optional().describe('导图根标题；不改动项目名'),
     connectorStyle: z.enum(['spline', 'orthogonal', 'bezier', 'rounded']).optional().describe('树形连线样式'),
     viewLocked: z.boolean().optional().describe('是否锁定导图视图'),
+    appearance: z.object({
+        version: z.literal(1),
+        palette: z.array(z.string().regex(/^#[0-9a-f]{6}$/i)).max(24),
+        rootColor: z.string().regex(/^#[0-9a-f]{6}$/i).optional(),
+        nodeStyle: z.enum(["layered", "branch"]).optional(),
+        backgroundColor: z.union([z.literal(''), z.string().regex(/^#[0-9a-f]{6}$/i)]).optional(),
+    }).strict().optional().describe("思源 3.8.9 原生全局主题；省略保留现有主题"),
     nodes: z.record(ProjectMindmapKeySchema, ProjectMindmapNodeStyleSchema).refine((value) => Object.keys(value).length <= 160, '最多配置 160 个节点').optional().describe('按快照稳定节点键指定样式；仅覆盖提供的样式字段'),
     relations: z.array(z.object({
         id: z.string().min(1).max(128).optional().describe('稳定关系标识；省略时复用相同端点的标识或生成稳定标识'),
@@ -141,7 +150,7 @@ export const ProjectMindmapDisplaySchema = z.object({
         label: z.string().max(256).optional(),
         color: z.string().max(128).optional(),
     }).strict()).max(160).optional().describe('显式传入时替换概要集合；空数组清空，省略则保留；使用原生第 2 版元数据'),
-}).strict().describe('思源 3.8.8 导图显示配置；未指定字段保留原值，不修改管理正文或结构');
+}).strict().describe('思源 3.8.8／3.8.9 导图显示配置；未指定字段保留原值，不修改管理正文或结构');
 export type ProjectMindmapDisplay = z.infer<typeof ProjectMindmapDisplaySchema>;
 
 export const ProjectSyncMindmapSchema = z.object({
@@ -310,14 +319,16 @@ export const DocumentCreateSchema = z.object({
     action: z.literal("create"),
     notebook: z.string().describe("Notebook ID"),
     path: z.string().optional().describe("Human-readable target path, must start with / (e.g., /foo/bar). Parent paths must already exist."),
-    parentPath: z.string().optional().describe("Parent human-readable path or storage path ending in .sy for title-based creation, must start with /"),
+    parentPath: z.string().optional().describe("父文档的可读路径或 .sy 存储路径"),
+    parentID: z.string().nullable().optional().describe("思源 3.8.9：父文档 ID；null 明确表示笔记本根位置，与 title 配合"),
+    expectedParentRevision: z.string().min(1).optional().describe("可选父路径版本，来自 lookup 的 identity.revision；变化时拒绝创建"),
     title: z.string().optional().describe("Document title when creating under parentPath"),
     markdown: z.string().optional().describe("Markdown content, defaults to empty. Do not include a leading # Title; a matching H1 is stripped automatically."),
     sorts: z.array(z.string()).optional().describe("Compatibility option retained for older callers; title-based creation now uses the reliable path flow"),
     icon: z.string().optional().describe("Optional document icon. Prefer a Unicode hex code string such as '1f4d4' for 📔 instead of a raw emoji character."),
 }).superRefine((value, ctx) => {
     const hasPath = typeof value.path === "string";
-    const hasTitleMode = typeof value.parentPath === "string" || typeof value.title === "string";
+    const hasTitleMode = value.parentID !== undefined || typeof value.parentPath === "string" || typeof value.title === "string";
 
     if (hasPath && hasTitleMode) {
         ctx.addIssue({
@@ -328,7 +339,10 @@ export const DocumentCreateSchema = z.object({
         return;
     }
 
-    if (!hasPath && (!value.parentPath || !value.title)) {
+    if (value.parentID !== undefined && value.parentPath !== undefined || value.expectedParentRevision && value.parentID === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "parentID 与 parentPath 只能选一个；父版本必须配合 parentID。", path: ["parentID"] });
+    }
+    if (!hasPath && ((!value.parentPath && value.parentID === undefined) || typeof value.title !== "string")) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "Provide path, or provide both parentPath and title.",
@@ -337,7 +351,7 @@ export const DocumentCreateSchema = z.object({
     }
 });
 
-const DocumentResolveIncludeSchema = z.enum(["id", "ids", "path", "hpath", "docInfo"]);
+const DocumentResolveIncludeSchema = z.enum(["id", "ids", "path", "hpath", "docInfo", "identity"]);
 
 export const DocumentLookupSchema = z.object({
     action: z.literal("lookup"),
@@ -346,10 +360,13 @@ export const DocumentLookupSchema = z.object({
     path: z.string().optional().describe("Storage path to look up when notebook is provided, e.g. /20240318112233-abc123.sy. Human-readable paths should use hpath instead."),
     hpath: z.string().optional().describe("Human-readable path to look up when notebook is provided"),
     hPath: z.string().optional().describe("Alias for hpath"),
+    segments: z.array(z.string().max(512)).min(1).max(128).optional().describe("思源 3.8.9：逐级标题段；单段 A/B 保留为一个标题，不拆分斜杠"),
+    parentID: z.string().optional().describe("标题段解析的起始父文档 ID；省略则从笔记本根开始"),
     include: z.array(DocumentResolveIncludeSchema).optional().describe('Fields to include: "id", "ids", "path", "hpath", "docInfo"'),
 }).superRefine((value, ctx) => {
     const hpath = value.hpath ?? value.hPath;
-    const sourceCount = [value.id, value.path, hpath].filter((field) => typeof field === "string").length;
+    const sourceCount = [value.id, value.path, hpath].filter((field) => typeof field === "string").length + (value.segments ? 1 : 0);
+    if (value.parentID && !value.segments) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "parentID 必须配合 segments。", path: ["parentID"] });
     if (sourceCount !== 1) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -736,7 +753,7 @@ const AvAutomationFieldSchema = z.object({
     template: AvAutomationTemplateSchema.optional().describe("原生 .action 模板；UTF-8 编码不得超过 8 KiB"),
 }).strict();
 export const AvAutomationConfigSchema = z.object({
-    spec: z.number().int().min(1).max(4).describe("原生自动化格式版本，模板至少为 2，块子类型至少为 3，标签收集对象至少为 4"),
+    spec: z.number().int().min(1).max(8).describe("原生格式 1—8；深度至少 5、属性名匹配 6、排除选中文档 7、引用条件 8；5—8 需要思源 3.8.9"),
     rules: z.array(z.object({
         id: z.string().regex(/^\d{14}-[a-z0-9]{7}$/).describe("符合思源块标识格式的规则标识"),
         name: z.string().min(1).max(512).describe("规则名称"),
@@ -755,9 +772,12 @@ export const AvAutomationConfigSchema = z.object({
         blockSource: z.object({
             notebookIDs: z.array(AvAutomationIDSchema).max(100).optional().describe("监听笔记本范围"),
             documentIDs: z.array(AvAutomationIDSchema).max(100).optional().describe("监听文档及子文档范围"),
+            documentDepth: z.number().int().min(0).max(64).optional().describe("选中文档下的子文档深度，0 仅选中文档；省略不限制"),
+            includeSelectedDocuments: z.boolean().optional().describe("是否包含选中文档自身；false 至少需要格式 7"),
+            referenceID: AvAutomationIDSchema.optional().describe("只收集引用此块或文档内部块的正文来源；至少需要格式 8"),
             types: z.array(z.string().min(1).max(128)).max(100).optional().describe("来源块类型或子类型"),
             tags: z.array(z.string().min(1).max(512)).max(20).optional().describe("精确匹配的标签"),
-            attributes: z.array(z.object({ name: z.string().min(1).max(256), operator: z.enum(["equals", "contains", "exists", "notExists"]), value: z.string().max(65536).optional() }).strict()).max(20).optional().describe("来源块属性条件"),
+            attributes: z.array(z.object({ name: z.string().min(1).max(256), nameOperator: z.enum(["", "equals", "contains", "regex"]).optional(), operator: z.enum(["equals", "contains", "exists", "notExists"]), value: z.string().max(65536).optional() }).strict()).max(20).optional().describe("来源块属性条件"),
             tagMatch: z.enum(["", "and", "or"]).optional().describe("标签匹配方式"),
             tagTarget: z.enum(["", "block", "container"]).optional().describe("标签来源、直接块或最近合格容器"),
             attributeMatch: z.enum(["", "and", "or"]).optional().describe("属性匹配方式"),
@@ -765,7 +785,19 @@ export const AvAutomationConfigSchema = z.object({
         timeZone: z.string().min(1).max(128).optional().describe("IANA 时区，例如 Asia/Shanghai"),
         notifyOnSuccess: z.boolean().optional().describe("实际产生变更后是否发送成功通知"),
     }).strict()).max(100).describe("完整规则列表；空数组删除全部规则配置但保留既有条目"),
-}).strict();
+}).strict().superRefine((config, ctx) => {
+    for (const [index, rule] of config.rules.entries()) {
+        const source = rule.blockSource;
+        const required = source?.referenceID ? 8
+            : source?.includeSelectedDocuments === false ? 7
+            : source?.attributes?.some(attr => attr.nameOperator && attr.nameOperator !== 'equals') ? 6
+            : source?.documentDepth !== undefined ? 5
+            : source?.tagTarget ? 4
+            : source?.tagMatch === 'or' || source?.attributeMatch === 'or' || source?.types?.some(type => type.includes(':')) ? 3
+            : rule.actions.some(action => Object.values(action.fields).some(field => field.mode === 'template')) ? 2 : 1;
+        if (config.spec < required) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `规则需要自动化格式至少为 ${required}。`, path: ['rules', index] });
+    }
+});
 export const AvGetAutomationsSchema = z.object({ action: z.literal("get_automations"), avID: AvAutomationIDSchema.describe("数据库标识"), blockID: AvAutomationIDSchema.optional().describe("准确的数据库块上下文") });
 export const AvSetAutomationsSchema = z.object({ action: z.literal("set_automations"), avID: AvAutomationIDSchema.describe("数据库标识"), blockID: AvAutomationIDSchema.optional().describe("准确的数据库块上下文"), config: AvAutomationConfigSchema.describe("整体保存的规则配置；请先读取旧配置") });
 export const AvPreviewCollectionSchema = z.object({ action: z.literal("preview_collection"), avID: AvAutomationIDSchema.describe("数据库标识"), blockID: AvAutomationIDSchema.optional().describe("准确的数据库块上下文"), ruleID: AvAutomationIDSchema.describe("已保存且启用的块收集规则标识"), page: z.number().int().min(1).max(100000).optional().describe("页码，从 1 开始，每页最多 100 块") });
@@ -1075,6 +1107,7 @@ export const SearchGetBacklinksSchema = z.object({
     action: z.literal("get_backlinks"),
     id: z.string().describe("Block or document ID to find backlinks for"),
     keyword: z.string().optional().describe("Filter backlinks by keyword"),
+    databaseFilter: z.object({ avID: AvAutomationIDSchema, filters: z.array(AvAutomationFilterSchema).max(100) }).strict().optional().describe("思源 3.8.9：按数据库成员和字段过滤反链；filters 空数组仅限制库成员；只适用于 links"),
     refTreeID: z.string().optional().describe("Optional source document tree ID for the kernel backlink query; when omitted, query the global SQL index."),
     scopeRootId: z.string().optional().describe("Alias for refTreeID. Overrides refTreeID when both are provided."),
     mode: z.enum(["links", "mentions", "both"]).optional().describe('Result mode: "links", "mentions", or "both" (default).'),

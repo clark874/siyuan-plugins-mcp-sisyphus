@@ -101,7 +101,8 @@ async function getDocByHPath(
     let ids: string[];
     try {
         ids = await documentApi.getIDsByHPath(client, hPath, notebook.id);
-    } catch {
+    } catch (error) {
+        if (documentApi.isDocumentAddressingError(error)) throw error;
         ids = [];
     }
     const rows = await searchApi.querySQL(
@@ -200,7 +201,8 @@ export async function resolveFsScopePath(
         if (!canAccess(permMgr, notebook.id, required)) continue;
         try {
             candidates.push(...await getDocByHPath(client, notebook, path));
-        } catch {
+        } catch (error) {
+            if (documentApi.isDocumentAddressingError(error)) throw error;
             // Try the next notebook; not every notebook contains every hPath.
         }
     }

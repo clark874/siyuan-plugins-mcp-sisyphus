@@ -204,6 +204,10 @@ For basic path-style notebook and document operations, use \`fs\` whenever the t
 
 \`fs\` is a Markdown-oriented convenience layer. It converts document content through Markdown and Kramdown for reading and writing, so it is not a full-fidelity editor for complex SiYuan-native structures. Use it for ordinary prose, headings, lists, simple tables, exact paragraph/heading text replacement, and path-based file workflows. Prefer lower-level tools when the task involves precise block tree structure, block attributes, embeds, query embeds, database rows and cells, or other native structures that are not naturally represented as Markdown.
 
+思源 3.8.9 的文档标题可以包含 /，展示 hPath 不代表文档身份。使用 document(action="lookup", notebook=..., segments=["A/B"]) 查找单个斜杠标题，使用 document(action="create", notebook=..., parentID=null 或真实父文档 ID, title="A/B") 创建。fs 字符串路径仅用于无歧义普通路径；pathAmbiguous、legacyPathUnsupported 和 indexUnavailable 不得通过 SQL 绕过。定位后优先按 ID 操作。
+
+Sisyphus 虚拟 /AGENTS.md 是插件路由记忆，与思源官方 data/storage/ai/AGENTS.md 独立，不得自动合并或迁移。
+
 There are exactly two path types. Do not mix them.
 
 | Type | Used by | Example |

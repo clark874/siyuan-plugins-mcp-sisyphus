@@ -34,6 +34,7 @@ import { filterBacklinkResultByPermission, filterItemsByPermissionAndPath } from
 import { createJsonResult, createPermissionDeniedResult, createSetIconReminder } from '../internal/shared';
 import { applyUiRefresh, type UiRefreshOperation } from '../internal/ui-refresh';
 import { sleep } from '../../shared/async';
+import { supportsKernel389 } from '../../api/system';
 import { stripRedundantTitleHeading } from '../internal/kramdown-safe';
 import { readDocumentBlockWindow } from '../internal/document-kramdown';
 import { createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks } from '../internal/kramdown-safe';
@@ -98,11 +99,15 @@ function createLookupPathResult(fields: {
     hPath?: string;
     id?: string;
     ids?: string[];
+    identity?: unknown;
+    status?: unknown;
 }) {
     const storageNotebook = typeof fields.path === 'object' ? fields.path.notebook : fields.notebook;
     const storagePath = typeof fields.path === 'object' ? fields.path.path : fields.path;
 
     return {
+        ...(fields.identity ? { identity: fields.identity } : {}),
+        ...(fields.status ? { status: fields.status } : {}),
         humanPath: {
             notebookName: fields.notebookName ?? fields.notebook,
             hPath: fields.hPath,
@@ -330,16 +335,36 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
     if (!permMgr.canWrite(parsed.notebook)) {
         return createPermissionDeniedResult(parsed.notebook, permMgr.get(parsed.notebook), 'write');
     }
-    const parentPath = parsed.parentPath
+    const storedParentID = parsed.parentPath?.match(/(?:^|\/)(\d{14}-[a-z0-9]{7})\.sy$/)?.[1];
+    const structuredParent = storedParentID && await supportsKernel389(client);
+    if (structuredParent) {
+        const location = await documentApi.getPathByID(client, storedParentID);
+        if (location.notebook !== parsed.notebook || location.path !== parsed.parentPath) throw new Error('父文档存储路径与指定笔记本不一致。');
+    }
+    const parentPath = parsed.parentPath && !structuredParent
         ? await resolveCreateParentPath(client, parsed.notebook, parsed.parentPath)
         : undefined;
-    const path = parsed.path ?? normalizeChildDocPath(parentPath!, parsed.title!);
+    const structured = structuredParent || parsed.parentID !== undefined || parsed.title?.includes('/');
+    let parentID = parsed.parentID !== undefined ? parsed.parentID : (structuredParent ? storedParentID : undefined);
+    if (structured && parentID === undefined) {
+        const ids = parentPath === '/' ? [] : await getDocumentIdsByHPathWithSqlFallback(client, parsed.notebook, parentPath!);
+        if (parentPath !== '/' && ids.length !== 1) throw new Error('父文档不存在或存在同名歧义，请通过父文档 ID 创建。');
+        parentID = ids[0] ?? null;
+    }
+    if (structured && parentID) {
+        const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parentID, 'write');
+        if (denied) return denied;
+        if (context.notebook !== parsed.notebook) throw new Error('父文档不属于指定笔记本。');
+    }
+    let path = parsed.path ?? normalizeChildDocPath(parentPath ?? '/', parsed.title!);
     const markdown = await normalizeMarkdownInputRefs(
         client,
         stripRedundantTitleHeading(parsed.markdown ?? '', parsed.title ?? deriveTitleFromCreatePath(path)),
         'document.create',
     );
-    const docId = await documentApi.createDoc(client, parsed.notebook, path, markdown);
+    const created = structured ? await documentApi.createDocByParent(client, parsed.notebook, parentID ?? null, parsed.title!, markdown, parsed.expectedParentRevision) : undefined;
+    const docId = created?.id ?? await documentApi.createDoc(client, parsed.notebook, path, markdown);
+    if (created) path = created.document.path;
     if (parsed.icon) {
         await setDocumentAttrsViaTransaction(client, docId, { icon: parsed.icon });
     }
@@ -347,6 +372,7 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         success: true,
         notebook: parsed.notebook,
         path,
+        ...(created ? { identity: created.document } : {}),
         ...(hasSiyuanBlockLinks(markdown) ? createSiyuanBlockLinkHint() : {}),
         ...(hasFootnoteReferences(markdown) ? createFootnoteReferenceHint() : {}),
         ...(hasBlockRefIdFallbackAnchors(markdown) ? createUnresolvedBlockRefHint() : {}),
@@ -375,11 +401,24 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
                 : { type: 'hpath', notebook: parsed.notebook, hPath: hpathInput },
     };
 
+    if (parsed.segments) {
+        const denied = await ensurePermissionForNotebook(permMgr, parsed.notebook!, 'read');
+        if (denied) return denied;
+        if (parsed.parentID) {
+            const parent = await ensurePermissionForDocumentId(client, permMgr, parsed.parentID, 'read');
+            if (parent.denied) return parent.denied;
+            if (parent.context.notebook !== parsed.notebook) throw new Error('起始父文档不属于指定笔记本。');
+        }
+        const resolved = await documentApi.resolveDocPath(client, parsed.notebook!, parsed.segments, parsed.parentID);
+        return createJsonResult({ ...resolved, ...(resolved.resolved ? { id: resolved.resolved.id, identity: resolved.resolved } : {}), source: { type: 'segments', notebook: parsed.notebook, segments: parsed.segments } });
+    }
+
     if (parsed.id) {
         const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
         if (denied) return denied;
         result.id = parsed.id;
         result.notebook = context.notebook;
+        if (include.has('identity')) result.identity = await documentApi.getDocIdentity(client, context.notebook, parsed.id);
         result.path = context.path;
         if (include.has('path')) {
             result.path = await documentApi.getPathByID(client, parsed.id);
@@ -404,7 +443,8 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
 
         if (!looksLikeStoragePath(parsed.path)) {
             const ids = await getDocumentIdsByHPathWithSqlFallback(client, parsed.notebook!, parsed.path);
-            const primaryId = ids[0];
+            const primaryId = ids.length === 1 ? ids[0] : undefined;
+            if (ids.length > 1) result.status = 'ambiguous';
             result.source = { type: 'hpath', notebook: parsed.notebook, hPath: parsed.path, providedAs: 'path' };
             result.hPath = parsed.path;
             result.interpretedPathAs = 'hpath';
@@ -425,9 +465,16 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         const resolvedHPath = await documentApi.getHPathByPath(client, parsed.notebook!, parsed.path);
         result.hPath = resolvedHPath;
         if (include.has('id') || include.has('ids')) {
-            const ids = await getDocumentIdsByHPathWithSqlFallback(client, parsed.notebook!, resolvedHPath ?? parsed.path);
+            // 存储路径已含稳定 ID，不能再通过展示 hPath 反查身份。
+            const storedID = parsed.path.match(/(?:^|\/)(\d{14}-[a-z0-9]{7})\.sy$/)?.[1];
+            const ids = storedID ? [storedID] : await getDocumentIdsByHPathWithSqlFallback(client, parsed.notebook!, resolvedHPath ?? parsed.path);
+            if (storedID) {
+                const location = await documentApi.getPathByID(client, storedID);
+                if (location.notebook !== parsed.notebook || location.path !== parsed.path) throw new Error('存储路径与文档身份不一致。');
+            }
             result.ids = ids;
-            if (include.has('id')) result.id = ids[0];
+            if (include.has('id') && ids.length === 1) result.id = ids[0];
+            if (ids.length > 1) result.status = 'ambiguous';
         }
         if (include.has('docInfo') && typeof result.id === 'string') {
             result.docInfo = await blockApi.getDocInfo(client, result.id);
@@ -441,9 +488,10 @@ const handleLookup: DocumentActionHandler = async ({ client, permMgr, rawArgs })
     result.hPath = hpathInput;
     if (include.has('ids') || include.has('id')) {
         result.ids = ids;
-        if (include.has('id')) result.id = ids[0];
+        if (include.has('id') && ids.length === 1) result.id = ids[0];
     }
-    const primaryId = ids[0];
+    const primaryId = ids.length === 1 ? ids[0] : undefined;
+    if (ids.length > 1) result.status = 'ambiguous';
     if (primaryId) {
         const { denied: idDenied } = await ensurePermissionForDocumentId(client, permMgr, primaryId, 'read');
         if (idDenied) return idDenied;

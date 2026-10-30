@@ -1,4 +1,6 @@
 import { SiYuanClient } from './client';
+import { randomBytes } from 'node:crypto';
+import { requireKernel389 } from './system';
 import type {
     IReqCreateDocWithMd,
     IReqGetIDsByHPath,
@@ -15,6 +17,58 @@ import type {
     IResGetPathByID,
     IResDocOutlinePath,
 } from '../types/api';
+
+export interface DocumentIdentity {
+    notebook: string;
+    id: string;
+    parentID: string | null;
+    path: string;
+    title: { format: 'plain'; text: string; empty: boolean };
+    segments: Array<{ id: string; text: string; empty: boolean }>;
+    depth: number;
+    displayPath: string;
+    revision: string;
+}
+
+export function isDocumentAddressingError(error: unknown): boolean {
+    return Boolean(error && typeof error === 'object' && 'reason' in error &&
+        ['pathAmbiguous', 'legacyPathUnsupported', 'indexUnavailable', 'unsupportedTitleFormat', 'targetModeUnsupported'].includes(String(error.reason)));
+}
+
+export async function resolveDocPath(client: SiYuanClient, notebook: string, segments: string[], parentID?: string) {
+    await requireKernel389(client);
+    return client.requestRead<{ status: 'resolved' | 'missing' | 'ambiguous'; resolved: DocumentIdentity | null; candidates: DocumentIdentity[]; candidatesTruncated: boolean }>(
+        '/api/filetree/resolveDocPath', { notebook, start: parentID ? { kind: 'document', id: parentID } : { kind: 'root' }, segments });
+}
+
+export async function getDocIdentity(client: SiYuanClient, notebook: string, id: string): Promise<DocumentIdentity> {
+    await requireKernel389(client);
+    const result = await client.requestRead<{ documents: DocumentIdentity[] }>('/api/filetree/getDocPaths', { notebook, ids: [id] });
+    const document = result.documents.find(row => row.id === id && row.notebook === notebook);
+    if (!document) throw new Error('文档身份不存在或不属于指定笔记本。');
+    return document;
+}
+
+export async function createDocByParent(client: SiYuanClient, notebook: string, parentID: string | null, title: string, markdown: string, expectedParentRevision?: string) {
+    await requireKernel389(client);
+    const now = new Date();
+    const prefix = [now.getFullYear(), now.getMonth() + 1, now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds()]
+        .map((part, index) => String(part).padStart(index === 0 ? 4 : 2, '0')).join('');
+    const id = `${prefix}-${randomBytes(5).toString('hex').slice(0, 7)}`;
+    let result: { id: string; document: DocumentIdentity };
+    try {
+        result = await client.requestWrite('/api/filetree/createDocByParent', {
+            notebook, parentID, id, title: { format: 'plain', text: title }, markdown,
+            ...(expectedParentRevision ? { expectedParentRevision } : {}),
+        });
+    } catch (error) {
+        if (error instanceof Error) error.message += `；既定文档 ID：${id}。请先按 ID 回读确认结果，不要自动重复创建。`;
+        throw error;
+    }
+    if (result.id !== id) throw new Error('结构化创建回读的文档标识不一致，请按返回状态核对，勿重复创建。');
+    return result;
+}
+
 
 /**
  * Create a new document with markdown content

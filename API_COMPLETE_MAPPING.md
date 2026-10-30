@@ -924,3 +924,10 @@
 - `checkoutRepo` 是整库恢复，`rollbackRepoSnapshotFile` 是单文件恢复，二者都应在 MCP 层标记为危险动作并要求显式确认。
 - `rollbackRepoSnapshotFile` 的路由当前没有 `CheckReadonly`，但其模型层会写回工作区文件；MCP 封装时应按写操作处理。
 - `renderSnapshotAttributeView` 目前在服务端只消费 `id` 与 `snapshot`，不像普通 `renderAttributeView` 那样处理分页、筛选和视图参数；如果要暴露给 MCP，应在帮助文档中说明该限制。
+
+
+### 3.8.9 增量字段（0.13.0）
+
+保持原聚合动作数量：`document.lookup(segments,parentID)` → `/api/filetree/resolveDocPath`；`lookup(id,include=["identity"])` → `getDocPaths`；`document.create(parentID,title,expectedParentRevision)` → `createDocByParent`。`fs` 字符串路径遇到内核歧义或索引错误时停止，不回退 SQL。
+
+`av.set_automations` 对应原生格式 5—8 的 `documentDepth`、`includeSelectedDocuments`、`attributes[].nameOperator` 和 `referenceID`，写前核验来源、引用与目标权限。`search.get_backlinks(databaseFilter,mode="links")` → `getBacklink2(sourceFilter.database)`，不使用未筛选兜底。`project.sync_mindmap(display.appearance)` 复用原生全局主题，省略保留原值；正文先回读再推进管理记录。

@@ -501,3 +501,10 @@
 - 已覆盖API: 117个端点
 - MCP Tools: 10个
 - MCP Actions: 115个
+
+
+### 3.8.9 增量字段（0.13.0）
+
+保持原聚合动作数量：`document.lookup(segments,parentID)` → `/api/filetree/resolveDocPath`；`lookup(id,include=["identity"])` → `getDocPaths`；`document.create(parentID,title,expectedParentRevision)` → `createDocByParent`。`fs` 字符串路径遇到内核歧义或索引错误时停止，不回退 SQL。
+
+`av.set_automations` 对应原生格式 5—8 的 `documentDepth`、`includeSelectedDocuments`、`attributes[].nameOperator` 和 `referenceID`，写前核验来源、引用与目标权限。`search.get_backlinks(databaseFilter,mode="links")` → `getBacklink2(sourceFilter.database)`，不使用未筛选兜底。`project.sync_mindmap(display.appearance)` 复用原生全局主题，省略保留原值；正文先回读再推进管理记录。

@@ -8,6 +8,7 @@ const sourceId = '20260930000000-bbbbbbb';
 
 function fixture() {
     let state: any;
+    const paragraphDOMs = new Map<string, string>();
     let edited = false;
     let sourceLabel: string | undefined;
     let activeReads = 0, peakReads = 0;
@@ -37,6 +38,9 @@ function fixture() {
             activeReads--;
         }
         if (endpoint === '/api/transactions') return transaction(body);
+        if (endpoint === '/api/system/version') return '3.8.9';
+        if (endpoint === '/api/block/updateBlock') { paragraphDOMs.set(body.id, body.data); return []; }
+        if (endpoint === '/api/block/getBlockDOM') return { id: body.id, dom: paragraphDOMs.get(body.id) };
         if (endpoint === '/api/query/sql') return [{ id: pageId, root_id: pageId, box: 'nb', path: '/page.sy' }];
         if (endpoint === '/api/attr/getBlockAttrs') return body.id === pageId ? pageAttrs : { ...rootAttrs, 'custom-project-mindmap-state': JSON.stringify(state) };
         if (endpoint === '/api/block/getChildBlocks') {
@@ -49,7 +53,7 @@ function fixture() {
         if (endpoint === '/api/block/getBlockDOMs') return Object.fromEntries(body.ids.map((id: string) => {
             const node = state.nodes.find((n: any) => n.paragraphId === id);
             const content = node ? (edited && node.sourceId ? '人工改写' : node.sourceId === sourceId && sourceLabel !== undefined ? sourceLabel : node.label) : '';
-            return [id, `<div data-node-id="${id}"><div contenteditable="true">${node?.sourceId ? `<span data-type="block-ref" data-id="${node.sourceId}">${content}</span>` : content}</div></div>`];
+            return [id, paragraphDOMs.get(id) ?? `<div data-node-id="${id}"><div contenteditable="true">${node?.sourceId ? `<span data-type="block-ref" data-id="${node.sourceId}">${content}</span>` : content}</div></div>`];
         }));
         throw new Error(`未预期的接口：${endpoint}`);
     }) });
@@ -78,7 +82,7 @@ describe('项目原生导图', () => {
         const keptEventKey = `event:${f.snapshot.events[1].id}`;
         f.plan.desired.push({ key: 'events', parent: null, label: '最近更新' }, ...f.snapshot.events.map((event) => ({ key: `event:${event.id}`, parent: 'events', label: event.content, sourceId: event.id })));
         const relations = [{ fromKey: '$root', toKey: 'stages', label: '进度关系', arrowDirection: 'both' as const }, { fromKey: 'stages', toKey: oldEventKey, label: '旧事件关系' }];
-        f.plan.display = { rootTitle: '项目导图', connectorStyle: 'orthogonal', viewLocked: true, nodes: { stages: { textColor: '#123456', bold: true }, [oldEventKey]: { bold: true } }, relations,
+        f.plan.display = { appearance: { version: 1, palette: ['#123456'], backgroundColor: '#FFFFFF', nodeStyle: 'branch' }, rootTitle: '项目导图', connectorStyle: 'orthogonal', viewLocked: true, nodes: { stages: { textColor: '#123456', bold: true }, [oldEventKey]: { bold: true } }, relations,
             summaries: [{ parentKey: 'stages', nodeKeys: ['project-state'], label: '状态概要' }, { parentKey: 'events', nodeKeys: [oldEventKey, keptEventKey], label: '事件概要' }] };
         expect((await executeMindmapPlan(f.client, f.plan, true)).status).toBe('created');
         const previous = f.getState();

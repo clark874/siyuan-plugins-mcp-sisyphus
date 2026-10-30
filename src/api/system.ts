@@ -1,5 +1,17 @@
 import type { SiYuanClient } from './client';
 
+/** 新接口不允许在旧内核上静默忽略参数。 */
+export async function requireKernel389(client: SiYuanClient): Promise<void> {
+    if (!await supportsKernel389(client)) throw new Error('此功能需要思源 3.8.9 或更新版本；未执行写入或未筛选查询。');
+}
+
+export async function supportsKernel389(client: SiYuanClient): Promise<boolean> {
+    const version = await client.requestRead<string>('/api/system/version');
+    const match = /^(\d+)\.(\d+)\.(\d+)(?:$|[-+])/.exec(String(version));
+    if (!match) throw new Error('无法确认思源内核版本，停止使用新增接口。');
+    return Number(match[1]) > 3 || Number(match[1]) === 3 && (Number(match[2]) > 8 || Number(match[2]) === 8 && Number(match[3]) >= 9);
+}
+
 export async function getConf(client: SiYuanClient): Promise<unknown> {
     return client.requestRead('/api/system/getConf', {});
 }

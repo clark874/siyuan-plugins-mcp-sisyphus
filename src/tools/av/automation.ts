@@ -26,6 +26,10 @@ async function checkReadableReferences(ctx: ToolHandlerContext, avData: unknown,
             const { denied } = await ensurePermissionForDocumentId(ctx.client, ctx.permMgr, documentID, 'read');
             if (denied) return denied;
         }
+        if (rule.blockSource?.referenceID) {
+            const { denied } = await ensurePermissionForDocumentId(ctx.client, ctx.permMgr, rule.blockSource.referenceID, 'read');
+            if (denied) return denied;
+        }
         for (const action of rule.actions) {
             const relationAvID = action.target === 'related'
                 ? (avData as AvData)?.keyValues?.find(entry => entry.key?.id === action.relationKeyID)?.key?.relation?.avID

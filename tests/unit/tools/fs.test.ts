@@ -2455,3 +2455,15 @@ describe('fs tool', () => {
         expect(orderedPaths).toEqual(['/b.sy', '/a.sy']);
     });
 });
+
+
+it('保留内核的路径歧义拒绝，不通过 SQL 绕过', async () => {
+    const request = vi.fn(async (endpoint: string): Promise<any> => {
+        if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [{ id: 'nb-1', name: 'Notebook', closed: false }] };
+        if (endpoint === '/api/filetree/getIDsByHPath') throw Object.assign(new Error('标题路径有歧义'), { reason: 'pathAmbiguous' });
+        throw new Error(`不应调用：${endpoint}`);
+    });
+    const result = await callFsTool(createMockClient({ request }), { action: 'read', path: '/Notebook/A/B' }, fsConfig(), createPermMgr('rw'));
+    expect(result.isError).toBe(true);
+    expect(request).not.toHaveBeenCalledWith('/api/query/sql', expect.anything());
+});

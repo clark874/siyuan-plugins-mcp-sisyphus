@@ -1033,14 +1033,20 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
     get_backlinks: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchGetBacklinksSchema.parse(rawArgs);
         const scopeRootId = resolveAliasString(parsed.refTreeID, parsed.scopeRootId);
-        const mode = parsed.mode ?? 'both';
+        const mode = parsed.mode ?? (parsed.databaseFilter ? 'links' : 'both');
         const { denied } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'read');
         if (denied) return denied;
+        if (parsed.databaseFilter) {
+            const { ensurePermissionForAvId } = await import('../av/handlers');
+            const permission = await ensurePermissionForAvId(client, permMgr, parsed.databaseFilter.avID, 'read');
+            if (permission.denied) return permission.denied;
+        }
         try {
             const result = await getBacklinksWithDiagnostics(client, parsed.id, {
                 keyword: parsed.keyword,
                 refTreeID: scopeRootId,
                 mode,
+                databaseFilter: parsed.databaseFilter,
             });
             const filtered = filterBacklinkResultByPermission(result, permMgr);
             return createJsonResult({

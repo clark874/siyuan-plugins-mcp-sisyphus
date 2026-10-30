@@ -145,7 +145,12 @@ export class SiYuanClient {
         }
 
         if (result.code !== 0) {
-            throw new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
+            const data = result.data && typeof result.data === 'object' ? result.data as Record<string, unknown> : {};
+            const error = new Error(`SiYuan API error: ${result.code} - ${result.msg}`);
+            // 保留内核的歧义、索引及部分提交语义，调用方不能降级为另一种寻址。
+            throw Object.assign(semantics === 'write' && ['committed', 'unknown'].includes(String(data.commitState))
+                ? new WriteOutcomeUnknownError(url, error) : error,
+            { apiCode: result.code, reason: data.reason, data: result.data });
         }
 
         return result;

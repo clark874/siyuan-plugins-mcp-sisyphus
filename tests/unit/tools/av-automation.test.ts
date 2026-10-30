@@ -13,7 +13,7 @@ vi.mock('@/core/automation-safety', () => ({ validateAutomationConfig: vi.fn() }
 vi.mock('@/api/av', () => ({ getAttributeView: vi.fn() }));
 vi.mock('@/api/transaction', () => ({ performTransactions: vi.fn() }));
 
-const config = { spec: 4, rules: [{ id: '20261021150000-rule001', name: '收集项目标签', enabled: true, trigger: 'block', conditions: [], blockSource: { notebookIDs: ['nb-1'], tags: ['项目'], tagTarget: 'container' }, actions: [{ type: 'collect', target: 'current', fields: { title: { mode: 'template', template: '.action{ "项目" }' } } }] }] };
+const config = { spec: 8, rules: [{ id: '20261021150000-rule001', name: '收集项目标签', enabled: true, trigger: 'block', conditions: [], blockSource: { notebookIDs: ['nb-1'], tags: ['项目'], tagTarget: 'container', documentDepth: 2, includeSelectedDocuments: false, attributes: [{ name: '^custom-project-', nameOperator: 'regex', operator: 'exists' }] }, actions: [{ type: 'collect', target: 'current', fields: { title: { mode: 'template', template: '.action{ "项目" }' } } }] }] };
 const ctx = (rawArgs: Record<string, unknown>) => ({ client: {}, permMgr: {}, rawArgs }) as any;
 
 describe('数据库原生自动化扩展', () => {
@@ -24,6 +24,7 @@ describe('数据库原生自动化扩展', () => {
     });
 
     it('整体保存具体规则并回读配置，事务保留旧配置供撤销', async () => {
+        expect(AvSetAutomationsSchema.safeParse({ action: 'set_automations', avID: 'av-1', config: { ...config, spec: 4 } }).success).toBe(false);
         const parsed = AvSetAutomationsSchema.parse({ action: 'set_automations', avID: 'av-1', config });
         const savedConfig = { ...config, rules: config.rules.map(({ conditions, ...rule }) => rule) };
         vi.mocked(getAttributeView).mockResolvedValue({ av: { id: 'av-1', automations: savedConfig } });

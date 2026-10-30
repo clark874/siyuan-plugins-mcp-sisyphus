@@ -1,6 +1,7 @@
 import type { SiYuanClient } from '../api/client';
 import type { PermissionManager } from './permissions';
 import { hashWriteState } from './write-safety-hash';
+import { requireKernel389 } from '../api/system';
 import { createErrorResult, type ToolResult } from '../tools/internal/shared';
 import { createSemanticError } from '../tools/internal/validation';
 import { escapeSqlString, resolveDocumentContextById, type ResolvedDocumentContext } from '../tools/internal/context';
@@ -82,6 +83,14 @@ async function requireView(client: SiYuanClient, permMgr: PermissionManager, id:
 async function validateConfig(client: SiYuanClient, permMgr: PermissionManager, avID: string, config: RecordValue, views?: Map<string, View>): Promise<void> {
     const source = views?.get(avID) ?? (await client.requestRead<{ av: View }>('/api/av/getAttributeView', { id: avID })).av;
     if (!source || !Array.isArray(config.rules)) deny('无法解析自动化规则，已停止写入。');
+    const spec = config.spec ?? source.automations?.spec ?? 1;
+    if (spec > 8) deny('自动化格式高于当前支持范围，未执行写入。');
+    const usesNewConditions = config.rules.some(rule => {
+        const scope = rule.blockSource;
+        return scope && (scope.referenceID || scope.documentDepth !== undefined || scope.includeSelectedDocuments === false
+            || scope.attributes?.some((attr: RecordValue) => attr.nameOperator && attr.nameOperator !== 'equals'));
+    });
+    if (spec > 4 || usesNewConditions) await requireKernel389(client);
     for (const rule of config.rules) {
         if (!rule.enabled) continue;
         if (!['added', 'changed', 'block'].includes(rule.trigger) || !Array.isArray(rule.actions)) deny('启用的自动化规则格式无法验证。');
@@ -92,6 +101,10 @@ async function validateConfig(client: SiYuanClient, permMgr: PermissionManager, 
             for (const id of scope.documentIDs ?? []) {
                 const context = await resolveDocumentContextById(client, id);
                 await requireNotebook(permMgr, context.notebook, 'write');
+            }
+            if (scope.referenceID) {
+                const reference = await resolveDocumentContextById(client, scope.referenceID);
+                await requireNotebook(permMgr, reference.notebook, 'read');
             }
         }
         for (const action of rule.actions) {

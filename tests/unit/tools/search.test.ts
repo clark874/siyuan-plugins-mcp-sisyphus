@@ -4,7 +4,7 @@ import { buildDefaultToolConfig } from '@/core/config';
 import { normalizeFullTextSearchResult } from '@/core/normalize';
 import { callSearchTool, filterBacklinkResultByPermission, filterFullTextSearchResultByPermission, listSearchTools } from '@/tools/search';
 import { callTagTool } from '@/tools/tag';
-import { assertReadOnlySql } from '@/tools/search/sql-builder';
+import { assertReadOnlySql, getBacklinksWithDiagnostics } from '@/tools/search/sql-builder';
 import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
 
@@ -1338,4 +1338,20 @@ describe('search get_backlinks refresh and diagnostics', () => {
         });
         expect(refreshCalls).toBe(1);
     });
+});
+
+
+it('数据库反链筛选只使用原生筛选结果，缺失时不降级为 SQL', async () => {
+    const request = vi.fn(async (endpoint: string, body: any): Promise<any> => {
+        if (endpoint === '/api/system/version') return '3.8.9';
+        if (endpoint === '/api/ref/getBacklink2') return { backlinks: [] };
+        throw new Error(`未模拟接口：${endpoint}`);
+    });
+    const client = createMockClient({ request });
+    const databaseFilter = { avID: '20261030000000-aaaaaaa', filters: [] };
+    expect(await getBacklinksWithDiagnostics(client, 'target', { mode: 'links', databaseFilter })).toEqual({ backlinks: [], backmentions: [] });
+    expect(request).toHaveBeenCalledWith('/api/ref/getBacklink2', expect.objectContaining({ sourceFilter: { database: databaseFilter }, includeMentions: false }));
+    request.mockImplementation(async endpoint => endpoint === '/api/system/version' ? '3.8.9' : null);
+    await expect(getBacklinksWithDiagnostics(client, 'target', { mode: 'links', databaseFilter })).rejects.toThrow('不会降级');
+    expect(request).not.toHaveBeenCalledWith('/api/query/sql', expect.anything());
 });

@@ -1,5 +1,6 @@
 import type { SiYuanClient } from '../../api/client';
 import * as searchApi from '../../api/search';
+import { requireKernel389 } from '../../api/system';
 import { escapeSqlString } from '../internal/context';
 
 function escapeSqlLike(value: string): string {
@@ -367,7 +368,7 @@ async function countBacklinkRefs(client: SiYuanClient, id: string): Promise<{ ba
 export async function getBacklinksWithDiagnostics(
     client: SiYuanClient,
     id: string,
-    options: { keyword?: string; refTreeID?: string; mode: 'links' | 'mentions' | 'both' },
+    options: { keyword?: string; refTreeID?: string; mode: 'links' | 'mentions' | 'both'; databaseFilter?: { avID: string; filters: unknown[] } },
 ): Promise<{
     backlinks: unknown[];
     backmentions: unknown[];
@@ -377,6 +378,17 @@ export async function getBacklinksWithDiagnostics(
     resultConfidence?: 'fallback';
     backlinkDiagnostics?: BacklinkDiagnostics;
 }> {
+    if (options.databaseFilter) {
+        await requireKernel389(client);
+        if (options.mode !== 'links') throw new Error('数据库字段条件仅过滤反链，请使用 mode=links。');
+        const result = await client.requestRead<{ backlinks: unknown[] }>('/api/ref/getBacklink2', {
+            id, k: options.keyword ?? '', mk: '', containChildren: false, includeBacklinks: true, includeMentions: false,
+            sourceFilter: { database: options.databaseFilter },
+        });
+        if (!result || !Array.isArray(result.backlinks)) throw new Error('原生字段筛选没有返回有效结果；不会降级为未筛选查询。');
+        const links = options.refTreeID ? result.backlinks.filter((row: any) => (row.rootID ?? row.root_id ?? row.id) === options.refTreeID) : result.backlinks;
+        return { backlinks: links, backmentions: [] };
+    }
     const needLinks = options.mode !== 'mentions';
     const needMentions = options.mode !== 'links';
 

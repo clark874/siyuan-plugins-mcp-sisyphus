@@ -5,6 +5,7 @@ import { performTransactions, type TransactionOperation } from '../../api/transa
 import { hashWriteState } from '../../core/write-safety-hash';
 import type { PermissionManager } from '../../core/permissions';
 import type { ProjectMindmapDisplay } from '../../core/types';
+import { requireKernel389 } from '../../api/system';
 import { ensurePermissionForDocumentId } from '../internal/context';
 import PromiseLimitPool from '../../shared/promise-pool';
 
@@ -123,6 +124,7 @@ function displayMetadata(plan: MindmapPlan, nodes: MindmapNode[], rootId: string
     for (const key of ['rootTitle', 'connectorStyle', 'viewLocked'] as const) {
         if (display[key] !== undefined) metadata[key] = display[key];
     }
+    if (display.appearance !== undefined) metadata.appearance = { ...metadata.appearance as object, ...display.appearance };
     metadata.nodes = { ...metadata.nodes };
     for (const [key, style] of Object.entries(display.nodes || {})) {
         const id = resolve(key);
@@ -290,6 +292,7 @@ function validateState(value: unknown, projectId: string, pageId: string, rootId
 }
 
 export async function readMindmapPlan(client: SiYuanClient, permMgr: PermissionManager, snapshot: any, display?: ProjectMindmapDisplay): Promise<MindmapPlan> {
+    if (display?.appearance || Object.values(display?.nodes ?? {}).some(style => style.width !== undefined || style.branchColor !== undefined)) await requireKernel389(client);
     if (snapshot.denied || !snapshot.project || snapshot.project.bindingStatus !== 'available' || !snapshot.progressPage || snapshot.chronology?.complete !== true
         || snapshot.diagnostics.some((row: any) => row.severity === 'error' || ['project_state_lagging', 'workstream_state_lagging', 'project-progress-page_duplicate'].includes(row.code))) {
         throw new Error('项目快照不完整、进度页不唯一或状态投影待更新，未同步导图。');
@@ -415,7 +418,13 @@ export async function executeMindmapPlan(client: SiYuanClient, plan: MindmapPlan
         for (const node of nodes) {
             const previous = oldByKey.get(node.key);
             if (previous && !rebuiltGroups.has(node.parent!) && (previous.label !== node.label || previous.sourceId !== node.sourceId)) {
-                operations.push({ action: 'update', id: node.paragraphId, data: paragraph(node, plan.actual[node.paragraphId!].dom) });
+                // 原生事务可能更新管理属性却保留旧引用锚文本；先经块接口写入并核对正文。
+                await blockApi.updateBlock(client, 'dom', paragraph(node, plan.actual[node.paragraphId!].dom), node.paragraphId!);
+                const { dom } = await blockApi.getBlockDOM(client, node.paragraphId!);
+                const actual = signature(dom);
+                if (actual.label !== node.label.trim() || JSON.stringify(actual.refs) !== JSON.stringify(node.sourceId ? [node.sourceId] : [])) {
+                    throw new Error('导图引用正文回读不一致，未推进管理记录；请核对原节点，不要新建副本。');
+                }
             }
         }
         operations.push({ action: 'setAttrs', id: rootId, data: JSON.stringify({ [STATE_ATTR]: JSON.stringify(state), ...(displayChanged ? { [DISPLAY_ATTR]: JSON.stringify(metadata) } : {}) }) });

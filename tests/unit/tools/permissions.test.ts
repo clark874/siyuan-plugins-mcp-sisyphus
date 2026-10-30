@@ -532,7 +532,7 @@ describe('tool permission and filtering behavior', () => {
         vi.spyOn(documentApi, 'getHPathByPath').mockResolvedValue('/AI Interface Root 202604270724');
         vi.spyOn(documentApi, 'createDoc').mockResolvedValue('doc-real');
 
-        const result = await callDocumentTool({} as never, {
+        const result = await callDocumentTool({ requestRead: async () => '3.8.8' } as never, {
             action: 'create',
             notebook: 'allowed',
             parentPath: '/20260427072400-abcdefg.sy',

@@ -1,6 +1,7 @@
 import type { SiYuanClient } from '../api/client';
 import { readAutomationStateHash, withAutomationWriteGuard } from './automation-safety';
 import { WriteOutcomeUnknownError } from '../api/client';
+import { isDocumentAddressingError } from '../api/document';
 import * as searchApi from '../api/search';
 import { validateBlockAttributeMutations } from './attribute-governance';
 import type { PermissionManager } from './permissions';
@@ -605,7 +606,8 @@ async function appendHumanPathState(
             if (Array.isArray(resolved)) {
                 ids = resolved.filter((value): value is string => typeof value === 'string');
             }
-        } catch {
+        } catch (error) {
+            if (isDocumentAddressingError(error)) throw error;
             // 继续使用下方 SQL 兼容路径。
         }
         if (ids.length === 0) {

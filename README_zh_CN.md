@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-0.12.4 统一项目进度的文件地址纪律：产物索引、状态、工作线与事件正文使用已核实的完整绝对路径和可点击链接；历史地址不明时明确标注，内部来源清单仍使用项目相对路径。
+0.13.0 统一项目进度的文件地址纪律：产物索引、状态、工作线与事件正文使用已核实的完整绝对路径和可点击链接；历史地址不明时明确标注，内部来源清单仍使用项目相对路径。
 
 项目原生思维导图：思源 3.8.6 及以上可调用 `project.sync_mindmap`，首次严格预检并生成后，经 Sisyphus 提交项目事件、正文或状态属性时自动增量同步。保留存续块 ID 和显示配置；人工改写管理节点或结构时停止并报告待同步。具体边界与用法见 [升级方案](https://github.com/clark874/siyuan-plugins-mcp-sisyphus/blob/main/docs/plans/2026-09-30-v0.11.0-project-mindmap.md)。
 
@@ -276,3 +276,14 @@ Sisyphus 自有工具的默认设计是让用户明确控制 AI 的操作范围�
 ## 许可证
 
 MIT
+
+
+### 思源 3.8.9 接入
+
+- 文档标题段：`document({action:"lookup", notebook:"...", segments:["A/B"]})` 将 A/B 视为一个标题；`segments:["A","B"]` 才表示两级。返回 missing／ambiguous 时先核对，不任选候选。
+- 按身份创建：`document({action:"create", notebook:"...", parentID:null, title:"A/B", markdown:"..."})` 明确在根位置创建；子文档使用真实父 ID。可用 `expectedParentRevision` 锁定父路径版本。仍须严格写入预检。
+- `lookup(id=..., include=["identity"])` 返回标题段、父身份、深度与版本。`fs` 可读字符串路径继续用于无歧义普通路径，遇到斜杠标题改用文档／块 ID，不以 SQL 绕过内核拒绝。
+- `av.set_automations` 支持格式 5—8：`documentDepth`、`includeSelectedDocuments`、`attributes[].nameOperator` 与 `referenceID`。先读完整旧规则再整体保存，不能丢弃新字段；正则由内核按 Go 语法校验。
+- `search.get_backlinks(databaseFilter={avID,filters}, mode="links")` 支持数据库字段筛选，空 filters 仅筛选库成员；非空条件需携带与字段类型一致的 value（例如单选空值条件为 value:{type:"select",mSelect:[]}），不修改数据库视图；不筛选提及，失败不退回未筛选结果。
+- `project.sync_mindmap(display.appearance={version:1,palette:["#226B4F"],nodeStyle:"branch",backgroundColor:"#FFFFFF"})` 配置全局主题，省略字段保留旧值。受管理节点不能剪切粘贴或手工增删，备注写在管理区域外。
+- 官方 AI 指令位于 `data/storage/ai/AGENTS.md`，与本插件的虚拟 `/AGENTS.md` 无关，不自动迁移或合并。共用数据的思源客户端统一升级；重新启用插件由用户操作。

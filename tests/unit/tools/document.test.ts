@@ -653,6 +653,7 @@ describe('document.lookup path compatibility', () => {
 
         expect(result.isError).toBeUndefined();
         expect(payload).toEqual({
+            status: 'ambiguous',
             humanPath: {
                 notebookName: 'Project Notes',
                 hPath: '/Projects/Plan',
@@ -660,7 +661,6 @@ describe('document.lookup path compatibility', () => {
             idPath: {
                 ids: ['doc-2', 'doc-1'],
                 notebook: 'nb-1',
-                path: '/doc-2.sy',
             },
         });
     });
@@ -705,4 +705,25 @@ describe('document.lookup path compatibility', () => {
         });
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/getHPathByPath', expect.anything());
     });
+});
+
+
+it('3.8.9 按标题段定位并在明确根位置创建，保留标题内的斜杠', async () => {
+    const identity = { id: '20261030000000-aaaaaaa', notebook: 'nb-1', parentID: null, path: '/20261030000000-aaaaaaa.sy', title: { format: 'plain', text: 'A/B', empty: false }, segments: [{ id: '20261030000000-aaaaaaa', text: 'A/B', empty: false }], depth: 1, displayPath: '/A/B', revision: 'rev-1' };
+    const request = vi.fn(async (endpoint: string, body: any): Promise<any> => {
+        if (endpoint === '/api/system/version') return '3.8.9';
+        if (endpoint === '/api/filetree/resolveDocPath') return { status: 'resolved', resolved: identity, candidates: [], candidatesTruncated: false };
+        if (endpoint === '/api/filetree/createDocByParent') return { id: body.id, document: { ...identity, id: body.id } };
+        if (endpoint.startsWith('/api/ui/')) return null;
+        throw new Error(`未模拟接口：${endpoint}`);
+    });
+    const client = createMockClient({ request });
+    const permissions = { reload: vi.fn(async () => undefined), canRead: () => true, canWrite: () => true, get: () => 'rw' };
+    const found = parseResult(await callDocumentTool(client, { action: 'lookup', notebook: 'nb-1', segments: ['A/B'] }, buildDefaultToolConfig().document, permissions as never));
+    expect(found).toMatchObject({ status: 'resolved', identity });
+    const created = parseResult(await callDocumentTool(client, { action: 'create', notebook: 'nb-1', parentID: null, title: 'A/B', markdown: '正文' }, buildDefaultToolConfig().document, permissions as never));
+    expect(created).toMatchObject({ success: true, title: 'A/B' });
+    expect(request).toHaveBeenCalledWith('/api/filetree/resolveDocPath', { notebook: 'nb-1', start: { kind: 'root' }, segments: ['A/B'] });
+    expect(request).toHaveBeenCalledWith('/api/filetree/createDocByParent', expect.objectContaining({ parentID: null, title: { format: 'plain', text: 'A/B' } }));
+    expect(request).not.toHaveBeenCalledWith('/api/filetree/createDocWithMd', expect.anything());
 });
