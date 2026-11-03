@@ -58,7 +58,7 @@ export class WriteSafetyLedger {
         if (entry.tool !== tool || entry.action !== action || entry.argsHash !== argsHash) {
             throw safetyError(
                 'idempotency_conflict',
-                `requestId ${requestId} has already been used for a different operation.`,
+                `requestId ${requestId} 已用于其他操作，不能复用。先回读原目标；确认需要新操作后重新预检并使用新签发的 requestId。`,
             );
         }
         return { argsHash, entry: { ...entry, targetIds: [...entry.targetIds] } };

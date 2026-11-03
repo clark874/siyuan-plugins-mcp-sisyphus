@@ -105,7 +105,8 @@ export class SiYuanClient {
                     throw error;
                 }
                 if (error instanceof Error && error.name === 'AbortError') {
-                    lastError = new Error(`Request timeout after ${this.timeout}ms`);
+                    // 客户端取消不会终止内核工作，超时后重放只会放大负载。
+                    throw new Error(`Request timeout after ${this.timeout}ms`);
                 } else {
                     lastError = error instanceof Error ? error : new Error(String(error));
                 }

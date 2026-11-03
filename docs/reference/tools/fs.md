@@ -69,3 +69,11 @@ When `tree` expands a notebook root or `/`, top-level document subtrees are read
 ```
 
 When `fs.read` reports complex blocks or the task needs SiYuan-specific block layout, metadata, SQL, backlinks, assets, or database operations, switch to `document`, `block`, `search`, `file`, or `av`.
+
+## 路径搜索语义与性能
+
+`search` 按已授权笔记本与真实存储路径查询块表，分批读取原始叶块 Markdown；字面量先由内核筛选候选，再用 JavaScript 逐行核验，正则保持 JavaScript 语法。它不调用导出接口、不展开脚注或引用目标，也不执行嵌入 SQL。
+
+命中包含 `blockId`，响应的 `lineBasis=block` 表示 `line` 是该块 Markdown 的一基行号；虚拟文件命中没有块 ID，行号仍相对于虚拟文件。文档标题、列表或引述等容器的外层格式，以及导出生成的内容不在搜索正文中。相同文档路径下不同块的相同行不会互相覆盖。
+
+普通查询会在内核筛候选；任意 JavaScript 正则、空查询仍扫描已授权范围，每页均重新计算该范围的命中。大范围自然语言检索优先 `search.fulltext`，并传真实笔记本 ID 与存储路径作为 `paths`；全文索引的分词结果不等同于 Markdown 逐行匹配。SQL 索引可能暂时落后于刚写入的内容，必要时按块 ID 回读核实。

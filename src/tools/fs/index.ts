@@ -29,7 +29,7 @@ export const FS_VARIANTS: ActionVariant<FsAction>[] = [
     createZodActionVariant('rm', FsRmSchema, 'Delete a document by human-readable path.'),
     createZodActionVariant('mv', FsMvSchema, 'Move or rename a document by human-readable paths.'),
     createZodActionVariant('reorder', FsReorderSchema, 'Apply a complete manual order to visible direct child documents and enable custom sorting.'),
-    createZodActionVariant('search', FsSearchSchema, 'Search Markdown lines under a human-readable path.'),
+    createZodActionVariant('search', FsSearchSchema, '按真实路径搜索原始块 Markdown 行；返回 blockId 和块内行号，不调用导出管线。'),
 ];
 
 const fsTool = defineTool<FsAction>({

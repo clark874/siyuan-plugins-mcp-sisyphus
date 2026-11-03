@@ -83,6 +83,7 @@ export const PROVENANCE_GUIDANCE = [
 ];
 
 export const FS_ACTION_HINTS: Partial<Record<FsAction, string>> = {
+    search: '搜索原始块 Markdown，不渲染脚注、引用或嵌入；line 是 blockId 对应的块内行号。大范围自然语言检索优先 search.fulltext。',
     read: 'Returns complete display-block windows with outline and continuation metadata.',
     write: 'Creates a missing document; overwrite of existing content requires strict state validation.',
     replace: 'Use exact old/new text copied from fs.read.',

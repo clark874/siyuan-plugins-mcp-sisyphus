@@ -10,6 +10,8 @@ export type ErrorCode =
     | 'document_not_found'
     | 'av_not_found'
     | 'permission_denied'
+    | 'kernel_timeout'
+    | 'kernel_http_error'
     | 'kernel_unreachable';
 
 export interface ErrorTranslation {
@@ -79,14 +81,19 @@ const ERROR_RULES: ErrorRule[] = [
         hint: 'Inspect current permissions with notebook(action="get_permissions") and adjust via notebook(action="set_permission").',
     },
     {
+        code: 'kernel_timeout',
+        patterns: [/Request timeout/i, /ETIMEDOUT/i, /UND_ERR_(?:CONNECT|HEADERS|BODY)_TIMEOUT/i],
+        hint: '内核请求超时，不代表思源未启动。缩小查询范围，并用 system.get_current_time 检查连接；写入结果未知时先回读目标，禁止自动重试或自行重启。',
+    },
+    {
+        code: 'kernel_http_error',
+        patterns: [/HTTP error: \d{3}\b/i],
+        hint: '思源接口已返回 HTTP 错误。检查状态码、认证和接口地址；不要将其当作思源未启动，也不要自动重试写入。',
+    },
+    {
         code: 'kernel_unreachable',
-        patterns: [
-            /HTTP error:/i,
-            /Request timeout/i,
-            /ECONNREFUSED/i,
-            /fetch failed/i,
-        ],
-        hint: 'MCP server is running but the SiYuan kernel is unreachable. Prompt the user to start SiYuan. Do not explore source files to debug this.',
+        patterns: [/ECONNREFUSED/i, /ENOTFOUND/i, /EHOSTUNREACH/i, /fetch failed/i],
+        hint: '连接思源内核失败。检查思源是否运行及配置的地址、端口和网络；需要重启时交由用户执行。',
     },
 ];
 

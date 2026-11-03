@@ -96,6 +96,10 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[];
             }
             if (endpoint === '/api/query/sql') {
                 const stmt = String(body?.stmt ?? '');
+                if (stmt.startsWith('SELECT id, box, hpath, markdown FROM blocks')) {
+                    if (!stmt.includes("AND id > ''")) return [];
+                    return [{ id: 'search-1', box: 'nb-1', hpath: '/Doc 1', markdown: options.markdownContent ?? 'alpha\nbudget line\nBeta' }];
+                }
                 if (stmt.includes("type = 'd'") && stmt.includes('hpath =')) return [];
                 if (stmt.includes("type = 'd'")) {
                     return stmt.includes("box = 'nb-2'")
@@ -2217,8 +2221,23 @@ describe('fs tool', () => {
         const result = await callFsTool(client, { action: 'search', path: '/Notebook/Doc 1', query: '^budget', regex: true }, fsConfig(), createPermMgr());
         const parsed = parseResult(result);
 
-        expect(parsed.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, text: 'budget line' }]);
+        expect(parsed.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, text: 'budget line', blockId: 'search-1' }]);
         expect(parsed.total).toBe(1);
+        expect(parsed.lineBasis).toBe('block');
+        expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.anything());
+        expect(client.request).toHaveBeenCalledWith('/api/query/sql', { stmt: expect.stringContaining("path = '/doc-1.sy' OR substr(path, 1, 7) = '/doc-1/'") });
+        expect(client.request).toHaveBeenCalledWith('/api/query/sql', { stmt: expect.stringContaining("AND id > 'search-1'") });
+    });
+
+    it('含反斜杠的字面量不经过内核正则转换', async () => {
+        const client = createFsClient({ markdownContent: String.raw`C:\foo` });
+        const parsed = parseResult(await callFsTool(client, {
+            action: 'search', path: '/Notebook/Doc 1', query: String.raw`C:\foo`,
+        }, fsConfig(), createPermMgr()));
+        expect(parsed.total).toBe(1);
+        const queries = client.request.mock.calls.filter(([endpoint]) => endpoint === '/api/query/sql');
+        expect(queries.every(([, body]) => !body.stmt.includes(' REGEXP '))).toBe(true);
     });
 
     it('searches a leaf document without asking the kernel for a missing child directory', async () => {
@@ -2227,7 +2246,7 @@ describe('fs tool', () => {
         const parsed = parseResult(result);
 
         expect(result.isError).toBeUndefined();
-        expect(parsed.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, text: 'budget line' }]);
+        expect(parsed.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, text: 'budget line', blockId: 'search-1' }]);
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.objectContaining({ path: '/doc-1.sy' }));
     });
 
@@ -2240,6 +2259,7 @@ describe('fs tool', () => {
         expect(parsed.data).toEqual([{
             path: '/Notebook/Doc 1',
             line: 1,
+            blockId: 'search-1',
             text: `${longLine.slice(0, 197)}...`,
             textTruncated: true,
             originalTextLength: longLine.length,
@@ -2279,7 +2299,7 @@ describe('fs tool', () => {
         expect(parsed.data).toEqual([
             { path: AGENT_MEMORY_VIRTUAL_PATH, line: 1, text: 'budget workspace memory' },
             { path: USER_RULES_VIRTUAL_PATH, line: 1, text: 'Prefer budget summaries' },
-            { path: '/Notebook/Doc 1', line: 2, text: 'budget line' },
+            { path: '/Notebook/Doc 1', line: 2, text: 'budget line', blockId: 'search-1' },
         ]);
     });
 
@@ -2302,7 +2322,7 @@ describe('fs tool', () => {
         const result = await callFsTool(client, { action: 'search', path: '/', query: 'budget' }, fsConfig(), createPermMgr({ 'nb-1': 'r', 'nb-2': 'none' }));
         const parsed = parseResult(result);
 
-        expect(parsed.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, text: 'budget line' }]);
+        expect(parsed.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, text: 'budget line', blockId: 'search-1' }]);
         expect(JSON.stringify(parsed)).not.toContain('/Archive');
     });
 

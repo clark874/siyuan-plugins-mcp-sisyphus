@@ -23,7 +23,10 @@ describe('translateError', () => {
         expect(translated?.code).toBe('notebook_closed');
     });
 
-    it('maps transport errors to kernel_unreachable', () => {
+    it('区分请求超时、HTTP 响应错误与连接失败', () => {
+        expect(translateError(new Error('Request timeout after 5000ms'))?.code).toBe('kernel_timeout');
+        expect(translateError(new Error('HTTP error: 403 Forbidden'))?.code).toBe('kernel_http_error');
+        expect(translateError(new Error('HTTP error: 503 Service Unavailable'))?.code).toBe('kernel_http_error');
         const translated = translateError(new Error('HTTP error: fetch failed'));
         expect(translated?.code).toBe('kernel_unreachable');
     });

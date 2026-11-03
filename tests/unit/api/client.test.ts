@@ -110,7 +110,8 @@ describe('SiYuanClient', () => {
             });
 
             const timeoutClient = new SiYuanClient({ timeout: 5 });
-            await expect(timeoutClient.request('/api/test')).rejects.toThrow('timeout');
+            await expect(timeoutClient.requestRead('/api/test')).rejects.toThrow('timeout');
+            expect(mockFetch).toHaveBeenCalledTimes(1);
         });
 
         it('should include authorization header when token is set', async () => {

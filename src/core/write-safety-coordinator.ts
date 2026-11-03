@@ -267,7 +267,7 @@ export class WriteSafetyCoordinator {
                 writeExecuted: false,
                 replayed: false,
                 transactionState: 'unknown',
-                error: { code: 'outcome_unknown' },
+                error: { code: 'outcome_unknown', hint: '此 requestId 已登记，不能用于修改后的请求。先回读目标确认实际结果；确需补写时重新预检，使用新签发的 requestId，禁止盲目重试。' },
             });
         }
 
@@ -894,7 +894,7 @@ function replayLedgerEntry(entry: WriteLedgerEntry): ToolResult {
             writeExecuted: false,
         });
     }
-    return writeSafetyFailure('outcome_unknown', `requestId ${entry.requestId} is in ${entry.state} state. Inspect the target before retrying.`, {
+    return writeSafetyFailure('outcome_unknown', `requestId ${entry.requestId} is in ${entry.state} state. 该编号已登记；先回读目标，确需补写时重新预检并使用新签发的 requestId，禁止盲目重试。`, {
         requestId: entry.requestId,
         ledgerState: entry.state,
     });
@@ -973,7 +973,7 @@ function writeSafetyFailureAfterAttempt(
         writeAttempted: true,
         writeExecuted: false,
         transactionState: 'unknown',
-        error: { type: writeSafetyErrorType(code), code, message, ...details },
+        error: { type: writeSafetyErrorType(code), code, message, hint: '此 requestId 已登记，不能用于修改后的请求。先回读目标确认实际结果；确需补写时重新预检，使用新签发的 requestId，禁止盲目重试。', ...details },
     }, true);
 }
 

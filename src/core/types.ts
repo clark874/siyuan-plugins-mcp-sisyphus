@@ -287,7 +287,7 @@ export const FsReorderSchema = z.object({
 export const FsSearchSchema = z.object({
     action: z.literal("search"),
     path: z.string().describe("Human-readable document or folder path to search within"),
-    query: z.string().describe("Text or regular expression to search for"),
+    query: z.string().describe("原始块 Markdown 中的文本或 JavaScript 正则表达式"),
     regex: z.boolean().optional().describe("Treat query as a JavaScript regular expression"),
     caseSensitive: z.boolean().optional().describe("Use case-sensitive matching"),
     page: z.number().int().min(1).optional().describe("Page number (1-based), default 1"),

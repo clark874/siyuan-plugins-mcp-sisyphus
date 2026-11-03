@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-0.13.0 统一项目进度的文件地址纪律：产物索引、状态、工作线与事件正文使用已核实的完整绝对路径和可点击链接；历史地址不明时明确标注，内部来源清单仍使用项目相对路径。
+0.13.1 修复路径搜索的逐文档导出超时：改为授权范围内的原始块 Markdown 候选查询，保留 JavaScript 匹配；区分超时、HTTP 错误与连接失败，补全未知写入的回读与重新预检提示。
 
 项目原生思维导图：思源 3.8.6 及以上可调用 `project.sync_mindmap`，首次严格预检并生成后，经 Sisyphus 提交项目事件、正文或状态属性时自动增量同步。保留存续块 ID 和显示配置；人工改写管理节点或结构时停止并报告待同步。具体边界与用法见 [升级方案](https://github.com/clark874/siyuan-plugins-mcp-sisyphus/blob/main/docs/plans/2026-09-30-v0.11.0-project-mindmap.md)。
 

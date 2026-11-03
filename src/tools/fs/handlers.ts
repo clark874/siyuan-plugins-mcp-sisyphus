@@ -1,10 +1,8 @@
 import * as blockApi from '../../api/block';
 import * as documentApi from '../../api/document';
-import * as fileApi from '../../api/file';
 import * as notebookApi from '../../api/notebook';
 import { querySQL } from '../../api/search';
 import { AGENT_MEMORY_VIRTUAL_PATH, USER_RULES_VIRTUAL_PATH, loadToolConfigFromApiFile, writeAgentSiyuanMemory, type FsAction } from '../../core/config';
-import { normalizeMarkdownContent } from '../../core/normalize';
 import {
     FsLsSchema,
     FsMvSchema,
@@ -492,45 +490,6 @@ async function normalizeTreeNodes(
     }));
 }
 
-/**
- * Document IDs of a whole notebook in a single read-only query. Walking the
- * document tree would need one kernel call per directory, and the notebook root
- * cannot be walked with `listDocTree` at all.
- */
-async function listNotebookDocumentIds(
-    client: Parameters<FsActionHandler>[0]['client'],
-    notebook: string,
-): Promise<string[]> {
-    const rows = await querySQL(
-        client,
-        [
-            'SELECT id',
-            'FROM blocks',
-            `WHERE type = 'd'`,
-            `AND box = '${escapeSqlString(notebook)}'`,
-        ].join(' '),
-    );
-    const ids: string[] = [];
-    for (const row of rows) {
-        if (row && typeof row === 'object' && typeof (row as Record<string, unknown>).id === 'string') {
-            ids.push((row as Record<string, string>).id);
-        }
-    }
-    return [...new Set(ids)];
-}
-
-function collectTreeIds(nodes: unknown): string[] {
-    if (!Array.isArray(nodes)) return [];
-    const ids: string[] = [];
-    for (const node of nodes) {
-        if (!node || typeof node !== 'object') continue;
-        const typed = node as Record<string, unknown>;
-        if (typeof typed.id === 'string') ids.push(typed.id);
-        if (Array.isArray(typed.children)) ids.push(...collectTreeIds(typed.children));
-    }
-    return ids;
-}
-
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -677,26 +636,62 @@ async function replaceDocumentBlocksSafely(
     };
 }
 
-async function collectSearchDocuments(
+/** 只查询已授权范围内的原始块文本，不渲染引用、脚注或嵌入 SQL。 */
+async function collectSearchMatches(
     client: Parameters<FsActionHandler>[0]['client'],
     permMgr: Parameters<FsActionHandler>[0]['permMgr'],
     scope: FsScopePath,
-): Promise<Array<{ id: string; notebookName: string }>> {
+    matcher: (line: string) => boolean,
+    search: { query: string; regex?: boolean; caseSensitive?: boolean },
+): Promise<FsSearchMatch[]> {
+    const notebooks = scope.type === 'root'
+        ? await listReadableNotebooks(client, permMgr)
+        : [{ id: scope.notebook, name: scope.notebookName }];
+    if (notebooks.length === 0) return [];
+    const names = new Map(notebooks.map((notebook) => [notebook.id, notebook.name] as const));
+    const conditions = [
+        `box IN (${notebooks.map((notebook) => `'${escapeSqlString(notebook.id)}'`).join(',')})`,
+        // 容器的 Markdown 包含后代，排除它们以免同一正文重复命中。
+        `type NOT IN ('d', 'l', 'i', 'b', 's', 'callout', 'mindmap', 'mindmap_item')`,
+        `markdown != ''`,
+    ];
+    if (!search.regex && search.query && !search.query.includes('\0')
+        && (search.caseSensitive || (!search.query.includes('\\')
+            && ![...search.query].some((char) => char.codePointAt(0)! > 127 && char.toLowerCase() !== char.toUpperCase())))) {
+        // 内核先筛候选，JavaScript 再逐行精确验证；不把任意 JS 正则转成 Go 正则。
+        // 跳过转义清理、反斜杠折叠和旧内核 Unicode 大小写表差异可能改变的查询。
+        // İ 的小写会展开为 i + 组合点，保守纳入候选以免 Unicode 小写转换漏召回。
+        conditions.push(search.caseSensitive
+            ? `instr(markdown, '${escapeSqlString(search.query)}') > 0`
+            : `markdown REGEXP '${escapeSqlString(`(?i)${escapeRegExp(search.query)}|İ`)}'`);
+    }
     if (scope.type === 'document') {
-        const tree = await listDocumentSubtreeNodes(client, scope.notebook, scope.storagePath);
-        return [...new Set([scope.id, ...collectTreeIds(tree)])].map((id) => ({ id, notebookName: scope.notebookName }));
+        const prefix = `${scope.storagePath.slice(0, -3)}/`;
+        conditions.push(`(path = '${escapeSqlString(scope.storagePath)}' OR substr(path, 1, ${prefix.length}) = '${escapeSqlString(prefix)}')`);
     }
-    if (scope.type === 'notebook') {
-        const ids = await listNotebookDocumentIds(client, scope.notebook);
-        return ids.map((id) => ({ id, notebookName: scope.notebookName }));
+    const matches: FsSearchMatch[] = [];
+    let cursor = '';
+    for (;;) {
+        const rows = await querySQL(client, `SELECT id, box, hpath, markdown FROM blocks WHERE ${conditions.join(' AND ')} AND id > '${escapeSqlString(cursor)}' ORDER BY id LIMIT 512`);
+        if (rows.length === 0) break;
+        for (const value of rows) {
+            const row = value as Record<string, unknown>;
+            if (typeof row.id !== 'string' || row.id <= cursor) {
+                throw new Error('块搜索分页未前进，请稍后重试。');
+            }
+            cursor = row.id;
+            const notebookName = names.get(String(row.box));
+            if (!notebookName || typeof row.hpath !== 'string' || typeof row.markdown !== 'string') continue;
+            row.markdown.split(/\r?\n/).forEach((line, index) => {
+                if (matcher(line)) matches.push({
+                    ...createFsSearchMatch(`/${notebookName}${row.hpath}`, index + 1, line),
+                    blockId: row.id as string,
+                });
+            });
+        }
+        // 不按批次长度判断结束：内核可能施加小于 LIMIT 的返回上限。
     }
-    const notebooks = await listReadableNotebooks(client, permMgr);
-    const docs: Array<{ id: string; notebookName: string }> = [];
-    for (const notebook of notebooks) {
-        const ids = await listNotebookDocumentIds(client, notebook.id);
-        docs.push(...ids.map((id) => ({ id, notebookName: notebook.name })));
-    }
-    return docs;
+    return matches;
 }
 
 function createMatcher(query: string, regex?: boolean, caseSensitive?: boolean): (line: string) => boolean {
@@ -712,6 +707,7 @@ function createMatcher(query: string, regex?: boolean, caseSensitive?: boolean):
 type FsSearchMatch = {
     path: string;
     line: number;
+    blockId?: string;
     text: string;
     textTruncated?: true;
     originalTextLength?: number;
@@ -1172,44 +1168,28 @@ const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         if (denied) return denied;
     }
 
-    const docs = await collectSearchDocuments(client, permMgr, scope);
     const matches: FsSearchMatch[] = [];
     if (scope.type === 'root') {
         matches.push(...collectVirtualTextMatches((await readAgentMemoryState(client)).content, matcher, AGENT_MEMORY_VIRTUAL_PATH));
         matches.push(...collectVirtualTextMatches((await readUserRulesState(client)).content, matcher, USER_RULES_VIRTUAL_PATH));
     }
-    for (const doc of docs) {
-        const markdown = normalizeMarkdownContent(await fileApi.exportMdContent(client, doc.id));
-        const content = typeof markdown.content === 'string' ? markdown.content : '';
-        const hPath = typeof markdown.hPath === 'string' ? markdown.hPath : `/${doc.id}`;
-        const path = `/${doc.notebookName}${hPath}`;
-        content.split(/\r?\n/).forEach((line, index) => {
-            if (matcher(line)) {
-                matches.push(createFsSearchMatch(path, index + 1, line));
-            }
-        });
-    }
-    const seenMatches = new Set<string>();
-    const uniqueMatches = matches.filter((match) => {
-        const key = `${match.path}\0${match.line}\0${match.text}`;
-        if (seenMatches.has(key)) return false;
-        seenMatches.add(key);
-        return true;
-    });
+    for (const match of await collectSearchMatches(client, permMgr, scope, matcher, parsed)) matches.push(match);
 
     const page = parsed.page ?? 1;
     const pageSize = parsed.pageSize ?? 50;
-    const pageCount = Math.max(1, Math.ceil(uniqueMatches.length / pageSize));
+    const pageCount = Math.max(1, Math.ceil(matches.length / pageSize));
     const normalizedPage = Math.min(page, pageCount);
     const start = (normalizedPage - 1) * pageSize;
-    return createPaginatedResult(uniqueMatches.slice(start, start + pageSize), {
-        total: uniqueMatches.length,
+    return createPaginatedResult(matches.slice(start, start + pageSize), {
+        total: matches.length,
         page: normalizedPage,
         pageSize,
         pageCount,
         hasNextPage: normalizedPage < pageCount,
     }, {
         path: scope.canonicalPath,
+        source: 'block-markdown',
+        lineBasis: 'block',
         query: parsed.query,
         regex: parsed.regex ?? false,
         caseSensitive: parsed.caseSensitive ?? false,

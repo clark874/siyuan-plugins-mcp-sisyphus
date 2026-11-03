@@ -34,3 +34,10 @@ softened.
 3. Check notebook permission
 4. Check SiYuan connectivity and token configuration
 5. Check whether the action is disabled or gated
+
+## 内核连接与写入恢复
+
+- `kernel_timeout`：请求超过时限，不能据此断言内核离线。读请求不自动重放超时调用；先缩小范围，再用 `system.get_current_time` 核对连接。
+- `kernel_http_error`：接口已返回 HTTP 状态码，应检查认证、地址和服务端错误。
+- `kernel_unreachable`：连接拒绝、地址解析或网络连接失败；需要重启时由用户执行。
+- 严格写入的 `transactionState=unknown`：该请求编号已登记，必须先回读目标确认实际效果，禁止直接换编号重试。确认仍需补写后重新预检，使用新签发的 `issuedRequestId`。已提交操作的同参重放仍返回账本结果，不会再次执行。
