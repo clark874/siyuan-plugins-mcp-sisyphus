@@ -474,6 +474,9 @@ describe('search tool filtering', () => {
                 retrievalMode: 'hybrid', includeContext: true, rerank: true, paths: ['/doc.sy'], notebooks: ['allowed'] };
             const hybrid = parseResult(await callSearchTool(client, args, buildDefaultToolConfig().search, permMgr as never));
             expect(hybrid.retrievalMode).toBe('hybrid');
+            expect(hybrid.candidateCounts).toEqual({ recalledBlocks: 5, namespaceSeeds: 0, resolvedTargets: 3,
+                beforeDeduplication: 3, afterDeduplication: 3 });
+            expect(hybrid.deduplicatedCount).toBe(hybrid.candidateCounts.afterDeduplication);
             expect(hybrid.data[0]).toMatchObject({ id: '20260814100000-atom001', decisionScore: 0.95 });
             expect(hybrid.data.find((item: any) => item.id === '20260814100000-noise01').retrievalSources).toEqual(['semantic', 'keyword']);
             expect(hybrid.data.find((item: any) => item.id === '20260814100000-atom001').context.before.id).toBe('20260814100000-ref0001');
@@ -676,6 +679,7 @@ describe('search tool filtering', () => {
     });
 
     it('keeps a contained anchor as an auditable seed while continuing semantic discovery', async () => {
+        let emptyRecall = false;
         const request = vi.fn(async (endpoint: string, body: any) => {
             if (endpoint === '/api/query/sql') {
                 const stmt = String(body.stmt);
@@ -683,6 +687,9 @@ describe('search tool filtering', () => {
                     return [{
                         id: 'hub', root_id: 'hub', box: 'allowed', path: '/project/hub.sy', hpath: '/Project/Hub',
                         type: 'd', name: 'water-hub', alias: '水论文', content: '项目入口', updated: '20260821000000',
+                    }, {
+                        id: 'risk', root_id: 'risk-doc', box: 'allowed', path: '/project/risk.sy', hpath: '/Project/Risk',
+                        type: 'p', name: 'water-panel-risk', alias: '家庭面板风险', content: '风险正文', updated: '20260821000001',
                     }];
                 }
                 if (stmt.includes('namespace_trust_metadata')) return [];
@@ -697,7 +704,7 @@ describe('search tool filtering', () => {
             }
             if (endpoint === '/api/search/semanticSearchBlock') {
                 return {
-                    blocks: [{ id: 'risk', box: 'allowed', rootID: 'risk-doc', hPath: '/Project/Risk', type: 'p', content: '风险正文' }],
+                    blocks: emptyRecall ? [] : [{ id: 'risk', box: 'allowed', rootID: 'risk-doc', hPath: '/Project/Risk', type: 'p', content: '风险正文' }],
                     matchedBlockCount: 1, matchedRootCount: 1, pageCount: 1,
                 };
             }
@@ -720,10 +727,22 @@ describe('search tool filtering', () => {
         const parsed = parseResult(result);
 
         expect(parsed.retrievalMode).toBe('namespace_seeded_semantic');
-        expect(parsed.namespaceSeeds).toMatchObject([{ id: 'hub', token: '水论文', kind: 'alias' }]);
-        expect(parsed.data.map((item: any) => item.id)).toEqual(['hub', 'risk']);
+        expect(parsed.namespaceSeeds).toEqual(expect.arrayContaining([{ id: 'hub', token: '水论文', kind: 'alias' }]));
+        expect(parsed.data.map((item: any) => item.id)).toEqual(['risk', 'hub']);
+        expect(parsed.candidateCounts).toEqual({ recalledBlocks: 1, namespaceSeeds: 2, resolvedTargets: 1,
+            beforeDeduplication: 3, afterDeduplication: 2 });
+        expect(parsed.deduplicatedCount).toBe(2);
+        expect(parsed.truncated).toBe(false);
         expect(parsed.dataEgress).toBe(true);
         expect(parsed.externalCost).toBe(true);
+
+        emptyRecall = true;
+        const empty = parseResult(await callSearchTool(createMockClient({ request }), {
+            action: 'knowledge', query: '请分析水论文的家庭面板风险', retrievalMode: 'semantic', pageSize: 1,
+        }, buildDefaultToolConfig().search, permMgr as never));
+        expect(empty.candidateCounts).toEqual({ recalledBlocks: 0, namespaceSeeds: 2, resolvedTargets: 0,
+            beforeDeduplication: 2, afterDeduplication: 2 });
+        expect(empty).toMatchObject({ deduplicatedCount: 2, showing: 1, truncated: true });
     });
 
     it('filters restricted semantic candidates before knowledge expansion', async () => {

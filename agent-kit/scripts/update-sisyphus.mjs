@@ -11,11 +11,13 @@ import {
     readdir,
     rename,
     rm,
+    rmdir,
     writeFile,
 } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { exchangePluginDirectories } from './exchange-plugin-directories.mjs';
 
 const executeFile = promisify(execFile);
 const PLUGIN_NAME = 'siyuan-plugins-mcp-sisyphus';
@@ -187,7 +189,7 @@ async function applyUpdate(options, channel, pluginDirectory, currentManifest) {
     const packageFile = path.join(stagingRoot, 'package.zip');
     const extracted = path.join(stagingRoot, 'extracted');
     let backupDirectory;
-    let currentMoved = false;
+    let exchangeAttempted = false;
     try {
         const archive = options.packageFile
             ? await readFile(options.packageFile)
@@ -213,24 +215,18 @@ async function applyUpdate(options, channel, pluginDirectory, currentManifest) {
 
         const backupRoot = path.join(parent, '.sisyphus-backups');
         await mkdir(backupRoot, { recursive: true, mode: 0o700 });
-        backupDirectory = path.join(backupRoot, backupLabel(currentManifest.version));
-        await rename(pluginDirectory, backupDirectory);
-        currentMoved = true;
-        try {
-            await rename(extracted, pluginDirectory);
-            currentMoved = false;
-        } catch (error) {
-            await rename(backupDirectory, pluginDirectory);
-            currentMoved = false;
-            throw error;
-        }
+        backupDirectory = await mkdtemp(path.join(backupRoot, `${backupLabel(currentManifest.version)}-`));
+        // 先把新版准备到备份位置；一次交换后，这个位置即保存完整旧版。
+        await rmdir(backupDirectory);
+        await rename(extracted, backupDirectory);
+        exchangeAttempted = true;
+        await exchangePluginDirectories(pluginDirectory, backupDirectory);
         console.log(`更新完成：${channel.version}`);
         console.log(`备份位置：${backupDirectory}`);
         console.log('请重启思源，再让各 Agent 重新连接并调用 system(action="bootstrap") 验收；无需重写客户端 MCP 配置。');
     } finally {
-        if (currentMoved && backupDirectory && !await exists(pluginDirectory)) {
-            await rename(backupDirectory, pluginDirectory).catch(() => undefined);
-        }
+        // 交换请求结果未知时，两份目录均保留，避免误删可能已经换出的旧版。
+        if (!exchangeAttempted && backupDirectory) await rm(backupDirectory, { recursive: true, force: true });
         await rm(stagingRoot, { recursive: true, force: true });
     }
 }

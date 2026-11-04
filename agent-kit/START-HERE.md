@@ -84,6 +84,10 @@ node scripts/update-sisyphus.mjs --apply
 
 更新器只操作 `data/plugins/siyuan-plugins-mcp-sisyphus`，不会读取笔记正文、Bearer token 或客户端配置。完成后重启思源，各 Agent 重新连接并调用 `system(action="bootstrap")`；无需逐个重新安装 MCP。
 
+更新先在隐藏目录完成解压、散列和清单校验，再通过一次系统调用交换完整目录，旧版直接留在 `.sisyphus-backups`；不会先删除正式目录。更新需要 Python 3：macOS 使用 `renamex_np(RENAME_SWAP)`，Linux 使用 `renameat2(RENAME_EXCHANGE)`。系统、运行环境或文件系统不支持时停止，保留正式目录，不降级为两次重命名。交换失败或结果未知时保留候选目录供核对。Windows 请由用户使用思源的插件更新界面。
+
+目录交换消除了安装器制造的路径空窗，但多次独立读取可能跨越版本切换，不构成跨文件快照。代理不得自行重新加载或重启思源；下载回验也不应反复换装正在运行的插件。
+
 稳定通道清单：
 
 ```text
