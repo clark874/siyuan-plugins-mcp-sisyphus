@@ -28,7 +28,7 @@ import { listDocumentSubtreeNodes, listNotebookRootTreeNodes, type NotebookRootT
 import { applyExactReplaceEdits } from '../internal/replace';
 import { createJsonResult, createPaginatedResult, type ToolResult } from '../internal/shared';
 import { applyUiRefresh } from '../internal/ui-refresh';
-import { applyDocumentKramdownDomReplacements, createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks, stripRedundantTitleHeading } from '../internal/kramdown-safe';
+import { applyDocumentKramdownDomReplacements, createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks, stripRedundantTitleHeading, toEditableMarkdownBlock } from '../internal/kramdown-safe';
 import {
     createSyntheticDocumentBlockWindow,
     listDocumentBlocksInTreeOrder,
@@ -642,7 +642,7 @@ async function collectSearchMatches(
     permMgr: Parameters<FsActionHandler>[0]['permMgr'],
     scope: FsScopePath,
     matcher: (line: string) => boolean,
-    search: { query: string; regex?: boolean; caseSensitive?: boolean },
+    search: { query: string; regex?: boolean; caseSensitive?: boolean; matchScope?: string },
 ): Promise<FsSearchMatch[]> {
     const notebooks = scope.type === 'root'
         ? await listReadableNotebooks(client, permMgr)
@@ -682,12 +682,16 @@ async function collectSearchMatches(
             cursor = row.id;
             const notebookName = names.get(String(row.box));
             if (!notebookName || typeof row.hpath !== 'string' || typeof row.markdown !== 'string') continue;
-            row.markdown.split(/\r?\n/).forEach((line, index) => {
-                if (matcher(line)) matches.push({
-                    ...createFsSearchMatch(`/${notebookName}${row.hpath}`, index + 1, line),
-                    blockId: row.id as string,
+            const path = `/${notebookName}${row.hpath}`;
+            if (search.matchScope === 'block') {
+                for (const match of collectTextSpans(row.markdown, search)) {
+                    matches.push({ ...createFsSearchMatch(path, match.line, match.text), endLine: match.endLine, blockId: row.id });
+                }
+            } else {
+                row.markdown.split(/\r?\n/).forEach((line, index) => {
+                    if (matcher(line)) matches.push({ ...createFsSearchMatch(path, index + 1, line), blockId: row.id as string });
                 });
-            });
+            }
         }
         // 不按批次长度判断结束：内核可能施加小于 LIMIT 的返回上限。
     }
@@ -708,6 +712,11 @@ type FsSearchMatch = {
     path: string;
     line: number;
     blockId?: string;
+    endBlockId?: string;
+    blockIds?: string[];
+    endLine?: number;
+    blockLine?: number;
+    endBlockLine?: number;
     text: string;
     textTruncated?: true;
     originalTextLength?: number;
@@ -722,6 +731,106 @@ function createFsSearchMatch(path: string, lineNumber: number, line: string): Fs
         textTruncated: true,
         originalTextLength: line.length,
     };
+}
+
+/** 非行模式保留完整匹配范围；正则是否跨换行仍由调用方显式表达。 */
+function collectTextSpans(content: string, search: { query: string; regex?: boolean; caseSensitive?: boolean }) {
+    const matches: Array<{ start: number; end: number; line: number; endLine: number; text: string }> = [];
+    let lineCursor = 0;
+    let lineNumber = 1;
+    const lineAt = (offset: number) => {
+        while (lineCursor < offset) if (content[lineCursor++] === '\n') lineNumber += 1;
+        return lineNumber;
+    };
+    if (!search.regex) {
+        const haystack = search.caseSensitive ? content : content.toLowerCase();
+        const needle = search.caseSensitive ? search.query : search.query.toLowerCase();
+        let starts: Uint32Array | undefined;
+        let ends: Uint32Array | undefined;
+        if (haystack.length !== content.length) {
+            starts = new Uint32Array(haystack.length);
+            ends = new Uint32Array(haystack.length);
+            let sourceOffset = 0;
+            let lowerOffset = 0;
+            // 匹配使用整串小写以保留 σ 等上下文规则；逐码点仅计算原文偏移。
+            for (const point of content) {
+                const end = sourceOffset + point.length;
+                const lowerLength = point.toLowerCase().length;
+                for (let index = 0; index < lowerLength; index += 1) {
+                    starts[lowerOffset] = sourceOffset;
+                    ends[lowerOffset++] = end;
+                }
+                sourceOffset = end;
+            }
+        }
+        let cursor = 0;
+        let index: number;
+        while ((index = haystack.indexOf(needle, cursor)) !== -1) {
+            const start = starts ? starts[index] : index;
+            const end = ends ? ends[index + needle.length - 1] : index + needle.length;
+            matches.push({ start, end, line: lineAt(start), endLine: lineAt(Math.max(start, end - 1)), text: content.slice(start, end) });
+            cursor = index + Math.max(needle.length, 1);
+        }
+        return matches;
+    }
+    const pattern = new RegExp(search.query, search.caseSensitive ? 'g' : 'gi');
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(content)) !== null) {
+        const start = match.index;
+        const end = start + match[0].length;
+        matches.push({ start, end, line: lineAt(start), endLine: lineAt(Math.max(start, end - 1)), text: match[0] });
+        if (match[0].length === 0) pattern.lastIndex += 1;
+    }
+    return matches;
+}
+
+async function collectDocumentSearchMatches(
+    client: Parameters<FsActionHandler>[0]['client'],
+    scope: FsDocumentPath,
+    search: { query: string; regex?: boolean; caseSensitive?: boolean },
+): Promise<FsSearchMatch[]> {
+    // 沿用 fs.read 的真实树序与块类型归一化；容器的 Kramdown 已含其后代。
+    const blocks = await listDocumentBlocksInTreeOrder(client, scope.id);
+    if (blocks.length > 10000) throw new Error('文档跨行搜索最多读取 10000 个展示块，请缩小范围。');
+    const segments: Array<{ id: string; start: number; startLine: number; lineCount: number }> = [];
+    let content = '';
+    let contentBytes = 0;
+    let documentLine = 1;
+    for (let index = 0; index < blocks.length; index += 128) {
+        const batch = blocks.slice(index, index + 128);
+        const values = await blockApi.getBlockKramdowns(client, batch.map((block) => block.id));
+        for (const block of batch) {
+            if (typeof values?.[block.id] !== 'string') throw new Error('文档块读取不完整，跨行搜索已停止，请重试。');
+            const markdown = toEditableMarkdownBlock({ kramdown: values[block.id], type: block.type });
+            if (!markdown) continue;
+            const separator = content ? '\n\n' : '';
+            contentBytes += Buffer.byteLength(markdown, 'utf8') + separator.length;
+            if (contentBytes > 2 * 1024 * 1024) throw new Error('文档跨行搜索最多读取 2 MiB 正文，请缩小范围。');
+            content += separator;
+            documentLine += separator.length;
+            const start = content.length;
+            const lineCount = markdown.split('\n').length;
+            segments.push({ id: block.id, start, startLine: documentLine, lineCount });
+            content += markdown;
+            documentLine += lineCount - 1;
+        }
+    }
+    if (segments.length === 0) return [];
+    let startIndex = 0;
+    let endIndex = 0;
+    return collectTextSpans(content, search).map((match) => {
+        while (segments[startIndex + 1]?.start <= match.start) startIndex += 1;
+        endIndex = Math.max(startIndex, endIndex);
+        while (segments[endIndex + 1]?.start <= Math.max(match.start, match.end - 1)) endIndex += 1;
+        const first = segments[startIndex];
+        const last = segments[endIndex];
+        return {
+            ...createFsSearchMatch(scope.canonicalPath, match.line, match.text), endLine: match.endLine,
+            blockId: first?.id, endBlockId: last?.id, blockIds: segments.slice(startIndex, endIndex + 1).map((segment) => segment.id),
+            blockLine: first ? Math.max(1, Math.min(first.lineCount, match.line - first.startLine + 1)) : 1,
+            endBlockLine: last ? Math.max(1, Math.min(last.lineCount, match.endLine - last.startLine + 1)) : 1,
+        };
+    });
 }
 
 function collectVirtualTextMatches(content: string, matcher: (line: string) => boolean, path: VirtualRootFilePath): FsSearchMatch[] {
@@ -1115,6 +1224,9 @@ const handleReorder: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
 const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = FsSearchSchema.parse(rawArgs);
     assertNotVirtualRootFileDescendant(parsed.path);
+    const matchScope = parsed.matchScope ?? 'line';
+    if (matchScope !== 'line' && !parsed.query) throw new Error('跨行搜索需要非空查询。');
+    if (matchScope !== 'line' && getVirtualRootFilePath(parsed.path)) throw new Error('虚拟文件搜索仅支持 matchScope=line。');
     const matcher = createMatcher(parsed.query, parsed.regex, parsed.caseSensitive);
     const virtualPath = getVirtualRootFilePath(parsed.path);
     if (virtualPath === AGENT_MEMORY_VIRTUAL_PATH) {
@@ -1168,12 +1280,16 @@ const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         if (denied) return denied;
     }
 
+    if (matchScope === 'document' && scope.type !== 'document') throw new Error('matchScope=document 需要明确的单文档路径，不支持笔记本或根目录。');
     const matches: FsSearchMatch[] = [];
     if (scope.type === 'root') {
         matches.push(...collectVirtualTextMatches((await readAgentMemoryState(client)).content, matcher, AGENT_MEMORY_VIRTUAL_PATH));
         matches.push(...collectVirtualTextMatches((await readUserRulesState(client)).content, matcher, USER_RULES_VIRTUAL_PATH));
     }
-    for (const match of await collectSearchMatches(client, permMgr, scope, matcher, parsed)) matches.push(match);
+    const contentMatches = matchScope === 'document'
+        ? await collectDocumentSearchMatches(client, scope as FsDocumentPath, parsed)
+        : await collectSearchMatches(client, permMgr, scope, matcher, parsed);
+    for (const match of contentMatches) matches.push(match);
 
     const page = parsed.page ?? 1;
     const pageSize = parsed.pageSize ?? 50;
@@ -1189,7 +1305,8 @@ const handleSearch: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     }, {
         path: scope.canonicalPath,
         source: 'block-markdown',
-        lineBasis: 'block',
+        lineBasis: matchScope === 'document' ? 'document' : 'block',
+        matchScope,
         query: parsed.query,
         regex: parsed.regex ?? false,
         caseSensitive: parsed.caseSensitive ?? false,

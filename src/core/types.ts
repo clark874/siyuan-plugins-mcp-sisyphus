@@ -287,6 +287,7 @@ export const FsReorderSchema = z.object({
 export const FsSearchSchema = z.object({
     action: z.literal("search"),
     path: z.string().describe("Human-readable document or folder path to search within"),
+    matchScope: z.enum(['line', 'block', 'document']).optional().describe('匹配单位，默认 line；block 支持块内跨行，document 仅支持明确单文档并映射跨块命中。跨行正则请使用 [\\s\\S] 等明确表达。'),
     query: z.string().describe("原始块 Markdown 中的文本或 JavaScript 正则表达式"),
     regex: z.boolean().optional().describe("Treat query as a JavaScript regular expression"),
     caseSensitive: z.boolean().optional().describe("Use case-sensitive matching"),
@@ -1068,6 +1069,9 @@ export const SearchSemanticSchema = z.object({
 export const SearchKnowledgeSchema = z.object({
     action: z.literal("knowledge"),
     query: z.string().min(1).describe("Knowledge query. Exact readable name/alias matches are resolved locally before the configured embedding provider is considered."),
+    retrievalMode: z.enum(['auto', 'hybrid', 'semantic']).optional().describe('默认 auto 保留本地精确直达；hybrid 合并关键词与向量候选，semantic 跳过关键词预检；唯一名称直达与歧义保护始终保留。'),
+    includeContext: z.boolean().optional().describe('补齐前20个候选的同级相邻块、文档标题与块定位，默认 false；精排时自动补齐。'),
+    rerank: z.boolean().optional().describe('用思源已启用的 TypeSafe 决策配置对前10个文本候选精排，默认 false；失败保留原序并说明降级。'),
     pageSize: z.number().int().min(1).max(50).optional().describe("Maximum deduplicated knowledge candidates returned, default 10."),
     candidateSize: z.number().int().min(1).max(100).optional().describe("Semantic candidates requested before reference collapse and deduplication, default 30."),
     notebooks: z.array(z.string()).optional().describe("Optional notebook ID allowlist."),

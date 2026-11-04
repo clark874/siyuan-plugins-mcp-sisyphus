@@ -251,6 +251,9 @@ Additional rule: project-source registration and local absolute-path disclosure 
 
 ## Knowledge retrieval semantics
 
+- 自然语言探索推荐 search(action="knowledge", retrievalMode="hybrid", includeContext=true)，优先限定当前项目路径；精确名称保留原直达及歧义保护。需要精排时显式 rerank=true，复用思源 TypeSafe 决策配置，只外发前10个已授权短候选；失败保留融合排序并查看 rerank.status。模型分数不提升来源核验或证据状态。
+- fs.search 的 matchScope 默认 line；block 支持块内跨行，document 仅处理指定单文档并保留跨块定位。跨行正则显式使用 [\\s\\S]，不使用语义候选代替全量精确匹配。
+
 - Start a natural-language knowledge task with search(action=”knowledge”). It first resolves the readable controlled namespace: one exact name/alias returns locally without external embedding cost; multiple exact targets are returned as an explicit ambiguity unless exactly one intersects activeScopes; unique contained anchors seed rather than replace semantic discovery. Only the remaining query falls back to the SiYuan 3.8 embedding index.
 - Namespace results include verification/source metadata when present. Exact resolution is deterministic retrieval, not automatic evidence approval; still read the stable block and inspect its stated evidence boundary.
 - Treat semantic hits as candidates rather than evidence. Read the returned stable block ID, verify source and verification attributes, then follow its references or related documents.

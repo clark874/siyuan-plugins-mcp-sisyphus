@@ -346,11 +346,11 @@ describe('search tool filtering', () => {
                     });
                     return {
                         blocks: [
-                            { id: '20260814100000-plain01', box: 'allowed', rootID: '20260814100000-plainrt', hPath: '/Plain', type: 'p', content: 'unnamed but highest-ranked result' },
-                            { id: '20260814100000-ref0001', box: 'allowed', rootID: '20260814100000-hub0001', hPath: '/Hub', type: 'p', content: '((atom))' },
-                            { id: '20260814100000-ref0002', box: 'allowed', rootID: '20260814100000-hub0001', hPath: '/Hub', type: 'i', content: '- ((atom))' },
-                            { id: '20260814100000-atom001', box: 'allowed', rootID: '20260814100000-wiki001', hPath: '/Wiki', type: 'p', content: '投影权重正文' },
-                            { id: '20260814100000-noise01', box: 'allowed', rootID: '20260814100000-noised1', hPath: '/Noise', type: 'h', content: '相关标题' },
+                            { id: '20260814100000-plain01', box: 'allowed', path: '/doc.sy', rootID: '20260814100000-plainrt', hPath: '/Plain', type: 'p', content: 'unnamed but highest-ranked result' },
+                            { id: '20260814100000-ref0001', box: 'allowed', path: '/doc.sy', rootID: '20260814100000-hub0001', hPath: '/Hub', type: 'p', content: '((atom))' },
+                            { id: '20260814100000-ref0002', box: 'allowed', path: '/doc.sy', rootID: '20260814100000-hub0001', hPath: '/Hub', type: 'i', content: '- ((atom))' },
+                            { id: '20260814100000-atom001', box: 'allowed', path: '/doc.sy', rootID: '20260814100000-wiki001', hPath: '/Wiki', type: 'p', content: '投影权重正文' },
+                            { id: '20260814100000-noise01', box: 'allowed', path: '/doc.sy', rootID: '20260814100000-noised1', hPath: '/Noise', type: 'h', content: '相关标题' },
                         ],
                         matchedBlockCount: 5,
                         matchedRootCount: 4,
@@ -390,7 +390,7 @@ describe('search tool filtering', () => {
         const permMgr = {
             reload: vi.fn(async () => undefined),
             canWrite: () => true,
-            canRead: () => true,
+            canRead: (_id: string) => true,
             canDelete: () => true,
             get: () => 'rwd',
             getAll: () => ({}),
@@ -434,6 +434,57 @@ describe('search tool filtering', () => {
         expect(parsed.deduplicatedCount).toBe(3);
         expect(parsed.dataEgress).toBe(true);
         expect(parsed.externalCost).toBe(true);
+
+        // 同一知识治理主路径继续验证混合召回、上下文和可选精排。
+        const originalRequest = client.request;
+        client.request = async (endpoint: string, body: any) => {
+            if (endpoint === '/api/system/getConf') return { conf: { ai: { decision: {
+                enabled: true, provider: 'typesafe', profiles: { typesafe: {
+                    apiKey: 'test-decision-credential', name: 'jev-1.14.0', endpoint: 'https://api.typesafe.ai/v1/systemone',
+                } },
+            } } } };
+            if (endpoint === '/api/search/fullTextSearchBlock') {
+                expect(body.paths).toEqual(['allowed/doc.sy']);
+                return { blocks: [
+                { id: '20260814100000-noise01', box: 'allowed', path: '/doc.sy', content: '关键词候选' },
+                { id: '20260814100000-private', box: 'restricted', content: '禁止外发的文本' },
+            ] }; }
+            if (endpoint === '/api/query/sql' && body.stmt.includes('AS before_id')) return [
+                { id: '20260814100000-atom001', root_id: '20260814100000-wiki001', box: 'allowed', before_id: '20260814100000-ref0001' },
+            ];
+            if (endpoint === '/api/query/sql' && body.stmt.startsWith('SELECT id, box FROM blocks')) return [
+                { id: '20260814100000-plain01', box: 'allowed' },
+                { id: '20260814100000-atom001', box: 'allowed' },
+                { id: '20260814100000-noise01', box: 'allowed' },
+            ];
+            return originalRequest(endpoint, body);
+        };
+        permMgr.canRead = (id: string) => id !== 'restricted';
+        const modelCall = vi.fn(async (_url: unknown, init: any) => {
+            const body = JSON.parse(init.body);
+            expect(init.body).not.toContain('禁止外发');
+            expect(init.body).not.toContain('test-decision-credential');
+            return { ok: true, json: async () => ({ model: 'jev-1.14.0', answers: Object.fromEntries(
+                body.state.candidates.map((item: any) => [item.id, { noul: item.blockId === '20260814100000-atom001' ? 0.95 : 0.2 }]),
+            ) }) };
+        });
+        vi.stubGlobal('fetch', modelCall);
+        try {
+            const args = { action: 'knowledge', query: 'textnets 投影权重怎么算', candidateSize: 12,
+                retrievalMode: 'hybrid', includeContext: true, rerank: true, paths: ['/doc.sy'], notebooks: ['allowed'] };
+            const hybrid = parseResult(await callSearchTool(client, args, buildDefaultToolConfig().search, permMgr as never));
+            expect(hybrid.retrievalMode).toBe('hybrid');
+            expect(hybrid.data[0]).toMatchObject({ id: '20260814100000-atom001', decisionScore: 0.95 });
+            expect(hybrid.data.find((item: any) => item.id === '20260814100000-noise01').retrievalSources).toEqual(['semantic', 'keyword']);
+            expect(hybrid.data.find((item: any) => item.id === '20260814100000-atom001').context.before.id).toBe('20260814100000-ref0001');
+            expect(hybrid.rerank).toMatchObject({ status: 'applied', rankedCount: 3 });
+            expect(modelCall).toHaveBeenCalledTimes(1);
+            modelCall.mockRejectedValueOnce(new Error('模型不可用'));
+            const degraded = parseResult(await callSearchTool(client, args, buildDefaultToolConfig().search, permMgr as never));
+            expect(degraded.rerank).toMatchObject({ status: 'fallback', reason: 'provider_error' });
+            expect(degraded.data[0].id).toBe('20260814100000-noise01');
+        } finally { vi.unstubAllGlobals(); }
+
     });
 
     it('short-circuits a unique exact alias without semantic data egress and returns trust metadata', async () => {

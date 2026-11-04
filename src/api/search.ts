@@ -30,7 +30,7 @@ export async function semanticSearchBlock(
         subTypes?: Record<string, boolean>;
     },
 ): Promise<IResFullTextSearchBlock> {
-    return client.requestRead<IResFullTextSearchBlock>('/api/search/semanticSearchBlock', params);
+    return client.requestRead<IResFullTextSearchBlock>('/api/search/semanticSearchBlock', params, { timeoutMs: 15000 });
 }
 
 export async function querySQL(client: SiYuanClient, stmt: string): Promise<unknown[]> {

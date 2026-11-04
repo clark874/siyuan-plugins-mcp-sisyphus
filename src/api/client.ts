@@ -70,7 +70,7 @@ export class SiYuanClient {
         return headers;
     }
 
-    private async fetchWithTimeout(url: string, init: RequestInit, semantics: RequestSemantics): Promise<Response> {
+    private async fetchWithTimeout(url: string, init: RequestInit, semantics: RequestSemantics, timeoutMs = this.timeout): Promise<Response> {
         const DEFAULT_MAX_RETRIES = 3;
         const DEFAULT_RETRY_BASE_DELAY_MS = 300;
         let lastError: Error | null = null;
@@ -78,7 +78,7 @@ export class SiYuanClient {
         const maxRetries = semantics === 'read' ? DEFAULT_MAX_RETRIES : 0;
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
             try {
                 const response = await fetch(url, { ...init, signal: controller.signal });
@@ -106,7 +106,7 @@ export class SiYuanClient {
                 }
                 if (error instanceof Error && error.name === 'AbortError') {
                     // 客户端取消不会终止内核工作，超时后重放只会放大负载。
-                    throw new Error(`Request timeout after ${this.timeout}ms`);
+                    throw new Error(`Request timeout after ${timeoutMs}ms`);
                 } else {
                     lastError = error instanceof Error ? error : new Error(String(error));
                 }
@@ -129,8 +129,8 @@ export class SiYuanClient {
         }, 'read');
     }
 
-    private async readEnvelope<T>(url: string, init: RequestInit, semantics: RequestSemantics): Promise<SiYuanResponse<T>> {
-        const response = await this.fetchWithTimeout(url, init, semantics);
+    private async readEnvelope<T>(url: string, init: RequestInit, semantics: RequestSemantics, timeoutMs = this.timeout): Promise<SiYuanResponse<T>> {
+        const response = await this.fetchWithTimeout(url, init, semantics, timeoutMs);
         const rawText = await response.text();
         if (rawText.trim() === '') {
             return { code: 0, msg: '', data: null as T };
@@ -157,8 +157,8 @@ export class SiYuanClient {
         return result;
     }
 
-    private async readData<T>(url: string, init: RequestInit, semantics: RequestSemantics): Promise<T> {
-        return (await this.readEnvelope<T>(url, init, semantics)).data;
+    private async readData<T>(url: string, init: RequestInit, semantics: RequestSemantics, timeoutMs = this.timeout): Promise<T> {
+        return (await this.readEnvelope<T>(url, init, semantics, timeoutMs)).data;
     }
 
     async readFile(path: string): Promise<string> {
@@ -298,12 +298,12 @@ export class SiYuanClient {
         return this.requestWrite(endpoint, data);
     }
 
-    async requestRead<T>(endpoint: string, data?: object): Promise<T> {
+    async requestRead<T>(endpoint: string, data?: object, options?: { timeoutMs: number }): Promise<T> {
         return this.readData<T>(`${this.baseUrl}${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
             body: JSON.stringify(data ?? {}),
-        }, 'read');
+        }, 'read', options?.timeoutMs);
     }
 
     async requestReadEnvelope<T>(endpoint: string, data?: object): Promise<SiYuanResponse<T>> {

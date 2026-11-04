@@ -33,7 +33,7 @@ export const SEARCH_TOOL_NAME = 'search';
 export const SEARCH_VARIANTS: ActionVariant<SearchAction>[] = [
     createZodActionVariant('fulltext', SearchFulltextSchema, 'Full-text search across all blocks.'),
     createZodActionVariant('semantic', SearchSemanticSchema, 'Run low-level semantic discovery through the SiYuan 3.8 embedding index.'),
-    createZodActionVariant('knowledge', SearchKnowledgeSchema, 'Discover knowledge with semantic search, collapse reference-only hits, prefer named content atoms, and attach related documents.'),
+    createZodActionVariant('knowledge', SearchKnowledgeSchema, '检索知识：受控名称直达，支持显式关键词与向量融合、相邻上下文和可选TypeSafe文本精排；保留引用折叠与来源核验边界。'),
     createZodActionVariant('check_anchor', SearchCheckAnchorSchema, 'Check candidate name or alias tokens against the readable knowledge anchor namespace.'),
     createZodActionVariant('query_sql', SearchQuerySqlSchema, 'Execute a read-only SQL query against the database.'),
     createZodActionVariant('get_backlinks', SearchGetBacklinksSchema, 'Find documents/blocks that link to or mention the given block.'),

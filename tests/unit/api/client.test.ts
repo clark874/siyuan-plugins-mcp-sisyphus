@@ -109,8 +109,8 @@ describe('SiYuanClient', () => {
                 });
             });
 
-            const timeoutClient = new SiYuanClient({ timeout: 5 });
-            await expect(timeoutClient.requestRead('/api/test')).rejects.toThrow('timeout');
+            const timeoutClient = new SiYuanClient({ timeout: 5000 });
+            await expect(timeoutClient.requestRead('/api/test', {}, { timeoutMs: 5 })).rejects.toThrow('Request timeout after 5ms');
             expect(mockFetch).toHaveBeenCalledTimes(1);
         });
 

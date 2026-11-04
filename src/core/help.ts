@@ -83,7 +83,7 @@ export const PROVENANCE_GUIDANCE = [
 ];
 
 export const FS_ACTION_HINTS: Partial<Record<FsAction, string>> = {
-    search: '搜索原始块 Markdown，不渲染脚注、引用或嵌入；line 是 blockId 对应的块内行号。大范围自然语言检索优先 search.fulltext。',
+    search: '搜索原始Markdown，不触发导出；matchScope默认line，block支持块内跨行，document仅精确单文档并返回跨块映射。跨行正则显式使用[\\s\\S]；自然语言探索用search.knowledge混合召回。',
     read: 'Returns complete display-block windows with outline and continuation metadata.',
     write: 'Creates a missing document; overwrite of existing content requires strict state validation.',
     replace: 'Use exact old/new text copied from fs.read.',
@@ -135,7 +135,7 @@ export const PROJECT_ACTION_HINTS: Partial<Record<ProjectAction, string>> = {
 };
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     semantic: 'Returns candidates from the configured embedding index; verify source attributes before reuse.',
-    knowledge: 'Uses controlled namespace checks before governed semantic retrieval.',
+    knowledge: '自然语言探索用 retrievalMode=hybrid、includeContext=true；可选 rerank=true 对前10项使用已配置的TypeSafe文本决策，失败保留原序。名称精确解析和歧义保护保留。',
     check_anchor: 'Use candidates=["token"] with candidateKind="name"|"alias" before a governed write, not to locate existing content.',
     query_sql: 'Only SELECT is accepted; add LIMIT and keep output bounded.',
     find_replace: 'Mutates content and requires strict preflight plus exact target scope.',

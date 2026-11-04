@@ -1,6 +1,6 @@
 # SiYuan Sisyphus MCP & CLI
 
-0.13.1 修复路径搜索的逐文档导出超时：改为授权范围内的原始块 Markdown 候选查询，保留 JavaScript 匹配；区分超时、HTTP 错误与连接失败，补全未知写入的回读与重新预检提示。
+0.14.0 增加关键词与向量混合召回、候选相邻上下文、可选 Jev 文本精排，以及块内和单文档跨行搜索；保留精确名称直达、引用折叠、权限与写入保护。
 
 项目原生思维导图：思源 3.8.6 及以上可调用 `project.sync_mindmap`，首次严格预检并生成后，经 Sisyphus 提交项目事件、正文或状态属性时自动增量同步。保留存续块 ID 和显示配置；人工改写管理节点或结构时停止并报告待同步。具体边界与用法见 [升级方案](https://github.com/clark874/siyuan-plugins-mcp-sisyphus/blob/main/docs/plans/2026-09-30-v0.11.0-project-mindmap.md)。
 

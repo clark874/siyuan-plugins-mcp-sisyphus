@@ -120,6 +120,9 @@ function createFsClient(options: { ambiguous?: boolean; missingPaths?: string[];
                 const ids = Array.isArray(body?.ids) ? body.ids.filter((id): id is string => typeof id === 'string') : [];
                 return Object.fromEntries(ids.map((id) => [id, {}]));
             }
+            if (endpoint === '/api/block/getBlockKramdowns') {
+                return Object.fromEntries((body?.ids as string[]).map((id) => [id, id === 'block-1' ? 'alpha\n{: id="block-1"}' : 'budget line\nBeta\n{: id="block-2"}']));
+            }
             if (endpoint === '/api/block/getBlockKramdown') {
                 if (body?.id === 'block-1') return { id: 'block-1', kramdown: 'alpha\n{: id="block-1"}' };
                 if (body?.id === 'block-2') return { id: 'block-2', kramdown: 'budget line\nBeta\n{: id="block-2"}' };
@@ -2228,6 +2231,31 @@ describe('fs tool', () => {
         expect(client.request).not.toHaveBeenCalledWith('/api/filetree/listDocTree', expect.anything());
         expect(client.request).toHaveBeenCalledWith('/api/query/sql', { stmt: expect.stringContaining("path = '/doc-1.sy' OR substr(path, 1, 7) = '/doc-1/'") });
         expect(client.request).toHaveBeenCalledWith('/api/query/sql', { stmt: expect.stringContaining("AND id > 'search-1'") });
+    });
+
+    it('跨行模式保留匹配原文、块引用与单文档真实顺序', async () => {
+        const client = createFsClient();
+        const block = parseResult(await callFsTool(client, { action: 'search', path: '/Notebook/Doc 1',
+            query: 'budget[\\s\\S]*Beta', regex: true, caseSensitive: true, matchScope: 'block' }, fsConfig(), createPermMgr()));
+        expect(block.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, endLine: 3, blockId: 'search-1', text: 'budget line\nBeta' }]);
+        const document = parseResult(await callFsTool(client, { action: 'search', path: '/Notebook/Doc 1',
+            query: 'alpha[\\s\\S]*budget', regex: true, matchScope: 'document' }, fsConfig(), createPermMgr()));
+        expect(document.lineBasis).toBe('document');
+        expect(document.data).toEqual([{ path: '/Notebook/Doc 1', line: 1, endLine: 3, text: 'alpha\n\nbudget',
+            blockId: 'block-1', endBlockId: 'block-2', blockIds: ['block-1', 'block-2'], blockLine: 1, endBlockLine: 1 }]);
+        expect(client.request).not.toHaveBeenCalledWith('/api/export/exportMdContent', expect.anything());
+        const unicode = parseResult(await callFsTool(createFsClient({ markdownContent: '前言\nKİ\n尾部' }), {
+            action: 'search', path: '/Notebook/Doc 1', query: 'ki\u0307', matchScope: 'block',
+        }, fsConfig(), createPermMgr()));
+        expect(unicode.data).toEqual([{ path: '/Notebook/Doc 1', line: 2, endLine: 2, blockId: 'search-1', text: 'Kİ' }]);
+    });
+
+    it('拒绝把整本笔记本作为一个文档跨行匹配', async () => {
+        const client = createFsClient();
+        const result = await callFsTool(client, { action: 'search', path: '/Notebook', query: 'alpha', matchScope: 'document' }, fsConfig(), createPermMgr());
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('明确的单文档路径');
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/getBlockKramdowns', expect.anything());
     });
 
     it('含反斜杠的字面量不经过内核正则转换', async () => {

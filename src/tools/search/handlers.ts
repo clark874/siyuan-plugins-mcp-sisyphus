@@ -1,4 +1,5 @@
 import * as searchApi from '../../api/search';
+import { retrieveKnowledgeCandidates, attachKnowledgeContext, rerankKnowledgeCandidates } from './retrieval';
 import { redactText } from '../../shared/text-security';
 import { normalizeAnchorToken } from '../../core/attribute-governance';
 import type { SearchAction } from '../../core/config';
@@ -596,17 +597,10 @@ async function knowledgeSearch(
             hint: 'A unique readable name/alias resolved locally. Verify updated and trust metadata before treating the block as current evidence.',
         });
     }
-    const lexicalResult = await tryLexicalFirstResolution(client, permMgr, parsed);
+    const lexicalResult = parsed.retrievalMode === 'hybrid' || parsed.retrievalMode === 'semantic'
+        ? null : await tryLexicalFirstResolution(client, permMgr, parsed);
     if (lexicalResult) return lexicalResult;
-    const semantic = await searchApi.semanticSearchBlock(client, {
-        query: parsed.query,
-        page: 1,
-        pageSize: candidateSize,
-        ...(parsed.notebooks ? { boxes: parsed.notebooks } : {}),
-        ...(parsed.paths ? { paths: parsed.paths } : {}),
-        ...(parsed.types ? { types: parsed.types } : {}),
-        ...(parsed.subTypes ? { subTypes: parsed.subTypes } : {}),
-    });
+    const semantic = await retrieveKnowledgeCandidates(client, permMgr, parsed, candidateSize);
     const filteredSemantic = filterFullTextSearchResultByPermission(semantic, permMgr) as unknown as Record<string, unknown>;
     const semanticBlocks = Array.isArray(filteredSemantic.blocks)
         ? filteredSemantic.blocks.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
@@ -619,10 +613,12 @@ async function knowledgeSearch(
         const seedData = namespace.seeds.slice(0, pageSize).map((item) => namespaceResultItem(item, namespace.trust.get(item.id)));
         return createJsonResult({
             query: parsed.query,
-            retrievalMode: namespace.seeds.length > 0 ? 'namespace_seeded_semantic' : 'semantic_fallback',
+            retrievalMode: parsed.retrievalMode === 'hybrid' ? 'hybrid' : namespace.seeds.length > 0 ? 'namespace_seeded_semantic' : 'semantic_fallback',
+            ...semantic.metadata,
             namespaceSeeds: namespace.seeds.map((item) => ({ id: item.id, token: item.token, kind: item.kind })),
             data: seedData,
-            semanticCandidateCount: 0,
+            semanticCandidateCount: semantic.metadata.channelCandidateCounts.semantic,
+            ...(parsed.retrievalMode === 'hybrid' ? { hybridCandidateCount: 0 } : {}),
             deduplicatedCount: seedData.length,
             permissionFilteredCount: permissionFilteredCount + namespace.permissionFilteredCount,
             dataEgress: true,
@@ -693,6 +689,7 @@ async function knowledgeSearch(
     });
 
     const ordered = [...accumulated.values()].sort((left, right) => {
+        if (parsed.retrievalMode === 'hybrid' && left.semanticRank !== right.semanticRank) return left.semanticRank - right.semanticRank;
         const leftNamed = readStringField(blockById.get(left.targetId) ?? {}, 'name').trim().length > 0;
         const rightNamed = readStringField(blockById.get(right.targetId) ?? {}, 'name').trim().length > 0;
         if (leftNamed !== rightNamed) return leftNamed ? -1 : 1;
@@ -741,7 +738,10 @@ async function knowledgeSearch(
             name: readStringField(row, 'name'),
             alias: readStringField(row, 'alias'),
             content: readStringField(row, 'content', 'markdown'),
-            semanticRank: item.semanticRank,
+            ...(parsed.retrievalMode === 'hybrid' ? { fusionRank: item.semanticRank } : { semanticRank: item.semanticRank }),
+            ...(parsed.retrievalMode === 'hybrid' ? { retrievalSources: [...new Set(semanticBlocks
+                .filter((block) => item.sourceResultIds.includes(readStringField(block, 'id')))
+                .flatMap((block) => Array.isArray(block.retrievalSources) ? block.retrievalSources as string[] : []))] } : {}),
             collapsedReferenceCount: item.collapsedReferenceCount,
             sourceResultIds: item.sourceResultIds,
             relatedDocuments: relatedByTarget.get(item.targetId) ?? [],
@@ -749,28 +749,41 @@ async function knowledgeSearch(
     });
     const seedData = namespace.seeds.map((item) => namespaceResultItem(item, namespace.trust.get(item.id)));
     const seenIds = new Set<string>();
-    const data = [...seedData, ...semanticData]
-        .filter((item) => {
-            const id = readStringField(item, 'id');
-            if (!id || seenIds.has(id)) return false;
-            seenIds.add(id);
-            return true;
-        })
-        .slice(0, pageSize)
-        .map((item, index) => ({ ...item, deduplicatedRank: index + 1 }));
+    const candidates = [...seedData, ...semanticData].filter((item) => {
+        const id = readStringField(item, 'id');
+        if (!id || seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+    });
+    let contextStatus: Record<string, unknown> | undefined;
+    if (parsed.includeContext || parsed.rerank) {
+        try {
+            await attachKnowledgeContext(client, permMgr, candidates);
+            const attachedCount = candidates.slice(0, 20).filter((item) => 'context' in item).length;
+            contextStatus = { status: attachedCount > 0 ? 'attached' : 'unavailable', attachedCount, candidateLimit: 20 };
+        } catch { contextStatus = { status: 'unavailable' }; }
+    }
+    const rerankStatus = parsed.rerank ? await rerankKnowledgeCandidates(client, permMgr, parsed.query, candidates) : undefined;
+    const data = candidates.slice(0, pageSize).map((item, index) => ({ ...item, deduplicatedRank: index + 1 }));
     return createJsonResult({
         query: parsed.query,
-        retrievalMode: namespace.seeds.length > 0 ? 'namespace_seeded_semantic' : 'semantic_fallback',
+        retrievalMode: parsed.retrievalMode === 'hybrid' ? 'hybrid' : namespace.seeds.length > 0 ? 'namespace_seeded_semantic' : 'semantic_fallback',
+        ...semantic.metadata,
+        ...(contextStatus ? { contextStatus } : {}),
+        ...(rerankStatus ? { rerank: rerankStatus } : {}),
         namespaceSeeds: namespace.seeds.map((item) => ({ id: item.id, token: item.token, kind: item.kind })),
         data,
-        semanticCandidateCount: semanticBlocks.length,
+        semanticCandidateCount: semantic.metadata.channelCandidateCounts.semantic,
+        ...(parsed.retrievalMode === 'hybrid' ? { hybridCandidateCount: semanticBlocks.length } : {}),
         deduplicatedCount: new Set([...namespace.seeds.map((item) => item.id), ...ordered.map((item) => item.targetId)]).size,
         showing: data.length,
         truncated: ordered.length + namespace.seeds.length > data.length,
         permissionFilteredCount: permissionFilteredCount + blockRowsPermission.removedCount + namespace.permissionFilteredCount,
         dataEgress: true,
         externalCost: true,
-        retrievalProtocol: namespace.seeds.length > 0
+        retrievalProtocol: parsed.retrievalMode === 'hybrid'
+            ? ['namespace_probe', 'keyword_recall', 'semantic_discovery', 'reciprocal_rank_fusion', 'reference_collapse']
+            : namespace.seeds.length > 0
             ? ['namespace_probe', 'namespace_seed', 'semantic_discovery', 'reference_collapse', 'named_atom_confirmation', 'related_document_expansion']
             : ['namespace_probe', 'semantic_discovery', 'reference_collapse', 'named_atom_confirmation', 'related_document_expansion'],
         hint: 'Semantic results are candidates, not evidence. Read the returned block by stable ID and verify its source/verification attributes before reuse.',

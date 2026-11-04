@@ -79,3 +79,15 @@
 命中包含 `blockId`，响应的 `lineBasis=block` 表示 `line` 是该块 Markdown 的一基行号；虚拟文件命中没有块 ID，行号仍相对于虚拟文件。文档标题、列表或引述等容器的外层格式，以及导出生成的内容不在搜索正文中。相同文档路径下不同块的相同行不会互相覆盖。
 
 普通查询会在内核筛候选；任意 JavaScript 正则、空查询仍扫描已授权范围，每页均重新计算该范围的命中。大范围自然语言检索优先 `search.fulltext`，并传真实笔记本 ID 与存储路径作为 `paths`；全文索引的分词结果不等同于 Markdown 逐行匹配。SQL 索引可能暂时落后于刚写入的内容，必要时按块 ID 回读核实。
+
+## 显式跨行搜索
+
+`search` 的 `matchScope` 默认为 `line`，保留逐行布尔匹配及原有搜索范围。`block` 在每个原始叶块 Markdown 内返回非重叠匹配，包含 `blockId`、块内起止行 `line/endLine` 和匹配原文 `text`。长原文仍使用既有 200 字符摘要及截断标记。
+
+`document` 仅接受明确的单文档路径，不搜索其子文档，也不把笔记本串成一份文档。它按与 fs.read 相同的原生展示块真实顺序读取完整 Kramdown，构建与 `fs.read` 相同的可编辑 Markdown，再以空行连接。命中的 `line/endLine` 是拼接正文的一基行号，响应标明 `lineBasis=document`；`blockId/endBlockId`、`blockIds`、`blockLine/endBlockLine` 将匹配范围映射回真实展示块。容器的后代内容包含在该容器的 Markdown 中，其引用边界为容器块。
+
+JavaScript 正则中的 `.` 仍默认不匹配换行；跨行查询请显式使用 `Thams[\s\S]*JMLR` 等表达式。跨行模式要求非空查询，虚拟文件保留 `line` 模式。单文档读取超过 10000 个展示块、2 MiB 正文或有任一块读取不完整时直接报错，不以部分内容伪报无命中。整个流程不调用导出接口或执行嵌入 SQL。
+
+```json
+{ "action": "search", "path": "/工作日志/项目/项目进度协作", "query": "Thams[\\s\\S]*JMLR", "regex": true, "caseSensitive": true, "matchScope": "document" }
+```

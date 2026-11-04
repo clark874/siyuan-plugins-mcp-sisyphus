@@ -503,7 +503,7 @@
 - MCP Actions: 115个
 
 
-### 3.8.9 增量字段（0.13.1）
+### 3.8.9 增量字段（0.14.0）
 
 保持原聚合动作数量：`document.lookup(segments,parentID)` → `/api/filetree/resolveDocPath`；`lookup(id,include=["identity"])` → `getDocPaths`；`document.create(parentID,title,expectedParentRevision)` → `createDocByParent`。`fs` 字符串路径遇到内核歧义或索引错误时停止，不回退 SQL。
 
