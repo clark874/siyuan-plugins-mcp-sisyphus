@@ -57,6 +57,7 @@ export const SEARCH_GUIDANCE = [
     'Asset filename, OCR, and asset-content search are intentionally excluded.',
 ];
 export const LITERATURE_GUIDANCE = [
+    '用 find_evidence 发现或查询思源文献库，直接返回可打开的原文块。已知 DOI 或题名可精确定位。',
     'Use status first when Zotero availability or upstream tool drift is uncertain.',
     'Use get_citations for paper-wide incoming SiYuan links and locate_quote for exact Zotero Markdown evidence.',
     'The gateway exposes fixed read-only paper, collection, full-text, and annotation operations.',
@@ -143,6 +144,7 @@ export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     criteria_remove: 'Removes one named saved-search criterion after strict validation.',
 };
 export const LITERATURE_ACTION_HINTS: Partial<Record<LiteratureAction, string>> = {
+    find_evidence: '查询已登记的思源文献 AV 并回读正文。向量和 Jev 均须显式启用。',
     status: 'Checks live connectivity, formal tool discovery, advertised-contract drift, libraries, and semantic-index state.',
     list_collections: 'Defaults to the complete nested collection tree.',
     list_collection_items: 'Lists bounded items for one exact collection key.',

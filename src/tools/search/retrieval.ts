@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { SiYuanClient } from '../../api/client';
 import * as searchApi from '../../api/search';
 import type { PermissionManager } from '../../core/permissions';
@@ -78,23 +79,40 @@ export async function retrieveKnowledgeCandidates(client: SiYuanClient, permMgr:
 
 const quote = (value: string) => `'${escapeSqlString(value)}'`;
 const shortText = (value: unknown, limit = 1000) => typeof value === 'string' ? value.slice(0, limit) : '';
+export const literatureRoleAttribute = 'custom-literature-role';
+const literatureRoleDigestAttribute = 'custom-literature-role-sha256';
+const nonEvidenceRoles = new Set(['abstract', 'references', 'metadata', 'caption']);
+export const literatureRoleProjection = `
+    (SELECT a.value FROM attributes a WHERE a.block_id=b.id AND a.name='${literatureRoleAttribute}' LIMIT 1) AS literature_role,
+    (SELECT a.value FROM attributes a WHERE a.block_id=b.id AND a.name='${literatureRoleDigestAttribute}' LIMIT 1) AS literature_role_digest`;
+
+export function currentLiteratureRole(row: { content?: string; literature_role?: string; literature_role_digest?: string }) {
+    if (!row.literature_role) return 'unknown';
+    if (row.literature_role_digest && (typeof row.content !== 'string' ||
+        createHash('sha256').update(row.content).digest('hex') !== row.literature_role_digest)) return 'unknown';
+    return row.literature_role;
+}
+
+export const isLiteratureEvidenceRole = (row: Parameters<typeof currentLiteratureRole>[0]) => !nonEvidenceRoles.has(currentLiteratureRole(row));
 
 /** 同级邻块与标题由原始块表取得，所有补充文本重新按笔记本权限筛选。 */
-export async function attachKnowledgeContext(client: SiYuanClient, permMgr: PermissionManager, candidates: Candidate[]) {
+export async function attachKnowledgeContext(client: SiYuanClient, permMgr: PermissionManager, candidates: Candidate[], literature = false) {
     const selected = candidates.slice(0, 20).filter((item) => typeof item.id === 'string' && permMgr.canRead(String(item.box ?? '')));
     if (!selected.length) return;
+    // 根文档与笔记本仍须相同；一元加号避免优化器误选整本索引，邻块优先按 parent_id 查找。
     const neighbors = await searchApi.querySQL(client, `SELECT b.id, b.root_id, b.box,
-        (SELECT p.id FROM blocks p WHERE p.parent_id = b.parent_id AND p.root_id = b.root_id AND p.box = b.box AND (p.sort < b.sort OR (p.sort = b.sort AND p.id < b.id)) ORDER BY p.sort DESC, p.id DESC LIMIT 1) AS before_id,
-        (SELECT n.id FROM blocks n WHERE n.parent_id = b.parent_id AND n.root_id = b.root_id AND n.box = b.box AND (n.sort > b.sort OR (n.sort = b.sort AND n.id > b.id)) ORDER BY n.sort, n.id LIMIT 1) AS after_id,
-        (SELECT h.id FROM blocks h WHERE h.parent_id = b.parent_id AND h.root_id = b.root_id AND h.box = b.box AND h.type = 'h' AND h.sort <= b.sort ORDER BY h.sort DESC LIMIT 1) AS heading_id
+        (SELECT p.id FROM blocks p WHERE p.parent_id = b.parent_id AND +p.root_id = b.root_id AND +p.box = b.box AND (p.sort < b.sort OR (p.sort = b.sort AND p.id < b.id)) ORDER BY p.sort DESC, p.id DESC LIMIT 1) AS before_id,
+        (SELECT n.id FROM blocks n WHERE n.parent_id = b.parent_id AND +n.root_id = b.root_id AND +n.box = b.box AND (n.sort > b.sort OR (n.sort = b.sort AND n.id > b.id)) ORDER BY n.sort, n.id LIMIT 1) AS after_id,
+        (SELECT h.id FROM blocks h WHERE h.parent_id = b.parent_id AND +h.root_id = b.root_id AND +h.box = b.box AND h.type = 'h' AND h.sort <= b.sort ORDER BY h.sort DESC LIMIT 1) AS heading_id
         FROM blocks b WHERE b.id IN (${selected.map((item) => quote(item.id)).join(',')}) LIMIT 20`) as Candidate[];
     const ids = [...new Set(neighbors.flatMap((row) => [row.id, row.root_id, row.before_id, row.after_id, row.heading_id]).filter((id): id is string => typeof id === 'string' && id.length > 0))];
     if (!ids.length) return;
-    const rows = await searchApi.querySQL(client, `SELECT id, box, content, markdown FROM blocks WHERE id IN (${ids.map(quote).join(',')}) LIMIT 100`) as Candidate[];
+    const roleColumn = literature ? `, ${literatureRoleProjection}` : '';
+    const rows = await searchApi.querySQL(client, `SELECT id, box, content, markdown${roleColumn} FROM blocks b WHERE id IN (${ids.map(quote).join(',')}) LIMIT 100`) as Candidate[];
     const byId = new Map(rows.filter((row) => row && typeof row.id === 'string' && permMgr.canRead(String(row.box ?? ''))).map((row) => [row.id, row]));
-    const snippet = (id: string) => {
+    const snippet = (id: string, forEvidence = false) => {
         const row = byId.get(id);
-        if (!row) return undefined;
+        if (!row || (literature && forEvidence && !isLiteratureEvidenceRole(row))) return undefined;
         const full = String(row.markdown || row.content || '');
         return { id, text: full.slice(0, 1000), truncated: full.length > 1000 };
     };
@@ -103,7 +121,7 @@ export async function attachKnowledgeContext(client: SiYuanClient, permMgr: Perm
         if (!row || !byId.has(item.id)) continue;
         item.context = {
             documentTitle: shortText(byId.get(row.root_id)?.content, 200),
-            heading: snippet(row.heading_id), before: snippet(row.before_id), after: snippet(row.after_id),
+            heading: snippet(row.heading_id), before: snippet(row.before_id, true), after: snippet(row.after_id, true),
             complete: [row.root_id, row.before_id, row.after_id, row.heading_id].filter(Boolean).every((id) => byId.has(id)),
         };
     }

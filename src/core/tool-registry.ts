@@ -74,7 +74,7 @@ const TOOL_TITLES: Record<ToolCategory, string> = {
     file: 'SiYuan Assets and Exports',
     project: 'SiYuan Project Memory',
     search: 'SiYuan Search',
-    literature: 'Zotero Literature',
+    literature: '文献库与 Zotero',
     tag: 'SiYuan Tags',
     timeline: 'SiYuan History',
     system: 'SiYuan System',

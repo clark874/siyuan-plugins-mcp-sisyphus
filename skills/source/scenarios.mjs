@@ -27,7 +27,7 @@ If a scenario Skill is not installed as a local folder, read its stable Skills-o
 | Scenario | Skill |
 | --- | --- |
 | Browse notebooks, documents, paths, IDs, and blocks | {{skill browse-read}} |
-| 用户明确启动“文献链路”或“重点文献链路”；或需要读取 Zotero 论文与思源引文 | {{skill literature-source}} |
+| 查询思源文献原文或核查稿件依据；或明确使用 Zotero 文献链路 | {{skill literature-source}} |
 | Create documents or edit blocks | {{skill create-edit}} |
 | Fulltext, SQL, backlinks, references, and replacement | {{skill search-query}} |
 | Capture web sources, deduplicate them, and merge knowledge with provenance | {{skill knowledge-ingest}} |
@@ -76,7 +76,11 @@ Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \
         displayName: 'Zotero Literature Source',
         shortDescription: 'Search and read local Zotero papers safely',
         defaultPrompt: 'Use $NAME to locate and read the requested papers or annotations from the local Zotero library.',
-        body: `Use Sisyphus as the only MCP gateway. The \`literature\` tool reaches the local Zotero MCP through a fixed read-only allowlist and removes absolute attachment paths from returned data. It does not expose item, collection, tag, note, metadata, or semantic-index mutations.
+        body: `核查稿件或查读已有全文时，先从 system.bootstrap 的 literature.libraries 或 project.snapshot 发现文献库，再调用 literature.find_evidence。已知 DOI、题名或正文标识直接定位。自然语言问题可同时给出原文检索词。依据返回的原文块与章节继续核读。向量与 Jev 需要显式开启。此路径只读，Zotero 书目或批注可按需查询。
+
+探索性文献发现走独立学术检索技能，候选选定后按 citation-check 核对书目。已准备好的 Markdown 通过接入包 ingest-literature-batch.mjs 批量登记，统一回读 Zotero、思源正文和 AV。配置 NotebookLM 目标时，同一入口完成建库或增量上传，回读后生成问答来源范围。开放式跨文献问题用版本化模板，拟采用的主张逐条回到 AV 和本地原文。只有证据缺口、反例查找等情形才扩大检索，候选过多时才开启 Jev。既有全文用 tag-literature-roles.mjs 先预览后补标。
+
+以下流程适用于需要 Zotero 的文献任务。Use Sisyphus as the only MCP gateway. The \`literature\` tool reaches the local Zotero MCP through a fixed read-only allowlist and removes absolute attachment paths from returned data. It does not expose item, collection, tag, note, metadata, or semantic-index mutations.
 
 For a SiYuan discussion that cites a paper, use \`get_citations\` with the paper document ID to retrieve indexed incoming links to the document and its source blocks. Ordinary \`search.get_backlinks\` targets one block or document ID; it can search globally without \`refTreeID\` or use a source document tree when \`refTreeID\` is provided, but it does not replace the paper-wide query. Read the citing discussion block and the surrounding source section before making a claim.
 

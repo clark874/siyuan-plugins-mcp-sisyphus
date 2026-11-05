@@ -87,3 +87,24 @@ export const LiteratureGetAnnotationsSchema = z.object({
         });
     }
 });
+
+const SiYuanId = z.string().regex(/^\d{14}-[a-z0-9]{7}$/);
+const TextCriterion = z.string().trim().min(1).max(300);
+
+export const LiteratureFindEvidenceSchema = z.object({
+    action: z.literal('find_evidence'),
+    catalogBlockId: SiYuanId.optional().describe('文献库目录块标识，来自系统或项目入口'),
+    projectId: z.string().trim().min(1).max(100).optional(),
+    documentId: SiYuanId.optional(),
+    doi: TextCriterion.optional(),
+    title: TextCriterion.optional().describe('精确题名'),
+    zoteroKey: z.string().trim().regex(/^[A-Z0-9]{8}$/i).optional(),
+    author: TextCriterion.optional(),
+    year: z.number().int().min(1000).max(9999).optional(),
+    query: z.string().trim().min(1).max(500).optional().describe('研究问题，可与书目条件同时使用'),
+    keywords: z.array(TextCriterion).max(4).optional().describe('可选的原文检索词，适合跨语言问题'),
+    semantic: z.boolean().optional().describe('允许调用配置的嵌入服务补召回，默认关闭'),
+    rerank: z.boolean().optional().describe('允许将已授权短候选发送给配置的 Jev 服务，默认关闭'),
+    limit: z.number().int().min(1).max(200).optional().describe('最终证据块数，默认20，不限制召回或精排池'),
+    offset: z.number().int().min(0).optional().describe('已召回候选池内的输出偏移量，默认0'),
+}).strict();

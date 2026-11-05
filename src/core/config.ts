@@ -12,7 +12,7 @@ export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attr
 export const FILE_ACTIONS = ['register_project_source', 'identify_project', 'scan_project_manifest', 'resolve_project_source', 'read_project_source', 'list_project_sources'] as const;
 export const PROJECT_ACTIONS = ['snapshot', 'sync_mindmap'] as const;
 export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'check_anchor', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'list_invalid_refs', 'criteria_list', 'criteria_save', 'criteria_remove'] as const;
-export const LITERATURE_ACTIONS = ['status', 'list_collections', 'list_collection_items', 'search_papers', 'get_paper', 'get_citations', 'locate_quote', 'get_annotations'] as const;
+export const LITERATURE_ACTIONS = ['find_evidence', 'status', 'list_collections', 'list_collection_items', 'search_papers', 'get_paper', 'get_citations', 'locate_quote', 'get_annotations'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'compare_recent'] as const;
 export const TIMELINE_APP_ACTIONS = ['list_nodes', 'create_node', 'compare_node'] as const;
@@ -239,7 +239,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         criteria_list: 'advanced', criteria_save: 'advanced', criteria_remove: 'advanced',
     },
     literature: {
-        status: 'basic', list_collections: 'basic', list_collection_items: 'basic',
+        find_evidence: 'basic', status: 'basic', list_collections: 'basic', list_collection_items: 'basic',
         search_papers: 'basic', get_paper: 'basic', get_citations: 'basic', locate_quote: 'basic', get_annotations: 'basic',
     },
     tag: {

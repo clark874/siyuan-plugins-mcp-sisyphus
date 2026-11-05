@@ -5,6 +5,7 @@ import { buildChangelogResponse } from '../../core/changelog';
 import {
     AGENT_MEMORY_VIRTUAL_PATH,
     AV_ACTIONS,
+    LITERATURE_ACTIONS,
     FS_ACTIONS,
     SEARCH_ACTIONS,
     TIMELINE_ACTIONS,
@@ -23,6 +24,7 @@ import {
 } from '../../core/types';
 import { validateSourceAuditBundle } from '../../shared/source-audit-contract';
 import type { ToolActionHandler } from '../internal/define-tool';
+import { discoverLiteratureLibraries } from '../literature/library';
 import { createJsonResult } from '../internal/shared';
 
 function summarizeCapability<Action extends string>(config: CategoryToolConfig<Action>, actions: readonly Action[]) {
@@ -38,6 +40,7 @@ function buildBootstrapCapabilities(config: Awaited<ReturnType<typeof loadToolCo
         fs: summarizeCapability(config.fs, FS_ACTIONS),
         search: summarizeCapability(config.search, SEARCH_ACTIONS),
         av: summarizeCapability(config.av, AV_ACTIONS),
+        literature: summarizeCapability(config.literature, LITERATURE_ACTIONS),
         timeline: summarizeCapability(config.timeline, TIMELINE_ACTIONS),
         virtualReference: { mode: 'indirect-only', directRead: false },
     };
@@ -176,6 +179,10 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
         }];
     });
     const capabilities = buildBootstrapCapabilities(toolConfigResult.config);
+    const literature = capabilities.literature.actions.find_evidence
+        ? await discoverLiteratureLibraries(client, permMgr).then(libraries => ({ status: 'available', libraries }))
+            .catch(() => ({ status: 'unavailable', libraries: [] }))
+        : { status: 'disabled', libraries: [] };
     const primaryOpenNotebook = notebooks.find((notebook) => !notebook.closed);
     const agentMemory = getAgentMemoryStatus(
         toolConfigResult.config.agentSiyuanMemoryText ?? '',
@@ -201,6 +208,7 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
             helpResource: 'siyuan://help/write-safety',
         },
         capabilities,
+        literature,
         pathGuide: {
             workspacePath: '/Notebook/Folder/Doc (human-readable, used by fs)',
             rootPath: '/ lists all readable notebooks',

@@ -1,6 +1,6 @@
 # Tools Index
 
-The maintained LLM Wiki surface contains 14 aggregated tools and 108 actions. Each tool also accepts `action="help"`; dynamic official-plugin actions discovered through `extension` are not counted.
+The maintained LLM Wiki surface contains 14 aggregated tools and 109 actions. Each tool also accepts `action="help"`; dynamic official-plugin actions discovered through `extension` are not counted.
 
 | Tool | Actions |
 | --- | --- |
@@ -12,7 +12,7 @@ The maintained LLM Wiki surface contains 14 aggregated tools and 108 actions. Ea
 | `file` | register_project_source, identify_project, scan_project_manifest, resolve_project_source, read_project_source, list_project_sources |
 | `project` | snapshot, sync_mindmap |
 | `search` | fulltext, semantic, knowledge, check_anchor, query_sql, get_backlinks, search_refs, find_replace, list_invalid_refs, criteria_list, criteria_save, criteria_remove |
-| `literature` | status, list_collections, list_collection_items, search_papers, get_paper, get_citations, locate_quote, get_annotations |
+| [`literature`](./literature) | find_evidence, status, list_collections, list_collection_items, search_papers, get_paper, get_citations, locate_quote, get_annotations |
 | `provenance` | register_session, record_event, discover_session, list_project_sessions, list_atom_events, resolve_session_link, validate_session |
 | `tag` | list, rename, remove |
 | `timeline` | list_nodes, create_node, compare_node, compare_recent |

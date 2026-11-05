@@ -100,7 +100,7 @@ function renderToolOverview(): string {
     return [
         '# SiYuan MCP Tool Overview',
         '',
-        'This server exposes 14 aggregated tools. Use `fs` first for basic path-style notebook and document operations; use `literature` for bounded read-only Zotero access.',
+        'This server exposes 14 aggregated tools. Use `fs` first for basic path-style notebook and document operations; use `literature` for read-only SiYuan evidence and Zotero access.',
         '',
         '## High-risk actions',
         '',

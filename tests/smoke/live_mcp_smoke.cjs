@@ -31,7 +31,7 @@ function assertSurface(tools, expectNativeExtensions = false) {
     const extension = tools.find((tool) => tool.name === 'extension');
     const extensionActions = (extension?.inputSchema?.properties?.action?.enum ?? []).filter((action) => action !== 'help');
     assert.deepEqual(extensionActions, expectNativeExtensions ? EXPECTED_EXTENSION_ACTIONS : ['list']);
-    assert.equal(actions.length, expectNativeExtensions ? 107 : 102);
+    assert.equal(actions.length, expectNativeExtensions ? 114 : 109);
     const surface = JSON.stringify({ names: tools.map((tool) => tool.name), actions });
     for (const removed of REMOVED) assert.equal(surface.includes(`"${removed}"`), false, `仍暴露旧动作：${removed}`);
 }
@@ -96,7 +96,7 @@ async function main() {
     const version = await runInMemory();
     const inMemoryOnly = process.argv.includes('--in-memory-only');
     if (!inMemoryOnly) await runHttp();
-    console.log(`Live smoke passed: SiYuan ${version}, 14 tools, 102 maintained actions${inMemoryOnly ? ' (new build, in-memory gateway)' : ', 5 allowlisted native extension entrypoints'}.`);
+    console.log(`Live smoke passed: SiYuan ${version}, 14 tools, 109 enabled actions${inMemoryOnly ? ' (new build, in-memory gateway)' : ', 5 allowlisted native extension entrypoints'}.`);
 }
 
 main().catch((error) => {

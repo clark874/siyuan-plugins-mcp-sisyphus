@@ -1,6 +1,7 @@
 import type { LiteratureAction } from '../../core/config';
 import { ensurePermissionForDocumentId } from '../internal/context';
 import { filterItemsByPermission } from '../search/permission-filter';
+import { findLiteratureEvidence } from './library';
 import { queryDocumentCitations } from './citations';
 import { locateMarkdownQuote } from './source-locator';
 import {
@@ -12,6 +13,7 @@ import { defineTool } from '../internal/define-tool';
 import { createJsonResult, createZodActionVariant, type ActionVariant } from '../internal/shared';
 import {
     LiteratureActionSchema,
+    LiteratureFindEvidenceSchema,
     LiteratureGetAnnotationsSchema,
     LiteratureGetCitationsSchema,
     LiteratureGetPaperSchema,
@@ -25,6 +27,7 @@ import {
 export const LITERATURE_TOOL_NAME = 'literature';
 
 export const LITERATURE_VARIANTS: ActionVariant<LiteratureAction>[] = [
+    createZodActionVariant('find_evidence', LiteratureFindEvidenceSchema, '发现思源文献目录，定位论文并回读原文证据。省略查询条件时返回目录概况或可选目录。'),
     createZodActionVariant('status', LiteratureStatusSchema, 'Check the local Zotero source and detect upstream MCP contract drift.'),
     createZodActionVariant('list_collections', LiteratureListCollectionsSchema, 'List Zotero collections without exposing local attachment paths.'),
     createZodActionVariant('list_collection_items', LiteratureListCollectionItemsSchema, 'List papers in one Zotero collection.'),
@@ -41,16 +44,17 @@ function withLibraryId(libraryId: number | undefined): Record<string, unknown> {
 
 const literatureTool = defineTool<LiteratureAction>({
     name: LITERATURE_TOOL_NAME,
-    description: '📚 Read Zotero papers, locate Markdown evidence, and inspect SiYuan citations through one bounded gateway.',
+    description: '📚 查询思源文献库及其正文证据，并通过只读入口核对 Zotero 书目和批注。',
     variants: LITERATURE_VARIANTS,
     actionSchema: LiteratureActionSchema,
     aggregateOptions: {
         guidance: [
-            'Requires the local Zotero application and its MCP plugin on 127.0.0.1:23120.',
+            '思源正文用 find_evidence，可直接只读调用。Zotero 专属动作依赖本机 Zotero MCP。',
             'Only a fixed read-only upstream allowlist is reachable; mutation and semantic-index actions are not exposed.',
         ],
     },
     handlers: {
+        find_evidence: findLiteratureEvidence,
         status: async ({ rawArgs }) => {
             LiteratureStatusSchema.parse(rawArgs);
             try {

@@ -682,7 +682,13 @@ const projectTool = defineTool<ProjectAction>({
             const parsed = ProjectSnapshotSchema.parse(rawArgs);
             const result = await buildSnapshot(client, permMgr, parsed);
             if ('denied' in result && result.denied) return result.denied as ToolResult;
-            return createJsonResult({ action: parsed.action, ...result });
+            const projectId = result.project?.projectId;
+            const config = projectId ? await loadToolConfigFromApiFileWithStatus(client) : undefined;
+            const literature = projectId && config?.ok && config.config.literature.enabled && config.config.literature.actions.find_evidence
+                ? await import('../literature/library').then(({ discoverLiteratureLibraries }) => discoverLiteratureLibraries(client, permMgr, projectId))
+                    .then(libraries => ({ status: 'available', libraries })).catch(() => ({ status: 'unavailable', libraries: [] }))
+                : undefined;
+            return createJsonResult({ action: parsed.action, ...result, ...(literature ? { literature } : {}) });
         },
     },
 });

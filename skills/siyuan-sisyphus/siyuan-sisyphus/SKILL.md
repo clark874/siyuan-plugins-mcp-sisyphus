@@ -41,7 +41,7 @@ If a scenario Skill is not installed as a local folder, read its stable Skills-o
 | Scenario | Skill |
 | --- | --- |
 | Browse notebooks, documents, paths, IDs, and blocks | `siyuan-sisyphus-browse-read` |
-| 用户明确启动“文献链路”或“重点文献链路”；或需要读取 Zotero 论文与思源引文 | `siyuan-sisyphus-literature-source` |
+| 查询思源文献原文或核查稿件依据；或明确使用 Zotero 文献链路 | `siyuan-sisyphus-literature-source` |
 | Create documents or edit blocks | `siyuan-sisyphus-create-edit` |
 | Fulltext, SQL, backlinks, references, and replacement | `siyuan-sisyphus-search-query` |
 | Capture web sources, deduplicate them, and merge knowledge with provenance | `siyuan-sisyphus-knowledge-ingest` |
