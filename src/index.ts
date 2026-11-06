@@ -41,6 +41,7 @@ import McpConfig from "@/ui/setting/mcp-config.svelte";
 import { LITERATURE_PROFILE_FILE, defaultLiteratureProfile, normalizeLiteratureProfile, validateLiteratureProfile, type LiteratureProfile } from "@/ui/literature/settings";
 import { LiteratureReading, readLiteratureAttrs } from "@/ui/literature/reading";
 import TranslationPanel from "@/ui/literature/TranslationPanel.svelte";
+import type { TranslationProgress } from "@/ui/literature/desktop-runner";
 import { runLiteratureTask } from "@/ui/literature/desktop-runner";
 import SnapshotPanel from "@/ui/version-control/SnapshotPanel.svelte";
 import VersionDiffPanel from "@/ui/version-control/VersionDiffPanel.svelte";
@@ -147,6 +148,7 @@ export default class SiyuanMCP extends Plugin {
             return this.translationDockElement?.querySelector<HTMLElement>(".translation-reading-editor") ?? null;
         });
     private readonly translationsRunning = new Set<string>();
+    private readonly translationProgress = new Map<string, TranslationProgress>();
     private literatureBatchRunning = false;
     private translationPanel: TranslationPanel | null = null;
     private translationDockType = "";
@@ -599,7 +601,7 @@ export default class SiyuanMCP extends Plugin {
             const translationId = sourceAttrs["custom-literature-translation-id"] || "";
             this.translationPanel?.$set({
                 documentId: sourceId, documentTitle: this.literatureDocument.title,
-                translationId, running: this.translationsRunning.has(sourceId),
+                translationId, running: this.translationsRunning.has(sourceId), progress: this.translationProgress.get(sourceId) ?? null,
                 ...(!this.literatureReading.isOpen(sourceId) ? {
                     status: this.translationsRunning.has(sourceId) ? "正在翻译全文，可继续阅读原文。" : translationId ? "已有中文译文，可开启双屏对照。" : "此文档尚无中文译文。",
                 } : {}),
@@ -696,12 +698,19 @@ export default class SiyuanMCP extends Plugin {
         confirm("翻译论文全文", "将用本机 mdtx 配置处理当前论文全文。若配置使用外部模型，正文会发送到该服务并产生调用费用。完成后在原文下归档中文译文。", () => {
             if (this.translationsRunning.has(documentId)) return;
             this.translationsRunning.add(documentId);
+            const initial = { stage: "读取原文与文献角色标记" };
+            this.translationProgress.set(documentId, initial);
+            this.translationPanel?.$set({ progress: initial });
             this.translationPanel?.$set({ running: true, status: "正在翻译全文，可继续阅读原文。" });
             showMessage("文献全文翻译已启动。");
             void runLiteratureTask<{ translationId: string }>(
                 this.name, this.httpSettings, "translate-literature.mjs", [],
                 { documentId, settings: translation, zoteroApiKeyEnv: zotero.apiKeyEnv },
                 this.getLiteratureCredentials([translation.apiKeyEnv]),
+                progress => {
+                    this.translationProgress.set(documentId, progress);
+                    if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ progress });
+                },
             ).then(async () => {
                 showMessage("中文译文已归档。");
                 if (this.literatureDocument.id === documentId) {
@@ -710,7 +719,9 @@ export default class SiyuanMCP extends Plugin {
                 }
             }).catch(error => {
                 showMessage(String(error.message));
-                if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ status: String(error.message) });
+                const progress = { stage: "翻译未完成，请按提示处理后续跑" };
+                this.translationProgress.set(documentId, progress);
+                if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ status: String(error.message), progress });
             }).finally(() => {
                 this.translationsRunning.delete(documentId);
                 if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ running: false });

@@ -4,7 +4,7 @@
 
 项目原生思维导图：思源 3.8.6 及以上可调用 `project.sync_mindmap`，首次严格预检并生成后，经 Sisyphus 提交项目事件、正文或状态属性时自动增量同步。保留存续块 ID 和显示配置；人工改写管理节点或结构时停止并报告待同步。具体边界与用法见 [升级方案](https://github.com/clark874/siyuan-plugins-mcp-sisyphus/blob/main/docs/plans/2026-09-30-v0.11.0-project-mindmap.md)。
 
-> **LLM Wiki 分支：** `v0.16.1` 提供思源文献设置、三端批量入库及中英文对照阅读。推荐思源 `v3.8.9`。
+> **LLM Wiki 分支：** `v0.16.2` 提供思源文献设置、三端批量入库及中英文对照阅读。推荐思源 `v3.8.9`。
 
 <p align="left">
   <a href="https://www.npmjs.com/package/siyuan-sisyphus">
