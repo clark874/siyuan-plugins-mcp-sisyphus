@@ -10,7 +10,7 @@ function identity(name, value) {
     return name === 'DOI' ? normalized.replace(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi\s*:\s*)/, '') : normalized;
 }
 
-async function write(call, tool, args, verifyPlan) {
+export async function writeLiteratureRecord(call, tool, args, verifyPlan) {
     const pre = await call(tool, { ...args, validateOnly: true });
     if (!pre.issuedRequestId) throw Error('未取得严格写入请求标识');
     const fields = { requestId: pre.issuedRequestId };
@@ -72,13 +72,13 @@ export async function finalizeLiteratureIngest(call, paper, execute = false) {
     if (!execute) return { status: '预览', documentId, avID, roleCount: roles.pending, addRow: !av.rowID, fieldsToFill: av.cells.length };
     av = await plan();
     if (!av.rowID) {
-        await write(call, 'av', { action: 'add_rows', avID, blockIDs: [documentId] }, async () => {
+        await writeLiteratureRecord(call, 'av', { action: 'add_rows', avID, blockIDs: [documentId] }, async () => {
             if ((await plan()).rowID) throw Error('目录绑定在预检期间变化，请重跑');
         });
         av = await plan();
         if (!av.rowID) throw Error('目录绑定后未读到唯一行');
     }
-    if (av.cells.length) await write(call, 'av', { action: 'set_cells', avID, cells: av.cells }, async () => {
+    if (av.cells.length) await writeLiteratureRecord(call, 'av', { action: 'set_cells', avID, cells: av.cells }, async () => {
         const live = await plan();
         if (live.rowID !== av.rowID || JSON.stringify(live.cells) !== JSON.stringify(av.cells)) throw Error('待补目录字段在预检期间变化，请重跑');
     });

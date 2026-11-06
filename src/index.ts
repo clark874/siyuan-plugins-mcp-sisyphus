@@ -3,6 +3,7 @@ import {
     showMessage,
     Dialog,
     getAllEditor,
+    confirm,
 } from "siyuan";
 import * as siyuanApi from "siyuan";
 import "./index.scss";
@@ -37,6 +38,9 @@ import {
 } from "@/ui/permission-tree-indicator";
 import { emitToolConfigWarningOnce } from "@/core/config";
 import McpConfig from "@/ui/setting/mcp-config.svelte";
+import { LITERATURE_PROFILE_FILE, defaultLiteratureProfile, normalizeLiteratureProfile, validateLiteratureProfile, type LiteratureProfile } from "@/ui/literature/settings";
+import { LiteratureReading, readLiteratureAttrs } from "@/ui/literature/reading";
+import { runLiteratureTask } from "@/ui/literature/desktop-runner";
 import SnapshotPanel from "@/ui/version-control/SnapshotPanel.svelte";
 import VersionDiffPanel from "@/ui/version-control/VersionDiffPanel.svelte";
 import RecentDocumentsPanel from "@/ui/recent-documents/RecentDocumentsPanel.svelte";
@@ -132,6 +136,11 @@ export default class SiyuanMCP extends Plugin {
     private permissionTreeLoadVersion = 0;
     public httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
     public httpLauncher: HttpServerLauncher | null = null;
+    private literatureProfile = defaultLiteratureProfile();
+    private readonly literatureReading = new LiteratureReading(this, () => this.literatureProfile.translation);
+    private readonly translationsRunning = new Set<string>();
+    private literatureBatchRunning = false;
+    private readonly literatureCredentials = new Map<string, string>();
 
     async onload() {
         appendHttpLifecycleLog("[plugin] onload begin");
@@ -150,6 +159,8 @@ export default class SiyuanMCP extends Plugin {
         this.versionControlSettings = await loadPersistedVersionControlSettings(this);
         this.versionControlSettingsLoaded = true;
         this.registerVersionControlCommand();
+        this.updateLiteratureProfile(normalizeLiteratureProfile(await this.loadData(LITERATURE_PROFILE_FILE).catch(() => null)));
+        this.registerLiteratureReading();
         this.permissionDisplaySettings = await loadPersistedPermissionDisplaySettings(this);
         this.permissionDisplaySettingsLoaded = true;
         appendHttpLifecycleLog(`[plugin] settings loaded: httpEnabled=${this.httpSettings.enabled} timelineEnabled=${this.versionControlSettings.enabled} recentDocumentsEnabled=${this.versionControlSettings.recentDocumentsEnabled}`);
@@ -330,6 +341,11 @@ export default class SiyuanMCP extends Plugin {
     async onunload() {
         appendHttpLifecycleLog("[plugin] onunload begin");
         this.unregisterAgentSessionUrlHandler();
+        this.eventBus.off("loaded-protyle-static", this.handleLiteratureEditor);
+        this.eventBus.off("switch-protyle", this.handleLiteratureEditor);
+        this.eventBus.off("open-menu-breadcrumbmore", this.handleLiteratureMenu);
+        this.literatureReading.reset();
+        this.literatureCredentials.clear();
         this.layoutReady = false;
         this.permissionDisplaySettingsLoaded = false;
         this.disablePermissionTreeFeature();
@@ -493,6 +509,113 @@ export default class SiyuanMCP extends Plugin {
             props: {
                 plugin: this
             }
+        });
+    }
+
+    updateLiteratureProfile(profile: LiteratureProfile) {
+        this.literatureProfile = profile;
+        this.literatureReading.reset();
+    }
+
+    setLiteratureCredentials(profile: LiteratureProfile, zoteroKey: string, translationKey: string) {
+        validateLiteratureProfile(profile);
+        for (const [name, value] of [[profile.zotero.apiKeyEnv, zoteroKey], [profile.translation.apiKeyEnv, translationKey]]) {
+            if (name && value) this.literatureCredentials.set(name, value);
+        }
+    }
+
+    clearLiteratureCredentials() { this.literatureCredentials.clear(); }
+
+    private getLiteratureCredentials(names: string[]) {
+        return Object.fromEntries(names.flatMap(name => {
+            const value = this.literatureCredentials.get(name);
+            return value ? [[name, value]] : [];
+        }));
+    }
+
+    async checkLiteratureRuntime(profile: LiteratureProfile) {
+        validateLiteratureProfile(profile);
+        return runLiteratureTask<Record<string, string>>(this.name, this.httpSettings, "ingest-literature-batch.mjs",
+            ["--desktop", "--check-runtime"], { profile },
+            this.getLiteratureCredentials([profile.zotero.apiKeyEnv, profile.translation.apiKeyEnv]));
+    }
+
+    async runLiteratureBatch(profile: LiteratureProfile, manifest: string, receipt: string, execute: boolean) {
+        if (this.literatureBatchRunning) throw new Error("已有批量文献任务在运行。");
+        if (!HttpServerLauncher.isSupported()) throw new Error("请在思源桌面客户端运行批量入库。");
+        const { isAbsolute } = require("path") as typeof import("path");
+        if (![manifest, receipt].every(isAbsolute)) throw new Error("批次清单与收据须使用本机绝对路径。");
+        this.literatureBatchRunning = true;
+        try {
+            return await runLiteratureTask<{ mode: string; complete?: boolean }>(
+                this.name, this.httpSettings, "ingest-literature-batch.mjs",
+                ["--desktop", "--manifest", manifest, "--receipt", receipt, ...(execute ? ["--execute"] : [])],
+                { profile }, this.getLiteratureCredentials([profile.zotero.apiKeyEnv, profile.translation.apiKeyEnv]),
+            );
+        } finally {
+            this.literatureBatchRunning = false;
+        }
+    }
+
+    private readonly handleLiteratureEditor = (event: CustomEvent) => {
+        const editor = event.detail?.protyle;
+        if (editor?.notebookId === this.literatureProfile.siyuan.notebook && editor.notebookId) {
+            this.literatureReading.onEditorLoaded(editor);
+        }
+    };
+
+    private readonly handleLiteratureMenu = (event: CustomEvent) => {
+        const { protyle, menu } = event.detail ?? {};
+        if (!protyle?.notebookId || protyle.notebookId !== this.literatureProfile.siyuan.notebook) return;
+        const context = this.getDocumentContextFromProtyle(protyle);
+        if (!context) return;
+        menu?.addItem?.({
+            icon: "iconLanguage",
+            label: "生成或更新中文译文",
+            click: () => void this.requestLiteratureTranslation(context.id),
+        });
+        menu?.addItem?.({
+            icon: "iconLayoutRight",
+            label: "打开中英文对照",
+            click: () => void this.literatureReading.open(context.id, true).catch(error => showMessage(error.message)),
+        });
+    };
+
+    private registerLiteratureReading() {
+        this.eventBus.on("loaded-protyle-static", this.handleLiteratureEditor);
+        this.eventBus.on("switch-protyle", this.handleLiteratureEditor);
+        this.eventBus.on("open-menu-breadcrumbmore", this.handleLiteratureMenu);
+        this.addCommand({
+            langKey: "translateLiteratureDocument",
+            langText: "生成或更新当前论文中文译文",
+            hotkey: "",
+            callback: () => void this.requestLiteratureTranslation(this.getActiveDocumentContext()?.id),
+            editorCallback: (editor) => void this.requestLiteratureTranslation(this.getDocumentContextFromProtyle(editor)?.id),
+        });
+    }
+
+    private async requestLiteratureTranslation(documentId?: string) {
+        if (!documentId) { showMessage("请先打开文献库中的论文原文。"); return; }
+        const { siyuan, zotero, translation } = this.literatureProfile;
+        if (!siyuan.notebook || !siyuan.avID) { showMessage("请先保存文献库和 AV 设置。"); return; }
+        if (this.translationsRunning.has(documentId)) { showMessage("此论文的翻译正在运行。"); return; }
+        const attrs = await readLiteratureAttrs(documentId).catch(() => null);
+        if (!attrs) { showMessage("暂时无法读取论文配对信息。"); return; }
+        if (attrs["custom-literature-original-id"]) { showMessage("请从论文原文打开对照阅读。"); return; }
+        confirm("翻译论文全文", "将用本机 mdtx 配置处理当前论文全文。若配置使用外部模型，正文会发送到该服务并产生调用费用。完成后在原文下归档中文译文。", () => {
+            if (this.translationsRunning.has(documentId)) return;
+            this.translationsRunning.add(documentId);
+            showMessage("文献全文翻译已启动。");
+            void runLiteratureTask<{ translationId: string }>(
+                this.name, this.httpSettings, "translate-literature.mjs", [],
+                { documentId, notebook: siyuan.notebook, avID: siyuan.avID, settings: translation, zoteroApiKeyEnv: zotero.apiKeyEnv },
+                this.getLiteratureCredentials([translation.apiKeyEnv]),
+            ).then(async () => {
+                showMessage("中文译文已归档。");
+                await this.literatureReading.open(documentId, true);
+            }).catch(error => {
+                showMessage(String(error.message));
+            }).finally(() => this.translationsRunning.delete(documentId));
         });
     }
 

@@ -23,6 +23,7 @@
     import ToolCategoriesPanel from "./mcp-config/ToolCategoriesPanel.svelte";
     import McpAppsPanel from "./mcp-config/McpAppsPanel.svelte";
     import UserRulesPanel from "./mcp-config/UserRulesPanel.svelte";
+    import LiteraturePanel from "./mcp-config/LiteraturePanel.svelte";
     import DebugPanel from "./mcp-config/DebugPanel.svelte";
     import { discoverOfficialTools, type UiOfficialMcpDiscovery } from "./official-plugin-tools";
 
@@ -34,6 +35,7 @@
         { id: "connection", label: "连接" },
         { id: "permissions", label: "权限" },
         { id: "tools", label: "工具" },
+        { id: "literatureWorkflow", label: "文献工作流" },
         { id: "mcpApps", label: "MCP Apps" },
         { id: "debug", label: "安全与显示" },
         { id: "userRules", label: "规则与记忆" },
@@ -151,6 +153,7 @@
         <HttpServerPanel plugin={plugin} group="connection" display={focusGroup === "connection"} {httpSettings} {getLabel} />
         <PermissionsPanel group="permissions" display={focusGroup === "permissions"} {notebooks} {permissions} {permissionDisplaySettings} {permLoading} {getLabel} {onChanged} />
         <ToolCategoriesPanel group="tools" display={focusGroup === "tools"} {config} {getLabel} {onChanged} {extensionDiscovery} onRefreshExtensionTools={refreshExtensionTools} />
+        {#if focusGroup === "literatureWorkflow"}<LiteraturePanel {plugin} {notebooks} />{/if}
         <McpAppsPanel display={focusGroup === "mcpApps"} {config} {getLabel} {onChanged} />
         <DebugPanel group="debug" display={focusGroup === "debug"} {config} {versionControlSettings} {getLabel} {onChanged} />
         <UserRulesPanel group="userRules" display={focusGroup === "userRules"} {config} {getLabel} {onChanged} />

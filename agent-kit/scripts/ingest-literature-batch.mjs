@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { open, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -7,8 +8,10 @@ import { fileURLToPath } from 'node:url';
 import { finalizeLiteratureIngest } from './finalize-literature-ingest.mjs';
 import { ensureZoteroItem } from './register-literature-zotero.mjs';
 import { projectRecord } from './sync-literature-catalog.mjs';
+import { translateLiterature } from './translate-literature.mjs';
 import { mcpConnection } from './tag-literature-roles.mjs';
 
+const runLocal = promisify(execFile);
 const idPattern = /^\d{14}-[a-z0-9]{7}$/;
 const shaPattern = /^[a-f0-9]{64}$/;
 const digest = data => createHash('sha256').update(data).digest('hex');
@@ -119,7 +122,7 @@ function validate(project, manifest) {
 }
 
 export async function ingestLiteratureBatch({ project, manifest, mcpSettings, zoteroConfig, receiptFile, execute = false,
-    call, ensure = ensureZoteroItem, upload }) {
+    call, ensure = ensureZoteroItem, upload, translate = translateLiterature }) {
     validate(project, manifest);
     const { notebook, parentID, avID } = project.siyuan;
     const cloudTarget = project.notebooklm;
@@ -166,7 +169,7 @@ export async function ingestLiteratureBatch({ project, manifest, mcpSettings, zo
         prepared.push({ row: checked, body, entry, plan });
     }
     if (!execute) return { mode: '预览', papers: prepared.map(({ row, entry, plan }) => ({ sourcePath: row.sourcePath,
-        documentId: entry.documentId ?? null, zoteroKey: plan.key, cloudRequested: Boolean(project.notebooklm) })) };
+        documentId: entry.documentId ?? null, zoteroKey: plan.key, cloudRequested: Boolean(project.notebooklm), translationRequested: project.translation?.mode === 'automatic' })) };
 
     const sources = [], outcomes = [];
     for (const { row, body, entry, plan } of prepared) {
@@ -222,8 +225,48 @@ export async function ingestLiteratureBatch({ project, manifest, mcpSettings, zo
         cloud = { notebookId: remote?.notebookId ?? null, scopePath: cloudFile, verified, pending: sources.length - verified, ...(error ? { error } : {}) };
         await persist();
     }
-    const complete = outcomes.every(item => item.local === '已回读') && (!project.notebooklm || cloud?.pending === 0 && !cloud.error);
+    if (project.translation?.mode === 'automatic') {
+        for (const item of outcomes.filter(row => row.local === '已回读')) {
+            try {
+                item.translation = await translate(call, { documentId: item.documentId, notebook, avID, settings: project.translation });
+            } catch (error) {
+                item.translationError = error.message;
+            }
+        }
+    }
+    const complete = outcomes.every(item => item.local === '已回读' && !item.translationError)
+        && (!project.notebooklm || cloud?.pending === 0 && !cloud.error);
     return { mode: '执行', complete, outcomes, ...(cloud ? { cloud } : {}) };
+}
+
+function serviceEnvironment(...hiddenKeys) {
+    const env = { ...process.env };
+    for (const key of hiddenKeys.filter(Boolean)) delete env[key];
+    return env;
+}
+
+async function checkLocalRuntime(profile, { requireZotero = false, checkManual = false } = {}) {
+    const status = { zotero: '密钥未配置', notebooklm: '未启用', translation: '手动模式' };
+    const { zotero, notebooklm, translation } = profile;
+    if (zotero?.apiKeyEnv && process.env[zotero.apiKeyEnv]) status.zotero = '本机已提供密钥';
+    else if (requireZotero) throw Error('当前桌面进程未提供 Zotero 密钥');
+    if (notebooklm?.enabled) {
+        try {
+            await runLocal(notebooklm.python || 'python3', ['-c', 'from notebooklm_tools.cli.utils import get_client'],
+                { timeout: 8000, windowsHide: true, env: serviceEnvironment(zotero?.apiKeyEnv, translation?.apiKeyEnv) });
+        } catch { throw Error('配置的 Python 无法加载 NotebookLM 客户端'); }
+        status.notebooklm = '本机客户端可用；登录和目标笔记本将在上传时验证';
+    }
+    if (translation?.mode === 'automatic' || checkManual && translation?.configPath) {
+        if (!path.isAbsolute(translation.configPath ?? '')) throw Error('mdtx 配置须使用绝对路径');
+        try {
+            await readFile(translation.configPath);
+            await runLocal(translation.executable, ['--help'], { timeout: 8000, windowsHide: true, env: serviceEnvironment(zotero?.apiKeyEnv) });
+        } catch { throw Error('无法读取 mdtx 配置或启动 mdtx 命令'); }
+        if (translation.apiKeyEnv && !process.env[translation.apiKeyEnv]) throw Error('当前桌面进程未提供翻译模型密钥');
+        status.translation = '本机命令和配置可用；未调用模型';
+    }
+    return status;
 }
 
 function parse(argv) {
@@ -231,16 +274,53 @@ function parse(argv) {
     for (let i = 0; i < argv.length; i += 1) {
         const flag = argv[i];
         if (flag === '--execute') options.execute = true;
-        else if (['--project', '--manifest', '--mcp-settings', '--zotero-config', '--receipt', '--python'].includes(flag) && argv[i + 1]) options[flag.slice(2)] = argv[++i];
+        else if (flag === '--desktop') options.desktop = true;
+        else if (flag === '--check-runtime') options.checkRuntime = true;
+        else if (['--project', '--manifest', '--mcp-settings', '--zotero-config', '--receipt', '--python', '--profile'].includes(flag) && argv[i + 1]) options[flag.slice(2)] = argv[++i];
         else throw Error('未知参数或缺少参数值：' + flag);
     }
-    if (['project', 'manifest', 'mcp-settings', 'zotero-config', 'receipt'].some(key => !options[key])) throw Error('须指定项目、批次、两个私有配置与项目收据');
+    if (options.checkRuntime && (!options.desktop || options.execute)) throw Error('运行环境检查只支持桌面只读模式');
+    if (!options.checkRuntime && (!options.manifest || !options.receipt)) throw Error('须指定批次清单与项目收据');
+    if (!options.desktop && (!options['mcp-settings'] || !options.profile && (!options.project || !options['zotero-config']))) {
+        throw Error('须指定思源连接配置，并选择文献设置或原项目与 Zotero 配置');
+    }
+    if ((options.desktop || options.profile) && (options.project || options['zotero-config'])) throw Error('不能混用两个项目配置来源');
     return options;
 }
 
 async function main(argv) {
     const options = parse(argv);
-    const [project, manifest, mcpSettings, zoteroConfig] = await Promise.all([options.project, options.manifest, options['mcp-settings'], options['zotero-config']].map(json));
+    let project, mcpSettings, zoteroConfig, cloudEnvironment;
+    const manifest = options.checkRuntime ? null : await json(options.manifest);
+    if (options.desktop || options.profile) {
+        let profile;
+        if (options.desktop) {
+            let input = '';
+            for await (const chunk of process.stdin) input += chunk;
+            ({ profile, mcpSettings } = JSON.parse(input));
+        } else {
+            [profile, mcpSettings] = await Promise.all([options.profile, options['mcp-settings']].map(json));
+        }
+        const { siyuan, zotero, notebooklm, translation } = profile;
+        if (options.checkRuntime) {
+            console.log(JSON.stringify(await checkLocalRuntime(profile, { checkManual: true })));
+            return;
+        }
+        if (!/^[A-Za-z_][A-Za-z_0-9]*$/.test(zotero?.apiKeyEnv ?? '')) throw Error('Zotero 密钥环境变量名无效');
+        if (zotero.apiKeyEnv === translation?.apiKeyEnv) throw Error('Zotero 与翻译模型的密钥变量不能相同');
+        await checkLocalRuntime(profile, { requireZotero: true });
+        cloudEnvironment = serviceEnvironment(zotero.apiKeyEnv, translation?.apiKeyEnv);
+        zoteroConfig = { baseUrl: zotero.baseUrl, apiKey: process.env[zotero.apiKeyEnv] };
+        delete process.env[zotero.apiKeyEnv];
+        project = { siyuan, translation, ...(notebooklm?.enabled ? { notebooklm: {
+            notebookTitle: notebooklm.notebookTitle,
+            ...(notebooklm.notebookId ? { notebookId: notebooklm.notebookId } : {}),
+            ...(notebooklm.profile ? { profile: notebooklm.profile } : {}),
+        } } : {}) };
+        options.python ??= notebooklm?.python;
+    } else {
+        [project, mcpSettings, zoteroConfig] = await Promise.all([options.project, options['mcp-settings'], options['zotero-config']].map(json));
+    }
     const receiptFile = path.resolve(options.receipt);
     const lockFile = receiptFile + '.lock';
     const lock = options.execute ? await open(lockFile, 'wx', 0o600) : null;
@@ -252,7 +332,7 @@ async function main(argv) {
             await save(requestFile, request);
             await new Promise((resolve, reject) => {
                 const child = spawn(options.python ?? 'python3', [fileURLToPath(new URL('./upload-notebooklm-literature.py', import.meta.url)),
-                    '--request', requestFile, '--receipt', cloudFile, '--execute'], { stdio: ['ignore', 'ignore', 'inherit'] });
+                    '--request', requestFile, '--receipt', cloudFile, '--execute'], { stdio: ['ignore', 'ignore', 'inherit'], env: cloudEnvironment });
                 child.on('error', reject);
                 child.on('exit', code => code === 0 ? resolve() : reject(Error('NotebookLM 上传或回读未完成')));
             });
