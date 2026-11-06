@@ -35,7 +35,7 @@ export class Dialog {
 
 export class Protyle {
     protyle = {};
-    constructor(_app: unknown, _element: HTMLElement, _options: { blockId: string; action: string[]; after: (ready: Protyle) => void }) {}
+    constructor(_app: unknown, _element: HTMLElement, _options: { blockId: string; action: string[]; render?: unknown; after: (ready: Protyle) => void }) {}
     disable(): void {}
     destroy(): void {}
 }
@@ -55,7 +55,7 @@ export function getAllEditor(): MockEditor[] {
 }
 
 export function confirm(_title: string, _message: string, _confirmed?: () => void): void {}
-export async function fetchSyncPost(_url: string, _data?: unknown, _headers?: unknown, _process?: boolean, _signal?: AbortSignal) {
+export async function fetchSyncPost(_url: string, _data?: unknown, _headers?: unknown, _process?: boolean, _signal?: AbortSignal): Promise<{ code: number; data: any }> {
     return { code: 0, data: {} };
 }
 export async function openTab(_options: unknown): Promise<void> {}

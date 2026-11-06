@@ -112,3 +112,10 @@
     border-style: dashed;
     opacity: 0.72;
 }
+
+.sisyphus-translation-highlight {
+    outline: 2px solid var(--b3-theme-primary) !important;
+    outline-offset: 2px;
+    background-color: color-mix(in srgb, var(--b3-theme-primary) 13%, transparent) !important;
+    border-radius: 4px;
+}

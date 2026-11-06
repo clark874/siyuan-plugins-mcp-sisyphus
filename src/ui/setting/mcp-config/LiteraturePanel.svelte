@@ -177,7 +177,7 @@
 </form>
 
 <style>
-    form{display:grid;gap:14px;max-width:720px}
+    form{display:grid;gap:14px;width:100%;min-width:0;box-sizing:border-box}
     h2,p{margin:0}
     fieldset{display:grid;gap:9px;border:1px solid var(--b3-border-color);border-radius:6px;padding:12px}
     legend{font-weight:600;padding:0 5px}

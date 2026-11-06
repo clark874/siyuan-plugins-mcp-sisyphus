@@ -1,4 +1,7 @@
-import { Dialog, Protyle, fetchSyncPost, getAllEditor, openTab, type Plugin } from "siyuan";
+import { Protyle, fetchSyncPost, getAllEditor, openTab, type Plugin } from "siyuan";
+
+import { literatureSourceMarkdown } from "../../../agent-kit/scripts/literature-source.mjs";
+import { pairTranslationBlocks, readAlignmentBlocks } from "./block-alignment";
 
 const blockId = /^\d{14}-[a-z0-9]{7}$/;
 const translationAttribute = "custom-literature-translation-id";
@@ -20,8 +23,6 @@ function pane(editor: Editor): ScrollPane | undefined {
     if (!scroll) return;
     return { scroll, outline: () => [...scroll.querySelectorAll<HTMLElement>(".protyle-wysiwyg > [data-type=NodeHeading]")] };
 }
-
-function windowOf(editor: Editor) { return editor.element?.closest('[data-type="wnd"]'); }
 
 function maxScroll(scroll: HTMLElement) { return Math.max(0, scroll.scrollHeight - scroll.clientHeight); }
 
@@ -45,9 +46,38 @@ export function correspondingScroll(position: number, source: number[], target: 
     return target[start] + (target[end] - target[start]) * fraction;
 }
 
-function synchronize(left: ScrollPane, right: ScrollPane): () => void {
+function synchronize(left: ScrollPane, right: ScrollPane, pairs: Map<string, string>, onNotice: (message: string) => void, syncScroll: boolean): () => void {
+    const highlighted = new Set<HTMLElement>();
+    const reverse = new Map([...pairs].map(([source, target]) => [target, source]));
+    const clickRegistrations = [[left, right, pairs], [right, left, reverse]].map(([source, target, map]) => {
+        const from = source as ScrollPane, to = target as ScrollPane, mapping = map as Map<string, string>;
+        const listener = (event: MouseEvent) => {
+            const block = (event.target as Element)?.closest<HTMLElement>("[data-node-id][data-type]");
+            if (!block || !from.scroll.contains(block)) return;
+            const targetId = mapping.get(block.dataset.nodeId);
+            if (!targetId) { onNotice("此块暂无经过结构校验的对应译文。"); return; }
+            const counterpart = to.scroll.querySelector<HTMLElement>(`[data-node-id="${targetId}"]`);
+            if (!counterpart) { onNotice("对应块尚未加载，请展开全文后重试。"); return; }
+            highlighted.forEach(element => element.classList.remove("sisyphus-translation-highlight"));
+            highlighted.clear();
+            [block, counterpart].forEach(element => { element.classList.add("sisyphus-translation-highlight"); highlighted.add(element); });
+            // 只改变目标栏的位置，避免点击高亮触发滚动回写。
+            expected.set(to.scroll, Math.min(maxScroll(to.scroll), Math.max(0,
+                counterpart.getBoundingClientRect().top - to.scroll.getBoundingClientRect().top + to.scroll.scrollTop - 72)));
+            to.scroll.scrollTop = expected.get(to.scroll);
+            onNotice("已定位对应原文与译文块。");
+        };
+        const keyboardClick = (event: MouseEvent) => listener(event);
+        // 先于公式编辑器的默认点击处理保存原始块身份。
+        from.scroll.addEventListener("pointerdown", listener, true);
+        from.scroll.addEventListener("click", keyboardClick);
+        return () => {
+            from.scroll.removeEventListener("pointerdown", listener, true);
+            from.scroll.removeEventListener("click", keyboardClick);
+        };
+    });
     const expected = new WeakMap<HTMLElement, number>();
-    const registrations = [[left, right], [right, left]].map(([source, target]) => {
+    const registrations = (syncScroll ? [[left, right], [right, left]] : []).map(([source, target]) => {
         const listener = () => {
             const position = source.scroll.scrollTop;
             if (Math.abs((expected.get(source.scroll) ?? Infinity) - position) < 2) {
@@ -66,125 +96,125 @@ function synchronize(left: ScrollPane, right: ScrollPane): () => void {
         source.scroll.addEventListener("scroll", listener, { passive: true });
         return () => source.scroll.removeEventListener("scroll", listener);
     });
-    return () => registrations.forEach(dispose => dispose());
+    const invalidate = () => { pairs.clear(); reverse.clear(); onNotice("正文已编辑，请重新打开对照以核验配对。"); };
+    left.scroll.addEventListener("input", invalidate);
+    right.scroll.addEventListener("input", invalidate);
+    return () => {
+        left.scroll.removeEventListener("input", invalidate);
+        right.scroll.removeEventListener("input", invalidate);
+        [...registrations, ...clickRegistrations].forEach(dispose => dispose());
+        highlighted.forEach(element => element.classList.remove("sisyphus-translation-highlight"));
+    };
 }
 
 export class LiteratureReading {
     private cleanup?: () => void;
-    private readonly opening = new Set<string>();
+    private bound?: { source: HTMLElement; target: HTMLElement; pairs: Map<string, string> };
     private generation = 0;
-    private comparison?: { sourceId: string; dialog: Dialog };
-    private pending?: { sourceId: string; translationId: string };
-    private linked?: { sourceId: string; translationId: string; left: HTMLElement; right: HTMLElement };
+    private requestVersion = 0;
+    private readonly opening = new Set<string>();
+    private comparison?: { sourceId: string; targetId: string; editor: Protyle; pairs: Map<string, string> };
 
-    constructor(private readonly plugin: Plugin, private readonly preferences: () => { openAlongside: boolean; syncScroll: boolean }) {}
+    constructor(
+        private readonly plugin: Plugin,
+        private readonly preferences: () => { openAlongside: boolean; syncScroll: boolean },
+        private readonly onNotice: (message: string) => void,
+        private readonly getContainer: () => HTMLElement | null,
+    ) {}
 
-    private findEditor(id: string, within?: Element, exclude?: Element) {
-        return getAllEditor().map(editor => editor.protyle as Editor).find(editor => {
-            if (editorId(editor) !== id || !editor.element?.isConnected || !editor.element.getClientRects().length) return false;
-            const layout = windowOf(editor);
-            return Boolean(layout && (!within || layout === within) && layout !== exclude);
-        });
+    private sourceEditor(id: string): Editor | undefined {
+        return getAllEditor().map(editor => editor.protyle as Editor).find(editor => (
+            editorId(editor) === id && editor.element?.isConnected && editor.element.getClientRects().length
+            && editor.element.closest('[data-type="wnd"]')
+        ));
     }
 
     async open(sourceId: string, explicit = false) {
-        if ((!explicit && !this.preferences().openAlongside) || this.opening.has(sourceId) || !blockId.test(sourceId)
-            || this.comparison?.sourceId === sourceId) return;
-        const generation = this.generation;
+        if (!blockId.test(sourceId) || this.opening.has(sourceId) || !explicit && !this.preferences().openAlongside) return;
+        const generation = this.generation, requestVersion = ++this.requestVersion;
+        const current = () => generation === this.generation && requestVersion === this.requestVersion;
         this.opening.add(sourceId);
         try {
+            if (explicit) await openTab({ app: this.plugin.app, doc: { id: sourceId, action: ["cb-get-all", "cb-get-focus"] } });
             const attrs = await readLiteratureAttrs(sourceId);
-            const translationId = attrs[translationAttribute];
-            if (generation !== this.generation) return;
-            if (!translationId || !blockId.test(translationId) || translationId === sourceId) {
+            if (!current()) return;
+            const targetId = attrs[translationAttribute];
+            if (!blockId.test(targetId ?? "")) {
                 if (explicit) throw new Error("当前论文还没有归档译文。");
                 return;
             }
-            const reciprocal = await readLiteratureAttrs(translationId);
-            if (generation !== this.generation) return;
-            if (reciprocal["custom-literature-original-id"] !== sourceId) {
-                if (explicit) throw new Error("译文配对已失效，请重新生成或更新。");
-                return;
-            }
-            const active = document.querySelector('[data-type="wnd"].layout__wnd--active');
-            if (!active || !this.findEditor(sourceId, active)) return;
-            this.pending = { sourceId, translationId };
-            if (!this.findEditor(translationId, undefined, active)) {
-                // 已是横向布局最右窗格时，原生「向右打开」会改用当前窗格。
-                const activeLeft = active.getBoundingClientRect().left;
-                const hasLeft = [...(active.closest(".layout__center")?.querySelectorAll('[data-type="wnd"]') ?? [])]
-                    .some(element => element.getClientRects().length && element.getBoundingClientRect().right <= activeLeft + 1);
-                if (active.parentElement?.classList.contains("layout__wnd--right") && hasLeft) {
-                    this.openComparison(sourceId, translationId);
-                    return;
-                }
-                await openTab({ app: this.plugin.app, doc: { id: translationId, action: ["cb-get-all"] },
-                    position: "right", keepCursor: true });
-            }
-            if (generation === this.generation) this.bind(sourceId, translationId);
-        } finally {
-            this.opening.delete(sourceId);
-        }
-    }
-
-    private openComparison(sourceId: string, translationId: string) {
-        this.comparison?.dialog.destroy();
-        const editors: Protyle[] = [];
-        const panes: ScrollPane[] = [];
-        let stop: (() => void) | undefined;
-        const dialog = new Dialog({
-            title: "文献中英文对照",
-            content: '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;height:100%;background:var(--b3-border-color)"><section data-literature-pane style="min-width:0;background:var(--b3-theme-background)"></section><section data-literature-pane style="min-width:0;background:var(--b3-theme-background)"></section></div>',
-            width: "min(1380px, 96vw)", height: "min(900px, 90vh)",
-            destroyCallback: () => {
-                stop?.();
-                editors.forEach(editor => editor.destroy());
-                if (this.comparison?.dialog === dialog) this.comparison = undefined;
-            },
-        });
-        this.pending = undefined;
-        this.comparison = { sourceId, dialog };
-        dialog.element.querySelectorAll<HTMLElement>("[data-literature-pane]").forEach((element, index) => {
-            const editor = new Protyle(this.plugin.app, element, {
-                blockId: [sourceId, translationId][index], action: ["cb-get-all"],
+            const targetAttrs = await readLiteratureAttrs(targetId);
+            if (!current()) return;
+            if (targetAttrs["custom-literature-original-id"] !== sourceId) throw new Error("原文与译文的配对已失效，请更新译文。");
+            const [left, right, markdown] = await Promise.all([
+                fetchSyncPost("/api/block/getBlockDOM", { id: sourceId }, undefined, false, AbortSignal.timeout(10_000)),
+                fetchSyncPost("/api/block/getBlockDOM", { id: targetId }, undefined, false, AbortSignal.timeout(10_000)),
+                fetchSyncPost("/api/block/getBlockKramdown", { id: sourceId }, undefined, false, AbortSignal.timeout(10_000)),
+            ]);
+            if (!current()) return;
+            if ([left, right, markdown].some(response => response.code !== 0)) throw new Error("无法回读原文与译文。");
+            let pairs = new Map<string, string>();
+            let notice: string;
+            try {
+                const bytes = new TextEncoder().encode(literatureSourceMarkdown(markdown.data.kramdown));
+                const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(byte => byte.toString(16).padStart(2, "0")).join("");
+                if (targetAttrs["custom-literature-translation-source"] !== hash) throw new Error("译文与当前原文版本尚未核对，请更新译文后开启逐块联动。");
+                pairs = pairTranslationBlocks(readAlignmentBlocks(left.data.dom), readAlignmentBlocks(right.data.dom));
+                notice = `已核对 ${pairs.size} 对正文块，可双向点击定位。`;
+            } catch (error) { notice = error.message; }
+            if (!current() || !this.sourceEditor(sourceId)) return;
+            const host = this.getContainer();
+            if (!host || !current()) return;
+            this.destroyComparison();
+            this.onNotice(notice);
+            const editor = new Protyle(this.plugin.app, host, {
+                blockId: targetId, action: ["cb-get-all"],
+                render: { background: false, title: true, gutter: false, breadcrumb: false },
                 after: ready => {
-                    if (this.comparison?.dialog !== dialog) return;
+                    if (!current()) return;
                     ready.disable();
-                    panes[index] = pane(ready.protyle);
-                    if (panes[0] && panes[1] && !stop && this.preferences().syncScroll) stop = synchronize(panes[0], panes[1]);
+                    this.bind(sourceId, ready.protyle, pairs);
                 },
             });
             editor.disable();
-            editors.push(editor);
-        });
+            this.comparison = { sourceId, targetId, editor, pairs };
+        } finally { this.opening.delete(sourceId); }
+    }
+
+    isOpen(sourceId: string): boolean { return this.comparison?.sourceId === sourceId; }
+
+    private bind(sourceId: string, target: Editor, pairs: Map<string, string>) {
+        const source = this.sourceEditor(sourceId);
+        const left = source && pane(source), right = pane(target);
+        if (!left || !right) return;
+        if (this.bound?.source === left.scroll && this.bound.target === right.scroll && this.bound.pairs === pairs) return;
+        this.cleanup?.();
+        this.bound = { source: left.scroll, target: right.scroll, pairs };
+        this.cleanup = synchronize(left, right, pairs, this.onNotice, this.preferences().syncScroll);
     }
 
     onEditorLoaded(editor?: Editor) {
         const id = editorId(editor);
         if (!id) return;
-        const pair = this.pending ?? this.linked;
-        if (pair && (pair.sourceId === id || pair.translationId === id)) this.bind(pair.sourceId, pair.translationId);
-        if (pair?.translationId !== id) void this.open(id).catch(() => {});
+        if (this.comparison?.sourceId !== id && !this.opening.has(id)) this.requestVersion += 1;
+        if (this.comparison?.sourceId === id) {
+            this.bind(id, this.comparison.editor.protyle, this.comparison.pairs);
+        } else {
+            if (this.comparison && this.comparison.targetId !== id) this.destroyComparison();
+            void this.open(id).catch(error => this.onNotice(error.message));
+        }
     }
 
-    private bind(sourceId: string, translationId: string) {
-        const source = this.findEditor(sourceId);
-        const target = source && this.findEditor(translationId, undefined, windowOf(source));
-        const left = source && pane(source), right = target && pane(target);
-        if (!left || !right) return;
-        if (this.linked?.left === left.scroll && this.linked.right === right.scroll) return;
+    private destroyComparison() {
         this.cleanup?.();
-        this.pending = undefined;
-        this.linked = { sourceId, translationId, left: left.scroll, right: right.scroll };
-        if (this.preferences().syncScroll) this.cleanup = synchronize(left, right);
+        this.cleanup = undefined;
+        this.bound = undefined;
+        this.comparison?.editor.destroy();
+        this.comparison = undefined;
     }
 
     reset() {
         this.generation += 1;
-        this.comparison?.dialog.destroy();
-        this.cleanup?.();
-        this.cleanup = undefined;
-        this.linked = undefined;
-        this.pending = undefined;
+        this.destroyComparison();
     }
 }

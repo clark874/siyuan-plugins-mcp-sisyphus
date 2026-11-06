@@ -119,6 +119,7 @@ function createRendererConfig() {
                     { src: "./agent-kit/scripts/tag-literature-roles.mjs", dest: "./literature-scripts" },
                     { src: "./agent-kit/scripts/upload-notebooklm-literature.py", dest: "./literature-scripts" },
                     { src: "./agent-kit/scripts/translate-literature.mjs", dest: "./literature-scripts" },
+                    { src: "./agent-kit/scripts/literature-source.mjs", dest: "./literature-scripts" },
                 ],
             }),
         ],

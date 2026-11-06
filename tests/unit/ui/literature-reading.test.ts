@@ -15,3 +15,15 @@ describe("文献对照滚动", () => {
         expect(correspondingScroll(0, [0, 0], [0, 900])).toBe(0);
     });
 });
+
+import { pairTranslationBlocks } from "@/ui/literature/block-alignment";
+
+describe("文献正文块配对", () => {
+    it("只为同一结构中的对应块建立双向标识依据", () => {
+        const pairs = pairTranslationBlocks([{ id: "original", kind: "NodeParagraph" }], [{ id: "translated", kind: "NodeParagraph" }]);
+        expect(pairs.get("original")).toBe("translated");
+    });
+    it("结构改变时拒绝把不同段落错误配对", () => {
+        expect(() => pairTranslationBlocks([{ id: "original", kind: "NodeParagraph" }], [{ id: "translated", kind: "NodeHeading" }])).toThrow("块结构不一致");
+    });
+});

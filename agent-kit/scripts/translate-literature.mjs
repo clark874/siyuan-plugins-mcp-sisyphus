@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { writeLiteratureRecord } from './finalize-literature-ingest.mjs';
+import { literatureSourceMarkdown as paperMarkdown } from './literature-source.mjs';
 import { mcpConnection } from './tag-literature-roles.mjs';
 
 const run = promisify(execFile);
@@ -15,12 +16,6 @@ const originalAttribute = 'custom-literature-original-id';
 const translationAttribute = 'custom-literature-translation-id';
 const sourceHashAttribute = 'custom-literature-translation-source';
 const sha256 = text => createHash('sha256').update(text).digest('hex');
-
-function paperMarkdown(kramdown) {
-    return String(kramdown ?? '').replace(/^[ \t]*\{:[^\n]*\}[ \t]*$/gm, '')
-        .replace(/(^[ \t]*(?:[-+*]|\d+\.)[ \t]+)\{: id="\d{14}-[a-z0-9]{7}"[^\n]*?\}/gm, '$1')
-        .replace(/^原始MD SHA-256：[a-f0-9]{64}\s*\n+/u, '').trim();
-}
 
 const evidenceText = value => paperMarkdown(value).normalize('NFKC').replace(/[^\p{L}\p{N}+=−-]/gu, '').toLowerCase();
 
@@ -70,13 +65,16 @@ async function translateMarkdown(work, original, settings, zoteroApiKeyEnv) {
 }
 
 export async function translateLiterature(call, { documentId, notebook, avID, settings, zoteroApiKeyEnv }) {
-    if (![documentId, notebook, avID].every(id => idPattern.test(id))) throw Error('文献正文、笔记本和 AV 标识无效');
+    if (!idPattern.test(documentId) || notebook && !idPattern.test(notebook) || avID && !idPattern.test(avID)) throw Error('文献正文、笔记本和 AV 标识无效');
     if ((await call('system', { action: 'bootstrap' })).writeSafety?.strictMode !== true) throw Error('译文归档需要启用严格写入');
     const { identity } = await call('document', { action: 'lookup', id: documentId, include: ['identity'] });
-    if (identity?.id !== documentId || identity.notebook !== notebook) throw Error('原文不属于配置的笔记本');
-    const av = await call('av', { action: 'get', id: avID });
-    const records = av.av?.keyValues?.find(column => column.key?.type === 'block')?.values ?? [];
-    if (records.filter(cell => cell.block?.id === documentId).length !== 1) throw Error('当前文档不是指定 AV 的唯一全文记录');
+    if (identity?.id !== documentId || notebook && identity.notebook !== notebook) throw Error('原文不属于配置的笔记本');
+    notebook = identity.notebook;
+    if (avID) {
+        const av = await call('av', { action: 'get', id: avID });
+        const records = av.av?.keyValues?.find(column => column.key?.type === 'block')?.values ?? [];
+        if (records.filter(cell => cell.block?.id === documentId).length !== 1) throw Error('当前文档不是指定 AV 的唯一全文记录');
+    }
     const originalAttrs = await call('block', { action: 'get_attrs', id: documentId });
     if (originalAttrs[originalAttribute]) throw Error('请从规范原文发起翻译');
     const readOriginal = async () => paperMarkdown((await call('block', { action: 'get_kramdown', id: documentId })).kramdown);

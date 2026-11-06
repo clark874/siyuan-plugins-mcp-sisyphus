@@ -40,6 +40,7 @@ import { emitToolConfigWarningOnce } from "@/core/config";
 import McpConfig from "@/ui/setting/mcp-config.svelte";
 import { LITERATURE_PROFILE_FILE, defaultLiteratureProfile, normalizeLiteratureProfile, validateLiteratureProfile, type LiteratureProfile } from "@/ui/literature/settings";
 import { LiteratureReading, readLiteratureAttrs } from "@/ui/literature/reading";
+import TranslationPanel from "@/ui/literature/TranslationPanel.svelte";
 import { runLiteratureTask } from "@/ui/literature/desktop-runner";
 import SnapshotPanel from "@/ui/version-control/SnapshotPanel.svelte";
 import VersionDiffPanel from "@/ui/version-control/VersionDiffPanel.svelte";
@@ -58,6 +59,8 @@ import {
 
 import { HttpServerLauncher, appendHttpLifecycleLog } from "@/server-launcher";
 
+const TRANSLATION_DOCK_TYPE = "sisyphusLiteratureTranslationDock";
+const TRANSLATION_ICON_ID = "iconSisyphusTranslate";
 const SNAPSHOT_DOCK_TYPE = "sisyphusSnapshotDock";
 const SNAPSHOT_DOCK_POSITION = "LeftTop";
 const SNAPSHOT_DOCK_ROOT_ID = "SisyphusSnapshotDockPanel";
@@ -137,9 +140,19 @@ export default class SiyuanMCP extends Plugin {
     public httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
     public httpLauncher: HttpServerLauncher | null = null;
     private literatureProfile = defaultLiteratureProfile();
-    private readonly literatureReading = new LiteratureReading(this, () => this.literatureProfile.translation);
+    private readonly literatureReading = new LiteratureReading(this, () => this.literatureProfile.translation,
+        message => this.translationPanel?.$set({ status: message }),
+        () => {
+            this.showTranslationDock();
+            return this.translationDockElement?.querySelector<HTMLElement>(".translation-reading-editor") ?? null;
+        });
     private readonly translationsRunning = new Set<string>();
     private literatureBatchRunning = false;
+    private translationPanel: TranslationPanel | null = null;
+    private translationDockType = "";
+    private translationDockElement: HTMLElement | null = null;
+    private literatureDocument = { id: "", title: "" };
+    private translationViewVersion = 0;
     private readonly literatureCredentials = new Map<string, string>();
 
     async onload() {
@@ -297,6 +310,7 @@ export default class SiyuanMCP extends Plugin {
 
     onLayoutReady() {
         this.layoutReady = true;
+        this.registerTranslationDock();
         if (this.versionControlSettingsLoaded) this.syncVersionControlFeature();
         if (this.versionControlSettingsLoaded) this.syncRecentDocumentsFeature();
         if (this.permissionDisplaySettingsLoaded) this.syncPermissionTreeFeature();
@@ -346,6 +360,10 @@ export default class SiyuanMCP extends Plugin {
         this.eventBus.off("open-menu-breadcrumbmore", this.handleLiteratureMenu);
         this.literatureReading.reset();
         this.literatureCredentials.clear();
+        this.translationViewVersion += 1;
+        this.translationPanel?.$destroy();
+        this.translationPanel = null;
+        this.translationDockElement = null;
         this.layoutReady = false;
         this.permissionDisplaySettingsLoaded = false;
         this.disablePermissionTreeFeature();
@@ -515,6 +533,8 @@ export default class SiyuanMCP extends Plugin {
     updateLiteratureProfile(profile: LiteratureProfile) {
         this.literatureProfile = profile;
         this.literatureReading.reset();
+        this.translationPanel?.$set({ profile });
+        void this.updateTranslationDocument(this.literatureDocument);
     }
 
     setLiteratureCredentials(profile: LiteratureProfile, zoteroKey: string, translationKey: string) {
@@ -559,20 +579,87 @@ export default class SiyuanMCP extends Plugin {
 
     private readonly handleLiteratureEditor = (event: CustomEvent) => {
         const editor = event.detail?.protyle;
-        if (editor?.notebookId === this.literatureProfile.siyuan.notebook && editor.notebookId) {
-            this.literatureReading.onEditorLoaded(editor);
-        }
+        const context = this.getDocumentContextFromProtyle(editor);
+        if (!context || !editor?.element?.closest('[data-type="wnd"]')) return;
+        void this.updateTranslationDocument(context);
+        this.literatureReading.onEditorLoaded(editor);
     };
+
+    private async updateTranslationDocument(context: CurrentDocumentContext) {
+        if (!context.id) return;
+        const version = ++this.translationViewVersion;
+        try {
+            const attrs = await readLiteratureAttrs(context.id);
+            if (version !== this.translationViewVersion) return;
+            const sourceId = attrs["custom-literature-original-id"] || context.id;
+            if (sourceId !== context.id && this.literatureDocument.id === sourceId) return;
+            const sourceAttrs = sourceId === context.id ? attrs : await readLiteratureAttrs(sourceId);
+            if (version !== this.translationViewVersion) return;
+            this.literatureDocument = { id: sourceId, title: sourceAttrs.title || context.title };
+            const translationId = sourceAttrs["custom-literature-translation-id"] || "";
+            this.translationPanel?.$set({
+                documentId: sourceId, documentTitle: this.literatureDocument.title,
+                translationId, running: this.translationsRunning.has(sourceId),
+                ...(!this.literatureReading.isOpen(sourceId) ? {
+                    status: this.translationsRunning.has(sourceId) ? "正在翻译全文，可继续阅读原文。" : translationId ? "已有中文译文，可开启双屏对照。" : "此文档尚无中文译文。",
+                } : {}),
+            });
+        } catch (error) {
+            if (version === this.translationViewVersion) this.translationPanel?.$set({ status: error.message });
+        }
+    }
+
+    private registerTranslationDock() {
+        if (this.translationDockType) return;
+        const plugin = this;
+        (this as any).addIcons?.(`<symbol id="${TRANSLATION_ICON_ID}" viewBox="0 0 24 24"><path fill="currentColor" d="M3 3h8v2H8v2h4v2h-1c-.4 2-1.2 3.7-2.4 5.1L11 16l-1.3 1.5-2.5-2c-1.1.9-2.5 1.7-4.2 2.5l-.8-1.8c1.4-.6 2.6-1.3 3.5-2.1C4.5 12.7 3.7 11 3.2 9H2V7h4V5H3V3Zm2.3 6c.4 1.4 1 2.6 1.9 3.7.9-1.1 1.5-2.3 1.8-3.7H5.3ZM16 7h2l5 14h-2.2l-1.2-3h-5.2l-1.1 3H11l5-14Zm1 3.2L15 16h4l-2-5.8Z"/></symbol>`);
+        const registration = (this as any).addDock?.({
+            config: { position: "RightTop", size: { width: 400, height: 0 }, icon: TRANSLATION_ICON_ID, title: "文献翻译", show: this.getInitialDockVisibility("RightTop", [this.name + TRANSLATION_DOCK_TYPE], true) },
+            type: TRANSLATION_DOCK_TYPE, data: {},
+            init: (dock: any) => {
+                plugin.translationDockElement = dock.element;
+                plugin.translationPanel = new TranslationPanel({ target: dock.element, props: {
+                    plugin, profile: plugin.literatureProfile,
+                    documentId: plugin.literatureDocument.id, documentTitle: plugin.literatureDocument.title,
+                } });
+                const context = plugin.getActiveDocumentContext();
+                if (context) void plugin.updateTranslationDocument(context);
+            },
+            update: () => {
+                const context = plugin.getActiveDocumentContext();
+                if (context) void plugin.updateTranslationDocument(context);
+            },
+            destroy: () => { plugin.literatureReading.reset(); plugin.translationPanel?.$destroy(); plugin.translationPanel = null; plugin.translationDockElement = null; },
+        });
+        this.translationDockType = this.getRegisteredDockType(registration, TRANSLATION_DOCK_TYPE);
+        const context = this.getActiveDocumentContext();
+        if (context) void this.updateTranslationDocument(context);
+    }
+
+    private showTranslationDock() {
+        this.registerTranslationDock();
+        const target = getDockByPosition((window as any).siyuan?.layout, "RightTop");
+        target?.toggleModel?.(this.translationDockType, true, false, false, true);
+    }
+
+    public translateCurrentLiterature(documentId: string) { void this.requestLiteratureTranslation(documentId); }
+
+    public openLiteratureComparison(documentId: string) {
+        void this.literatureReading.open(documentId, true).catch(error => {
+            this.translationPanel?.$set({ status: error.message });
+            showMessage(error.message);
+        });
+    }
 
     private readonly handleLiteratureMenu = (event: CustomEvent) => {
         const { protyle, menu } = event.detail ?? {};
-        if (!protyle?.notebookId || protyle.notebookId !== this.literatureProfile.siyuan.notebook) return;
+        if (!protyle?.notebookId) return;
         const context = this.getDocumentContextFromProtyle(protyle);
         if (!context) return;
         menu?.addItem?.({
             icon: "iconLanguage",
-            label: "生成或更新中文译文",
-            click: () => void this.requestLiteratureTranslation(context.id),
+            label: "文献翻译与双屏对照",
+            click: () => { this.showTranslationDock(); void this.updateTranslationDocument(context); },
         });
         menu?.addItem?.({
             icon: "iconLayoutRight",
@@ -587,17 +674,21 @@ export default class SiyuanMCP extends Plugin {
         this.eventBus.on("open-menu-breadcrumbmore", this.handleLiteratureMenu);
         this.addCommand({
             langKey: "translateLiteratureDocument",
-            langText: "生成或更新当前论文中文译文",
+            langText: "打开文献翻译与双屏对照",
             hotkey: "",
-            callback: () => void this.requestLiteratureTranslation(this.getActiveDocumentContext()?.id),
-            editorCallback: (editor) => void this.requestLiteratureTranslation(this.getDocumentContextFromProtyle(editor)?.id),
+            callback: () => this.showTranslationDock(),
+            editorCallback: (editor) => { this.showTranslationDock(); const context = this.getDocumentContextFromProtyle(editor); if (context) void this.updateTranslationDocument(context); },
         });
     }
 
     private async requestLiteratureTranslation(documentId?: string) {
         if (!documentId) { showMessage("请先打开文献库中的论文原文。"); return; }
         const { siyuan, zotero, translation } = this.literatureProfile;
-        if (!siyuan.notebook || !siyuan.avID) { showMessage("请先保存文献库和 AV 设置。"); return; }
+        if (!translation.configPath) {
+            this.showTranslationDock();
+            this.translationPanel?.$set({ status: "请在此面板保存 mdtx 程序和配置文件，再翻译全文。" });
+            return;
+        }
         if (this.translationsRunning.has(documentId)) { showMessage("此论文的翻译正在运行。"); return; }
         const attrs = await readLiteratureAttrs(documentId).catch(() => null);
         if (!attrs) { showMessage("暂时无法读取论文配对信息。"); return; }
@@ -605,17 +696,25 @@ export default class SiyuanMCP extends Plugin {
         confirm("翻译论文全文", "将用本机 mdtx 配置处理当前论文全文。若配置使用外部模型，正文会发送到该服务并产生调用费用。完成后在原文下归档中文译文。", () => {
             if (this.translationsRunning.has(documentId)) return;
             this.translationsRunning.add(documentId);
+            this.translationPanel?.$set({ running: true, status: "正在翻译全文，可继续阅读原文。" });
             showMessage("文献全文翻译已启动。");
             void runLiteratureTask<{ translationId: string }>(
                 this.name, this.httpSettings, "translate-literature.mjs", [],
-                { documentId, notebook: siyuan.notebook, avID: siyuan.avID, settings: translation, zoteroApiKeyEnv: zotero.apiKeyEnv },
+                { documentId, settings: translation, zoteroApiKeyEnv: zotero.apiKeyEnv },
                 this.getLiteratureCredentials([translation.apiKeyEnv]),
             ).then(async () => {
                 showMessage("中文译文已归档。");
-                await this.literatureReading.open(documentId, true);
+                if (this.literatureDocument.id === documentId) {
+                    await this.updateTranslationDocument(this.literatureDocument);
+                    await this.literatureReading.open(documentId, true);
+                }
             }).catch(error => {
                 showMessage(String(error.message));
-            }).finally(() => this.translationsRunning.delete(documentId));
+                if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ status: String(error.message) });
+            }).finally(() => {
+                this.translationsRunning.delete(documentId);
+                if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ running: false });
+            });
         });
     }
 
