@@ -6,6 +6,8 @@ import { writeLiteratureRecord } from './finalize-literature-ingest.mjs';
 const sha = text => createHash('sha256').update(text).digest('hex');
 const roles = new Set(['body', 'abstract', 'references', 'metadata', 'caption', 'unknown']);
 const preservedRoles = new Set(['references', 'metadata']);
+/** 译文块持久化记录其对应原文块，供双屏对照直接查表，不再依赖 DOM 结构重算。 */
+export const pairAttribute = 'custom-literature-source-block';
 
 /** 属性和块顺序以实时 Kramdown 为准，SQL 仅补充类型和可核验正文。 */
 export async function readTranslationSource(call, documentId) {
@@ -16,6 +18,20 @@ export async function readTranslationSource(call, documentId) {
             await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)));
         }
     }
+}
+
+/** 新建文档的 SQL 索引分批落定，单次读取可能抓到中间态；连续三次摘要一致才算收敛。 */
+async function readSettledSource(call, documentId) {
+    let previous;
+    let matching = 0;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+        const current = await readTranslationSource(call, documentId);
+        matching = previous?.digest === current.digest ? matching + 1 : 0;
+        previous = current;
+        if (matching >= 2) return current;
+        await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)));
+    }
+    return previous;
 }
 
 async function readIndexedSource(call, documentId) {
@@ -40,7 +56,9 @@ async function readIndexedSource(call, documentId) {
         if (attrs[roleHashAttribute] && sha(row.content) !== attrs[roleHashAttribute]) {
             throw Error('文献角色指纹已过期，请核对标记后再翻译');
         }
-        blocks.push({ ...row, role, roleDigest: attrs[roleHashAttribute], marker: marker.index });
+        const pairedSource = attrs[pairAttribute];
+        if (pairedSource && !/^\d{14}-[a-z0-9]{7}$/u.test(pairedSource)) throw Error('译文块配对标记无效');
+        blocks.push({ ...row, role, roleDigest: attrs[roleHashAttribute], pairedSource: pairedSource || '', marker: marker.index });
     }
     if (!blocks.length || [...indexed.values()].some(row => row.type !== 'd' && !blocks.some(block => block.id === row.id))) {
         throw Object.assign(Error('实时文献块与索引未对齐，请稍后重试'), { code: 'literature_index_pending' });
@@ -91,39 +109,55 @@ export function prepareTranslation(source) {
     };
 }
 
-export async function inheritTranslationRoles(call, source, translationId, marker) {
+export async function inheritTranslationRoles(call, source, translationId, marker, progress = () => {}) {
     if ((await readTranslationSource(call, source.documentId)).digest !== source.digest) throw Error('翻译期间原文角色已变化');
-    const target = await readTranslationSource(call, translationId);
+    const target = await readSettledSource(call, translationId);
     const blocks = target.blocks.filter(block => block.content !== marker);
     if (source.blocks.length !== blocks.length || source.blocks.some((block, i) => block.type !== blocks[i].type
         || block.subtype !== blocks[i].subtype || ['c', 'm'].includes(block.type) && block.content !== blocks[i].content)) {
         throw Error('原文与译文块结构不一致，未建立角色继承和对照配对');
     }
     const items = source.blocks.flatMap((block, index) => {
-        if (!block.role) return [];
         const current = blocks[index];
-        if (current.role && current.role !== block.role) throw Error('译文已有不同角色，请先核对标记');
-        if (current.role === block.role && current.roleDigest === sha(current.content)) return [];
-        return [{ id: current.id, attrs: { [roleAttribute]: block.role, [roleHashAttribute]: sha(current.content) } }];
+        const attrs = {};
+        if (block.role) {
+            if (current.role && current.role !== block.role) throw Error('译文已有不同角色，请先核对标记');
+            if (current.role !== block.role || current.roleDigest !== sha(current.content)) {
+                attrs[roleAttribute] = block.role;
+                attrs[roleHashAttribute] = sha(current.content);
+            }
+        }
+        if (current.pairedSource !== block.id) attrs[pairAttribute] = block.id;
+        return Object.keys(attrs).length ? [{ id: current.id, attrs }] : [];
     });
     for (const block of target.blocks.filter(block => block.content === marker)) {
         if (block.role !== 'metadata' || block.roleDigest !== sha(block.content)) {
             items.push({ id: block.id, attrs: { [roleAttribute]: 'metadata', [roleHashAttribute]: sha(block.content) } });
         }
     }
-    let targetDigest = target.digest;
+    // set_attrs 只改角色与配对属性，不影响正文摘要；跨批次比较用 contentDigest，
+    // 否则上一批刚写入的角色属性会让摘要合法变化并被误判为文档被改。
+    let targetContentDigest = target.contentDigest;
+    if (items.length) progress({ stage: '写入逐块配对', completed: 0, total: items.length, unit: '块' });
     for (let start = 0; start < items.length; start += 100) {
         await writeLiteratureRecord(call, 'block', { action: 'set_attrs', items: items.slice(start, start + 100) }, async () => {
             if ((await readTranslationSource(call, source.documentId)).digest !== source.digest
-                || (await readTranslationSource(call, translationId)).digest !== targetDigest) throw Error('角色继承期间文档已变化');
+                || (await readTranslationSource(call, translationId)).contentDigest !== targetContentDigest) throw Error('角色继承期间文档已变化');
         });
-        targetDigest = (await readTranslationSource(call, translationId)).digest;
+        targetContentDigest = (await readTranslationSource(call, translationId)).contentDigest;
+        progress({ stage: '写入逐块配对', completed: Math.min(start + 100, items.length), total: items.length, unit: '块' });
     }
-    const verified = await readTranslationSource(call, translationId);
+    progress({ stage: '回读核验配对' });
+    const verified = await readSettledSource(call, translationId);
     if (verified.contentDigest !== target.contentDigest
         || (await readTranslationSource(call, source.documentId)).digest !== source.digest) throw Error('角色继承期间文档已变化');
-    if (items.some(item => !verified.blocks.some(block => block.id === item.id && block.role === item.attrs[roleAttribute]))) {
-        throw Error('译文角色继承未通过回读');
+    const roleItems = items.filter(item => item.attrs[roleAttribute]);
+    const pairItems = items.filter(item => item.attrs[pairAttribute]);
+    if (roleItems.some(item => !verified.blocks.some(block => block.id === item.id
+            && block.role === item.attrs[roleAttribute] && block.roleDigest === item.attrs[roleHashAttribute]))
+        || pairItems.some(item => !verified.blocks.some(block => block.id === item.id
+            && block.pairedSource === item.attrs[pairAttribute]))) {
+        throw Error('译文角色与逐块配对未通过回读');
     }
-    return items.length;
+    return { inheritedRoleCount: roleItems.length, pairedBlockCount: blocks.length };
 }

@@ -121,6 +121,7 @@ function createRendererConfig() {
                     { src: "./agent-kit/scripts/translate-literature.mjs", dest: "./literature-scripts" },
                     { src: "./agent-kit/scripts/literature-source.mjs", dest: "./literature-scripts" },
                     { src: "./agent-kit/scripts/translation-roles.mjs", dest: "./literature-scripts" },
+                    { src: "./agent-kit/scripts/mdtx-config-bridge.py", dest: "./literature-scripts" },
                 ],
             }),
         ],

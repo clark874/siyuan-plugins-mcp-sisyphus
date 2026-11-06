@@ -59,3 +59,4 @@ export async function fetchSyncPost(_url: string, _data?: unknown, _headers?: un
     return { code: 0, data: {} };
 }
 export async function openTab(_options: unknown): Promise<void> {}
+export function getAllTabs(_type?: string): unknown[] { return []; }

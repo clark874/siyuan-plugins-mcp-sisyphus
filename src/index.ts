@@ -42,7 +42,7 @@ import { LITERATURE_PROFILE_FILE, defaultLiteratureProfile, normalizeLiteratureP
 import { LiteratureReading, readLiteratureAttrs } from "@/ui/literature/reading";
 import TranslationPanel from "@/ui/literature/TranslationPanel.svelte";
 import type { TranslationProgress } from "@/ui/literature/desktop-runner";
-import { runLiteratureTask } from "@/ui/literature/desktop-runner";
+import { runLiteratureTask, runMdtxBridge } from "@/ui/literature/desktop-runner";
 import SnapshotPanel from "@/ui/version-control/SnapshotPanel.svelte";
 import VersionDiffPanel from "@/ui/version-control/VersionDiffPanel.svelte";
 import RecentDocumentsPanel from "@/ui/recent-documents/RecentDocumentsPanel.svelte";
@@ -144,8 +144,13 @@ export default class SiyuanMCP extends Plugin {
     private readonly literatureReading = new LiteratureReading(this, () => this.literatureProfile.translation,
         message => this.translationPanel?.$set({ status: message }),
         () => {
-            this.showTranslationDock();
-            return this.translationDockElement?.querySelector<HTMLElement>(".translation-reading-editor") ?? null;
+            const sourceId = this.literatureDocument.id;
+            this.translationPanel?.$set({ comparisonOpen: this.literatureReading.isOpen(sourceId) });
+        },
+        (progress, pairing) => {
+            // 翻译进行中时配对进度不得覆盖分包进度。
+            if (this.translationsRunning.has(this.literatureDocument.id)) return;
+            this.translationPanel?.$set({ progress, pairing });
         });
     private readonly translationsRunning = new Set<string>();
     private readonly translationProgress = new Map<string, TranslationProgress>();
@@ -358,7 +363,8 @@ export default class SiyuanMCP extends Plugin {
         appendHttpLifecycleLog("[plugin] onunload begin");
         this.unregisterAgentSessionUrlHandler();
         this.eventBus.off("loaded-protyle-static", this.handleLiteratureEditor);
-        this.eventBus.off("switch-protyle", this.handleLiteratureEditor);
+        this.eventBus.off("switch-protyle", this.handleLiteratureEditorSwitch);
+        this.eventBus.off("destroy-protyle", this.handleLiteratureEditorDestroyed);
         this.eventBus.off("open-menu-breadcrumbmore", this.handleLiteratureMenu);
         this.literatureReading.reset();
         this.literatureCredentials.clear();
@@ -455,7 +461,7 @@ export default class SiyuanMCP extends Plugin {
     /**
      * A custom setting pannel provided by svelte
      */
-    openSetting(): void {
+    openSetting(tab?: string): void {
         const isMobileEnv = typeof window !== "undefined" && (
             (window as any)?.siyuan?.config?.system?.os === "android" ||
             (window as any)?.siyuan?.config?.system?.os === "ios" ||
@@ -484,7 +490,7 @@ export default class SiyuanMCP extends Plugin {
 
             let pannel = new McpConfig({
                 target: modelMainElement.querySelector("#SettingPanel"),
-                props: { plugin: this }
+                props: { plugin: this, initialTab: tab }
             });
 
             const closeBtn = document.getElementById("modelClose");
@@ -527,7 +533,8 @@ export default class SiyuanMCP extends Plugin {
         let pannel = new McpConfig({
             target: dialog.element.querySelector("#SettingPanel"),
             props: {
-                plugin: this
+                plugin: this,
+                initialTab: tab
             }
         });
     }
@@ -539,11 +546,9 @@ export default class SiyuanMCP extends Plugin {
         void this.updateTranslationDocument(this.literatureDocument);
     }
 
-    setLiteratureCredentials(profile: LiteratureProfile, zoteroKey: string, translationKey: string) {
+    setLiteratureCredentials(profile: LiteratureProfile, zoteroKey: string) {
         validateLiteratureProfile(profile);
-        for (const [name, value] of [[profile.zotero.apiKeyEnv, zoteroKey], [profile.translation.apiKeyEnv, translationKey]]) {
-            if (name && value) this.literatureCredentials.set(name, value);
-        }
+        if (profile.zotero.apiKeyEnv && zoteroKey) this.literatureCredentials.set(profile.zotero.apiKeyEnv, zoteroKey);
     }
 
     clearLiteratureCredentials() { this.literatureCredentials.clear(); }
@@ -559,7 +564,7 @@ export default class SiyuanMCP extends Plugin {
         validateLiteratureProfile(profile);
         return runLiteratureTask<Record<string, string>>(this.name, this.httpSettings, "ingest-literature-batch.mjs",
             ["--desktop", "--check-runtime"], { profile },
-            this.getLiteratureCredentials([profile.zotero.apiKeyEnv, profile.translation.apiKeyEnv]));
+            this.getLiteratureCredentials([profile.zotero.apiKeyEnv]));
     }
 
     async runLiteratureBatch(profile: LiteratureProfile, manifest: string, receipt: string, execute: boolean) {
@@ -572,7 +577,7 @@ export default class SiyuanMCP extends Plugin {
             return await runLiteratureTask<{ mode: string; complete?: boolean }>(
                 this.name, this.httpSettings, "ingest-literature-batch.mjs",
                 ["--desktop", "--manifest", manifest, "--receipt", receipt, ...(execute ? ["--execute"] : [])],
-                { profile }, this.getLiteratureCredentials([profile.zotero.apiKeyEnv, profile.translation.apiKeyEnv]),
+                { profile }, this.getLiteratureCredentials([profile.zotero.apiKeyEnv]),
             );
         } finally {
             this.literatureBatchRunning = false;
@@ -585,6 +590,17 @@ export default class SiyuanMCP extends Plugin {
         if (!context || !editor?.element?.closest('[data-type="wnd"]')) return;
         void this.updateTranslationDocument(context);
         this.literatureReading.onEditorLoaded(editor);
+    };
+
+    private readonly handleLiteratureEditorSwitch = (event: CustomEvent) => {
+        const editor = event.detail?.protyle;
+        const context = this.getDocumentContextFromProtyle(editor);
+        if (!context || !editor?.element?.closest('[data-type="wnd"]')) return;
+        void this.updateTranslationDocument(context);
+    };
+
+    private readonly handleLiteratureEditorDestroyed = (event: CustomEvent) => {
+        this.literatureReading.onEditorDestroyed(event.detail?.protyle);
     };
 
     private async updateTranslationDocument(context: CurrentDocumentContext) {
@@ -602,6 +618,7 @@ export default class SiyuanMCP extends Plugin {
             this.translationPanel?.$set({
                 documentId: sourceId, documentTitle: this.literatureDocument.title,
                 translationId, running: this.translationsRunning.has(sourceId), progress: this.translationProgress.get(sourceId) ?? null,
+                comparisonOpen: this.literatureReading.isOpen(sourceId),
                 ...(!this.literatureReading.isOpen(sourceId) ? {
                     status: this.translationsRunning.has(sourceId) ? "正在翻译全文，可继续阅读原文。" : translationId ? "已有中文译文，可开启双屏对照。" : "此文档尚无中文译文。",
                 } : {}),
@@ -647,10 +664,51 @@ export default class SiyuanMCP extends Plugin {
     public translateCurrentLiterature(documentId: string) { void this.requestLiteratureTranslation(documentId); }
 
     public openLiteratureComparison(documentId: string) {
-        void this.literatureReading.open(documentId, true).catch(error => {
+        const sourceId = documentId;
+        void this.literatureReading.open(documentId, true).then(() => {
+            this.translationPanel?.$set({ comparisonOpen: this.literatureReading.isOpen(sourceId) });
+        }).catch(error => {
             this.translationPanel?.$set({ status: error.message });
             showMessage(error.message);
         });
+    }
+
+    public closeLiteratureComparison(documentId: string) {
+        this.literatureReading.close(documentId);
+        this.translationPanel?.$set({ comparisonOpen: false, status: "已关闭双屏对照。" });
+    }
+
+    public canRunLiteraturePairing(): boolean {
+        return this.getNodeRequire() !== undefined && HttpServerLauncher.isSupported()
+            && this.httpSettings.enabled && !this.httpSettings.tlsEnabled;
+    }
+
+    public async pairLiteratureTranslation(documentId: string, onProgress?: (progress: TranslationProgress) => void) {
+        return runLiteratureTask<{ documentId: string; translationId: string; pairedBlockCount?: number }>(
+            this.name, this.httpSettings, "translate-literature.mjs", ["--pair"],
+            { documentId }, {}, onProgress);
+    }
+
+    public mdtxBridgeAvailable(): boolean {
+        return this.getNodeRequire() !== undefined && HttpServerLauncher.isSupported();
+    }
+
+    public mdtxHomeDir(): string {
+        const nodeRequire = this.getNodeRequire();
+        if (!nodeRequire) return "";
+        try {
+            const os = nodeRequire("os") as typeof import("os");
+            return os.homedir();
+        } catch { return ""; }
+    }
+
+    public async mdtxConfig<T = Record<string, unknown>>(command: string, payload: Record<string, unknown> = {}): Promise<T> {
+        const { executable: draftExecutable, configPath: draftConfigPath, ...rest } = payload;
+        const translation = this.literatureProfile.translation;
+        const executable = typeof draftExecutable === "string" && draftExecutable.trim() ? draftExecutable.trim() : translation.executable;
+        const configPath = typeof draftConfigPath === "string" ? draftConfigPath.trim() : translation.configPath;
+        if (!executable) throw new Error("请先在「文献翻译」设置中填写 mdtx 程序。");
+        return runMdtxBridge<T>(this.name, executable, configPath, command, rest);
     }
 
     private readonly handleLiteratureMenu = (event: CustomEvent) => {
@@ -672,7 +730,8 @@ export default class SiyuanMCP extends Plugin {
 
     private registerLiteratureReading() {
         this.eventBus.on("loaded-protyle-static", this.handleLiteratureEditor);
-        this.eventBus.on("switch-protyle", this.handleLiteratureEditor);
+        this.eventBus.on("switch-protyle", this.handleLiteratureEditorSwitch);
+        this.eventBus.on("destroy-protyle", this.handleLiteratureEditorDestroyed);
         this.eventBus.on("open-menu-breadcrumbmore", this.handleLiteratureMenu);
         this.addCommand({
             langKey: "translateLiteratureDocument",
@@ -706,7 +765,7 @@ export default class SiyuanMCP extends Plugin {
             void runLiteratureTask<{ translationId: string }>(
                 this.name, this.httpSettings, "translate-literature.mjs", [],
                 { documentId, settings: translation, zoteroApiKeyEnv: zotero.apiKeyEnv },
-                this.getLiteratureCredentials([translation.apiKeyEnv]),
+                {},
                 progress => {
                     this.translationProgress.set(documentId, progress);
                     if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ progress });

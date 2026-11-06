@@ -10,7 +10,6 @@ export interface LiteratureProfile {
         syncScroll: boolean;
         executable: string;
         configPath: string;
-        apiKeyEnv: string;
     };
 }
 
@@ -18,7 +17,7 @@ export const defaultLiteratureProfile = (): LiteratureProfile => ({
     siyuan: { notebook: "", parentID: null, avID: "" },
     zotero: { baseUrl: "", apiKeyEnv: "ZOTERO_API_KEY" },
     notebooklm: { enabled: false, profile: "", notebookTitle: "", notebookId: "", python: "python3" },
-    translation: { mode: "manual", openAlongside: true, syncScroll: true, executable: "mdtx", configPath: "", apiKeyEnv: "DEEPSEEK_API_KEY" },
+    translation: { mode: "manual", openAlongside: true, syncScroll: true, executable: "mdtx", configPath: "" },
 });
 
 const str = (value: unknown) => typeof value === "string" ? value.trim() : "";
@@ -42,7 +41,6 @@ export function normalizeLiteratureProfile(raw: unknown): LiteratureProfile {
             syncScroll: translation?.syncScroll !== false,
             executable: str(translation?.executable) || "mdtx",
             configPath: str(translation?.configPath),
-            apiKeyEnv: translation?.apiKeyEnv === undefined ? "DEEPSEEK_API_KEY" : str(translation.apiKeyEnv),
         },
     };
 }
@@ -59,10 +57,9 @@ export function validateLiteratureProfile(profile: LiteratureProfile): void {
     if (zotero.baseUrl && !/^https:\/\/api\.zotero\.org\/(?:users|groups)\/\d+\/?$/.test(zotero.baseUrl)) {
         throw new Error("Zotero 地址须为官方个人或群组文库地址。");
     }
-    if (!credentialEnv.test(zotero.apiKeyEnv) || (translation.apiKeyEnv && !credentialEnv.test(translation.apiKeyEnv))) {
+    if (!credentialEnv.test(zotero.apiKeyEnv)) {
         throw new Error("密钥环境变量名须以 _API_KEY 或 _TOKEN 结尾。");
     }
-    if (translation.apiKeyEnv && translation.apiKeyEnv === zotero.apiKeyEnv) throw new Error("Zotero 和翻译服务须使用不同的密钥变量。");
     if (translation.configPath && !/^(?:\/|[A-Za-z]:[\\/]|\\\\)/.test(translation.configPath)) {
         throw new Error("mdtx 配置文件须使用绝对路径。");
     }

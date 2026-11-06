@@ -24,10 +24,12 @@
     import McpAppsPanel from "./mcp-config/McpAppsPanel.svelte";
     import UserRulesPanel from "./mcp-config/UserRulesPanel.svelte";
     import LiteraturePanel from "./mcp-config/LiteraturePanel.svelte";
+    import TranslationSettingsPanel from "./mcp-config/TranslationSettingsPanel.svelte";
     import DebugPanel from "./mcp-config/DebugPanel.svelte";
     import { discoverOfficialTools, type UiOfficialMcpDiscovery } from "./official-plugin-tools";
 
     export let plugin: any;
+    export let initialTab: string | undefined = undefined;
     interface NotebookInfo { id: string; name: string; closed?: boolean }
     interface ChangeEvent { key: string; value: any }
 
@@ -36,11 +38,12 @@
         { id: "permissions", label: "权限" },
         { id: "tools", label: "工具" },
         { id: "literatureWorkflow", label: "文献工作流" },
+        { id: "literatureTranslation", label: "文献翻译" },
         { id: "mcpApps", label: "MCP Apps" },
         { id: "debug", label: "安全与显示" },
         { id: "userRules", label: "规则与记忆" },
     ] as const;
-    let focusGroup: typeof tabs[number]["id"] = "connection";
+    let focusGroup: typeof tabs[number]["id"] = tabs.some(tab => tab.id === initialTab) ? initialTab as typeof tabs[number]["id"] : "connection";
     let config: ToolConfig = buildDefaultToolConfig();
     let httpSettings: HttpServerSettings = buildDefaultHttpServerSettings();
     let versionControlSettings: VersionControlSettings = buildDefaultVersionControlSettings();
@@ -154,6 +157,7 @@
         <PermissionsPanel group="permissions" display={focusGroup === "permissions"} {notebooks} {permissions} {permissionDisplaySettings} {permLoading} {getLabel} {onChanged} />
         <ToolCategoriesPanel group="tools" display={focusGroup === "tools"} {config} {getLabel} {onChanged} {extensionDiscovery} onRefreshExtensionTools={refreshExtensionTools} />
         {#if focusGroup === "literatureWorkflow"}<LiteraturePanel {plugin} {notebooks} />{/if}
+        {#if focusGroup === "literatureTranslation"}<TranslationSettingsPanel {plugin} />{/if}
         <McpAppsPanel display={focusGroup === "mcpApps"} {config} {getLabel} {onChanged} />
         <DebugPanel group="debug" display={focusGroup === "debug"} {config} {versionControlSettings} {getLabel} {onChanged} />
         <UserRulesPanel group="userRules" display={focusGroup === "userRules"} {config} {getLabel} {onChanged} />

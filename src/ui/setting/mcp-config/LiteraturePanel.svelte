@@ -8,7 +8,7 @@
     export let plugin: {
         loadData: (name: string) => Promise<unknown>;
         saveData: (name: string, value: unknown) => Promise<unknown>;
-        setLiteratureCredentials: (profile: LiteratureProfile, zoteroKey: string, translationKey: string) => void;
+        setLiteratureCredentials: (profile: LiteratureProfile, zoteroKey: string) => void;
         clearLiteratureCredentials: () => void;
         checkLiteratureRuntime: (profile: LiteratureProfile) => Promise<Record<string, string>>;
         updateLiteratureProfile: (profile: LiteratureProfile) => void;
@@ -26,7 +26,6 @@
     let batchRunning = false;
     let runtimeChecking = false;
     let zoteroKey = "";
-    let translationKey = "";
 
     onMount(async () => {
         try {
@@ -57,9 +56,8 @@
     }
 
     function unlock() {
-        plugin.setLiteratureCredentials(normalizeLiteratureProfile(profile), zoteroKey.trim(), translationKey.trim());
+        plugin.setLiteratureCredentials(normalizeLiteratureProfile(profile), zoteroKey.trim());
         zoteroKey = "";
-        translationKey = "";
     }
 
     function unlockSession() {
@@ -135,32 +133,16 @@
         <label>已有笔记本 ID（留空允许首次创建）<input type="text" bind:value={profile.notebooklm.notebookId} /></label>
         <label>已安装 NotebookLM 客户端的 Python<input type="text" bind:value={profile.notebooklm.python} /></label>
     </fieldset>
-    <fieldset disabled={!ready || saving}>
-        <legend>双语翻译与阅读</legend>
-        <label>全文翻译
-            <select bind:value={profile.translation.mode}>
-                <option value="manual">手动选择论文</option>
-                <option value="automatic">入库后自动翻译</option>
-            </select>
-        </label>
-        <label>mdtx 可执行文件<input type="text" bind:value={profile.translation.executable} /></label>
-        <label>mdtx 配置文件绝对路径<input type="text" bind:value={profile.translation.configPath} /></label>
-        <label>翻译模型密钥环境变量名（本地模型可留空）<input type="text" bind:value={profile.translation.apiKeyEnv} /></label>
-        <p>mdtx 配置需开启校验报告，沿用默认译文文件名。</p>
-        <label class="toggle"><input type="checkbox" bind:checked={profile.translation.openAlongside} /> 打开原文时显示已有译文</label>
-        <label class="toggle"><input type="checkbox" bind:checked={profile.translation.syncScroll} /> 默认同步滚动</label>
-    </fieldset>
     <button class="b3-button" type="submit" disabled={!ready || saving}>{saving ? "正在保存" : "保存文献设置"}</button>
     {#if message}<p class:error={failed} role="status">{message}</p>{/if}
     <fieldset disabled={!ready || runtimeChecking || batchRunning}>
         <legend>本机运行凭据</legend>
         <label>Zotero 密钥<input type="password" autocomplete="off" bind:value={zoteroKey} /></label>
-        <label>翻译模型密钥<input type="password" autocomplete="off" bind:value={translationKey} /></label>
         <p>可由本机环境提供。此处输入的密钥仅留在当前思源进程内。</p>
         <div class="actions">
-            <button class="b3-button b3-button--outline" type="button" disabled={!zoteroKey && !translationKey} on:click={unlockSession}>用于本次会话</button>
+            <button class="b3-button b3-button--outline" type="button" disabled={!zoteroKey} on:click={unlockSession}>用于本次会话</button>
             <button class="b3-button b3-button--outline" type="button" on:click={checkRuntime}>{runtimeChecking ? "正在检查" : "检查本机环境"}</button>
-            <button class="b3-button b3-button--outline" type="button" on:click={() => { plugin.clearLiteratureCredentials(); zoteroKey = ""; translationKey = ""; result = "已清除本次会话临时密钥。"; }}>清除临时密钥</button>
+            <button class="b3-button b3-button--outline" type="button" on:click={() => { plugin.clearLiteratureCredentials(); zoteroKey = ""; result = "已清除本次会话临时密钥。"; }}>清除临时密钥</button>
         </div>
     </fieldset>
     <fieldset disabled={!ready || batchRunning || runtimeChecking}>

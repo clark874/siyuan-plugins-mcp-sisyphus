@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdir, open, readFile, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, realpath, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -56,27 +56,44 @@ async function translateMarkdown(work, plan, settings, zoteroApiKeyEnv, progress
     if (cached && verified?.trim() === sha256(cached)) return { text: cached, invocationHash, sha256: verified.trim() };
 
     await writeFile(source, plan.text + '\n', { mode: 0o600 });
-    const env = { ...process.env };
-    if (zoteroApiKeyEnv) delete env[zoteroApiKeyEnv];
+    // mdtx 按输入相对 cwd 的路径决定输出子目录；cwd 是主目录时译文落在嵌套路径。
+    const [home, realSource] = await Promise.all([realpath(os.homedir()), realpath(source)]);
+    const rel = path.relative(home, realSource);
+    const nested = rel && rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel);
+    const mdtxResult = nested ? path.join(cache, path.dirname(rel), 'source.zh.md') : path.join(cache, 'source.zh.md');
+    // 同一 invocationHash 下已完成的 mdtx 产物直接复用，避免重复付费翻译。
+    let haveMdtxOutput = false;
     try {
-        const task = run(settings.executable, ['--config', settings.configPath, '--to', 'zh', '--output', cache, '--resume', source],
-            { cwd: cache, timeout: 60 * 60_000, maxBuffer: 4 * 1024 * 1024, windowsHide: true, env });
-        let pending = '';
-        const consume = chunk => {
-            pending += chunk;
-            const lines = pending.split(/[\r\n]/u);
-            pending = lines.pop().slice(-2000);
-            for (const line of lines) { const event = mdtxProgress(line); if (event) progress(event); }
-        };
-        task.child.stderr.setEncoding('utf8').on('data', consume);
-        task.child.stdout.setEncoding('utf8').on('data', consume);
-        await task;
-        const last = mdtxProgress(pending); if (last) progress(last);
-    } catch {
-        throw Error('mdtx 翻译未完成。请检查本机命令、配置及密钥环境，修复后重试可续跑。');
+        const [priorText, priorReport] = await Promise.all([optionalFile(mdtxResult), optionalFile(mdtxResult + '.report.json')]);
+        if (priorText && priorReport) {
+            const report = JSON.parse(priorReport);
+            haveMdtxOutput = report?.validation_passed === true && await realpath(report.input_path) === realSource;
+        }
+    } catch { /* 复用检查失败则正常调用 mdtx。 */ }
+    if (!haveMdtxOutput) {
+        const env = { ...process.env };
+        if (zoteroApiKeyEnv) delete env[zoteroApiKeyEnv];
+        try {
+            // cwd 用主目录：mdtx 配置里的 .mdtx/*.sqlite3 相对路径与桌面端、配置桥接一致。
+            const task = run(settings.executable, ['--config', settings.configPath, '--to', 'zh', '--output', cache, '--resume', source],
+                { cwd: os.homedir(), timeout: 60 * 60_000, maxBuffer: 4 * 1024 * 1024, windowsHide: true, env });
+            let pending = '';
+            const consume = chunk => {
+                pending += chunk;
+                const lines = pending.split(/[\r\n]/u);
+                pending = lines.pop().slice(-2000);
+                for (const line of lines) { const event = mdtxProgress(line); if (event) progress(event); }
+            };
+            task.child.stderr.setEncoding('utf8').on('data', consume);
+            task.child.stdout.setEncoding('utf8').on('data', consume);
+            await task;
+            const last = mdtxProgress(pending); if (last) progress(last);
+        } catch {
+            throw Error('mdtx 翻译未完成。请检查本机命令、配置及密钥环境，修复后重试可续跑。');
+        }
     }
-    const [translated, reportRaw] = await Promise.all([optionalFile(result), optionalFile(result + '.report.json')]);
-    if (!translated || !reportRaw) throw Error('未找到译文或校验报告，请开启 mdtx 的 output.write_report 并保留默认命名');
+    const [translated, reportRaw] = await Promise.all([optionalFile(mdtxResult), optionalFile(mdtxResult + '.report.json')]);
+    if (!translated || !reportRaw) throw Error('未在 mdtx 输出目录找到 source.zh.md 及校验报告');
     if (JSON.parse(reportRaw).validation_passed !== true || !translated.trim() || translated.trim() === plan.text) throw Error('mdtx 译文未通过结构校验');
     if (sha256(await readFile(settings.configPath)) !== sha256(configuration)) throw Error('mdtx 配置在翻译期间变化');
     progress({ stage: '校验译文并恢复参考文献原文' });
@@ -161,7 +178,7 @@ export async function translateLiterature(call, { documentId, notebook, avID, se
         }
         if (sha256(await readOriginal()) !== sourceHash) throw Error('原文已变化，暂缓配对译文');
         progress({ stage: '继承文献角色并回读验证' });
-        const inheritedRoleCount = await inheritTranslationRoles(call, source, translationId, marker);
+        const { inheritedRoleCount, pairedBlockCount } = await inheritTranslationRoles(call, source, translationId, marker, progress);
         if ((await readTranslationSource(call, documentId)).digest !== source.digest) throw Error('配对前原文或角色已变化');
         const current = await call('block', { action: 'get_attrs', id: documentId });
         if (current[translationAttribute] !== translationId || linked[originalAttribute] !== documentId || linked[sourceHashAttribute] !== sourceHash) {
@@ -177,11 +194,36 @@ export async function translateLiterature(call, { documentId, notebook, avID, se
             || pair[1][sourceHashAttribute] !== sourceHash) throw Error('原文和译文配对未通过回读');
         await unlink(pendingPath).catch(error => { if (error.code !== 'ENOENT') throw error; });
         progress({ stage: '译文归档与核验完成', done: true, preservedCount: plan.preservedCount });
-        return { documentId, translationId, sourceHash, preservedCount: plan.preservedCount, inheritedRoleCount, reused: existing.status === 'resolved' };
+        return { documentId, translationId, sourceHash, preservedCount: plan.preservedCount, inheritedRoleCount, pairedBlockCount, reused: existing.status === 'resolved' };
     } finally {
         await lock.close();
         await unlink(lockPath);
     }
+}
+
+/** 为已归档译文补写逐块配对属性；原文在翻译后被修改时拒绝重建配对。 */
+export async function pairLiteratureTranslation(call, { documentId }, progress = () => {}) {
+    progress({ stage: '读取原文与文献角色标记' });
+    if (!idPattern.test(documentId)) throw Error('文献正文标识无效');
+    if ((await call('system', { action: 'bootstrap' })).writeSafety?.strictMode !== true) throw Error('译文配对需要启用严格写入');
+    const attrs = await call('block', { action: 'get_attrs', id: documentId });
+    const translationId = attrs[translationAttribute];
+    if (!idPattern.test(translationId ?? '')) throw Error('当前论文还没有归档译文');
+    const source = await readTranslationSource(call, documentId);
+    const original = source.original;
+    if (!original) throw Error('没有读到论文原文');
+    const sourceHash = sha256(original);
+    const marker = '机器译文对应原文 SHA-256：' + sourceHash;
+    const linked = await call('block', { action: 'get_attrs', id: translationId });
+    if (linked[originalAttribute] !== documentId) throw Error('原文与译文的配对已失效，请更新译文');
+    if (linked[sourceHashAttribute] !== sourceHash) {
+        throw Error('原文在翻译后已修改，请更新中文译文以重建配对');
+    }
+    progress({ stage: '写入逐块配对并回读验证' });
+    const { inheritedRoleCount, pairedBlockCount } = await inheritTranslationRoles(call, source, translationId, marker, progress);
+    if ((await readTranslationSource(call, documentId)).digest !== source.digest) throw Error('配对期间原文或角色已变化');
+    progress({ stage: '逐块配对完成', done: true });
+    return { documentId, translationId, sourceHash, inheritedRoleCount, pairedBlockCount };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
@@ -189,8 +231,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
         let input = '';
         for await (const chunk of process.stdin) input += chunk;
         const { mcpSettings, ...paper } = JSON.parse(input);
-        console.log(JSON.stringify(await translateLiterature(await mcpConnection(mcpSettings), paper,
-            event => process.stderr.write('SISYPHUS_PROGRESS ' + JSON.stringify(event) + '\n'))));
+        const call = await mcpConnection(mcpSettings);
+        const progress = event => process.stderr.write('SISYPHUS_PROGRESS ' + JSON.stringify(event) + '\n');
+        console.log(JSON.stringify(process.argv.includes('--pair')
+            ? await pairLiteratureTranslation(call, paper, progress)
+            : await translateLiterature(call, paper, progress)));
     } catch (error) {
         console.error(error.message);
         process.exitCode = 1;
