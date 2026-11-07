@@ -144,7 +144,7 @@ export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
     criteria_remove: 'Removes one named saved-search criterion after strict validation.',
 };
 export const LITERATURE_ACTION_HINTS: Partial<Record<LiteratureAction, string>> = {
-    find_evidence: '查询已登记的思源文献 AV 并回读正文。向量和 Jev 均须显式启用。',
+    find_evidence: '查询已登记的思源文献 AV 并回读正文。向量和 Jev 须显式启用。未标记块默认参与取证，返回 unknown；标记指纹失配时也返回 unknown。有效的 abstract、references、metadata、caption 角色默认排除。查看 retrieval.roleScheme，filteredByContentRole 是本次排除的候选块数。',
     status: 'Checks live connectivity, formal tool discovery, advertised-contract drift, libraries, and semantic-index state.',
     list_collections: 'Defaults to the complete nested collection tree.',
     list_collection_items: 'Lists bounded items for one exact collection key.',

@@ -6,7 +6,7 @@ import { ensurePermissionForAvId, extractAvRowLookup } from '../av/handlers';
 import { escapeSqlString } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
 import { createJsonResult } from '../internal/shared';
-import { attachKnowledgeContext, currentLiteratureRole, isLiteratureEvidenceRole, literatureRoleProjection, rerankKnowledgeCandidates } from '../search/retrieval';
+import { attachKnowledgeContext, currentLiteratureRole, isLiteratureEvidenceRole, literatureRoleProjection, literatureRoleScheme, rerankKnowledgeCandidates } from '../search/retrieval';
 import { LiteratureFindEvidenceSchema } from './schemas';
 
 type Catalog = { id: string; av_id: string; box: string; root_id: string; title: string; projects?: string };
@@ -132,7 +132,9 @@ export const findLiteratureEvidence: ToolActionHandler = async ({ client, permMg
     await permMgr.reload();
     const allCatalogs = await discoverLiteratureLibraries(client, permMgr);
     const catalogs = allCatalogs.filter(c => !args.catalogBlockId || c.catalogBlockId === args.catalogBlockId);
-    const result = (status: string, payload = {}) => createJsonResult({ status, readOnly: true, source: 'siyuan_literature', ...payload });
+    const result = (status: string, payload: Record<string, unknown> & { retrieval?: Record<string, unknown> } = {}) =>
+        createJsonResult({ status, readOnly: true, source: 'siyuan_literature', ...payload,
+            retrieval: { ...payload.retrieval, roleScheme: literatureRoleScheme } });
     if (!catalogs.length) return result(args.catalogBlockId ? 'catalog_not_found' : 'catalog_missing', { catalogs: [] });
     if (catalogs.length > 1) return result('catalog_selection_required', { catalogs });
     const catalog = catalogs[0];

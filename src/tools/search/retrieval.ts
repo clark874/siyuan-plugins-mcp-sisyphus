@@ -82,6 +82,12 @@ const shortText = (value: unknown, limit = 1000) => typeof value === 'string' ? 
 export const literatureRoleAttribute = 'custom-literature-role';
 const literatureRoleDigestAttribute = 'custom-literature-role-sha256';
 const nonEvidenceRoles = new Set(['abstract', 'references', 'metadata', 'caption']);
+export const literatureRoleScheme = {
+    excludedFromEvidence: [...nonEvidenceRoles],
+    unmarked: '未标记块不因角色排除，contentRole 为 unknown，仍须通过既有候选筛选。显式 body 也可参与。',
+    digestMismatch: '已标记但内容指纹失配时也返回 unknown，并允许参与取证。仅凭 unknown 无法区分未标记和失配。',
+    filteredByContentRole: '本次召回并核对范围后，因内容角色排除的候选块数。不是全库角色统计。',
+};
 export const literatureRoleProjection = `
     (SELECT a.value FROM attributes a WHERE a.block_id=b.id AND a.name='${literatureRoleAttribute}' LIMIT 1) AS literature_role,
     (SELECT a.value FROM attributes a WHERE a.block_id=b.id AND a.name='${literatureRoleDigestAttribute}' LIMIT 1) AS literature_role_digest`;

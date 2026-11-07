@@ -98,6 +98,11 @@ describe('思源文献库', () => {
         const first = await run(0);
         expect(first).toMatchObject({ totalCandidates: 18, hasMore: true, nextOffset: 12,
             retrieval: { candidateDocuments: 6, filteredByContentRole: 1, rerank: { status: 'applied', rankedCount: 18 } } });
+        expect(first.retrieval.roleScheme).toMatchObject({
+            excludedFromEvidence: ['abstract', 'references', 'metadata', 'caption'],
+            unmarked: expect.stringContaining('unknown'),
+            digestMismatch: expect.stringContaining('无法区分'),
+        });
         expect(first.papers).toHaveLength(6);
         expect(first.evidence.map((row: { blockId: string }) => row.blockId)).toEqual(rows.slice(6).reverse().map(row => row.id));
         expect(rerank.mock.calls.map(call => call[3].length)).toEqual([10, 8]);

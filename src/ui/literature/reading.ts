@@ -1,6 +1,8 @@
-import { fetchSyncPost, getAllEditor, getAllTabs, openTab, type Plugin } from "siyuan";
+import { fetchSyncPost, getAllEditor, getAllTabs, openTab, type Plugin, type Tab } from "siyuan";
 
 import { literatureSourceMarkdown } from "../../../agent-kit/scripts/literature-source.mjs";
+import { stripZeroWidthChars } from "../../core/normalize";
+import { sha256Hex } from "../../shared/crypto";
 import type { TranslationProgress } from "./desktop-runner";
 
 const blockId = /^\d{14}-[a-z0-9]{7}$/;
@@ -340,25 +342,31 @@ export class LiteratureReading {
                 await openTab({ app: this.plugin.app, doc: { id: sourceId, action: ["cb-get-all", "cb-get-focus"] } });
             }
             if (!current()) return;
-            const warnings: string[] = [];
-            const targetAttrs = await readLiteratureAttrs(targetId);
+            const sourceBlocks = await this.verifySource(sourceId, targetId);
             if (!current()) return;
-            if (targetAttrs[originalAttribute] !== sourceId) throw new Error("原文与译文的配对已失效，请更新译文。");
-            try {
-                const response = await fetchSyncPost("/api/block/getBlockKramdown", { id: sourceId }, undefined, false, AbortSignal.timeout(10_000));
-                if (response?.code === 0) {
-                    const bytes = new TextEncoder().encode(literatureSourceMarkdown(response.data.kramdown));
-                    const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(byte => byte.toString(16).padStart(2, "0")).join("");
-                    if (targetAttrs[sourceHashAttribute] !== hash) warnings.push("译文与当前原文版本尚未核对，逐块配对仍可使用。");
-                }
-            } catch { warnings.push("暂时无法核对译文与原文版本。"); }
             await this.ensurePairs(sourceId, targetId);
             if (!current()) return;
-            // 复用可见的译文编辑器，否则在原文所在窗口右侧拆分打开。
-            // openNewTab：译文可能已在别处以隐藏页签打开，keepCursor 会让既有页签
-            // 不激活而保持隐藏；强制新页签才能保证右侧出现可绑定的可见编辑器。
+            const maps = await this.loadPairs(targetId);
+            if (!current()) return;
+            this.checkPairSources(maps, sourceBlocks);
+            const originalEditor = this.findEditor(sourceId) ?? await this.waitForEditor(sourceId, 4_000, generation);
+            if (!current()) return;
+            const originalTab = originalEditor?.element && (getAllTabs("Editor") as Tab[]).find(tab =>
+                tab.panelElement.contains(originalEditor.element!));
+            // 原生 right 会复用既有右窗格；原文已在最右侧时，两文会落在同一窗格。
+            // 此时直接通过原生布局接口拆分并移动译文页签，保留原文及其他页签。
             if (!this.findEditor(targetId)) {
                 await openTab({ app: this.plugin.app, doc: { id: targetId, action: ["cb-get-all"] }, position: "right", openNewTab: true });
+                const translatedEditor = await this.waitForEditor(targetId, 8_000, generation);
+                if (!current()) return;
+                const translatedTab = translatedEditor?.element && (getAllTabs("Editor") as Tab[]).find(tab =>
+                    tab.panelElement.contains(translatedEditor.element!));
+                if (originalTab && translatedTab?.parent === originalTab.parent) {
+                    const right = originalTab.parent.split("lr");
+                    right.headersElement.append(translatedTab.headElement);
+                    right.moveTab(translatedTab);
+                    originalTab.parent.switchTab(originalTab.headElement);
+                }
             }
             if (!current()) return;
             const targetEditor = await this.waitForEditor(targetId, 8_000, generation);
@@ -368,7 +376,8 @@ export class LiteratureReading {
                 if (explicit) throw new Error("译文编辑器未能打开，请稍后重试。");
                 return;
             }
-            const maps = await this.loadPairs(targetId);
+            // 等待窗格期间，原文仍可能在另一个编辑器中被保存。
+            this.checkPairSources(maps, await this.verifySource(sourceId, targetId));
             if (!current()) return;
             if (!this.bind(sourceId, targetId, sourceEditor, targetEditor, maps)) {
                 if (explicit) throw new Error("译文编辑器尚未完成渲染，请稍后重试。");
@@ -377,8 +386,11 @@ export class LiteratureReading {
             this.comparison = { sourceId, targetId };
             this.autoOpened.add(sourceId);
             this.onComparisonChange?.();
-            for (const warning of warnings) this.onNotice(warning);
-            if (explicit) this.onNotice("已开启双屏对照：原文在左、译文在右。");
+            if (!maps.sourceToTranslation.size) this.onNotice("已开启双屏阅读。逐块定位需在可补建配对的桌面客户端完成。");
+            else if (explicit) this.onNotice("已开启双屏对照：原文在左、译文在右。");
+        } catch (error) {
+            if (current() && this.comparison?.sourceId === sourceId) this.invalidateComparison();
+            throw error;
         } finally {
             this.opening.delete(sourceId);
         }
@@ -386,12 +398,44 @@ export class LiteratureReading {
 
     isOpen(sourceId: string): boolean { return this.comparison?.sourceId === sourceId; }
 
+    private async verifySource(sourceId: string, targetId: string): Promise<Set<string>> {
+        const [attrs, response] = await Promise.all([
+            readLiteratureAttrs(targetId),
+            fetchSyncPost("/api/block/getBlockKramdown", { id: sourceId }, undefined, false, AbortSignal.timeout(10_000)),
+        ]);
+        if (attrs[originalAttribute] !== sourceId) throw new Error("原文与译文的配对已失效，请更新译文。");
+        if (response?.code !== 0 || typeof response.data?.kramdown !== "string") throw new Error("暂时无法核对译文与原文版本。");
+        // 与 MCP 的 get_kramdown 使用同一归一化规则。
+        const kramdown = stripZeroWidthChars(response.data.kramdown);
+        if (attrs[sourceHashAttribute] !== sha256Hex(literatureSourceMarkdown(kramdown))) {
+            throw new Error("原文在翻译后已变化，请更新译文再开启对照。");
+        }
+        return new Set([...kramdown.matchAll(/\{:[^\r\n]*?[ \t]id="(\d{14}-[a-z0-9]{7})"[^\r\n]*?\}/gu)].map(match => match[1]));
+    }
+
+    private checkPairSources(maps: PairMaps, sourceBlocks: Set<string>) {
+        if ([...maps.translationToSource.values()].some(id => !sourceBlocks.has(id))) {
+            throw new Error("原文块标识已变化，请核对译文配对后再开启对照。");
+        }
+    }
+
     private bind(sourceId: string, targetId: string, source: Editor, target: Editor, maps: PairMaps): boolean {
         const left = pane(source), right = pane(target);
         if (!left || !right) return false;
         this.unbind();
         this.bound = { sourceId, targetId, maps };
-        this.cleanup = synchronize(left, right, maps, this.plugin.app, this.onNotice, this.preferences().syncScroll);
+        const cleanup = synchronize(left, right, maps, this.plugin.app, this.onNotice, this.preferences().syncScroll);
+        const onInput = () => {
+            this.invalidateComparison();
+            this.onNotice("正文已编辑，配对已暂停。请重新开启以核对当前版本。");
+        };
+        left.scroll.addEventListener("input", onInput);
+        right.scroll.addEventListener("input", onInput);
+        this.cleanup = () => {
+            left.scroll.removeEventListener("input", onInput);
+            right.scroll.removeEventListener("input", onInput);
+            cleanup();
+        };
         return true;
     }
 
@@ -401,16 +445,33 @@ export class LiteratureReading {
         this.bound = undefined;
     }
 
+    private invalidateComparison() {
+        this.unbind();
+        this.comparison = undefined;
+        this.onComparisonChange?.();
+    }
+
     onEditorLoaded(editor?: Editor) {
         const id = editorId(editor);
         if (!id) return;
         const comparison = this.comparison;
         if (comparison && (id === comparison.sourceId || id === comparison.targetId)) {
-            // 编辑器重载后用新的滚动容器重新绑定。
-            const source = this.findEditor(comparison.sourceId);
-            const target = this.findEditor(comparison.targetId);
-            const maps = this.bound?.maps;
-            if (source && target && maps) this.bind(comparison.sourceId, comparison.targetId, source, target, maps);
+            if (!this.bound) return;
+            this.unbind();
+            void this.verifySource(comparison.sourceId, comparison.targetId).then(async sourceBlocks => {
+                const maps = await this.loadPairs(comparison.targetId);
+                if (this.comparison !== comparison) return;
+                this.checkPairSources(maps, sourceBlocks);
+                const source = this.findEditor(comparison.sourceId);
+                const target = this.findEditor(comparison.targetId);
+                if (!source || !target || !this.bind(comparison.sourceId, comparison.targetId, source, target, maps)) {
+                    this.invalidateComparison();
+                }
+            }).catch(error => {
+                if (this.comparison !== comparison) return;
+                this.invalidateComparison();
+                this.onNotice(error.message);
+            });
             return;
         }
         if (this.opening.has(id)) return;

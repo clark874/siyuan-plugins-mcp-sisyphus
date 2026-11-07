@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
+import { describe, expect, it, vi } from "vitest";
+import * as siyuan from "siyuan";
 import { buildPairMaps, correspondingScroll, intraBlockFraction, LiteratureReading } from "@/ui/literature/reading";
 import type { TranslationProgress } from "@/ui/literature/desktop-runner";
 
@@ -76,4 +78,32 @@ describe("逐块配对进度上报", () => {
         expect(progressCalls.at(-1)?.[0]).toMatchObject({ stage: "逐块配对完成", done: true });
         expect(progressCalls.at(-1)?.[1]).toBe(false);
     });
+});
+
+it("按归档口径核对原文，忽略零宽字符但拦住正文变化", async () => {
+    const source = "20261106150000-aaaaaaa";
+    const translation = "20261106150001-bbbbbbb";
+    const hash = createHash("sha256").update("原文正文").digest("hex");
+    let kramdown = '原文\u200B正文\n{: id="' + source + '"}';
+    const kernel = vi.spyOn(siyuan, "fetchSyncPost").mockImplementation(async (url, data) => ({
+        code: 0,
+        data: url.endsWith("getBlockKramdown") ? { kramdown }
+            : (data as { id: string }).id === source ? { "custom-literature-translation-id": translation }
+                : { "custom-literature-original-id": source, "custom-literature-translation-source": hash },
+    }));
+    const reading = new LiteratureReading({ app: {} } as any, () => ({ openAlongside: true, syncScroll: true }), () => {});
+    const pairing = vi.spyOn(reading as any, "ensurePairs").mockResolvedValue(undefined);
+    vi.spyOn(reading as any, "loadPairs").mockResolvedValue(buildPairMaps([{ sourceId: source, translationId: translation }]));
+    vi.spyOn(reading as any, "findEditor").mockReturnValue({});
+    const bind = vi.spyOn(reading as any, "bind").mockReturnValue(true);
+    try {
+        await expect(reading.open(source, true)).resolves.toBeUndefined();
+        expect(bind).toHaveBeenCalledTimes(1);
+        kramdown = '原文正文\n{: id="20261106150002-ccccccc"}';
+        await expect(reading.open(source, true)).rejects.toThrow("原文块标识已变化");
+        kramdown = "原文新增一句";
+        await expect(reading.open(source, true)).rejects.toThrow("原文在翻译后已变化");
+        expect(pairing).toHaveBeenCalledTimes(2);
+        expect(bind).toHaveBeenCalledTimes(1);
+    } finally { kernel.mockRestore(); }
 });

@@ -1,3 +1,6 @@
+// 原生布局类型保持与 SDK 一致，不使用运行时替身推断其接口。
+export type { Tab } from "../../node_modules/siyuan/siyuan";
+
 export class Plugin {
     name = 'siyuan-plugins-mcp-sisyphus';
     i18n: Record<string, string> = {};

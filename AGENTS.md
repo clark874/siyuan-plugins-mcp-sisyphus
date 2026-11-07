@@ -21,10 +21,16 @@
 
 正式插件目录不得先删除再复制，也不得通过“移走旧版、再移入新版”制造空窗。先在同一文件系统的隐藏目录准备和校验，使用 `agent-kit/scripts/exchange-plugin-directories.mjs` 单次原子交换，完整旧版留在备份位置；不支持则停止。发布后的附件回验只下载至验收目录，不反复换装运行实例。重新加载插件或重启思源由用户手动执行。目录交换不承诺多次独立文件读取属于同一版本快照。
 
+### 文献库角色标识契约
+
+- `custom-literature-role` 的有效 `abstract`、`references`、`metadata`、`caption` 标记默认排除于正文证据召回。翻译只保留 `references` 和 `metadata` 原文，摘要和图表说明仍翻译。
+- 自动标记用 `custom-literature-role-sha256` 保存索引正文 `blocks.content` 的 SHA-256。SQL 通过 `attributes.block_id = blocks.id` 关联。未标记或指纹失配的块在 v0.17.1 返回 `unknown`，均可参与正文取证。查询响应的 `retrieval.roleScheme` 给出解释。
+- 单篇补标用 `agent-kit/scripts/tag-literature-roles.mjs --document-id`。先预览并核对真实章节边界，再按已审定范围严格写入和回读。尤其检查正文中带引文的段落，以及参考文献后缺少标题的附录、图表和数据。
+
 - 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.17.0`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.5.1`）
+- 当前版本：`0.17.1`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.5.1`）
 
 ---
 
