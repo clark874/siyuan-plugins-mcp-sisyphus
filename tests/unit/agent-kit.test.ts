@@ -290,7 +290,7 @@ it('文献入库保留公式符号并识别补充材料与出版说明', async (
         'except ValueError: pass',
         'else: raise AssertionError("不得删除显示公式减号")',
     ].join('\n');
-    const checked = spawnSync('python3', ['-c', source], { cwd: root, encoding: 'utf8' });
+    const checked = spawnSync('python3', ['-B', '-c', source], { cwd: root, encoding: 'utf8' });
     expect(checked.stderr).toBe('');
     expect(checked.status).toBe(0);
     const { classifyLiteratureRoles } = await import(path.join(root, 'agent-kit/scripts/tag-literature-roles.mjs'));
