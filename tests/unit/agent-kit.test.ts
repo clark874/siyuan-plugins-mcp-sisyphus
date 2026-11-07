@@ -272,3 +272,57 @@ describe('portable agent kit', () => {
         expect(builder).toContain('agent-plugin/siyuan-sisyphus/.codex-plugin/plugin.json');
     });
 });
+
+it('文献入库保留公式符号并识别补充材料与出版说明', async () => {
+    const source = [
+        'import importlib.util',
+        'p="agent-kit/scripts/upload-notebooklm-literature.py"',
+        's=importlib.util.spec_from_file_location("upload",p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)',
+        'a=b"1. Effect $- Z$ equals 0.4.\\n\\n2. Next condition."',
+        'b="Effect \\n- Z\\n equals 0.4.\\n\\nNext condition."',
+        'assert m.check_fulltext(a,b)["exactNormalized"]',
+        'assert m.check_fulltext(b"- First condition.\\n- Second condition.","First condition.\\nSecond condition.")["exactNormalized"]',
+        'for changed in [b.replace("0.4","0.9"),b.replace("- Z","+ Z")]:',
+        ' try: m.check_fulltext(a,changed)',
+        ' except ValueError: pass',
+        ' else: raise AssertionError("不得忽略数值或公式符号差异")',
+        'try: m.check_fulltext(b"\\\\[\\n- Z = 0.4\\n\\\\]","Z = 0.4")',
+        'except ValueError: pass',
+        'else: raise AssertionError("不得删除显示公式减号")',
+    ].join('\n');
+    const checked = spawnSync('python3', ['-c', source], { cwd: root, encoding: 'utf8' });
+    expect(checked.stderr).toBe('');
+    expect(checked.status).toBe(0);
+    const { classifyLiteratureRoles } = await import(path.join(root, 'agent-kit/scripts/tag-literature-roles.mjs'));
+    const samples = ['Supplementary Materials: Code, Data, Materials', 'Figure 1', 'FE-SEM Framework',
+        '[原文图像位置：；参见原始 PDF]', 'References', 'Smith, J. (2020). Evidence.',
+        'Leibniz-Institut für Psychologie', 'PsychOpen GOLD is a publishing service provided by the institute.'];
+    const roles = classifyLiteratureRoles(samples.map((sample, i) => ({ id: String(i), type: i === 4 ? 'h' : 'p', sample }))).roles;
+    expect(roles.map((row: { role: string }) => row.role)).toEqual(['metadata', 'caption', 'caption', 'caption', 'references', 'references', 'metadata', 'metadata']);
+});
+
+it('入库复用书目对账，支持网址与正文版本并在预检后拦截并发修改', async () => {
+    const { projectRecord, synchronizeCatalogCells } = await import(path.join(root, 'agent-kit/scripts/sync-literature-catalog.mjs'));
+    const documentId = '20261101000000-aaaaaaa', rowID = '20261101000001-bbbbbbb', key = 'ABCD1234';
+    const item = { key, version: 2, title: 'Sentence case', url: 'https://doi.org/10.1234/test' };
+    const raw = { av: { keyValues: [{ key: { type: 'block', name: '主键' }, values: [{ blockID: rowID, block: { id: documentId } }] },
+        ...Object.entries(projectRecord(item)).map(([name, value]) => ({ key: { id: name, name, type: name === '网址' ? 'url' : 'text' },
+            values: [{ blockID: rowID, [name === '网址' ? 'url' : 'text']: { content: name === '题名' ? 'SENTENCE CASE' : value } }] }))] } };
+    const readAv = async () => structuredClone(raw);
+    const options = { avID: '20261101000002-ccccccc', records: [{ documentId, zoteroKey: key, sourceVersion: '2026-04-02 CVoR' }],
+        readAv, readItems: async () => new Map([[key, item]]), report: {}, persist: async () => {} };
+    const avWrite = async (args: any, verify: () => Promise<void>) => {
+        await verify();
+        for (const cell of args.cells) {
+            const column = raw.av.keyValues.find((c: any) => c.key.id === cell.columnID) as any;
+            column.values[0][cell.valueType].content = cell.text ?? cell.url;
+        }
+    };
+    await synchronizeCatalogCells({ ...options, avWrite });
+    expect((raw.av.keyValues.find((c: any) => c.key.name === '正文版本') as any).values[0].text.content).toBe('2026-04-02 CVoR');
+    item.title = 'Another title';
+    await expect(synchronizeCatalogCells({ ...options, avWrite: async (_args: any, verify: () => Promise<void>) => {
+        (raw.av.keyValues.find((c: any) => c.key.name === '题名') as any).values[0].text.content = '用户并发编辑';
+        await verify();
+    } })).rejects.toThrow('并发编辑');
+});

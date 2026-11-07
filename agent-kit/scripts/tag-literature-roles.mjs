@@ -13,9 +13,9 @@ const referenceHeading = /^(?:(?:\d+(?:\.\d+)*\.?|[IVX]+\.)\s+)?(?:references|bi
 const endReferences = /^(?:(?:\d+(?:\.\d+)*\.?|[IVX]+\.)\s+)?(?:appendi(?:x|ces)\b|supplement(?:ary|al)?\b|acknowledg(?:e)?ments?\b|author (?:note|contributions?)\b|additional information\b|附录|附錄|补充材料|致谢)/iu;
 const structuredAbstract = /^(?:background|objectives?|aims?|design|methods?|results?|conclusions?|背景|目的|方法|结果|结论)\s*[:：—–-]\s*\S/iu;
 const keywordLabel = /^(?:key\s*words?|index terms|关键词|關鍵詞)(?:\s*[:：—–-]|$)/iu;
-const metaPrefix = /^(?:jel classification|copyright|correspondence|corresponding authors?|author affiliations?|conflicts? of interest|data availability statement|funding|(?:原始)?(?:PDF|MD)绝对路径|(?:原始)?(?:MD\s*)?SHA-256|内容状态|转换说明)\s*[:：—–-]/iu;
+const metaPrefix = /^(?:jel classification|copyright|correspondence|corresponding authors?|handling editor|supplementary materials|author affiliations?|conflicts? of interest|data availability statement|funding|(?:原始)?(?:PDF|MD)绝对路径|(?:原始)?(?:MD\s*)?SHA-256|内容状态|转换说明)\s*[:：—–-]/iu;
 const frontMatter = /^(?:\d+\s*)?(?:(?:department|school|faculty|institute|college|university|laboratory|division) of\b|corresponding author\b|author note\b)/iu;
-const publicationHistory = /^(?:received|accepted|revision received|revised|published online)\s+(?:(?:on\s+)?\p{L}+\s+\d|\d)/iu;
+const publicationHistory = /^(?:received|accepted|revision received|revised|published online)[\s:：]+(?:(?:on\s+)?\p{L}+\s+\d|\d)/iu;
 const figOrTable = /^(?:fig(?:ure)?\.?|table|图|圖|表)\s*[A-Z]?[. -]?\d+(?:[.:-]\d+)*([.：:]|\s+|$)/iu;
 const captionNote = /^(?:notes?\.?\s*[:：.]?|注[释釋]?[.：:]?)\s/u;
 const bareImagePlaceholder = /^\[原文图像位置[^\]]*\]/u;
@@ -24,6 +24,7 @@ const authorWithYear = /^(?:(?:\[?\d{1,3}[.\])])\s*)?[\p{L}][\p{L}\p{M}'’\-]+,
 const numberedAuthor = /^(?:\[\d+\]|\d+\.)?\s*[\p{L}][\p{L}\p{M}'’\-]+\s+[A-Z]{1,4}(?:,\s*|\.\s*)/u;
 const bracketYear = /\((?:18|19|20)\d{2}[a-z]?\)\.\s/u;
 const bibliographicYear = /\b(?:18|19|20)\d{2}\s*[;:]\s*\d{1,4}(?:\(|[:.])/u;
+const publisherFooter = /^(?:Leibniz-Institut für Psychologie|PsychOpen GOLD is a publishing service)\b/iu;
 const evidenceTypes = new Set(['p', 'm', 't', 'c']);
 const explicitFallbackRoles = new Set(['body', 'unknown']);
 const trim = value => String(value ?? '').normalize('NFKC').trim().replace(/\s+/gu, ' ');
@@ -42,7 +43,7 @@ function looksLikeTable(row) {
 function looksLikeTitle(text) {
     if (text.length < 8 || text.length > 160 || /[.!?。！？：:]$/u.test(text)) return false;
     const words = text.match(/[A-Za-z][A-Za-z'-]*/gu) ?? [];
-    return words.length > 2 && words.filter(word => /^[A-Z]/u.test(word)).length >= words.length / 2;
+    return words.length >= 2 && words.filter(word => /^[A-Z]/u.test(word)).length >= words.length / 2;
 }
 
 function numberedCaption(row) {
@@ -78,7 +79,12 @@ export function classifyLiteratureRoles(orderedRows, nestedRows = []) {
             add(row, 'metadata', '入库封面');
             continue;
         }
-        if (keywordLabel.test(text) || metaPrefix.test(text) || publicationHistory.test(text)
+        if (publisherFooter.test(text)) {
+            referenceSection = false;
+            add(row, 'metadata', '出版服务说明');
+            continue;
+        }
+        if (/^supplementary materials$/iu.test(text) || keywordLabel.test(text) || metaPrefix.test(text) || publicationHistory.test(text)
             || front && (frontMatter.test(text) || /^\s*\d*\s*[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\s*$/u.test(text))) {
             add(row, 'metadata', '明确书目信息');
             if (keywordLabel.test(text)) keywordBudget = 4;

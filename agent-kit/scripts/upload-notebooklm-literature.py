@@ -81,16 +81,37 @@ def matches_historical_payload(raw, payload):
 
 def text_tokens(value):
     value = normalize('NFKC', MARKDOWN_IMAGE.sub(r'\1', value)).replace('−', '-')
-    value = re.sub(r'(?m)^[ \t]*[-+*][ \t]+(?=\S)', '', value)
+    # 云端正文会省略有序列表编号；减号和其他运算符始终保留，避免误删独立行公式。
+    value = re.sub(r'(?m)^[ \t]*\d+[.)][ \t]+(?=\S)', '', value)
     return TEXT_TOKEN.findall(value)
 
 
 def check_fulltext(payload, remote):
-    expected, actual = text_tokens(payload.decode('utf-8')), text_tokens(remote)
+    source = payload.decode('utf-8')
+    expected, actual = text_tokens(source), text_tokens(remote)
     if not expected or not actual:
         raise ValueError('云端全文回读为空')
     if expected == actual:
         return {'tokenCount': len(expected), 'exactNormalized': True}
+
+    # 只容许云端省略源 Markdown 中真实的列表标记；不把云端独立行公式减号当成列表。
+    list_positions = set()
+    for marker in re.finditer(r'(?m)^[ \t]*([-+*])[ \t]+(?=\S)', source):
+        prefix = source[:marker.start(1)]
+        math = re.sub(r'\\\$', '', prefix)
+        if (math.count('$$') % 2 or math.replace('$$', '').count('$') % 2
+                or math.count(r'\[') > math.count(r'\]') or math.count(r'\(') > math.count(r'\)')):
+            continue
+        if len(re.findall(r'(?m)^[ \t]*(?:```|~~~)', prefix)) % 2:
+            continue
+        list_positions.add(len(text_tokens(prefix)))
+    if list_positions:
+        alignment = SequenceMatcher(None, expected, actual, autojunk=False)
+        removed = {i for op, start, end, _, _ in alignment.get_opcodes() if op == 'delete'
+                   and all(i in list_positions for i in range(start, end)) for i in range(start, end)}
+        expected = [token for i, token in enumerate(expected) if i not in removed]
+        if expected == actual:
+            return {'tokenCount': len(expected), 'exactNormalized': True}
 
     # 允许极少排版差异，同时要求数字、符号与尾部逐项一致。
     numbers = lambda seq: [token for token in seq if any(c.isdigit() for c in token) or MATH_TOKEN.fullmatch(token)]

@@ -4,7 +4,7 @@
 
 ## 在思源设置文献工作流
 
-在插件设置中打开「文献工作流」。填写文献笔记本、可选的正文父文档和 AV 数据库 ID。Zotero 使用官方个人或群组文库地址。NotebookLM 选填本机登录配置、Python 和目标笔记本；目标 ID 留空时按已有项目收据续跑或首次建库。
+在插件设置中打开「文献工作流」。填写所属项目、文献笔记本、可选的正文父文档和 AV 数据库 ID。Zotero 使用官方个人或群组文库地址。NotebookLM 选填本机登录配置、Python 和目标笔记本；目标 ID 留空时按已有项目收据续跑或首次建库。
 
 桌面端可直接选择已准备的批次清单和项目收据绝对路径，先只读预检，再执行。思源连接使用插件自身的 HTTP 配置。Zotero 与翻译模型密钥可由本机环境提供，也可在面板输入并仅用于当前思源会话。设置文件只记录变量名，NotebookLM 登录仍由本机客户端管理。
 
@@ -78,7 +78,9 @@ node scripts/ingest-literature-batch.mjs \
 - 启用云端入库时，项目目标另加 `notebooklm: {notebookTitle, notebookId?, profile?}`。已有云端笔记本提供 `notebookId`，首次建库可省略。执行会使用本机已登录的 NotebookLM 客户端，将本批通过本地登记的原文发送到该笔记本。项目收据须在后续批次继续复用。
 - 个人 NotebookLM 接入已用 `notebooklm-mcp-cli` 0.11.6 验证。可将该版本安装到专用 Python 环境，使用 `nlm login --profile 学术文献` 登录，再用 `nlm login --check --profile 学术文献` 检查。将同一环境的 Python 绝对路径传给 `--python`，并在项目目标填写相同的 `profile`。会话凭据由客户端本机保管。
 - 批次清单为 `{papers:[{sourcePath,sourceSha256,zoteroItem,zoteroKey?,documentId?,sourceId?,siyuanTitle?}]}`。`sourcePath` 使用已核实的 Markdown 绝对路径，`sourceSha256` 是该文件的 SHA-256，`zoteroItem` 使用核准的 Zotero 书目字段。提供已有文档或来源标识时仍须对账。
-- 默认只读预览。加 `--execute` 后对 Zotero 精确查重，登记并回读书目，再创建或复用思源正文、登记角色并核对 AV。配置云端目标后，已回读的论文随即上传。云端实际全文回读通过后进入 `<收据>.notebooklm.json` 的 `sources`，该文件可直接用作问答入口的 `--scope`。
+- `project.name`（桌面设置为「所属项目」）和清单 `batchId` 用于补齐 AV 项目归属及首次导入批次。论文的 `sourceVersion` 保存已核验的正文版本，例如 `2026-04-02 CVoR`。未提供时不从文件名猜测；已有项目、路径、批次及人工全文状态保留，元信息只补空。
+- 入库与书目更新共用同一 AV 镜像对账，支持文本及网址列；后续 Zotero 题名大小写变化可同步到 AV。作者、年份或 DOI 身份冲突仍停止。正文版本不因 Zotero 缺少相应字段而清空。
+- 默认只读预览。加 `--execute` 后对 Zotero 精确查重，登记并回读书目，再创建或复用思源正文、登记角色并核对 AV。配置云端目标后，已回读的论文随即上传。云端回读只忽略列表结构编号及经源文本定位的列表符号，公式减号、数值和尾部仍严格核对。云端实际全文回读通过后进入 `<收据>.notebooklm.json` 的 `sources`，该文件可直接用作问答入口的 `--scope`。
 - 任何一端结果不明时保留已获标识和待核状态。使用同一项目收据与清单续跑，先确认既有对象，必要时再补写。思源与 Zotero 登记完成但云端待核时，继续使用本地证据。执行摘要里的云端统计限本批，问答范围来自整份项目收据的已验收来源。
 - 接管历史云端来源时同时指定 `notebookId` 和原有 `sourceId`。历史格式与当前上传投影不同时，可追加 `adoptUploadPath` 和 `adoptUploadSha256`，用原上传副本核对云端全文。仅接受明确的静态来源，回读未通过的来源单列待核。已有项目可继续使用此前验收的来源范围。
 

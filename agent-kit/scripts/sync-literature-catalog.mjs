@@ -15,6 +15,7 @@ export function validateManifest(manifest, edits = {}) {
     const docs = new Set(), keys = new Set();
     for (const row of manifest.records) {
         if (!idPattern.test(row.documentId) || !itemPattern.test(row.zoteroKey) || docs.has(row.documentId) || keys.has(row.zoteroKey)) throw Error('清单存在无效或重复的正文、Zotero 键');
+        if (row.sourceVersion !== undefined && (typeof row.sourceVersion !== 'string' || !row.sourceVersion.trim() || row.sourceVersion.length > 512 || /[\r\n]/.test(row.sourceVersion))) throw Error('正文版本须为非空单行文本');
         docs.add(row.documentId); keys.add(row.zoteroKey);
     }
     if (!edits || typeof edits !== 'object' || Array.isArray(edits)) throw Error('书目编辑应为按 Zotero 键索引的对象');
@@ -72,7 +73,10 @@ export function planCells(raw, records, items) {
         const rowID = bindings.get(record.documentId);
         const boundKey = cellText(byName.get('Zotero 键'), rowID);
         if (boundKey && boundKey !== record.zoteroKey) throw Error('正文已绑定不同的 Zotero 键');
-        for (const [name, value] of Object.entries(projectRecord(item))) {
+        const projected = { ...projectRecord(item), ...(record.sourceVersion ? { '正文版本': record.sourceVersion } : {}) };
+        for (const [name, value] of Object.entries(projected)) {
+            // 未提供版本不能清除已核实的正文版本。
+            if (name === '正文版本' && !value) continue;
             const column = byName.get(name);
             if (column && cellText(column, rowID) !== value) cells.push({ rowID, columnID: column.key.id,
                 valueType: column.key.type, ...(column.key.type === 'url' ? { url: value } : { text: value }),
@@ -80,6 +84,42 @@ export function planCells(raw, records, items) {
         }
     }
     return { missingColumns, cells };
+}
+
+/** 入库与书目编辑共用同一 AV 镜像、并发保护和最终回读。 */
+export async function synchronizeCatalogCells({ avID, records, readAv, readItems, avWrite, report, persist }) {
+    const items = await readItems();
+    let raw = await readAv();
+    let planned = planCells(raw, records, items);
+    for (const name of planned.missingColumns) {
+        await avWrite({ action: 'add_column', avID, keyName: name, keyType: 'text' });
+        raw = await readAv();
+        if (!raw.av.keyValues.some(c => c.key.name === name)) throw Error('新增列未完成回读');
+    }
+    planned = planCells(raw, records, items);
+    report.proposedCells = planned.cells.length;
+    await persist();
+    for (let start = 0; start < planned.cells.length; start += 100) {
+        const batch = planned.cells.slice(start, start + 100);
+        const verifyBatch = async () => {
+            const current = await readAv();
+            for (const cell of batch) {
+                const column = current.av.keyValues.find(c => c.key.id === cell.columnID);
+                if (!column || cellText(column, cell.rowID) !== cell.before) throw Error('AV 在写入期间发生并发编辑，停止同步');
+            }
+        };
+        await avWrite({ action: 'set_cells', avID,
+            cells: batch.map(({ before, field, ...cell }) => cell) }, verifyBatch);
+        const after = await readAv();
+        for (const cell of batch) {
+            const column = after.av.keyValues.find(c => c.key.id === cell.columnID);
+            if (cellText(column, cell.rowID) !== (cell.text ?? cell.url)) throw Error('AV 单元格写后回读不一致');
+        }
+    }
+    const latest = await readItems();
+    if ([...latest].some(([key, item]) => item.version !== items.get(key).version)) throw Error('Zotero 在 AV 同步期间发生变化，请续跑对账');
+    const final = planCells(await readAv(), records, latest);
+    if (final.missingColumns.length || final.cells.length) throw Error('AV 最终回读尚有差异');
 }
 
 function optionsFrom(argv) {
@@ -159,7 +199,7 @@ async function run(options) {
             return call('av', { action: 'get', id: manifest.avID });
         }
     }
-    async function avWrite(args) {
+    async function avWrite(args, verifyPlan = async () => {}) {
         const pre = await call('av', { ...args, validateOnly: true });
         const field = pre.preconditionField;
         const alias = field?.replace(/^expected([A-Z])/, (_, c) => c.toLowerCase());
@@ -167,6 +207,7 @@ async function run(options) {
         if (!pre.issuedRequestId || (field && !credential)) throw Error('严格预检未签发写入凭据');
         const operation = { type: args.action, state: '预检完成，待回读', cells: args.cells?.length ?? 0 };
         report.operations.push(operation); await save();
+        await verifyPlan();
         await call('av', { ...args, requestId: pre.issuedRequestId, ...(field ? { [field]: credential } : {}) });
         operation.state = '接口完成'; await save();
     }
@@ -229,34 +270,7 @@ async function run(options) {
             if (Object.entries(edit.patch).some(([k, v]) => JSON.stringify(after[k]) !== JSON.stringify(v))) throw Error('Zotero 写后回读不一致');
             operation.state = '已回读'; await save();
         }
-        items = await readItems();
-        raw = await readAv();
-        let planned = planCells(raw, manifest.records, items);
-        for (const name of planned.missingColumns) {
-            await avWrite({ action: 'add_column', avID: manifest.avID, keyName: name, keyType: 'text' });
-            raw = await readAv();
-            if (!raw.av.keyValues.some(c => c.key.name === name)) throw Error('新增列未完成回读');
-        }
-        planned = planCells(raw, manifest.records, items);
-        report.proposedCells = planned.cells.length; await save();
-        for (let start = 0; start < planned.cells.length; start += 100) {
-            const batch = planned.cells.slice(start, start + 100);
-            const current = await readAv();
-            for (const cell of batch) {
-                const column = current.av.keyValues.find(c => c.key.id === cell.columnID);
-                if (!column || cellText(column, cell.rowID) !== cell.before) throw Error('AV 在写入期间发生并发编辑，停止同步');
-            }
-            await avWrite({ action: 'set_cells', avID: manifest.avID, cells: batch.map(({ before, field, ...cell }) => cell) });
-            const after = await readAv();
-            for (const cell of batch) {
-                const column = after.av.keyValues.find(c => c.key.id === cell.columnID);
-                if (cellText(column, cell.rowID) !== (cell.text ?? cell.url)) throw Error('AV 单元格写后回读不一致');
-            }
-        }
-        const latest = await readItems();
-        if ([...latest].some(([key, item]) => item.version !== items.get(key).version)) throw Error('Zotero 在 AV 同步期间发生变化，请续跑对账');
-        const final = planCells(await readAv(), manifest.records, latest);
-        if (final.missingColumns.length || final.cells.length) throw Error('AV 最终回读尚有差异');
+        await synchronizeCatalogCells({ avID: manifest.avID, records: manifest.records, readAv, readItems, avWrite, report, persist: save });
         report.verified = manifest.records.length; report.state = '两端已回读'; await save();
         return report;
     } catch (error) {

@@ -6,6 +6,7 @@ import {
 describe("文献翻译设置规范化", () => {
     it("旧配置中的 translation.apiKeyEnv 被静默丢弃", () => {
         const profile = normalizeLiteratureProfile({
+            projectName: " PM ",
             translation: {
                 mode: "automatic",
                 openAlongside: false,
@@ -15,6 +16,7 @@ describe("文献翻译设置规范化", () => {
                 apiKeyEnv: "DEEPSEEK_API_KEY",
             },
         });
+        expect(profile.projectName).toBe("PM");
         expect(profile.translation).not.toHaveProperty("apiKeyEnv");
         expect(profile.translation).toMatchObject({
             mode: "automatic",

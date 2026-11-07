@@ -5,9 +5,9 @@ import { createHash } from 'node:crypto';
 import { open, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { finalizeLiteratureIngest } from './finalize-literature-ingest.mjs';
+import { finalizeLiteratureIngest, writeLiteratureRecord } from './finalize-literature-ingest.mjs';
 import { ensureZoteroItem } from './register-literature-zotero.mjs';
-import { projectRecord } from './sync-literature-catalog.mjs';
+import { synchronizeCatalogCells } from './sync-literature-catalog.mjs';
 import { translateLiterature } from './translate-literature.mjs';
 import { mcpConnection } from './tag-literature-roles.mjs';
 
@@ -94,6 +94,9 @@ async function intakeDocument(call, project, row, body, entry, persist, execute)
 }
 
 function validate(project, manifest) {
+    for (const value of [project.name, manifest.batchId]) {
+        if (value !== undefined && (typeof value !== 'string' || !value.trim() || value.length > 128 || /[\r\n]/.test(value))) throw Error('项目名称和批次标识须为非空单行文本');
+    }
     const target = project.siyuan;
     if (!idPattern.test(target?.avID) || !idPattern.test(target?.notebook)
         || !(target.parentID === null || idPattern.test(target.parentID))) throw Error('项目须指定 AV、笔记本和父文档标识');
@@ -102,6 +105,7 @@ function validate(project, manifest) {
     if (!Array.isArray(manifest.papers) || !manifest.papers.length) throw Error('批次清单缺少论文');
     const hashes = new Set(), titles = new Set(), dois = new Set(), keys = new Set(), docs = new Set();
     for (const row of manifest.papers) {
+        if (row.sourceVersion !== undefined && (typeof row.sourceVersion !== 'string' || !row.sourceVersion.trim() || row.sourceVersion.length > 512 || /[\r\n]/.test(row.sourceVersion))) throw Error('正文版本须为非空单行文本');
         const title = row.siyuanTitle ?? row.zoteroItem?.title;
         const doi = normalizeDoi(row.zoteroItem?.DOI);
         if (!row.zoteroItem?.title?.trim() || typeof title !== 'string' || !title.trim() || title.length > 512 || /[\r\n]/.test(title)
@@ -182,11 +186,40 @@ export async function ingestLiteratureBatch({ project, manifest, mcpSettings, zo
             });
             if (!registered.key || !registered.data) throw Error('未确认 Zotero 条目');
             const documentId = await intakeDocument(call, project, row, body, entry, persist, true);
-            const fields = Object.fromEntries(Object.entries(projectRecord({ ...registered.data, key: registered.key }))
-                .filter(([name, value]) => value && cols.get(name)?.key.type === 'text'));
-            fields['原文哈希'] = row.sourceSha256;
-            if (cols.get('来源MD绝对路径')?.key.type === 'text' && !entry.avDocumentId) fields['来源MD绝对路径'] = row.sourcePath;
-            const result = await finalizeLiteratureIngest(call, { documentId, avID: project.siyuan.avID, fields }, true);
+            const current = await call('av', { action: 'get', id: avID });
+            const titleColumn = current.av.keyValues.find(column => column.key.name === '题名');
+            const boundRow = current.av.keyValues.find(column => column.key.type === 'block')?.values?.find(value => value.block?.id === documentId)?.blockID;
+            const currentTitle = titleColumn?.values?.find(value => value.blockID === boundRow)?.text?.content;
+            const fields = { '题名': currentTitle || registered.data.title, '原文哈希': row.sourceSha256, 'Zotero 键': registered.key,
+                '来源MD绝对路径': row.sourcePath, '全文状态': '转换全文已回读；学术证据未自动核定',
+                ...(project.name ? { '所属项目': project.name } : {}), ...(manifest.batchId ? { '导入批次': manifest.batchId } : {}) };
+            for (const name of Object.keys(fields)) {
+                const column = current.av.keyValues.find(column => column.key.name === name);
+                if (column) {
+                    // 入库元信息只补空，不覆盖已有项目、批次、路径或更强的人工核定状态。
+                    const existing = column.values?.find(value => value.blockID === boundRow)?.text?.content;
+                    if (existing && !['原文哈希', 'Zotero 键'].includes(name)) fields[name] = existing;
+                    continue;
+                }
+                await writeLiteratureRecord(call, 'av', { action: 'add_column', avID, keyName: name, keyType: 'text' }, async () => {
+                    const live = await call('av', { action: 'get', id: avID });
+                    if (live.av.keyValues.some(column => column.key.name === name)) throw Error('目录列在预检期间变化，请续跑对账');
+                });
+            }
+            const result = await finalizeLiteratureIngest(call, { documentId, avID, fields }, true);
+            entry.rowID = result.rowID;
+            entry.avDocumentId = documentId;
+            entry.catalogSync ??= {};
+            await persist();
+            await synchronizeCatalogCells({ avID, records: [{ documentId, zoteroKey: registered.key, sourceVersion: row.sourceVersion }],
+                readAv: () => call('av', { action: 'get', id: avID }),
+                readItems: async () => {
+                    const latest = await ensure(zoteroConfig, { ...row, zoteroKey: registered.key }, { execute: false });
+                    return new Map([[registered.key, latest.data]]);
+                },
+                avWrite: (args, verify = async () => {}) => writeLiteratureRecord(call, 'av', args, verify),
+                report: entry.catalogSync, persist,
+            });
             entry.bodyDigest = await verifyDocument(call, documentId, body, row.sourceSha256, Boolean(entry.avDocumentId), entry.bodyDigest);
             entry.avVerified = true;
             entry.rowID = result.rowID;
@@ -312,7 +345,7 @@ async function main(argv) {
         cloudEnvironment = serviceEnvironment(zotero.apiKeyEnv, translation?.apiKeyEnv);
         zoteroConfig = { baseUrl: zotero.baseUrl, apiKey: process.env[zotero.apiKeyEnv] };
         delete process.env[zotero.apiKeyEnv];
-        project = { siyuan, translation, ...(notebooklm?.enabled ? { notebooklm: {
+        project = { siyuan, translation, ...(profile.projectName ? { name: profile.projectName } : {}), ...(notebooklm?.enabled ? { notebooklm: {
             notebookTitle: notebooklm.notebookTitle,
             ...(notebooklm.notebookId ? { notebookId: notebooklm.notebookId } : {}),
             ...(notebooklm.profile ? { profile: notebooklm.profile } : {}),

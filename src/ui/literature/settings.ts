@@ -1,6 +1,7 @@
 export const LITERATURE_PROFILE_FILE = "literature-profile.json";
 
 export interface LiteratureProfile {
+    projectName: string;
     siyuan: { notebook: string; parentID: string | null; avID: string };
     zotero: { baseUrl: string; apiKeyEnv: string };
     notebooklm: { enabled: boolean; profile: string; notebookTitle: string; notebookId: string; python: string };
@@ -14,6 +15,7 @@ export interface LiteratureProfile {
 }
 
 export const defaultLiteratureProfile = (): LiteratureProfile => ({
+    projectName: "",
     siyuan: { notebook: "", parentID: null, avID: "" },
     zotero: { baseUrl: "", apiKeyEnv: "ZOTERO_API_KEY" },
     notebooklm: { enabled: false, profile: "", notebookTitle: "", notebookId: "", python: "python3" },
@@ -26,6 +28,7 @@ export function normalizeLiteratureProfile(raw: unknown): LiteratureProfile {
     const candidate = (raw && typeof raw === "object" ? raw : {}) as Partial<LiteratureProfile>;
     const { siyuan, zotero, notebooklm, translation } = candidate;
     return {
+        projectName: str(candidate.projectName),
         siyuan: { notebook: str(siyuan?.notebook), parentID: str(siyuan?.parentID) || null, avID: str(siyuan?.avID) },
         zotero: { baseUrl: str(zotero?.baseUrl), apiKeyEnv: str(zotero?.apiKeyEnv) || "ZOTERO_API_KEY" },
         notebooklm: {
@@ -51,6 +54,7 @@ const credentialEnv = /^[A-Za-z_][A-Za-z_0-9]*_(?:API_KEY|TOKEN)$/;
 
 export function validateLiteratureProfile(profile: LiteratureProfile): void {
     const { siyuan, zotero, notebooklm, translation } = profile;
+    if (profile.projectName.length > 128 || /[\r\n]/.test(profile.projectName)) throw new Error("所属项目须为单行名称，最多 128 字。");
     if ([siyuan.notebook, siyuan.avID, siyuan.parentID].some(id => id && !blockId.test(id))) {
         throw new Error("笔记本、父文档和 AV 应使用思源标识。");
     }

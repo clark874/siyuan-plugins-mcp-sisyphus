@@ -105,6 +105,7 @@
     <h2>文献工作流</h2>
     <fieldset disabled={!ready || saving}>
         <legend>思源文献库</legend>
+        <label>所属项目（用于 AV 目录筛选）<input type="text" bind:value={profile.projectName} maxlength="128" /></label>
         <label>全文笔记本
             <select bind:value={profile.siyuan.notebook}>
                 <option value="">请选择</option>
