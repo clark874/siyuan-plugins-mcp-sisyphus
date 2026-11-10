@@ -23,7 +23,7 @@ export interface DocumentIdentity {
     id: string;
     parentID: string | null;
     path: string;
-    title: { format: 'plain'; text: string; empty: boolean };
+    title: { format: 'plain' | 'inline-ast'; text: string; empty: boolean };
     segments: Array<{ id: string; text: string; empty: boolean }>;
     depth: number;
     displayPath: string;

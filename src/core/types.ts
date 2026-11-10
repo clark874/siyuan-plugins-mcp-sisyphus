@@ -825,6 +825,11 @@ export const AvRenderSchema = z.object({
     pageSize: z.number().int().optional().describe("Rows per page; default 10. Use query to narrow results before increasing it; -1 keeps the kernel all-rows compatibility mode"),
     query: z.string().optional().describe("Optional row query filter"),
     groupPaging: z.record(z.string(), z.unknown()).optional().describe("Optional group paging map passed through to SiYuan"),
+    nested: z.object({
+        expandedIDs: z.array(AvAutomationIDSchema).optional(),
+        groupExpandedIDs: z.record(z.string(), z.array(AvAutomationIDSchema)).optional(),
+        childPaging: z.record(z.string(), z.object({ page: z.number().int().min(1), pageSize: z.number().int().min(1).max(200) }).strict()).optional(),
+    }).strict().optional().describe("思源 3.8.10 子条目树形读取；省略时保持平铺。按父条目标识展开，分组分页键为 groupID/parentID"),
     createIfNotExist: z.boolean().optional().describe("Create the default view only when explicitly true; provide blockID when creating a new AV"),
     ignoreRows: z.boolean().optional().describe("Return view/schema metadata without row values to reduce output size"),
     temporarySort: z.object({ column: AvAutomationIDSchema.describe("临时排序字段标识"), order: z.enum(["ASC", "DESC"]).describe("升序或降序"), valueSource: z.enum(["stored", "rendered"]).optional().describe("按保存值或显示值排序"), dateEndpoint: z.enum(["start", "end"]).optional().describe("日期范围端点") }).strict().optional().describe("仅影响本次渲染，不修改视图排序配置"),

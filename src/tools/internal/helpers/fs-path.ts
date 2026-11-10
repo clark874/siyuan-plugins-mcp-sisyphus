@@ -93,6 +93,15 @@ async function listNotebooks(client: SiYuanClient): Promise<FsNotebook[]> {
     }));
 }
 
+function checkNotebookPath(path: string, notebooks: FsNotebook[]) {
+    if (notebooks.some(notebook => {
+        const prefix = normalizeHumanPath(`/${notebook.name}`);
+        return notebook.name.includes('/') && (path === prefix || path.startsWith(`${prefix}/`));
+    })) {
+        throw createFsError('legacyPathUnsupported', '笔记本名称含斜杠，此字符串路径无法确定边界。请改用 notebook ID 与 document.lookup 的 segments，定位后按文档 ID 操作。');
+    }
+}
+
 async function getDocByHPath(
     client: SiYuanClient,
     notebook: FsNotebook,
@@ -170,6 +179,7 @@ export async function resolveFsScopePath(
 
     await permMgr.reload();
     const notebooks = await listNotebooks(client);
+    checkNotebookPath(path, notebooks);
     const segments = path.split('/').filter(Boolean);
     const first = segments[0];
     const canonicalNotebook = notebooks.find((notebook) => notebook.name === first);
@@ -232,6 +242,7 @@ export async function resolveFsCreateTarget(
 
     await permMgr.reload();
     const notebooks = await listNotebooks(client);
+    checkNotebookPath(path, notebooks);
     const canonicalNotebook = notebooks.find((notebook) => notebook.name === segments[0]);
     if (canonicalNotebook) {
         const parentSegments = segments.slice(1, -1);

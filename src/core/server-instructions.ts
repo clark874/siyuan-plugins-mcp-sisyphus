@@ -206,7 +206,9 @@ For basic path-style notebook and document operations, use \`fs\` whenever the t
 
 思源 3.8.9 的文档标题可以包含 /，展示 hPath 不代表文档身份。使用 document(action="lookup", notebook=..., segments=["A/B"]) 查找单个斜杠标题，使用 document(action="create", notebook=..., parentID=null 或真实父文档 ID, title="A/B") 创建。fs 字符串路径仅用于无歧义普通路径；pathAmbiguous、legacyPathUnsupported 和 indexUnavailable 不得通过 SQL 绕过。定位后优先按 ID 操作。
 
-Sisyphus 虚拟 /AGENTS.md 是插件路由记忆，与思源官方 data/storage/ai/AGENTS.md 独立，不得自动合并或迁移。
+思源 3.8.10 富文本标题的 identity.title.format 可为 inline-ast，text 是展示文本；不要把它当作可回写的富文本源码。笔记本名称也可含 /，这类对象按 notebook ID 与文档 ID 定位。av(action="render", nested={expandedIDs:[...]}) 可读取子条目，响应 data 中的 hierarchy 保留父子关系与上下文标记；省略 nested 保持平铺读取。
+
+Sisyphus 虚拟 /AGENTS.md 是插件路由记忆，与思源官方 data/storage/ai 下的工作空间长期记忆独立，不得自动合并或迁移。
 
 There are exactly two path types. Do not mix them.
 

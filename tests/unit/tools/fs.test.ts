@@ -5,6 +5,16 @@ import { SiYuanError } from '@/shared/error';
 import { callFsTool, listFsTools } from '@/tools/fs';
 import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
+import { resolveFsScopePath, resolveFsCreateTarget } from '@/tools/internal/helpers/fs-path';
+
+it('笔记本斜杠边界不明时阻止字符串路径误读写', async () => {
+    const client = createMockClient({ request: vi.fn(async () => ({ notebooks: [
+        { id: 'nb-1', name: '论文' }, { id: 'nb-2', name: '论文//方法/' },
+    ] })) });
+    await expect(resolveFsScopePath(client, createPermMgr(), '/论文/方法/正文')).rejects.toMatchObject({ code: 'legacyPathUnsupported' });
+    await expect(resolveFsCreateTarget(client, createPermMgr(), '/论文/方法/正文')).rejects.toMatchObject({ code: 'legacyPathUnsupported' });
+    expect(client.request).toHaveBeenCalledTimes(2);
+});
 
 type PermissionLevel = 'rwd' | 'rw' | 'r' | 'none';
 

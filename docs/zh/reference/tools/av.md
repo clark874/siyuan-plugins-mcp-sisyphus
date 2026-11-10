@@ -94,3 +94,9 @@ siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "Plain text r
 - 自动化仍沿用文本知识边界，不写入关联、资源和计算字段。无法完整验证范围时拒绝内容写入。
 
 先调用对应动作的 `help` 取得完整参数，使用真实规则、条目、字段和块标识；不要复制占位标识执行。严格写入使用相同业务参数预检，再携带返回的 `issuedRequestId` 与对应摘要凭据执行一次。
+
+## 思源 3.8.10 子条目读取
+
+现有 `render` 接受可选 `nested`：`expandedIDs` 指定展开的父条目，`groupExpandedIDs` 按分组展开，`childPaging` 按父条目标识（分组内为 `groupID/parentID`）指定 `page` 与 `pageSize`，每页最多 200。省略 `nested` 继续平铺读取，不改变数据库配置。
+
+带层级的行保留在响应 `data`，其中 `hierarchy` 包含 `parentID`、`depth`、`childCount`、`context` 与 `expanded`；不能仅用紧凑 `table` 推断父子关系。`nested` 返回根项、匹配项及子项分页计数，不能将祖先上下文计入命中文献数量。

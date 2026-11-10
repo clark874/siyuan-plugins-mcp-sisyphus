@@ -2577,6 +2577,25 @@ describe('av tool', () => {
         });
     });
 
+    it('树形读取透传展开参数并保留父子关系', async () => {
+        const avApi = await import('@/api/av');
+        const hierarchy = { parentID: 'row-parent', depth: 1, childCount: 0, context: false, expanded: false };
+        const nested = { expandedIDs: ['20261110000000-aaaaaaa'], childPaging: { '20261110000000-aaaaaaa': { page: 1, pageSize: 20 } } };
+        vi.mocked(avApi.renderAttributeView).mockResolvedValue({
+            viewType: 'table', columns: [{ id: 'title', name: '题名', type: 'text' }],
+            rows: [{ id: 'row-child', hierarchy, values: [{ key: { id: 'title' }, content: '子条目' }] }],
+            rowCount: 21, nested: { page: 1, pageSize: 10, rootCount: 1, matchedCount: 21 },
+        });
+        const result = await callAvTool(client, { action: 'render', id: 'av-1', nested }, enabledActions('render'), permMgr);
+        expect(avApi.renderAttributeView).toHaveBeenCalledWith(client, expect.objectContaining({ nested }));
+        const payload = JSON.parse(result.content[0].text);
+        expect(payload.data[0].hierarchy).toEqual(hierarchy);
+        expect(payload.nested).toEqual({ page: 1, pageSize: 10, rootCount: 1, matchedCount: 21 });
+        expect(payload.pageCount).toBe(1);
+        expect(payload.hasNextPage).toBe(false);
+        expect(payload.rawRowsIncluded).toBe(true);
+    });
+
     it('accepts avID alias and adds a lightweight table view when render rows are parseable', async () => {
         const avApi = await import('@/api/av');
         vi.mocked(avApi.renderAttributeView).mockResolvedValue({

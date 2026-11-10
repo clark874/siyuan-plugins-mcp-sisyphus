@@ -57,10 +57,10 @@ export function intraBlockFraction(blockTop: number, blockHeight: number, viewpo
 function pane(editor: Editor): ScrollPane | undefined {
     const scroll = editor.contentElement ?? editor.element?.querySelector<HTMLElement>(".protyle-content");
     if (!scroll) return;
-    const wysiwyg = scroll.querySelector<HTMLElement>(".protyle-wysiwyg");
     return {
         scroll,
-        blocks: () => [...(wysiwyg?.children ?? [])].filter((el): el is HTMLElement => el instanceof HTMLElement && Boolean(el.dataset?.nodeId)),
+        blocks: () => [...scroll.querySelectorAll<HTMLElement>(".protyle-wysiwyg [data-node-id]")]
+            .filter(el => el.getClientRects().length > 0 && !el.querySelector("[data-node-id]")),
         headings: () => [...scroll.querySelectorAll<HTMLElement>(".protyle-wysiwyg > [data-type=NodeHeading]")],
     };
 }
@@ -124,7 +124,10 @@ function synchronize(
     syncScroll: boolean,
 ): () => void {
     const highlighted = new Set<HTMLElement>();
-    const expected = new WeakMap<HTMLElement, number>();
+    let owner: ScrollPane | undefined;
+    let sequence = 0;
+    let disposed = false;
+    const claim = (side: ScrollPane) => { owner = side; sequence++; };
     const clearHighlight = () => {
         highlighted.forEach(element => element.classList.remove("sisyphus-translation-highlight"));
         highlighted.clear();
@@ -133,11 +136,13 @@ function synchronize(
         clearHighlight();
         elements.forEach(element => { element.classList.add("sisyphus-translation-highlight"); highlighted.add(element); });
     };
-    const findBlock = (side: ScrollPane, id: string) => side.scroll.querySelector<HTMLElement>(`[data-node-id="${id}"]`);
+    const findBlock = (side: ScrollPane, id: string) => {
+        const block = side.scroll.querySelector<HTMLElement>(`[data-node-id="${id}"]`);
+        return block?.getClientRects().length ? block : undefined;
+    };
     const scrollTo = (side: ScrollPane, element: HTMLElement, offset = 72) => {
         const next = Math.min(maxScroll(side.scroll), Math.max(0,
             element.getBoundingClientRect().top - side.scroll.getBoundingClientRect().top + side.scroll.scrollTop - offset));
-        expected.set(side.scroll, next);
         side.scroll.scrollTop = next;
     };
 
@@ -155,6 +160,8 @@ function synchronize(
             return null;
         };
         const act = async (target: Element | null) => {
+            claim(from);
+            const request = sequence;
             const start = target?.closest?.("[data-node-id]") as HTMLElement | null;
             if (!start || !from.scroll.contains(start)) return;
             const counterpartId = counterpartIdOf(start);
@@ -163,10 +170,11 @@ function synchronize(
             if (!counterpart) {
                 // 对应块尚未渲染：交给思源定位并高亮后再取元素。
                 try {
-                    await openTab({ app, doc: { id: counterpartId, action: ["cb-get-focus", "cb-get-hl"] } });
+                    await openTab({ app, doc: { id: counterpartId, action: ["cb-get-context"] } });
                 } catch { /* 尽力定位，失败时给出提示。 */ }
                 counterpart = await waitForElement(() => findBlock(to, counterpartId), 2_000);
             }
+            if (disposed || request !== sequence) return;
             if (!counterpart) { onNotice("对应块尚未加载，请展开后重试。"); return; }
             const anchor = findBlock(from, start.dataset.nodeId ?? "") ?? start;
             mark([anchor, counterpart]);
@@ -197,31 +205,43 @@ function synchronize(
     };
 
     const attachScroll = (from: ScrollPane, to: ScrollPane, lookup: Map<string, string>) => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const takeControl = () => claim(from);
         const listener = () => {
-            const position = from.scroll.scrollTop;
-            if (Math.abs((expected.get(from.scroll) ?? Infinity) - position) < 2) {
-                expected.delete(from.scroll);
-                return;
-            }
-            const anchor = topmostVisible(from);
-            const counterpartId = anchor ? lookup.get(anchor.getAttribute("data-node-id") ?? "") : null;
-            const counterpart = counterpartId ? findBlock(to, counterpartId) : null;
-            let next: number;
-            if (anchor && counterpart) {
-                next = anchorScrollTarget(anchor, counterpart, from.scroll, to.scroll);
-            } else {
-                const sameOutline = from.headings().map(x => x.dataset.subtype).join() === to.headings().map(x => x.dataset.subtype).join();
-                next = correspondingScroll(position,
-                    sameOutline ? coordinates(from) : [0, maxScroll(from.scroll)],
-                    sameOutline ? coordinates(to) : [0, maxScroll(to.scroll)]);
-            }
-            if (Math.abs(to.scroll.scrollTop - next) >= 2) {
-                expected.set(to.scroll, next);
-                to.scroll.scrollTop = next;
-            }
+            // 只有用户操作的一侧驱动同步，避免对侧定位、图片重排触发反向拉回。
+            if (owner && owner !== from) return;
+            owner = from;
+            const request = ++sequence;
+            clearTimeout(timer);
+            timer = setTimeout(async () => {
+                if (disposed || request !== sequence) return;
+                const anchor = topmostVisible(from);
+                const counterpartId = anchor ? lookup.get(anchor.dataset.nodeId ?? "") : undefined;
+                let counterpart = counterpartId ? findBlock(to, counterpartId) : undefined;
+                if (anchor && counterpartId && !counterpart) {
+                    try {
+                        // 使用上下文分页，不聚焦对侧，也不关闭原生动态加载。
+                        await openTab({ app, doc: { id: counterpartId, action: ["cb-get-context"] } });
+                        counterpart = await waitForElement(() => findBlock(to, counterpartId), 2_000);
+                    } catch { return; }
+                }
+                if (disposed || request !== sequence) return;
+                // 有逐块配对时不能用局部窗口的比例冒充全文位置。
+                if (anchor && counterpart) {
+                    to.scroll.scrollTop = anchorScrollTarget(anchor, counterpart, from.scroll, to.scroll);
+                } else if (!lookup.size) {
+                    to.scroll.scrollTop = correspondingScroll(from.scroll.scrollTop, coordinates(from), coordinates(to));
+                }
+            }, 80);
         };
+        const intentEvents = ["pointerdown", "wheel", "touchstart", "keydown"];
+        intentEvents.forEach(event => from.scroll.addEventListener(event, takeControl, { passive: true, capture: true }));
         from.scroll.addEventListener("scroll", listener, { passive: true });
-        return () => from.scroll.removeEventListener("scroll", listener);
+        return () => {
+            clearTimeout(timer);
+            from.scroll.removeEventListener("scroll", listener);
+            intentEvents.forEach(event => from.scroll.removeEventListener(event, takeControl, true));
+        };
     };
 
     const disposers = [
@@ -230,6 +250,8 @@ function synchronize(
         ...(syncScroll ? [attachScroll(source, target, maps.sourceToTranslation), attachScroll(target, source, maps.translationToSource)] : []),
     ];
     return () => {
+        disposed = true;
+        sequence++;
         disposers.forEach(dispose => dispose());
         clearHighlight();
     };
@@ -237,7 +259,7 @@ function synchronize(
 
 export class LiteratureReading {
     private cleanup?: () => void;
-    private bound?: { sourceId: string; targetId: string; maps: PairMaps };
+    private bound?: { sourceId: string; targetId: string; maps: PairMaps; left: HTMLElement; right: HTMLElement };
     private comparison?: { sourceId: string; targetId: string };
     private generation = 0;
     private readonly requestVersions = new Map<string, number>();
@@ -339,7 +361,7 @@ export class LiteratureReading {
         this.opening.add(sourceId);
         try {
             if (explicit) {
-                await openTab({ app: this.plugin.app, doc: { id: sourceId, action: ["cb-get-all", "cb-get-focus"] } });
+                await openTab({ app: this.plugin.app, doc: { id: sourceId, action: ["cb-get-focus"] } });
             }
             if (!current()) return;
             const sourceBlocks = await this.verifySource(sourceId, targetId);
@@ -356,7 +378,7 @@ export class LiteratureReading {
             // 原生 right 会复用既有右窗格；原文已在最右侧时，两文会落在同一窗格。
             // 此时直接通过原生布局接口拆分并移动译文页签，保留原文及其他页签。
             if (!this.findEditor(targetId)) {
-                await openTab({ app: this.plugin.app, doc: { id: targetId, action: ["cb-get-all"] }, position: "right", openNewTab: true });
+                await openTab({ app: this.plugin.app, doc: { id: targetId, action: ["cb-get-focus"] }, position: "right", openNewTab: true });
                 const translatedEditor = await this.waitForEditor(targetId, 8_000, generation);
                 if (!current()) return;
                 const translatedTab = translatedEditor?.element && (getAllTabs("Editor") as Tab[]).find(tab =>
@@ -423,7 +445,7 @@ export class LiteratureReading {
         const left = pane(source), right = pane(target);
         if (!left || !right) return false;
         this.unbind();
-        this.bound = { sourceId, targetId, maps };
+        this.bound = { sourceId, targetId, maps, left: left.scroll, right: right.scroll };
         const cleanup = synchronize(left, right, maps, this.plugin.app, this.onNotice, this.preferences().syncScroll);
         const onInput = () => {
             this.invalidateComparison();
@@ -457,13 +479,14 @@ export class LiteratureReading {
         const comparison = this.comparison;
         if (comparison && (id === comparison.sourceId || id === comparison.targetId)) {
             if (!this.bound) return;
-            this.unbind();
             void this.verifySource(comparison.sourceId, comparison.targetId).then(async sourceBlocks => {
                 const maps = await this.loadPairs(comparison.targetId);
                 if (this.comparison !== comparison) return;
                 this.checkPairSources(maps, sourceBlocks);
                 const source = this.findEditor(comparison.sourceId);
                 const target = this.findEditor(comparison.targetId);
+                if (source && target && this.bound?.left === pane(source)?.scroll
+                    && this.bound?.right === pane(target)?.scroll) return;
                 if (!source || !target || !this.bind(comparison.sourceId, comparison.targetId, source, target, maps)) {
                     this.invalidateComparison();
                 }

@@ -22,6 +22,7 @@ export async function renderAttributeView(
         pageSize?: number;
         query?: string;
         groupPaging?: Record<string, unknown>;
+        nested?: { expandedIDs?: string[]; groupExpandedIDs?: Record<string, string[]>; childPaging?: Record<string, { page: number; pageSize: number }> };
         createIfNotExist?: boolean;
         ignoreRows?: boolean;
         temporarySort?: { column: string; order: "ASC" | "DESC"; valueSource?: "stored" | "rendered"; dateEndpoint?: "start" | "end" };

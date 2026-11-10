@@ -1136,7 +1136,9 @@ function extractViewItems(view: Record<string, unknown> | undefined): { items: u
 }
 
 function computeRenderPageCount(view: Record<string, unknown> | undefined, total: number, pageSize: number): number {
-    const base = Math.max(1, Math.ceil(total / Math.max(1, pageSize)));
+    const nested = isRecord(view?.nested) ? view.nested : undefined;
+    const rootCount = typeof nested?.rootCount === 'number' ? nested.rootCount : total;
+    const base = Math.max(1, Math.ceil(rootCount / Math.max(1, pageSize)));
     if (!Array.isArray(view?.groups)) return base;
 
     // 每个分组独立分页，下一页状态由页数最多的分组决定。
@@ -1144,14 +1146,16 @@ function computeRenderPageCount(view: Record<string, unknown> | undefined, total
     let foundGroupTotal = false;
     for (const group of view.groups) {
         if (!isRecord(group)) continue;
-        const groupTotal = typeof group.rowCount === 'number'
+        const groupNested = isRecord(group.nested) ? group.nested : undefined;
+        const groupTotal = typeof groupNested?.rootCount === 'number' ? groupNested.rootCount : typeof group.rowCount === 'number'
             ? group.rowCount
             : typeof group.cardCount === 'number'
                 ? group.cardCount
                 : undefined;
         if (groupTotal === undefined) continue;
         foundGroupTotal = true;
-        pageCount = Math.max(pageCount, Math.max(1, Math.ceil(groupTotal / Math.max(1, pageSize))));
+        const groupPageSize = typeof groupNested?.pageSize === 'number' ? groupNested.pageSize : pageSize;
+        pageCount = Math.max(pageCount, Math.max(1, Math.ceil(groupTotal / Math.max(1, groupPageSize))));
     }
     return foundGroupTotal ? pageCount : base;
 }
@@ -1403,6 +1407,7 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
         pageSize: requestedPageSize,
         query: parsed.query,
         groupPaging: parsed.groupPaging,
+        ...(parsed.nested ? { nested: parsed.nested } : {}),
         createIfNotExist: parsed.createIfNotExist,
         ignoreRows: parsed.ignoreRows,
         ...(parsed.temporarySort ? { temporarySort: parsed.temporarySort } : {}),
@@ -1457,12 +1462,14 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
         : undefined;
     const renderedView = nestedView ?? responseObj;
     const { items: rows, total } = extractViewItems(renderedView);
-    const page = parsed.page ?? 1;
+    const nestedPaging = isRecord(renderedView.nested) ? renderedView.nested : undefined;
+    const page = typeof nestedPaging?.page === 'number' && nestedPaging.page > 0 ? nestedPaging.page : parsed.page ?? 1;
     // SiYuan 3.8.1 may echo the view's persisted page size (for example 50)
     // even when this request asked for 10 rows. Report the request window so
     // pagination metadata stays aligned with the actual returned row count.
-    const pageSize = requestedPageSize > 0 ? requestedPageSize : (rows.length || 1);
-    const kernelPageCount = typeof responseObj.pageCount === 'number'
+    const pageSize = typeof nestedPaging?.pageSize === 'number' && nestedPaging.pageSize > 0
+        ? nestedPaging.pageSize : requestedPageSize > 0 ? requestedPageSize : (rows.length || 1);
+    const kernelPageCount = nestedPaging ? computeRenderPageCount(renderedView, total, pageSize) : typeof responseObj.pageCount === 'number'
         ? responseObj.pageCount as number
         : typeof renderedView.pageCount === 'number'
             ? renderedView.pageCount as number
@@ -1493,14 +1500,23 @@ async function handleRender({ client, permMgr, rawArgs }: ToolHandlerContext): P
         ? { ...responseObj, view: { ...compactedRenderedView, rowCount: total } }
         : compactedRenderedView;
     const tableCoversRows = avTableProjectionCoversRows(rows, table);
-    const includeRawRows = parsed.verbose === true || (rows.length > 0 && (!table || !tableCoversRows));
+    // 紧凑单元格投影不包含父子关系，树形行须保留原生层级信息。
+    const hasHierarchy = rows.some(row => isRecord(row) && row.hierarchy !== undefined);
+    const includeRawRows = parsed.verbose === true || hasHierarchy || (rows.length > 0 && (!table || !tableCoversRows));
+    const treeGroups = Array.isArray(rawGroups) ? rawGroups.filter(group => isRecord(group) && isRecord(group.nested)) : [];
+    const hasNextPage = treeGroups.length > 0 ? treeGroups.some(group => {
+        const paging = (group as Record<string, unknown>).nested as Record<string, unknown>;
+        const currentPage = typeof paging.page === 'number' && paging.page > 0 ? paging.page : page;
+        const size = typeof paging.pageSize === 'number' ? paging.pageSize : pageSize;
+        return currentPage < computeRenderPageCount({ nested: paging }, 0, size);
+    }) : page < kernelPageCount;
     const payload = {
         ...(includeRawRows ? { data: rows } : {}),
         total,
         page,
         pageSize,
         pageCount: kernelPageCount,
-        hasNextPage: page < kernelPageCount,
+        hasNextPage,
         ...restResponse,
         avID: effectiveAvID,
         id: effectiveAvID,
