@@ -60,6 +60,13 @@ export async function validateBlockAttributeMutation(
             throw new Error(`非法知识验证状态迁移：${before || 'unset'} -> ${after || 'unset'}。`);
         }
     }
+    const touchesVerification = ['custom-verification-status', 'custom-verification-evidence']
+        .some((name) => Object.prototype.hasOwnProperty.call(attrs, name));
+    if (touchesVerification
+        && ['execution-verified', 'evidence-verified'].includes(next['custom-verification-status'])
+        && !next['custom-verification-evidence']?.trim()) {
+        throw new Error('强验证状态必须具有非空 custom-verification-evidence；请先提供真实验证证据入口，不能清空现有证据。');
+    }
     if (next['custom-atom-type'] && !ALLOWED_VERIFICATION_TRANSITIONS[next['custom-verification-status']]) {
         throw new Error('设置 custom-atom-type 时，目标块必须同时具有合法的 custom-verification-status。');
     }

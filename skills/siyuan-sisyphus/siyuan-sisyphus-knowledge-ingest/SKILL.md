@@ -89,7 +89,7 @@ siyuan-sisyphus fs read --path '/Notebook/Topic/00 Topic Knowledge Hub' --block-
 siyuan-sisyphus timeline create-node --name 'Before knowledge ingestion' --scope 'document' --document-id '<hub-doc-id>' --json
 ```
 
-优先把新增知识合并到既有中枢；只有 `CREATE` 决策才新建文档。首次追加时必须在可见正文中同时写入“规范网址”和“正文哈希”两个稳定来源标识，然后保存最小属性：
+网页差量与全文资料副本分开处理；用户指定的完整项目材料遵循项目编译流程，不用网页摘要协议替代。优先把新增知识合并到既有中枢；只有 `CREATE` 决策才新建文档。首次追加时必须在可见正文中同时写入“规范网址”和“正文哈希”两个稳定来源标识，然后保存最小属性：
 
 ```bash
 siyuan-sisyphus block append --parent-id '<hub-doc-id>' --data-type 'markdown' --data '### 来源：Source title

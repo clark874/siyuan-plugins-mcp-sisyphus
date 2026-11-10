@@ -409,20 +409,20 @@ function copyCliSkills() {
             async handler() {
                 const fs = await import("fs");
                 const path = await import("path");
-                for (const rootName of ["siyuan-sisyphus", "siyuan-mcp"]) {
-                    const source = resolve(__dirname, "skills", rootName);
-                    const target = resolve(__dirname, cliOutputDir, "skills", rootName);
-
-                    if (!fs.default.existsSync(source)) {
-                        console.warn(`[cli-copy-skills] source not found: ${source}`);
-                        continue;
-                    }
-
-                    fs.default.rmSync(target, { recursive: true, force: true });
-                    fs.default.mkdirSync(path.default.dirname(target), { recursive: true });
-                    fs.default.cpSync(source, target, { recursive: true, force: true });
-                    console.log(`[cli-copy-skills] copied ${source} -> ${target}`);
+                const source = resolve(__dirname, "skills", "codex");
+                const target = resolve(__dirname, cliOutputDir, "skills");
+                if (!fs.default.existsSync(resolve(source, "siyuan", "SKILL.md"))) {
+                    throw new Error(`缺少唯一技能发布入口：${source}`);
                 }
+                const entries = fs.default.readdirSync(source, { recursive: true }) as string[];
+                const skillFiles = entries.filter((entry) => path.default.basename(entry) === "SKILL.md");
+                if (skillFiles.length !== 1 || skillFiles[0] !== path.default.join("siyuan", "SKILL.md")) {
+                    throw new Error("CLI 资源必须只包含 siyuan 一个技能入口。");
+                }
+                fs.default.rmSync(target, { recursive: true, force: true });
+                fs.default.mkdirSync(path.default.join(target, "codex"), { recursive: true });
+                fs.default.cpSync(source, path.default.join(target, "codex"), { recursive: true });
+                console.log(`[cli-copy-skills] 已复制唯一技能发布目录：${source}`);
             },
         },
     };

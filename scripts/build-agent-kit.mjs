@@ -46,6 +46,7 @@ async function listFiles(directory, prefix = '') {
         const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
         if (relative === 'scripts/check-sisyphus.mjs') continue;
         const absolute = path.join(directory, entry.name);
+        if (entry.isSymbolicLink()) throw new Error(`交付目录不得包含符号链接：${absolute}`);
         if (entry.isDirectory()) {
             files.push(...await listFiles(absolute, relative));
         } else if (entry.isFile()) {
@@ -67,6 +68,20 @@ if (!files.some((file) => file.relative === 'START-HERE.md')
     throw new Error('agent-kit 缺少便携安装入口、机器契约或安装器。');
 }
 
+function assertSinglePublicSkill(files, label, expected) {
+    const entries = files.filter((file) => path.posix.basename(file.relative) === 'SKILL.md');
+    if (entries.length !== 1 || entries[0].relative !== expected) {
+        throw new Error(`${label} 必须只包含 siyuan 一个技能入口；实际为：${entries.map((file) => file.relative).join(', ')}`);
+    }
+}
+
+assertSinglePublicSkill(files, 'Agent Kit', 'skills/siyuan/SKILL.md');
+assertSinglePublicSkill(await listFiles(path.join(root, 'skills/codex')), 'canonical 发布目录', 'siyuan/SKILL.md');
+assertSinglePublicSkill(await listFiles(path.join(root, 'agent-plugin/siyuan-sisyphus')), 'Codex Agent Plugin', 'skills/siyuan/SKILL.md');
+if (kimiManifest.sessionStart?.skill !== 'siyuan') {
+    throw new Error('Kimi 启动技能必须为 siyuan。');
+}
+
 const zip = new JSZip();
 for (const file of files) {
     zip.file(file.relative, await readFile(file.absolute), {
@@ -84,4 +99,4 @@ const archive = await zip.generateAsync({
 });
 await mkdir(path.dirname(output), { recursive: true });
 await writeFile(output, archive, { mode: 0o644 });
-console.log(`Generated ${path.basename(output)} with ${files.length} files (${archive.length} bytes).`);
+console.log(`已生成 ${path.basename(output)}，共 ${files.length} 个文件（${archive.length} 字节）。`);

@@ -288,10 +288,65 @@ function filteredAttrs(attrs: Record<string, string>): Record<string, string> {
         name === 'name'
         || name === 'alias'
         || name === 'custom-verification-status'
+        || name === 'custom-verification-evidence'
         || name === 'custom-atom-type'
         || name.startsWith('custom-progress-')
         || name.startsWith('custom-provenance-')
     )));
+}
+
+/** 只在对外响应层压缩，导图和诊断始终使用完整快照。 */
+function summarizeSnapshot(value: Record<string, unknown>): Record<string, unknown> {
+    const fields: Array<{ path: string; total: number; returned: number; kind: string }> = [];
+    let changedFieldCount = 0;
+    const record = (path: string, total: number, returned: number, kind: string) => {
+        if (total === returned) return;
+        changedFieldCount += 1;
+        if (fields.length < 40) fields.push({ path, total, returned, kind });
+    };
+    const summarize = (item: unknown, path: string): unknown => {
+        // 机器字段与审计依据不可缩写，尤其不能破坏属性中的 JSON 和修复指令。
+        if (/(?:^|\.)(?:attributes|diagnostics|repairPlan|chronology)(?:\.|\[|$)/.test(path)) return item;
+        if (typeof item === 'string') {
+            if (!/\.(?:content|kramdown|title)$/.test(path)) return item;
+            const limit = path.endsWith('.content') ? 600 : 320;
+            record(path, item.length, Math.min(item.length, limit), 'characters');
+            return clip(item, limit);
+        }
+        if (Array.isArray(item)) {
+            const limit = ['events', 'sessions', 'knowledgeProducts', 'artifacts', 'projections.workstreams', 'localProbeBaseline.tierA'].includes(path) ? 20 : item.length;
+            record(path, item.length, Math.min(item.length, limit), 'items');
+            return item.slice(0, limit).map((child, index) => summarize(child, `${path}[${index}]`));
+        }
+        if (item && typeof item === 'object') {
+            return Object.fromEntries(Object.entries(item).map(([key, child]) => [key, summarize(child, path ? `${path}.${key}` : key)]));
+        }
+        return item;
+    };
+    const result = summarize(value, '') as Record<string, unknown>;
+    const pagination = result.pagination as Record<string, Record<string, unknown>> | undefined;
+    if (pagination) {
+        for (const [name, page] of Object.entries(pagination)) {
+            const rows = name === 'workstreams'
+                ? (result.projections as { workstreams?: unknown[] } | undefined)?.workstreams
+                : result[name];
+            if (!Array.isArray(rows)) continue;
+            page.returned = rows.length;
+            page.hasMore = page.hasMore === true || (typeof page.total === 'number' && rows.length < page.total);
+            if (name !== 'diagnostics' && typeof page.limit === 'number') page.limit = Math.min(page.limit, 20);
+        }
+    }
+    return {
+        ...result,
+        summary: {
+            truncated: changedFieldCount > 0,
+            changedFieldCount,
+            fields,
+            fieldsTruncated: changedFieldCount > fields.length,
+            limits: { contentCharacters: 600, titleOrKramdownCharacters: 320, listItems: 20 },
+            completeRead: '使用同一项目选择器及 view="full" 读取完整资料列表和属性；正文以返回块 ID 调用 block.get_kramdown，整篇资料用 document.get_doc。事件与会话仍按 eventLimit/sessionLimit 返回窗口，是否完整以 pagination/chronology 为准。',
+        },
+    };
 }
 
 function parseArtifactPaths(markdown: string, manifestEntries: ProjectManifestEntry[]): ProjectManifestEntry[] {
@@ -481,24 +536,58 @@ async function buildSnapshot(
             return [];
         }
     }))];
-    const readableAtomIds = await readableIds(client, permMgr, atomIds);
+    // 只查显式项目归属和资料角色；不按全库 name/alias 推断来源。
+    const sourceRows: BlockRow[] = [];
+    for (let offset = 0; ; offset += 200) {
+        const rows = await searchApi.querySQL(client, `SELECT b.id, b.box, b.content, b.updated, b.hpath FROM blocks b WHERE b.id IN (SELECT block_id FROM attributes WHERE name IN ('custom-source-project-id','custom-provenance-project-id') AND value='${escapedProjectId}') AND b.id IN (SELECT block_id FROM attributes WHERE name='custom-source-role' AND value IN ('source-document','source-entry')) ORDER BY b.id LIMIT 200 OFFSET ${offset}`);
+        sourceRows.push(...rows.map(asBlockRow).filter((row): row is BlockRow => Boolean(row)));
+        if (rows.length < 200) break;
+    }
+    const readableSourceIds = await readableIds(client, permMgr, sourceRows.filter((row) => row.box && permMgr.canRead(row.box)).map((row) => row.id));
+    const sourceAttrs = await batchAttrs(client, readableSourceIds);
+    const sourceConflicts: string[] = [];
+    const sourceIds = readableSourceIds.filter((id) => {
+        const attrs = sourceAttrs[id] || {};
+        const sourceProject = attrs['custom-source-project-id'];
+        const provenanceProject = attrs['custom-provenance-project-id'];
+        if (sourceProject && provenanceProject && sourceProject !== provenanceProject) {
+            sourceConflicts.push(id);
+            return false;
+        }
+        return (sourceProject || provenanceProject) === projectId
+            && ['source-document', 'source-entry'].includes(attrs['custom-source-role']);
+    });
+    const readableAtomIds = [...new Set([...await readableIds(client, permMgr, atomIds), ...sourceIds])];
     const atomAttrs = await batchAttrs(client, readableAtomIds);
-    const atomRows = readableAtomIds.length === 0 ? [] : await searchApi.querySQL(client, `SELECT id, content, updated, hpath FROM blocks WHERE id IN (${readableAtomIds.map((id) => `'${escapeSqlString(id)}'`).join(',')}) LIMIT 500`);
+    const atomRows: unknown[] = [];
+    for (const ids of chunks(readableAtomIds, 200)) {
+        atomRows.push(...await searchApi.querySQL(client, `SELECT id, content, updated, hpath FROM blocks WHERE id IN (${ids.map((id) => `'${escapeSqlString(id)}'`).join(',')})`));
+    }
     const atomRowsById = new Map(atomRows.map((row) => [rowId(row), row as Record<string, string>]));
     const knowledgeProducts = readableAtomIds.map((id) => ({
         id,
-        title: clip(atomRowsById.get(id)?.content, 320),
+        title: atomRowsById.get(id)?.content || '',
         hpath: atomRowsById.get(id)?.hpath || undefined,
         updated: atomRowsById.get(id)?.updated || undefined,
         name: atomAttrs[id]?.name || '',
         alias: atomAttrs[id]?.alias || '',
         verificationStatus: atomAttrs[id]?.['custom-verification-status'] || '',
+        verificationEvidence: atomAttrs[id]?.['custom-verification-evidence'] || '',
         atomType: atomAttrs[id]?.['custom-atom-type'] || '',
+        ...(sourceIds.includes(id) ? {
+            productType: atomAttrs[id]?.['custom-source-role'],
+            projectId,
+            sourceRole: atomAttrs[id]?.['custom-source-role'],
+            sourceMetadata: Object.fromEntries(Object.entries(atomAttrs[id] || {}).filter(([name]) => [
+                'custom-source-url', 'custom-source-hash', 'custom-source-checked',
+            ].includes(name))),
+        } : {}),
     }));
 
     const progressPage = projections.filter((item) => item.role === 'project-progress-page');
     const repairPlan = await buildProjectionRepairPlan(client, projectId, progressPage[0]?.id, projections);
     const diagnostics: SnapshotDiagnostic[] = [];
+    for (const id of sourceConflicts) diagnostics.push({ code: 'source_project_conflict', severity: 'warning', status: 'invalid', blockId: id, message: '资料的显式项目归属属性冲突，已排除该资料；请核对原记录。' });
     for (const role of SNAPSHOT_ROLES) {
         const matching = projections.filter((item) => item.role === role);
         const expectedMany = role === 'workstream-state';
@@ -636,10 +725,12 @@ async function buildSnapshot(
             })),
         },
         pagination: {
-            events: { limit: eventLimit, hasMore: chronologicalEvents.length > eventLimit || !chronologyComplete },
-            sessions: { limit: sessionLimit, hasMore: readableSessions.length > sessionLimit },
-            artifacts: { limit: 100, hasMore: artifactEntries.length > 100 },
-            diagnostics: { limit: 500, hasMore: !chronologyComplete },
+            events: { total: chronologicalEvents.length, totalExact: chronologyComplete, limit: eventLimit, hasMore: chronologicalEvents.length > eventLimit || !chronologyComplete },
+            sessions: { total: readableSessions.length, totalExact: sessionCandidates.length < 100, limit: sessionLimit, hasMore: readableSessions.length > sessionLimit },
+            artifacts: { total: artifactEntries.length, limit: 100, hasMore: artifactEntries.length > 100 },
+            knowledgeProducts: { total: knowledgeProducts.length, hasMore: false },
+            workstreams: { total: projections.filter((item) => item.role === 'workstream-state').length, hasMore: false },
+            diagnostics: { total: diagnostics.length, limit: 500, hasMore: !chronologyComplete },
         },
         localPathsIncluded: artifacts.length > 0,
         localPathDisclosure: 'Only artifact-index entries are resolved; workspaceRoot and arbitrary relative paths are not returned.',
@@ -688,7 +779,8 @@ const projectTool = defineTool<ProjectAction>({
                 ? await import('../literature/library').then(({ discoverLiteratureLibraries }) => discoverLiteratureLibraries(client, permMgr, projectId))
                     .then(libraries => ({ status: 'available', libraries })).catch(() => ({ status: 'unavailable', libraries: [] }))
                 : undefined;
-            return createJsonResult({ action: parsed.action, ...result, ...(literature ? { literature } : {}) });
+            const response = { action: parsed.action, ...result, ...(literature ? { literature } : {}) };
+            return createJsonResult((parsed.view ?? 'summary') === 'summary' ? summarizeSnapshot(response) : response);
         },
     },
 });

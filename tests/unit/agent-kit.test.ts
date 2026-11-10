@@ -12,8 +12,8 @@ function read(relativePath: string): string {
 
 describe('portable agent kit', () => {
     it('ships a client-neutral skill synchronized with the canonical MCP skill', () => {
-        const canonical = read('skills/siyuan-mcp/siyuan-mcp-sisyphus/SKILL.md');
-        const portable = read('agent-kit/skills/siyuan-mcp-sisyphus/SKILL.md');
+        const canonical = read('skills/codex/siyuan/SKILL.md');
+        const portable = read('agent-kit/skills/siyuan/SKILL.md');
 
         expect(portable).toBe(canonical);
         expect(portable).toContain('system(action="bootstrap")');
@@ -42,7 +42,7 @@ describe('portable agent kit', () => {
         expect(manifest).toEqual(expect.objectContaining({
             name: 'siyuan-sisyphus-agent-kit',
             skills: './skills/',
-            sessionStart: { skill: 'siyuan-mcp-sisyphus' },
+            sessionStart: { skill: 'siyuan' },
         }));
         expect(codexManifest).toEqual(expect.objectContaining({
             name: 'siyuan-sisyphus',
@@ -92,26 +92,35 @@ describe('portable agent kit', () => {
         expect(start).toContain('agentKit.url');
         expect(start).toContain('/releases/latest');
         expect(start).toContain('/main/agent-kit/START-HERE.md');
-        expect(start).toContain('tree/main/skills/siyuan-mcp');
+        expect(start).toContain('tree/main/skills/codex');
         expect(start).toContain('只安装 Skill');
         expect(start).toContain('不会注册');
         expect(start).not.toMatch(/github\.com\/clark874\/siyuan-plugins-mcp-sisyphus\/(?:releases\/download|releases\/tag)\/v\d/i);
         expect(start).not.toMatch(/raw\.githubusercontent\.com\/clark874\/siyuan-plugins-mcp-sisyphus\/v\d/i);
         expect(kimi).toContain('kimi mcp add --transport http');
         expect(kimi).toContain('kimi mcp test siyuan');
-        expect(kimi).toContain('/skill:siyuan-mcp-sisyphus');
+        expect(kimi).toContain('/skill:siyuan');
         expect(kimi).not.toContain('action="sql"');
         expect(kimi).not.toContain('action="diff"');
 
         for (const skillDirectory of readdirSync(path.join(root, 'agent-plugin/siyuan-sisyphus/skills'))) {
             const skill = read(`agent-plugin/siyuan-sisyphus/skills/${skillDirectory}/SKILL.md`);
             expect(skill).toContain('compatibility:');
-            expect(skill).toContain('Requires a reachable SiYuan Sisyphus MCP server');
+            expect(skill).toContain('name: siyuan');
         }
     });
 
-    it('installs the canonical skill and the single Sisyphus gateway without printing the token', () => {
+    it('迁移已确认旧入口到扫描根外，保留用户技能并安装唯一网关', () => {
         const temporaryHome = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-agent-kit-'));
+        const oldEntry = path.join(temporaryHome, '.agents/skills/siyuan-mcp-sisyphus');
+        mkdirSync(oldEntry, { recursive: true });
+        writeFileSync(path.join(oldEntry, 'SKILL.md'), '---\nname: siyuan-mcp-sisyphus\n---\n# SiYuan Sisyphus with MCP\n');
+        const oldBrowse = path.join(temporaryHome, '.agents/skills/siyuan-mcp-browse-read');
+        mkdirSync(oldBrowse, { recursive: true });
+        writeFileSync(path.join(oldBrowse, 'SKILL.md'), '---\nname: siyuan-mcp-browse-read\ncompatibility: Requires a reachable SiYuan Sisyphus MCP server.\n---\n旧浏览技能');
+        const customEntry = path.join(temporaryHome, '.agents/skills/siyuan-sisyphus-project-coordinator');
+        mkdirSync(customEntry, { recursive: true });
+        writeFileSync(path.join(customEntry, 'SKILL.md'), '用户自己的同名技能');
         const token = 'a'.repeat(64);
         const output = execFileSync(process.execPath, [
             path.join(root, 'agent-kit/scripts/install-agent-kit.mjs'),
@@ -126,7 +135,7 @@ describe('portable agent kit', () => {
         const configText = readFileSync(configPath, 'utf8');
         const config = JSON.parse(configText);
         const installedSkill = readFileSync(
-            path.join(temporaryHome, '.agents/skills/siyuan-mcp-sisyphus/SKILL.md'),
+            path.join(temporaryHome, '.agents/skills/siyuan/SKILL.md'),
             'utf8',
         );
 
@@ -137,10 +146,31 @@ describe('portable agent kit', () => {
         });
         expect(configText).not.toContain('127.0.0.1:6806/mcp');
         expect(statSync(configPath).mode & 0o777).toBe(0o600);
-        expect(installedSkill).toBe(read('agent-kit/skills/siyuan-mcp-sisyphus/SKILL.md'));
+        expect(installedSkill).toBe(read('agent-kit/skills/siyuan/SKILL.md'));
+        expect(readdirSync(path.join(temporaryHome, '.agents/skills')).sort()).toEqual(['siyuan', 'siyuan-sisyphus-project-coordinator']);
+        expect(readFileSync(path.join(customEntry, 'SKILL.md'), 'utf8')).toBe('用户自己的同名技能');
+        const backups = path.join(temporaryHome, '.agents/.sisyphus-skill-backups');
+        const backup = readdirSync(backups)[0];
+        expect(readFileSync(path.join(backups, backup, 'siyuan-mcp-sisyphus/SKILL.md'), 'utf8')).toContain('name: siyuan-mcp-sisyphus');
+        expect(readFileSync(path.join(backups, backup, 'siyuan-mcp-browse-read/SKILL.md'), 'utf8')).toContain('name: siyuan-mcp-browse-read');
         expect(output).not.toContain(token);
         expect(output).toContain('system(action="bootstrap")');
         expect(output).toContain('installed_unverified');
+    });
+
+    it('遇到用户自有的 siyuan 目录时停止且不改配置', () => {
+        const temporaryHome = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-agent-kit-collision-'));
+        const destination = path.join(temporaryHome, '.agents/skills/siyuan');
+        mkdirSync(destination, { recursive: true });
+        writeFileSync(path.join(destination, 'SKILL.md'), '用户自己的技能');
+        const result = spawnSync(process.execPath, [path.join(root, 'agent-kit/scripts/install-agent-kit.mjs'),
+            '--client', 'kimi', '--home', temporaryHome], {
+            env: { ...process.env, SIYUAN_MCP_TOKEN: 'e'.repeat(64) }, encoding: 'utf8',
+        });
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain('目标目录不属于本项目');
+        expect(readFileSync(path.join(destination, 'SKILL.md'), 'utf8')).toBe('用户自己的技能');
+        expect(readdirSync(temporaryHome)).toEqual(['.agents']);
     });
 
     it('checks only the configured Sisyphus gateway, reuses its token, and never prints the token', () => {
@@ -235,7 +265,7 @@ describe('portable agent kit', () => {
             env: { ...process.env, SIYUAN_MCP_TOKEN: token },
         });
         expect(readdirSync(path.join(idempotentHome, '.kimi-code'))).toEqual(['mcp.json']);
-        expect(readdirSync(path.join(idempotentHome, '.agents/skills'))).toEqual(['siyuan-mcp-sisyphus']);
+        expect(readdirSync(path.join(idempotentHome, '.agents/skills'))).toEqual(['siyuan']);
 
         const temporaryHome = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-agent-kit-no-secret-'));
         expect(() => execFileSync(process.execPath, [
@@ -254,8 +284,8 @@ describe('portable agent kit', () => {
             'agent-kit/START-HERE.md',
             'agent-kit/AGENT.md',
             'agent-kit/KIMI.md',
-            'agent-kit/skills/siyuan-mcp-sisyphus/SKILL.md',
-            'agent-plugin/siyuan-sisyphus/skills/siyuan-mcp-sisyphus/SKILL.md',
+            'agent-kit/skills/siyuan/SKILL.md',
+            'agent-plugin/siyuan-sisyphus/skills/siyuan/SKILL.md',
             'docs/思源-Agent-交接卡.md',
         ];
         for (const entryPoint of entryPoints) {

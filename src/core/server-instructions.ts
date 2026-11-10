@@ -119,9 +119,9 @@ ${formattedUserRules}
     const agentMemoryAction = instructionInput.agentSiyuanMemoryConfigOk === false
         ? '- MCP could not read the configured virtual memory during initialize. Before assuming `/AGENTS.md` is missing, retry `fs(action="read", path="/AGENTS.md")` or ask the user to reconnect after the SiYuan API is reachable.'
         : agentMemoryStatus.status === 'missing'
-        ? '- The virtual memory file has not been initialized. Before doing workspace-aware planning or assuming notebook structure, ask the user whether to create `/AGENTS.md`; if they agree, inspect the workspace with `fs`/search, then write a concise initialization memory.'
+        ? '- 虚拟记忆为空不阻塞当前任务。先读取 `siyuan://skills/siyuan`、实时目录和项目／文献入口，必要时按 name=knowledge-compile-contract 定位既有契约。不得假定目录结构；创建记忆只在用户授权的维护范围内进行。'
         : agentMemoryStatus.status === 'stale'
-            ? `- The memory is stale because it is older than ${AGENT_MEMORY_STALE_AFTER_DAYS} days or has no valid update time. Before relying on it for workspace-aware work, ask the user whether to refresh \`/AGENTS.md\`; if they agree, verify current state first, then update it.`
+            ? `- 记忆已超过 ${AGENT_MEMORY_STALE_AFTER_DAYS} 天或时间无效；先核对实时目录和项目状态，继续已授权任务，不把刷新记忆设为启动门。仅在用户授权维护记忆时更新。`
             : '- The memory is fresh enough to use as startup context, but still verify details before high-impact edits.';
     const agentMemorySection = `
 # Agent siyuan memory

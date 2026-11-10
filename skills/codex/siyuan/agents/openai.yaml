@@ -1,0 +1,4 @@
+interface:
+  display_name: "思源笔记 MCP"
+  short_description: "读取资料、保留全文、接续项目和文献教学，按自然语言任务选择规程"
+  default_prompt: "使用 $siyuan 完成这项思源笔记任务，先发现现有资料，再按授权读取或更新并回读验收。"

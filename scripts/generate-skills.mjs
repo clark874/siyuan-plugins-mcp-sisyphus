@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { scenarios } from '../skills/source/scenarios.mjs';
@@ -15,6 +15,9 @@ const projectCoordinatorInitialization = await readFile(
     path.join(root, 'skills/source/project-coordinator-initialization.md'),
     'utf8',
 );
+const entryReferences = await Promise.all(['recording-contract', 'recording-examples', 'paper-teaching', 'paper-teaching-examples'].map(async name => ({
+    name, text: await readFile(path.join(root, `skills/source/${name}.md`), 'utf8'),
+})));
 const check = process.argv.includes('--check');
 const validArgs = new Set(['--check']);
 const unknownArgs = process.argv.slice(2).filter((arg) => !validArgs.has(arg));
@@ -106,8 +109,8 @@ function yamlQuote(value) {
     return JSON.stringify(value);
 }
 
-function renderSkill(scenario, runtime) {
-    const name = runtime === 'mcp' ? scenario.mcpName : scenario.cliName;
+function renderSkill(scenario, runtime, publicName) {
+    const name = publicName ?? (runtime === 'mcp' ? scenario.mcpName : scenario.cliName);
     const description = runtime === 'mcp' ? scenario.mcpDescription : scenario.cliDescription;
     const compatibility = runtime === 'mcp'
         ? 'Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token.'
@@ -117,8 +120,8 @@ function renderSkill(scenario, runtime) {
     return `---\nname: ${name}\ndescription: ${description}\ncompatibility: ${yamlQuote(compatibility)}\n---\n\n# ${runtimeTitle}\n\n${entryGuard}${renderBody(scenario, runtime)}\n`;
 }
 
-function renderOpenAiYaml(scenario, runtime) {
-    const name = runtime === 'mcp' ? scenario.mcpName : scenario.cliName;
+function renderOpenAiYaml(scenario, runtime, publicName) {
+    const name = publicName ?? (runtime === 'mcp' ? scenario.mcpName : scenario.cliName);
     const displayName = runtime === 'mcp'
         ? (scenario.mcpDisplayName ?? `${scenario.displayName} MCP`)
         : (scenario.cliDisplayName ?? `${scenario.displayName} CLI`);
@@ -158,9 +161,6 @@ for (const scenario of scenarios) {
         }
         await syncFile(`${base}/SKILL.md`, skill);
         await syncFile(`${base}/agents/openai.yaml`, renderOpenAiYaml(scenario, runtime));
-        if (runtime === 'mcp' && scenario.id === 'sisyphus') {
-            await syncFile('agent-kit/skills/siyuan-mcp-sisyphus/SKILL.md', skill);
-        }
         if (scenario.id === 'knowledge-ingest') {
             await syncFile(`${base}/scripts/normalize-source.mjs`, knowledgeIngestScript);
         }
@@ -177,6 +177,38 @@ for (const scenario of scenarios) {
     }
 }
 
-console.log(check
-    ? `Verified ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 6 runtime assets, and 1 portable entry skill.`
-    : `Generated ${scenarios.length} MCP skills, ${scenarios.length} CLI skills, ${scenarios.length * 2} metadata files, 6 runtime assets, and 1 portable entry skill.`);
+// 只发布一个可发现入口；场景按需读取，不在安装目录展开成多套技能。
+const entry = scenarios.find(scenario => scenario.id === 'sisyphus');
+const publicRoots = ['skills/codex/siyuan', 'agent-kit/skills/siyuan', 'agent-plugin/siyuan-sisyphus/skills/siyuan'];
+for (const base of publicRoots) {
+    await syncFile(`${base}/SKILL.md`, renderSkill(entry, 'mcp', 'siyuan'));
+    await syncFile(`${base}/agents/openai.yaml`, renderOpenAiYaml(entry, 'mcp', 'siyuan'));
+    for (const ref of entryReferences) await syncFile(`${base}/references/${ref.name}.md`, ref.text);
+    await syncFile(`${base}/references/project-panorama-output-contract.md`, projectCoordinatorOutputContract);
+    await syncFile(`${base}/references/project-progress-initialization.md`, projectCoordinatorInitialization);
+    for (const scenario of scenarios) {
+        let cli = renderBody(scenario, 'cli');
+        for (const target of scenarios) cli = cli.replaceAll(`\`${target.cliName}\``, `[${target.title}](cli-${target.id}.md)`);
+        await syncFile(`${base}/references/cli-${scenario.id}.md`, `${CLI_ENTRY_GUARD}\n\n${cli}\n`);
+    }
+    await syncFile(`${base}/references/cli.md`, `${CLI_ENTRY_GUARD}\n\n本机 CLI 后备入口：[操作规程](cli-sisyphus.md)。优先使用已连接 MCP，不重复注册连接或隐式下载旧版。\n`);
+}
+
+async function findSkillFiles(directory) {
+    const entries = await readdir(path.join(root, directory), { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+        const relative = `${directory}/${entry.name}`;
+        if (entry.isDirectory()) files.push(...await findSkillFiles(relative));
+        else if (entry.name === 'SKILL.md') files.push(relative);
+    }
+    return files;
+}
+for (const directory of ['skills/codex', 'agent-kit/skills', 'agent-plugin/siyuan-sisyphus/skills']) {
+    const files = await findSkillFiles(directory);
+    if (files.length !== 1 || files[0] !== `${directory}/siyuan/SKILL.md`) {
+        throw new Error(`公开技能目录只能包含 siyuan 入口，请先核对并迁移残留文件：${files.join(', ')}`);
+    }
+}
+
+console.log(`已${check ? '核验' : '生成'} ${scenarios.length} 个内部场景的 MCP／CLI 规程；公开为 siyuan 一个入口，三个交付载体。`);

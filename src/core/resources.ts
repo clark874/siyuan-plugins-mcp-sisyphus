@@ -34,7 +34,7 @@ import {
 import type { ActionVariant } from '@/tools/internal/shared';
 import { buildActionExamplesMarkdown, buildShapeSummaryMarkdown } from '@/tools/internal/help-render';
 import {
-    MCP_SKILLS,
+    PUBLIC_MCP_SKILLS,
     SKILL_INDEX_URI,
     SKILL_RESOURCE_TEMPLATE_URI,
     getMcpSkill,
@@ -499,7 +499,7 @@ export function listHelpResources() {
             description: 'Routes tasks to scenario-oriented SiYuan MCP skills.',
             mimeType: MIME_TYPE,
         },
-        ...MCP_SKILLS.map((skill) => ({
+        ...PUBLIC_MCP_SKILLS.map((skill) => ({
             uri: `siyuan://skills/${skill.name}`,
             name: skill.name,
             title: skill.title,

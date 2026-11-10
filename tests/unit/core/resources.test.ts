@@ -15,7 +15,7 @@ describe('core/resources', () => {
             'siyuan://help/changelog',
             'siyuan://help/user-rules',
             'siyuan://skills/index',
-            'siyuan://skills/siyuan-mcp-browse-read',
+            'siyuan://skills/siyuan',
         ]));
         expect(resources.every((resource) => resource.mimeType === 'text/markdown')).toBe(true);
         expect(templates).toEqual(expect.arrayContaining([
@@ -35,8 +35,8 @@ describe('core/resources', () => {
         const skill = readHelpResource('siyuan://skills/siyuan-mcp-create-edit');
         const ingest = readHelpResource('siyuan://skills/siyuan-mcp-knowledge-ingest');
 
-        expect(index?.text).toContain('# SiYuan MCP Skill Index');
-        expect(index?.text).toContain('siyuan-mcp-create-edit');
+        expect(index?.text).toContain('# 思源笔记统一入口');
+        expect(index?.text).toContain('siyuan://skills/siyuan');
         expect(skill?.text).toContain('name: siyuan-mcp-create-edit');
         expect(skill?.text).not.toContain('siyuan-sisyphus block');
         expect(ingest?.text).toContain('custom-source-url');

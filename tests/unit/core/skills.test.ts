@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
     MCP_SKILLS,
+    listSepSkills,
+    readSepSkillResource,
     getMcpPrompt,
     listMcpPrompts,
     renderMcpSkillIndex,
@@ -79,7 +81,7 @@ describe('core/skills', () => {
         expect(projectCompile?.text).toContain('不把所有文字提及变成引用');
         expect(projectCompile?.text).toContain('workstream=');
         expect(projectCompile?.text.indexOf('provenance(action="register_session"')).toBeLessThan(projectCompile?.text.indexOf('provenance(action="record_event"'));
-        expect(projectCoordinator?.text).toContain('公开命令只有“启动”“交接”“知识化”“收尾”');
+        expect(projectCoordinator?.text).toContain('不要求用户说出特定命令');
         expect(projectCoordinator?.text).toContain('知识化\`：只处理本轮可长期复用');
         expect(projectCoordinator?.text).toContain('references/project-panorama-output-contract.md');
         expect(projectCoordinator?.text).toContain('本轮工作差量');
@@ -112,7 +114,7 @@ describe('core/skills', () => {
         expect(projectCoordinator?.text).not.toContain('search(action="query_sql"');
         expect(projectCoordinator?.text).toContain('不创建第二个检查点块');
         expect(projectCoordinator?.text).toContain('状态投影待重建');
-        expect(projectCoordinator?.text).toContain('最多读取 5 个');
+        expect(projectCoordinator?.text).toContain('不是任务阅读上限');
         expect(projectCoordinator?.text).toContain('本地权威文件 ↔ 项目源清单 ↔ 思源投影/知识');
         expect(projectCoordinator?.text).toContain('均直接使用 `snapshot.diagnostics`');
         expect(projectCoordinator?.text).toContain('先检查命令退出状态');
@@ -135,7 +137,7 @@ describe('core/skills', () => {
             path.resolve(__dirname, '../../..'),
             'skills/siyuan-mcp/siyuan-mcp-project-coordinator/agents/openai.yaml',
         ), 'utf8');
-        expect(projectCoordinatorOpenAi).toContain('allow_implicit_invocation: false');
+        expect(projectCoordinatorOpenAi).not.toContain('allow_implicit_invocation: false');
         expect(projectCoordinatorOpenAi).toContain('display_name: "项目协同"');
         expect(projectCoordinatorOpenAi).not.toContain('$NAME');
         expect(governance?.text).toContain('四层影响');
@@ -226,31 +228,21 @@ describe('core/skills', () => {
         }
     });
 
-    it('renders a discoverable index and scenario prompts', () => {
+    it('只公开一个入口，同时按需保留场景与录入契约', () => {
         const index = renderMcpSkillIndex();
         const prompts = listMcpPrompts();
-        const prompt = getMcpPrompt('siyuan_create_edit', 'Append a summary.');
-
+        const prompt = getMcpPrompt('siyuan', '保存指定全文。');
         expect(index).toContain('siyuan://help/action/{tool}/{action}');
-        expect(prompts).toHaveLength(15);
-        expect(index).toContain('siyuan-mcp-literature-source');
-        expect(index).toContain('siyuan-mcp-timeline');
-        expect(index).toContain('siyuan-mcp-knowledge-ingest');
-        expect(index).toContain('siyuan-mcp-project-knowledge-compile');
-        expect(index).toContain('siyuan-mcp-project-coordinator');
-        expect(index).toContain('siyuan-mcp-knowledge-governance');
-        expect(index).toContain('siyuan-mcp-cross-project-relation-closure');
-        expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_timeline' }));
-        expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_knowledge_ingest' }));
-        expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_project_knowledge_compile' }));
-        expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_project_coordinator' }));
-        expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_knowledge_governance' }));
-        expect(prompts).toContainEqual(expect.objectContaining({ name: 'siyuan_cross_project_relation_closure' }));
-        expect(prompts.find((item) => item.name === 'siyuan_create_edit')?.arguments).toEqual([
-            expect.objectContaining({ name: 'task', required: false }),
-        ]);
-        expect(prompt?.messages[0].content.text).toContain('Append a summary.');
-        expect(prompt?.messages[0].content.text).toContain('name: siyuan-mcp-create-edit');
+        expect(prompts).toHaveLength(1);
+        expect(prompts[0].name).toBe('siyuan');
+        expect(listSepSkills().map((skill) => skill.uri)).toEqual(['skill://siyuan/SKILL.md']);
+        expect(prompts[0].arguments).toEqual([expect.objectContaining({ name: 'task', required: false })]);
+        expect(prompt?.messages[0].content.text).toContain('保存指定全文。');
+        expect(prompt?.messages[0].content.text).toContain('name: siyuan');
+        expect(readSepSkillResource('skill://siyuan/references/recording-contract.md')?.text).toContain('custom-source-role');
+        expect(readSepSkillResource('skill://siyuan/references/recording-examples.md')?.text).toContain('不合格');
+        expect(readSepSkillResource('skill://siyuan/references/paper-teaching.md')?.text).toContain('自测');
+        expect(getMcpPrompt('siyuan_create_edit')?.messages[0].content.text).toContain('name: siyuan-mcp-create-edit');
         expect(getMcpPrompt('unknown')).toBeNull();
     });
 

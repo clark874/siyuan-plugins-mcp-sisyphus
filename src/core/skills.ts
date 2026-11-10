@@ -18,16 +18,13 @@ import projectSourceSkill from '../../skills/siyuan-mcp/siyuan-mcp-project-sourc
 import timelineSkill from '../../skills/siyuan-mcp/siyuan-mcp-timeline/SKILL.md?raw';
 import systemSafetySkill from '../../skills/siyuan-mcp/siyuan-mcp-system-safety/SKILL.md?raw';
 import markupGuideSkill from '../../skills/siyuan-mcp/siyuan-mcp-markup-guide/SKILL.md?raw';
-import sepIndexSkill from '../../skills/siyuan-mcp-bundles/siyuan-mcp-sisyphus/SKILL.md?raw';
-import sepIndexAgent from '../../skills/siyuan-mcp-bundles/siyuan-mcp-sisyphus/agents/openai.yaml?raw';
-import sepReadSkill from '../../skills/siyuan-mcp-bundles/siyuan-mcp-read-discover/SKILL.md?raw';
-import sepReadAgent from '../../skills/siyuan-mcp-bundles/siyuan-mcp-read-discover/agents/openai.yaml?raw';
-import sepWriteSkill from '../../skills/siyuan-mcp-bundles/siyuan-mcp-write-format/SKILL.md?raw';
-import sepWriteAgent from '../../skills/siyuan-mcp-bundles/siyuan-mcp-write-format/agents/openai.yaml?raw';
-import sepDataSkill from '../../skills/siyuan-mcp-bundles/siyuan-mcp-data-files/SKILL.md?raw';
-import sepDataAgent from '../../skills/siyuan-mcp-bundles/siyuan-mcp-data-files/agents/openai.yaml?raw';
-import sepSafetySkill from '../../skills/siyuan-mcp-bundles/siyuan-mcp-organize-safety/SKILL.md?raw';
-import sepSafetyAgent from '../../skills/siyuan-mcp-bundles/siyuan-mcp-organize-safety/agents/openai.yaml?raw';
+import publicSkill from '../../skills/codex/siyuan/SKILL.md?raw';
+import publicAgent from '../../skills/codex/siyuan/agents/openai.yaml?raw';
+const cliReferences = import.meta.glob('../../skills/codex/siyuan/references/cli*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+import recordingContract from '../../skills/source/recording-contract.md?raw';
+import recordingExamples from '../../skills/source/recording-examples.md?raw';
+import paperTeaching from '../../skills/source/paper-teaching.md?raw';
+import paperTeachingExamples from '../../skills/source/paper-teaching-examples.md?raw';
 
 export const SKILL_INDEX_URI = 'siyuan://skills/index';
 export const SKILL_RESOURCE_TEMPLATE_URI = 'siyuan://skills/{name}';
@@ -60,7 +57,7 @@ function createMcpSkill(
         name,
         title: heading[1].replace(/ with MCP$/, ''),
         description: frontmatter[2],
-        promptName: `siyuan_${promptSuffix}`,
+        promptName: name === 'siyuan' ? 'siyuan' : `siyuan_${promptSuffix}`,
         text,
         files: [
             { path: 'SKILL.md', text, mimeType: 'text/markdown' },
@@ -69,8 +66,24 @@ function createMcpSkill(
     };
 }
 
+const recordingFiles = [
+    { path: 'references/recording-contract.md', text: recordingContract, mimeType: 'text/markdown' },
+    { path: 'references/recording-examples.md', text: recordingExamples, mimeType: 'text/markdown' },
+    { path: 'references/paper-teaching.md', text: paperTeaching, mimeType: 'text/markdown' },
+    { path: 'references/paper-teaching-examples.md', text: paperTeachingExamples, mimeType: 'text/markdown' },
+];
+
+export const PUBLIC_MCP_SKILLS: readonly McpSkillDefinition[] = [
+    createMcpSkill(publicSkill, [
+        { path: 'agents/openai.yaml', text: publicAgent, mimeType: 'application/yaml' },
+        ...recordingFiles,
+        ...Object.entries(cliReferences).map(([path, text]) => ({ path: `references/${path.split('/').pop()}`, text, mimeType: 'text/markdown' })),
+    ]),
+];
+
+// 场景只供按需读取，不作为额外的用户入口列出。
 export const MCP_SKILLS: readonly McpSkillDefinition[] = [
-    createMcpSkill(indexSkill),
+    createMcpSkill(indexSkill, recordingFiles),
     createMcpSkill(browseReadSkill),
     createMcpSkill(literatureSourceSkill),
     createMcpSkill(createEditSkill),
@@ -102,18 +115,9 @@ export const MCP_SKILLS: readonly McpSkillDefinition[] = [
     createMcpSkill(markupGuideSkill),
 ];
 
-const SEP_LISTED_SKILLS: readonly McpSkillDefinition[] = [
-    createMcpSkill(sepIndexSkill, [{ path: 'agents/openai.yaml', text: sepIndexAgent, mimeType: 'application/yaml' }]),
-    createMcpSkill(sepReadSkill, [{ path: 'agents/openai.yaml', text: sepReadAgent, mimeType: 'application/yaml' }]),
-    createMcpSkill(sepWriteSkill, [{ path: 'agents/openai.yaml', text: sepWriteAgent, mimeType: 'application/yaml' }]),
-    createMcpSkill(sepDataSkill, [{ path: 'agents/openai.yaml', text: sepDataAgent, mimeType: 'application/yaml' }]),
-    createMcpSkill(sepSafetySkill, [{ path: 'agents/openai.yaml', text: sepSafetyAgent, mimeType: 'application/yaml' }]),
-];
-
-const SEP_UNLISTED_SCENARIO_SKILLS = MCP_SKILLS.filter((skill) => skill.name !== 'siyuan-mcp-sisyphus');
 export const SEP_MCP_SKILLS: readonly McpSkillDefinition[] = [
-    ...SEP_LISTED_SKILLS,
-    ...SEP_UNLISTED_SCENARIO_SKILLS,
+    ...PUBLIC_MCP_SKILLS,
+    ...MCP_SKILLS,
 ];
 
 export interface SepSkillEntry {
@@ -145,10 +149,7 @@ function toSepSkillEntry(skill: McpSkillDefinition): SepSkillEntry {
 }
 
 export function listSepSkills(): SepSkillEntry[] {
-    // The five-entry catalog is intentionally bounded for hosts that scan a
-    // small number of skills. The four bundle skills route to the narrower
-    // scenario skills, which remain directly retrievable through skills/get.
-    return SEP_LISTED_SKILLS.map(toSepSkillEntry);
+    return PUBLIC_MCP_SKILLS.map(toSepSkillEntry);
 }
 
 export function getSepSkill(uri: string): SepSkillEntry | undefined {
@@ -157,7 +158,7 @@ export function getSepSkill(uri: string): SepSkillEntry | undefined {
 }
 
 export function listSepSkillResources() {
-    return SEP_MCP_SKILLS.flatMap((skill) => skill.files.map((file) => ({
+    return PUBLIC_MCP_SKILLS.flatMap((skill) => skill.files.map((file) => ({
         uri: skillFileUri(skill, file.path),
         name: file.path === 'SKILL.md' ? skill.name : file.path.split('/').slice(-1)[0] ?? file.path,
         title: file.path === 'SKILL.md' ? skill.title : `${skill.title}: ${file.path}`,
@@ -177,33 +178,33 @@ export function readSepSkillResource(uri: string) {
 }
 
 export function getMcpSkill(name: string): McpSkillDefinition | undefined {
-    return MCP_SKILLS.find((skill) => skill.name === name);
+    return [...PUBLIC_MCP_SKILLS, ...MCP_SKILLS].find((skill) => skill.name === name);
 }
 
 export function getMcpSkillByPromptName(promptName: string): McpSkillDefinition | undefined {
-    return MCP_SKILLS.find((skill) => skill.promptName === promptName);
+    return [...PUBLIC_MCP_SKILLS, ...MCP_SKILLS].find((skill) => skill.promptName === promptName);
 }
 
 export function renderMcpSkillIndex(): string {
-    const rows = MCP_SKILLS.map((skill) =>
+    const rows = PUBLIC_MCP_SKILLS.map((skill) =>
         `| \`${skill.name}\` | ${skill.description} | \`siyuan://skills/${skill.name}\` |`,
     );
 
     return [
-        '# SiYuan MCP Skill Index',
+        '# 思源笔记统一入口',
         '',
-        'Use the narrowest scenario skill that matches the task. Skills define workflows, decisions, and safety rules; current parameter shapes remain in `siyuan://help/action/{tool}/{action}`.',
+        '从唯一入口 `siyuan` 按自然任务选择规程；场景资源按需读取，不安装额外入口。参数以 `siyuan://help/action/{tool}/{action}` 为准。',
         '',
-        '| Skill | Use for | Resource |',
+        '| 入口 | 用途 | 资源 |',
         '| --- | --- | --- |',
         ...rows,
         '',
-        'If the client cannot read MCP resources, call the relevant tool with `action="help"`.',
+        '客户端不能读取资源时，调用相应工具的 `action="help"`。',
     ].join('\n');
 }
 
 export function listMcpPrompts() {
-    return MCP_SKILLS.map((skill) => ({
+    return PUBLIC_MCP_SKILLS.map((skill) => ({
         name: skill.promptName,
         title: skill.title,
         description: skill.description,

@@ -12,11 +12,11 @@ Kimi 模型本身不保存 MCP 连接；连接由运行 Kimi 的宿主客户端�
 SIYUAN_MCP_TOKEN='<本地 token>' node scripts/install-agent-kit.mjs --client kimi
 ```
 
-若 Kimi 或 ZCode 已经保存有效 token，可以省略环境变量。安装器会备份既有配置、安装 Skill，并只注册 `36806/mcp`。也可以手动安装 Skill：
+若 Kimi 或 ZCode 已经保存有效 token，可以省略环境变量。安装器会备份既有配置，只安装 `siyuan` 技能入口，并只注册 `36806/mcp`。旧场景技能与旧聚合入口仅在确认属于本项目时迁移，备份位于技能扫描目录外的 `~/.agents/.sisyphus-skill-backups/`。其他技能不受影响。也可以在首次接入时手动安装 Skill：
 
 ```bash
 mkdir -p ~/.agents/skills
-cp -R ./skills/siyuan-mcp-sisyphus ~/.agents/skills/
+cp -R ./skills/siyuan ~/.agents/skills/
 ```
 
 也可以把整个 `agent-kit` 作为 Kimi 插件安装，使启动 Skill 在会话开始时自动加载：
@@ -51,7 +51,7 @@ kimi mcp test siyuan
 新建 Kimi 会话后执行：
 
 ```text
-/skill:siyuan-mcp-sisyphus
+/skill:siyuan
 ```
 
 随后可以直接说：

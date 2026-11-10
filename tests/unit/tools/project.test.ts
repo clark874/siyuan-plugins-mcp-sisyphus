@@ -28,8 +28,10 @@ describe('project tool', () => {
 
     it('returns one bounded snapshot without exposing workspaceRoot', async () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'project-snapshot-'));
+        const workspaceRoot = path.join(root, ...Array(4).fill('a'.repeat(90)));
+        fs.mkdirSync(workspaceRoot, { recursive: true });
         process.env.SIYUAN_MCP_HOST_ID = 'host-test';
-        fs.writeFileSync(path.join(root, 'result.txt'), 'ok');
+        fs.writeFileSync(path.join(workspaceRoot, 'result.txt'), 'ok');
         const attrs: Record<string, Record<string, string>> = {
             page: { 'custom-progress-role': 'project-progress-page', 'custom-progress-project-id': 'project-a' },
             profile: { 'custom-progress-role': 'project-profile', 'custom-progress-project-id': 'project-a' },
@@ -91,7 +93,7 @@ describe('project tool', () => {
                 includePaths: [],
                 exclusions: [],
                 bindings: {
-                    'host-test': { hostId: 'host-test', workspaceRoot: root, checkoutKind: 'plain-directory', revision: 'directory:test', verifiedAt: '2026-09-04T00:00:00.000Z', access: 'read-only', status: 'available' },
+                    'host-test': { hostId: 'host-test', workspaceRoot, checkoutKind: 'plain-directory', revision: 'directory:test', verifiedAt: '2026-09-04T00:00:00.000Z', access: 'read-only', status: 'available' },
                 },
                 manifest: {
                     generatedAt: '2026-09-04T00:00:00.000Z', coverage: 'curated', revision: 'directory:test', manifestHash: 'sha256:v1:test', counts: { a: 1, b: 0, c: 0 },
@@ -115,6 +117,28 @@ describe('project tool', () => {
             session: { id: 'session', root_id: 'hub', box: 'nb', path: '/hub.sy', content: 'Session', type: 'p' },
             'atom-1': { id: 'atom-1', root_id: 'hub', box: 'nb', path: '/hub.sy', hpath: '/Project A/Atom', content: 'Atom One', type: 'p', updated: '20260904010000' },
         };
+        const sourceIds = Array.from({ length: 24 }, (_, index) => `source-${index}`);
+        for (const id of [...sourceIds, 'source-conflict', 'source-denied']) {
+            rows[id] = { id, root_id: id, box: id === 'source-denied' ? 'denied' : 'nb', path: `/${id}.sy`, content: '资料全文'.repeat(1000), type: 'd' };
+            attrs[id] = {
+                'custom-source-project-id': 'project-a',
+                'custom-source-role': id === 'source-1' ? 'source-entry' : 'source-document',
+                'custom-source-url': 'https://example.org/source',
+                'custom-verification-status': 'source-checked',
+            };
+        }
+        delete attrs['source-0']['custom-source-project-id'];
+        attrs['source-0']['custom-provenance-project-id'] = 'project-a';
+        attrs['source-conflict']['custom-provenance-project-id'] = 'another-project';
+        const longJson = JSON.stringify({ records: Array.from({ length: 30 }, (_, index) => ({ id: `record-${index}`, content: '状态记录'.repeat(10) })) });
+        const longPath = `/资料/${'原始路径/'.repeat(80)}source.md`;
+        attrs.profile['custom-progress-note'] = longJson;
+        attrs.state['custom-progress-state-json'] = longJson;
+        rows['source-0'].hpath = longPath;
+        attrs['source-0']['custom-source-path'] = '/private/unregistered/source.md';
+        attrs['source-0']['custom-source-manifest'] = '/private/unregistered/manifest.json';
+        attrs['source-0']['custom-source-url'] = `https://example.org/${'source/'.repeat(80)}`;
+        const permissions = createMockPermissionManager({ canRead: (notebookId) => notebookId !== 'denied' });
         const client = createMockClient({
             readFile: async () => `${JSON.stringify(registry)}\n`,
             request: async (endpoint: string, body?: Record<string, unknown>) => {
@@ -123,6 +147,11 @@ describe('project tool', () => {
                     const exactId = stmt.match(/WHERE id='([^']+)' LIMIT 1/)?.[1]
                         || stmt.match(/WHERE id = '([^']+)' LIMIT 1/)?.[1];
                     if (exactId) return rows[exactId] ? [rows[exactId]] : [];
+                    if (stmt.includes("name='custom-source-role'")) {
+                        expect(stmt).not.toContain('LIKE');
+                        expect(stmt).not.toContain('alias');
+                        return [...sourceIds, 'source-conflict', 'source-denied'].map((id) => rows[id]);
+                    }
                     if (stmt.includes("custom-progress-role' AND r.value IN")) return ['page', 'profile', 'stages', 'artifacts', 'state', 'workstream'].map((id) => rows[id]);
                     if (stmt.includes("WHERE root_id='page' ORDER BY sort ASC LIMIT 500")) return [rows.state, rows['state-body']];
                     if (stmt.includes('ORDER BY b.created DESC LIMIT 501')) {
@@ -136,8 +165,8 @@ describe('project tool', () => {
                         { block_id: 'backfill', def_block_id: 'atom-1' },
                     ];
                     if (stmt.includes("custom-provenance-kind' AND k.value='session'")) return [{ id: 'session' }];
-                    if (stmt.includes("WHERE id IN ('hub')")) return [rows.hub];
-                    if (stmt.includes("WHERE id IN ('atom-1')")) return [rows['atom-1']];
+                    const ids = stmt.match(/WHERE id IN \(([^)]+)\)/)?.[1];
+                    if (ids) return [...ids.matchAll(/'([^']+)'/g)].flatMap((match) => rows[match[1]] ? [rows[match[1]]] : []);
                     return [];
                 }
                 if (endpoint === '/api/attr/batchGetBlockAttrs') {
@@ -151,7 +180,7 @@ describe('project tool', () => {
             },
         });
         try {
-            const result = parseResult(await callProjectTool(client, { action: 'snapshot', projectId: 'project-a' }, buildDefaultToolConfig().project, createMockPermissionManager()));
+            const result = parseResult(await callProjectTool(client, { action: 'snapshot', projectId: 'project-a' }, buildDefaultToolConfig().project, permissions));
             expect(result.status).toBe('ready');
             expect(result.events.map((event: { id: string }) => event.id)).toEqual(['event', 'backfill']);
             expect(result.events[0]).toMatchObject({
@@ -165,9 +194,20 @@ describe('project tool', () => {
                 projectHead: { id: 'event' },
                 workstreamHeads: [{ workstream: 'analysis', id: 'event' }],
             });
-            expect(result.knowledgeProducts).toMatchObject([{ id: 'atom-1', name: 'atom-one', verificationStatus: 'source-checked' }]);
-            expect(result.artifacts[0].resolvedPath).toBe(path.join(fs.realpathSync(root), 'result.txt'));
-            expect(result.diagnostics).toMatchObject([{ code: 'legacy_projection_layout', status: 'stale' }]);
+            expect(result.knowledgeProducts[0]).toMatchObject({ id: 'atom-1', name: 'atom-one', verificationStatus: 'source-checked' });
+            expect(result.knowledgeProducts).toHaveLength(20);
+            expect(result.knowledgeProducts[1]).toMatchObject({ id: 'source-0', productType: 'source-document', projectId: 'project-a', hpath: longPath, sourceMetadata: { 'custom-source-url': attrs['source-0']['custom-source-url'] } });
+            expect(result.knowledgeProducts[1].sourceMetadata).not.toHaveProperty('custom-source-path');
+            expect(result.knowledgeProducts[1].sourceMetadata).not.toHaveProperty('custom-source-manifest');
+            expect(result.knowledgeProducts[2].productType).toBe('source-entry');
+            expect(result.pagination.knowledgeProducts).toMatchObject({ total: 25, returned: 20, hasMore: true });
+            expect(result.summary).toMatchObject({ truncated: true, fields: expect.arrayContaining([expect.objectContaining({ path: 'knowledgeProducts', total: 25, returned: 20 })]) });
+            expect(result.summary.completeRead).toContain('view="full"');
+            expect(JSON.parse(result.projections.projectProfile.attributes['custom-progress-note'])).toEqual(JSON.parse(longJson));
+            expect(result.artifacts[0].resolvedPath).toBe(path.join(fs.realpathSync(workspaceRoot), 'result.txt'));
+            expect(result.artifacts[0].resolvedPath.length).toBeGreaterThan(320);
+            expect(result.diagnostics).toEqual(expect.arrayContaining([{ code: 'legacy_projection_layout', severity: 'warning', status: 'stale', message: expect.any(String) }, expect.objectContaining({ code: 'source_project_conflict', blockId: 'source-conflict' })]));
+            expect(result.diagnostics).not.toEqual(expect.arrayContaining([expect.objectContaining({ code: 'project_state_lagging' })]));
             expect(result.repairPlan).toMatchObject({
                 status: 'preview',
                 action: 'block.set_attrs',
@@ -176,6 +216,7 @@ describe('project tool', () => {
                     { id: 'state', attrs: expect.objectContaining({ 'custom-progress-role': '' }) },
                 ]),
             });
+            expect(result.repairPlan.items.find((item: { id: string }) => item.id === 'state-body').attrs['custom-progress-state-json']).toBe(longJson);
             expect(result.progressPage).not.toHaveProperty('kramdown');
             expect(result.projections.projectProfile).not.toHaveProperty('kramdown');
             expect(result.events[0]).not.toHaveProperty('kramdown');
@@ -183,11 +224,23 @@ describe('project tool', () => {
             expect(result).not.toHaveProperty('workspaceRoot');
             const byName = parseResult(await callProjectTool(client, { action: 'snapshot', projectName: 'Project A' }, buildDefaultToolConfig().project, createMockPermissionManager()));
             expect(byName.project).toMatchObject({ projectId: 'project-a', matchType: 'project-name' });
-            const byCwd = parseResult(await callProjectTool(client, { action: 'snapshot', cwd: fs.realpathSync(root) }, buildDefaultToolConfig().project, createMockPermissionManager()));
+            const byCwd = parseResult(await callProjectTool(client, { action: 'snapshot', cwd: fs.realpathSync(workspaceRoot) }, buildDefaultToolConfig().project, createMockPermissionManager()));
             expect(byCwd.project).toMatchObject({ projectId: 'project-a', matchType: 'exact' });
-            const full = parseResult(await callProjectTool(client, { action: 'snapshot', projectId: 'project-a', view: 'full' }, buildDefaultToolConfig().project, createMockPermissionManager()));
+            const full = parseResult(await callProjectTool(client, { action: 'snapshot', projectId: 'project-a', view: 'full' }, buildDefaultToolConfig().project, permissions));
             expect(full.projections.projectProfile.kramdown).toBe('Profile');
             expect(full.events[0].kramdown).toBe('Event');
+            expect(full.knowledgeProducts).toHaveLength(25);
+            expect(full.knowledgeProducts[1].title).toBe('资料全文'.repeat(1000));
+            expect(full.knowledgeProducts.map((row: { id: string }) => row.id)).not.toContain('source-conflict');
+            expect(full.knowledgeProducts.map((row: { id: string }) => row.id)).not.toContain('source-denied');
+            expect(full.projections.projectProfile.attributes['custom-progress-note']).toBe(longJson);
+            expect(result.repairPlan).toEqual(full.repairPlan);
+            expect(result.chronology).toEqual(full.chronology);
+            expect(result.diagnostics).toEqual(full.diagnostics);
+            expect(full.knowledgeProducts[1].sourceMetadata).not.toHaveProperty('custom-source-path');
+            expect(full.knowledgeProducts[1].sourceMetadata).not.toHaveProperty('custom-source-manifest');
+            expect(full).not.toHaveProperty('summary');
+            expect(JSON.stringify(result).length).toBeLessThan(JSON.stringify(full).length / 2);
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
         }

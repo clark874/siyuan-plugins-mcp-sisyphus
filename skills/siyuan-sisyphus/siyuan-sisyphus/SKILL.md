@@ -23,57 +23,46 @@ After resolving the entry, start with the read-only live bootstrap:
 siyuan-sisyphus system bootstrap --json
 ```
 
-Use Sisyphus as the only MCP gateway registered in the external client: `http://127.0.0.1:36806/mcp`. SiYuan's built-in `http://127.0.0.1:6806/mcp` is an internal extension bus that Sisyphus may bridge through `extension`; do not register it as a second SiYuan MCP in the same client.
+本入口通过 SiYuan Sisyphus 操作思源笔记。用户只需说明要读什么、保存什么或接续哪个项目；由本入口选择操作规程，不要求记忆场景技能、四个命令、projectId 或 action。先判断是只读、方案还是已授权写入；审阅与方案本身不授权修改。
 
-Start every newly connected session with one read-only bootstrap call:
+## 连接与资料发现
+
+新连接先只读启动：
 
 ```bash
 siyuan-sisyphus system bootstrap --json
 ```
 
-Use the returned notebooks, capability flags, path guide, and `nextCalls` as the live source of truth. `operation.readOnly=true` describes only the bootstrap action; the connection may still expose mutations according to notebook permissions and enabled actions. If `toolConfiguration.current=false`, treat capability data as fallback metadata rather than a health check.
+Sisyphus 是唯一外部思源 MCP 入口（http://127.0.0.1:36806/mcp）；原生 MCP（http://127.0.0.1:6806/mcp）仅作内部扩展总线，不重复注册。以实时笔记本权限、文献目录与能力为准；bootstrap 的 operation.readOnly 只适用于这次调用。
 
-Use the narrowest scenario skill that matches the task. For unfamiliar fields, inspect `siyuan-sisyphus list` and `siyuan-sisyphus help <tool> <action>` before calling an action; live action help is the parameter-level source of truth.
-If a scenario Skill is not installed as a local folder, read its stable Skills-over-MCP resource at `siyuan://skills/<skill-name>`; do not treat local installation of all scenario Skills as a prerequisite.
+读取虚拟 /AGENTS.md 与 /USER_RULES.md；记忆为空时继续读取当前目录和契约指针，不先要求用户创建记忆。知识录入先读 [资料录入与接续契约](references/recording-contract.md)；既有工作区知识契约可按 name=knowledge-compile-contract 定位，规则正文与历史会话账本分别读取。
 
-## Scenario routing
+项目任务先用 project.snapshot 发现当前状态、资料与文献入口，判断来源和新旧裁决；文献查读先看 bootstrap.literature.libraries 或项目文献目录。summary 只是索引，按返回总数和截断说明继续读稳定块或 full，不把未读部分当作不存在。普通非项目笔记直接定位目标。先索引，再围绕任务读取必要全文；不预设只能读几篇论文或几个块。
 
-| Scenario | Skill |
+## 按用户目标选择规程
+
+| 用户要做的工作 | 入口内部读取的操作规程 |
 | --- | --- |
-| Browse notebooks, documents, paths, IDs, and blocks | `siyuan-sisyphus-browse-read` |
-| 查询思源文献原文或核查稿件依据；或明确使用 Zotero 文献链路 | `siyuan-sisyphus-literature-source` |
-| Create documents or edit blocks | `siyuan-sisyphus-create-edit` |
-| Fulltext, SQL, backlinks, references, and replacement | `siyuan-sisyphus-search-query` |
-| Capture web sources, deduplicate them, and merge knowledge with provenance | `siyuan-sisyphus-knowledge-ingest` |
-| Compile a complete local research-project package into traceable atoms and internal semantic relations | `siyuan-sisyphus-project-knowledge-compile` |
-| Explicitly invoke Start, Handoff, Knowledge, or Close for a registered project's shared multi-Agent progress memory | `siyuan-sisyphus-project-coordinator` |
-| Compile and govern named knowledge atoms, aliases, hubs, and safe renames | `siyuan-sisyphus-knowledge-governance` |
-| Close verified project-to-public-method reuse relations across projects | `siyuan-sisyphus-cross-project-relation-closure` |
-| Attribute views, columns, rows, and cells | `siyuan-sisyphus-database` |
-| Registered project sources and controlled text reading | `siyuan-sisyphus-project-source` |
-| Timeline nodes and snapshot comparison | `siyuan-sisyphus-timeline` |
-| Permissions, system information, and dangerous operations | `siyuan-sisyphus-system-cli` |
-| Rich Markdown, math, diagrams, and SiYuan markup | `siyuan-markup-guide` |
+| 查资料、读正文、搜索、追溯来源 | `siyuan-sisyphus-browse-read` 与 `siyuan-sisyphus-search-query`；命中后回读原文，名称和模型排序不提升证据状态 |
+| 保存文档、方案、证明、知识与当前裁决 | 完整资料副本先读录入契约与 `siyuan-sisyphus-create-edit`；需要编译知识原子时才读 `siyuan-sisyphus-project-knowledge-compile`。资料副本不强制登记会话或修改既有中枢；外部网页差量使用 `siyuan-sisyphus-knowledge-ingest` |
+| 接续项目、更新进度、交接或收尾 | `siyuan-sisyphus-project-coordinator`；自然语言授权有效，四个命令只是快捷入口 |
+| 查读文献、全文入库及三端接续 | `siyuan-sisyphus-literature-source`；先 AV 和全文，再按缺口用 Zotero／NotebookLM／Jev；开放式文献发现仍交独立学术技能 |
+| 论文精读教学 | 仅此时读取 [教学规程](references/paper-teaching.md) 与其正负例，保留卡内完整讲解 |
 
-## Tool choice
+安装包中的相对参考链接对应实时资源 skill://siyuan/references/<文件名>；无法直接读相对链接时按此 URI 读取。
 
-Prefer `fs` for ordinary human-readable workspace paths. Use `document` or `block` for IDs, storage paths, metadata, or block-granular changes. Use `literature` for bounded read-only Zotero access; do not register the upstream Zotero MCP beside Sisyphus in the external client. Use `av` for real databases rather than Markdown tables. Use `timeline` for named snapshots and document diffs. Use `provenance` after project knowledgeization to register source and compile Agent sessions and to answer project-session history queries. Tags are a small independent tool family and need no separate scenario skill.
+上述操作规程通过实时资源 siyuan://skills/<场景标识> 按需读取，不安装成额外用户入口。参数不明时查 `siyuan-sisyphus list` and `siyuan-sisyphus help <tool> <action>`。数据库、项目源、时间线、原子治理等只在当前任务需要时读取相应规程，不为展示功能数量而调用。
 
-用户对具体论文或讨论明确要求“文献链路”或“重点文献链路”时，必须加载 `siyuan-sisyphus-literature-source` 并执行其中的阶段与验收；只是在讨论工作流设计时提到这两个词，不算启动。判断原文核验能实质改善当前任务、但用户尚未启动时，先询问是否使用其中一种，不得自行写入。
+## 已授权更新的完成条件
 
-```bash
-siyuan-sisyphus fs tree --path '/Notebook' --max-depth '3' --json
-```
-```bash
-siyuan-sisyphus fs read --path '/Notebook/Folder/Doc' --block-start '0' --block-limit '50' --token-budget '2000' --json
-```
+指定项目的更新包含思源资料维护时，本轮产生的重要全文、证明、脚本、输出、决策、失败边界和权威入口纳入交付清单；先明确范围，再分别验收完整资料副本、可调用原子、当前状态与入口。用户要求保留全文时，摘要不能替代原文。只读询问、纯方案与无关聊天不触发入库。
 
-## Shared invariants
+name 是确定地址，必须读到承担回答的正文；标题锚点、数据库一行、回读成功或入链数量不能代替内容质量。用户确认的新裁决更新当前状态，旧事件保留并明确接替关系。只报告实际完成的层次和未完成项。
 
-- Read `/AGENTS.md` through `fs` before workspace-aware tasks when it exists.
-- A workspace path such as `/Notebook/Folder/Doc`, an hpath such as `/Folder/Doc`, and a storage path such as `/20260712123000-abc123.sy` are different values.
-- Read before writing; after a mutation, read the affected object again.
-- When strict safe writes are enabled, inspect the action schema. Guarded mutations expose an expected-hash field: call `validateOnly=true`, then execute once with the returned `preconditionField` credential and `issuedRequestId`. Additive request-id-only actions expose no expected-hash field: call `validateOnly=true` when the client does not already have a fresh UUIDv7, then execute once with the returned `issuedRequestId`; their preflight issues no hash credential and is not a failure. Never handcraft UUIDv7 values.
-- For document reads, continue with `nextWindow` or explicit `blockStart`/`blockLimit`/`tokenBudget`; for list and search results, use their page parameters.
-- Missing results may be caused by notebook permissions or indexing delay.
-- Obtain explicit approval before deletes, moves, bulk replacement, permission changes, project-source registration or path disclosure, or sensitive workspace disclosure.
+## 安全与降级
+
+- 写前读取；结构化文档按稳定块增量修改；受影响文档保留恢复点，写后回读。
+- 严格写入按实时 schema 预检并原样使用 issuedRequestId 与所需凭据；不手造 UUIDv7，不假定所有追加动作都有哈希字段，结果未知先查回执。
+- source-checked 表示来源核对；执行和证据核验各自有证据入口，原文写“闭环”不自动升级验证等级。
+- 新项目源登记、敏感披露和不可逆操作仍按授权执行；仅暂停受影响步骤，不跳过其他已授权工作。
+- 正常使用优先 MCP。没有 MCP 且用户明确要求使用本机 CLI 时，读取 [CLI 后备规程](references/cli.md)，先核对可用命令，禁止隐式 npx 下载。

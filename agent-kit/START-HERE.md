@@ -10,10 +10,10 @@ Sisyphus MCP：http://127.0.0.1:36806/mcp
 
 ## 只安装工作流 Skill
 
-支持 Agent Skills 规范的客户端可以单独安装 14 个 MCP 工作流 Skill：
+支持 Agent Skills 规范的客户端只安装一个公开技能 `siyuan`。场景流程通过入口下的普通参考文档及 MCP 内部资源按需读取，不另行安装为技能：
 
 ```bash
-npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/siyuan-mcp --skill '*' -g -a codex -y
+npx -y skills add https://github.com/clark874/siyuan-plugins-mcp-sisyphus/tree/main/skills/codex --skill siyuan -g -a codex -y
 ```
 
 这条命令只安装 Skill，不会注册 `36806/mcp`，不会配置 Bearer token，也不会安装思源插件。首次接入仍须完成下方的 MCP 注册和本地认证；其他受支持客户端可将 `codex` 替换为对应的 Agent 标识。
@@ -40,6 +40,8 @@ SIYUAN_MCP_TOKEN='<由用户在本地提供的 token>' node scripts/install-agen
 ```
 
 若目标客户端已经保存了有效的 Sisyphus Bearer token，可省略环境变量，安装器会在受支持的本地客户端配置中复用它。安装器不读取思源工作区正文，不输出 token，也不删除检测到的官方 MCP 配置。
+
+安装器只迁移确认属于本项目的旧场景技能与旧聚合入口，完整备份保存在 `~/.agents/.sisyphus-skill-backups/`，位于技能扫描目录之外；其他用户技能保持原样。
 
 5. 在启动 Agent 会话前执行真实 MCP 验收：
 

@@ -1,12 +1,12 @@
 ---
 name: siyuan-mcp-project-coordinator
-description: 思源多 Agent 项目协同工作流。仅在用户明确调用“启动”“交接”“知识化”或“收尾”时，读取或维护共享项目记忆。
+description: 思源多 Agent 项目协同工作流。用户要求接续、更新、交接或维护项目时，按自然语言任务读取或维护共享项目记忆；只读审阅不写入。
 compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
 ---
 
 # 思源多 Agent 项目协调 with MCP
 
-本 Skill 的中文可见名称是“项目协同”，底层稳定标识仍为英文。只在用户明确调用时运行，公开命令只有“启动”“交接”“知识化”“收尾”。未被明确调用时，不读取或写入项目进度。用户不需要知道 projectId、块 ID 或知识流程名称。
+本 Skill 的中文可见名称是“项目协同”，底层稳定标识仍为英文。用户要求接续、更新、交接或维护项目时运行，按任务语义选择读取或写入；“启动”“交接”“知识化”“收尾”保留为快捷入口，不要求用户说出特定命令。审阅、状态询问和方案任务保持只读。用户不需要知道 projectId、块 ID 或知识流程名称。
 
 ## 一、公开交互
 
@@ -73,7 +73,7 @@ file(action="list_project_sources", query="<natural-language-project-name>", pag
 
 目录不存在于当前服务器主机、绑定过期或无法唯一匹配时不得自动登记或修复项目源。当前目录未登记时，只有用户明确同意首次接入后，才按需读取 [项目首次接入与进度页初始化](references/project-progress-initialization.md)，并按“最小中枢 → 项目源登记 → 进度页 → 知识编译 → 常规收尾”分阶段回读；不得把知识原子批量塞进首次中枢创建。`snapshot` 返回 `needs_initialization` 时同样先征得用户同意再读取该参考。主 Skill 不内嵌初始化模板，不自动创建页面。
 
-随后捕获并登记当前真实 Agent 会话。先调用 `discover_session`；只有唯一捕获结果或宿主可信注入的真实 sessionId 才能登记，不得自拟描述性 ID：
+仅在本轮明确授权项目维护或后续写入时，才捕获并登记当前真实 Agent 会话；纯读取／审阅不登记。先调用 `discover_session`；只有唯一捕获结果或宿主可信注入的真实 sessionId 才能登记，不得自拟描述性 ID：
 
 ```text
 provenance(action="discover_session", provider="<current-provider>", limit=10)
@@ -89,10 +89,10 @@ project(action="snapshot", projectId="<project-id>", eventLimit=10, sessionLimit
 
 `启动`与`交接`共用以下读取流程。采用“索引 → 筛选 → 详情”，从权威块实时生成用户可见的项目进度全景：
 
-1. 以第二次 `project.snapshot` 的项目身份、进度页、稳定投影、按事实时间排序的最近事件、`chronology` 头部、会话、知识产物、产物索引和服务端诊断作为唯一机器读取结果；不得再自行拼接 SQL、排序会话、解析产物或重做投影诊断；
+1. 以最近一次 `project.snapshot` 的项目身份、进度页、稳定投影、按事实时间排序的最近事件、`chronology` 头部、会话、知识产物、产物索引和服务端诊断作为唯一机器读取结果；不得再自行拼接 SQL、排序会话、解析产物或重做投影诊断；
 2. 只对 `localProbeBaseline.tierA` 中已有哈希的权威文件计算当前 SHA-256，不对其他文件做全量哈希；
-3. 以当前任务检索最多 12 个知识候选；
-4. 综合语义、时间和 `custom-verification-status` 后，最多读取 5 个完整块，提炼核心观点、核心发现和解释边界；
+3. 以当前任务检索知识候选，先读索引再定向扩展；
+4. 综合语义、时间和 `custom-verification-status` 后读取回答所需的完整块；单次分页只是响应窗口，不是任务阅读上限。用户指定的全文、全部证明或材料必须继续读取并逐项验收，不能固定限为5块；
 5. 用输出契约的项目归属门排除工具开发、部署和协调器自测事件；
 6. 检查旧状态、draft、来源冲突和未核验内容，不把检索命中直接当作当前事实。
 

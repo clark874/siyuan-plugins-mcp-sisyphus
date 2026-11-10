@@ -72,7 +72,7 @@ fs(action="read", path="/Notebook/Topic/00 Topic Knowledge Hub", blockStart=0, b
 timeline(action="create_node", name="Before knowledge ingestion", scope="document", documentId="<hub-doc-id>")
 ```
 
-优先把新增知识合并到既有中枢；只有 `CREATE` 决策才新建文档。首次追加时必须在可见正文中同时写入“规范网址”和“正文哈希”两个稳定来源标识，然后保存最小属性：
+网页差量与全文资料副本分开处理；用户指定的完整项目材料遵循项目编译流程，不用网页摘要协议替代。优先把新增知识合并到既有中枢；只有 `CREATE` 决策才新建文档。首次追加时必须在可见正文中同时写入“规范网址”和“正文哈希”两个稳定来源标识，然后保存最小属性：
 
 ```text
 block(action="append", parentID="<hub-doc-id>", dataType="markdown", data="### 来源：Source title\n\n- 规范网址：https://example.org/canonical-source\n- 正文哈希：<sha256>\n\nDelta summary and provenance.")

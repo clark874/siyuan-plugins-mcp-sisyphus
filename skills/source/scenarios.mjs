@@ -6,59 +6,53 @@ export const scenarios = [
         cliName: 'siyuan-sisyphus',
         mcpName: 'siyuan-mcp-sisyphus',
         cliDescription: 'CLI-only top-level skill for operating SiYuan Note through siyuan-sisyphus. Use to choose a scenario workflow, discover live command help, handle paths and IDs, paginate results, and apply safety rules.',
-        mcpDescription: 'Top-level skill for operating SiYuan Note through the Sisyphus MCP server. Use to choose an aggregated tool, discover action resources, route complex tasks to a scenario skill, and apply permissions and safety rules.',
+        mcpDescription: '思源笔记统一入口：读取与检索资料、保存全文和知识、接续项目、查读文献与论文教学；自动选择必要规程。只读审阅不写入，不处理无关应用。',
         title: 'SiYuan Sisyphus',
-        displayName: 'SiYuan Sisyphus',
-        shortDescription: 'Route safe SiYuan note workflows',
-        defaultPrompt: 'Use $NAME to choose and follow the safest SiYuan workflow for this task.',
-        body: `Use Sisyphus as the only MCP gateway registered in the external client: \`http://127.0.0.1:36806/mcp\`. SiYuan's built-in \`http://127.0.0.1:6806/mcp\` is an internal extension bus that Sisyphus may bridge through \`extension\`; do not register it as a second SiYuan MCP in the same client.
+        displayName: '思源笔记',
+        shortDescription: '读取资料、保留全文、接续项目和文献教学，按自然语言任务选择规程',
+        defaultPrompt: '使用 $NAME 完成这项思源笔记任务，先发现现有资料，再按授权读取或更新并回读验收。',
+        body: `本入口通过 SiYuan Sisyphus 操作思源笔记。用户只需说明要读什么、保存什么或接续哪个项目；由本入口选择操作规程，不要求记忆场景技能、四个命令、projectId 或 action。先判断是只读、方案还是已授权写入；审阅与方案本身不授权修改。
 
-Start every newly connected session with one read-only bootstrap call:
+## 连接与资料发现
+
+新连接先只读启动：
 
 {{call bootstrap}}
 
-Use the returned notebooks, capability flags, path guide, and \`nextCalls\` as the live source of truth. \`operation.readOnly=true\` describes only the bootstrap action; the connection may still expose mutations according to notebook permissions and enabled actions. If \`toolConfiguration.current=false\`, treat capability data as fallback metadata rather than a health check.
+Sisyphus 是唯一外部思源 MCP 入口（http://127.0.0.1:36806/mcp）；原生 MCP（http://127.0.0.1:6806/mcp）仅作内部扩展总线，不重复注册。以实时笔记本权限、文献目录与能力为准；bootstrap 的 operation.readOnly 只适用于这次调用。
 
-Use the narrowest scenario skill that matches the task. For unfamiliar fields, inspect {{help * *}} before calling an action; live action help is the parameter-level source of truth.
-If a scenario Skill is not installed as a local folder, read its stable Skills-over-MCP resource at \`siyuan://skills/<skill-name>\`; do not treat local installation of all scenario Skills as a prerequisite.
+读取虚拟 /AGENTS.md 与 /USER_RULES.md；记忆为空时继续读取当前目录和契约指针，不先要求用户创建记忆。知识录入先读 [资料录入与接续契约](references/recording-contract.md)；既有工作区知识契约可按 name=knowledge-compile-contract 定位，规则正文与历史会话账本分别读取。
 
-## Scenario routing
+项目任务先用 project.snapshot 发现当前状态、资料与文献入口，判断来源和新旧裁决；文献查读先看 bootstrap.literature.libraries 或项目文献目录。summary 只是索引，按返回总数和截断说明继续读稳定块或 full，不把未读部分当作不存在。普通非项目笔记直接定位目标。先索引，再围绕任务读取必要全文；不预设只能读几篇论文或几个块。
 
-| Scenario | Skill |
+## 按用户目标选择规程
+
+| 用户要做的工作 | 入口内部读取的操作规程 |
 | --- | --- |
-| Browse notebooks, documents, paths, IDs, and blocks | {{skill browse-read}} |
-| 查询思源文献原文或核查稿件依据；或明确使用 Zotero 文献链路 | {{skill literature-source}} |
-| Create documents or edit blocks | {{skill create-edit}} |
-| Fulltext, SQL, backlinks, references, and replacement | {{skill search-query}} |
-| Capture web sources, deduplicate them, and merge knowledge with provenance | {{skill knowledge-ingest}} |
-| Compile a complete local research-project package into traceable atoms and internal semantic relations | {{skill project-knowledge-compile}} |
-| Explicitly invoke Start, Handoff, Knowledge, or Close for a registered project's shared multi-Agent progress memory | {{skill project-coordinator}} |
-| Compile and govern named knowledge atoms, aliases, hubs, and safe renames | {{skill knowledge-governance}} |
-| Close verified project-to-public-method reuse relations across projects | {{skill cross-project-relation-closure}} |
-| Attribute views, columns, rows, and cells | {{skill database}} |
-| Registered project sources and controlled text reading | {{skill project-source}} |
-| Timeline nodes and snapshot comparison | {{skill timeline}} |
-| Permissions, system information, and dangerous operations | {{skill system-safety}} |
-| Rich Markdown, math, diagrams, and SiYuan markup | {{skill markup-guide}} |
+| 查资料、读正文、搜索、追溯来源 | {{skill browse-read}} 与 {{skill search-query}}；命中后回读原文，名称和模型排序不提升证据状态 |
+| 保存文档、方案、证明、知识与当前裁决 | 完整资料副本先读录入契约与 {{skill create-edit}}；需要编译知识原子时才读 {{skill project-knowledge-compile}}。资料副本不强制登记会话或修改既有中枢；外部网页差量使用 {{skill knowledge-ingest}} |
+| 接续项目、更新进度、交接或收尾 | {{skill project-coordinator}}；自然语言授权有效，四个命令只是快捷入口 |
+| 查读文献、全文入库及三端接续 | {{skill literature-source}}；先 AV 和全文，再按缺口用 Zotero／NotebookLM／Jev；开放式文献发现仍交独立学术技能 |
+| 论文精读教学 | 仅此时读取 [教学规程](references/paper-teaching.md) 与其正负例，保留卡内完整讲解 |
 
-## Tool choice
+安装包中的相对参考链接对应实时资源 skill://siyuan/references/<文件名>；无法直接读相对链接时按此 URI 读取。
 
-Prefer \`fs\` for ordinary human-readable workspace paths. Use \`document\` or \`block\` for IDs, storage paths, metadata, or block-granular changes. Use \`literature\` for bounded read-only Zotero access; do not register the upstream Zotero MCP beside Sisyphus in the external client. Use \`av\` for real databases rather than Markdown tables. Use \`timeline\` for named snapshots and document diffs. Use \`provenance\` after project knowledgeization to register source and compile Agent sessions and to answer project-session history queries. Tags are a small independent tool family and need no separate scenario skill.
+上述操作规程通过实时资源 siyuan://skills/<场景标识> 按需读取，不安装成额外用户入口。参数不明时查 {{help * *}}。数据库、项目源、时间线、原子治理等只在当前任务需要时读取相应规程，不为展示功能数量而调用。
 
-用户对具体论文或讨论明确要求“文献链路”或“重点文献链路”时，必须加载 {{skill literature-source}} 并执行其中的阶段与验收；只是在讨论工作流设计时提到这两个词，不算启动。判断原文核验能实质改善当前任务、但用户尚未启动时，先询问是否使用其中一种，不得自行写入。
+## 已授权更新的完成条件
 
-{{call tree}}
-{{call read}}
+指定项目的更新包含思源资料维护时，本轮产生的重要全文、证明、脚本、输出、决策、失败边界和权威入口纳入交付清单；先明确范围，再分别验收完整资料副本、可调用原子、当前状态与入口。用户要求保留全文时，摘要不能替代原文。只读询问、纯方案与无关聊天不触发入库。
 
-## Shared invariants
+name 是确定地址，必须读到承担回答的正文；标题锚点、数据库一行、回读成功或入链数量不能代替内容质量。用户确认的新裁决更新当前状态，旧事件保留并明确接替关系。只报告实际完成的层次和未完成项。
 
-- Read \`/AGENTS.md\` through \`fs\` before workspace-aware tasks when it exists.
-- A workspace path such as \`/Notebook/Folder/Doc\`, an hpath such as \`/Folder/Doc\`, and a storage path such as \`/20260712123000-abc123.sy\` are different values.
-- Read before writing; after a mutation, read the affected object again.
-- When strict safe writes are enabled, inspect the action schema. Guarded mutations expose an expected-hash field: call \`validateOnly=true\`, then execute once with the returned \`preconditionField\` credential and \`issuedRequestId\`. Additive request-id-only actions expose no expected-hash field: call \`validateOnly=true\` when the client does not already have a fresh UUIDv7, then execute once with the returned \`issuedRequestId\`; their preflight issues no hash credential and is not a failure. Never handcraft UUIDv7 values.
-- For document reads, continue with \`nextWindow\` or explicit \`blockStart\`/\`blockLimit\`/\`tokenBudget\`; for list and search results, use their page parameters.
-- Missing results may be caused by notebook permissions or indexing delay.
-- Obtain explicit approval before deletes, moves, bulk replacement, permission changes, project-source registration or path disclosure, or sensitive workspace disclosure.
+## 安全与降级
+
+- 写前读取；结构化文档按稳定块增量修改；受影响文档保留恢复点，写后回读。
+- 严格写入按实时 schema 预检并原样使用 issuedRequestId 与所需凭据；不手造 UUIDv7，不假定所有追加动作都有哈希字段，结果未知先查回执。
+- source-checked 表示来源核对；执行和证据核验各自有证据入口，原文写“闭环”不自动升级验证等级。
+- 新项目源登记、敏感披露和不可逆操作仍按授权执行；仅暂停受影响步骤，不跳过其他已授权工作。
+- 正常使用优先 MCP。没有 MCP 且用户明确要求使用本机 CLI 时，读取 [CLI 后备规程](references/cli.md)，先核对可用命令，禁止隐式 npx 下载。
+
 `,
         calls: {
             bootstrap: call('system', 'bootstrap'),
@@ -310,7 +304,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 {{call snapshot}}
 
-优先把新增知识合并到既有中枢；只有 \`CREATE\` 决策才新建文档。首次追加时必须在可见正文中同时写入“规范网址”和“正文哈希”两个稳定来源标识，然后保存最小属性：
+网页差量与全文资料副本分开处理；用户指定的完整项目材料遵循项目编译流程，不用网页摘要协议替代。优先把新增知识合并到既有中枢；只有 \`CREATE\` 决策才新建文档。首次追加时必须在可见正文中同时写入“规范网址”和“正文哈希”两个稳定来源标识，然后保存最小属性：
 
 {{call append}}
 {{call attrs}}
@@ -376,13 +370,13 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
         id: 'project-knowledge-compile',
         cliName: 'siyuan-sisyphus-project-knowledge-compile',
         mcpName: 'siyuan-mcp-project-knowledge-compile',
-        cliDescription: 'CLI-only 思源研究项目知识编译工作流。用于把本地项目全量文件包编译为可追溯知识原子、项目内语义关系与公共方法候选；不用于外部网页摄取、普通编辑或跨项目复用关系写入。',
-        mcpDescription: '思源研究项目知识编译工作流。用于把本地项目全量文件包编译为可追溯知识原子、项目内语义关系与公共方法候选；不用于外部网页摄取、普通编辑或跨项目复用关系写入。',
+        cliDescription: 'CLI-only 思源研究项目知识编译工作流。用于把已授权项目增量或全量文件包保存为可追溯资料与知识原子、项目内语义关系与公共方法候选；不用于外部网页摄取、普通编辑或跨项目复用关系写入。',
+        mcpDescription: '思源研究项目知识编译工作流。用于把已授权项目增量或全量文件包保存为可追溯资料与知识原子、项目内语义关系与公共方法候选；不用于外部网页摄取、普通编辑或跨项目复用关系写入。',
         title: '思源研究项目知识编译',
         displayName: '思源项目知识编译',
         shortDescription: '将研究项目全量包编译为可追溯知识网络',
         defaultPrompt: '使用 $NAME 将指定研究项目全量文件包编译为知识原子、项目内语义关系和公共方法候选，并完成可恢复验收。',
-        body: `本工作流处理“本地研究项目全量文件包 → 思源知识化”。外部网页、教程或发布说明的差量摄取应交给 knowledge-ingest；既有原子的 name/alias 治理和安全改名应交给 knowledge-governance；跨项目实际复用关系由 cross-project-relation-closure 独立执行。
+        body: `本工作流处理“已授权的项目增量或本地研究项目全量文件包 → 思源资料与知识接续”。先读取单入口的资料录入与接续契约；用户指定的全文先保真保存，摘要与原子不能替代原文。全量编译仍完整核对范围账本，日常任务只处理本轮实际增量。外部网页、教程或发布说明的差量摄取应交给 knowledge-ingest；既有原子的 name/alias 治理和安全改名应交给 knowledge-governance；跨项目实际复用关系由 cross-project-relation-closure 独立执行。
 
 ## 一、开工与范围账本
 
@@ -457,7 +451,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 ## 五、可恢复写入
 
-每个受影响文档先建立文档级时间线节点。任一恢复点失败即停止整批写入：
+为本批要修改的每个既有文档先建立文档级时间线节点；任一恢复点失败即停止这批既有内容修改。纯新增资料不适用既有文档恢复点，按录入契约先查重、保存并回读，不为未修改的中枢建快照；不要把纯资料保存升级为完整编译任务：
 
 {{call snapshot}}
 
@@ -490,7 +484,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 ## 七、验收与幂等
 
-逐项回读原子和关系块，并验证：
+逐项回读原文副本、原子和关系块，分别报告全文保存、知识编译和项目接续的实际状态。新裁决已获批准时同步当前状态和资源入口，保留旧事件。强验证状态附可回读的 custom-verification-evidence；缺少依据时保留 draft 或 source-checked。并验证：
 
 {{call readback}}
 {{call relationSql}}
@@ -539,16 +533,15 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
         id: 'project-coordinator',
         cliName: 'siyuan-sisyphus-project-coordinator',
         mcpName: 'siyuan-mcp-project-coordinator',
-        cliDescription: 'CLI-only 思源多 Agent 项目协同工作流。仅在用户明确调用“启动”“交接”“知识化”或“收尾”时，读取或维护共享项目记忆。',
-        mcpDescription: '思源多 Agent 项目协同工作流。仅在用户明确调用“启动”“交接”“知识化”或“收尾”时，读取或维护共享项目记忆。',
+        cliDescription: 'CLI-only 思源多 Agent 项目协同工作流。用户要求接续、更新、交接或维护项目时，按自然语言任务读取或维护共享项目记忆；只读审阅不写入。',
+        mcpDescription: '思源多 Agent 项目协同工作流。用户要求接续、更新、交接或维护项目时，按自然语言任务读取或维护共享项目记忆；只读审阅不写入。',
         title: '思源多 Agent 项目协调',
         displayName: '项目协同',
         mcpDisplayName: '项目协同',
         cliDisplayName: '项目协同 CLI',
         shortDescription: '用四个命令读取和维护多 Agent 共享项目记忆',
         defaultPrompt: '使用 $NAME 启动、交接、知识化或收尾当前项目。',
-        allowImplicitInvocation: false,
-        body: `本 Skill 的中文可见名称是“项目协同”，底层稳定标识仍为英文。只在用户明确调用时运行，公开命令只有“启动”“交接”“知识化”“收尾”。未被明确调用时，不读取或写入项目进度。用户不需要知道 projectId、块 ID 或知识流程名称。
+        body: `本 Skill 的中文可见名称是“项目协同”，底层稳定标识仍为英文。用户要求接续、更新、交接或维护项目时运行，按任务语义选择读取或写入；“启动”“交接”“知识化”“收尾”保留为快捷入口，不要求用户说出特定命令。审阅、状态询问和方案任务保持只读。用户不需要知道 projectId、块 ID 或知识流程名称。
 
 ## 一、公开交互
 
@@ -603,7 +596,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 目录不存在于当前服务器主机、绑定过期或无法唯一匹配时不得自动登记或修复项目源。当前目录未登记时，只有用户明确同意首次接入后，才按需读取 [项目首次接入与进度页初始化](references/project-progress-initialization.md)，并按“最小中枢 → 项目源登记 → 进度页 → 知识编译 → 常规收尾”分阶段回读；不得把知识原子批量塞进首次中枢创建。\`snapshot\` 返回 \`needs_initialization\` 时同样先征得用户同意再读取该参考。主 Skill 不内嵌初始化模板，不自动创建页面。
 
-随后捕获并登记当前真实 Agent 会话。先调用 \`discover_session\`；只有唯一捕获结果或宿主可信注入的真实 sessionId 才能登记，不得自拟描述性 ID：
+仅在本轮明确授权项目维护或后续写入时，才捕获并登记当前真实 Agent 会话；纯读取／审阅不登记。先调用 \`discover_session\`；只有唯一捕获结果或宿主可信注入的真实 sessionId 才能登记，不得自拟描述性 ID：
 
 {{call discoverSession}}
 {{call registerSession}}
@@ -613,10 +606,10 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 \`启动\`与\`交接\`共用以下读取流程。采用“索引 → 筛选 → 详情”，从权威块实时生成用户可见的项目进度全景：
 
-1. 以第二次 \`project.snapshot\` 的项目身份、进度页、稳定投影、按事实时间排序的最近事件、\`chronology\` 头部、会话、知识产物、产物索引和服务端诊断作为唯一机器读取结果；不得再自行拼接 SQL、排序会话、解析产物或重做投影诊断；
+1. 以最近一次 \`project.snapshot\` 的项目身份、进度页、稳定投影、按事实时间排序的最近事件、\`chronology\` 头部、会话、知识产物、产物索引和服务端诊断作为唯一机器读取结果；不得再自行拼接 SQL、排序会话、解析产物或重做投影诊断；
 2. 只对 \`localProbeBaseline.tierA\` 中已有哈希的权威文件计算当前 SHA-256，不对其他文件做全量哈希；
-3. 以当前任务检索最多 12 个知识候选；
-4. 综合语义、时间和 \`custom-verification-status\` 后，最多读取 5 个完整块，提炼核心观点、核心发现和解释边界；
+3. 以当前任务检索知识候选，先读索引再定向扩展；
+4. 综合语义、时间和 \`custom-verification-status\` 后读取回答所需的完整块；单次分页只是响应窗口，不是任务阅读上限。用户指定的全文、全部证明或材料必须继续读取并逐项验收，不能固定限为5块；
 5. 用输出契约的项目归属门排除工具开发、部署和协调器自测事件；
 6. 检查旧状态、draft、来源冲突和未核验内容，不把检索命中直接当作当前事实。
 
@@ -759,7 +752,7 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
 
 ## 二、编译知识原子
 
-读取候选块及必要上下文，确认它满足以下条件：单块自包含、只表达一个可复用主张或操作、边界与适用版本清楚、脱离原文仍可理解。项目过程、来源登记、临时结论和长篇叙述不应强行原子化。
+命中 name 后回读目标块全文；只有标题、缺正文或需要去相邻块拼接才能回答的候选不得验收为内容原子。读取候选块及必要上下文，确认它满足以下条件：单块自包含、只表达一个可复用主张或操作、边界与适用版本清楚、脱离原文仍可理解。项目过程、来源登记、临时结论和长篇叙述不应强行原子化。
 
 命名采用稳定命名空间和语义后缀。\`name\` 是全库唯一的确定性逻辑地址；\`alias\` 是自然语言召回词，真实同义、多义或跨专题同形时可以多命中，不得把它误当唯一键。alias 与现有 name 相撞、alias 多命中或 name 重复时必须显示候选并裁决，不得静默选取。
 

@@ -1,6 +1,6 @@
 {
   "name": "siyuan-sisyphus",
-  "version": "0.17.3",
+  "version": "0.18.0",
   "description": "Operate SiYuan Note through the single external Sisyphus MCP gateway with bundled workflow skills.",
   "author": {
     "name": "Taihong Yang",

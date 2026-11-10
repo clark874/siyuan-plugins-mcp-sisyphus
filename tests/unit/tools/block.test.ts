@@ -99,9 +99,28 @@ describe('block tool', () => {
         });
 
         const accepted = parseResult(await callBlockTool(client, {
-            action: 'set_attrs', id: 'block-1', attrs: { 'custom-verification-status': 'evidence-verified' },
+            action: 'set_attrs', id: 'block-1', attrs: { 'custom-verification-status': 'evidence-verified', 'custom-verification-evidence': '((verified-source))' },
         }, buildDefaultToolConfig().block, permMgr as never));
         expect(accepted.verification).toMatchObject({ status: 'verified' });
+
+        const clearedEvidence = parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: 'block-1', attrs: { 'custom-verification-evidence': '  ' },
+        }, buildDefaultToolConfig().block, permMgr as never));
+        expect(clearedEvidence.error.message).toContain('非空 custom-verification-evidence');
+        expect(attrs['custom-verification-evidence']).toBe('((verified-source))');
+
+        attrs = { 'custom-verification-status': 'execution-verified' };
+        const historical = parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: 'block-1', attrs: { alias: '历史记录别名' },
+        }, buildDefaultToolConfig().block, permMgr as never));
+        expect(historical.verification).toMatchObject({ status: 'verified' });
+        expect(attrs['custom-verification-status']).toBe('execution-verified');
+        expect(attrs).not.toHaveProperty('custom-verification-evidence');
+
+        const missingEvidence = parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: 'block-1', attrs: { 'custom-verification-status': 'execution-verified' },
+        }, buildDefaultToolConfig().block, permMgr as never));
+        expect(missingEvidence.error.message).toContain('非空 custom-verification-evidence');
 
         attrs = { 'custom-verification-status': 'deprecated' };
         const illegalTransition = parseResult(await callBlockTool(client, {

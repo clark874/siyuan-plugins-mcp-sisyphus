@@ -30,7 +30,7 @@
 - 仓库地址：`https://github.com/clark874/siyuan-plugins-mcp-sisyphus`（上游 `yangtaihong59/siyuan-plugins-mcp-sisyphus` 的维护分支）
 - 作者：Taihong Yang
 - 许可证：MIT
-- 当前版本：`0.17.3`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.5.1`）
+- 当前版本：`0.18.0`（根 `package.json`、`plugin.json` 与接入包装器同步；CLI 子包版本独立管理，当前为 `0.5.1`）
 
 ---
 
@@ -466,3 +466,7 @@ CLI **不启动 MCP server 进程**，而是直接 import `TOOL_REGISTRY`、`SiY
 8. **i18n 源文件为 JSON**：`public/i18n/*.json` 是最终产物源文件。如需 YAML，可用 `yaml-plugin.js` 转换，但当前项目直接使用 JSON。
 
 9. **文档站点**：VitePress 文档在 `docs/` 中，支持中英文。修改功能后应同步更新对应语言的文档。
+
+## 思源业务入口与发布参考
+
+用户侧只公开 `siyuan` 技能，内部场景通过实时资源按需读取，不新增业务技能入口。录入要求由 `skills/source/recording-contract.md` 及正负例维护；完整资料、知识原子与项目当前状态分别验收。开发发布按 [发布参考](docs/development/release-workflow.md) 执行，不把发布说明重新安装成笔记业务技能。

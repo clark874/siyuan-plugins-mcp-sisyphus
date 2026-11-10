@@ -18,4 +18,4 @@ system(action="bootstrap")
 6. 写入前读取目标，写入后回读复核。删除、移动、批量替换、权限修改和回滚必须取得用户对具体动作的明确授权。
 7. 不自行探测端口，不读取或输出 token，不直读思源工作区文件，不手写 MCP 握手；若工具不可见且具备本地 shell，只运行 Agent Kit 自带的 `node bin/check-sisyphus.cjs --client auto --json`。检查结果 ready 但本会话仍无工具时，明确要求重启宿主会话；不要改走 `http://127.0.0.1:6806/mcp`。
 
-若宿主支持 Agent Skills，优先加载 `siyuan-mcp-sisyphus`，再按任务路由到更具体的思源 Skill。
+若宿主支持 Agent Skills，只加载公开入口 `siyuan`，按需读取其 `references/` 普通文档或 MCP 内部场景资源；不批量安装场景技能。优先使用 MCP；只有没有可用 MCP 且用户明确使用 CLI 时，才读取 `references/cli.md` 并执行 CLI 流程。

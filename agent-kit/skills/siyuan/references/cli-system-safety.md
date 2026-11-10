@@ -1,0 +1,49 @@
+## Resolve the CLI entry first
+
+Before the first SiYuan CLI call in every new session, verify that the local command is available:
+
+```bash
+command -v siyuan-sisyphus
+siyuan-sisyphus --version
+```
+
+If the command is missing, resolve a locally installed or user-provided maintained CLI entry before continuing. Do not use `npx` as an implicit fallback. A public npm package may lag the locally maintained plugin and silently omit custom actions or safety contracts.
+
+After resolving the entry, start with the read-only live bootstrap:
+
+```bash
+siyuan-sisyphus system bootstrap --json
+```
+
+Start with a connectivity check and inspect live help before unfamiliar actions.
+
+```bash
+siyuan-sisyphus system get-version --json
+```
+```bash
+siyuan-sisyphus system get-current-time --json
+```
+```bash
+siyuan-sisyphus notebook get-permissions --json
+```
+
+Notebook permissions are `rwd`, `rw`, `r`, and `none`. Missing content can mean permission filtering rather than absence. Record the current value before proposing a permission change.
+
+## Confirmation boundary
+
+Obtain explicit approval before notebook/document/block deletion or move, bulk replacement, tag removal, permission changes, and workspace path disclosure. State the exact target and consequence. A prior request to inspect or diagnose is not approval to mutate.
+
+```bash
+siyuan-sisyphus system audit-environment --json
+```
+If an action or field is rejected, inspect `siyuan-sisyphus list` and `siyuan-sisyphus help <tool> <action>` instead of guessing. Search results can lag recent writes; direct ID/path reads do not depend on indexing.
+
+For a frozen external source-audit handoff, validate its contract without reading the source tree or inferring conclusions:
+
+```bash
+siyuan-sisyphus system validate-source-audit --inventory '<parsed-inventory-json>' --usage-map '<parsed-usage-map-json>' --baselines-markdown '<exact-baselines-markdown>' --json
+```
+
+## CLI setup
+
+Use `siyuan-sisyphus init` and `siyuan-sisyphus config list|get|set|use` to manage profiles. Configuration precedence is command flags, environment variables, active profile, then defaults. Use `--json` for scripts. The CLI uses the same strict preflight and fresh request ID for protected writes; executing a command does not replace explicit user approval for risky operations.

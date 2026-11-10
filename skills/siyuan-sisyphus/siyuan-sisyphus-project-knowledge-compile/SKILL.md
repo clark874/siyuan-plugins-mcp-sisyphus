@@ -1,6 +1,6 @@
 ---
 name: siyuan-sisyphus-project-knowledge-compile
-description: CLI-only 思源研究项目知识编译工作流。用于把本地项目全量文件包编译为可追溯知识原子、项目内语义关系与公共方法候选；不用于外部网页摄取、普通编辑或跨项目复用关系写入。
+description: CLI-only 思源研究项目知识编译工作流。用于把已授权项目增量或全量文件包保存为可追溯资料与知识原子、项目内语义关系与公共方法候选；不用于外部网页摄取、普通编辑或跨项目复用关系写入。
 compatibility: "Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace."
 ---
 
@@ -23,7 +23,7 @@ After resolving the entry, start with the read-only live bootstrap:
 siyuan-sisyphus system bootstrap --json
 ```
 
-本工作流处理“本地研究项目全量文件包 → 思源知识化”。外部网页、教程或发布说明的差量摄取应交给 knowledge-ingest；既有原子的 name/alias 治理和安全改名应交给 knowledge-governance；跨项目实际复用关系由 cross-project-relation-closure 独立执行。
+本工作流处理“已授权的项目增量或本地研究项目全量文件包 → 思源资料与知识接续”。先读取单入口的资料录入与接续契约；用户指定的全文先保真保存，摘要与原子不能替代原文。全量编译仍完整核对范围账本，日常任务只处理本轮实际增量。外部网页、教程或发布说明的差量摄取应交给 knowledge-ingest；既有原子的 name/alias 治理和安全改名应交给 knowledge-governance；跨项目实际复用关系由 cross-project-relation-closure 独立执行。
 
 ## 一、开工与范围账本
 
@@ -120,7 +120,7 @@ siyuan-sisyphus block set-attrs --id '<relation-block-id>' --attrs-json '{"custo
 
 ## 五、可恢复写入
 
-每个受影响文档先建立文档级时间线节点。任一恢复点失败即停止整批写入：
+为本批要修改的每个既有文档先建立文档级时间线节点；任一恢复点失败即停止这批既有内容修改。纯新增资料不适用既有文档恢复点，按录入契约先查重、保存并回读，不为未修改的中枢建快照；不要把纯资料保存升级为完整编译任务：
 
 ```bash
 siyuan-sisyphus timeline create-node --name '项目知识编译前恢复点-<date>' --scope 'document' --document-id '<document-id>' --json
@@ -169,7 +169,7 @@ siyuan-sisyphus provenance list-atom-events --atom-id '<atom-id>' --limit '100' 
 
 ## 七、验收与幂等
 
-逐项回读原子和关系块，并验证：
+逐项回读原文副本、原子和关系块，分别报告全文保存、知识编译和项目接续的实际状态。新裁决已获批准时同步当前状态和资源入口，保留旧事件。强验证状态附可回读的 custom-verification-evidence；缺少依据时保留 draft 或 source-checked。并验证：
 
 ```bash
 siyuan-sisyphus block get-kramdown --id '<relation-block-id>' --json

@@ -6,6 +6,8 @@ import {
     copyFile,
     cp,
     mkdir,
+    lstat,
+    readdir,
     readFile,
     rename,
     writeFile,
@@ -182,19 +184,110 @@ async function atomicJsonWrite(target, value, dryRun) {
     await chmod(target, 0o600);
 }
 
-async function installSkill(options) {
-    const source = path.join(kitRoot, 'skills/siyuan-mcp-sisyphus');
-    const destination = path.join(options.home, '.agents/skills/siyuan-mcp-sisyphus');
-    if (options.dryRun) return destination;
-    await mkdir(path.dirname(destination), { recursive: true });
-    if (await exists(destination)) {
-        const sourceSkill = await readFile(path.join(source, 'SKILL.md'), 'utf8');
-        const destinationSkill = await readFile(path.join(destination, 'SKILL.md'), 'utf8').catch(() => '');
-        if (sourceSkill === destinationSkill) return destination;
-        const backup = `${destination}.backup-${Date.now()}`;
-        await rename(destination, backup);
+// 旧生成器已发布的精确名称；不得按前缀迁移用户自建技能。
+const legacySkillNames = [
+    'siyuan-sisyphus',
+    'siyuan-mcp-sisyphus',
+    'siyuan-sisyphus-literature-source',
+    'siyuan-mcp-literature-source',
+    'siyuan-sisyphus-browse-read',
+    'siyuan-mcp-browse-read',
+    'siyuan-sisyphus-create-edit',
+    'siyuan-mcp-create-edit',
+    'siyuan-sisyphus-knowledge-ingest',
+    'siyuan-mcp-knowledge-ingest',
+    'siyuan-sisyphus-project-knowledge-compile',
+    'siyuan-mcp-project-knowledge-compile',
+    'siyuan-sisyphus-project-coordinator',
+    'siyuan-mcp-project-coordinator',
+    'siyuan-sisyphus-knowledge-governance',
+    'siyuan-mcp-knowledge-governance',
+    'siyuan-sisyphus-search-query',
+    'siyuan-mcp-search-query',
+    'siyuan-sisyphus-cross-project-relation-closure',
+    'siyuan-mcp-cross-project-relation-closure',
+    'siyuan-sisyphus-database',
+    'siyuan-mcp-database',
+    'siyuan-sisyphus-project-source',
+    'siyuan-mcp-project-source',
+    'siyuan-sisyphus-timeline',
+    'siyuan-mcp-timeline',
+    'siyuan-sisyphus-system-cli',
+    'siyuan-mcp-system-safety',
+    'siyuan-markup-guide',
+    'siyuan-mcp-markup-guide',
+    'siyuan-mcp-read-discover',
+    'siyuan-mcp-write-format',
+    'siyuan-mcp-data-files',
+    'siyuan-mcp-organize-safety',
+];
+
+async function isProjectSkill(directory, name) {
+    const info = await lstat(directory).catch(() => undefined);
+    if (!info?.isDirectory() || info.isSymbolicLink()) return false;
+    const content = await readFile(path.join(directory, 'SKILL.md'), 'utf8').catch(() => '');
+    return content.startsWith('---\n')
+        && content.split('\n').includes(`name: ${name}`)
+        && (content.includes('SiYuan Sisyphus') || content.includes('SiYuan Note through the Sisyphus')
+            || content.includes('Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace.'));
+}
+
+async function validateSkillSource(directory, prefix = '') {
+    const files = [];
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isSymbolicLink()) throw new Error(`技能发布目录不得包含符号链接：${relative}`);
+        if (entry.isDirectory()) files.push(...await validateSkillSource(path.join(directory, entry.name), relative));
+        else if (entry.isFile()) files.push(relative);
     }
-    await cp(source, destination, { recursive: true, force: true });
+    return files.sort();
+}
+
+async function installSkill(options) {
+    const source = path.join(kitRoot, 'skills/siyuan');
+    const destination = path.join(options.home, '.agents/skills/siyuan');
+    const sourceFiles = await validateSkillSource(source);
+    const skillFiles = sourceFiles.filter((file) => path.basename(file) === 'SKILL.md');
+    if (skillFiles.length !== 1 || skillFiles[0] !== 'SKILL.md' || !await isProjectSkill(source, 'siyuan')) {
+        throw new Error('技能发布目录必须只包含 siyuan 这一份 SKILL.md。');
+    }
+    if (await exists(destination) && !await isProjectSkill(destination, 'siyuan')) {
+        throw new Error(`目标目录不属于本项目，已保留：${destination}`);
+    }
+    if (options.dryRun) return destination;
+    const legacy = [];
+    for (const name of legacySkillNames) {
+        if (await isProjectSkill(path.join(path.dirname(destination), name), name)) legacy.push(name);
+    }
+    if (legacy.length === 0 && await isProjectSkill(destination, 'siyuan')) {
+        const existingFiles = await validateSkillSource(destination).catch(() => []);
+        if (JSON.stringify(existingFiles) === JSON.stringify(sourceFiles)
+            && (await Promise.all(sourceFiles.map(async (file) =>
+                (await readFile(path.join(source, file))).equals(await readFile(path.join(destination, file)))))).every(Boolean)) {
+            return destination;
+        }
+    }
+    await mkdir(path.dirname(destination), { recursive: true });
+    // 备份与暂存均位于技能扫描根之外，避免旧入口继续被发现。
+    const backupRoot = path.join(options.home, '.agents/.sisyphus-skill-backups', `${Date.now()}-${process.pid}`);
+    const staged = path.join(backupRoot, '.staged-siyuan');
+    await mkdir(backupRoot, { recursive: true });
+    await cp(source, staged, { recursive: true });
+    const moved = [];
+    try {
+        for (const name of ['siyuan', ...legacy]) {
+            const existing = path.join(path.dirname(destination), name);
+            if (!await isProjectSkill(existing, name)) continue;
+            const backup = path.join(backupRoot, name);
+            await rename(existing, backup);
+            moved.push({ existing, backup });
+        }
+        await rename(staged, destination);
+        if (moved.length > 0) console.log(`旧技能备份：${backupRoot}`);
+    } catch (error) {
+        for (const { existing, backup } of moved.reverse()) await rename(backup, existing);
+        throw error;
+    }
     return destination;
 }
 

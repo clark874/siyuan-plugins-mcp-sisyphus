@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -54,22 +54,13 @@ describe('cli/skill-command', () => {
         return dir;
     }
 
-    it('finds and reads bundled skills', () => {
+    it('仅发现并读取统一入口，显式技能包参数不增加入口', () => {
         const root = resolveBundledSkillsRoot();
-        const skills = listBundledSkills(root);
-
-        expect(skills.map((skill) => skill.name)).toContain('siyuan-sisyphus');
-        expect(skills.every((skill) => existsSync(join(skill.path, 'SKILL.md')))).toBe(true);
-        expect(readBundledSkill('siyuan-sisyphus')).toContain('#');
-
-        const mcpRoot = resolveBundledSkillsRoot(undefined, undefined, 'mcp');
-        const mcpSkills = listBundledSkills(mcpRoot, 'mcp');
-        expect(mcpSkills.map((skill) => skill.name)).toContain('siyuan-mcp-sisyphus');
-        expect(mcpSkills.map((skill) => skill.name)).toContain('siyuan-mcp-knowledge-ingest');
-        expect(mcpSkills.map((skill) => skill.name)).toContain('siyuan-mcp-knowledge-governance');
-        expect(readBundledSkill('siyuan-mcp-create-edit', 'mcp')).toContain('name: siyuan-mcp-create-edit');
-        expect(readBundledSkill('siyuan-mcp-knowledge-ingest', 'mcp')).toContain('custom-source-url');
-        expect(readBundledSkill('siyuan-mcp-knowledge-governance', 'mcp')).toContain('知识原子');
+        expect(listBundledSkills(root).map((skill) => skill.name)).toEqual(['siyuan']);
+        expect(readBundledSkill()).toContain('name: siyuan');
+        expect(listBundledSkills(undefined, 'mcp').map((skill) => skill.name)).toEqual(['siyuan']);
+        expect(listBundledSkills(undefined, 'all').map((skill) => skill.name)).toEqual(['siyuan']);
+        expect(readBundledSkill('siyuan', 'cli')).toContain('#');
     });
 
     it('normalizes target names and rejects unsafe paths', () => {
@@ -77,51 +68,51 @@ describe('cli/skill-command', () => {
         expect(normalizeSkillTargetName('claude')).toBe('claude');
         expect(normalizeSkillTargetName('codex')).toBe('.codex');
         expect(normalizeSkillTargetName('.codex')).toBe('.codex');
-        expect(() => normalizeSkillTargetName('../bad')).toThrow('Invalid skill target');
+        expect(() => normalizeSkillTargetName('../bad')).toThrow('无效技能目标');
         expect(normalizeSkillBundle()).toBe('cli');
         expect(normalizeSkillBundle('mcp')).toBe('mcp');
-        expect(() => normalizeSkillBundle('unknown')).toThrow('Invalid skill bundle');
-    });
-
-    it('installs MCP or all bundles without changing the legacy default', () => {
-        const dir = createTempDir();
-
-        const mcp = installSkills({ target: '.codex', local: true, cwd: dir, bundle: 'mcp' });
-        expect(mcp.bundle).toBe('mcp');
-        expect(mcp.skills).toContain('siyuan-mcp-create-edit');
-        expect(mcp.skills).toContain('siyuan-mcp-knowledge-governance');
-        expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-mcp-create-edit', 'SKILL.md'))).toBe(true);
-        expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-mcp-knowledge-ingest', 'scripts', 'normalize-source.mjs'))).toBe(true);
-        expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-mcp-knowledge-ingest', 'evals', 'evals.json'))).toBe(true);
-        expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-sisyphus', 'SKILL.md'))).toBe(false);
-
-        const all = installSkills({ target: '.codex', local: true, cwd: dir, bundle: 'all' });
-        expect(all.skills).toContain('siyuan-sisyphus');
-        expect(all.skills).toContain('siyuan-mcp-sisyphus');
+        expect(() => normalizeSkillBundle('unknown')).toThrow('无效技能包');
     });
 
     it('resolves local targets under the current directory', () => {
         const dir = createTempDir();
 
         expect(resolveSkillTargetRoot({ target: '.codex', local: true, cwd: dir })).toBe(join(dir, '.codex', 'skills'));
-        expect(() => resolveSkillTargetRoot({ target: 'agents', local: true })).toThrow('home directory shortcut');
+        expect(() => resolveSkillTargetRoot({ target: 'agents', local: true })).toThrow('用户目录快捷方式');
     });
 
-    it('installs and uninstalls all bundled skills into a local target', () => {
+    it('可恢复迁移旧入口，保留其他技能，并只安装及卸载统一入口', () => {
         const dir = createTempDir();
 
+        const legacy = join(dir, '.codex', 'skills', 'siyuan-mcp-sisyphus');
+        mkdirSync(legacy, { recursive: true });
+        writeFileSync(join(legacy, 'SKILL.md'), '---\nname: siyuan-mcp-sisyphus\n---\n# SiYuan Sisyphus with MCP\n');
+        const oldBrowse = join(dir, '.codex', 'skills', 'siyuan-sisyphus-browse-read');
+        mkdirSync(oldBrowse, { recursive: true });
+        writeFileSync(join(oldBrowse, 'SKILL.md'), '---\nname: siyuan-sisyphus-browse-read\ncompatibility: Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace.\n---\n旧浏览技能');
+        const custom = join(dir, '.codex', 'skills', 'user-notes');
+        mkdirSync(custom, { recursive: true });
+        writeFileSync(join(custom, 'SKILL.md'), '用户自己的技能');
         const preview = installSkills({ target: '.codex', local: true, dryRun: true, cwd: dir });
         expect(preview.dryRun).toBe(true);
-        expect(preview.operations.length).toBeGreaterThan(1);
+        expect(preview.operations).toHaveLength(1);
+        expect(existsSync(legacy)).toBe(true);
 
         const installed = installSkills({ target: '.codex', local: true, cwd: dir });
-        expect(installed.skills).toContain('siyuan-sisyphus');
-        expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-sisyphus', 'SKILL.md'))).toBe(true);
-        expect(readFileSync(join(dir, '.codex', 'skills', 'siyuan-markup-guide', 'SKILL.md'), 'utf8')).toContain('#');
+        expect(installed.skills).toEqual(['siyuan']);
+        expect(existsSync(legacy)).toBe(false);
+        expect(existsSync(oldBrowse)).toBe(false);
+        const backups = join(dir, '.codex', '.sisyphus-skill-backups');
+        const backup = readdirSync(backups)[0];
+        expect(readFileSync(join(backups, backup, 'siyuan-mcp-sisyphus', 'SKILL.md'), 'utf8')).toContain('name: siyuan-mcp-sisyphus');
+        expect(readFileSync(join(backups, backup, 'siyuan-sisyphus-browse-read', 'SKILL.md'), 'utf8')).toContain('name: siyuan-sisyphus-browse-read');
+        expect(existsSync(join(dir, '.codex', 'skills', 'siyuan', 'SKILL.md'))).toBe(true);
+        expect(readFileSync(join(custom, 'SKILL.md'), 'utf8')).toBe('用户自己的技能');
 
         const removed = uninstallSkills({ target: '.codex', local: true, cwd: dir });
-        expect(removed.removed).toContain('siyuan-sisyphus');
-        expect(existsSync(join(dir, '.codex', 'skills', 'siyuan-sisyphus'))).toBe(false);
+        expect(removed.removed).toEqual(['siyuan']);
+        expect(readFileSync(join(custom, 'SKILL.md'), 'utf8')).toBe('用户自己的技能');
+        expect(existsSync(join(dir, '.codex', 'skills', 'siyuan'))).toBe(false);
     });
 
     it('runs list and dry-run install commands', () => {
@@ -136,7 +127,7 @@ describe('cli/skill-command', () => {
             dryRun: true,
         })).toBe(0);
 
-        expect(io.stdout).toContain('siyuan-sisyphus');
+        expect(io.stdout).toContain('siyuan');
         expect(io.stdout).toContain('"dryRun": true');
         io.restore();
     });
