@@ -133,6 +133,7 @@ async function readSourceFreshness(
     record: ProjectSourceRecord,
     projections: Array<{ id: string; role?: string; attributes: Record<string, string> }>,
     diagnostics: SnapshotDiagnostic[],
+    allowSourceProbe: boolean,
 ) {
     const authoritative = projections.filter((item) => item.role === 'project-state' || item.role === 'project-profile');
     const declared: Partial<Record<keyof typeof PROJECT_VERSION_FIELDS, { version: string; blockId: string }>> = {};
@@ -148,7 +149,7 @@ async function readSourceFreshness(
     }
 
     const relativePath = 'package.json';
-    if (record.sourceKind !== 'git' || !record.manifest?.entries.some((entry) => entry.relativePath === relativePath)) {
+    if (!allowSourceProbe || record.sourceKind !== 'git' || !record.manifest?.entries.some((entry) => entry.relativePath === relativePath)) {
         return Object.keys(declared).length ? { declared } : undefined;
     }
     const source = await readProjectSource(client, { projectId: record.projectId, relativePath, limit: 20_000 })
@@ -525,6 +526,7 @@ async function buildSnapshot(
     client: SiYuanClient,
     permMgr: PermissionManager,
     parsed: ReturnType<typeof ProjectSnapshotSchema.parse>,
+    sourceProbe?: { allowed: boolean },
 ) {
     const selection = await selectProject(client, parsed);
     if (selection.status !== 'matched' || !selection.record) {
@@ -683,7 +685,7 @@ async function buildSnapshot(
     if (chronologyComplete && latestEvent && projectState && projectState.attributes['custom-progress-last-event-id'] !== latestEvent.id) {
         diagnostics.push({ code: 'project_state_lagging', severity: 'warning', status: 'stale', blockId: projectState.id, message: '项目状态投影落后于事件流。' });
     }
-    const sourceFreshness = await readSourceFreshness(client, record, projections, diagnostics);
+    const sourceFreshness = sourceProbe ? await readSourceFreshness(client, record, projections, diagnostics, sourceProbe.allowed) : undefined;
     const workstreamHeads = new Map<string, SnapshotEvent>();
     for (const event of chronologicalEvents) {
         const workstream = event.attributes['custom-progress-workstream'];
@@ -853,11 +855,13 @@ const projectTool = defineTool<ProjectAction>({
         },
         snapshot: async ({ client, rawArgs, permMgr }) => {
             const parsed = ProjectSnapshotSchema.parse(rawArgs);
-            const result = await buildSnapshot(client, permMgr, parsed);
+            const config = await loadToolConfigFromApiFileWithStatus(client);
+            const result = await buildSnapshot(client, permMgr, parsed, {
+                allowed: config.ok && config.config.file.enabled === true && config.config.file.actions.read_project_source === true,
+            });
             if ('denied' in result && result.denied) return result.denied as ToolResult;
             const projectId = result.project?.projectId;
-            const config = projectId ? await loadToolConfigFromApiFileWithStatus(client) : undefined;
-            const literature = projectId && config?.ok && config.config.literature.enabled && config.config.literature.actions.find_evidence
+            const literature = projectId && config.ok && config.config.literature.enabled && config.config.literature.actions.find_evidence
                 ? await import('../literature/library').then(({ discoverLiteratureLibraries }) => discoverLiteratureLibraries(client, permMgr, projectId))
                     .then(libraries => ({ status: 'available', libraries })).catch(() => ({ status: 'unavailable', libraries: [] }))
                 : undefined;
@@ -867,7 +871,7 @@ const projectTool = defineTool<ProjectAction>({
                 projectId && result.project?.hubBlockId
                     ? readKnowledgeUpdateLedger(client, result.project.hubBlockId, projectId).catch(() => ({ status: 'unavailable' }))
                     : undefined,
-                projectId && config?.ok && config.config.av.enabled && config.config.av.actions.render
+                projectId && config.ok && config.config.av.enabled && config.config.av.actions.render
                     ? discoverProjectKnowledgeCatalogs(client, permMgr, projectId)
                         .then(catalogs => ({ status: 'available', catalogs })).catch(() => ({ status: 'unavailable', catalogs: [] }))
                     : undefined,

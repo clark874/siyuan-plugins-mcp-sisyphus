@@ -14,7 +14,7 @@
 
 ### 项目源版本核对
 
-`sourceFreshness.declared` 分别记录项目状态或概况上的 `custom-progress-code-version`、`custom-progress-published-version`、`custom-progress-installed-version` 和 `custom-progress-runtime-version`。这些字段是项目声明。快照从已登记的 Git 清单读取根目录 `package.json`，将实读版本及提交核验结果放在 `sourceFreshness.checkout`。
+`sourceFreshness.declared` 分别记录项目状态或概况上的 `custom-progress-code-version`、`custom-progress-published-version`、`custom-progress-installed-version` 和 `custom-progress-runtime-version`。这些字段是项目声明。公开快照在文件工具和 `read_project_source` 均启用时，从已登记的 Git 清单读取根目录 `package.json`，将实读版本及提交核验结果放在 `sourceFreshness.checkout`。文件读取禁用时仍可读到项目声明。
 
 绑定版本与明确声明的代码版本不符时报告 `project_checkout_version_mismatch`。文件读到了版本，但提交或清单未通过核验时报告 `project_checkout_version_unverified`。同时检查状态与概况对同一版本字段的声明冲突。只有代码版本参与工作树比对，发布、磁盘安装、运行各有独立字段。历史正文中的版本叙述可供阅读，机器比较使用明确属性。
 

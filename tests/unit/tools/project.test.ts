@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { buildDefaultToolConfig } from '@/core/config';
+import { buildDefaultToolConfig, MCP_TOOLS_CONFIG_API_PATH } from '@/core/config';
 import { listAllTools } from '@/core/tool-registry';
 import { callProjectTool, listProjectTools } from '@/tools/project';
 import { createMockClient } from '../../helpers/mock-client';
@@ -54,8 +54,9 @@ describe('project tool', () => {
                 state: { 'custom-progress-role': 'project-state', 'custom-progress-code-version': 'v0.20.0',
                     'custom-progress-published-version': '0.19.0', 'custom-progress-installed-version': '0.19.1', 'custom-progress-runtime-version': '0.18.0' },
             };
+            const config = buildDefaultToolConfig();
             const client = createMockClient({
-                readFile: async () => JSON.stringify(registry),
+                readFile: async (file: string) => JSON.stringify(file === MCP_TOOLS_CONFIG_API_PATH ? config : registry),
                 request: async (endpoint: string, body?: Record<string, unknown>) => {
                     if (endpoint === '/api/query/sql') {
                         const stmt = String(body?.stmt || '');
@@ -83,6 +84,21 @@ describe('project tool', () => {
             const dirty = await snapshot();
             expect(dirty.sourceFreshness.checkout).toMatchObject({ version: '0.15.1', revisionVerified: false });
             expect(dirty.diagnostics).toContainEqual(expect.objectContaining({ code: 'project_checkout_version_unverified' }));
+
+            const open = vi.spyOn(fs.promises, 'open');
+            try {
+                for (const [enabled, readProjectSource] of [[false, true], [true, false]]) {
+                    config.file.enabled = enabled;
+                    config.file.actions.read_project_source = readProjectSource;
+                    const disabled = await snapshot();
+                    expect(disabled.sourceFreshness).toMatchObject({ declared: { code: { version: '0.15.0' } } });
+                    expect(disabled.sourceFreshness).not.toHaveProperty('checkout');
+                    expect(disabled.diagnostics).not.toContainEqual(expect.objectContaining({ code: 'project_checkout_version_mismatch' }));
+                }
+                expect(open).not.toHaveBeenCalledWith(fs.realpathSync(packagePath), expect.anything());
+            } finally {
+                open.mockRestore();
+            }
         } finally {
             fs.rmSync(root, { recursive: true, force: true });
         }
