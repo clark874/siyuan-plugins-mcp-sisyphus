@@ -52,7 +52,7 @@ type KeyValues = {
 
 type Candidate = {
     blockId: string;
-    rowId: string;
+    rowId?: string;
     title: string;
     url: string;
 } & Partial<Record<CatalogField, string>>;
@@ -65,6 +65,8 @@ type BlockMetadata = {
     atom_type?: string;
     verification_status?: string;
     source_role?: string;
+    knowledge_project_id?: string;
+    knowledge_workstream?: string;
 };
 
 type CatalogReadResult = {
@@ -153,12 +155,18 @@ async function readableMetadata(client: SiYuanClient, permMgr: PermissionManager
             SELECT b.id,b.box,b.name AS block_name,substr(b.content,1,160) AS block_content,
                 (SELECT value FROM attributes WHERE block_id=b.id AND name='custom-atom-type' LIMIT 1) AS atom_type,
                 (SELECT value FROM attributes WHERE block_id=b.id AND name='custom-verification-status' LIMIT 1) AS verification_status,
-                (SELECT value FROM attributes WHERE block_id=b.id AND name='custom-source-role' LIMIT 1) AS source_role
+                (SELECT value FROM attributes WHERE block_id=b.id AND name='custom-source-role' LIMIT 1) AS source_role,
+                (SELECT value FROM attributes WHERE block_id=b.id AND name='custom-knowledge-project-id' LIMIT 1) AS knowledge_project_id,
+                (SELECT value FROM attributes WHERE block_id=b.id AND name='custom-knowledge-workstream' LIMIT 1) AS knowledge_workstream
             FROM blocks b WHERE b.id IN (${batch.map(quote).join(',')})
             AND EXISTS (SELECT 1 FROM attributes scope WHERE scope.block_id=b.id
                 AND scope.name IN ('custom-source-project-id','custom-knowledge-project-id') AND scope.value=${quote(projectId)})
             AND NOT EXISTS (SELECT 1 FROM attributes scope WHERE scope.block_id=b.id
                 AND scope.name IN ('custom-source-project-id','custom-knowledge-project-id') AND scope.value<>${quote(projectId)})
+            AND NOT EXISTS (SELECT 1 FROM attributes leftScope JOIN attributes rightScope ON rightScope.block_id=leftScope.block_id
+                AND rightScope.name=leftScope.name AND rightScope.value<>leftScope.value
+                WHERE leftScope.block_id=b.id AND leftScope.name IN
+                    ('custom-knowledge-workstream','custom-atom-type','custom-verification-status','custom-source-role'))
             LIMIT ${batch.length}
         `);
         if (result.kernelTruncated) throw Error('知识目录绑定块的查询未完整返回。');
@@ -169,6 +177,32 @@ async function readableMetadata(client: SiYuanClient, permMgr: PermissionManager
         }
     }
     return blocks;
+}
+
+async function readProjectAtoms(client: SiYuanClient, permMgr: PermissionManager, projectId: string) {
+    const ids: string[] = [];
+    const denied = typeof permMgr.getAll === 'function'
+        ? Object.entries(permMgr.getAll()).filter(([, permission]) => permission === 'none').map(([box]) => box)
+        : [];
+    for (let offset = 0; offset <= 2000; offset += 50) {
+        const result = await querySQLWithMeta(client, `
+            SELECT DISTINCT b.id,b.box FROM blocks b
+            JOIN attributes project ON project.block_id=b.id AND project.name='custom-knowledge-project-id' AND project.value=${quote(projectId)}
+            JOIN attributes atom ON atom.block_id=b.id AND atom.name='custom-atom-type' AND trim(atom.value)<>''
+            JOIN attributes workstream ON workstream.block_id=b.id AND workstream.name='custom-knowledge-workstream' AND trim(workstream.value)<>''
+            WHERE NOT EXISTS (SELECT 1 FROM attributes source WHERE source.block_id=b.id AND source.name='custom-source-role' AND source.value<>'')
+            AND NOT EXISTS (SELECT 1 FROM attributes scope WHERE scope.block_id=b.id
+                AND scope.name IN ('custom-source-project-id','custom-knowledge-project-id') AND scope.value<>${quote(projectId)})
+            ${denied.length ? `AND b.box NOT IN (${denied.map(quote).join(',')})` : ''}
+            ORDER BY b.id LIMIT 50 OFFSET ${offset}
+        `);
+        if (result.kernelTruncated || (offset === 2000 && result.rows.length)) throw Error('项目知识原子查询超过本次目录读取范围。');
+        for (const row of result.rows as Array<{ id: string; box: string }>) {
+            if (blockIdPattern.test(row.id) && row.box && permMgr.canRead(row.box)) ids.push(row.id);
+        }
+        if (result.rows.length < 50) break;
+    }
+    return readableMetadata(client, permMgr, projectId, ids);
 }
 
 export async function readProjectKnowledgeCatalog(
@@ -194,7 +228,7 @@ export async function readProjectKnowledgeCatalog(
         const columns = catalogColumns(entries);
         const filters = Object.entries(args.filters ?? {}) as [CatalogField, string | string[]][];
         const unsupportedFilters = filters
-            .filter(([field]) => !columns.some(column => column.field === field))
+            .filter(([field]) => field === 'compileStatus' && !columns.some(column => column.field === field))
             .map(([field]) => field);
         if (unsupportedFilters.length) return { ...empty('unsupported_filters'), catalog, columns, unsupportedFilters };
 
@@ -217,7 +251,7 @@ export async function readProjectKnowledgeCatalog(
         }
 
         const expected = filters.map(([field, value]) => [field, (Array.isArray(value) ? value : [value]).map(normalize)] as const);
-        const directoryFilters = expected.filter(([field]) => field !== 'atomType' && field !== 'verificationStatus');
+        const directoryFilters = expected.filter(([field]) => !['atomType', 'verificationStatus', 'objectRole', 'workstream'].includes(field));
         const matchingBindings = bindings.filter(binding => directoryFilters.every(([field, options]) =>
             valuesByRow.get(binding.rowID)?.[field]?.some(value => options.includes(normalize(value)))));
         const blocks = await readableMetadata(client, permMgr, catalog.projectId,
@@ -234,6 +268,8 @@ export async function readProjectKnowledgeCatalog(
             // 分类和核验以知识块属性为准，历史表格值不提供证据等级。
             values.atomType = block.atom_type ? [block.atom_type] : [];
             values.verificationStatus = block.verification_status ? [block.verification_status] : [];
+            if (block.knowledge_workstream) values.workstream = [block.knowledge_workstream];
+            values.objectRole = block.source_role ? [block.source_role] : block.atom_type ? ['atom'] : [];
             if (!expected.every(([field, options]) => values[field]?.some(value => options.includes(normalize(value))))) continue;
             matchedIds.add(block.id);
             candidates.push({
@@ -245,12 +281,35 @@ export async function readProjectKnowledgeCatalog(
             });
         }
 
+        // 属性原子与来源共用同一已授权目录入口；没有目录权限时不会查询这一路。
+        const objectRoles = args.filters?.objectRole;
+        const requestedRoles = objectRoles ? (Array.isArray(objectRoles) ? objectRoles : [objectRoles]).map(normalize) : undefined;
+        const attributeAtoms = !args.filters?.compileStatus && (!requestedRoles || requestedRoles.includes('atom'))
+            ? await readProjectAtoms(client, permMgr, catalog.projectId)
+            : new Map<string, BlockMetadata>();
+        for (const block of attributeAtoms.values()) {
+            if (matchedIds.has(block.id) || !block.atom_type || block.knowledge_project_id !== catalog.projectId || !block.knowledge_workstream) continue;
+            const values: Partial<Record<CatalogField, string[]>> = {
+                objectRole: ['atom'], workstream: [block.knowledge_workstream], atomType: [block.atom_type],
+                verificationStatus: block.verification_status ? [block.verification_status] : [],
+            };
+            if (!expected.every(([field, options]) => values[field]?.some(value => options.includes(normalize(value))))) continue;
+            matchedIds.add(block.id);
+            candidates.push({
+                blockId: block.id, title: (block.block_name || block.block_content || '知识块').slice(0, 160),
+                url: `siyuan://blocks/${block.id}`,
+                ...Object.fromEntries(Object.entries(values).filter(([, value]) => value.length)
+                    .map(([field, value]) => [field, value.join('、').slice(0, 160)])),
+            });
+        }
+        candidates.sort((left, right) => left.blockId.localeCompare(right.blockId));
+
         const offset = Math.max(0, Math.trunc(args.offset ?? 0));
         const limit = Math.max(1, Math.min(500, Math.trunc(args.limit ?? 20)));
         const page = candidates.slice(offset, offset + limit);
         const hasMore = offset + page.length < candidates.length;
         return {
-            status: !hasReadableBindings ? 'catalog_empty' : page.length === 0 ? 'not_found' : 'ready',
+            status: !hasReadableBindings && !attributeAtoms.size ? 'catalog_empty' : page.length === 0 ? 'not_found' : 'ready',
             catalog, columns, candidates: page, totalMatches: candidates.length, hasMore,
             nextOffset: hasMore ? offset + page.length : null,
         };
@@ -285,7 +344,12 @@ export async function verifyProjectKnowledgeCatalogBindings(
         const rowId = rows[0]?.rowID;
         const block = metadata.get(id);
         const sources = sourceRows.filter(row => row.id === id);
-        const role = sources.length ? block?.source_role : block?.atom_type && 'atom';
+        if (block?.knowledge_workstream?.trim() && normalize(block.knowledge_workstream) !== normalize(workstream)) {
+            throw new Error('项目知识目录的工作线属性冲突，保留批次待续接。');
+        }
+        if (!sources.length && block?.atom_type && !block.source_role && block.knowledge_project_id === projectId
+            && block.knowledge_workstream && normalize(block.knowledge_workstream) === normalize(workstream)) continue;
+        const role = sources.length ? block?.source_role : !block?.source_role && block?.atom_type && 'atom';
         if (rows.length !== 1 || !rowId || !role || (sources.length > 0 && !['source-document', 'source-entry'].includes(role))
             || !matches(rowId, 'workstream', workstream) || !matches(rowId, 'objectRole', role)
             || sources.some(source => !matches(rowId, 'compileStatus', source.status))) {

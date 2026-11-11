@@ -17,3 +17,13 @@
 `knowledgeCatalogs` 返回项目明确登记的知识 AV 和数据库块链接，与响应中的文献目录独立。用 `search.knowledge` 的 `catalog` 参数筛选项目知识。快照的 `knowledgeCounts` 分列当前列表中的来源和原子数量，`includeRelations=true` 按需查看有界的一跳关系。
 
 `knowledgeUpdate` 报告项目中枢批次的阶段和已覆盖来源数量。使用统一 `siyuan` 入口完成增量更新；批次尚待续接时延后已启用导图的自动刷新。关闭时回读真实事件、关系和知识 AV，导图冲突单独回报。
+
+## 知识协议与原块格式
+
+`knowledgeProtocol` 返回协议 2、契约 1.6 及统一技能指针。知识产物的 `formattedExcerpt` 来自内核 Markdown，`textBasis=kernel-markdown`，摘要视图仍受截断规则约束。数学符号须回读原块，纯文本标题不能代替格式保真。
+
+知识目录继续管理来源；原子可通过同次写入的 `custom-knowledge-project-id` 与 `custom-knowledge-workstream` 发现，无须重复建 AV 行。既有原子行与属性原子去重后确定性分页，类型及核验状态取原块。无目录行的原子没有 `compileStatus`，编译状态筛选只匹配真实目录记录。授权入口缺失时不会绕过目录枚举原子。
+
+`search.knowledge` 默认提供顶层 `supersededBy` 映射，键为旧命中的块 ID，值为新原子与关系块 ID 列表。该字段是接替声明，不能代替来源和适用范围核对；多个接替者全部保留。`supersessionWindow.hasMore` 表示有界窗口仍需继续核读，查询不可用时明确报告 unavailable。
+
+目录本次最多读取 2,000 个属性原子，超过范围明确报告不可用；减少写入不等于保证读取提速。

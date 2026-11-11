@@ -194,13 +194,19 @@ describe('block tool', () => {
         const toId = '20260819072537-atom002';
         let attrs = {};
         let refs = [toId];
+        let relationKind = 'produced-by';
+        let fromType = 'evidence';
+        let toType = 'recipe';
+        let toScope: string | undefined;
+        let cycle = false;
         const request = vi.fn(async (endpoint: string, body?: Record<string, any>) => {
             if (endpoint === '/api/query/sql') {
                 const stmt = String(body?.stmt);
+                if (stmt.includes('), succession(from_id,to_id)')) return cycle ? [{ id: fromId, depth: 2 }] : [];
                 if (stmt.includes('atom.value AS atom_type')) return [
                     { id: relationId, box: 'nb-1' },
-                    { id: fromId, box: 'nb-1', atom_type: 'evidence' },
-                    { id: toId, box: 'nb-1', atom_type: 'recipe' },
+                    { id: fromId, box: 'nb-1', atom_type: fromType },
+                    { id: toId, box: 'nb-1', atom_type: toType, reuse_scope: toScope },
                 ];
                 if (stmt.includes('SELECT DISTINCT def_block_id')) return refs.map(id => ({ def_block_id: id }));
                 if (stmt.includes('FROM attributes source')) return [];
@@ -217,7 +223,7 @@ describe('block tool', () => {
         const client = createMockClient({ request });
         const write = async () => parseResult(await callBlockTool(client, {
             action: 'set_attrs', id: relationId,
-            attrs: { 'custom-relation-kind': 'produced-by', 'custom-relation-from-id': fromId, 'custom-relation-to-id': toId },
+            attrs: { 'custom-relation-kind': relationKind, 'custom-relation-from-id': fromId, 'custom-relation-to-id': toId },
         }, buildDefaultToolConfig().block, permMgr as never));
 
         const rejected = await write();
@@ -225,6 +231,22 @@ describe('block tool', () => {
         expect(request.mock.calls.some(([endpoint]) => endpoint === '/api/transactions')).toBe(false);
         refs = [toId, fromId];
         expect(await write()).toMatchObject({ success: true, verification: { status: 'verified' } });
+
+        relationKind = 'supersedes';
+        toType = 'result';
+        expect(await write()).toMatchObject({ success: true });
+        cycle = true;
+        const cyclic = await write();
+        expect(cyclic.error.message).toContain('形成循环');
+        cycle = false;
+        toType = 'decision';
+        expect((await write()).error.message).toContain('类型或方向不符');
+        relationKind = 'reuses';
+        fromType = 'summary';
+        toType = 'recipe';
+        expect(await write()).toMatchObject({ success: true });
+        toScope = 'public-candidate';
+        expect((await write()).error.message).toContain('类型或方向不符');
     });
 
     it('limits batch_kramdown to 20 IDs', () => {

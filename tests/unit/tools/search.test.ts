@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { buildDefaultToolConfig } from '@/core/config';
 import { normalizeFullTextSearchResult } from '@/core/normalize';
+import { readKnowledgeSupersessions } from '@/core/knowledge-relations';
 import { callSearchTool, filterBacklinkResultByPermission, filterFullTextSearchResultByPermission, listSearchTools } from '@/tools/search';
 import { callTagTool } from '@/tools/tag';
 import { assertReadOnlySql, getBacklinksWithDiagnostics } from '@/tools/search/sql-builder';
@@ -498,6 +499,8 @@ describe('search tool filtering', () => {
         const outgoing = { relation_id: '20260819072537-edge002', relation_box: 'allowed', kind: 'part-of',
             from_id: anchor, from_box: 'allowed', from_type: 'summary',
             to_id: '20260819072537-atom002', to_box: 'allowed', to_type: 'summary' };
+        const historical = { ...outgoing, relation_id: '20260819072537-edge004', kind: 'historical-compatibility', to_type: 'recipe' };
+        const successor = { ...incoming, relation_id: '20260819072537-edge005', from_type: 'summary' };
         const request = vi.fn(async (endpoint: string, body: any) => {
             if (endpoint === '/api/query/sql') {
                 const stmt = String(body.stmt);
@@ -522,8 +525,10 @@ describe('search tool filtering', () => {
                         { block_id: '20260819072537-zn6fxkd', name: 'custom-source-url', value: 'https://example.org/doc?token=SECRET12345678' },
                     ];
                 }
+                if (stmt.includes("kind.value='supersedes'")) return [successor,
+                    { ...successor, from_box: 'denied', from_id: '20260819072537-private' }, incoming];
                 if (stmt.includes('AS from_type')) {
-                    return [incoming, outgoing,
+                    return [incoming, outgoing, historical,
                         { ...incoming, relation_id: '20260819072537-edge003', from_id: '20260819072537-private', from_box: 'denied' }];
                 }
                 if (stmt.includes('AS target_box')) return [{ relation_box: 'allowed', target_box: 'allowed' }];
@@ -565,7 +570,11 @@ describe('search tool filtering', () => {
         expect(parsed.knowledgeRelations).toEqual({ edges: [
             { relationBlockId: incoming.relation_id, kind: 'supports', fromId: incoming.from_id, toId: anchor },
             { relationBlockId: outgoing.relation_id, kind: 'part-of', fromId: anchor, toId: outgoing.to_id },
+            { relationBlockId: historical.relation_id, kind: 'historical-compatibility', fromId: anchor, toId: historical.to_id },
         ], hasMore: false, hasUnresolvedLegacy: true });
+        expect(await readKnowledgeSupersessions(createMockClient({ request }), permMgr as never, [anchor])).toEqual({
+            byBlockId: { [anchor]: [{ blockId: successor.from_id, relationBlockId: successor.relation_id }] }, hasMore: false,
+        });
         expect(request.mock.calls.some(([endpoint]) => endpoint === '/api/search/semanticSearchBlock')).toBe(false);
     });
 

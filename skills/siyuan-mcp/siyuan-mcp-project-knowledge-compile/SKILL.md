@@ -6,7 +6,7 @@ compatibility: "Requires a reachable SiYuan Sisyphus MCP server already register
 
 # 思源研究项目知识编译 with MCP
 
-本工作流处理“已授权的项目增量或本地研究项目全量文件包 → 思源资料与知识接续”。项目中的“更新思源笔记”默认启动本流程。先读资料录入与接续契约的批次协议，比较已覆盖来源版本和待续接批次；无差量且无待办则零写入。用户指定的全文先保真保存。全量编译完整核对范围账本，日常只处理实际增量。外部网页、教程或发布说明交给 knowledge-ingest；既有名称治理交给 knowledge-governance；有实际复用证据时按 cross-project-relation-closure 的规则维护公共方法连接。
+本工作流处理“已授权的项目增量或本地研究项目全量文件包 → 思源资料与知识接续”。项目中的“更新思源笔记”先判断整合收益。资料需要组织、问题反复出现、跨项目复用或多版裁决满足任一时启动；一次性简单记录走既有资料保存和状态路径。尚未编译的来源不能写成 excluded。先读资料录入与接续契约的批次协议，比较已覆盖来源版本和待续接批次；无差量且无待办则零写入。用户指定的全文先保真保存。全量编译完整核对范围账本，日常只处理实际增量。外部网页、教程或发布说明交给 knowledge-ingest；既有名称治理交给 knowledge-governance；有实际复用证据时按 cross-project-relation-closure 的规则维护公共方法连接。
 
 ## 一、开工与范围账本
 
@@ -46,7 +46,7 @@ file(action="read_project_source", projectId="<registered-project-id>", relative
 search(action="knowledge", query="<project name> 项目中枢", pageSize=10, candidateSize=30)
 ```
 
-逐项决定形成哪类原子：
+新写入首选以下五类，优先复用完整原子。历史类型与教学卡保持可读，不设机械字数门槛，不按版本逐项拆卡：
 
 - `summary`：项目、子线或方法概览；
 - `recipe`：可复用操作流程；
@@ -54,7 +54,7 @@ search(action="knowledge", query="<project name> 项目中枢", pageSize=10, can
 - `decision`：项目选择及理由；
 - `warning`：失败方案、版本冲突或适用边界。
 
-每个原子必须单块自包含、来源范围明确、验证状态与证据一致。在正文原子块设置 `name`、有实际召回用途的 `alias`、`custom-atom-type`、`custom-verification-status` 和 `custom-knowledge-project-id`；用 `custom-source-hash` 或 `custom-source-revision` 保存实际来源版本，`custom-source-range` 标明章节或行。正文同时保留可打开的原文块引用。统计主张必须核对“脚本 → 输出 → 样本定义/阈值 → 叙述”；未核对不得提升为 evidence-verified。机器哈希、revision 和编译时间不得手填。
+每个原子必须单块自包含、来源范围明确、验证状态与证据一致。在正文原子块设置 `name`、有实际召回用途的 `alias`、`custom-atom-type`、`custom-verification-status` 、`custom-knowledge-project-id` 和 `custom-knowledge-workstream`；用 `custom-source-hash` 或 `custom-source-revision` 保存实际来源版本，`custom-source-range` 标明章节或行。正文同时保留可打开的原文块引用。统计主张必须核对“脚本 → 输出 → 样本定义/阈值 → 叙述”；未核对不得提升为 evidence-verified。机器哈希、revision 和编译时间不得手填。
 
 ## 三、寻址与公共方法接口
 
@@ -78,15 +78,17 @@ search(action="check_anchor", candidates=["自然语言召回词"], candidateKin
 
 ## 四、项目内语义关系闭合
 
-中枢→原子的收录是编目边，不是语义边。知识原子编译完成后，审计是否存在能够回答“如何产出、由何证据支持、受何约束、实现何方法、属于何子线”的真实关系。只允许以下五类有向关系：
+中枢→原子的收录是编目边，不是语义边。知识原子编译完成后，审计是否存在能够回答“如何产出、由何证据支持、受何约束、实现何方法、属于何子线”的真实关系。新写入首选五类有向关系，旧类型保持原意，不将兼容性引用等同实际复用或自动退休：
 
 | `custom-relation-kind` | 方向 | 含义 |
 | --- | --- | --- |
 | `produced-by` | evidence/output → recipe/process | 该证据或产物由目标流程生成 |
 | `supports` | evidence → decision/claim | 该证据支持目标决策或主张，但不自动证明因果 |
 | `constrained-by` | recipe/claim → warning/constraint | 该操作或主张受目标边界约束 |
-| `implements` | project implementation → method | 项目实现了目标方法，并保留实现差异 |
-| `part-of` | subline/subproject → project overview | 该子线属于目标项目结构 |
+| `supersedes` | 新原子 → 旧原子 | 有来源和范围依据的接替声明，不提升权威或验证等级 |
+| `reuses` | 项目实现 → 复用方法 | 有实际使用依据，保留输入、实现差异和边界 |
+
+同节相邻内容可直接正文引用，但相邻不能代替真实证据和约束。仅在改变后续读什么、边界或版本判断时建独立关系，禁止“延续执行”形式边。
 
 不自动建立“现状关联”“相关于”“概念相似”等方向含混的关系；不把所有文字提及变成引用，不建无实际语义的 evidence↔evidence 网，不重复中枢已有的纯导航边。
 
@@ -173,7 +175,7 @@ search(action="knowledge", query="这项证据通过什么方法产生？", page
 2. 原子具备唯一 name、合格内容、来源清单和真实验证状态；
 3. 中枢收录、项目内语义边、跨项目复用边分别统计；
 4. 每条项目内关系有独立关系块、规范类型、真实 refs 边和反向链接；
-5. 代表性“证据如何产生”“决策为何作出”问题能在前 10 结果或引用折叠中发现双方；
+5. 代表性“证据如何产生”“决策为何作出”问题能从正常入口发现双方，按分页和实际召回核读，不预设前 10 项；
 6. 相同输入复跑不增加重复原子、关系块或 AV 行；
 7. public-candidate 只列入待治理清单，不虚报公共化或跨项目闭合。
 8. 知识化事件能够反查来源/编译会话，项目会话列表明确 provider、captureMethod、linkCapability 与验证状态。

@@ -10,6 +10,8 @@ const STATUS = 'custom-relation-status';
 const BLOCK_ID = /^\d{14}-[a-z0-9]{7}$/;
 const EDGE_LIMIT = 50;
 const ANCHOR_LIMIT = 100;
+const SUCCESSION_DEPTH_LIMIT = 32;
+const SUCCESSION_VISIT_LIMIT = 1000;
 
 const evidenceTypes = ['evidence', 'output', 'result'];
 const methodTypes = ['recipe', 'process', 'method'];
@@ -28,6 +30,8 @@ const directions: Record<string, { from: string[]; to: string[] }> = {
     'active-reuse': { from: [...projectTypes, ...methodTypes, 'implementation'], to: methodTypes },
     'compatibility-reference': { from: [...projectTypes, ...methodTypes, 'implementation'], to: methodTypes },
     'historical-compatibility': { from: [...projectTypes, ...methodTypes, 'implementation'], to: methodTypes },
+    reuses: { from: [...projectTypes, ...methodTypes, 'implementation'], to: methodTypes },
+    supersedes: { from: [], to: [] },
 };
 
 export interface KnowledgeRelation {
@@ -63,8 +67,12 @@ function readableBoxes(permMgr: PermissionManager, columns: string[]): string {
 
 function directionAllowed(kind: string, fromType: string, toType: string, toScope?: string): boolean {
     if (!hasKey(directions, kind)) return false;
+    if (kind === 'supersedes') {
+        const canonical = (type: string) => ({ result: 'evidence', method: 'recipe' }[type] ?? type);
+        return Boolean(fromType && toType && canonical(fromType) === canonical(toType));
+    }
     const direction = directions[kind];
-    const reuse = ['active-reuse', 'compatibility-reference', 'historical-compatibility'].includes(kind);
+    const reuse = ['reuses', 'active-reuse', 'compatibility-reference', 'historical-compatibility'].includes(kind);
     return direction.from.includes(fromType) && direction.to.includes(toType)
         && (!reuse || toScope !== 'public-candidate');
 }
@@ -144,6 +152,45 @@ export async function validateKnowledgeRelationMutation(
     if (duplicates.some(row => row.box && permMgr.canRead(row.box))) {
         throw new Error('已存在相同端点和类型的知识关系。请复用既有关系块。');
     }
+    if (kind === 'supersedes') {
+        const pendingRows: string[] = [];
+        for (const [pendingId, requested] of pendingAttrs) {
+            if (pendingId === id || ![KIND, FROM, TO, STATUS].some(key => hasKey(requested, key))) continue;
+            pendingRows.push(`SELECT ${sql(pendingId)},${[KIND, FROM, TO, STATUS]
+                .map(key => hasKey(requested, key) ? sql(requested[key]) : 'NULL').join(',')}`);
+        }
+        const cycle = await querySQL(client, `
+            WITH RECURSIVE pending(block_id,kind,from_id,to_id,status) AS (
+                ${pendingRows.length ? pendingRows.join('\nUNION ALL\n') : 'SELECT NULL,NULL,NULL,NULL,NULL WHERE 0'}
+            ), succession(from_id,to_id) AS (
+                SELECT DISTINCT origin.id,destination.id FROM (
+                    SELECT block_id FROM attributes WHERE name=${sql(KIND)} AND value='supersedes'
+                    UNION SELECT block_id FROM pending
+                ) candidates JOIN blocks edge ON edge.id=candidates.block_id
+                LEFT JOIN pending ON pending.block_id=edge.id
+                LEFT JOIN attributes kind ON kind.block_id=edge.id AND kind.name=${sql(KIND)}
+                LEFT JOIN attributes source ON source.block_id=edge.id AND source.name=${sql(FROM)}
+                LEFT JOIN attributes target ON target.block_id=edge.id AND target.name=${sql(TO)}
+                LEFT JOIN attributes status ON status.block_id=edge.id AND status.name=${sql(STATUS)}
+                JOIN blocks origin ON origin.id=COALESCE(pending.from_id,source.value)
+                JOIN blocks destination ON destination.id=COALESCE(pending.to_id,target.value)
+                WHERE edge.id<>${sql(id)} AND COALESCE(pending.kind,kind.value)='supersedes'
+                AND COALESCE(pending.status,status.value,'active')<>'retired'
+                AND EXISTS (SELECT 1 FROM refs WHERE block_id=edge.id AND def_block_id=origin.id)
+                AND EXISTS (SELECT 1 FROM refs WHERE block_id=edge.id AND def_block_id=destination.id)
+                ${readableBoxes(permMgr, ['edge.box', 'origin.box', 'destination.box'])}
+            ), reached(id,depth) AS (
+                SELECT ${sql(toId)},0
+                UNION SELECT succession.to_id,reached.depth+1 FROM reached
+                JOIN succession ON succession.from_id=reached.id WHERE reached.depth<${SUCCESSION_DEPTH_LIMIT}
+                LIMIT ${SUCCESSION_VISIT_LIMIT + 1}
+            )
+            SELECT id,depth FROM reached WHERE id=${sql(fromId)} OR depth=${SUCCESSION_DEPTH_LIMIT}
+                OR (SELECT COUNT(*) FROM reached)>${SUCCESSION_VISIT_LIMIT} LIMIT 1
+        `) as Array<{ id: string; depth: number }>;
+        if (cycle.some(row => row.id === fromId)) throw new Error('接替关系会形成循环，请核对现行版本与关系方向。');
+        if (cycle.length) throw new Error('接替链达到本次核验窗口，无法完整排除循环；未写入。');
+    }
     return `${fromId}/${kind}/${toId}`;
 }
 
@@ -219,4 +266,46 @@ export async function readKnowledgeRelations(client: SiYuanClient, permMgr: Perm
         hasUnresolvedLegacy: legacy.some(row => row.relation_box && row.target_box
             && permMgr.canRead(row.relation_box) && permMgr.canRead(row.target_box)),
     };
+}
+
+/** 接替指针仅说明存在显式关系，不代替当前状态与原文的权威裁决。 */
+export async function readKnowledgeSupersessions(client: SiYuanClient, permMgr: PermissionManager, ids: string[]) {
+    const anchors = [...new Set(ids.filter(id => BLOCK_ID.test(id)))];
+    const byBlockId: Record<string, Array<{ blockId: string; relationBlockId: string }>> = {};
+    if (!anchors.length) return { byBlockId, hasMore: false };
+    await permMgr.reload();
+    const scoped = new Set(anchors.slice(0, ANCHOR_LIMIT));
+    const result = await querySQLWithMeta(client, `
+        SELECT DISTINCT edge.id AS relation_id,edge.box AS relation_box,
+            origin.id AS from_id,origin.box AS from_box,originAtom.value AS from_type,
+            destination.id AS to_id,destination.box AS to_box,destinationAtom.value AS to_type
+        FROM attributes kind JOIN blocks edge ON edge.id=kind.block_id
+        JOIN attributes source ON source.block_id=edge.id AND source.name=${sql(FROM)}
+        JOIN attributes target ON target.block_id=edge.id AND target.name=${sql(TO)}
+        JOIN blocks origin ON origin.id=source.value
+        JOIN blocks destination ON destination.id=target.value
+        JOIN attributes originAtom ON originAtom.block_id=origin.id AND originAtom.name='custom-atom-type'
+        JOIN attributes destinationAtom ON destinationAtom.block_id=destination.id AND destinationAtom.name='custom-atom-type'
+        WHERE kind.name=${sql(KIND)} AND kind.value='supersedes'
+        AND target.value IN (${sqlList([...scoped])})
+        AND origin.id<>destination.id AND edge.id<>origin.id AND edge.id<>destination.id
+        AND NOT EXISTS (SELECT 1 FROM attributes status WHERE status.block_id=edge.id AND status.name=${sql(STATUS)} AND status.value='retired')
+        AND EXISTS (SELECT 1 FROM refs WHERE block_id=edge.id AND def_block_id=origin.id)
+        AND EXISTS (SELECT 1 FROM refs WHERE block_id=edge.id AND def_block_id=destination.id)
+        ${readableBoxes(permMgr, ['edge.box', 'origin.box', 'destination.box'])}
+        ORDER BY edge.id LIMIT ${EDGE_LIMIT + 1}
+    `);
+    const found = new Set<string>();
+    let count = 0;
+    for (const row of result.rows as RelationRow[]) {
+        if (![row.relation_box, row.from_box, row.to_box].every(box => box && permMgr.canRead(box))) continue;
+        if (![row.relation_id, row.from_id, row.to_id].every(id => BLOCK_ID.test(id)) || !scoped.has(row.to_id)) continue;
+        if (!directionAllowed('supersedes', row.from_type, row.to_type)) continue;
+        const key = `${row.from_id}/${row.to_id}`;
+        if (found.has(key)) continue;
+        found.add(key);
+        if (count++ >= EDGE_LIMIT) continue;
+        (byBlockId[row.to_id] ??= []).push({ blockId: row.from_id, relationBlockId: row.relation_id });
+    }
+    return { byBlockId, hasMore: anchors.length > ANCHOR_LIMIT || result.kernelTruncated || result.rows.length > EDGE_LIMIT };
 }

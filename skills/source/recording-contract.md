@@ -1,5 +1,7 @@
 # 资料录入与项目接续
 
+知识协议 2，契约版本 1.6。对照 bootstrap 或项目快照的 knowledgeProtocol；不一致先核对实时帮助并提示技能更新，普通读取继续。
+
 用户已授权维护项目的思源资料时，重要材料的保存与后续可调用性属于交付；只读询问、审阅、方案和无关聊天不写入。已明确授权的可恢复同范围工作不反复询问；新来源登记、敏感披露、不可逆操作仍遵守相应授权门。
 
 ## 资料、知识与现状分别交付
@@ -48,28 +50,30 @@
 
 ## 自然项目更新的批次协议
 
-已识别项目中的“更新思源笔记”“同步本轮成果”和“项目知识整合”触发完整知识编译。确认项目及授权范围后，检查 `project.snapshot.knowledgeUpdate` 与 `knowledgeCatalogs`。先比较当前来源版本和已覆盖版本，再检查待续接批次。两者均无差量时零写入。只读、方案和明确只存原文的任务按用户指定范围执行。
+“更新思源笔记”“同步本轮成果”先判断整合收益。资料需要组织、问题反复出现、跨项目复用或多版裁决满足任一时进入知识编译；明确要求知识整合时执行。一次性简单记录按既有全文保存及状态路径交付资料层，不把未编译来源记为 excluded。确认项目及授权范围后，检查 `project.snapshot.knowledgeUpdate` 与 `knowledgeCatalogs`。先比较当前来源版本和已覆盖版本，再检查待续接批次。两者均无差量时零写入。只读、方案和明确只存原文的任务按用户指定范围执行。
 
 账本保存在已登记项目中枢的 `custom-knowledge-update-ledger` 属性。用 `block.get_attrs` 获取完整 JSON，写前按既有严格写入协议预检。首次账本 `version=1`、`projectId` 为已登记标识，`covered` 初始为空。`covered` 每项包含 `key`、`revision`、`disposition` 和可选 `note`。`key` 用来源清单内的稳定标识或已核实的资料块 ID，`revision` 用来源工具返回的哈希或版本，不能以日期猜测。资料路径以授权范围为准。仅来自本轮对话的新裁决先保全为可回读来源块，再用稳定块 ID 和实际内容指纹登记。
 
 开始写入前记录唯一 `pending`，包含 `batchId`、`workstream`、`phase`、`sources`、`atomIds`、`relationIds`、`nextStep`，事件回读后补 `eventBlockId`。保存在思源并纳入目录的全文副本填写 `sourceBlockId`。`sources` 与 `covered` 同形，开始时 `disposition=pending`，核查后改 `compiled`、`reused` 或 `excluded`；排除要写 `note`，复用要填写 `reuseBlockId`，指向同一项目、带原子类型且来源哈希或版本一致的既有块。批次开始后来源身份与版本固定。来源发生新变化时，先以真实结果续接本批，再处理新版本。
 
-按实际进度更新阶段 `sources → atoms → relations → event → catalog → projection`。重要资料保真，原子按名称和来源复用；关系按起点、类型、终点查重。写入结果未知时先查回执与原对象，保存已获得的块 ID，继续缺失阶段。原子和关系回读通过后，使用 `batchId` 作为唯一 `eventId` 登记知识事件，事件目标必须匹配账本的变化块。仅复用或排除、无知识对象变化的批次可无知识事件。
+阶段次序为 `sources → atoms → relations → event → catalog → projection`。持久记录开头 sources 和关账前 projection；中间检查点只在接续需要时写，已取得的稳定 ID 必须及时保存。不要为阶段齐全重复写相同账本。重要资料保真，原子按名称和来源复用；关系按起点、类型、终点查重。写入结果未知时先查回执与原对象，保存已获得的块 ID，继续缺失阶段。原子和关系回读通过后，使用 `batchId` 作为唯一 `eventId` 登记知识事件，事件目标必须匹配账本的变化块。仅复用或排除、无知识对象变化的批次可无知识事件。
 
-完成目录和项目状态回读后，把本批终态的 `sources` 按 `key` 合并进 `covered`，保留其余来源，再移除 `pending`。服务端核对来源复用依据、事件工作线及真实引用，并核对变更原子与已登记资料副本的 AV 绑定、工作线、对象角色及资料编译状态。需要目录但权限、配置或登记有缺口时保留批次，不把来源写为已覆盖。中断时保留 `pending`，下次在同一批次续接。快照摘要只返回阶段和数量，读取受控细节时使用中枢属性。事件登记前的原子按账本块 ID 回读，公开快照的已登记原子列表会在事件登记后更新。批次进行中延后自动导图同步；关闭批次后，既有且已启用的导图按完整快照刷新。导图回执失败时记录待刷新位置。
+完成目录和项目状态回读后，把本批终态的 `sources` 按 `key` 合并进 `covered`，保留其余来源，再移除 `pending`。服务端核对来源复用依据、事件工作线及真实引用，并核对变更原子的项目及工作线属性或已有有效 AV 绑定；资料副本仍核对唯一 AV 绑定、工作线、对象角色与实际编译状态。需要目录但权限、配置或登记有缺口时保留批次，不把来源写为已覆盖。中断时保留 `pending`，下次在同一批次续接。快照摘要只返回阶段和数量，读取受控细节时使用中枢属性。事件登记前的原子按账本块 ID 回读，公开快照的已登记原子列表会在事件登记后更新。批次进行中延后自动导图同步；关闭批次后，既有且已启用的导图按完整快照刷新。导图回执失败时记录待刷新位置。
 
 ## 知识目录与沿关系查读
 
 项目知识 AV 挂 `custom-knowledge-catalog=<实际 AV ID>` 和 `custom-knowledge-project-id=<项目 ID>` 于实际数据库块。优先复用项目已指定的控制台；多个候选未明确时列入待核对。首次需建立目录且项目更新授权包含该范围时，用 `av.render(blockID=<中枢文档ID>,createIfNotExist=true)` 创建并回读实际数据库块，再写目录标记并由快照发现。创建结果未知时回读中枢现有 AV，确认缺失后才重试。普通全文保存不触发此步骤。
 
-用 `av.render(ignoreRows=true)` 核对结构。控制台列采用“主键”“工作线”“对象角色”“知识类型”“核验状态”“编译状态”，沿用已核实同义列映射。资料角色使用 `source-document` 或 `source-entry`，知识原子使用 `atom`。控制台只收录需查询或治理的资料与原子。来源块以 `custom-source-project-id` 标记归属，知识原子以 `custom-knowledge-project-id` 标记归属；有冲突的旧行先核对原块。跨项目知识通过已经验收的真实关系查读。按来源块 ID 查绑定行，缺行用 `av.add_rows(blockIDs=...)`，已有行复用 `rowID`；批量 `av.set_cells` 更新派生字段。知识类型和核验状态以原块属性为准，资料编译状态按本批实际结果填写。优先级和审阅备注由用户在 AV 维护。回读行与绑定块，遇部分失败只补缺失行或单元格。
+用 `av.render(ignoreRows=true)` 核对结构。目录继续作为项目知识入口，默认登记资料的主键、工作线、对象角色与编译状态。来源以 `custom-source-project-id` 标记归属。新原子的 `custom-knowledge-project-id`、`custom-knowledge-workstream`、类型和核验状态同次写入原块，经同项目可读 AV 入口发现，无须重复建行。旧原子行保持可读并与属性原子去重，类型和核验状态取原块。项目或工作线冲突先核对，不猜归属。无目录行的原子不虚构 compileStatus，该筛选仅匹配真实目录记录。用户的优先级和审阅备注保留。
+
+来源按块 ID 查绑定行，缺行用 `av.add_rows(blockIDs=...)`，已有行复用 rowID；所需字段合并到一次 `av.set_cells`。只补缺失行和变化的字段，不重复维护原块已有属性。目录未授权或不存在时不绕过入口扩大属性查询。
 
 问“有哪些已核对来源的证据”“哪些资料还待编译”时，从项目快照取得 AV 后按结构化条件筛选，再读原块。`search.knowledge` 的 `catalog` 传 `catalogBlockId`、可选 `projectId`、`filters` 和分页偏移；字段为 `workstream`、`objectRole`、`atomType`、`verificationStatus`、`compileStatus`。同一字段多值按任一匹配，跨字段同时满足。目录响应只提供候选，答复核验事实仍读原块。空表、筛选未命中和目录不可用分别报告；无目录时依既有权限和项目范围查块，明确目录覆盖边界。
 
-关系块同时存 `custom-relation-kind`、`custom-relation-from-id`、`custom-relation-to-id`，正文真实引用两端。`search.knowledge(includeRelations=true)` 读取候选的有向邻接，再按问题沿稳定块继续。辅助引用仍可回读，历史未核定端点的关系保持原文。失效关系使用 `custom-relation-status=retired` 退出当前网络。
+关系块同时存 `custom-relation-kind`、`custom-relation-from-id`、`custom-relation-to-id`，正文真实引用两端。`search.knowledge(includeRelations=true)` 读取候选的有向邻接，再按问题沿稳定块继续。辅助引用仍可回读，历史未核定端点的关系保持原文。新写入首选 supports、constrained-by、produced-by、supersedes 与 reuses，旧类型保持原意。supersedes 为新→旧，禁止循环。检索默认返回顶层 supersededBy 映射及关系块，按旧命中 ID 查接替声明；多个接替者均保留，按来源、范围与现状判断，不自动选时间最新者。失效关系使用 `custom-relation-status=retired` 退出当前网络。
 
 ## 内容与自然任务验收
 
-动笔前看 [正负例](recording-examples.md)。带星号等 Markdown 控制字符的数学记号用行内公式或行内代码保留，例如 `b*` 和 `ρ*`，回读原块及可见文本确认符号完整。写后至少用本次任务的自然问题，从项目入口发现资料再读原文，检查能否正确接续。不得先把内部 name 告诉测试会话，再把唯一命中当作冷启动发现成功。
+动笔前看 [正负例](recording-examples.md)。带星号等 Markdown 控制字符的数学记号用行内公式或行内代码保留，例如 `b*` 和 `ρ*`，回读原块及可见文本确认符号完整。快照 formattedExcerpt 来自内核 markdown，textBasis 标示来源；纯文本 title 不承担公式保真。原始输入未转义造成的符号丢失不能靠摘要猜回。写后至少用本次任务的自然问题，从项目入口发现资料再读原文，检查能否正确接续。不得先把内部 name 告诉测试会话，再把唯一命中当作冷启动发现成功。
 
 交付分别报告全文保存、知识编译、当前状态接续，以及未完成／冲突／失败项和恢复位置。测试不自动增加或删除原始研究材料；教学任务另读教学参考，保留教学完整性。

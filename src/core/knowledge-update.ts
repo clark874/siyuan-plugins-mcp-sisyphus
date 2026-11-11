@@ -6,6 +6,12 @@ import type { PermissionManager } from './permissions';
 import { readProjectSourceState } from './project-sources';
 
 export const KNOWLEDGE_UPDATE_ATTR = 'custom-knowledge-update-ledger';
+export const KNOWLEDGE_PROTOCOL = {
+    version: 2,
+    contractVersion: '1.6',
+    skill: 'siyuan',
+    reference: 'skill://siyuan/references/recording-contract.md',
+} as const;
 
 const BlockId = z.string().regex(/^\d{14}-[a-z0-9]{7}$/);
 const SourceVersion = z.object({

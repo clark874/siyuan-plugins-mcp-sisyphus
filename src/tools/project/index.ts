@@ -4,7 +4,7 @@ import * as searchApi from '../../api/search';
 import { loadToolConfigFromApiFileWithStatus, type CategoryToolConfig, type ProjectAction } from '../../core/config';
 import { getVersion } from '../../api/system';
 import { hashWriteState } from '../../core/write-safety-hash';
-import { readKnowledgeUpdateLedger } from '../../core/knowledge-update';
+import { KNOWLEDGE_PROTOCOL, readKnowledgeUpdateLedger } from '../../core/knowledge-update';
 import { readKnowledgeRelations } from '../../core/knowledge-relations';
 import { discoverProjectKnowledgeCatalogs } from './knowledge-catalog';
 import { executeMindmapPlan, readMindmapPlan, MINDMAP_ROOT_ATTR, MINDMAP_AUTO_ATTR } from './mindmap';
@@ -322,7 +322,7 @@ function summarizeSnapshot(value: Record<string, unknown>): Record<string, unkno
         // 机器字段与审计依据不可缩写，尤其不能破坏属性中的 JSON 和修复指令。
         if (/(?:^|\.)(?:attributes|diagnostics|repairPlan|chronology)(?:\.|\[|$)/.test(path)) return item;
         if (typeof item === 'string') {
-            if (!/\.(?:content|kramdown|title)$/.test(path)) return item;
+            if (!/\.(?:content|kramdown|title|formattedExcerpt)$/.test(path)) return item;
             const limit = path.endsWith('.content') ? 600 : 320;
             record(path, item.length, Math.min(item.length, limit), 'characters');
             return clip(item, limit);
@@ -575,12 +575,13 @@ async function buildSnapshot(
     const atomAttrs = await batchAttrs(client, readableAtomIds);
     const atomRows: unknown[] = [];
     for (const ids of chunks(readableAtomIds, 200)) {
-        atomRows.push(...await searchApi.querySQL(client, `SELECT id, content, updated, hpath FROM blocks WHERE id IN (${ids.map((id) => `'${escapeSqlString(id)}'`).join(',')})`));
+        atomRows.push(...await searchApi.querySQL(client, `SELECT id, content, markdown, updated, hpath FROM blocks WHERE id IN (${ids.map((id) => `'${escapeSqlString(id)}'`).join(',')})`));
     }
     const atomRowsById = new Map(atomRows.map((row) => [rowId(row), row as Record<string, string>]));
     const knowledgeProducts = readableAtomIds.map((id) => ({
         id,
         title: atomRowsById.get(id)?.content || '',
+        ...(atomRowsById.get(id)?.markdown ? { formattedExcerpt: atomRowsById.get(id)!.markdown, textBasis: 'kernel-markdown' } : {}),
         hpath: atomRowsById.get(id)?.hpath || undefined,
         updated: atomRowsById.get(id)?.updated || undefined,
         name: atomAttrs[id]?.name || '',
@@ -810,6 +811,7 @@ const projectTool = defineTool<ProjectAction>({
             const response = {
                 action: parsed.action,
                 ...result,
+                knowledgeProtocol: KNOWLEDGE_PROTOCOL,
                 ...(literature ? { literature } : {}),
                 ...(knowledgeUpdate ? { knowledgeUpdate } : {}),
                 ...(knowledgeCatalogs ? { knowledgeCatalogs } : {}),

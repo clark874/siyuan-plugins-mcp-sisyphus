@@ -14,6 +14,7 @@ import {
     type SystemAction,
 } from '../../core/config';
 import { getAgentMemoryStatus } from '../../core/server-instructions';
+import { KNOWLEDGE_PROTOCOL } from '../../core/knowledge-update';
 import {
     SystemAuditEnvironmentSchema,
     SystemBootstrapSchema,
@@ -209,6 +210,7 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
         },
         capabilities,
         literature,
+        knowledgeProtocol: KNOWLEDGE_PROTOCOL,
         pathGuide: {
             workspacePath: '/Notebook/Folder/Doc (human-readable, used by fs)',
             rootPath: '/ lists all readable notebooks',

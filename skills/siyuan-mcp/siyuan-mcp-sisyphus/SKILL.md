@@ -16,7 +16,7 @@ compatibility: "Requires a reachable SiYuan Sisyphus MCP server already register
 system(action="bootstrap")
 ```
 
-Sisyphus 是唯一外部思源 MCP 入口（http://127.0.0.1:36806/mcp）；原生 MCP（http://127.0.0.1:6806/mcp）仅作内部扩展总线，不重复注册。以实时笔记本权限、文献目录与能力为准；bootstrap 的 operation.readOnly 只适用于这次调用。
+Sisyphus 是唯一外部思源 MCP 入口（http://127.0.0.1:36806/mcp）；原生 MCP（http://127.0.0.1:6806/mcp）仅作内部扩展总线，不重复注册。以实时笔记本权限、文献目录与能力为准；bootstrap 的 operation.readOnly 只适用于这次调用。本技能知识协议为 2，契约版本为 1.6。对照 bootstrap 或项目快照的 knowledgeProtocol；不一致时先核对实时帮助并提示技能更新，普通读取继续。
 
 读取虚拟 /AGENTS.md 与 /USER_RULES.md；记忆为空时继续读取当前目录和契约指针，不先要求用户创建记忆。知识录入先读 [资料录入与接续契约](references/recording-contract.md)；既有工作区知识契约可按 name=knowledge-compile-contract 定位，规则正文与历史会话账本分别读取。
 
@@ -27,7 +27,7 @@ Sisyphus 是唯一外部思源 MCP 入口（http://127.0.0.1:36806/mcp）；原�
 | 用户要做的工作 | 入口内部读取的操作规程 |
 | --- | --- |
 | 查资料、读正文、搜索、追溯来源 | `siyuan-mcp-browse-read` 与 `siyuan-mcp-search-query`；命中后回读原文，名称和模型排序不提升证据状态 |
-| 在项目中说“更新思源笔记”“同步本轮成果”或要求项目知识整合 | 读取项目快照和录入契约，按 `siyuan-mcp-project-knowledge-compile` 完成增量原子和关系，再用 `siyuan-mcp-project-coordinator` 提交项目状态。发现项目知识 AV 后同步绑定行，已启用导图在批次收尾后刷新。自然指令已授权本轮项目更新，无需再说“知识化” |
+| 在项目中说“更新思源笔记”“同步本轮成果”或要求项目知识整合 | 读取项目快照和录入契约。涉及反复查读、跨项目复用或多版裁决时，按 `siyuan-mcp-project-knowledge-compile` 整合，再提交项目状态；一次性简单记录按既有保存路径交付资料层。AV 登记来源，新原子同次写项目及工作线属性。已启用导图在收尾后刷新。自然指令已授权本轮更新，无需再说“知识化” |
 | 保存指定全文或普通文档编辑 | 用 `siyuan-mcp-create-edit` 保存正文和来源；外部网页差量使用 `siyuan-mcp-knowledge-ingest`。用户明确只保存时报告资料层结果 |
 | 查项目知识类型、核验状态或待编译材料 | 优先从项目快照发现知识 AV，经 `siyuan-mcp-database` 或知识检索限定候选，再回读绑定块和按需读取有向关系 |
 | 接续项目、更新进度、交接或收尾 | `siyuan-mcp-project-coordinator`；自然语言授权有效，四个命令只是快捷入口。明确只更新进度时按指定范围处理 |

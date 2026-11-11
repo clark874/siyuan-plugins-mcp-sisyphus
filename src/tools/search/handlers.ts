@@ -2,7 +2,7 @@ import * as searchApi from '../../api/search';
 import { retrieveKnowledgeCandidates, attachKnowledgeContext, rerankKnowledgeCandidates } from './retrieval';
 import { redactText } from '../../shared/text-security';
 import { normalizeAnchorToken } from '../../core/attribute-governance';
-import { readKnowledgeRelations } from '../../core/knowledge-relations';
+import { readKnowledgeRelations, readKnowledgeSupersessions } from '../../core/knowledge-relations';
 import { loadToolConfigFromApiFileWithStatus } from '../../core/config';
 import { readProjectKnowledgeCatalog } from '../project/knowledge-catalog';
 import type { SearchAction } from '../../core/config';
@@ -507,12 +507,16 @@ async function knowledgeRelationProjection(
     includeRelations: boolean | undefined,
     ids: string[],
 ) {
-    if (!includeRelations) return {};
-    try {
-        return { knowledgeRelations: await readKnowledgeRelations(client, permMgr, ids) };
-    } catch {
-        return { knowledgeRelations: { status: 'unavailable' } };
-    }
+    const [supersessions, relations] = await Promise.allSettled([
+        readKnowledgeSupersessions(client, permMgr, ids),
+        includeRelations ? readKnowledgeRelations(client, permMgr, ids) : Promise.resolve(undefined),
+    ]);
+    return {
+        ...(supersessions.status === 'fulfilled'
+            ? { supersededBy: supersessions.value.byBlockId, supersessionWindow: { hasMore: supersessions.value.hasMore } }
+            : { supersessionWindow: { status: 'unavailable' } }),
+        ...(includeRelations ? { knowledgeRelations: relations.status === 'fulfilled' ? relations.value : { status: 'unavailable' } } : {}),
+    };
 }
 
 /**
