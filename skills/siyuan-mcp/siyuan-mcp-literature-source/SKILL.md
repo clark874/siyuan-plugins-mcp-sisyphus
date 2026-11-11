@@ -1,7 +1,7 @@
 ---
 name: siyuan-mcp-literature-source
 description: 用户明确要求“文献链路”或“重点文献链路”时使用；逐项核对 Zotero、原文锚点、思源入链与全文导入，缺件立即报告。
-compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
+compatibility: "优先使用已连接的 SiYuan Sisyphus MCP；无 MCP 时按随包 CLI 后备规程使用已有本机入口。技能安装与 MCP 连接配置分别回验。"
 ---
 
 # Read Zotero Literature with MCP

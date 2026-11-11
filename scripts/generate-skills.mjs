@@ -45,6 +45,8 @@ siyuan-sisyphus --version
 
 If the command is missing, resolve a locally installed or user-provided maintained CLI entry before continuing. Do not use \`npx\` as an implicit fallback. A public npm package may lag the locally maintained plugin and silently omit custom actions or safety contracts.
 
+本机命令名还可为 \`sisyphus\`。首选命令不存在时，运行 \`command -v sisyphus\` 并核对版本，再使用该入口；两个命令属于同一 CLI。Agent 调用固定使用 \`--json\` 保留窗口、正文和续读字段；人类视图显示本次受控正文窗口。
+
 After resolving the entry, start with the read-only live bootstrap:
 
 \`\`\`bash
@@ -113,7 +115,7 @@ function renderSkill(scenario, runtime, publicName) {
     const name = publicName ?? (runtime === 'mcp' ? scenario.mcpName : scenario.cliName);
     const description = runtime === 'mcp' ? scenario.mcpDescription : scenario.cliDescription;
     const compatibility = runtime === 'mcp'
-        ? 'Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token.'
+        ? '优先使用已连接的 SiYuan Sisyphus MCP；无 MCP 时按随包 CLI 后备规程使用已有本机入口。技能安装与 MCP 连接配置分别回验。'
         : 'Requires the maintained siyuan-sisyphus CLI to be installed and configured for the target SiYuan workspace.';
     const runtimeTitle = runtime === 'mcp' ? `${scenario.title} with MCP` : `${scenario.title} with the CLI`;
     const entryGuard = runtime === 'cli' ? `${CLI_ENTRY_GUARD}\n\n` : '';

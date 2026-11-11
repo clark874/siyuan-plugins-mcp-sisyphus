@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "packageVersion": "0.20.0",
+  "packageVersion": "0.20.1",
   "distribution": {
-    "startHere": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.20.0/agent-kit/START-HERE.md",
-    "archive": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.20.0/siyuan-agent-kit.zip",
+    "startHere": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/v0.20.1/agent-kit/START-HERE.md",
+    "archive": "https://github.com/clark874/siyuan-plugins-mcp-sisyphus/releases/download/v0.20.1/siyuan-agent-kit.zip",
     "stableChannel": "https://raw.githubusercontent.com/clark874/siyuan-plugins-mcp-sisyphus/main/release-channel.json"
   },
   "externalGateway": {
@@ -30,7 +30,8 @@
     "kimiCode": "node scripts/install-agent-kit.mjs --client kimi",
     "zcode": "node scripts/install-agent-kit.mjs --client zcode",
     "pluginUpdateCheck": "node scripts/update-sisyphus.mjs",
-    "pluginUpdateApply": "node scripts/update-sisyphus.mjs --apply"
+    "pluginUpdateApply": "node scripts/update-sisyphus.mjs --apply",
+    "antigravity": "node scripts/install-agent-kit.mjs --client antigravity"
   },
   "security": {
     "containsCredential": false,

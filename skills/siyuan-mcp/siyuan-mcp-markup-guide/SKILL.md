@@ -1,7 +1,7 @@
 ---
 name: siyuan-mcp-markup-guide
 description: MCP guide for SiYuan-specific rich Markdown written through block and document actions. Use for math, diagrams, attributes, super blocks, embeds, block references, and SiYuan rendering constraints; standard Markdown is assumed knowledge. Do not use for plain prose edits without SiYuan-specific formatting.
-compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
+compatibility: "优先使用已连接的 SiYuan Sisyphus MCP；无 MCP 时按随包 CLI 后备规程使用已有本机入口。技能安装与 MCP 连接配置分别回验。"
 ---
 
 # SiYuan Markup Guide with MCP

@@ -1,7 +1,7 @@
 ---
 name: siyuan-mcp-knowledge-ingest
 description: 思源知识摄取工作流。只在外部来源需要写入思源知识库时使用，包括整理网页、导入教程、更新专题与编译剪藏；通过 Sisyphus MCP 完成查重、差量合并、来源登记、AV 入表和幂等复跑。只阅读网页或查询既有笔记时不要使用。
-compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
+compatibility: "优先使用已连接的 SiYuan Sisyphus MCP；无 MCP 时按随包 CLI 后备规程使用已有本机入口。技能安装与 MCP 连接配置分别回验。"
 ---
 
 # 思源知识摄取与差量编译 with MCP

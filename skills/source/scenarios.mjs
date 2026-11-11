@@ -15,6 +15,8 @@ export const scenarios = [
 
 ## 连接与资料发现
 
+先使用当前客户端已连接的 Sisyphus MCP。若工具栏没有该入口，读取 [CLI 后备规程](references/cli.md)，直接检查已知本机命令。Agent Kit 支持显式安装 Antigravity 连接；客户端刷新由用户操作。
+
 新连接先只读启动：
 
 {{call bootstrap}}
@@ -23,7 +25,9 @@ Sisyphus 是唯一外部思源 MCP 入口（http://127.0.0.1:36806/mcp）；原�
 
 读取虚拟 /AGENTS.md 与 /USER_RULES.md；记忆为空时继续读取当前目录和契约指针，不先要求用户创建记忆。知识录入先读 [资料录入与接续契约](references/recording-contract.md)；既有工作区知识契约可按 name=knowledge-compile-contract 定位，规则正文与历史会话账本分别读取。
 
-项目任务先用 project.snapshot 发现当前状态、资料与文献入口，判断来源和新旧裁决；文献查读先看 bootstrap.literature.libraries 或项目文献目录。summary 只是索引，按返回总数和截断说明继续读稳定块或 full，不把未读部分当作不存在。普通非项目笔记直接定位目标。先索引，再围绕任务读取必要全文；不预设只能读几篇论文或几个块。
+项目已知稳定 projectId 时先用 project.snapshot。未知标识或目录未登记时，先用 file.list_project_sources 按项目关键词查找，原样使用返回的 projectId；hubBlockId 是文档身份，不能填入 projectId。文件夹显示名也未必等于登记项目名。not_found 后按响应的 nextStep 接续，不先扫描笔记本目录或自动登记当前目录。
+
+project.snapshot 的默认摘要用于发现当前状态、工作线和来源入口，避免先整篇读取含日常溯源事件的中枢。事件沿快照窗口按需读取。正文只围绕本次问题，按返回稳定块读取受控窗口，沿 nextWindow 继续。判断来源和新旧裁决；文献查读先看 bootstrap.literature.libraries 或项目文献目录。summary 只是索引，按返回总数和截断说明继续读稳定块或 full，不把未读部分当作不存在。普通非项目笔记直接定位目标。先索引，再围绕任务读取必要全文；不预设只能读几篇论文或几个块。
 
 ## 按用户目标选择规程
 
@@ -53,7 +57,7 @@ name 是确定地址，必须读到承担回答的正文；标题锚点、数据
 - 严格写入按实时 schema 预检并原样使用 issuedRequestId 与所需凭据；不手造 UUIDv7，不假定所有追加动作都有哈希字段，结果未知先查回执。
 - source-checked 表示来源核对；执行和证据核验各自有证据入口，原文写“闭环”不自动升级验证等级。
 - 新项目源登记、敏感披露和不可逆操作仍按授权执行；仅暂停受影响步骤，不跳过其他已授权工作。
-- 正常使用优先 MCP。没有 MCP 且用户明确要求使用本机 CLI 时，读取 [CLI 后备规程](references/cli.md)，先核对可用命令，禁止隐式 npx 下载。
+- 正常使用优先 MCP。当前客户端没有 MCP 时，读取 [CLI 后备规程](references/cli.md)，先核对已有本机命令，按当前任务权限继续；禁止隐式 npx 下载。
 
 `,
         calls: {

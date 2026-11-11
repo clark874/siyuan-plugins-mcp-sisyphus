@@ -37,11 +37,16 @@ SIYUAN_MCP_TOKEN='<由用户在本地提供的 token>' node scripts/install-agen
 
 # ZCode
 SIYUAN_MCP_TOKEN='<由用户在本地提供的 token>' node scripts/install-agent-kit.mjs --client zcode
+
+# Antigravity
+SIYUAN_MCP_TOKEN='<由用户在本地提供的 token>' node scripts/install-agent-kit.mjs --client antigravity
 ```
 
 若目标客户端已经保存了有效的 Sisyphus Bearer token，可省略环境变量，安装器会在受支持的本地客户端配置中复用它。安装器不读取思源工作区正文，不输出 token，也不删除检测到的官方 MCP 配置。
 
-安装器只迁移确认属于本项目的旧场景技能与旧聚合入口，完整备份保存在 `~/.agents/.sisyphus-skill-backups/`，位于技能扫描目录之外；其他用户技能保持原样。
+Antigravity 使用 `~/.gemini/antigravity/mcp_config.json` 的 `mcpServers.siyuan.serverUrl` 和 `headers`，技能安装到 `~/.gemini/antigravity/skills/siyuan`。已有配置文件或技能目录链接到中央目录时，安装器保留入口链接。技能本身若由中央管理器软链维护，先通过原管理器同步本版；内容相同则直接复用。`--client antigravity --dry-run` 可只做预检；`auto` 和 `all` 沿用 Kimi、ZCode 的范围。
+
+安装器只迁移确认属于本项目的旧场景技能与旧聚合入口，完整备份保存在 `~/.agents/.sisyphus-skill-backups/`（Antigravity 使用 `~/.gemini/.sisyphus-skill-backups/`），位于技能扫描目录之外；其他用户技能保持原样。
 
 5. 在启动 Agent 会话前执行真实 MCP 验收：
 
@@ -49,6 +54,8 @@ SIYUAN_MCP_TOKEN='<由用户在本地提供的 token>' node scripts/install-agen
 node bin/check-sisyphus.cjs --client zcode --json
 # 或
 node bin/check-sisyphus.cjs --client kimi --json
+# 或
+node bin/check-sisyphus.cjs --client antigravity --json
 ```
 
 检查器依次执行 initialize、tools/list 和 `system.bootstrap`。如果思源未运行，先启动思源并等待检查结果为 `ready`；随后必须重启或重新加载宿主客户端。当前会话不会因为端点稍后上线而自动获得 MCP 工具。

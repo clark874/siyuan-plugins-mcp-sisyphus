@@ -89,6 +89,26 @@ describe('cli/render', () => {
         io.restore();
     });
 
+    it('完整显示 fs.read 已返回的正文窗口和继续读取提示', () => {
+        const io = captureStdIO();
+        const content = '# 研究结论\n\n' + '本段属于已获准返回的正文。'.repeat(20) + '\n\n末尾公式 `b*` 应可见。';
+        const nextWindow = { action: 'read', path: '/工作日志/' + '长项目名称'.repeat(20) + '/研究项目', blockStart: 2, blockLimit: 2, tokenBudget: 2000 };
+        const nextWindowHint = `Continue with fs(${JSON.stringify(nextWindow)}).`;
+        const result: ToolResult = {
+            content: [{ type: 'text', text: JSON.stringify({
+                path: nextWindow.path, content, outline: [], blockStart: 0, blockLimit: 2,
+                returnedBlocks: 2, totalBlocks: 4, truncated: true, hasNextWindow: true,
+                nextWindow, nextWindowHint,
+            }) }],
+        };
+
+        expect(renderToolResult(result, { json: false, debug: false })).toBe(0);
+        expect(io.stdout).toContain(content);
+        expect(io.stdout).toContain('继续读取');
+        expect(io.stdout).toContain(nextWindowHint);
+        io.restore();
+    });
+
     it('shows the full MCP page for paginated output', () => {
         const io = captureStdIO();
         const data = Array.from({ length: 12 }, (_, index) => ({

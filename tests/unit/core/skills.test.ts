@@ -52,7 +52,7 @@ describe('core/skills', () => {
         for (const skill of MCP_SKILLS) {
             expect(skill.text).toContain(`name: ${skill.name}`);
             expect(skill.text).toContain('compatibility:');
-            expect(skill.text).toContain('Requires a reachable SiYuan Sisyphus MCP server');
+            expect(skill.text).toContain('优先使用已连接的 SiYuan Sisyphus MCP');
             expect(skill.text).not.toMatch(/\bsiyuan-sisyphus\s+(fs|notebook|document|block|av|file|search|tag|timeline|system)\b/);
         }
 

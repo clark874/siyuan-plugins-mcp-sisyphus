@@ -9,6 +9,7 @@ import {
     lstat,
     readdir,
     readFile,
+    realpath,
     rename,
     writeFile,
 } from 'node:fs/promises';
@@ -35,14 +36,14 @@ function parseArguments(argv) {
         } else if (value === '--require-ready') {
             options.requireReady = true;
         } else if (value === '--help' || value === '-h') {
-            console.log('用法：node scripts/install-agent-kit.mjs --client kimi|zcode|all|auto [--home <目录>] [--dry-run] [--require-ready]');
+            console.log('用法：node scripts/install-agent-kit.mjs --client kimi|zcode|antigravity|all|auto [--home <目录>] [--dry-run] [--require-ready]');
             process.exit(0);
         } else {
             throw new Error(`未知参数：${value}`);
         }
     }
-    if (!['kimi', 'zcode', 'all', 'auto'].includes(options.client)) {
-        throw new Error('--client 仅支持 kimi、zcode、all 或 auto。');
+    if (!['kimi', 'zcode', 'antigravity', 'all', 'auto'].includes(options.client)) {
+        throw new Error('--client 仅支持 kimi、zcode、antigravity、all 或 auto。');
     }
     return options;
 }
@@ -104,6 +105,12 @@ function zcodeConfigPath(options) {
     return path.join(options.home, '.zcode/cli/config.json');
 }
 
+async function antigravityConfigPath(options) {
+    const target = path.join(options.home, '.gemini/antigravity/mcp_config.json');
+    // 配置可能链接至中央目录，写入实际文件以保留客户端入口软链。
+    return await exists(target) ? realpath(target) : target;
+}
+
 async function resolveClients(options) {
     if (options.client !== 'auto') {
         return options.client === 'all' ? ['kimi', 'zcode'] : [options.client];
@@ -128,6 +135,7 @@ async function resolveToken(options, targetPaths) {
         path.join(options.home, '.kimi/mcp.json'),
         path.join(options.home, '.kimi-code/mcp.json'),
         path.join(options.home, '.zcode/cli/config.json'),
+        path.join(options.home, '.gemini/antigravity/mcp_config.json'),
     ]);
     for (const candidate of candidates) {
         if (!await exists(candidate)) continue;
@@ -158,7 +166,7 @@ function officialServerNames(config) {
     const names = [];
     for (const servers of containers) {
         for (const [name, server] of Object.entries(servers)) {
-            if (isOfficialMcpUrl(server?.url)) names.push(name);
+            if (isOfficialMcpUrl(server?.url ?? server?.serverUrl)) names.push(name);
         }
     }
     return names;
@@ -245,11 +253,22 @@ async function validateSkillSource(directory, prefix = '') {
 
 async function installSkill(options) {
     const source = path.join(kitRoot, 'skills/siyuan');
-    const destination = path.join(options.home, '.agents/skills/siyuan');
+    const skillRoot = options.client === 'antigravity' ? '.gemini/antigravity/skills' : '.agents/skills';
+    const destination = path.join(options.home, skillRoot, 'siyuan');
     const sourceFiles = await validateSkillSource(source);
     const skillFiles = sourceFiles.filter((file) => path.basename(file) === 'SKILL.md');
     if (skillFiles.length !== 1 || skillFiles[0] !== 'SKILL.md' || !await isProjectSkill(source, 'siyuan')) {
         throw new Error('技能发布目录必须只包含 siyuan 这一份 SKILL.md。');
+    }
+    if ((await lstat(destination).catch(() => undefined))?.isSymbolicLink()) {
+        const linked = await realpath(destination);
+        const linkedFiles = await validateSkillSource(linked);
+        if (await isProjectSkill(linked, 'siyuan') && JSON.stringify(linkedFiles) === JSON.stringify(sourceFiles)
+            && (await Promise.all(sourceFiles.map(async file =>
+                (await readFile(path.join(source, file))).equals(await readFile(path.join(linked, file)))))).every(Boolean)) {
+            return destination;
+        }
+        throw new Error(`目标技能由符号链接管理，请先通过原管理器更新，已保留：${destination}`);
     }
     if (await exists(destination) && !await isProjectSkill(destination, 'siyuan')) {
         throw new Error(`目标目录不属于本项目，已保留：${destination}`);
@@ -269,7 +288,8 @@ async function installSkill(options) {
     }
     await mkdir(path.dirname(destination), { recursive: true });
     // 备份与暂存均位于技能扫描根之外，避免旧入口继续被发现。
-    const backupRoot = path.join(options.home, '.agents/.sisyphus-skill-backups', `${Date.now()}-${process.pid}`);
+    const backupParent = options.client === 'antigravity' ? '.gemini/.sisyphus-skill-backups' : '.agents/.sisyphus-skill-backups';
+    const backupRoot = path.join(options.home, backupParent, `${Date.now()}-${process.pid}`);
     const staged = path.join(backupRoot, '.staged-siyuan');
     await mkdir(backupRoot, { recursive: true });
     await cp(source, staged, { recursive: true });
@@ -314,6 +334,11 @@ async function configureClient(client, target, token, options) {
     };
     if (client === 'kimi') {
         config.mcpServers = { ...(config.mcpServers ?? {}), siyuan: server };
+    } else if (client === 'antigravity') {
+        config.mcpServers = {
+            ...(config.mcpServers ?? {}),
+            siyuan: { serverUrl: SISYPHUS_URL, headers: server.headers },
+        };
     } else {
         config.mcp = config.mcp ?? {};
         config.mcp.servers = {
@@ -360,7 +385,8 @@ async function main() {
     const clients = await resolveClients(options);
     const paths = [];
     for (const client of clients) {
-        paths.push(client === 'kimi' ? await resolvedKimiConfigPath(options) : zcodeConfigPath(options));
+        paths.push(client === 'kimi' ? await resolvedKimiConfigPath(options)
+            : client === 'antigravity' ? await antigravityConfigPath(options) : zcodeConfigPath(options));
     }
     const token = await resolveToken(options, paths);
     const skillPath = await installSkill(options);

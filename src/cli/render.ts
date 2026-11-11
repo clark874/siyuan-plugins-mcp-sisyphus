@@ -280,6 +280,19 @@ function renderSuccessPayload(payload: unknown): void {
 
     const obj = payload as Record<string, unknown>;
 
+    if (typeof obj.path === 'string' && typeof obj.content === 'string'
+        && typeof obj.blockStart === 'number' && typeof obj.returnedBlocks === 'number') {
+        const { content, nextWindowHint, ...metadata } = obj;
+        renderGenericObject(metadata, out);
+        writeSection('正文', out);
+        writeLine(out, content);
+        if (typeof nextWindowHint === 'string' && nextWindowHint) {
+            writeSection('继续读取', out);
+            writeLine(out, nextWindowHint);
+        }
+        return;
+    }
+
     if (isHelpIndexPayload(obj)) {
         renderHelpIndex(obj, out);
         return;

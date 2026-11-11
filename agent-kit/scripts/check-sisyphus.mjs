@@ -15,11 +15,11 @@ function parseArguments(argv) {
         else if (value === '--json') options.json = true;
         else if (value === '--timeout') options.timeoutMs = Number(argv[++index]);
         else if (value === '--help' || value === '-h') {
-            console.log('Usage: node scripts/check-sisyphus.mjs [--client kimi|zcode|auto] [--home <dir>] [--json] [--timeout <ms>]');
+            console.log('用法：node scripts/check-sisyphus.mjs [--client kimi|zcode|antigravity|auto] [--home <目录>] [--json] [--timeout <毫秒>]');
             process.exit(0);
         } else throw new Error(`Unknown argument: ${value}`);
     }
-    if (!['kimi', 'zcode', 'auto'].includes(options.client)) throw new Error('--client must be kimi, zcode, or auto.');
+    if (!['kimi', 'zcode', 'antigravity', 'auto'].includes(options.client)) throw new Error('--client 仅支持 kimi、zcode、antigravity 或 auto。');
     if (!Number.isFinite(options.timeoutMs) || options.timeoutMs < 1) throw new Error('--timeout must be a positive number.');
     return options;
 }
@@ -55,6 +55,7 @@ async function clientPaths(options) {
             path.join(options.home, '.kimi-code/mcp.json'),
         ].filter(Boolean),
         zcode: [path.join(options.home, '.zcode/cli/config.json')],
+        antigravity: [path.join(options.home, '.gemini/antigravity/mcp_config.json')],
     };
     const clients = options.client === 'auto' ? ['kimi', 'zcode'] : [options.client];
     return clients.flatMap((client) => byClient[client].map((target) => ({ client, target })));
@@ -72,7 +73,8 @@ export async function readConfiguredGateway(options) {
         const server = serverFromConfig(config);
         if (!server || typeof server !== 'object') continue;
         const token = normalizeToken(server?.headers?.Authorization);
-        if (server.url !== SISYPHUS_URL || !token) return { client, issue: 'host_reload_required' };
+        const url = client === 'antigravity' ? server.serverUrl : server.url;
+        if (server.disabled === true || url !== SISYPHUS_URL || !token) return { client, issue: 'host_reload_required' };
         return { client, url: SISYPHUS_URL, token };
     }
     return { client: options.client, issue: 'host_reload_required' };
@@ -129,7 +131,10 @@ export async function checkSisyphus(options) {
         } catch {
             return { ready: false, issue: 'bootstrap_failed', client: configured.client, sessionMount: 'not_observable' };
         }
-        if (bootstrap?.schemaVersion !== 2 || bootstrap?.bootstrap !== true || typeof bootstrap?.toolConfiguration !== 'object') {
+        const deliveryPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../delivery.json');
+        const delivery = JSON.parse(await readFile(deliveryPath, 'utf8'));
+        if (bootstrap?.schemaVersion !== delivery.firstCall.expectedSchemaVersion
+            || bootstrap?.bootstrap !== true || typeof bootstrap?.toolConfiguration !== 'object') {
             return { ready: false, issue: 'bootstrap_schema_mismatch', client: configured.client, sessionMount: 'not_observable' };
         }
         if (bootstrap.toolConfiguration.current !== true) {

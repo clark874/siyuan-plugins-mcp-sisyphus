@@ -1,7 +1,7 @@
 ---
 name: siyuan-mcp-knowledge-governance
 description: 思源知识治理工作流。用于把专题材料编译为带 name/alias 的知识原子，审计覆盖缺口与歧义，维护专题中枢，并安全处理跨引用改名。普通检索应使用 search-query，外部来源入库应使用 knowledge-ingest。
-compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
+compatibility: "优先使用已连接的 SiYuan Sisyphus MCP；无 MCP 时按随包 CLI 后备规程使用已有本机入口。技能安装与 MCP 连接配置分别回验。"
 ---
 
 # 思源知识原子编译与治理 with MCP

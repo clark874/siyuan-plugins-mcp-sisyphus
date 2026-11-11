@@ -535,8 +535,8 @@ async function buildSnapshot(
             reason: selection.reason,
             candidates: selection.candidates,
             nextStep: selection.status === 'ambiguous'
-                ? '请选择一个项目名称后重试。'
-                : '可使用 file(action="list_project_sources", query="<项目名称>") 查找候选。',
+                ? '从 candidates 选择正确项目，原样使用其 projectId 调用 project.snapshot。'
+                : '调用 file(action="list_project_sources", query="<项目关键词>") 查找登记项，再原样使用返回的 projectId 调用 project.snapshot。hubBlockId 是文档 ID，不能作为 projectId；未登记的当前目录不代表项目缺失。',
         };
     }
     const record = selection.record;

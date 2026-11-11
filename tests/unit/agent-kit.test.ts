@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -355,4 +355,50 @@ it('入库复用书目对账，支持网址与正文版本并在预检后拦截�
         (raw.av.keyValues.find((c: any) => c.key.name === '题名') as any).values[0].text.content = '用户并发编辑';
         await verify();
     } })).rejects.toThrow('并发编辑');
+});
+
+it('Antigravity 安装保留中央软链、其他服务与私密权限，预检不写入', () => {
+    const home = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-antigravity-'));
+    const central = path.join(home, '.gemini/config'), client = path.join(home, '.gemini/antigravity');
+    mkdirSync(path.join(central, 'skills'), { recursive: true });
+    mkdirSync(client, { recursive: true });
+    symlinkSync('../config/skills', path.join(client, 'skills'));
+    const configPath = path.join(central, 'mcp_config.json');
+    const original = { mcpServers: { RepoPrompt: { command: '/bin/repoprompt' }, thinking: { disabled: true, command: 'thinking' } } };
+    writeFileSync(configPath, JSON.stringify(original));
+    symlinkSync('../config/mcp_config.json', path.join(client, 'mcp_config.json'));
+    const token = 'f'.repeat(64), command = [path.join(root, 'agent-kit/scripts/install-agent-kit.mjs'), '--client', 'antigravity', '--home', home];
+    const options = { env: { ...process.env, SIYUAN_MCP_TOKEN: token }, encoding: 'utf8' as const };
+    execFileSync(process.execPath, [...command, '--dry-run'], options);
+    expect(readFileSync(configPath, 'utf8')).toBe(JSON.stringify(original));
+    expect(existsSync(path.join(central, 'skills/siyuan'))).toBe(false);
+    expect(existsSync(path.join(home, '.siyuan-sisyphus'))).toBe(false);
+    const output = execFileSync(process.execPath, command, options);
+    expect(lstatSync(path.join(client, 'mcp_config.json')).isSymbolicLink()).toBe(true);
+    expect(lstatSync(path.join(client, 'skills')).isSymbolicLink()).toBe(true);
+    expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual({ mcpServers: { ...original.mcpServers,
+        siyuan: { serverUrl: 'http://127.0.0.1:36806/mcp', headers: { Authorization: `Bearer ${token}` } } } });
+    expect(readFileSync(path.join(central, 'skills/siyuan/SKILL.md'), 'utf8')).toBe(read('agent-kit/skills/siyuan/SKILL.md'));
+    expect(statSync(configPath).mode & 0o777).toBe(0o600);
+    const files = readdirSync(central);
+    expect(files.some(file => file.startsWith('mcp_config.json.backup-'))).toBe(true);
+    execFileSync(process.execPath, command, options);
+    expect(readdirSync(central)).toEqual(files);
+    const failedFetch = `data:text/javascript,${encodeURIComponent("globalThis.fetch=async()=>{throw new TypeError('fetch failed')}")}`;
+    const checked = spawnSync(process.execPath, ['--import', failedFetch, path.join(root, 'agent-kit/scripts/check-sisyphus.mjs'),
+        '--client', 'antigravity', '--home', home, '--json'], { encoding: 'utf8' });
+    expect(checked.stdout).toContain('gateway_not_running');
+    expect(`${output}${checked.stdout}${checked.stderr}`).not.toContain(token);
+});
+
+it('Antigravity 遇到用户技能停止且不创建配置', () => {
+    const home = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-antigravity-conflict-'));
+    const skill = path.join(home, '.gemini/antigravity/skills/siyuan/SKILL.md');
+    mkdirSync(path.dirname(skill), { recursive: true });
+    writeFileSync(skill, '用户自己的技能');
+    const result = spawnSync(process.execPath, [path.join(root, 'agent-kit/scripts/install-agent-kit.mjs'), '--client', 'antigravity', '--home', home],
+        { env: { ...process.env, SIYUAN_MCP_TOKEN: 'f'.repeat(64) }, encoding: 'utf8' });
+    expect(result.status).toBe(1);
+    expect(readFileSync(skill, 'utf8')).toBe('用户自己的技能');
+    expect(existsSync(path.join(home, '.gemini/antigravity/mcp_config.json'))).toBe(false);
 });

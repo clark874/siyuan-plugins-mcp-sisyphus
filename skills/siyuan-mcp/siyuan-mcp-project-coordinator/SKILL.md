@@ -1,7 +1,7 @@
 ---
 name: siyuan-mcp-project-coordinator
 description: 思源多 Agent 项目协同工作流。用户要求接续、更新、交接或维护项目时，按自然语言任务读取或维护共享项目记忆；只读审阅不写入。
-compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
+compatibility: "优先使用已连接的 SiYuan Sisyphus MCP；无 MCP 时按随包 CLI 后备规程使用已有本机入口。技能安装与 MCP 连接配置分别回验。"
 ---
 
 # 思源多 Agent 项目协调 with MCP

@@ -1,7 +1,7 @@
 ---
 name: siyuan-mcp-project-knowledge-compile
 description: 思源研究项目知识编译工作流。用于把已授权项目增量或全量文件包保存为可追溯资料与知识原子、项目内语义关系与公共方法候选；不用于外部网页摄取、普通编辑或跨项目复用关系写入。
-compatibility: "Requires a reachable SiYuan Sisyphus MCP server already registered in the client; installing this Skill alone does not configure the MCP endpoint or bearer token."
+compatibility: "优先使用已连接的 SiYuan Sisyphus MCP；无 MCP 时按随包 CLI 后备规程使用已有本机入口。技能安装与 MCP 连接配置分别回验。"
 ---
 
 # 思源研究项目知识编译 with MCP
