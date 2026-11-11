@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -24,6 +25,67 @@ describe('project tool', () => {
         expect(tool.inputSchema.properties.action).toBeDefined();
         expect(JSON.stringify(tool.inputSchema)).toContain('projectName');
         expect(listAllTools(buildDefaultToolConfig()).find((item) => item.name === 'project')?.annotations?.readOnlyHint).toBe(false);
+    });
+
+    it('按显式代码版本与登记工作树比较，区分发布、安装和运行声明', async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sisyphus-project-freshness-'));
+        const git = (...args: string[]) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8' }).trim();
+        const packagePath = path.join(root, 'package.json');
+        process.env.SIYUAN_MCP_HOST_ID = 'host-test';
+        try {
+            fs.writeFileSync(packagePath, '{"version":"0.15.0"}');
+            git('init', '-q');
+            git('add', 'package.json');
+            git('-c', 'user.email=test@example.com', '-c', 'user.name=Sisyphus Test', 'commit', '-qm', 'source');
+            const revision = git('rev-parse', 'HEAD');
+            const registry = { schemaVersion: 1, updatedAt: '2026-11-11T00:00:00Z', projects: [{
+                projectId: 'project-git', hubBlockId: 'hub', sourceKind: 'git', revision, coverage: 'tracked',
+                coreFiles: [], includePaths: [], exclusions: [],
+                bindings: { 'host-test': { hostId: 'host-test', workspaceRoot: root, checkoutKind: 'git-clone',
+                    revision, verifiedAt: '2026-11-11T00:00:00Z', access: 'read-only', status: 'available' } },
+                manifest: { generatedAt: '2026-11-11T00:00:00Z', coverage: 'tracked', revision, manifestHash: 'sha256:v1:test',
+                    counts: { a: 0, b: 1, c: 0 }, missingCore: [], exclusions: [], truncated: false,
+                    entries: [{ relativePath: 'package.json', tier: 'B', type: 'text', size: 20, modifiedAt: '2026-11-11T00:00:00Z', sourceRevision: revision }] },
+                updatedAt: '2026-11-11T00:00:00Z',
+            }] };
+            const rows = ['hub', 'page', 'state'].map((id) => ({ id, box: 'nb', root_id: id === 'hub' ? 'hub' : 'page', path: `/${id}.sy`, type: 'd', content: id }));
+            const attrs: Record<string, Record<string, string>> = {
+                page: { 'custom-progress-role': 'project-progress-page' },
+                state: { 'custom-progress-role': 'project-state', 'custom-progress-code-version': 'v0.20.0',
+                    'custom-progress-published-version': '0.19.0', 'custom-progress-installed-version': '0.19.1', 'custom-progress-runtime-version': '0.18.0' },
+            };
+            const client = createMockClient({
+                readFile: async () => JSON.stringify(registry),
+                request: async (endpoint: string, body?: Record<string, unknown>) => {
+                    if (endpoint === '/api/query/sql') {
+                        const stmt = String(body?.stmt || '');
+                        if (stmt.includes("custom-progress-role' AND r.value IN")) return rows.slice(1);
+                        const id = stmt.match(/WHERE id\s*=\s*'([^']+)' LIMIT 1/)?.[1];
+                        return id ? rows.filter((row) => row.id === id) : [];
+                    }
+                    if (endpoint === '/api/attr/batchGetBlockAttrs') return Object.fromEntries((body?.ids as string[]).map((id) => [id, attrs[id] || {}]));
+                    if (endpoint === '/api/attr/getBlockAttrs') return attrs[String(body?.id)] || {};
+                    throw new Error(`Unexpected endpoint: ${endpoint}`);
+                },
+            });
+            const snapshot = async () => parseResult(await callProjectTool(client, { action: 'snapshot', projectId: 'project-git' }, buildDefaultToolConfig().project, createMockPermissionManager()));
+            const result = await snapshot();
+            expect(result.sourceFreshness).toMatchObject({
+                declared: { code: { version: '0.20.0' }, published: { version: '0.19.0' }, installed: { version: '0.19.1' }, runtime: { version: '0.18.0' } },
+                checkout: { version: '0.15.0', relativePath: 'package.json', revisionVerified: true },
+            });
+            expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'project_checkout_version_mismatch', blockId: 'state' }));
+            expect(JSON.stringify(result)).not.toContain(root);
+
+            attrs.state['custom-progress-code-version'] = '0.15.0';
+            expect((await snapshot()).diagnostics).not.toContainEqual(expect.objectContaining({ code: 'project_checkout_version_mismatch' }));
+            fs.writeFileSync(packagePath, '{"version":"0.15.1"}');
+            const dirty = await snapshot();
+            expect(dirty.sourceFreshness.checkout).toMatchObject({ version: '0.15.1', revisionVerified: false });
+            expect(dirty.diagnostics).toContainEqual(expect.objectContaining({ code: 'project_checkout_version_unverified' }));
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true });
+        }
     });
 
     it('returns one bounded snapshot without exposing workspaceRoot', async () => {

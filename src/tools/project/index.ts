@@ -11,6 +11,7 @@ import { executeMindmapPlan, readMindmapPlan, MINDMAP_ROOT_ATTR, MINDMAP_AUTO_AT
 import {
     listProjectSources,
     matchProjectSourceByCwd,
+    readProjectSource,
     readProjectSourceState,
     resolveProjectSource,
     type ProjectManifestEntry,
@@ -114,6 +115,70 @@ type SnapshotDiagnostic = {
     message: string;
     blockId?: string;
 };
+
+const PROJECT_VERSION_FIELDS = {
+    code: '代码版本',
+    published: '发布版本',
+    installed: '磁盘安装版本',
+    runtime: '运行版本',
+} as const;
+
+function normalizedProjectVersion(value: unknown): string | undefined {
+    if (typeof value !== 'string') return;
+    return /^v?([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$/.exec(value.trim())?.[1];
+}
+
+async function readSourceFreshness(
+    client: SiYuanClient,
+    record: ProjectSourceRecord,
+    projections: Array<{ id: string; role?: string; attributes: Record<string, string> }>,
+    diagnostics: SnapshotDiagnostic[],
+) {
+    const authoritative = projections.filter((item) => item.role === 'project-state' || item.role === 'project-profile');
+    const declared: Partial<Record<keyof typeof PROJECT_VERSION_FIELDS, { version: string; blockId: string }>> = {};
+    for (const kind of Object.keys(PROJECT_VERSION_FIELDS) as Array<keyof typeof PROJECT_VERSION_FIELDS>) {
+        const values = authoritative.flatMap((item) => {
+            const version = normalizedProjectVersion(item.attributes[`custom-progress-${kind}-version`]);
+            return version ? [{ version, blockId: item.id }] : [];
+        });
+        if (new Set(values.map(({ version }) => version)).size > 1) {
+            diagnostics.push({ code: 'project_version_declarations_conflict', severity: 'warning', status: 'stale',
+                message: `项目状态与概况中的${PROJECT_VERSION_FIELDS[kind]}声明不一致，请核对两个投影。` });
+        } else if (values.length) declared[kind] = values[0];
+    }
+
+    const relativePath = 'package.json';
+    if (record.sourceKind !== 'git' || !record.manifest?.entries.some((entry) => entry.relativePath === relativePath)) {
+        return Object.keys(declared).length ? { declared } : undefined;
+    }
+    const source = await readProjectSource(client, { projectId: record.projectId, relativePath, limit: 20_000 })
+        .catch(() => undefined);
+    let version: string | undefined;
+    if (source?.contentRead && !source.truncated && typeof source.content === 'string') {
+        try { version = normalizedProjectVersion(JSON.parse(source.content)?.version); } catch { /* 无法确认完整的版本字段。 */ }
+    }
+    const checkout = {
+        relativePath,
+        status: version ? 'read' : 'unavailable',
+        version,
+        currentRevision: source?.currentRevision,
+        manifestRevision: source?.manifestRevision,
+        revisionVerified: source?.revisionVerified === true,
+    };
+    if (!version && declared.code) {
+        diagnostics.push({ code: 'project_checkout_version_unavailable', severity: 'warning', status: 'missing', blockId: declared.code.blockId,
+            message: '无法从绑定工作树完整读取 package.json 的版本，请核对登记的来源和清单。' });
+    }
+    if (version && !checkout.revisionVerified) {
+        diagnostics.push({ code: 'project_checkout_version_unverified', severity: 'warning', status: 'stale',
+            message: '绑定工作树的 package.json 已读取，但其内容未通过登记提交及清单核验。' });
+    }
+    if (version && declared.code && version !== declared.code.version) {
+        diagnostics.push({ code: 'project_checkout_version_mismatch', severity: 'warning', status: 'stale', blockId: declared.code.blockId,
+            message: `项目声明的代码版本 ${declared.code.version} 与绑定工作树读取到的版本 ${version} 不同，请核对代码入口。` });
+    }
+    return { declared, checkout };
+}
 
 type SnapshotEvent = BlockRow & {
     occurredAt: string;
@@ -618,6 +683,7 @@ async function buildSnapshot(
     if (chronologyComplete && latestEvent && projectState && projectState.attributes['custom-progress-last-event-id'] !== latestEvent.id) {
         diagnostics.push({ code: 'project_state_lagging', severity: 'warning', status: 'stale', blockId: projectState.id, message: '项目状态投影落后于事件流。' });
     }
+    const sourceFreshness = await readSourceFreshness(client, record, projections, diagnostics);
     const workstreamHeads = new Map<string, SnapshotEvent>();
     for (const event of chronologicalEvents) {
         const workstream = event.attributes['custom-progress-workstream'];
@@ -717,6 +783,7 @@ async function buildSnapshot(
         sessions: visibleSessions,
         knowledgeProducts,
         artifacts,
+        sourceFreshness,
         diagnostics,
         repairPlan,
         chronology: {

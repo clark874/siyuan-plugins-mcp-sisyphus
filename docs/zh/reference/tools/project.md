@@ -12,6 +12,12 @@
 
 每个事件返回 `occurredAt`、`recordedAt` 和 `timeBasis`。`chronology` 同时返回项目头部、工作线头部、扫描数量和完整性。若事件窗口超过 500 条，响应返回 `event_chronology_truncated`，将 `chronology.complete` 设为 `false`，并停止输出权威的投影滞后判断；客户端不得据此更新当前状态投影。
 
+### 项目源版本核对
+
+`sourceFreshness.declared` 分别记录项目状态或概况上的 `custom-progress-code-version`、`custom-progress-published-version`、`custom-progress-installed-version` 和 `custom-progress-runtime-version`。这些字段是项目声明。快照从已登记的 Git 清单读取根目录 `package.json`，将实读版本及提交核验结果放在 `sourceFreshness.checkout`。
+
+绑定版本与明确声明的代码版本不符时报告 `project_checkout_version_mismatch`。文件读到了版本，但提交或清单未通过核验时报告 `project_checkout_version_unverified`。同时检查状态与概况对同一版本字段的声明冲突。只有代码版本参与工作树比对，发布、磁盘安装、运行各有独立字段。历史正文中的版本叙述可供阅读，机器比较使用明确属性。
+
 ## 项目知识目录与续接
 
 `knowledgeCatalogs` 返回项目明确登记的知识 AV 和数据库块链接，与响应中的文献目录独立。用 `search.knowledge` 的 `catalog` 参数筛选项目知识。快照的 `knowledgeCounts` 分列当前列表中的来源和原子数量，`includeRelations=true` 按需查看有界的一跳关系。
