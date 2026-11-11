@@ -117,6 +117,19 @@ describe('block tool', () => {
         expect(attrs['custom-verification-status']).toBe('execution-verified');
         expect(attrs).not.toHaveProperty('custom-verification-evidence');
 
+        attrs = { 'custom-atom-type': 'summary', 'custom-verification-status': 'managed' };
+        const legacyHub = parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: 'block-1', attrs: { memo: '旧中枢接续位置' },
+        }, buildDefaultToolConfig().block, permMgr as never));
+        expect(legacyHub.success).toBe(true);
+        expect(attrs['custom-verification-status']).toBe('managed');
+        const changedLegacyType = parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: 'block-1', attrs: { 'custom-atom-type': 'evidence' },
+        }, buildDefaultToolConfig().block, permMgr as never));
+        expect(changedLegacyType.error.message).toContain('合法的 custom-verification-status');
+        expect(attrs['custom-atom-type']).toBe('summary');
+
+        attrs = { 'custom-verification-status': 'execution-verified' };
         const missingEvidence = parseResult(await callBlockTool(client, {
             action: 'set_attrs', id: 'block-1', attrs: { 'custom-verification-status': 'execution-verified' },
         }, buildDefaultToolConfig().block, permMgr as never));

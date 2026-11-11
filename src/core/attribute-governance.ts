@@ -69,7 +69,8 @@ export async function validateBlockAttributeMutation(
         && !next['custom-verification-evidence']?.trim()) {
         throw new Error('强验证状态必须具有非空 custom-verification-evidence；请先提供真实验证证据入口，不能清空现有证据。');
     }
-    if (next['custom-atom-type'] && !ALLOWED_VERIFICATION_TRANSITIONS[next['custom-verification-status']]) {
+    const touchesAtomMetadata = touchesVerification || Object.prototype.hasOwnProperty.call(attrs, 'custom-atom-type');
+    if (touchesAtomMetadata && next['custom-atom-type'] && !ALLOWED_VERIFICATION_TRANSITIONS[next['custom-verification-status']]) {
         throw new Error('设置 custom-atom-type 时，目标块必须同时具有合法的 custom-verification-status。');
     }
     if (attrs['custom-progress-kind'] === 'knowledge') {
