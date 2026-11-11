@@ -4,6 +4,9 @@ import * as searchApi from '../../api/search';
 import { loadToolConfigFromApiFileWithStatus, type CategoryToolConfig, type ProjectAction } from '../../core/config';
 import { getVersion } from '../../api/system';
 import { hashWriteState } from '../../core/write-safety-hash';
+import { readKnowledgeUpdateLedger } from '../../core/knowledge-update';
+import { readKnowledgeRelations } from '../../core/knowledge-relations';
+import { discoverProjectKnowledgeCatalogs } from './knowledge-catalog';
 import { executeMindmapPlan, readMindmapPlan, MINDMAP_ROOT_ATTR, MINDMAP_AUTO_ATTR } from './mindmap';
 import {
     listProjectSources,
@@ -56,12 +59,23 @@ export async function syncEnabledProjectMindmaps(client: SiYuanClient, permMgr: 
     const loaded = await loadToolConfigFromApiFileWithStatus(client);
     if (!loaded.ok) return ids.map((projectId) => ({ projectId, status: 'pending', message: '无法读取工具配置，未同步导图。' }));
     if (!loaded.config.project.enabled || loaded.config.project.actions.sync_mindmap !== true) return [];
-    // 写后快照依赖 SQL 索引，先让内核完成刚提交的事务和索引队列。
-    try { await client.requestWrite('/api/sqlite/flushTransaction', {}); }
-    catch { return ids.map((projectId) => ({ projectId, status: 'pending', message: '项目索引刷新失败，未同步导图。' })); }
+    // 批次进行中只读账本。需要生成写后快照时才刷新索引，多项目共用一次。
+    let indexReady: Promise<unknown> | undefined;
     const results = [];
     for (const projectId of ids) {
         try {
+            const record = (await readProjectSourceState(client, projectId)).record;
+            if (record?.hubBlockId) {
+                const update = await readKnowledgeUpdateLedger(client, record.hubBlockId, projectId);
+                if (update.status === 'pending' || update.status === 'invalid') {
+                    results.push({ projectId, status: 'pending', message: '知识更新批次尚未完成验收，导图将在收尾后同步。' });
+                    continue;
+                }
+            }
+            indexReady ??= client.requestWrite('/api/sqlite/flushTransaction', {}).catch(() => {
+                throw new Error('项目索引刷新失败，未同步导图。');
+            });
+            await indexReady;
             const snapshot = await buildSnapshot(client, permMgr, { action: 'snapshot', projectId, validateSessions: false });
             if (!snapshot.mindmap?.rootId || snapshot.mindmap.autoSync !== true) continue;
             await requireMindmapKernel(client);
@@ -779,7 +793,32 @@ const projectTool = defineTool<ProjectAction>({
                 ? await import('../literature/library').then(({ discoverLiteratureLibraries }) => discoverLiteratureLibraries(client, permMgr, projectId))
                     .then(libraries => ({ status: 'available', libraries })).catch(() => ({ status: 'unavailable', libraries: [] }))
                 : undefined;
-            const response = { action: parsed.action, ...result, ...(literature ? { literature } : {}) };
+            const products = result.knowledgeProducts ?? [];
+            const atoms = products.filter(row => row.atomType && !row.sourceRole);
+            const [knowledgeUpdate, knowledgeCatalogs, knowledgeRelations] = await Promise.all([
+                projectId && result.project?.hubBlockId
+                    ? readKnowledgeUpdateLedger(client, result.project.hubBlockId, projectId).catch(() => ({ status: 'unavailable' }))
+                    : undefined,
+                projectId && config?.ok && config.config.av.enabled && config.config.av.actions.render
+                    ? discoverProjectKnowledgeCatalogs(client, permMgr, projectId)
+                        .then(catalogs => ({ status: 'available', catalogs })).catch(() => ({ status: 'unavailable', catalogs: [] }))
+                    : undefined,
+                parsed.includeRelations && projectId
+                    ? readKnowledgeRelations(client, permMgr, atoms.map(row => row.id)).catch(() => ({ status: 'unavailable' }))
+                    : undefined,
+            ]);
+            const response = {
+                action: parsed.action,
+                ...result,
+                ...(literature ? { literature } : {}),
+                ...(knowledgeUpdate ? { knowledgeUpdate } : {}),
+                ...(knowledgeCatalogs ? { knowledgeCatalogs } : {}),
+                ...(knowledgeRelations ? { knowledgeRelations } : {}),
+                ...(projectId ? { knowledgeCounts: {
+                    listedSources: products.filter(row => Boolean(row.sourceRole)).length,
+                    listedAtoms: atoms.length,
+                } } : {}),
+            };
             return createJsonResult((parsed.view ?? 'summary') === 'summary' ? summarizeSnapshot(response) : response);
         },
     },

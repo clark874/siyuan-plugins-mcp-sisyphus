@@ -31,7 +31,7 @@ pnpm make-install
 
 用户侧只安装 `siyuan`。项目接续、完整资料录入、文献与论文教学由同一入口按任务读取内部规程；参数以实时帮助为准。源文件为 `skills/source/scenarios.mjs` 及录入、教学参考，`npm run skills:generate` 同步生成 Codex、Agent Kit 和 Codex Plugin 三处公开入口，`npm run skills:check` 拒绝额外入口。
 
-资料交付分别核对：完整资料副本、能独立回答问题的知识原子、当前项目入口和状态。普通笔记不强制原子化，指定全文不能以摘要替代；强验证状态必须有真实证据。见 [资料录入契约](../../../skills/source/recording-contract.md) 和 [正负例](../../../skills/source/recording-examples.md)。
+资料交付分别核对：完整资料副本、能独立回答问题的知识原子、当前项目入口和状态。普通笔记不强制原子化，指定全文不能以摘要替代；强验证状态必须有真实证据。见 [资料录入契约](https://github.com/clark874/siyuan-plugins-mcp-sisyphus/blob/main/skills/source/recording-contract.md) 和 [正负例](https://github.com/clark874/siyuan-plugins-mcp-sisyphus/blob/main/skills/source/recording-examples.md)。
 
 旧技能迁移依照精确名称及内容归属执行，备份放在扫描根之外；自有同名技能冲突时保留原件并停止。`skills update`、实际部署、宿主界面刷新是不同步骤。需要重新加载时由用户操作。
 

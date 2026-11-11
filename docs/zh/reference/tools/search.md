@@ -25,3 +25,9 @@
 - 精排5秒超时、不重试。`rerank.status=applied` 才表示使用了模型排序；`fallback` 保留原候选顺序并报告原因。`decisionScore` 是候选相关性分数，不是事实正确率或证据认证。模型版本、用量与输入限制会随结果返回。
 - Jev 原生接口为 TypeSafe System One，不能只把模型名填进普通重排接口。插件复用思源现有凭据配置，以受限文本接口调用，不新增通用决策工具或第二套配置。
 - 语义内核请求单次等待上限15秒，其他普通请求仍用既有时限；超时不自动重放。空候选不等于证明文库不存在相关内容，仍须按稳定 ID 与来源回读。
+
+## 按项目知识目录筛选
+
+从 `project.snapshot.knowledgeCatalogs` 选择已登记目录。将 `catalogBlockId`、可选 `projectId`、`offset` 及 `filters` 放入 `catalog`。字段包括 `workstream`、`objectRole`、`atomType`、`verificationStatus`、`compileStatus`。同字段接受单值或多个可选值，不同字段同时满足。此时 `query` 记录提问意图，实际候选由目录字段确定，返回可直接回读的稳定块 ID。核验状态来自原块；返回的 `catalog.nextOffset` 用于继续读。
+
+`includeRelations=true` 对本页候选附上一跳有向关系，包括关系块 ID、起点和终点。可分别从任一端继续查询；`hasUnresolvedLegacy` 表示有仍待核定端点的历史关系。

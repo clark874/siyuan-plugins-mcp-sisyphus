@@ -2,6 +2,9 @@ import * as searchApi from '../../api/search';
 import { retrieveKnowledgeCandidates, attachKnowledgeContext, rerankKnowledgeCandidates } from './retrieval';
 import { redactText } from '../../shared/text-security';
 import { normalizeAnchorToken } from '../../core/attribute-governance';
+import { readKnowledgeRelations } from '../../core/knowledge-relations';
+import { loadToolConfigFromApiFileWithStatus } from '../../core/config';
+import { readProjectKnowledgeCatalog } from '../project/knowledge-catalog';
 import type { SearchAction } from '../../core/config';
 import {
     expandTypeShortcodes,
@@ -498,6 +501,20 @@ function blockContainsAllTokens(text: string, tokens: string[]): boolean {
     return tokens.every((token) => haystack.includes(token));
 }
 
+async function knowledgeRelationProjection(
+    client: Parameters<ToolActionHandler>[0]['client'],
+    permMgr: Parameters<ToolActionHandler>[0]['permMgr'],
+    includeRelations: boolean | undefined,
+    ids: string[],
+) {
+    if (!includeRelations) return {};
+    try {
+        return { knowledgeRelations: await readKnowledgeRelations(client, permMgr, ids) };
+    } catch {
+        return { knowledgeRelations: { status: 'unavailable' } };
+    }
+}
+
 /**
  * 词汇预检层：在语义外发之前先做一次本地关键词 fulltext 探测。
  * 只有当某个可读块同时包含全部查询词元时才就地返回，
@@ -537,6 +554,7 @@ async function tryLexicalFirstResolution(
             resolutionStatus: 'local_fulltext_all_tokens',
             matchedTokens: tokens,
             data,
+            ...await knowledgeRelationProjection(client, permMgr, parsed.includeRelations, [readStringField(lexicalHit, 'id')]),
             showing: data.length,
             total: typeof filteredProbe.matchedBlockCount === 'number' ? filteredProbe.matchedBlockCount : data.length,
             permissionFilteredCount: typeof filteredProbe.filteredOutBlockCount === 'number' ? filteredProbe.filteredOutBlockCount as number : 0,
@@ -557,6 +575,31 @@ async function knowledgeSearch(
     parsed: SearchKnowledgeArgs,
 ): Promise<ToolResult> {
     const pageSize = parsed.pageSize ?? 10;
+    if (parsed.catalog) {
+        if (parsed.notebooks?.length || parsed.paths?.length || parsed.activeScopes?.length || parsed.types
+            || parsed.subTypes || parsed.rerank
+            || (parsed.retrievalMode && parsed.retrievalMode !== 'auto')) {
+            throw new Error('知识目录查询使用已登记目录和字段范围，请将其他块检索条件放到后续回读。');
+        }
+        const config = await loadToolConfigFromApiFileWithStatus(client);
+        const result = config.ok && config.config.av.enabled && config.config.av.actions.render
+            ? await readProjectKnowledgeCatalog(client, permMgr, { ...parsed.catalog, limit: pageSize })
+            : { status: 'catalog_unavailable', candidates: [] };
+        const { candidates, ...catalog } = result;
+        const data = candidates.map(candidate => ({ id: candidate.blockId, ...candidate }));
+        if (parsed.includeContext && data.length) await attachKnowledgeContext(client, permMgr, data).catch(() => undefined);
+        return createJsonResult({
+            query: parsed.query,
+            retrievalMode: 'project_catalog',
+            catalog,
+            data,
+            showing: data.length,
+            truncated: 'hasMore' in catalog && catalog.hasMore === true,
+            dataEgress: false,
+            externalCost: false,
+            ...await knowledgeRelationProjection(client, permMgr, parsed.includeRelations, data.map(row => row.id)),
+        });
+    }
     const candidateSize = parsed.candidateSize ?? Math.min(Math.max(pageSize * 3, 20), 100);
     const namespace = parsed.namespaceMode === 'off'
         ? { exact: [], seeds: [], trust: new Map<string, AnchorTrustMetadata>(), permissionFilteredCount: 0, namespaceScanComplete: true }
@@ -588,6 +631,7 @@ async function knowledgeSearch(
             resolutionStatus: namespace.exactStatus,
             matchedAnchor: { token: match.token, kind: match.kind, status: namespace.exactStatus },
             data: [namespaceResultItem(match, namespace.trust.get(match.id))],
+            ...await knowledgeRelationProjection(client, permMgr, parsed.includeRelations, [match.id]),
             showing: 1,
             namespaceScanComplete: namespace.namespaceScanComplete,
             permissionFilteredCount: namespace.permissionFilteredCount,
@@ -617,6 +661,7 @@ async function knowledgeSearch(
             ...semantic.metadata,
             namespaceSeeds: namespace.seeds.map((item) => ({ id: item.id, token: item.token, kind: item.kind })),
             data: seedData,
+            ...await knowledgeRelationProjection(client, permMgr, parsed.includeRelations, seedData.map((item) => readStringField(item, 'id'))),
             semanticCandidateCount: semantic.metadata.channelCandidateCounts.semantic,
             ...(parsed.retrievalMode === 'hybrid' ? { hybridCandidateCount: 0 } : {}),
             candidateCounts: { recalledBlocks: 0, namespaceSeeds: namespace.seeds.length, resolvedTargets: 0,
@@ -777,6 +822,7 @@ async function knowledgeSearch(
         ...(rerankStatus ? { rerank: rerankStatus } : {}),
         namespaceSeeds: namespace.seeds.map((item) => ({ id: item.id, token: item.token, kind: item.kind })),
         data,
+        ...await knowledgeRelationProjection(client, permMgr, parsed.includeRelations, data.map((item) => readStringField(item, 'id'))),
         semanticCandidateCount: semantic.metadata.channelCandidateCounts.semantic,
         ...(parsed.retrievalMode === 'hybrid' ? { hybridCandidateCount: semanticBlocks.length } : {}),
         candidateCounts: { recalledBlocks: semanticBlocks.length, namespaceSeeds: seedData.length, resolvedTargets: semanticData.length,

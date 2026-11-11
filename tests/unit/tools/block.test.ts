@@ -175,6 +175,45 @@ describe('block tool', () => {
         expect(transactions).toHaveLength(1);
     });
 
+    it('仅在真实引用涵盖两个原子端点时写入显式关系', async () => {
+        const relationId = '20260819072537-edge001';
+        const fromId = '20260819072537-atom001';
+        const toId = '20260819072537-atom002';
+        let attrs = {};
+        let refs = [toId];
+        const request = vi.fn(async (endpoint: string, body?: Record<string, any>) => {
+            if (endpoint === '/api/query/sql') {
+                const stmt = String(body?.stmt);
+                if (stmt.includes('atom.value AS atom_type')) return [
+                    { id: relationId, box: 'nb-1' },
+                    { id: fromId, box: 'nb-1', atom_type: 'evidence' },
+                    { id: toId, box: 'nb-1', atom_type: 'recipe' },
+                ];
+                if (stmt.includes('SELECT DISTINCT def_block_id')) return refs.map(id => ({ def_block_id: id }));
+                if (stmt.includes('FROM attributes source')) return [];
+                return [{ id: relationId, root_id: 'doc-1', box: 'nb-1', path: '/doc-1.sy', type: 'p' }];
+            }
+            if (endpoint === '/api/attr/getBlockAttrs') return attrs;
+            if (endpoint === '/api/transactions') {
+                attrs = JSON.parse(body?.transactions?.[0]?.doOperations?.[0]?.data);
+                return null;
+            }
+            if (endpoint.startsWith('/api/ui/')) return null;
+            throw new Error(`Unexpected endpoint: ${endpoint}`);
+        });
+        const client = createMockClient({ request });
+        const write = async () => parseResult(await callBlockTool(client, {
+            action: 'set_attrs', id: relationId,
+            attrs: { 'custom-relation-kind': 'produced-by', 'custom-relation-from-id': fromId, 'custom-relation-to-id': toId },
+        }, buildDefaultToolConfig().block, permMgr as never));
+
+        const rejected = await write();
+        expect(rejected.error.message).toContain('真实引用尚未确认两个端点');
+        expect(request.mock.calls.some(([endpoint]) => endpoint === '/api/transactions')).toBe(false);
+        refs = [toId, fromId];
+        expect(await write()).toMatchObject({ success: true, verification: { status: 'verified' } });
+    });
+
     it('limits batch_kramdown to 20 IDs', () => {
         const variant = BLOCK_VARIANTS.find((item) => item.action === 'batch_kramdown');
 

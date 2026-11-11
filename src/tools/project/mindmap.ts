@@ -233,7 +233,14 @@ export function projectMindmapNodes(snapshot: any): MindmapNode[] {
     for (const row of snapshot.projections.workstreams) source('stages', `workstream:${row.id}`, row, row.workstream || '工作线');
     group('knowledge', '知识成果（快照窗口）');
     // 事件目标还可能包含普通关系记录；先筛选已登记知识原子，再应用展示窗口。
-    for (const row of snapshot.knowledgeProducts.filter((row: any) => row.name || row.atomType).slice(0, 30)) source('knowledge', `knowledge:${row.id}`, row, row.name || '知识成果');
+    const categories: Record<string, string> = {
+        decision: '裁决', recipe: '方法', evidence: '证据', warning: '适用边界', summary: '概览',
+    };
+    for (const row of snapshot.knowledgeProducts.filter((row: any) => row.name || row.atomType).slice(0, 30)) {
+        const category = row.sourceRole ? '资料' : categories[row.atomType];
+        const title = row.content ?? row.title;
+        source('knowledge', `knowledge:${row.id}`, category ? { ...row, content: `${category}｜${title || row.name}` } : row, row.name || '知识成果');
+    }
     group('artifacts', '权威产物索引');
     source('artifacts', 'artifact-index', snapshot.projections.artifactIndex, '权威产物索引原文');
     group('events', '最近实质更新（最多十项）');
@@ -398,13 +405,11 @@ export async function executeMindmapPlan(client: SiYuanClient, plan: MindmapPlan
         const attrs = `${STATE_ATTR}="${escape(JSON.stringify(state))}" ${DISPLAY_ATTR}="${escape(JSON.stringify(metadata))}"`;
         operations.push({ action: 'appendInsert', parentID: plan.pageId, data: `<div data-type="NodeMindmap" data-node-id="${rootId}" data-subtype="u" class="mindmap" ${attrs}>${nodes.filter((node) => node.parent === null).map((node) => nodeDOM(node, nodes)).join('')}</div>` });
     } else {
-        const rebuiltGroups = new Set<string>();
-        // 原生解析器会给孤立导图项补容器；结构变化时更新现有容器，保留存续项的 DOM 和 ID。
+        // 保留完整的容器和管理记录事务；单块锚文本须先刷新，避免结构事务读取旧树。
         for (const group of nodes.filter((node) => node.parent === null)) {
             const desired = nodes.filter((node) => node.parent === group.key);
             const previous = old.nodes.filter((node) => node.parent === group.key);
             if (JSON.stringify(desired.map((node) => node.id)) === JSON.stringify(previous.map((node) => node.id))) continue;
-            rebuiltGroups.add(group.key);
             const opening = plan.actual[group.listId!].dom!.match(/^<div\b[^>]*>/)?.[0];
             if (!opening) throw new Error('导图容器正文无法读取，停止同步。');
             const children = desired.map((node) => {
@@ -415,14 +420,20 @@ export async function executeMindmapPlan(client: SiYuanClient, plan: MindmapPlan
             }).join('');
             operations.push({ action: 'update', id: group.listId, data: `${opening}${children}</div>` });
         }
-        for (const node of nodes) {
+        const changed = nodes.filter((node) => {
             const previous = oldByKey.get(node.key);
-            if (previous && !rebuiltGroups.has(node.parent!) && (previous.label !== node.label || previous.sourceId !== node.sourceId)) {
-                // 原生事务可能更新管理属性却保留旧引用锚文本；先经块接口写入并核对正文。
+            return previous && (previous.label !== node.label || previous.sourceId !== node.sourceId);
+        });
+        if (changed.length) {
+            for (const node of changed) {
                 await blockApi.updateBlock(client, 'dom', paragraph(node, plan.actual[node.paragraphId!].dom), node.paragraphId!);
-                const { dom } = await blockApi.getBlockDOM(client, node.paragraphId!);
-                const actual = signature(dom);
-                if (actual.label !== node.label.trim() || JSON.stringify(actual.refs) !== JSON.stringify(node.sourceId ? [node.sourceId] : [])) {
+            }
+            await client.requestWrite('/api/sqlite/flushTransaction', {});
+            const doms = await blockApi.getBlockDOMs(client, changed.map(node => node.paragraphId!));
+            for (const node of changed) {
+                const dom = doms[node.paragraphId!];
+                const actual = dom && signature(dom);
+                if (!actual || actual.label !== node.label.trim() || JSON.stringify(actual.refs) !== JSON.stringify(node.sourceId ? [node.sourceId] : [])) {
                     throw new Error('导图引用正文回读不一致，未推进管理记录；请核对原节点，不要新建副本。');
                 }
             }

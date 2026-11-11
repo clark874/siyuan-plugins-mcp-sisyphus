@@ -90,6 +90,7 @@ export const ProjectSnapshotSchema = z.object({
     eventLimit: z.number().int().min(1).max(100).optional().describe("Recent event limit, default 10"),
     sessionLimit: z.number().int().min(1).max(100).optional().describe("Registered session limit, default 20"),
     validateSessions: z.boolean().optional().describe("Validate local session records, default true"),
+    includeRelations: z.boolean().optional().describe('按需从快照中已收录的可读原子展开一跳关系。'),
     view: z.enum(["summary", "full"]).optional().describe("Response detail level, default summary; full includes bounded projection and event Kramdown"),
 }).superRefine((value, ctx) => {
     const selectors = [value.cwd, value.projectId, value.projectName].filter((item) => typeof item === "string");
@@ -1074,8 +1075,21 @@ export const SearchSemanticSchema = z.object({
 export const SearchKnowledgeSchema = z.object({
     action: z.literal("knowledge"),
     query: z.string().min(1).describe("Knowledge query. Exact readable name/alias matches are resolved locally before the configured embedding provider is considered."),
+    catalog: z.object({
+        catalogBlockId: z.string().regex(/^\d{14}-[a-z0-9]{7}$/),
+        projectId: z.string().min(1).max(256).optional(),
+        offset: z.number().int().nonnegative().optional(),
+        filters: z.object({
+            workstream: z.union([z.string().trim().min(1), z.array(z.string().trim().min(1)).min(1).max(50)]).optional(),
+            objectRole: z.union([z.string().trim().min(1), z.array(z.string().trim().min(1)).min(1).max(50)]).optional(),
+            atomType: z.union([z.string().trim().min(1), z.array(z.string().trim().min(1)).min(1).max(50)]).optional(),
+            verificationStatus: z.union([z.string().trim().min(1), z.array(z.string().trim().min(1)).min(1).max(50)]).optional(),
+            compileStatus: z.union([z.string().trim().min(1), z.array(z.string().trim().min(1)).min(1).max(50)]).optional(),
+        }).strict().optional(),
+    }).strict().optional().describe('按已登记的项目知识 AV 和结构化字段限定候选；query 此时用于说明查询意图，返回绑定块供回读。'),
     retrievalMode: z.enum(['auto', 'hybrid', 'semantic']).optional().describe('默认 auto 保留本地精确直达；hybrid 合并关键词与向量候选，semantic 跳过关键词预检；唯一名称直达与歧义保护始终保留。'),
     includeContext: z.boolean().optional().describe('补齐前20个候选的同级相邻块、文档标题与块定位，默认 false；精排时自动补齐。'),
+    includeRelations: z.boolean().optional().describe('按需返回已展示命中的一跳知识关系，含入边和出边，最多50条，默认 false。'),
     rerank: z.boolean().optional().describe('用思源已启用的 TypeSafe 决策配置对前10个文本候选精排，默认 false；失败保留原序并说明降级。'),
     pageSize: z.number().int().min(1).max(50).optional().describe("Maximum deduplicated knowledge candidates returned, default 10."),
     candidateSize: z.number().int().min(1).max(100).optional().describe("Semantic candidates requested before reference collapse and deduplication, default 30."),

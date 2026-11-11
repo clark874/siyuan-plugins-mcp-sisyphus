@@ -1,6 +1,8 @@
 import type { SiYuanClient } from '../api/client';
 import * as blockApi from '../api/block';
 import type { PermissionManager } from './permissions';
+import { validateKnowledgeRelationMutation } from './knowledge-relations';
+import { validateKnowledgeUpdateMutation } from './knowledge-update';
 
 export function normalizeAnchorToken(value: string): string {
     return value.normalize('NFKC').trim().toLocaleLowerCase('en-US');
@@ -93,8 +95,11 @@ export async function validateBlockAttributeMutations(
     client: SiYuanClient,
     permMgr: PermissionManager,
     items: Array<{ id: string; attrs: Record<string, string> }>,
-): Promise<void> {
+): Promise<string[]> {
+    const completedProjects: string[] = [];
     const requestedNames = new Map<string, string>();
+    const requestedRelations = new Map<string, string>();
+    const pendingAttrs = new Map(items.map(item => [item.id, item.attrs]));
     for (const item of items) {
         if (!Object.prototype.hasOwnProperty.call(item.attrs, 'name')) continue;
         const normalized = normalizeAnchorToken(item.attrs.name);
@@ -106,6 +111,15 @@ export async function validateBlockAttributeMutations(
         requestedNames.set(normalized, item.id);
     }
     for (const item of items) {
-        await validateBlockAttributeMutation(client, permMgr, item.id, item.attrs);
+        const current = await validateBlockAttributeMutation(client, permMgr, item.id, item.attrs);
+        const completedProject = await validateKnowledgeUpdateMutation(client, permMgr, item.id, item.attrs, current);
+        if (completedProject) completedProjects.push(completedProject);
+        const relation = await validateKnowledgeRelationMutation(client, permMgr, item.id, item.attrs, current, pendingAttrs);
+        if (!relation) continue;
+        if (requestedRelations.has(relation) && requestedRelations.get(relation) !== item.id) {
+            throw new Error('批量属性写入包含相同端点和类型的知识关系。');
+        }
+        requestedRelations.set(relation, item.id);
     }
+    return completedProjects;
 }

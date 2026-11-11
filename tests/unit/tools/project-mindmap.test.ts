@@ -9,6 +9,7 @@ const sourceId = '20260930000000-bbbbbbb';
 function fixture() {
     let state: any;
     const paragraphDOMs = new Map<string, string>();
+    const writeOrder: string[] = [];
     let edited = false;
     let sourceLabel: string | undefined;
     let activeReads = 0, peakReads = 0;
@@ -16,6 +17,7 @@ function fixture() {
     const rootAttrs: Record<string, string> = {};
     const transaction = vi.fn(async (body: any) => {
         for (const op of body.transactions[0].doOperations) {
+            if (op.action === 'update') writeOrder.push('容器');
             if (op.action === 'appendInsert') {
                 const encoded = op.data.match(/custom-project-mindmap-state="([^"]+)"/)[1];
                 state = JSON.parse(encoded.replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
@@ -26,7 +28,10 @@ function fixture() {
                 if (op.id === pageId) Object.assign(pageAttrs, attrs);
                 else {
                     Object.assign(rootAttrs, attrs);
-                    if (attrs['custom-project-mindmap-state']) state = JSON.parse(attrs['custom-project-mindmap-state']);
+                    if (attrs['custom-project-mindmap-state']) {
+                        state = JSON.parse(attrs['custom-project-mindmap-state']);
+                        writeOrder.push('管理记录');
+                    }
                 }
             }
         }
@@ -39,7 +44,8 @@ function fixture() {
         }
         if (endpoint === '/api/transactions') return transaction(body);
         if (endpoint === '/api/system/version') return '3.8.9';
-        if (endpoint === '/api/block/updateBlock') { paragraphDOMs.set(body.id, body.data); return []; }
+        if (endpoint === '/api/block/updateBlock') { writeOrder.push('引用正文'); paragraphDOMs.set(body.id, body.data); return []; }
+        if (endpoint === '/api/sqlite/flushTransaction') { writeOrder.push('刷新'); return null; }
         if (endpoint === '/api/block/getBlockDOM') return { id: body.id, dom: paragraphDOMs.get(body.id) };
         if (endpoint === '/api/query/sql') return [{ id: pageId, root_id: pageId, box: 'nb', path: '/page.sy' }];
         if (endpoint === '/api/attr/getBlockAttrs') return body.id === pageId ? pageAttrs : { ...rootAttrs, 'custom-project-mindmap-state': JSON.stringify(state) };
@@ -59,7 +65,7 @@ function fixture() {
     }) });
     const snapshot = { project: { projectId: '验收项目', bindingStatus: 'available' }, progressPage: { id: pageId }, chronology: { complete: true }, diagnostics: [], projections: { projectState: { id: sourceId, content: '当前状态' }, workstreams: [] }, knowledgeProducts: [], events: [] as any[] };
     const plan: MindmapPlan = { projectId: '验收项目', pageId, title: '验收项目', desired: [{ key: 'stages', parent: null, label: '阶段' }, { key: 'project-state', parent: 'stages', label: '当前状态', sourceId }], pageAttrs, rootAttrs: {}, actual: {} };
-    return { client, transaction, snapshot, plan, getState: () => state, getPeakReads: () => peakReads, getDisplay: () => JSON.parse(rootAttrs['custom-sy-list-mindmap-data']), edit: () => { edited = true; }, refreshSource: (label?: string) => { sourceLabel = label; } };
+    return { client, transaction, writeOrder, snapshot, plan, getState: () => state, getPeakReads: () => peakReads, getDisplay: () => JSON.parse(rootAttrs['custom-sy-list-mindmap-data']), edit: () => { edited = true; }, refreshSource: (label?: string) => { sourceLabel = label; } };
 }
 
 describe('项目原生导图', () => {
@@ -109,8 +115,10 @@ describe('项目原生导图', () => {
         expect((await executeMindmapPlan(f.client, automatic, true)).status).toBe('unchanged');
         expect(f.getDisplay()).toEqual(updatedDisplay);
         const retired = await readMindmapPlan(f.client, createMockPermissionManager(), { ...f.snapshot, events: f.snapshot.events.slice(1) }, { rootTitle: '窗口更新后导图' });
-        retired.desired = f.getState().nodes.filter((node: any) => node.key !== oldEventKey).map(({ id, paragraphId, listId, ...node }: any) => node);
+        retired.desired = f.getState().nodes.filter((node: any) => node.key !== oldEventKey)
+            .map(({ id, paragraphId, listId, ...node }: any) => ({ ...node, label: node.key === 'project-state' ? '更新后的状态' : node.label }));
         expect((await executeMindmapPlan(f.client, retired, true)).status).toBe('updated');
+        expect(f.writeOrder.slice(-4)).toEqual(['引用正文', '刷新', '容器', '管理记录']);
         const finalDisplay = f.getDisplay();
         const removedId = previous.nodes.find((node: any) => node.key === oldEventKey).id;
         expect(finalDisplay.rootTitle).toBe('窗口更新后导图');

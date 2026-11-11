@@ -68,13 +68,13 @@ A 类自动写入必须同时满足：目标唯一且现行；项目有明确使
 siyuan-sisyphus timeline create-node --name '跨项目关系闭合前恢复点-<date>' --scope 'document' --document-id '<project-document-id>' --json
 ```
 ```bash
-siyuan-sisyphus block append --parent-id '<project-document-id>' --data-type 'markdown' --data '**关系：active-reuse。** 本项目实际复用 ((<method-atom-id> '"'"'public-method-name'"'"')) 所规定的规则；项目实现差异与适用边界是……。该关系不自动提升项目统计结论的验证状态。' --json
+siyuan-sisyphus block append --parent-id '<project-document-id>' --data-type 'markdown' --data '**关系：active-reuse。** ((<project-atom-id> '"'"'project-implementation'"'"')) 实际复用 ((<method-atom-id> '"'"'public-method-name'"'"')) 所规定的规则；项目实现差异与适用边界是……。该关系不自动提升项目统计结论的验证状态。' --json
 ```
 ```bash
-siyuan-sisyphus block set-attrs --id '<relation-block-id>' --attrs-json '{"custom-relation-kind":"active-reuse"}' --json
+siyuan-sisyphus block set-attrs --id '<relation-block-id>' --attrs-json '{"custom-relation-kind":"active-reuse","custom-relation-from-id":"<project-atom-id>","custom-relation-to-id":"<method-atom-id>"}' --json
 ```
 
-任一目标文档恢复点失败即停止整批写入。只做块级增量修改；严格写入按实时 action schema 执行。追加只执行一次，取得稳定块 ID 后再设置 `custom-relation-kind`。
+任一目标文档恢复点失败即停止整批写入。只做块级增量修改；严格写入按实时 action schema 执行。追加只执行一次，取得稳定块 ID 后同批设置关系类型和两个端点属性。
 
 以下均为 B 类：只有语义相似；目标或 scope 歧义；项目证据不足；需要公共化候选迁移；需要修改/删除既有关系；关系类型冲突；目标 historical/deprecated/failed/被接替；读取不完整或来源不可用。
 

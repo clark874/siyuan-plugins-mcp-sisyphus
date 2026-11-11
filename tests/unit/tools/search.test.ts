@@ -490,7 +490,14 @@ describe('search tool filtering', () => {
 
     });
 
-    it('short-circuits a unique exact alias without semantic data egress and returns trust metadata', async () => {
+    it('精确别名直接返回信任信息及可读的一跳关系，无语义外发', async () => {
+        const anchor = '20260819072537-zn6fxkd';
+        const incoming = { relation_id: '20260819072537-edge001', relation_box: 'allowed', kind: 'supports',
+            from_id: '20260819072537-atom001', from_box: 'allowed', from_type: 'evidence',
+            to_id: anchor, to_box: 'allowed', to_type: 'summary' };
+        const outgoing = { relation_id: '20260819072537-edge002', relation_box: 'allowed', kind: 'part-of',
+            from_id: anchor, from_box: 'allowed', from_type: 'summary',
+            to_id: '20260819072537-atom002', to_box: 'allowed', to_type: 'summary' };
         const request = vi.fn(async (endpoint: string, body: any) => {
             if (endpoint === '/api/query/sql') {
                 const stmt = String(body.stmt);
@@ -515,6 +522,11 @@ describe('search tool filtering', () => {
                         { block_id: '20260819072537-zn6fxkd', name: 'custom-source-url', value: 'https://example.org/doc?token=SECRET12345678' },
                     ];
                 }
+                if (stmt.includes('AS from_type')) {
+                    return [incoming, outgoing,
+                        { ...incoming, relation_id: '20260819072537-edge003', from_id: '20260819072537-private', from_box: 'denied' }];
+                }
+                if (stmt.includes('AS target_box')) return [{ relation_box: 'allowed', target_box: 'allowed' }];
             }
             if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [] };
             throw new Error(`Unexpected endpoint: ${endpoint}`);
@@ -522,15 +534,16 @@ describe('search tool filtering', () => {
         const permMgr = {
             reload: vi.fn(async () => undefined),
             canWrite: () => true,
-            canRead: () => true,
+            canRead: (box: string) => box !== 'denied',
             canDelete: () => true,
             get: () => 'rwd',
-            getAll: () => ({ allowed: 'rwd' }),
+            getAll: () => ({ allowed: 'rwd', denied: 'none' }),
         };
 
         const result = await callSearchTool(createMockClient({ request }), {
             action: 'knowledge',
             query: '水论文',
+            includeRelations: true,
         }, buildDefaultToolConfig().search, permMgr as never);
         const parsed = parseResult(result);
 
@@ -549,6 +562,10 @@ describe('search tool filtering', () => {
             },
         });
         expect(parsed.data[0].sourceMetadata['custom-source-url']).not.toContain('SECRET12345678');
+        expect(parsed.knowledgeRelations).toEqual({ edges: [
+            { relationBlockId: incoming.relation_id, kind: 'supports', fromId: incoming.from_id, toId: anchor },
+            { relationBlockId: outgoing.relation_id, kind: 'part-of', fromId: anchor, toId: outgoing.to_id },
+        ], hasMore: false, hasUnresolvedLegacy: true });
         expect(request.mock.calls.some(([endpoint]) => endpoint === '/api/search/semanticSearchBlock')).toBe(false);
     });
 

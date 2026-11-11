@@ -30,8 +30,10 @@ Sisyphus 是唯一外部思源 MCP 入口（http://127.0.0.1:36806/mcp）；原�
 | 用户要做的工作 | 入口内部读取的操作规程 |
 | --- | --- |
 | 查资料、读正文、搜索、追溯来源 | {{skill browse-read}} 与 {{skill search-query}}；命中后回读原文，名称和模型排序不提升证据状态 |
-| 保存文档、方案、证明、知识与当前裁决 | 完整资料副本先读录入契约与 {{skill create-edit}}；需要编译知识原子时才读 {{skill project-knowledge-compile}}。资料副本不强制登记会话或修改既有中枢；外部网页差量使用 {{skill knowledge-ingest}} |
-| 接续项目、更新进度、交接或收尾 | {{skill project-coordinator}}；自然语言授权有效，四个命令只是快捷入口 |
+| 在项目中说“更新思源笔记”“同步本轮成果”或要求项目知识整合 | 读取项目快照和录入契约，按 {{skill project-knowledge-compile}} 完成增量原子和关系，再用 {{skill project-coordinator}} 提交项目状态。发现项目知识 AV 后同步绑定行，已启用导图在批次收尾后刷新。自然指令已授权本轮项目更新，无需再说“知识化” |
+| 保存指定全文或普通文档编辑 | 用 {{skill create-edit}} 保存正文和来源；外部网页差量使用 {{skill knowledge-ingest}}。用户明确只保存时报告资料层结果 |
+| 查项目知识类型、核验状态或待编译材料 | 优先从项目快照发现知识 AV，经 {{skill database}} 或知识检索限定候选，再回读绑定块和按需读取有向关系 |
+| 接续项目、更新进度、交接或收尾 | {{skill project-coordinator}}；自然语言授权有效，四个命令只是快捷入口。明确只更新进度时按指定范围处理 |
 | 查读文献、全文入库及三端接续 | {{skill literature-source}}；先 AV 和全文，再按缺口用 Zotero／NotebookLM／Jev；开放式文献发现仍交独立学术技能 |
 | 论文精读教学 | 仅此时读取 [教学规程](references/paper-teaching.md) 与其正负例，保留卡内完整讲解 |
 
@@ -376,7 +378,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
         displayName: '思源项目知识编译',
         shortDescription: '将研究项目全量包编译为可追溯知识网络',
         defaultPrompt: '使用 $NAME 将指定研究项目全量文件包编译为知识原子、项目内语义关系和公共方法候选，并完成可恢复验收。',
-        body: `本工作流处理“已授权的项目增量或本地研究项目全量文件包 → 思源资料与知识接续”。先读取单入口的资料录入与接续契约；用户指定的全文先保真保存，摘要与原子不能替代原文。全量编译仍完整核对范围账本，日常任务只处理本轮实际增量。外部网页、教程或发布说明的差量摄取应交给 knowledge-ingest；既有原子的 name/alias 治理和安全改名应交给 knowledge-governance；跨项目实际复用关系由 cross-project-relation-closure 独立执行。
+        body: `本工作流处理“已授权的项目增量或本地研究项目全量文件包 → 思源资料与知识接续”。项目中的“更新思源笔记”默认启动本流程。先读资料录入与接续契约的批次协议，比较已覆盖来源版本和待续接批次；无差量且无待办则零写入。用户指定的全文先保真保存。全量编译完整核对范围账本，日常只处理实际增量。外部网页、教程或发布说明交给 knowledge-ingest；既有名称治理交给 knowledge-governance；有实际复用证据时按 cross-project-relation-closure 的规则维护公共方法连接。
 
 ## 一、开工与范围账本
 
@@ -410,7 +412,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 - \`decision\`：项目选择及理由；
 - \`warning\`：失败方案、版本冲突或适用边界。
 
-每个原子必须单块自包含、来源范围明确、验证状态与证据一致。统计主张必须核对“脚本 → 输出 → 样本定义/阈值 → 叙述”；未核对不得提升为 evidence-verified。机器哈希、revision 和编译时间不得手填。
+每个原子必须单块自包含、来源范围明确、验证状态与证据一致。在正文原子块设置 \`name\`、有实际召回用途的 \`alias\`、\`custom-atom-type\`、\`custom-verification-status\` 和 \`custom-knowledge-project-id\`；用 \`custom-source-hash\` 或 \`custom-source-revision\` 保存实际来源版本，\`custom-source-range\` 标明章节或行。正文同时保留可打开的原文块引用。统计主张必须核对“脚本 → 输出 → 样本定义/阈值 → 叙述”；未核对不得提升为 evidence-verified。机器哈希、revision 和编译时间不得手填。
 
 ## 三、寻址与公共方法接口
 
@@ -442,7 +444,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 不自动建立“现状关联”“相关于”“概念相似”等方向含混的关系；不把所有文字提及变成引用，不建无实际语义的 evidence↔evidence 网，不重复中枢已有的纯导航边。
 
-每条边使用一个独立关系块，只承载一个目标原子。正文必须写出关系类型、事实依据、差异或边界，并使用真实块引用；随后设置关系属性：
+每条边使用一个独立关系块。正文真实引用源原子和目标原子，并写明事实依据、差异或边界。随后同批设置关系类型与两端点属性。历史关系仅在两端经核实后补标；已有关系失效时保留原块并标记退出当前网络。不能从父块位置或引用顺序猜方向：
 
 {{call relationAppend}}
 {{call relationAttrs}}
@@ -473,11 +475,11 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 {{call registerCompileSession}}
 {{call projectSessions}}
 
-原子和关系块完成后，以同一个稳定 \`eventId\` 登记一次知识化事件：
+先回读原子、关系两端及真实引用，再用账本的 \`batchId\` 作为 \`eventId\` 登记唯一知识事件。协调器复用同一事件回执：
 
 {{call recordEvent}}
 
-随后按项目与代表性原子回读。只有 \`linkCapability=native\` 才能表述为客户端原生深链；\`launcher\` 和 \`resume_command\` 必须保留能力分级：
+随后按项目与代表性原子回读。会话登记后若列表尚未刷新，先按回执的会话块 ID 核对，再等待索引并重读列表；同一会话无需重建。只有 \`linkCapability=native\` 才能表述为客户端原生深链；\`launcher\` 和 \`resume_command\` 必须保留能力分级：
 
 {{call projectSessions}}
 {{call atomEvents}}
@@ -515,8 +517,8 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             conflictName: call('search', 'check_anchor', { candidates: ['project-step'], candidateKind: 'name', excludeBlockIds: ['<block-id>'] }),
             conflictAlias: call('search', 'check_anchor', { candidates: ['自然语言召回词'], candidateKind: 'alias', excludeBlockIds: ['<block-id>'], activeScopes: ['<project-scope>'] }),
             snapshot: call('timeline', 'create_node', { name: '项目知识编译前恢复点-<date>', scope: 'document', documentId: '<document-id>' }),
-            relationAppend: call('block', 'append', { parentID: '<source-atom-id>', dataType: 'markdown', data: "**关系：produced-by。** 本证据由 ((<target-atom-id> 'target-method-name')) 所述流程产生；实现差异与适用边界是……。该关系不自动提升统计结论的验证状态。" }),
-            relationAttrs: call('block', 'set_attrs', { id: '<relation-block-id>', attrs: { 'custom-relation-kind': 'produced-by' } }),
+            relationAppend: call('block', 'append', { parentID: '<project-knowledge-document-id>', dataType: 'markdown', data: "((<source-atom-id> '证据')) 由 ((<target-atom-id> '流程')) 产生。说明来源、实现差异与适用范围。" }),
+            relationAttrs: call('block', 'set_attrs', { id: '<relation-block-id>', attrs: { 'custom-relation-kind': 'produced-by', 'custom-relation-from-id': '<source-atom-id>', 'custom-relation-to-id': '<target-atom-id>' } }),
             discoverSession: call('provenance', 'discover_session', { provider: 'zcode', limit: 10 }),
             registerSourceSession: call('provenance', 'register_session', { projectBlockId: '<project-hub-block-id>', projectId: '<registered-project-id>', session: { provider: 'codex', sessionId: '<source-session-id>', hostAlias: 'local', captureMethod: 'environment' }, occurredAt: '<source-session-time>' }),
             registerCompileSession: call('provenance', 'register_session', { projectBlockId: '<project-hub-block-id>', projectId: '<registered-project-id>', session: { provider: 'codex', sessionId: '<compile-session-id>', hostAlias: 'local', captureMethod: 'environment' }, occurredAt: '<compile-session-time>' }),
@@ -634,7 +636,7 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 ## 四、知识化
 
-用户显式调用“知识化”即授权本轮必要的知识写入。若本轮没有先“启动”，先完成项目识别、会话发现、登记和回读。只有原子冲突、目标中枢歧义或事实无法确认时才中断询问。
+已识别项目中，“更新思源笔记”“同步本轮成果”和“知识化”均授权本轮必要的知识写入。项目增量按录入契约续接同一批次；编译规程已生成知识事件时，协调器只回读该事件并更新适用的项目状态。若本轮没有先“启动”，先完成项目识别、会话发现、登记和回读。只有原子冲突、目标中枢歧义或事实无法确认时才中断询问。
 
 写入前确认当前 sessionId 存在于项目会话注册表。普通事件核对 \`custom-progress-provider/session-id\`，知识事件核对 provenance source/compile session；当前会话未登记时，本 Skill 必须拒绝创建事件并报告孤儿事件风险。这是协调协议的写前义务，不是通用 \`block.insert\` 的服务端硬门。历史孤儿事件只在显式验收时通过 lint 报告。
 
@@ -936,7 +938,7 @@ A 类自动写入必须同时满足：目标唯一且现行；项目有明确使
 {{call append}}
 {{call attrs}}
 
-任一目标文档恢复点失败即停止整批写入。只做块级增量修改；严格写入按实时 action schema 执行。追加只执行一次，取得稳定块 ID 后再设置 \`custom-relation-kind\`。
+任一目标文档恢复点失败即停止整批写入。只做块级增量修改；严格写入按实时 action schema 执行。追加只执行一次，取得稳定块 ID 后同批设置关系类型和两个端点属性。
 
 以下均为 B 类：只有语义相似；目标或 scope 歧义；项目证据不足；需要公共化候选迁移；需要修改/删除既有关系；关系类型冲突；目标 historical/deprecated/failed/被接替；读取不完整或来源不可用。
 
@@ -957,8 +959,8 @@ A 类自动写入必须同时满足：目标唯一且现行；项目有明确使
             rules: call('fs', 'read', { path: '/USER_RULES.md', blockStart: 0, blockLimit: 80, tokenBudget: 2000 }),
             contract: call('fs', 'read', { path: '/工作日志/00 导航与说明/知识编译契约', blockStart: 0, blockLimit: 100, tokenBudget: 8000 }),
             snapshot: call('timeline', 'create_node', { name: '跨项目关系闭合前恢复点-<date>', scope: 'document', documentId: '<project-document-id>' }),
-            append: call('block', 'append', { parentID: '<project-document-id>', dataType: 'markdown', data: "**关系：active-reuse。** 本项目实际复用 ((<method-atom-id> 'public-method-name')) 所规定的规则；项目实现差异与适用边界是……。该关系不自动提升项目统计结论的验证状态。" }),
-            attrs: call('block', 'set_attrs', { id: '<relation-block-id>', attrs: { 'custom-relation-kind': 'active-reuse' } }),
+            append: call('block', 'append', { parentID: '<project-document-id>', dataType: 'markdown', data: "**关系：active-reuse。** ((<project-atom-id> 'project-implementation')) 实际复用 ((<method-atom-id> 'public-method-name')) 所规定的规则；项目实现差异与适用边界是……。该关系不自动提升项目统计结论的验证状态。" }),
+            attrs: call('block', 'set_attrs', { id: '<relation-block-id>', attrs: { 'custom-relation-kind': 'active-reuse', 'custom-relation-from-id': '<project-atom-id>', 'custom-relation-to-id': '<method-atom-id>' } }),
             readback: call('block', 'get_kramdown', { id: '<relation-block-id>' }),
             relationSql: call('search', 'query_sql', { stmt: "SELECT r.block_id, r.def_block_id, b.root_id, b.hpath FROM refs r JOIN blocks b ON b.id = r.block_id WHERE r.block_id = '<relation-block-id>' AND r.def_block_id = '<method-atom-id>' LIMIT 20", maxRows: 20 }),
             backlinks: call('search', 'get_backlinks', { id: '<method-atom-id>', mode: 'both' }),

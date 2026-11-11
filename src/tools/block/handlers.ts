@@ -780,7 +780,7 @@ const handleSetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) 
         if (denied) return denied;
         contexts.push(context);
     }
-    await validateBlockAttributeMutations(client, permMgr, items);
+    const mindmapProjects = await validateBlockAttributeMutations(client, permMgr, items);
     await transactionApi.performTransactions(client, [{
         doOperations: items.map((item) => ({
             action: 'setAttrs',
@@ -790,7 +790,6 @@ const handleSetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) 
         undoOperations: [],
     }]);
     const readbacks = [];
-    const mindmapProjects: string[] = [];
     for (const item of items) {
         const readback = await attributeApi.getBlockAttrs(client, item.id);
         for (const [name, value] of Object.entries(item.attrs)) {

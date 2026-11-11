@@ -44,8 +44,10 @@ Sisyphus 是唯一外部思源 MCP 入口（http://127.0.0.1:36806/mcp）；原�
 | 用户要做的工作 | 入口内部读取的操作规程 |
 | --- | --- |
 | 查资料、读正文、搜索、追溯来源 | `siyuan-sisyphus-browse-read` 与 `siyuan-sisyphus-search-query`；命中后回读原文，名称和模型排序不提升证据状态 |
-| 保存文档、方案、证明、知识与当前裁决 | 完整资料副本先读录入契约与 `siyuan-sisyphus-create-edit`；需要编译知识原子时才读 `siyuan-sisyphus-project-knowledge-compile`。资料副本不强制登记会话或修改既有中枢；外部网页差量使用 `siyuan-sisyphus-knowledge-ingest` |
-| 接续项目、更新进度、交接或收尾 | `siyuan-sisyphus-project-coordinator`；自然语言授权有效，四个命令只是快捷入口 |
+| 在项目中说“更新思源笔记”“同步本轮成果”或要求项目知识整合 | 读取项目快照和录入契约，按 `siyuan-sisyphus-project-knowledge-compile` 完成增量原子和关系，再用 `siyuan-sisyphus-project-coordinator` 提交项目状态。发现项目知识 AV 后同步绑定行，已启用导图在批次收尾后刷新。自然指令已授权本轮项目更新，无需再说“知识化” |
+| 保存指定全文或普通文档编辑 | 用 `siyuan-sisyphus-create-edit` 保存正文和来源；外部网页差量使用 `siyuan-sisyphus-knowledge-ingest`。用户明确只保存时报告资料层结果 |
+| 查项目知识类型、核验状态或待编译材料 | 优先从项目快照发现知识 AV，经 `siyuan-sisyphus-database` 或知识检索限定候选，再回读绑定块和按需读取有向关系 |
+| 接续项目、更新进度、交接或收尾 | `siyuan-sisyphus-project-coordinator`；自然语言授权有效，四个命令只是快捷入口。明确只更新进度时按指定范围处理 |
 | 查读文献、全文入库及三端接续 | `siyuan-sisyphus-literature-source`；先 AV 和全文，再按缺口用 Zotero／NotebookLM／Jev；开放式文献发现仍交独立学术技能 |
 | 论文精读教学 | 仅此时读取 [教学规程](references/paper-teaching.md) 与其正负例，保留卡内完整讲解 |
 

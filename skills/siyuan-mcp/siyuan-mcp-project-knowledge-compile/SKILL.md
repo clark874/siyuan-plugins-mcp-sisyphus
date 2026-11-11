@@ -6,7 +6,7 @@ compatibility: "Requires a reachable SiYuan Sisyphus MCP server already register
 
 # 思源研究项目知识编译 with MCP
 
-本工作流处理“已授权的项目增量或本地研究项目全量文件包 → 思源资料与知识接续”。先读取单入口的资料录入与接续契约；用户指定的全文先保真保存，摘要与原子不能替代原文。全量编译仍完整核对范围账本，日常任务只处理本轮实际增量。外部网页、教程或发布说明的差量摄取应交给 knowledge-ingest；既有原子的 name/alias 治理和安全改名应交给 knowledge-governance；跨项目实际复用关系由 cross-project-relation-closure 独立执行。
+本工作流处理“已授权的项目增量或本地研究项目全量文件包 → 思源资料与知识接续”。项目中的“更新思源笔记”默认启动本流程。先读资料录入与接续契约的批次协议，比较已覆盖来源版本和待续接批次；无差量且无待办则零写入。用户指定的全文先保真保存。全量编译完整核对范围账本，日常只处理实际增量。外部网页、教程或发布说明交给 knowledge-ingest；既有名称治理交给 knowledge-governance；有实际复用证据时按 cross-project-relation-closure 的规则维护公共方法连接。
 
 ## 一、开工与范围账本
 
@@ -54,7 +54,7 @@ search(action="knowledge", query="<project name> 项目中枢", pageSize=10, can
 - `decision`：项目选择及理由；
 - `warning`：失败方案、版本冲突或适用边界。
 
-每个原子必须单块自包含、来源范围明确、验证状态与证据一致。统计主张必须核对“脚本 → 输出 → 样本定义/阈值 → 叙述”；未核对不得提升为 evidence-verified。机器哈希、revision 和编译时间不得手填。
+每个原子必须单块自包含、来源范围明确、验证状态与证据一致。在正文原子块设置 `name`、有实际召回用途的 `alias`、`custom-atom-type`、`custom-verification-status` 和 `custom-knowledge-project-id`；用 `custom-source-hash` 或 `custom-source-revision` 保存实际来源版本，`custom-source-range` 标明章节或行。正文同时保留可打开的原文块引用。统计主张必须核对“脚本 → 输出 → 样本定义/阈值 → 叙述”；未核对不得提升为 evidence-verified。机器哈希、revision 和编译时间不得手填。
 
 ## 三、寻址与公共方法接口
 
@@ -90,13 +90,13 @@ search(action="check_anchor", candidates=["自然语言召回词"], candidateKin
 
 不自动建立“现状关联”“相关于”“概念相似”等方向含混的关系；不把所有文字提及变成引用，不建无实际语义的 evidence↔evidence 网，不重复中枢已有的纯导航边。
 
-每条边使用一个独立关系块，只承载一个目标原子。正文必须写出关系类型、事实依据、差异或边界，并使用真实块引用；随后设置关系属性：
+每条边使用一个独立关系块。正文真实引用源原子和目标原子，并写明事实依据、差异或边界。随后同批设置关系类型与两端点属性。历史关系仅在两端经核实后补标；已有关系失效时保留原块并标记退出当前网络。不能从父块位置或引用顺序猜方向：
 
 ```text
-block(action="append", parentID="<source-atom-id>", dataType="markdown", data="**关系：produced-by。** 本证据由 ((<target-atom-id> 'target-method-name')) 所述流程产生；实现差异与适用边界是……。该关系不自动提升统计结论的验证状态。")
+block(action="append", parentID="<project-knowledge-document-id>", dataType="markdown", data="((<source-atom-id> '证据')) 由 ((<target-atom-id> '流程')) 产生。说明来源、实现差异与适用范围。")
 ```
 ```text
-block(action="set_attrs", id="<relation-block-id>", attrs={"custom-relation-kind":"produced-by"})
+block(action="set_attrs", id="<relation-block-id>", attrs={"custom-relation-kind":"produced-by","custom-relation-from-id":"<source-atom-id>","custom-relation-to-id":"<target-atom-id>"})
 ```
 
 关系只确认知识组织事实，不自动提升源原子、目标原子或项目结论的验证状态。
@@ -135,13 +135,13 @@ provenance(action="register_session", projectBlockId="<project-hub-block-id>", p
 provenance(action="list_project_sessions", projectId="<registered-project-id>", validate=true, limit=100)
 ```
 
-原子和关系块完成后，以同一个稳定 `eventId` 登记一次知识化事件：
+先回读原子、关系两端及真实引用，再用账本的 `batchId` 作为 `eventId` 登记唯一知识事件。协调器复用同一事件回执：
 
 ```text
 provenance(action="record_event", projectBlockId="<project-hub-block-id>", projectId="<registered-project-id>", eventId="<stable-event-id>", operation="project-knowledge-compile", workstream="<project-workstream>", sourceSession={"provider":"codex","sessionId":"<source-session-id>","hostAlias":"local","captureMethod":"environment"}, compileSession={"provider":"codex","sessionId":"<compile-session-id>","hostAlias":"local","captureMethod":"environment"}, targetAtomIds=["<atom-id>","<relation-block-id>"])
 ```
 
-随后按项目与代表性原子回读。只有 `linkCapability=native` 才能表述为客户端原生深链；`launcher` 和 `resume_command` 必须保留能力分级：
+随后按项目与代表性原子回读。会话登记后若列表尚未刷新，先按回执的会话块 ID 核对，再等待索引并重读列表；同一会话无需重建。只有 `linkCapability=native` 才能表述为客户端原生深链；`launcher` 和 `resume_command` 必须保留能力分级：
 
 ```text
 provenance(action="list_project_sessions", projectId="<registered-project-id>", validate=true, limit=100)
