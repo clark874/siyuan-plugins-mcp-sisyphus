@@ -392,6 +392,17 @@ async function findFiles(root: string, name: string): Promise<string[]> {
 const TRID = '20261101000020-mmmmmmm';
 
 describe('translate-literature mdtx 输出定位与产物复用', () => {
+    it('归档时合并全角缩进 HTML 表格中的空行，保留表值、正文分隔和代码示例', async () => {
+        const { normalizeTranslationArchiveMarkdown } = await import(scripts + 'translate-literature.mjs');
+        const table = '　　<table><tr><td>24.83\n\n[22.47, 27.18]</td><td><0.001</td></tr></table>';
+        const code = '```html\n' + table + '\n```';
+        const preamble = '<table><tr><td>未闭合表格\n\n### 下一节\n\n表题\n\n';
+        const markdown = preamble + table + '\n\n' + code + '\n\n表注';
+        expect(normalizeTranslationArchiveMarkdown(markdown)).toBe(
+            preamble + table.replace('\n\n', ' ') + '\n\n' + code + '\n\n表注',
+        );
+    });
+
     it('mdtx 输出落在 cwd 相对嵌套路径时仍能找到并归档译文', async () => {
         const env = await setupTranslateEnv();
         const restore = patchTranslateEnv(env, null);

@@ -30,6 +30,32 @@ function verifyTranslationBody(translation, stored) {
     }
 }
 
+// 思源会把 HTML 表格内的空行解析成新段落。只在归档时折叠这些空行，
+// 保留译文缓存及代码示例，也不改动对照配对的结构检查。
+export function normalizeTranslationArchiveMarkdown(markdown) {
+    const normalizeTables = text => text.replace(
+        /^ {0,3}\u3000*<table\b[^>]*>(?:(?!<\/?table\b)[\s\S])*<\/table\s*>[ \t]*(?=\r?$)/gimu,
+        table => /<(?:pre|textarea|script|style)\b/iu.test(table)
+            ? table : table.replace(/(?:\r?\n[ \t]*){2,}/gu, ' '),
+    );
+    let result = '', start = 0, fence;
+    for (const match of markdown.matchAll(/^ {0,3}(`{3,}|~{3,})([^\r\n]*)/gmu)) {
+        const [, marker, tail] = match;
+        if (!fence) {
+            if (marker[0] === '`' && tail.includes('`')) continue;
+            result += normalizeTables(markdown.slice(start, match.index));
+            start = match.index;
+            fence = marker;
+        } else if (marker[0] === fence[0] && marker.length >= fence.length && !tail.trim()) {
+            const end = match.index + match[0].length;
+            result += markdown.slice(start, end);
+            start = end;
+            fence = undefined;
+        }
+    }
+    return result + (fence ? markdown.slice(start) : normalizeTables(markdown.slice(start)));
+}
+
 async function optionalFile(file) {
     try { return await readFile(file, 'utf8'); }
     catch (error) { if (error.code === 'ENOENT') return null; throw error; }
@@ -148,7 +174,7 @@ export async function translateLiterature(call, { documentId, notebook, avID, se
             if ((await readTranslationSource(call, documentId)).digest !== source.digest) throw Error('翻译期间原文或内容角色已变化，请重新发起');
             const created = await writeLiteratureRecord(call, 'document', {
                 action: 'create', notebook, parentID: documentId, title, icon: '1f4d6',
-                markdown: marker + '\n\n' + translated.text,
+                markdown: marker + '\n\n' + normalizeTranslationArchiveMarkdown(translated.text),
             }, async () => {
                 if ((await lookup()).status !== 'missing') throw Error('译文位置在预检期间变化');
                 const intent = { title, invocationHash: translated.invocationHash, sha256: translated.sha256 };
