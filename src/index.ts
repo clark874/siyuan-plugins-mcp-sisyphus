@@ -41,7 +41,7 @@ import McpConfig from "@/ui/setting/mcp-config.svelte";
 import { LITERATURE_PROFILE_FILE, defaultLiteratureProfile, normalizeLiteratureProfile, validateLiteratureProfile, type LiteratureProfile } from "@/ui/literature/settings";
 import { LiteratureReading, readLiteratureAttrs } from "@/ui/literature/reading";
 import TranslationPanel from "@/ui/literature/TranslationPanel.svelte";
-import type { TranslationProgress } from "@/ui/literature/desktop-runner";
+import type { TranslationInspection, TranslationProgress } from "@/ui/literature/desktop-runner";
 import { runLiteratureTask, runMdtxBridge } from "@/ui/literature/desktop-runner";
 import SnapshotPanel from "@/ui/version-control/SnapshotPanel.svelte";
 import VersionDiffPanel from "@/ui/version-control/VersionDiffPanel.svelte";
@@ -153,6 +153,8 @@ export default class SiyuanMCP extends Plugin {
             this.translationPanel?.$set({ progress, pairing });
         });
     private readonly translationsRunning = new Set<string>();
+    private readonly translationsInspecting = new Set<string>();
+    private readonly translationControllers = new Map<string, AbortController>();
     private readonly translationProgress = new Map<string, TranslationProgress>();
     private literatureBatchRunning = false;
     private translationPanel: TranslationPanel | null = null;
@@ -361,6 +363,9 @@ export default class SiyuanMCP extends Plugin {
 
     async onunload() {
         appendHttpLifecycleLog("[plugin] onunload begin");
+        for (const [id, controller] of this.translationControllers) {
+            if (this.translationProgress.get(id)?.cancellable) controller.abort();
+        }
         this.unregisterAgentSessionUrlHandler();
         this.eventBus.off("loaded-protyle-static", this.handleLiteratureEditor);
         this.eventBus.off("switch-protyle", this.handleLiteratureEditorSwitch);
@@ -618,6 +623,9 @@ export default class SiyuanMCP extends Plugin {
             this.translationPanel?.$set({
                 documentId: sourceId, documentTitle: this.literatureDocument.title,
                 translationId, running: this.translationsRunning.has(sourceId), progress: this.translationProgress.get(sourceId) ?? null,
+                inspecting: this.translationsInspecting.has(sourceId),
+                cancelling: this.translationControllers.get(sourceId)?.signal.aborted ?? false,
+                cancellable: this.translationProgress.get(sourceId)?.cancellable === true,
                 comparisonOpen: this.literatureReading.isOpen(sourceId),
                 ...(!this.literatureReading.isOpen(sourceId) ? {
                     status: this.translationsRunning.has(sourceId) ? "正在翻译全文，可继续阅读原文。" : translationId ? "已有中文译文，可开启双屏对照。" : "此文档尚无中文译文。",
@@ -742,50 +750,113 @@ export default class SiyuanMCP extends Plugin {
         });
     }
 
-    private async requestLiteratureTranslation(documentId?: string) {
-        if (!documentId) { showMessage("请先打开文献库中的论文原文。"); return; }
-        const { siyuan, zotero, translation } = this.literatureProfile;
-        if (!translation.configPath) {
-            this.showTranslationDock();
-            this.translationPanel?.$set({ status: "请在此面板保存 mdtx 程序和配置文件，再翻译全文。" });
+    public cancelLiteratureTranslation(documentId: string) {
+        const controller = this.translationControllers.get(documentId);
+        if (!controller || controller.signal.aborted) return;
+        if (this.translationProgress.get(documentId)?.cancellable !== true) {
+            showMessage("译文正在归档，完成核验后即可继续操作。");
             return;
         }
-        if (this.translationsRunning.has(documentId)) { showMessage("此论文的翻译正在运行。"); return; }
-        const attrs = await readLiteratureAttrs(documentId).catch(() => null);
-        if (!attrs) { showMessage("暂时无法读取论文配对信息。"); return; }
-        if (attrs["custom-literature-original-id"]) { showMessage("请从论文原文打开对照阅读。"); return; }
-        confirm("翻译论文全文", "将用本机 mdtx 配置处理当前论文全文。若配置使用外部模型，正文会发送到该服务并产生调用费用。完成后在原文下归档中文译文。", () => {
-            if (this.translationsRunning.has(documentId)) return;
-            this.translationsRunning.add(documentId);
-            const initial = { stage: "读取原文与文献角色标记" };
-            this.translationProgress.set(documentId, initial);
-            this.translationPanel?.$set({ progress: initial });
-            this.translationPanel?.$set({ running: true, status: "正在翻译全文，可继续阅读原文。" });
-            showMessage("文献全文翻译已启动。");
-            void runLiteratureTask<{ translationId: string }>(
-                this.name, this.httpSettings, "translate-literature.mjs", [],
+        controller.abort();
+        if (this.literatureDocument.id === documentId) {
+            this.translationPanel?.$set({ cancelling: true, status: "正在取消翻译，保留已完成的检查点。" });
+        }
+    }
+
+    private async requestLiteratureTranslation(documentId?: string) {
+        if (!documentId) { showMessage("请先打开文献库中的论文原文。"); return; }
+        if (this.translationsRunning.has(documentId) || this.translationsInspecting.has(documentId)) return;
+        const { zotero, translation } = this.literatureProfile;
+        this.showTranslationDock();
+        this.translationsInspecting.add(documentId);
+        this.translationPanel?.$set({ inspecting: true, status: "正在检查已有译文、归档记录与翻译检查点。" });
+        let inspection: TranslationInspection;
+        try {
+            inspection = await runLiteratureTask<TranslationInspection>(
+                this.name, this.httpSettings, "translate-literature.mjs", ["--inspect"],
                 { documentId, settings: translation, zoteroApiKeyEnv: zotero.apiKeyEnv },
-                {},
-                progress => {
-                    this.translationProgress.set(documentId, progress);
-                    if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ progress });
-                },
-            ).then(async () => {
-                showMessage("中文译文已归档。");
+            );
+            if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ status: inspection.message });
+            if (inspection.status === "blocked") { showMessage(inspection.message); return; }
+            if (inspection.status === "ready") {
                 if (this.literatureDocument.id === documentId) {
                     await this.updateTranslationDocument(this.literatureDocument);
                     await this.literatureReading.open(documentId, true);
                 }
-            }).catch(error => {
-                showMessage(String(error.message));
-                const progress = { stage: "翻译未完成，请按提示处理后续跑" };
-                this.translationProgress.set(documentId, progress);
-                if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ status: String(error.message), progress });
-            }).finally(() => {
-                this.translationsRunning.delete(documentId);
-                if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ running: false });
-            });
-        });
+                return;
+            }
+            if (inspection.willInvokeModel) {
+                if (!translation.configPath) {
+                    this.openSetting("literatureTranslation");
+                    return;
+                }
+                const message = document.createElement("div");
+                message.textContent = inspection.message + " 继续将使用当前模型配置，可能产生费用。已完成的检查点会被复用。";
+                const approved = await new Promise<boolean>(resolve => confirm(
+                    "确认翻译当前版本", message.innerHTML, () => resolve(true), () => resolve(false),
+                ));
+                if (!approved) return;
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            showMessage(message);
+            if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ status: message });
+            return;
+        } finally {
+            this.translationsInspecting.delete(documentId);
+            if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ inspecting: false });
+        }
+        await this.runInspectedLiteratureTranslation(documentId, inspection);
+    }
+
+    private async runInspectedLiteratureTranslation(documentId: string, inspection: TranslationInspection) {
+        if (this.translationsRunning.has(documentId)) return;
+        const { zotero, translation } = this.literatureProfile;
+        const controller = new AbortController();
+        this.translationControllers.set(documentId, controller);
+        this.translationsRunning.add(documentId);
+        const initial = { stage: inspection.message, cancellable: true };
+        this.translationProgress.set(documentId, initial);
+        if (this.literatureDocument.id === documentId) {
+            this.translationPanel?.$set({ running: true, cancelling: false, cancellable: true, progress: initial, status: inspection.message });
+        }
+        try {
+            const result = await runLiteratureTask<{ translationId?: string; cancelled?: boolean }>(
+                this.name, this.httpSettings, "translate-literature.mjs", ["--interactive"],
+                { documentId, settings: translation, zoteroApiKeyEnv: zotero.apiKeyEnv,
+                    expectedSourceDigest: inspection.sourceDigest, allowModel: inspection.willInvokeModel },
+                {}, progress => {
+                    this.translationProgress.set(documentId, progress);
+                    if (this.literatureDocument.id === documentId) {
+                        this.translationPanel?.$set({ progress, cancellable: progress.cancellable === true });
+                    }
+                }, controller.signal,
+            );
+            if (result.cancelled) {
+                const status = "已取消翻译，已完成的检查点可在下次继续。";
+                this.translationProgress.set(documentId, { stage: status, cancellable: false });
+                if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ status, progress: null });
+                showMessage(status);
+                return;
+            }
+            if (!result.translationId) throw new Error("未收到译文归档回执。");
+            showMessage("中文译文已归档并完成配对。");
+            if (this.literatureDocument.id === documentId) {
+                await this.updateTranslationDocument(this.literatureDocument);
+                await this.literatureReading.open(documentId, true);
+            }
+        } catch (error) {
+            const status = error instanceof Error ? error.message : String(error);
+            this.translationProgress.set(documentId, { stage: "翻译未完成，可检查后续跑", cancellable: false });
+            if (this.literatureDocument.id === documentId) this.translationPanel?.$set({ status, progress: null });
+            showMessage(status);
+        } finally {
+            this.translationsRunning.delete(documentId);
+            this.translationControllers.delete(documentId);
+            if (this.literatureDocument.id === documentId) {
+                this.translationPanel?.$set({ running: false, cancelling: false, cancellable: false });
+            }
+        }
     }
 
     openVersionControl(protyle?: unknown): void {

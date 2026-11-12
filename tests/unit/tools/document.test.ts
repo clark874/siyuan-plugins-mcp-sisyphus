@@ -350,6 +350,22 @@ describe('document.move schema', () => {
 });
 
 describe('document.lookup path compatibility', () => {
+    it('创建文档前警告并拒绝网格与 HTML 表格', async () => {
+        for (const markdown of [
+            '说明\n\n> +---+\n> | A |\n> +===+\n> | B |\n> +---+',
+            '说明\n\n<table><tr><td>24.83\n\n[22.47,27.18]</td></tr></table>',
+        ]) {
+            const request = vi.fn();
+            const permMgr = { reload: vi.fn(), canWrite: vi.fn(() => true) };
+            const result = await callDocumentTool(createMockClient({ request }), {
+                action: 'create', notebook: 'nb-1', path: '/附录', markdown,
+            }, buildDefaultToolConfig().document, permMgr as never);
+            expect(result.isError).toBe(true);
+            expect(parseResult(result).error.message).toMatch(/(Pandoc 网格表格|HTML 表格).*第 3 行/);
+            expect(request).not.toHaveBeenCalled();
+        }
+    });
+
     it('strips duplicate leading title heading when creating a document', async () => {
         const client = createMockClient({
             request: vi.fn(async (endpoint: string) => {

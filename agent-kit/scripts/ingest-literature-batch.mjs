@@ -10,6 +10,7 @@ import { ensureZoteroItem } from './register-literature-zotero.mjs';
 import { synchronizeCatalogCells } from './sync-literature-catalog.mjs';
 import { translateLiterature } from './translate-literature.mjs';
 import { mcpConnection } from './tag-literature-roles.mjs';
+import { findUnsupportedTable, readMarkdownTables, assertMarkdownTablesMatch } from './pandoc-grid-table.mjs';
 
 const runLocal = promisify(execFile);
 const idPattern = /^\d{14}-[a-z0-9]{7}$/;
@@ -29,8 +30,24 @@ async function loadReceipt(file) {
 }
 
 function normalizeText(text) {
-    return text.normalize('NFKC').replace(/\{:[^\n]*\}/g, '').replace(/<[^>]+>/g, '')
+    return text.normalize('NFKC').replace(/\{:[^\n]*\}/g, '').replace(/<br\s*\/?>/gi, ' ')
         .replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+}
+
+async function readNestedTables(call, blocks) {
+    const tables = [];
+    for (const block of blocks) {
+        if (block.type === 't') tables.push(block);
+        if (!['l', 'i', 'b', 's'].includes(block.type)) continue;
+        if (!idPattern.test(block.id)) throw Error('原生容器块缺少标识');
+        for (let page = 1; ; page += 1) {
+            const children = await call('block', { action: 'get_children', id: block.id, page, pageSize: 200 });
+            if (!Array.isArray(children.data)) throw Error('未能回读原生容器块');
+            tables.push(...await readNestedTables(call, children.data));
+            if (!children.hasNextPage) break;
+        }
+    }
+    return tables;
 }
 
 async function verifyDocument(call, documentId, body, sourceSha256, existingBinding, previousDigest) {
@@ -44,6 +61,20 @@ async function verifyDocument(call, documentId, body, sourceSha256, existingBind
     const anchors = [...new Set([paragraphs[0]?.slice(0, 48), paragraphs[Math.floor(paragraphs.length / 2)]?.slice(0, 48), paragraphs.at(-1)?.slice(-48)])];
     if (!paragraphs.length || !anchors.every(anchor => normalized.includes(anchor)) || normalized.length < normalizeText(body).length * 0.9) {
         throw Error('思源回读与原文首、中、尾锚点或长度不符');
+    }
+    const expectedTables = assertMarkdownTablesMatch(body, raw.kramdown);
+    if (expectedTables) {
+        const result = await call('document', { action: 'get_child_blocks', id: documentId });
+        if (!Array.isArray(result.value)) throw Error('未能回读原生表格块');
+        let tables = result.value.filter(block => block.type === 't');
+        if (tables.length < expectedTables) tables = await readNestedTables(call, result.value);
+        const contents = await Promise.all(tables.map(async ({ id }) => {
+            if (!idPattern.test(id)) throw Error('原生表格块缺少标识');
+            const { kramdown } = await call('block', { action: 'get_kramdown', id });
+            if (typeof kramdown !== 'string') throw Error('原生表格块未返回完整内容');
+            return kramdown;
+        }));
+        assertMarkdownTablesMatch(body, contents.join('\n\n'));
     }
     return bodyDigest;
 }
@@ -128,6 +159,18 @@ function validate(project, manifest) {
 export async function ingestLiteratureBatch({ project, manifest, mcpSettings, zoteroConfig, receiptFile, execute = false,
     call, ensure = ensureZoteroItem, upload, translate = translateLiterature }) {
     validate(project, manifest);
+    const sourceBodies = [];
+    for (const row of manifest.papers) {
+        const bytes = await readFile(row.sourcePath);
+        if (digest(bytes) !== row.sourceSha256) throw Error('源 Markdown 已变化：' + row.sourcePath);
+        const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        const incompatible = findUnsupportedTable(source);
+        if (incompatible) {
+            throw Error(`警告：检测到 ${incompatible.kind}（${row.sourcePath}，第 ${incompatible.line} 行）。整批停止录入。请核对并转换为规范 Markdown 管道表后重新预检。`);
+        }
+        readMarkdownTables(source);
+        sourceBodies.push({ row, source });
+    }
     const { notebook, parentID, avID } = project.siyuan;
     const cloudTarget = project.notebooklm;
     const scopeHash = digest(JSON.stringify({ siyuan: [notebook, parentID, avID],
@@ -145,12 +188,10 @@ export async function ingestLiteratureBatch({ project, manifest, mcpSettings, zo
     if (initial.av.keyValues.length !== cols.size) throw Error('AV 存在重名列');
     const cell = (name, rowID) => cols.get(name)?.values?.find(value => value.blockID === rowID)?.text?.content ?? '';
     const prepared = [];
-    // 先检查整个清单的文件与已登记身份，再产生任何外部写入。
-    for (const row of manifest.papers) {
-        const bytes = await readFile(row.sourcePath);
-        if (digest(bytes) !== row.sourceSha256) throw Error('源 Markdown 已变化：' + row.sourcePath);
+    // 先检查整个清单的已登记身份，再产生任何外部写入。
+    for (const { row, source } of sourceBodies) {
         if (row.adoptUploadPath && digest(await readFile(row.adoptUploadPath)) !== row.adoptUploadSha256) throw Error('历史上传副本已变化');
-        const body = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+        const body = source
             .replace(/!\[([^\]]*)\]\([^)]*\)/g, '[原文图像位置：$1；参见原始 PDF]')
             .replace(/<img\b[^>]*>/gi, '[原文图像位置；参见原始 PDF]');
         if (!body.trim() || normalizeText(body).length < 48) throw Error('正文太短：' + row.sourcePath);
@@ -180,12 +221,12 @@ export async function ingestLiteratureBatch({ project, manifest, mcpSettings, zo
         receipt.papers[row.sourceSha256] = entry;
         Object.assign(entry, { sourcePath: row.sourcePath, title: row.zoteroItem.title, doi: normalizeDoi(row.zoteroItem.DOI) });
         try {
+            const documentId = await intakeDocument(call, project, row, body, entry, persist, true);
             const registered = await ensure(zoteroConfig, { ...row, zoteroKey: entry.zoteroKey ?? plan.key ?? undefined, createRequested: entry.zoteroCreateRequested }, {
                 execute: true, checkpoint: async key => { entry.zoteroKey = key; await persist(); },
                 beforeCreate: async () => { entry.zoteroCreateRequested = true; await persist(); },
             });
             if (!registered.key || !registered.data) throw Error('未确认 Zotero 条目');
-            const documentId = await intakeDocument(call, project, row, body, entry, persist, true);
             const current = await call('av', { action: 'get', id: avID });
             const titleColumn = current.av.keyValues.find(column => column.key.name === '题名');
             const boundRow = current.av.keyValues.find(column => column.key.type === 'block')?.values?.find(value => value.block?.id === documentId)?.blockID;
@@ -359,7 +400,8 @@ async function main(argv) {
     const lock = options.execute ? await open(lockFile, 'wx', 0o600) : null;
     try {
         if (lock) await lock.writeFile(String(process.pid) + '\n');
-        const call = await mcpConnection(mcpSettings);
+        let connection;
+        const call = async (tool, args) => (await (connection ??= mcpConnection(mcpSettings)))(tool, args);
         const upload = async (request, cloudFile) => {
             const requestFile = receiptFile + '.notebooklm-request.json';
             await save(requestFile, request);

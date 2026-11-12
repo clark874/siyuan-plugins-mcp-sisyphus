@@ -57,7 +57,7 @@ export function getAllEditor(): MockEditor[] {
     return [];
 }
 
-export function confirm(_title: string, _message: string, _confirmed?: () => void): void {}
+export function confirm(_title: string, _message: string, _confirmed?: () => void, _cancelled?: () => void): void {}
 export async function fetchSyncPost(_url: string, _data?: unknown, _headers?: unknown, _process?: boolean, _signal?: AbortSignal): Promise<{ code: number; data: any }> {
     return { code: 0, data: {} };
 }

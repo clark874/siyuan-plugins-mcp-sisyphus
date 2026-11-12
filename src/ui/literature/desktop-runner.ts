@@ -12,6 +12,19 @@ export interface TranslationProgress {
     unit?: string;
     preservedCount?: number;
     done?: boolean;
+    cancellable?: boolean;
+}
+
+export interface TranslationInspection {
+    documentId: string;
+    sourceHash: string;
+    sourceDigest: string;
+    status: "ready" | "cached" | "resumable" | "previous" | "new" | "blocked";
+    message: string;
+    willInvokeModel: boolean;
+    translationId?: string;
+    previousTranslations?: Array<{ id: string; title: string }>;
+    pendingArchive?: boolean;
 }
 
 export async function runLiteratureTask<T>(
@@ -22,6 +35,7 @@ export async function runLiteratureTask<T>(
     input: Record<string, unknown>,
     credentials: Record<string, string> = {},
     onProgress?: (progress: TranslationProgress) => void,
+    signal?: AbortSignal,
 ): Promise<T> {
     const server = HttpServerLauncher.resolveServerScriptPath(pluginName);
     if (!server) throw new Error("请在思源桌面客户端运行文献任务。");
@@ -34,6 +48,7 @@ export async function runLiteratureTask<T>(
             env: { ...process.env, ...credentials, ELECTRON_RUN_AS_NODE: "1" },
             stdio: ["pipe", "pipe", "pipe"], windowsHide: true,
         });
+        const cancel = () => child.stdin.end("cancel\n");
         let output = "", errors = "", pending = "";
         child.stdout.setEncoding("utf8").on("data", chunk => {
             output += chunk;
@@ -57,13 +72,21 @@ export async function runLiteratureTask<T>(
         child.on("error", () => reject(new Error("无法启动本机文献任务。")));
         child.stdin.on("error", () => { /* 子进程失败由退出事件报告。 */ });
         child.on("close", code => {
+            signal?.removeEventListener("abort", cancel);
             if (code === 0 && output.trim()) {
                 try { resolve(JSON.parse(output) as T); return; }
                 catch { /* 转交统一错误。 */ }
             }
             reject(new Error((errors + pending).trim() || (code ? "本机文献任务未完成。" : "未收到文献任务回执。")));
         });
-        child.stdin.end(JSON.stringify({ ...input, mcpSettings }));
+        const payload = JSON.stringify({ ...input, mcpSettings });
+        if (signal) {
+            child.stdin.write(payload + "\n");
+            signal.addEventListener("abort", cancel, { once: true });
+            if (signal.aborted) cancel();
+        } else {
+            child.stdin.end(payload);
+        }
     });
 }
 

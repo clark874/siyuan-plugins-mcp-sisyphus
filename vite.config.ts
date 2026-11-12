@@ -113,6 +113,7 @@ function createRendererConfig() {
                     { src: "./preview.png", dest: "./" },
                     { src: "./icon.png", dest: "./" },
                     { src: "./agent-kit/scripts/ingest-literature-batch.mjs", dest: "./literature-scripts" },
+                    { src: "./agent-kit/scripts/pandoc-grid-table.mjs", dest: "./literature-scripts" },
                     { src: "./agent-kit/scripts/finalize-literature-ingest.mjs", dest: "./literature-scripts" },
                     { src: "./agent-kit/scripts/register-literature-zotero.mjs", dest: "./literature-scripts" },
                     { src: "./agent-kit/scripts/sync-literature-catalog.mjs", dest: "./literature-scripts" },

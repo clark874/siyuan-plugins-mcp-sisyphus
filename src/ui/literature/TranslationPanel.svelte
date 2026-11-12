@@ -7,6 +7,9 @@
     export let documentTitle = "";
     export let status = "请选择论文原文。";
     export let running = false;
+    export let inspecting = false;
+    export let cancelling = false;
+    export let cancellable = false;
     export let translationId = "";
     export let progress: TranslationProgress | null = null;
     export let pairing = false;
@@ -19,7 +22,10 @@
     <div class="document"><strong>{documentTitle || "尚未打开文档"}</strong></div>
     <p role="status">{status}</p>
     <div class="actions">
-        <button class="b3-button" disabled={!documentId || running} on:click={() => plugin.translateCurrentLiterature(documentId)}>{running ? "正在翻译…" : translationId ? "更新中文译文" : "翻译全文"}</button>
+        <button class="b3-button" disabled={!documentId || running || inspecting} on:click={() => plugin.translateCurrentLiterature(documentId)}>{inspecting ? "正在检查已有译文…" : running ? "正在翻译…" : translationId ? "检查／更新译文" : "检查并翻译全文"}</button>
+        {#if running}
+            <button class="b3-button b3-button--outline" disabled={!cancellable || cancelling} on:click={() => plugin.cancelLiteratureTranslation(documentId)}>{cancelling ? "正在取消…" : cancellable ? "取消翻译" : "正在归档，请稍候"}</button>
+        {/if}
         {#if comparisonOpen}
             <button class="b3-button b3-button--outline" on:click={() => plugin.closeLiteratureComparison(documentId)}>关闭双屏对照</button>
         {:else}

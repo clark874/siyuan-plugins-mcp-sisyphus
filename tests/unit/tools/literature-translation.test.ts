@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readdir, readFile, rm, writeFile, chmod } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const scripts = new URL('../../../agent-kit/scripts/', import.meta.url).href;
 const sha = (text: string) => createHash('sha256').update(text).digest('hex');
@@ -34,7 +34,7 @@ describe('文献翻译沿用入库角色', () => {
 
 const { literatureSourceMarkdown } = await import(scripts + 'literature-source.mjs');
 const { pairAttribute, inheritTranslationRoles, readTranslationSource } = await import(scripts + 'translation-roles.mjs');
-const { pairLiteratureTranslation, translateLiterature } = await import(scripts + 'translate-literature.mjs');
+const { pairLiteratureTranslation, translateLiterature, inspectLiteratureTranslation } = await import(scripts + 'translate-literature.mjs');
 
 const SRC = '20261101000000-aaaaaaa';
 const TR = '20261101000001-bbbbbbb';
@@ -362,6 +362,7 @@ function documentAwareCall(store: ReturnType<typeof makeDocStore>, translationId
     const NB = '20261105140902-d0jcxt7';
     let seq = 0;
     return async (tool: string, args: any): Promise<any> => {
+        if (tool === 'document' && args.action === 'get_child_docs') return { value: [] };
         if (tool === 'document' && args.action === 'lookup') {
             if (args.include?.includes('identity')) return { identity: { id: args.id, notebook: NB } };
             return { status: 'missing' };
@@ -392,6 +393,54 @@ async function findFiles(root: string, name: string): Promise<string[]> {
 const TRID = '20261101000020-mmmmmmm';
 
 describe('translate-literature mdtx 输出定位与产物复用', () => {
+    it('预检识别有效既有译文，不写入或调用模型', async () => {
+        const { store } = setupPairedStore();
+        const source = await readTranslationSource(store.call, SRC);
+        await inheritTranslationRoles(store.call, source, TR, '机器译文对应原文 SHA-256：' + sha(source.original));
+        const priorWrites = store.writes.length;
+        const inspected = await inspectLiteratureTranslation(documentAwareCall(store, TR), { documentId: SRC });
+        expect(inspected).toMatchObject({ status: 'ready', willInvokeModel: false, translationId: TR, sourceDigest: source.digest });
+        expect(store.writes).toHaveLength(priorWrites);
+    });
+
+    it('模型运行中取消后终止子进程、保留检查点并清理锁，预检可续跑', async () => {
+        const env = await setupTranslateEnv();
+        const restore = patchTranslateEnv(env, null);
+        const home = vi.spyOn(os, 'homedir').mockReturnValue(env.home);
+        try {
+            await writeFile(env.fakePath, `#!/usr/bin/env node
+const fs = require('fs'), path = require('path');
+const output = process.argv[process.argv.indexOf('--output') + 1];
+fs.mkdirSync(path.join(output, '.mdtx-state'), { recursive: true });
+fs.writeFileSync(path.join(output, '.mdtx-state', 'saved.json'), JSON.stringify({ fingerprint: 'saved', bundles: {} }));
+console.log('Pipeline started');
+setInterval(() => {}, 1000);
+`);
+            const store = makeDocStore(), source = sourceFixture();
+            store.addDoc(SRC, source.kramdown, {}, source.blocks);
+            const call = documentAwareCall(store, TRID);
+            const settings = { executable: env.fakePath, configPath: env.configPath };
+            const current = await readTranslationSource(call, SRC);
+            const controller = new AbortController();
+            const result = await translateLiterature(call, { documentId: SRC, settings,
+                expectedSourceDigest: current.digest, allowModel: true }, event => {
+                if (event.stage === '解析原文与安排分包') controller.abort();
+            }, { signal: controller.signal });
+            expect(result).toEqual({ cancelled: true, documentId: SRC });
+            expect(store.docs.has(TRID)).toBe(false);
+            expect(await findFiles(env.home, 'translation.lock')).toHaveLength(0);
+            expect(await findFiles(env.home, 'saved.json')).toHaveLength(1);
+            expect(await inspectLiteratureTranslation(call, { documentId: SRC, settings }))
+                .toMatchObject({ status: 'resumable', willInvokeModel: true });
+            expect(store.docs.get(SRC)?.kramdown).toBe(source.kramdown);
+        } finally {
+            home.mockRestore();
+            restore();
+            await rm(env.home, { recursive: true, force: true });
+            await rm(env.dir, { recursive: true, force: true });
+        }
+    });
+
     it('归档时合并全角缩进 HTML 表格中的空行，保留表值、正文分隔和代码示例', async () => {
         const { normalizeTranslationArchiveMarkdown } = await import(scripts + 'translate-literature.mjs');
         const table = '　　<table><tr><td>24.83\n\n[22.47, 27.18]</td><td><0.001</td></tr></table>';

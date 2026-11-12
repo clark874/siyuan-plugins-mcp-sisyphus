@@ -1,6 +1,8 @@
 import * as blockApi from '../../api/block';
 import type { SiYuanClient } from '../../api/client';
+import { findUnsupportedTable, readMarkdownTables } from '../../../agent-kit/scripts/pandoc-grid-table.mjs';
 import { assertSafeBlockReferenceMarkdown, extractKramdownContentForEditing, normalizeBlockRefQuoteStyle } from './kramdown-safe';
+import { createSemanticError } from './validation';
 
 const NAKED_BLOCK_REF_PATTERN = /\(\(([0-9]{14}-[a-z0-9]{7})\)\)/g;
 
@@ -62,7 +64,17 @@ export async function normalizeMarkdownInputRefs(
     client: SiYuanClient,
     markdown: string,
     actionName: string,
+    options: { matchingExisting?: boolean } = {},
 ): Promise<string> {
+    if (!options.matchingExisting) {
+        const incompatible = findUnsupportedTable(markdown);
+        if (incompatible) {
+            throw createSemanticError('invalid_arguments',
+                `警告：${actionName} 检测到 ${incompatible.kind}（待写入正文第 ${incompatible.line} 行），已停止录入。请转换为规范 Markdown 管道表。`,
+                incompatible.kind === 'Pandoc 网格表格' ? 'pandoc_grid_table' : 'html_table_unsupported');
+        }
+        readMarkdownTables(markdown);
+    }
     const quoteNormalizedMarkdown = normalizeBlockRefQuoteStyle(markdown);
     assertSafeBlockReferenceMarkdown(quoteNormalizedMarkdown, actionName, { allowNakedBlockRefs: true });
 
@@ -89,7 +101,7 @@ export async function normalizeReplaceEditsRefs<T extends { old: string; new: st
 ): Promise<T[]> {
     return Promise.all(edits.map(async (edit) => ({
         ...edit,
-        old: await normalizeMarkdownInputRefs(client, edit.old, actionName),
+        old: await normalizeMarkdownInputRefs(client, edit.old, actionName, { matchingExisting: true }),
         new: await normalizeMarkdownInputRefs(client, edit.new, actionName),
     })));
 }

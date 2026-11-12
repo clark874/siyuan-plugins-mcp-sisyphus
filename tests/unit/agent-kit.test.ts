@@ -2,7 +2,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 
 const root = path.resolve(__dirname, '../..');
 
@@ -329,6 +330,52 @@ it('文献入库保留公式符号并识别补充材料与出版说明', async (
         'Leibniz-Institut für Psychologie', 'PsychOpen GOLD is a publishing service provided by the institute.'];
     const roles = classifyLiteratureRoles(samples.map((sample, i) => ({ id: String(i), type: i === 4 ? 'h' : 'p', sample }))).roles;
     expect(roles.map((row: { role: string }) => row.role)).toEqual(['metadata', 'caption', 'caption', 'caption', 'references', 'references', 'metadata', 'metadata']);
+});
+
+it('批次后面的原文出现网格或 HTML 表格时，在任何服务调用前停止', async () => {
+    const { ingestLiteratureBatch } = await import(path.join(root, 'agent-kit/scripts/ingest-literature-batch.mjs'));
+    const folder = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-grid-'));
+    const safe = '普通正文。\n\n```text\n> ```\n    ```\n+---+\n| A |\n+---+\n```\n\n| A |\n|---|\n| B |';
+    const unsafe = [
+        '补充材料\r\n\r\n```text\r\n\r\n+---+---+\r\n| A | B |\r\n+===+===+\r\n| C | D |\r\n+---+---+',
+        '正文\n\n　　<table><tr><td>24.83\n\n[22.47,27.18]</td></tr></table>',
+    ];
+    for (const content of unsafe) {
+        const papers = [safe, content].map((text, index) => {
+            const title = `原文${index + 1}`;
+            const sourcePath = path.join(folder, title + '.md');
+            writeFileSync(sourcePath, text);
+            return { sourcePath, sourceSha256: createHash('sha256').update(text).digest('hex'), zoteroItem: { title } };
+        });
+        const call = vi.fn(), ensure = vi.fn(), upload = vi.fn();
+        const receiptFile = path.join(folder, 'receipt.json');
+        await expect(ingestLiteratureBatch({
+            project: { siyuan: { notebook: '20261112000000-aaaaaaa', parentID: null, avID: '20261112000000-bbbbbbb' } },
+            manifest: { papers }, mcpSettings: { host: '127.0.0.1', port: 36806 },
+            zoteroConfig: { baseUrl: 'http://127.0.0.1:23119' }, receiptFile, execute: true, call, ensure, upload,
+        })).rejects.toThrow(/(Pandoc 网格表格|HTML 表格).*原文2\.md.*第 (3|5) 行.*整批停止/);
+        expect(call).not.toHaveBeenCalled();
+        expect(ensure).not.toHaveBeenCalled();
+        expect(upload).not.toHaveBeenCalled();
+        expect(existsSync(receiptFile)).toBe(false);
+    }
+});
+
+it('落库表格逐格验收保留符号并拒绝数值变更或表格拆段', async () => {
+    const { assertMarkdownTablesMatch, findUnsupportedTable } = await import(path.join(root, 'agent-kit/scripts/pandoc-grid-table.mjs'));
+    const source = '| **变量** | 效应 |\n|---|---|\n| 水支出 | −0.505\\*<br />\\<0.001 |';
+    const stored = '| **变量** | {: style="text-align:center;"}效应 |\n|---|---|\n| 水支出 | {: style="text-align:center;"}−0.505\\*<br />\\<0.001 |\n{: id="20261112000000-aaaaaaa"}';
+    expect(assertMarkdownTablesMatch(source, stored)).toBe(1);
+    expect(() => assertMarkdownTablesMatch(source.replace('−0.505\\*', '+0.505**'), stored.replace('−0.505\\*', '+0.505*'))).toThrow('第 2 行第 2 列');
+    const codePipe = '| **变量** | 代码 |\n|---|---|\n| 值 | `x|y` |';
+    expect(assertMarkdownTablesMatch(codePipe, codePipe)).toBe(1);
+    expect(() => assertMarkdownTablesMatch('无表正文', source)).toThrow('数量不符');
+    expect(() => assertMarkdownTablesMatch(source, stored.replace('−0.505', '+0.505'))).toThrow('第 2 行第 2 列');
+    expect(() => assertMarkdownTablesMatch(source.replace('−0.505', '12 3'), stored.replace('−0.505', '1 23'))).toThrow('第 2 行第 2 列');
+    expect(() => assertMarkdownTablesMatch(source.replace('−0.505', 'x<y && x>z'), stored.replace('−0.505', 'xz'))).toThrow('第 2 行第 2 列');
+    expect(assertMarkdownTablesMatch('甲 | 乙\n-----', '无表正文')).toBe(0);
+    expect(() => assertMarkdownTablesMatch(source, stored.replace(/\|---\|---\|/, '拆开的正文'))).toThrow('数量不符');
+    expect(findUnsupportedTable('```html\n<table><tr><td>示例</td></tr></table>\n```')).toBeNull();
 });
 
 it('入库复用书目对账，支持网址与正文版本并在预检后拦截并发修改', async () => {
