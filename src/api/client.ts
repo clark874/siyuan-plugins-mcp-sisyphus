@@ -314,14 +314,14 @@ export class SiYuanClient {
         }, 'read');
     }
 
-    async requestWrite<T>(endpoint: string, data?: object): Promise<T> {
+    async requestWrite<T>(endpoint: string, data?: object, options?: { timeoutMs: number }): Promise<T> {
         await this.writeGuards.getStore()?.(endpoint, data ?? {});
         try {
             return await this.readData<T>(`${this.baseUrl}${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
                 body: JSON.stringify(data ?? {}),
-            }, 'write');
+            }, 'write', options?.timeoutMs);
         } catch (error) {
             if (isAmbiguousTransportFailure(error)) throw new WriteOutcomeUnknownError(endpoint, error);
             throw error;

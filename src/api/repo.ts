@@ -48,20 +48,23 @@ export interface RepoSnapshotFileContent {
     updated: string;
 }
 
+// 标签读取会遍历仓库全部快照标签，创建快照也可能等待仓库同步。
+const SNAPSHOT_REQUEST_OPTIONS = { timeoutMs: 15_000 };
+
 export async function createSnapshot(client: SiYuanClient, memo = ''): Promise<unknown> {
-    return client.requestWrite('/api/repo/createSnapshot', { memo });
+    return client.requestWrite('/api/repo/createSnapshot', { memo }, SNAPSHOT_REQUEST_OPTIONS);
 }
 
 export async function tagSnapshot(client: SiYuanClient, id: string, name = ''): Promise<unknown> {
-    return client.requestWrite('/api/repo/tagSnapshot', { id, name });
+    return client.requestWrite('/api/repo/tagSnapshot', { id, name }, SNAPSHOT_REQUEST_OPTIONS);
 }
 
 export async function getRepoSnapshots(client: SiYuanClient, page = 1): Promise<RepoSnapshotsResult> {
-    return client.requestRead<RepoSnapshotsResult>('/api/repo/getRepoSnapshots', { page });
+    return client.requestRead<RepoSnapshotsResult>('/api/repo/getRepoSnapshots', { page }, SNAPSHOT_REQUEST_OPTIONS);
 }
 
 export async function getRepoTagSnapshots(client: SiYuanClient): Promise<{ snapshots: RepoSnapshot[] }> {
-    return client.requestRead<{ snapshots: RepoSnapshot[] }>('/api/repo/getRepoTagSnapshots', {});
+    return client.requestRead<{ snapshots: RepoSnapshot[] }>('/api/repo/getRepoTagSnapshots', {}, SNAPSHOT_REQUEST_OPTIONS);
 }
 
 export async function removeRepoTagSnapshot(client: SiYuanClient, tag: string): Promise<unknown> {

@@ -50,10 +50,10 @@ describe('api wrapper payloads', () => {
         await historyApi.rollbackDocHistory(client, 'nb-1', '/history/doc.sy');
 
         expect(client.request.mock.calls).toEqual([
-            ['/api/repo/createSnapshot', { memo: 'commit memo' }],
-            ['/api/repo/tagSnapshot', { id: 'snap-1', name: 'release' }],
-            ['/api/repo/getRepoSnapshots', { page: 2 }],
-            ['/api/repo/getRepoTagSnapshots', {}],
+            ['/api/repo/createSnapshot', { memo: 'commit memo' }, { timeoutMs: 15_000 }],
+            ['/api/repo/tagSnapshot', { id: 'snap-1', name: 'release' }, { timeoutMs: 15_000 }],
+            ['/api/repo/getRepoSnapshots', { page: 2 }, { timeoutMs: 15_000 }],
+            ['/api/repo/getRepoTagSnapshots', {}, { timeoutMs: 15_000 }],
             ['/api/repo/removeRepoTagSnapshot', { tag: 'release' }],
             ['/api/repo/diffRepoSnapshots', { left: 'left', right: 'right' }],
             ['/api/repo/openRepoSnapshotFile', { id: 'file-1' }],
