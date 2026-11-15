@@ -14,7 +14,7 @@
 
 根 `package.json`、`plugin.json`、Agent Kit delivery/Kimi manifest、Codex Plugin manifest、最新说明保持同一插件版本；CLI版本独立。更新 `CHANGELOG.md` 并校验 `package.zip`、`siyuan-agent-kit.zip` 内容与SHA-256。稳定通道为 `release-channel.json`，必须指向本次两附件及真实哈希。
 
-公开前展示精确提交、版本、仓库、两附件及稳定通道，按用户规定取得绑定本次对象的口令；未收到不得推送或创建公开发行。不要把旧版确认沿用到新提交。公开后回验远端提交与下载附件哈希。
+公开发布前核对精确提交、版本、目标仓库、两份附件及稳定通道。代理可在维护者授权范围内自主执行本仓库的常规发布。发布后回验远端提交和下载附件的 SHA-256。
 
 ## 本机交付
 

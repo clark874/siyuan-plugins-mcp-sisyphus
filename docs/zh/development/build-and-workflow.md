@@ -37,4 +37,4 @@ pnpm make-install
 
 项目快照的 `summary` 是索引窗口，明确报告截断；指定完整阅读时继续取 `full` 和稳定块正文。`custom-source-role=source-document|source-entry` 与明确项目归属让资料进入项目快照，不以name/alias模糊猜归属。保留历史裁决，当前投影只能依据用户核准的新裁决更新。
 
-开发发布按 [发布参考](../../development/release-workflow.md) 完成最终对象确认、两附件和稳定通道核验。公开操作前等待绑定精确提交的用户口令。
+开发发布按[发布参考](../../development/release-workflow.md)核对提交、两份附件和稳定通道，并回验远端发布结果。
