@@ -5,7 +5,7 @@ import {
     type ToolConfig,
 } from '../core/config';
 import { normalizeActionAlias } from '../core/action-aliases';
-import { listConfiguredToolsForCategory, prepareTool, TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
+import { assertConfiguredToolArgumentFields, listConfiguredToolsForCategory, prepareTool, TOOL_REGISTRY, resolveCategory } from '../core/tool-registry';
 import { runToolCall } from '../core/tool-lifecycle';
 import { PRIMARY_CLI_COMMAND } from '../shared/constants';
 import { getExposedExtensionTools } from '../tools/extension';
@@ -19,7 +19,7 @@ import { callCliWriteCoordinator } from './write-coordinator';
 import { getActionSafetyPolicy } from '../core/write-safety-policy';
 import { WriteSafetyCoordinator } from '../core/write-safety-coordinator';
 
-import type { ToolResult } from '../tools/internal/shared';
+import { createErrorResult, type ToolResult } from '../tools/internal/shared';
 
 export async function runDispatch(cli: ParsedArgs): Promise<number> {
     const { tool, action, rest } = cli;
@@ -100,6 +100,11 @@ export async function runDispatch(cli: ParsedArgs): Promise<number> {
         }
 
         const basePayload = { action: normalizedAction, ...mappedArgs } as Record<string, unknown>;
+        try {
+            assertConfiguredToolArgumentFields(category, normalizedAction, basePayload, inputSchema);
+        } catch (error) {
+            return renderToolResult(createErrorResult(error, { tool, action: normalizedAction, rawArgs: basePayload }), cli);
+        }
         const requestText = [PRIMARY_CLI_COMMAND, tool, action, ...rest].join(' ').trim();
         const runPage = async (page?: number): Promise<ToolResult> => {
             const payload = page === undefined ? basePayload : { ...basePayload, page };

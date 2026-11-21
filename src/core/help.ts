@@ -84,7 +84,9 @@ export const PROVENANCE_GUIDANCE = [
 ];
 
 export const FS_ACTION_HINTS: Partial<Record<FsAction, string>> = {
-    search: '搜索原始Markdown，不触发导出；matchScope默认line，block支持块内跨行，document仅精确单文档并返回跨块映射。跨行正则显式使用[\\s\\S]；自然语言探索用search.knowledge混合召回。',
+    write_atoms: '一个原子对应一个正文段落。预检返回 plannedIds、existingIds、failed 和 identityBasis。续接保留 batchId 和条目身份。全部提供不同的 itemKey 时可重排。未提供 itemKey 时保留原清单及次序。默认全部通过后一次追加。bestEffort 跳过预检失败项，身份冲突时停止。',
+    link_knowledge: '需要可写的既有目标文档与两个可读的知识原子。用证据说明关系方向与边界，系统建立真实端点引用并回读。',
+    search: '别名 search_markdown。按路径搜索原始 Markdown，不触发导出；matchScope 默认 line，block 可在块内跨行，document 仅用于单文档。查思源全文索引用 search.fulltext，按自然问题探索用 search.knowledge。',
     read: 'Returns complete display-block windows with outline and continuation metadata.',
     write: 'Creates a missing document; overwrite of existing content requires strict state validation.',
     replace: 'Use exact old/new text copied from fs.read.',
@@ -135,9 +137,10 @@ export const PROJECT_ACTION_HINTS: Partial<Record<ProjectAction, string>> = {
     sync_mindmap: '原生导图兼容思源 3.8.6；display 配置要求 3.8.8。以预检返回的节点 key 设置标题、连线、样式、关系、概要与锁定，自动同步保留配置。',
 };
 export const SEARCH_ACTION_HINTS: Partial<Record<SearchAction, string>> = {
+    fulltext: '别名 search_index。查思源全文索引。多词关键词首窗为空时尝试词元 OR，并说明实际词元覆盖。指定文档的 Markdown 原行匹配用 fs.search。',
     semantic: 'Returns candidates from the configured embedding index; verify source attributes before reuse.',
-    knowledge: '自然语言探索用 retrievalMode=hybrid、includeContext=true；可选 rerank=true 对前10项使用已配置的TypeSafe文本决策，失败保留原序。名称精确解析和歧义保护保留。',
-    check_anchor: 'Use candidates=["token"] with candidateKind="name"|"alias" before a governed write, not to locate existing content.',
+    knowledge: '自然语言探索用 retrievalMode=hybrid。准备写新颖性主张时，用 retrievalMode=prior_art 按范围检查已有核验成果；回读原块和凭据，空结果不足以判定新颖性。',
+    check_anchor: '写入前用 candidates=["词元"] 和 candidateKind="name"|"alias" 检查命名碰撞，逗号拆分后最多 50 项。',
     query_sql: 'Only SELECT is accepted; add LIMIT and keep output bounded.',
     find_replace: 'Mutates content and requires strict preflight plus exact target scope.',
     criteria_save: 'Overwrites the named saved-search criterion after strict validation.',

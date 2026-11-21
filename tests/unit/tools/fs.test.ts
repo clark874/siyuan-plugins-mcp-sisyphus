@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AGENT_MEMORY_VIRTUAL_PATH, MCP_TOOLS_CONFIG_API_PATH, USER_RULES_VIRTUAL_PATH, buildDefaultToolConfig } from '@/core/config';
 import { SiYuanError } from '@/shared/error';
 import { callFsTool, listFsTools } from '@/tools/fs';
+import { WriteSafetyCoordinator } from '@/core/write-safety-coordinator';
 import { createMockClient } from '../../helpers/mock-client';
 import { parseResult } from '../../helpers/parse-result';
 import { resolveFsScopePath, resolveFsCreateTarget } from '@/tools/internal/helpers/fs-path';
@@ -1044,6 +1045,9 @@ describe('fs tool', () => {
         const baseClient = createFsClient({ missingPaths: ['/New Doc'] });
         const client = createMockClient({
             request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql' && String(body?.stmt).includes('20260508123456-abcdefg')) {
+                    return [{ id: '20260508123456-abcdefg', box: 'nb-1', path: '/ref.sy' }];
+                }
                 if (endpoint === '/api/block/getBlockKramdown' && body?.id === '20260508123456-abcdefg') {
                     return { id: body.id, kramdown: '完整标题\n{: id="20260508123456-abcdefg"}' };
                 }
@@ -1168,6 +1172,25 @@ describe('fs tool', () => {
         ]);
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadProtyle', { id: 'doc-1' });
         expect(client.request).toHaveBeenCalledWith('/api/ui/reloadFiletree', {});
+    });
+
+    it('引用补齐使覆盖正文超过内核上限时，预检和执行均在删除前拒绝', async () => {
+        const client = createFsClient();
+        const permMgr = createPermMgr();
+        const anchor = '((20261112000000-abcdefg))';
+        const room = 32 * 1024 * 1024 - Buffer.byteLength(JSON.stringify({ dataType: 'markdown', data: anchor, parentID: 'doc-1' }), 'utf8');
+        const markdown = '中'.repeat(Math.floor(room / 3)) + 'a'.repeat(room % 3) + anchor;
+        const args = { action: 'write', path: '/Notebook/Doc 1', markdown, overwrite: true };
+
+        const preflight = await new WriteSafetyCoordinator(client).run({
+            client, permMgr, category: 'fs', action: 'write', args: { ...args, validateOnly: true }, strictMode: true, execute: vi.fn(),
+        });
+        expect(parseResult(preflight).error.code).toBe('request_body_too_large');
+        const committed = await callFsTool(client, args, fsConfig(), permMgr);
+        expect(committed.isError).toBe(true);
+        expect(parseResult(committed).error.message).toContain('超过 33554432 字节上限');
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/deleteBlock', expect.anything());
+        expect(client.request).not.toHaveBeenCalledWith('/api/block/appendBlock', expect.anything());
     });
 
     it('rejects overwrite when an existing document contains complex SiYuan blocks', async () => {

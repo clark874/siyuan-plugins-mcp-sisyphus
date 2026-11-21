@@ -6,10 +6,14 @@ export async function requireKernel389(client: SiYuanClient): Promise<void> {
 }
 
 export async function supportsKernel389(client: SiYuanClient): Promise<boolean> {
+    return supportsKernel38(client, 9);
+}
+
+export async function supportsKernel38(client: SiYuanClient, patch: number): Promise<boolean> {
     const version = await client.requestRead<string>('/api/system/version');
     const match = /^(\d+)\.(\d+)\.(\d+)(?:$|[-+])/.exec(String(version));
     if (!match) throw new Error('无法确认思源内核版本，停止使用新增接口。');
-    return Number(match[1]) > 3 || Number(match[1]) === 3 && (Number(match[2]) > 8 || Number(match[2]) === 8 && Number(match[3]) >= 9);
+    return Number(match[1]) > 3 || Number(match[1]) === 3 && (Number(match[2]) > 8 || Number(match[2]) === 8 && Number(match[3]) >= patch);
 }
 
 export async function getConf(client: SiYuanClient): Promise<unknown> {

@@ -17,6 +17,38 @@ const ALLOWED_VERIFICATION_TRANSITIONS: Record<string, Set<string>> = {
     deprecated: new Set(['deprecated']),
 };
 
+export async function findReadableNameClaimCollisions(
+    client: SiYuanClient,
+    permMgr: PermissionManager,
+    claims: Array<{ id: string; name: string }>,
+): Promise<Set<string>> {
+    if (!claims.length) return new Set();
+    await permMgr.reload();
+    if (typeof (permMgr as PermissionManager & { getAll?: () => Record<string, string> }).getAll !== 'function') {
+        throw new Error('权限管理器无法提供完整授权范围，name 唯一性校验已失败关闭。');
+    }
+    const rows = await client.requestRead<unknown[]>('/api/query/sql', {
+        stmt: "SELECT id, box, name FROM blocks WHERE COALESCE(name, '') != '' LIMIT 10000",
+    });
+    if (!Array.isArray(rows) || rows.length >= 10000) {
+        throw new Error('无法完整验证 name 唯一性；写入已停止。');
+    }
+    const names = new Map<string, Set<string>>();
+    for (const row of rows) {
+        if (!row || typeof row !== 'object' || Array.isArray(row)) continue;
+        const item = row as Record<string, unknown>;
+        if (typeof item.box !== 'string' || !permMgr.canRead(item.box) || typeof item.name !== 'string' || typeof item.id !== 'string') continue;
+        const name = normalizeAnchorToken(item.name);
+        const ids = names.get(name) ?? new Set<string>();
+        ids.add(item.id);
+        names.set(name, ids);
+    }
+    return new Set(claims.filter(claim => {
+        const ids = names.get(normalizeAnchorToken(claim.name));
+        return ids && (ids.size > 1 || !ids.has(claim.id));
+    }).map(claim => claim.id));
+}
+
 export async function validateBlockAttributeMutation(
     client: SiYuanClient,
     permMgr: PermissionManager,
@@ -30,28 +62,9 @@ export async function validateBlockAttributeMutation(
     const next = { ...current, ...attrs };
 
     if (Object.prototype.hasOwnProperty.call(attrs, 'name')) {
-        const candidate = normalizeAnchorToken(attrs.name);
-        if (candidate) {
-            await permMgr.reload();
-            if (typeof (permMgr as PermissionManager & { getAll?: () => Record<string, string> }).getAll !== 'function') {
-                throw new Error('权限管理器无法提供完整授权范围，name 唯一性校验已失败关闭。');
-            }
-            const rows = await client.requestRead<unknown[]>('/api/query/sql', {
-                stmt: "SELECT id, box, name FROM blocks WHERE COALESCE(name, '') != '' LIMIT 10000",
-            });
-            if (!Array.isArray(rows) || rows.length >= 10000) {
-                throw new Error('无法完整验证 name 唯一性；set_attrs 已停止且未写入。');
-            }
-            const collision = rows.find((row) => {
-                if (!row || typeof row !== 'object' || Array.isArray(row)) return false;
-                const item = row as Record<string, unknown>;
-                return item.id !== id
-                    && typeof item.box === 'string'
-                    && permMgr.canRead(item.box)
-                    && typeof item.name === 'string'
-                    && normalizeAnchorToken(item.name) === candidate;
-            });
-            if (collision) throw new Error(`知识原子 name 与既有可读块冲突：${attrs.name}。`);
+        const claim = { id, name: attrs.name };
+        if (normalizeAnchorToken(claim.name) && (await findReadableNameClaimCollisions(client, permMgr, [claim])).has(id)) {
+            throw new Error(`知识原子 name 与既有可读块冲突：${attrs.name}。`);
         }
     }
 

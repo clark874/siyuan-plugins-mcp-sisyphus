@@ -1,3 +1,5 @@
+import { promises as fs } from 'node:fs';
+import { lintMarkdown } from '../../agent-kit/scripts/markdown-lint.mjs';
 import { getHelpText, parseArgs } from './args';
 import { runConfigCommand } from './config-command';
 import { runDispatch } from './dispatch';
@@ -34,6 +36,27 @@ async function main(): Promise<number> {
             return runSkillCommand(cli);
         case 'doctor':
             return await runDoctor(cli);
+        case 'lint-markdown': {
+            const [file] = cli.rest;
+            let markdown: string;
+            if (file === '-') {
+                process.stdin.setEncoding('utf8');
+                const chunks: string[] = [];
+                for await (const chunk of process.stdin) chunks.push(chunk);
+                markdown = chunks.join('');
+            } else {
+                markdown = await fs.readFile(file, 'utf8');
+            }
+            const diagnostics = lintMarkdown(markdown);
+            const errors = diagnostics.filter(item => item.severity === 'error').length;
+            if (cli.json) process.stdout.write(JSON.stringify({ ok: errors === 0, diagnostics }) + '\n');
+            else if (diagnostics.length === 0) process.stdout.write('Markdown 预检通过。\n');
+            else for (const item of diagnostics) {
+                const level = item.severity === 'error' ? '错误' : '提示';
+                process.stdout.write(`${level} 第 ${item.line} 行第 ${item.column} 列 [${item.rule}] ${item.hint}\n  ${item.snippet}\n`);
+            }
+            return errors > 0 ? 1 : 0;
+        }
         case 'list':
             return await runList(cli);
         case 'help':

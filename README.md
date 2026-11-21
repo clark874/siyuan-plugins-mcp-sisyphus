@@ -29,7 +29,7 @@
 
 > Connect external AI agents, the existing Sisyphus toolset, and SiYuan's official MCP plugin ecosystem.
 
-> **开发树工具面：** 14 类、109 个动作。文献工具支持思源全文查读，以及 Zotero 书目、附件与批注查询。CLI `v0.5.1` 要求 Node.js 20+。
+> **开发树工具面：** 14 类、112 个动作。文献工具支持思源全文查读，以及 Zotero 书目、附件与批注查询。CLI `v0.6.0` 要求 Node.js 20+。
 
 思源文献库支持独立的只读证据查询。部署目录和查读方法见[文献库使用说明](docs/reference/tools/literature.md)。
 
@@ -39,7 +39,7 @@ I originally built SiYuan Sisyphus simply because I wanted my own SiYuan notes t
 
 The maintained LLM Wiki branch now uses a deliberately reduced surface:
 
-- 14 Sisyphus aggregate tools and 109 actions cover the current text-knowledge and read-only literature workflow;
+- 14 Sisyphus aggregate tools and 112 actions cover the current text-knowledge and read-only literature workflow;
 - Sisyphus now connects to SiYuan's official MCP endpoint and discovers tools registered by other plugins;
 - native SiYuan MCP tools can also be included explicitly, but remain disabled by default because they have a different security boundary;
 - permission management, the document timeline, and multiple connection options continue to be maintained.
@@ -99,7 +99,7 @@ For complete installation and connection instructions, see [Getting Started](./d
 - **AI-friendly note access**: use human-readable `fs` paths such as `/Notebook/Project/Note` without requiring agents to understand block IDs or document-tree internals.
 - **MCP and CLI entry points**: use MCP for multi-step agent workflows and CLI for scripts, automation, and small one-shot tasks.
 - **Notebook-level safety**: assign each notebook `none`, `r`, `rw`, or `rwd` access.
-- **Low-context tool design**: group 109 actions into 14 action-routed tools and load detailed guidance only when needed.
+- **Low-context tool design**: group 112 actions into 14 action-routed tools and load detailed guidance only when needed.
 - **Agent session provenance**: record source and compile sessions for project knowledgeization, query a project's cross-Agent session history, and resolve verified links or resume commands without placing session identifiers in note content.
 - **Scenario Skills for agents**: provide guidance for browsing, editing, search, knowledge ingestion, knowledge-atom governance, databases, project-source text, tags, document timelines, system safety, and SiYuan markup.
 - **MCP App view**: one dedicated launcher opens the document timeline for listing, creating, and comparing snapshots.

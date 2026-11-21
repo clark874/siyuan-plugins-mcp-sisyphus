@@ -11,7 +11,7 @@ function session(overrides: Partial<McpProbeSession> = {}): McpProbeSession {
         initialize: vi.fn().mockResolvedValue(undefined),
         listTools: vi.fn().mockResolvedValue(['system', 'fs']),
         bootstrap: vi.fn().mockResolvedValue({
-            schemaVersion: 2,
+            schemaVersion: 3,
             bootstrap: true,
             toolConfiguration: { current: true },
         }),
@@ -70,6 +70,18 @@ describe('MCP connectivity probe', () => {
         expect(missing.issue).toBe('required_tool_missing');
         expect(stale.issue).toBe('tool_configuration_stale');
         expect(mismatch.issue).toBe('bootstrap_schema_mismatch');
+    });
+
+    it('区分网关超时与连接被拒绝', async () => {
+        const url = 'http://127.0.0.1:36806/mcp';
+        const timeout = await probeMcpGateway({ url }, {
+            createSession: () => session({ bootstrap: vi.fn().mockRejectedValue(new Error('Request timed out')) }),
+        });
+        const refused = await probeMcpGateway({ url }, {
+            createSession: () => session({ initialize: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')) }),
+        });
+        expect(timeout).toMatchObject({ initialized: true, issue: 'gateway_timeout' });
+        expect(refused).toMatchObject({ initialized: false, issue: 'gateway_not_running' });
     });
 });
 

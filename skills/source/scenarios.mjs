@@ -408,6 +408,10 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 {{call projectHub}}
 
+草稿可先用普通文档保存，允许保留未核对的工作笔记与问题。只有需要续用或交付时才读取草稿、按契约提炼原子清单。草稿文档本身不标为已编译，未覆盖的来源和待核证据记入原有批次账本。
+
+{{call saveDraft}}
+
 新写入首选以下五类，优先复用完整原子。历史类型与教学卡保持可读，不设机械字数门槛，不按版本逐项拆卡：
 
 - \`summary\`：项目、子线或方法概览；
@@ -417,6 +421,10 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 - \`warning\`：失败方案、版本冲突或适用边界。
 
 每个原子必须单块自包含、来源范围明确、验证状态与证据一致。在正文原子块设置 \`name\`、有实际召回用途的 \`alias\`、\`custom-atom-type\`、\`custom-verification-status\` 、\`custom-knowledge-project-id\` 和 \`custom-knowledge-workstream\`；用 \`custom-source-hash\` 或 \`custom-source-revision\` 保存实际来源版本，\`custom-source-range\` 标明章节或行。正文同时保留可打开的原文块引用。统计主张必须核对“脚本 → 输出 → 样本定义/阈值 → 叙述”；未核对不得提升为 evidence-verified。机器哈希、revision 和编译时间不得手填。
+
+新原子用一次 \`fs.write_atoms\` 提交正文与治理属性。预检检查段落、名称与目标写权限，给出 \`plannedIds\`、\`existingIds\` 和逐项 \`failed\`。原子格式是一段单行 Markdown，验证初始状态为 draft 或 source-checked。默认全部通过后提交，bestEffort 允许同时提交通过预检的项。建议每项都填固定 itemKey。块 ID 由目标文档、batchId 和 itemKey 决定，重排或补缺沿用原键。无 itemKey 时，块 ID 绑定批次内的原始位置；续接保持整批顺序，不切换身份口径。已提交同键正文或属性与计划不符时停止，已有且仍符合计划的稳定块直接复用。结果不明先核对目标文档与这些 ID，确认后才补写。关系在原子提交并回读后写入。
+
+{{call writeAtoms}}
 
 ## 三、寻址与公共方法接口
 
@@ -450,10 +458,9 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 
 不自动建立“现状关联”“相关于”“概念相似”等方向含混的关系；不把所有文字提及变成引用，不建无实际语义的 evidence↔evidence 网，不重复中枢已有的纯导航边。
 
-每条边使用一个独立关系块。正文真实引用源原子和目标原子，并写明事实依据、差异或边界。随后同批设置关系类型与两端点属性。历史关系仅在两端经核实后补标；已有关系失效时保留原块并标记退出当前网络。不能从父块位置或引用顺序猜方向：
+每条新边用 \`fs.link_knowledge\` 同次创建关系块、类型、端点属性和真实双端引用。证据字段写明事实依据、差异或边界。回读应核对反链。历史关系仅在两端经核实后补标；已有关系失效时保留原块并标记退出当前网络。不能从父块位置或引用顺序猜方向：
 
-{{call relationAppend}}
-{{call relationAttrs}}
+{{call linkKnowledge}}
 
 关系只确认知识组织事实，不自动提升源原子、目标原子或项目结论的验证状态。
 
@@ -464,6 +471,8 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
 {{call snapshot}}
 
 只做稳定块 ID 下的追加、插入、单块更新与属性设置；禁止整篇覆写含 name、alias、custom-*、引用、AV 或 query_embed 的文档。严格写入模式下，按实时 action schema 区分 guarded 与 request-id-only 协议；追加类写入只执行一次，失败后先按返回的稳定 ID 或正文标识查找孤儿块，不得盲目重试。
+
+跨文档、编目与关系的写入，在同一批次账本的 pending.operations 先登记待核操作，避免文档先保存、目录或关系仍缺失时误关账。每项填写固定 key、kind 和 state=pending。document 另填 sourceKey 与完整思源文档路径 path，catalog 填 sourceKey，relation 填 fromId、toId 和 relationKind。检查回执及真实目标后，记录 targetId 与 state=verified。已提交的操作与目标保持不变。快照显示待核项的键和类别，按中枢账本定位并只补缺项。关账会重新核验已登记操作。
 
 ## 六、Agent 会话溯源
 
@@ -523,8 +532,9 @@ Before rename, move, delete, or broad replacement, resolve the exact target, sho
             conflictName: call('search', 'check_anchor', { candidates: ['project-step'], candidateKind: 'name', excludeBlockIds: ['<block-id>'] }),
             conflictAlias: call('search', 'check_anchor', { candidates: ['自然语言召回词'], candidateKind: 'alias', excludeBlockIds: ['<block-id>'], activeScopes: ['<project-scope>'] }),
             snapshot: call('timeline', 'create_node', { name: '项目知识编译前恢复点-<date>', scope: 'document', documentId: '<document-id>' }),
-            relationAppend: call('block', 'append', { parentID: '<project-knowledge-document-id>', dataType: 'markdown', data: "((<source-atom-id> '证据')) 由 ((<target-atom-id> '流程')) 产生。说明来源、实现差异与适用范围。" }),
-            relationAttrs: call('block', 'set_attrs', { id: '<relation-block-id>', attrs: { 'custom-relation-kind': 'produced-by', 'custom-relation-from-id': '<source-atom-id>', 'custom-relation-to-id': '<target-atom-id>' } }),
+            saveDraft: call('fs', 'write', { path: '/工作日志/<项目>/<草稿文档>', markdown: '<待核笔记与待解决问题>' }),
+            writeAtoms: call('fs', 'write_atoms', { path: '/工作日志/<项目>/<知识文档>', batchId: '<稳定批次标识>', mode: 'atomic', atoms: [{ itemKey: '<固定条目键>', markdown: "<原子正文> ((<source-block-id> '原文'))", attrs: { name: '<project-atom-name>', 'custom-atom-type': 'evidence', 'custom-verification-status': 'source-checked', 'custom-knowledge-project-id': '<registered-project-id>', 'custom-knowledge-workstream': '<workstream>', 'custom-source-range': '<章节或行范围>' } }] }),
+            linkKnowledge: call('fs', 'link_knowledge', { path: '/工作日志/<项目>/<知识文档>', fromId: '<source-atom-id>', toId: '<target-atom-id>', kind: 'produced-by', evidence: '<说明来源、实现差异与适用范围>' }),
             discoverSession: call('provenance', 'discover_session', { provider: 'zcode', limit: 10 }),
             registerSourceSession: call('provenance', 'register_session', { projectBlockId: '<project-hub-block-id>', projectId: '<registered-project-id>', session: { provider: 'codex', sessionId: '<source-session-id>', hostAlias: 'local', captureMethod: 'environment' }, occurredAt: '<source-session-time>' }),
             registerCompileSession: call('provenance', 'register_session', { projectBlockId: '<project-hub-block-id>', projectId: '<registered-project-id>', session: { provider: 'codex', sessionId: '<compile-session-id>', hostAlias: 'local', captureMethod: 'environment' }, occurredAt: '<compile-session-time>' }),
@@ -858,6 +868,10 @@ SQL 结果是待审查候选，不是语义裁决。被引用、入度高或正�
         shortDescription: 'Search and query SiYuan knowledge',
         defaultPrompt: 'Use $NAME to find and query the requested SiYuan knowledge.',
         body: `Search to identify candidates, read the target by ID or path, and only then edit. Use explicit pagination for repeatable results.
+
+撰写新颖性主张前，先用 \`search.knowledge(retrievalMode="prior_art")\` 核查已有成果。\`query\` 写拟议主张，\`notebooks\` 或 \`paths\` 限定项目。回读核验状态、凭据、接替关系及原块，比较假设和范围。该模式按配置访问向量服务，覆盖召回窗口内有核验凭据的块，空结果不足以建立新颖性结论。
+
+跨文档全文定位用 \`search.fulltext\`，Markdown 原行匹配用 \`fs.search\`。多词关键词首窗为空时可回退到字面词元 OR。检查 \`matchedTokens\`、\`unmatchedTokens\`、\`confidence\` 与 \`keywordFallback\`，把未命中写成查询结果；必要时换核心术语、别名或缩减限定条件。需要逐条检查重复正文时设 \`dedupe=false\`。
 
 探索性自然语言问题使用 \`knowledge(retrievalMode="hybrid", includeContext=true)\`，并优先传当前项目的真实存储路径范围。需要精排且思源已配置 TypeSafe 时加 \`rerank=true\`：只对前10个已授权短候选作一次文本决策请求，失败保留融合排序，检查 rerank.status，不将分数当作证据审核结果。默认 auto 保留原有低成本精确入口；semantic 模式跳过关键词预检，但唯一名称直达及名称歧义保护仍生效。诊断纯语义基线可同时设 namespaceMode="off"。
 

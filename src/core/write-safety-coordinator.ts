@@ -1,6 +1,9 @@
 import type { SiYuanClient } from '../api/client';
 import { readAutomationStateHash, withAutomationWriteGuard } from './automation-safety';
-import { WriteOutcomeUnknownError } from '../api/client';
+import { encodeKernelJson, WriteOutcomeUnknownError } from '../api/client';
+import { assertMarkdownInput } from '../tools/internal/markdown-input';
+import { inspectWriteReferences, markdownWriteFragments, summarizeMarkdownDiff } from './write-diagnostics';
+import { normalizeToolArguments } from './argument-aliases';
 import { isDocumentAddressingError } from '../api/document';
 import * as searchApi from '../api/search';
 import { validateBlockAttributeMutations } from './attribute-governance';
@@ -16,7 +19,8 @@ import {
     readDocumentReorderState,
     resolveFsReorderOrder,
 } from '../tools/internal/helpers/document-reorder';
-import { resolveFsScopePath } from '../tools/internal/helpers/fs-path';
+import { getFsPathErrorCode, resolveFsCreateTarget, resolveFsScopePath } from '../tools/internal/helpers/fs-path';
+import { ensurePermissionForDocumentId } from '../tools/internal/context';
 import {
     AGENT_MEMORY_VIRTUAL_PATH,
     isDangerousAction,
@@ -108,6 +112,8 @@ export class WriteSafetyCoordinator {
     ): Promise<ToolResult> {
         const { category, action, args, client, permMgr } = execution;
         const validateOnly = args.validateOnly === true;
+        const contentArgs = category === 'fs' && action === 'replace' ? normalizeToolArguments(category, args) : args;
+        const fragments = markdownWriteFragments(category, action, contentArgs);
         const requestId = typeof args.requestId === 'string' ? args.requestId : '';
         let inspected: Awaited<ReturnType<WriteSafetyLedger['inspect']>> | undefined;
         let activeLease: WritePreflightLease | undefined;
@@ -128,6 +134,17 @@ export class WriteSafetyCoordinator {
             if (inspected.entry) return replayLedgerEntry(inspected.entry);
         }
 
+        let markdownWarnings: Array<ReturnType<typeof assertMarkdownInput>[number] & { blockIndex: number }>;
+        try {
+            if (category !== 'fs' || action !== 'write') encodeKernelJson('', stripSafetyFields(args));
+            markdownWarnings = category === 'fs' && action === 'write_atoms' ? [] : fragments.flatMap(({ markdown, blockIndex }) =>
+                assertMarkdownInput(markdown, `${category}.${action}`).map(warning => ({ ...warning, blockIndex })));
+        } catch (error) {
+            return fromSafetyError(error);
+        }
+        const diagnostics = async () => ({ ...await inspectWriteReferences(client, permMgr, fragments),
+            ...(markdownWarnings.length ? { markdownWarnings: markdownWarnings.slice(0, 50), markdownWarningCount: markdownWarnings.length } : {}) });
+
         let before: StateProbe | undefined;
         if (policy.precondition !== 'none') {
             const expectedField = PRECONDITION_FIELD[policy.precondition];
@@ -141,7 +158,7 @@ export class WriteSafetyCoordinator {
                 );
             }
             try {
-                before = await probeCurrentState(client, permMgr, category, action, args, policy);
+                before = await probeCurrentState(client, permMgr, category, action, contentArgs, policy);
             } catch (error) {
                 return fromSafetyError(error);
             }
@@ -166,6 +183,7 @@ export class WriteSafetyCoordinator {
                     leaseExpiresAt: issued.leaseExpiresAt,
                     targetCount: before.targetIds.length,
                     ...before.summary,
+                    ...await diagnostics(),
                 });
             }
             const resolved = this.preflightLeases.resolve(leaseScope, digestPrefix!);
@@ -192,6 +210,13 @@ export class WriteSafetyCoordinator {
                 });
             }
         } else if (validateOnly) {
+            if (category === 'fs' && action === 'write') {
+                try {
+                    await checkFsWritePreflight(client, permMgr, args);
+                } catch (error) {
+                    return fromSafetyError(error);
+                }
+            }
             return jsonResult({
                 action,
                 validateOnly: true,
@@ -203,11 +228,13 @@ export class WriteSafetyCoordinator {
                 preconditionRequired: false,
                 requestIdRequired: true,
                 issuedRequestId: createFreshUuidV7(),
+                ...await diagnostics(),
                 nextStep: 'This additive action has no state precondition and issues no hash credential. Submit the exact mutation once with validateOnly omitted and the issuedRequestId returned here; do not add an expected hash field.',
             });
         }
 
         const targetIds = before?.targetIds ?? collectTargetSelectors(args);
+        const referenceDiagnostics = await diagnostics();
         try {
             await this.ledger.record({
                 requestId,
@@ -312,6 +339,7 @@ export class WriteSafetyCoordinator {
             transactionState: before && after.hash === before.hash ? 'no_change' : 'committed',
             previousHash: before?.hash,
             resultHash: after.hash,
+            ...referenceDiagnostics,
         };
         try {
             await this.ledger.record({
@@ -447,6 +475,12 @@ async function probeCurrentStateWithoutAutomation(
         const reorder = await probeDocumentReorderState(client, permMgr, category, args);
         state.reorder = reorder.state;
         targetIds = reorder.targetIds;
+    } else if (category === 'fs' && (action === 'write_atoms' || action === 'link_knowledge')) {
+        const { readKnowledgeFsWriteState } = await import('../tools/fs/knowledge-write');
+        return readKnowledgeFsWriteState(client, permMgr, args);
+    } else if (category === 'fs' && (action === 'write' || action === 'replace') && typeof args.path === 'string') {
+        const root = await appendFsContentPathState(client, permMgr, action, args.path, state);
+        if (root) targetIds = [root];
     } else if (category === 'fs') {
         await appendHumanPathState(client, args, state);
     } else if (category === 'av' && typeof args.avID === 'string') {
@@ -492,11 +526,84 @@ async function probeCurrentStateWithoutAutomation(
     }
 
     enforceNotebookPermission(permMgr, state, targetIds, isDangerousAction(category, action));
+    let preview: unknown;
+    if (args.validateOnly === true && category === 'fs' && typeof args.path === 'string') {
+        const paths = state.fsPaths as Record<string, { rootID?: string; markdown?: string }> | undefined;
+        const original = paths?.[args.path];
+        if (action === 'write') {
+            const prepared = await checkFsWritePreflight(client, permMgr, args);
+            if (prepared.type === 'overwrite') {
+                if (original?.rootID !== prepared.existing.id || typeof original.markdown !== 'string') {
+                    throw safetyError('state_changed', '预检期间文档寻址发生变化，请重新预检。');
+                }
+                preview = summarizeMarkdownDiff(original.markdown, prepared.markdown);
+            } else if (prepared.type === 'create' && original?.rootID) {
+                throw safetyError('state_changed', '预检期间文档寻址发生变化，请重新预检。');
+            }
+        } else if (action === 'replace' && original?.rootID) {
+            const { previewFsReplace } = await import('../tools/fs/handlers');
+            preview = await previewFsReplace(client, permMgr, original.rootID, args.edit);
+        }
+    }
+    if (args.validateOnly === true && category === 'block' && action === 'replace' && typeof args.id === 'string') {
+        if ((await ensurePermissionForDocumentId(client, permMgr, args.id, 'write')).denied) throw safetyError('permission_denied', '无权预检该块的改动。');
+        const { previewBlockReplace } = await import('../tools/block/handlers');
+        preview = await previewBlockReplace(client, permMgr, args);
+    }
     return {
         hash: hashWriteState(state),
         targetIds,
-        summary: { targetCount: targetIds.length },
+        summary: { targetCount: targetIds.length, ...(preview === undefined ? {} : { diffPreview: preview }) },
     };
+}
+
+async function checkFsWritePreflight(client: SiYuanClient, permMgr: PermissionManager, args: Record<string, unknown>) {
+    const { prepareFsWrite } = await import('../tools/fs/handlers');
+    const prepared = await prepareFsWrite(client, permMgr, args);
+    if (prepared.type === 'blocked') {
+        const error = parseResultObject(prepared.result)?.error;
+        const message = isRecord(error) && typeof error.message === 'string' ? error.message : '无法预检文档写入。';
+        throw safetyError(readHandlerErrorType(prepared.result) || 'write_safety_failed', message);
+    }
+    return prepared;
+}
+
+async function appendFsContentPathState(
+    client: SiYuanClient,
+    permMgr: PermissionManager,
+    action: 'write' | 'replace',
+    path: string,
+    state: Record<string, unknown>,
+): Promise<string | undefined> {
+    const { getVirtualRootFilePath } = await import('../tools/fs/handlers');
+    const virtualPath = getVirtualRootFilePath(path);
+    if (virtualPath) {
+        await appendHumanPathState(client, { path: virtualPath }, state);
+        return;
+    }
+    const destination = action === 'write' ? await resolveFsCreateTarget(client, permMgr, path) : undefined;
+    let scope: Awaited<ReturnType<typeof resolveFsScopePath>>;
+    try {
+        scope = await resolveFsScopePath(client, permMgr, destination?.canonicalPath ?? path, 'write');
+    } catch (error) {
+        if (!destination || getFsPathErrorCode(error) !== 'not_found') throw error;
+        state.fsPaths = { [path]: { notebookID: destination.notebook, hpath: destination.hPath, missing: true } };
+        return;
+    }
+    if (scope.type !== 'document') throw safetyError('invalid_path', '文件内容操作要求使用文档路径。');
+    if (!permMgr.canWrite(scope.notebook)) throw safetyError('permission_denied', '该笔记本未允许写入。');
+    // 状态凭据和差异预览读取实际目标的实时块树，兼容唯一匹配的简写路径。
+    const blocks = await listDocumentBlocksInTreeOrder(client, scope.id);
+    state.fsPaths = {
+        [path]: {
+            notebookID: scope.notebook,
+            hpath: scope.hPath,
+            rootID: scope.id,
+            blocks,
+            markdown: await readDocumentEditableMarkdown(client, scope.id, blocks),
+        },
+    };
+    return scope.id;
 }
 
 async function probeDocumentReorderState(
@@ -992,7 +1099,8 @@ function fromSafetyError(error: unknown): ToolResult {
     const code = error && typeof error === 'object' && typeof (error as { code?: unknown }).code === 'string'
         ? String((error as { code: string }).code)
         : 'write_safety_failed';
-    return writeSafetyFailure(code, error instanceof Error ? error.message : String(error));
+    const details = isRecord(error) && Array.isArray(error.diagnostics) ? { diagnostics: error.diagnostics } : {};
+    return writeSafetyFailure(code, error instanceof Error ? error.message : String(error), details);
 }
 
 function jsonResult(payload: Record<string, unknown>, isError = false): ToolResult {

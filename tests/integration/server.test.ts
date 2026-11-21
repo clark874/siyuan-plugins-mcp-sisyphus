@@ -81,6 +81,16 @@ describe('MCP 服务集成', () => {
         expect(result.structuredContent).toEqual(expect.objectContaining({ version: '3.8.4' }));
     });
 
+    it('拒绝多余参数并在成功时回显收到的参数名', async () => {
+        const result = await client.callTool({ name: 'system', arguments: { action: 'get-version' } });
+        expect(result.structuredContent).toMatchObject({ version: '3.8.4', receivedParams: ['action'] });
+        const rejected = await client.callTool({ name: 'system', arguments: { action: 'get_version', undocumented: true } });
+        expect(rejected.isError).toBe(true);
+        expect(rejected.structuredContent).toMatchObject({ error: { type: 'validation_error', fields: [
+            { path: '', message: 'Unexpected field(s): undocumented.' },
+        ] } });
+    });
+
     it('协商 MCP Apps 后只提供时间线界面', async () => {
         const server = await createSiYuanServer();
         const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

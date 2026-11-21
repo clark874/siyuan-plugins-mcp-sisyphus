@@ -95,8 +95,14 @@ function parseBootstrap(result) {
 function classifyInitialize(error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/\b(?:401|403)\b|unauthorized|forbidden/i.test(message)) return 'gateway_unauthorized';
-    if (/ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|ETIMEDOUT|fetch failed|network|socket|aborted|timeout/i.test(message)) return 'gateway_not_running';
+    if (isGatewayTimeout(error)) return 'gateway_timeout';
+    if (/ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|fetch failed|network|socket|aborted/i.test(message)) return 'gateway_not_running';
     return 'mcp_initialize_failed';
+}
+
+function isGatewayTimeout(error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return /tim(?:e|ed)[ _-]*out/i.test(`${message} ${error?.cause?.code ?? ''}`);
 }
 
 export async function checkSisyphus(options) {
@@ -116,8 +122,8 @@ export async function checkSisyphus(options) {
         let tools;
         try {
             tools = (await client.listTools(undefined, { timeout: options.timeoutMs })).tools;
-        } catch {
-            return { ready: false, issue: 'tools_list_failed', client: configured.client, sessionMount: 'not_observable' };
+        } catch (error) {
+            return { ready: false, issue: isGatewayTimeout(error) ? 'gateway_timeout' : 'tools_list_failed', client: configured.client, sessionMount: 'not_observable' };
         }
         if (!tools.some((tool) => tool.name === 'system')) {
             return { ready: false, issue: 'required_tool_missing', client: configured.client, sessionMount: 'not_observable' };
@@ -128,8 +134,8 @@ export async function checkSisyphus(options) {
                 { name: 'system', arguments: { action: 'bootstrap' } },
                 { timeout: options.timeoutMs },
             ));
-        } catch {
-            return { ready: false, issue: 'bootstrap_failed', client: configured.client, sessionMount: 'not_observable' };
+        } catch (error) {
+            return { ready: false, issue: isGatewayTimeout(error) ? 'gateway_timeout' : 'bootstrap_failed', client: configured.client, sessionMount: 'not_observable' };
         }
         const deliveryPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../delivery.json');
         const delivery = JSON.parse(await readFile(deliveryPath, 'utf8'));

@@ -32,7 +32,7 @@ export const ACTION_SAFETY_POLICIES: {
 } = {
     fs: {
         ls: read(), tree: read(), read: read(), search: read(),
-        write: mutation('state'), replace: mutation('manifest'), rm: mutation('state'),
+        write: mutation('state'), write_atoms: mutation('state'), link_knowledge: mutation('state'), replace: mutation('manifest'), rm: mutation('state'),
         mv: mutation('structure'), reorder: mutation('structure'),
     },
     notebook: {
@@ -63,7 +63,7 @@ export const ACTION_SAFETY_POLICIES: {
     project: { snapshot: read(), sync_mindmap: mutation('state') },
     search: {
         fulltext: read(), semantic: read(), knowledge: read(), check_anchor: read(), query_sql: read(), get_backlinks: read(), search_refs: read(),
-        list_invalid_refs: read(), find_replace: mutation('manifest'),
+        list_invalid_refs: read(), lint: read(), find_replace: mutation('manifest'),
         criteria_list: read(), criteria_save: mutation('state'), criteria_remove: mutation('state'),
     },
     literature: {

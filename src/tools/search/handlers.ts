@@ -1,5 +1,6 @@
 import * as searchApi from '../../api/search';
 import { retrieveKnowledgeCandidates, attachKnowledgeContext, rerankKnowledgeCandidates } from './retrieval';
+import { keywordSearchWithFallback, possibleDuplicateIds, searchCoverage, textDuplicates } from './result-quality';
 import { redactText } from '../../shared/text-security';
 import { normalizeAnchorToken } from '../../core/attribute-governance';
 import { readKnowledgeRelations, readKnowledgeSupersessions } from '../../core/knowledge-relations';
@@ -24,6 +25,7 @@ import {
     SearchFulltextSchema,
     SearchGetBacklinksSchema,
     SearchListInvalidRefsSchema,
+    SearchLintSchema,
     SearchKnowledgeSchema,
     SearchSemanticSchema,
     SearchQuerySqlSchema,
@@ -42,6 +44,7 @@ import {
     isPermissionRelatedApiError,
 } from './permission-filter';
 import { assertReadOnlySql, getBacklinksWithDiagnostics } from './sql-builder';
+import { lintKnowledgeScope } from './lint';
 
 const SEARCH_TOOL_NAME = 'search';
 
@@ -146,6 +149,7 @@ type AnchorMatch = {
 
 type AnchorTrustMetadata = {
     verificationStatus?: string;
+    verificationEvidence?: string;
     sourceMetadata?: Record<string, string>;
 };
 
@@ -160,7 +164,10 @@ function namespaceRowInRequestedScope(row: AnchorNamespaceRow, parsed: SearchKno
     const box = readStringField(row, 'box');
     if (parsed.notebooks?.length && !parsed.notebooks.includes(box)) return false;
     const path = readStringField(row, 'path');
-    if (parsed.paths?.length && !parsed.paths.some((prefix) => path === prefix || path.startsWith(`${prefix.replace(/\/$/, '')}/`))) return false;
+    if (parsed.paths?.length && !parsed.paths.some((prefix) => {
+        const value = prefix.startsWith('/') ? path : `${box}${path}`;
+        return value === prefix || value.startsWith(`${prefix.replace(/\/$/, '')}/`);
+    })) return false;
     if (parsed.types && Object.keys(parsed.types).length > 0) {
         const type = readStringField(row, 'type');
         const normalizedType = Object.keys(resolveTypeRecord({ [type]: true }))[0] ?? type;
@@ -238,12 +245,13 @@ async function loadAnchorScopes(
 async function loadAnchorTrustMetadata(
     client: Parameters<ToolActionHandler>[0]['client'],
     ids: string[],
+    includeEvidence = false,
 ): Promise<Map<string, AnchorTrustMetadata>> {
     if (ids.length === 0) return new Map();
     const rows = await searchApi.querySQL(client, [
         '/* namespace_trust_metadata */ SELECT block_id, name, value FROM attributes',
         `WHERE block_id IN (${sqlStringList(ids)})`,
-        "AND (name = 'custom-verification-status' OR name LIKE 'custom-source-%') LIMIT 10000",
+        `AND (name = 'custom-verification-status' OR name LIKE 'custom-source-%'${includeEvidence ? " OR name = 'custom-verification-evidence'" : ''}) LIMIT 10000`,
     ].join(' '));
     const result = new Map<string, AnchorTrustMetadata>();
     for (const row of rows) {
@@ -252,10 +260,12 @@ async function loadAnchorTrustMetadata(
         const id = readStringField(typed, 'block_id');
         const name = readStringField(typed, 'name');
         const rawValue = readStringField(typed, 'value');
-        if (!id || !TRUST_ATTRIBUTE_NAMES.has(name)) continue;
+        if (!id || (!TRUST_ATTRIBUTE_NAMES.has(name) && !(includeEvidence && name === 'custom-verification-evidence'))) continue;
         const current = result.get(id) ?? {};
         if (name === 'custom-verification-status') {
             current.verificationStatus = rawValue;
+        } else if (name === 'custom-verification-evidence') {
+            current.verificationEvidence = redactText(rawValue).content;
         } else {
             current.sourceMetadata = { ...current.sourceMetadata, [name]: redactText(rawValue).content };
         }
@@ -386,6 +396,7 @@ async function checkAnchors(
     parsed: SearchCheckAnchorArgs,
 ): Promise<ToolResult> {
     const candidates = [...new Set(parsed.candidates.flatMap(splitAnchorTokens))];
+    if (candidates.length === 0 || candidates.length > 50) throw new Error('候选按逗号拆分、去重后须有 1 至 50 个名称或别名。');
     const candidateSet = new Set(candidates);
     const excluded = new Set(parsed.excludeBlockIds ?? []);
     const activeScopes = new Set((parsed.activeScopes ?? []).flatMap(splitAnchorTokens));
@@ -487,20 +498,6 @@ async function checkAnchors(
 
 const LEXICAL_PROBE_PAGE_SIZE = 8;
 
-function splitLexicalTokens(query: string): string[] {
-    const normalized = query.normalize('NFKC').toLowerCase();
-    return [...new Set(normalized
-        .split(/[\s,，。.;;：:、''""()（）[\]{}·！!？?]+/u)
-        .map((token) => token.trim())
-        .filter((token) => token.length >= 2))];
-}
-
-function blockContainsAllTokens(text: string, tokens: string[]): boolean {
-    if (!text) return false;
-    const haystack = text.normalize('NFKC').toLowerCase();
-    return tokens.every((token) => haystack.includes(token));
-}
-
 async function knowledgeRelationProjection(
     client: Parameters<ToolActionHandler>[0]['client'],
     permMgr: Parameters<ToolActionHandler>[0]['permMgr'],
@@ -528,48 +525,54 @@ async function tryLexicalFirstResolution(
     client: Parameters<ToolActionHandler>[0]['client'],
     permMgr: Parameters<ToolActionHandler>[0]['permMgr'],
     parsed: SearchKnowledgeArgs,
-): Promise<ToolResult | null> {
-    if (parsed.lexicalFirst === false) return null;
-    if (parsed.notebooks && parsed.notebooks.length > 0) return null;
-    const tokens = splitLexicalTokens(parsed.query);
-    if (tokens.length === 0) return null;
+): Promise<{ local?: ToolResult; fallback?: Awaited<ReturnType<typeof keywordSearchWithFallback>>['fallback'] }> {
+    if (parsed.lexicalFirst === false) return {};
+    if (parsed.notebooks?.length) return {};
+    if (parsed.subTypes && Object.keys(parsed.subTypes).length > 0) return {};
     // 预检必须完全容错：探测端点的任何失败都不能破坏 knowledge 主路径。
     try {
-        const probe = await searchApi.fullTextSearchBlock(client, {
+        const { result: probe, fallback } = await keywordSearchWithFallback(client, {
             query: parsed.query,
             method: 0,
             page: 1,
             pageSize: LEXICAL_PROBE_PAGE_SIZE,
+            ...(parsed.types ? { types: resolveTypeRecord(parsed.types) } : {}),
             ...(parsed.paths ? { paths: parsed.paths } : {}),
-        }) as { blocks?: unknown[] } | undefined;
+        }, result => !!filterFullTextSearchResultByPermission(result, permMgr).blocks?.length);
         const filteredProbe = filterFullTextSearchResultByPermission(probe ?? { blocks: [] }, permMgr) as unknown as Record<string, unknown>;
         const probeBlocks = Array.isArray(filteredProbe.blocks)
             ? filteredProbe.blocks.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
             : [];
-        const lexicalHit = probeBlocks.find((block) => blockContainsAllTokens(
-            [readStringField(block, 'content'), readStringField(block, 'fcontent'), readStringField(block, 'name'), readStringField(block, 'alias')].join('\n'),
-            tokens,
-        ));
-        if (!lexicalHit) return null;
-        const data = normalizeSearchBlocksForAi([lexicalHit]);
-        return createJsonResult({
+        const lexicalHit = probeBlocks.find(block => searchCoverage(parsed.query, [block]).confidence === 'strong');
+        const localFallback = fallback?.status === 'applied' && probeBlocks.length > 0;
+        if (!lexicalHit && !localFallback) return { fallback };
+        const blocks = normalizeSearchBlocksForAi(lexicalHit ? [lexicalHit] : probeBlocks);
+        const collapsed = parsed.dedupe === false ? { data: blocks, duplicatesCollapsed: 0 }
+            : await collapseFulltextDuplicates(client, permMgr, blocks);
+        const { data: allCandidates, ...duplicates } = collapsed;
+        const data = allCandidates.slice(0, parsed.pageSize ?? 10);
+        return { local: createJsonResult({
             query: parsed.query,
-            retrievalMode: 'lexical_exact',
-            resolutionStatus: 'local_fulltext_all_tokens',
-            matchedTokens: tokens,
+            retrievalMode: localFallback ? 'lexical_or_fallback' : 'lexical_exact',
+            resolutionStatus: lexicalHit ? 'local_fulltext_all_tokens' : 'local_fulltext_partial_tokens',
+            ...searchCoverage(parsed.query, data),
+            ...(fallback ? { keywordFallback: fallback } : {}),
+            ...duplicates,
             data,
-            ...await knowledgeRelationProjection(client, permMgr, parsed.includeRelations, [readStringField(lexicalHit, 'id')]),
+            ...await knowledgeRelationProjection(client, permMgr, parsed.includeRelations, data
+                .map(block => readStringField(block as Record<string, unknown>, 'id'))),
             showing: data.length,
             total: typeof filteredProbe.matchedBlockCount === 'number' ? filteredProbe.matchedBlockCount : data.length,
             permissionFilteredCount: typeof filteredProbe.filteredOutBlockCount === 'number' ? filteredProbe.filteredOutBlockCount as number : 0,
             dataEgress: false,
             externalCost: false,
             egressAvoided: true,
-            retrievalProtocol: ['local_keyword_fulltext', 'all_token_coverage', 'permission_filter'],
-            hint: 'All query tokens matched a readable block in the local full-text index, so the embedding provider was not called. Rerun with lexicalFirst=false for broader semantic recall.',
-        });
+            retrievalProtocol: ['local_keyword_fulltext', localFallback ? 'literal_token_or' : 'all_token_coverage', 'permission_filter'],
+            hint: localFallback ? '原关键字查询首窗为空，已按可读词元回退。需要更广召回时可选择混合检索。'
+                : '查询词在一个可读块中同时出现。需要更广召回时可选择混合检索。',
+        }) };
     } catch {
-        return null;
+        return {};
     }
 }
 
@@ -579,6 +582,8 @@ async function knowledgeSearch(
     parsed: SearchKnowledgeArgs,
 ): Promise<ToolResult> {
     const pageSize = parsed.pageSize ?? 10;
+    const priorArt = parsed.retrievalMode === 'prior_art';
+    const hybrid = priorArt || parsed.retrievalMode === 'hybrid';
     if (parsed.catalog) {
         if (parsed.notebooks?.length || parsed.paths?.length || parsed.activeScopes?.length || parsed.types
             || parsed.subTypes || parsed.rerank
@@ -597,6 +602,7 @@ async function knowledgeSearch(
             retrievalMode: 'project_catalog',
             catalog,
             data,
+            ...searchCoverage(parsed.query, data, false),
             showing: data.length,
             truncated: 'hasMore' in catalog && catalog.hasMore === true,
             dataEgress: false,
@@ -608,13 +614,15 @@ async function knowledgeSearch(
     const namespace = parsed.namespaceMode === 'off'
         ? { exact: [], seeds: [], trust: new Map<string, AnchorTrustMetadata>(), permissionFilteredCount: 0, namespaceScanComplete: true }
         : await probeKnowledgeNamespace(client, permMgr, parsed);
-    if (namespace.exact.length > 0 && (namespace.exactStatus === 'ambiguity_requires_context' || namespace.exactStatus === 'scan_incomplete_requires_retry')) {
+    if (!priorArt && namespace.exact.length > 0 && (namespace.exactStatus === 'ambiguity_requires_context' || namespace.exactStatus === 'scan_incomplete_requires_retry')) {
         const data = namespace.exact.slice(0, pageSize).map((item) => namespaceResultItem(item, namespace.trust.get(item.id)));
         return createJsonResult({
             query: parsed.query,
             retrievalMode: 'namespace_ambiguous',
             resolutionStatus: namespace.exactStatus,
             data,
+            ...searchCoverage(parsed.query, data),
+            confidence: 'weak',
             showing: data.length,
             candidateCount: namespace.exact.length,
             truncated: namespace.exact.length > data.length,
@@ -627,14 +635,16 @@ async function knowledgeSearch(
                 : 'The exact anchor maps to multiple readable blocks. Supply activeScopes or inspect the candidates; no target was selected and semantic search was intentionally skipped.',
         });
     }
-    if (namespace.exact.length === 1 && namespace.exactStatus) {
+    if (!priorArt && namespace.exact.length === 1 && namespace.exactStatus) {
         const match = namespace.exact[0];
+        const data = [namespaceResultItem(match, namespace.trust.get(match.id))];
         return createJsonResult({
             query: parsed.query,
             retrievalMode: 'namespace_exact',
             resolutionStatus: namespace.exactStatus,
             matchedAnchor: { token: match.token, kind: match.kind, status: namespace.exactStatus },
-            data: [namespaceResultItem(match, namespace.trust.get(match.id))],
+            data,
+            ...searchCoverage(parsed.query, data),
             ...await knowledgeRelationProjection(client, permMgr, parsed.includeRelations, [match.id]),
             showing: 1,
             namespaceScanComplete: namespace.namespaceScanComplete,
@@ -645,9 +655,12 @@ async function knowledgeSearch(
             hint: 'A unique readable name/alias resolved locally. Verify updated and trust metadata before treating the block as current evidence.',
         });
     }
-    const lexicalResult = parsed.retrievalMode === 'hybrid' || parsed.retrievalMode === 'semantic'
-        ? null : await tryLexicalFirstResolution(client, permMgr, parsed);
-    if (lexicalResult) return lexicalResult;
+    const lexicalProbe = hybrid || parsed.retrievalMode === 'semantic'
+        ? {} : await tryLexicalFirstResolution(client, permMgr, parsed);
+    if (lexicalProbe.local) return lexicalProbe.local;
+    const seeds = priorArt ? [...namespace.exact, ...namespace.seeds] : namespace.seeds;
+    const seedCandidates = seeds.map(item => namespaceResultItem(item, namespace.trust.get(item.id)));
+    const retrievalMode = priorArt ? 'prior_art' : hybrid ? 'hybrid' : seeds.length ? 'namespace_seeded_semantic' : 'semantic_fallback';
     const semantic = await retrieveKnowledgeCandidates(client, permMgr, parsed, candidateSize);
     const filteredSemantic = filterFullTextSearchResultByPermission(semantic, permMgr) as unknown as Record<string, unknown>;
     const semanticBlocks = Array.isArray(filteredSemantic.blocks)
@@ -657,14 +670,17 @@ async function knowledgeSearch(
     const permissionFilteredCount = typeof filteredSemantic.filteredOutBlockCount === 'number'
         ? filteredSemantic.filteredOutBlockCount as number
         : 0;
-    if (semanticIds.length === 0) {
-        const seedData = namespace.seeds.slice(0, pageSize).map((item) => namespaceResultItem(item, namespace.trust.get(item.id)));
+    if (semanticIds.length === 0 && !priorArt) {
+        const seedData = seedCandidates.slice(0, pageSize);
         return createJsonResult({
             query: parsed.query,
-            retrievalMode: parsed.retrievalMode === 'hybrid' ? 'hybrid' : namespace.seeds.length > 0 ? 'namespace_seeded_semantic' : 'semantic_fallback',
+            retrievalMode,
             ...semantic.metadata,
+            ...(lexicalProbe.fallback ? { keywordFallback: lexicalProbe.fallback } : {}),
             namespaceSeeds: namespace.seeds.map((item) => ({ id: item.id, token: item.token, kind: item.kind })),
             data: seedData,
+            ...searchCoverage(parsed.query, seedData),
+            duplicatesCollapsed: 0,
             ...await knowledgeRelationProjection(client, permMgr, parsed.includeRelations, seedData.map((item) => readStringField(item, 'id'))),
             semanticCandidateCount: semantic.metadata.channelCandidateCounts.semantic,
             ...(parsed.retrievalMode === 'hybrid' ? { hybridCandidateCount: 0 } : {}),
@@ -682,10 +698,10 @@ async function knowledgeSearch(
         });
     }
 
-    const referenceRows = await searchApi.querySQL(
+    const referenceRows = (semanticIds.length ? await searchApi.querySQL(
         client,
         `SELECT block_id, def_block_id FROM refs WHERE block_id IN (${sqlStringList(semanticIds)}) LIMIT 500`,
-    ) as Array<Record<string, unknown>>;
+    ) : []) as Array<Record<string, unknown>>;
     const referencedTargets = new Map<string, string[]>();
     for (const row of referenceRows) {
         const blockId = readStringField(row, 'block_id');
@@ -697,10 +713,12 @@ async function knowledgeSearch(
     }
 
     const allBlockIds = [...new Set([...semanticIds, ...referenceRows.map((row) => readStringField(row, 'def_block_id')).filter(Boolean)])];
-    const blockRowsRaw = await searchApi.querySQL(
+    const blockRowsRaw = allBlockIds.length ? await searchApi.querySQL(
         client,
-        `SELECT id, root_id, box, path, hpath, type, subtype, name, alias, content, markdown FROM blocks WHERE id IN (${sqlStringList(allBlockIds)}) LIMIT 500`,
-    );
+        `SELECT id, root_id, box, path, hpath, type, subtype, name, alias, content, markdown,
+            EXISTS (SELECT 1 FROM attributes a WHERE a.block_id=blocks.id AND a.name='custom-verification-status') AS governed
+            FROM blocks WHERE id IN (${sqlStringList(allBlockIds)}) LIMIT 500`,
+    ) : [];
     const blockRowsPermission = await filterItemsByPermission(client, blockRowsRaw, permMgr);
     const blockRows = blockRowsPermission.items.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object');
     const blockById = new Map(blockRows.map((row) => [readStringField(row, 'id'), row]));
@@ -728,6 +746,7 @@ async function knowledgeSearch(
         // otherwise the target ID itself would become an ownership side channel.
         const targets = rawTargets.filter((targetId) => blockById.has(targetId));
         for (const targetId of targets) {
+            if (priorArt && !namespaceRowInRequestedScope(blockById.get(targetId)!, parsed)) continue;
             const current = accumulated.get(targetId) ?? {
                 targetId,
                 semanticRank: index + 1,
@@ -742,7 +761,7 @@ async function knowledgeSearch(
     });
 
     const ordered = [...accumulated.values()].sort((left, right) => {
-        if (parsed.retrievalMode === 'hybrid' && left.semanticRank !== right.semanticRank) return left.semanticRank - right.semanticRank;
+        if (hybrid && left.semanticRank !== right.semanticRank) return left.semanticRank - right.semanticRank;
         const leftNamed = readStringField(blockById.get(left.targetId) ?? {}, 'name').trim().length > 0;
         const rightNamed = readStringField(blockById.get(right.targetId) ?? {}, 'name').trim().length > 0;
         if (leftNamed !== rightNamed) return leftNamed ? -1 : 1;
@@ -750,7 +769,7 @@ async function knowledgeSearch(
     });
     const targetIds = ordered.map((item) => item.targetId);
     const relatedByTarget = new Map<string, Array<{ id: string; hpath: string; title: string }>>();
-    if ((parsed.includeRelatedDocuments ?? true) && targetIds.length > 0) {
+    if ((parsed.includeRelatedDocuments ?? !priorArt) && targetIds.length > 0) {
         const relatedRowsRaw = await searchApi.querySQL(client, [
             'SELECT r.def_block_id AS target_id, src.root_id AS source_root_id, src.box AS box,',
             'root.hpath AS source_hpath, root.content AS source_title',
@@ -787,12 +806,13 @@ async function knowledgeSearch(
             rootId: readStringField(row, 'root_id', 'rootID'),
             box: readStringField(row, 'box', 'notebook'),
             hpath: readStringField(row, 'hpath', 'hPath'),
+            path: readStringField(row, 'path'),
             type: readStringField(row, 'type'),
             name: readStringField(row, 'name'),
             alias: readStringField(row, 'alias'),
             content: readStringField(row, 'content', 'markdown'),
-            ...(parsed.retrievalMode === 'hybrid' ? { fusionRank: item.semanticRank } : { semanticRank: item.semanticRank }),
-            ...(parsed.retrievalMode === 'hybrid' ? { retrievalSources: [...new Set(semanticBlocks
+            ...(hybrid ? { fusionRank: item.semanticRank } : { semanticRank: item.semanticRank }),
+            ...(hybrid ? { retrievalSources: [...new Set(semanticBlocks
                 .filter((block) => item.sourceResultIds.includes(readStringField(block, 'id')))
                 .flatMap((block) => Array.isArray(block.retrievalSources) ? block.retrievalSources as string[] : []))] } : {}),
             collapsedReferenceCount: item.collapsedReferenceCount,
@@ -800,14 +820,24 @@ async function knowledgeSearch(
             relatedDocuments: relatedByTarget.get(item.targetId) ?? [],
         };
     });
-    const seedData = namespace.seeds.map((item) => namespaceResultItem(item, namespace.trust.get(item.id)));
     const seenIds = new Set<string>();
-    const candidates = [...seedData, ...semanticData].filter((item) => {
+    const uniqueCandidates = [...seedCandidates, ...semanticData].filter((item) => {
         const id = readStringField(item, 'id');
         if (!id || seenIds.has(id)) return false;
         seenIds.add(id);
         return true;
     });
+    const trust = priorArt ? await loadAnchorTrustMetadata(client, [...seenIds], true) : undefined;
+    const eligible = trust ? uniqueCandidates.flatMap(item => {
+        const metadata = trust.get(readStringField(item, 'id'));
+        return metadata?.verificationEvidence?.trim() && ['execution-verified', 'evidence-verified'].includes(metadata.verificationStatus ?? '')
+            ? [{ ...item, ...metadata }] : [];
+    }) : uniqueCandidates;
+    const verifiedContent = new Map(blockRows.filter(row => !row.governed)
+        .map(row => [readStringField(row, 'id'), readStringField(row, 'content')]));
+    const { data: candidates, duplicatesCollapsed } = parsed.dedupe === false
+        ? { data: eligible, duplicatesCollapsed: 0 }
+        : textDuplicates(eligible, verifiedContent);
     let contextStatus: Record<string, unknown> | undefined;
     if (parsed.includeContext || parsed.rerank) {
         try {
@@ -820,29 +850,41 @@ async function knowledgeSearch(
     const data = candidates.slice(0, pageSize).map((item, index) => ({ ...item, deduplicatedRank: index + 1 }));
     return createJsonResult({
         query: parsed.query,
-        retrievalMode: parsed.retrievalMode === 'hybrid' ? 'hybrid' : namespace.seeds.length > 0 ? 'namespace_seeded_semantic' : 'semantic_fallback',
+        retrievalMode,
         ...semantic.metadata,
+        ...(lexicalProbe.fallback ? { keywordFallback: lexicalProbe.fallback } : {}),
         ...(contextStatus ? { contextStatus } : {}),
         ...(rerankStatus ? { rerank: rerankStatus } : {}),
         namespaceSeeds: namespace.seeds.map((item) => ({ id: item.id, token: item.token, kind: item.kind })),
         data,
+        ...searchCoverage(parsed.query, data),
+        duplicatesCollapsed,
+        ...(priorArt ? { priorArt: {
+            reviewedWindow: uniqueCandidates.length,
+            recordedVerifiedCandidates: eligible.length,
+            evidenceBasis: '已登记的核验状态及凭据，使用前须回读凭据和原块。',
+            excludedUnverified: uniqueCandidates.length - eligible.length,
+            scope: { notebooks: parsed.notebooks, paths: parsed.paths },
+            noveltyEstablished: false,
+        } } : {}),
         ...await knowledgeRelationProjection(client, permMgr, parsed.includeRelations, data.map((item) => readStringField(item, 'id'))),
         semanticCandidateCount: semantic.metadata.channelCandidateCounts.semantic,
-        ...(parsed.retrievalMode === 'hybrid' ? { hybridCandidateCount: semanticBlocks.length } : {}),
-        candidateCounts: { recalledBlocks: semanticBlocks.length, namespaceSeeds: seedData.length, resolvedTargets: semanticData.length,
-            beforeDeduplication: seedData.length + semanticData.length, afterDeduplication: candidates.length },
+        ...(hybrid ? { hybridCandidateCount: semanticBlocks.length } : {}),
+        candidateCounts: { recalledBlocks: semanticBlocks.length, namespaceSeeds: seedCandidates.length, resolvedTargets: semanticData.length,
+            beforeDeduplication: seedCandidates.length + semanticData.length, afterDeduplication: candidates.length },
         deduplicatedCount: candidates.length,
         showing: data.length,
         truncated: candidates.length > data.length,
         permissionFilteredCount: permissionFilteredCount + blockRowsPermission.removedCount + namespace.permissionFilteredCount,
         dataEgress: true,
         externalCost: true,
-        retrievalProtocol: parsed.retrievalMode === 'hybrid'
+        retrievalProtocol: hybrid
             ? ['namespace_probe', 'keyword_recall', 'semantic_discovery', 'reciprocal_rank_fusion', 'reference_collapse']
             : namespace.seeds.length > 0
             ? ['namespace_probe', 'namespace_seed', 'semantic_discovery', 'reference_collapse', 'named_atom_confirmation', 'related_document_expansion']
             : ['namespace_probe', 'semantic_discovery', 'reference_collapse', 'named_atom_confirmation', 'related_document_expansion'],
-        hint: 'Semantic results are candidates, not evidence. Read the returned block by stable ID and verify its source/verification attributes before reuse.',
+        hint: priorArt ? '这是指定范围内的既有成果候选。请回读原块及核验凭据，再比较主张、假设与适用范围。空结果不足以支持新颖性结论。'
+            : 'Semantic results are candidates, not evidence. Read the returned block by stable ID and verify its source/verification attributes before reuse.',
     });
 }
 
@@ -866,6 +908,37 @@ function applyFulltextHasTagsFilter(normalizedObj: Record<string, unknown>, hasT
     normalizedObj.matchedBlockCount = (normalizedObj.blocks as unknown[]).length;
 }
 
+function filterFulltextWindow(result: Awaited<ReturnType<typeof searchApi.fullTextSearchBlock>>, parsed: SearchFulltextArgs,
+    permMgr: Parameters<ToolActionHandler>[0]['permMgr']): Record<string, unknown> {
+    const filtered = filterFullTextSearchResultByPermission(result, permMgr);
+    const window: Record<string, unknown> = { ...filtered, blocks: filtered.blocks ?? [] };
+    if (parsed.parentId) applyFulltextParentIdFilter(window, parsed.parentId);
+    if (parsed.hasTags !== undefined) applyFulltextHasTagsFilter(window, parsed.hasTags);
+    return window;
+}
+
+async function collapseFulltextDuplicates(client: Parameters<ToolActionHandler>[0]['client'],
+    permMgr: Parameters<ToolActionHandler>[0]['permMgr'], blocks: unknown[]) {
+    const rows = blocks.filter((block): block is Record<string, unknown> => !!block && typeof block === 'object');
+    const ids = possibleDuplicateIds(rows);
+    if (!ids.length) return { data: blocks, duplicatesCollapsed: 0 };
+    try {
+        await permMgr.reload();
+        const contentRows = await searchApi.querySQL(client,
+            `/* verify_search_duplicates */ SELECT b.id, b.box, b.content FROM blocks b WHERE b.id IN (${sqlStringList(ids)})
+            AND NOT EXISTS (SELECT 1 FROM attributes a WHERE a.block_id=b.id AND a.name='custom-verification-status') LIMIT ${ids.length}`);
+        const verifiedContent = new Map(contentRows.flatMap(row => {
+            if (!row || typeof row !== 'object') return [];
+            const { id, box, content } = row as Record<string, unknown>;
+            return typeof id === 'string' && typeof box === 'string' && permMgr.canRead(box) && typeof content === 'string'
+                ? [[id, content] as const] : [];
+        }));
+        return textDuplicates(rows.filter(row => permMgr.canRead(readStringField(row, 'box', 'notebook'))), verifiedContent);
+    } catch {
+        return { data: blocks, duplicatesCollapsed: 0, duplicateCheck: 'unavailable' };
+    }
+}
+
 function resolveSearchMethodMeta(parsed: SearchMethodArgs): { method?: number; methodName?: string } {
     const method = resolveSearchMethod(parsed.methodName, parsed.method);
     return {
@@ -879,6 +952,7 @@ function createFulltextPaginatedResult(
     parsed: SearchFulltextArgs,
     kernelMeta: { matchedBlockCount?: number; matchedRootCount?: number; pageCount?: number },
     resolvedArgs?: Record<string, unknown>,
+    fallback?: Awaited<ReturnType<typeof keywordSearchWithFallback>>['fallback'],
 ): ToolResult {
     const blocks = Array.isArray(normalizedObj.blocks)
         ? normalizedObj.blocks as unknown[]
@@ -895,12 +969,13 @@ function createFulltextPaginatedResult(
     const total = postFiltered
         ? returnedTotal
         : (typeof kernelMeta.matchedBlockCount === 'number' ? kernelMeta.matchedBlockCount : returnedTotal);
+    const fallbackApplied = fallback?.status === 'applied';
     const pagination = {
         total,
         page,
         pageSize,
-        pageCount: postFiltered ? 1 : kernelPageCount,
-        hasNextPage: postFiltered ? false : page < kernelPageCount,
+        pageCount: postFiltered || fallbackApplied ? 1 : kernelPageCount,
+        hasNextPage: !postFiltered && !fallbackApplied && page < kernelPageCount,
     };
     const { blocks: _ignoredBlocks, pageCount: _ignoredPageCount, ...restRaw } = normalizedObj;
     void _ignoredBlocks;
@@ -910,6 +985,8 @@ function createFulltextPaginatedResult(
         ...restRaw,
         ...createPartialMetadata(permissionFilteredCount),
         ...buildTruncationSummary(returnedTotal, truncated.meta),
+        ...searchCoverage(parsed.query, truncated.items, (resolveSearchMethodMeta(parsed).method ?? 0) === 0),
+        ...(fallback ? { keywordFallback: fallback } : {}),
         returnedTotal,
         returnedPageCount: 1,
         returnedHasNextPage: false,
@@ -917,7 +994,10 @@ function createFulltextPaginatedResult(
         ...(kernelMeta.matchedRootCount !== undefined ? { kernelMatchedRootCount: kernelMeta.matchedRootCount } : {}),
         kernelPageCount,
         kernelHasNextPage: page < kernelPageCount,
-        ...(postFiltered ? {
+        ...(fallbackApplied ? {
+            paginationMode: 'keyword_or_first_window',
+            pagingHint: '词元回退只返回首窗。继续翻页请用 keywordFallback.query 和 methodName=query_syntax 重查。',
+        } : postFiltered ? {
             paginationMode: 'post_filtered_window',
             pagingHint: 'kernel* pagination fields describe the raw SiYuan search page before permission and parent/tag post-filtering.',
         } : {}),
@@ -980,7 +1060,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
 
         const resolvedMethod = resolveSearchMethodMeta(parsed);
         const resolvedOrderBy = resolveSortAlias(parsed.sortBy, parsed.orderBy);
-        const result = await searchApi.fullTextSearchBlock(client, {
+        const { result, fallback } = await keywordSearchWithFallback(client, {
             query: parsed.query,
             method: resolvedMethod.method,
             types: resolveFulltextTypes(parsed),
@@ -989,24 +1069,12 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             orderBy: resolvedOrderBy,
             page: parsed.page,
             pageSize: resolveFulltextRequestPageSize(parsed),
-        });
-        const filtered = filterFullTextSearchResultByPermission(result, permMgr);
-        const filteredObj = filtered as unknown as Record<string, unknown>;
-        const normalizedObj: Record<string, unknown> = {
-            ...filteredObj,
-            blocks: normalizeReferencedBlocks(Array.isArray(filteredObj.blocks) ? filteredObj.blocks : []),
-        };
-        if (parsed.parentId) {
-            applyFulltextParentIdFilter(normalizedObj, parsed.parentId);
-        }
-
-        if (parsed.hasTags !== undefined) {
-            applyFulltextHasTagsFilter(normalizedObj, parsed.hasTags);
-        }
-
-        if (Array.isArray(normalizedObj.blocks)) {
-            normalizedObj.blocks = await enrichItemsWithNotebookNames(client, normalizedObj.blocks);
-        }
+        }, candidate => (filterFulltextWindow(candidate, parsed, permMgr).blocks as unknown[]).length > 0, parsed.keywordFallback !== false);
+        const normalizedObj = filterFulltextWindow(result, parsed, permMgr);
+        const blocks = normalizeReferencedBlocks(normalizedObj.blocks as unknown[]);
+        const { data, ...duplicates } = parsed.dedupe === false
+            ? { data: blocks, duplicatesCollapsed: 0 } : await collapseFulltextDuplicates(client, permMgr, blocks);
+        Object.assign(normalizedObj, duplicates, { blocks: await enrichItemsWithNotebookNames(client, data) });
 
         const shouldExposeResolvedArgs = parsed.methodName !== undefined || parsed.sortBy !== undefined;
         const resolvedArgs = shouldExposeResolvedArgs
@@ -1024,7 +1092,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
             pageCount: typeof (result as unknown as Record<string, unknown>).pageCount === 'number'
                 ? (result as unknown as Record<string, unknown>).pageCount as number
                 : undefined,
-        }, resolvedArgs);
+        }, resolvedArgs, fallback);
     },
     semantic: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchSemanticSchema.parse(rawArgs) as SearchSemanticArgs;
@@ -1056,6 +1124,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
         }, {
             ...metadata,
             ...createPartialMetadata(permissionFilteredCount),
+            ...searchCoverage(parsed.query, blocks),
             kernelMatchedBlockCount: typeof result.matchedBlockCount === 'number' ? result.matchedBlockCount : blocks.length,
             kernelMatchedRootCount: typeof result.matchedRootCount === 'number' ? result.matchedRootCount : undefined,
             dataEgress: true,
@@ -1073,6 +1142,7 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
         const parsed = SearchCheckAnchorSchema.parse(rawArgs);
         return checkAnchors(client, permMgr, parsed);
     },
+    lint: async ({ client, permMgr, rawArgs }) => lintKnowledgeScope(client, permMgr, SearchLintSchema.parse(rawArgs)),
     query_sql: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchQuerySqlSchema.parse(rawArgs);
         const stmt = resolveAliasString(parsed.stmt, parsed.sql);

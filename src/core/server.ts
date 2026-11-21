@@ -3,6 +3,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod';
 import { startHttpMcpServer, type TlsOptions } from './http-transport';
 import { buildServerInstructions } from './server-instructions';
+import { normalizeActionAlias } from './action-aliases';
 
 import { SiYuanClient } from '../api/client';
 import {
@@ -38,7 +39,8 @@ import {
     TIMELINE_APP_TOOL_NAME,
 } from './mcp-apps';
 import { listHelpResources, listHelpResourceTemplates, readHelpResource } from './resources';
-import { GENERIC_TOOL_OUTPUT_SCHEMA, listAllTools, prepareAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
+import { assertConfiguredToolArgumentFields, GENERIC_TOOL_OUTPUT_SCHEMA, listAllTools, listConfiguredToolsForCategory, prepareAllTools, resolveCategory, TOOL_REGISTRY } from './tool-registry';
+import { createErrorResult } from '../tools/internal/shared';
 import { runToolCall } from './tool-lifecycle';
 import { getMcpPrompt, getSepSkill, listMcpPrompts, listSepSkillResources, listSepSkills, readSepSkillResource } from './skills';
 
@@ -322,7 +324,7 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
 
     server.setRequestHandler('tools/call', async (request, ctx) => {
         const { name, arguments: args } = request.params;
-        const action = typeof args?.action === 'string' ? args.action : 'unknown';
+        const requestedAction = typeof args?.action === 'string' ? args.action : 'unknown';
         const clientCapabilities = (
             ctx.mcpReq.envelope as { clientCapabilities?: Parameters<typeof supportsMcpApps>[0] } | undefined
         )?.clientCapabilities ?? server.getClientCapabilities();
@@ -367,6 +369,7 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
                 isError: true,
             };
         }
+        const action = normalizeActionAlias(category, requestedAction);
 
         const config = await getToolConfig();
         const appActionConfig = name === TIMELINE_APP_ACTION_TOOL_NAME ? config.mcpApps.timeline : undefined;
@@ -383,6 +386,17 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
             : category === 'extension'
                 ? true
                 : (config[category].actions as Record<string, boolean>)[action] === true;
+        let validatesFields = false;
+        if (category !== 'extension' && !appActionConfig && (actionEnabled || action === 'help') && args) {
+            try {
+                const inputSchema = listConfiguredToolsForCategory(category, config, officialMcpRuntime)[0]?.inputSchema;
+                validatesFields = assertConfiguredToolArgumentFields(category, action, args, inputSchema);
+            } catch (error) {
+                return server.projectCallToolResult(withStructuredContent(createErrorResult(error, {
+                    tool: name, action, rawArgs: args, hint: '核对本动作的参数清单。若客户端缓存了旧工具定义，请刷新连接。',
+                })), GENERIC_TOOL_OUTPUT_SCHEMA);
+            }
+        }
         const extensionTool = category === 'extension'
             ? officialMcpBridge.getTools().find((tool) => tool.name === action)
             : undefined;
@@ -503,6 +517,16 @@ export async function createSiYuanServer(options: CreateSiYuanServerOptions = {}
         // outputSchema, but projecting here keeps modern and legacy shapes in
         // sync when structured output is introduced later.
         const projectedResult = withStructuredContent(result);
+        if (validatesFields && args && projectedResult.structuredContent && typeof projectedResult.structuredContent === 'object') {
+            // 回显收到的参数名。客户端可据此察觉发出前被剥离的字段，无需返回原值。
+            const receivedParams = Object.keys(args).sort();
+            projectedResult.structuredContent = { ...projectedResult.structuredContent, receivedParams };
+            projectedResult.content = projectedResult.content.map((item) => {
+                if (item.type !== 'text' || !item.text.trimStart().startsWith('{')) return item;
+                try { return { ...item, text: JSON.stringify({ ...JSON.parse(item.text), receivedParams }) }; }
+                catch { return item; }
+            });
+        }
         // Softening happens only here, at the outermost response boundary, so
         // the write-safety coordinator and the MCP App bridge keep branching on
         // the untouched `isError` flag produced by the handlers.

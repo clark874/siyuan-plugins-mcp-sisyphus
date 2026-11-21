@@ -1,8 +1,8 @@
 /** @param {string} markdown */
-function tableLines(markdown) {
+export function tableLines(markdown) {
     const lines = markdown.split(/\r\n?|\n/).map(line => {
         const quote = line.match(/^(?:[ \t]*>[ \t]?)*/)[0];
-        return { text: line.slice(quote.length), depth: quote.split('>').length - 1, code: false };
+        return { text: line.slice(quote.length), source: line, offset: quote.length, depth: quote.split('>').length - 1, code: false };
     });
     for (let i = 0; i < lines.length; i += 1) {
         const { text, depth } = lines[i];
@@ -31,16 +31,17 @@ function tableLines(markdown) {
 }
 
 /** 代码围栏中的示例不会作为待入库表格。 */
-export function findUnsupportedTable(markdown) {
-    const lines = tableLines(markdown);
+export function findUnsupportedTable(markdown, lines = tableLines(markdown)) {
     for (let i = 0; i < lines.length; i += 1) {
         if (lines[i].code) continue;
-        const text = lines[i].text.replace(/^[ \t]*(?:[-+*]|\d+[.)])[ \t]+/, '').replace(/`+[^`]*`+/g, '');
-        if (/<table\b/i.test(text)) return { line: i + 1, kind: 'HTML 表格' };
+        const prefix = lines[i].text.match(/^[ \t]*(?:[-+*]|\d+[.)])[ \t]+/)?.[0].length ?? 0;
+        const text = lines[i].text.slice(prefix).replace(/`+[^`]*`+/g, code => ' '.repeat(code.length));
+        const htmlStart = text.search(/<table\b/i);
+        if (htmlStart >= 0) return { line: i + 1, index: lines[i].offset + prefix + htmlStart, kind: 'HTML 表格' };
         const next = lines[i + 1];
         if (/^[ \t]*\+(?::?[-=]+:?\+)+[ \t]*$/.test(text)
             && next?.depth === lines[i].depth && !next.code && /^[ \t]*\|.*\|[ \t]*$/.test(next.text)) {
-            return { line: i + 1, kind: 'Pandoc 网格表格' };
+            return { line: i + 1, index: lines[i].offset + prefix + text.indexOf('+'), kind: 'Pandoc 网格表格' };
         }
     }
     return null;
@@ -54,10 +55,12 @@ export function findPandocGridTableLine(markdown) {
 
 function tableCells(line) {
     let text = line.trim();
+    const start = line.length - line.trimStart().length + Number(text.startsWith('|'));
     if (text.startsWith('|')) text = text.slice(1);
-    if (text.endsWith('|') && !text.endsWith('\\|')) text = text.slice(0, -1);
-    const cells = [];
-    let value = '', fence = 0;
+    const trailingEscapes = text.match(/\\+(?=\|$)/)?.[0].length ?? 0;
+    if (text.endsWith('|') && trailingEscapes % 2 === 0) text = text.slice(0, -1);
+    const cells = [], separators = [];
+    let value = '', fence = 0, pendingCodePipe, codePipe;
     for (let i = 0; i < text.length; i += 1) {
         const char = text[i];
         if (char === '\\' && i + 1 < text.length) { value += char + text[++i]; continue; }
@@ -65,32 +68,60 @@ function tableCells(line) {
             let run = 1;
             while (text[i + run] === '`') run += 1;
             if (!fence) fence = run;
-            else if (run === fence) fence = 0;
+            else if (run === fence) {
+                fence = 0;
+                codePipe ??= pendingCodePipe;
+                pendingCodePipe = undefined;
+            }
             value += '`'.repeat(run);
             i += run - 1;
-        } else if (char === '|' && !fence) { cells.push(value.trim()); value = ''; }
+        } else if (char === '|') {
+            if (fence) pendingCodePipe ??= start + i;
+            separators.push(start + i);
+            cells.push(value.trim());
+            value = '';
+        }
         else value += char;
     }
     cells.push(value.trim());
-    return cells;
+    return { cells, separators, codePipe };
+}
+
+function mathTablePipe(line, separators) {
+    for (const match of line.matchAll(/(?<![\\$])(\${1,2})(?=\S)[^$]+?(?<=\S)(?<!\\)\1(?![\d$])/gu)) {
+        const mathPipe = separators.find(index => index > match.index && index < match.index + match[0].length);
+        if (mathPipe !== undefined) return mathPipe;
+    }
 }
 
 /** 按 GFM 管道表读取表头和数据行，保留单元格边界。 */
-export function readMarkdownTables(markdown) {
-    const lines = tableLines(markdown);
+export function readMarkdownTables(markdown, lines = tableLines(markdown)) {
     const tables = [];
     for (let i = 0; i + 1 < lines.length; i += 1) {
         if (lines[i].code || lines[i + 1].code || !lines[i].text.includes('|') || !lines[i + 1].text.includes('|')) continue;
-        const separator = tableCells(lines[i + 1].text);
+        if (lines[i].depth !== lines[i + 1].depth) continue;
+        const listPrefix = lines[i].text.match(/^[ \t]*(?:[-+*]|\d+[.)])[ \t]+/)?.[0].length ?? 0;
+        const below = (line) => line.text.length - line.text.trimStart().length >= listPrefix;
+        if (!below(lines[i + 1])) continue;
+        const headerLine = listPrefix ? {
+            ...lines[i], text: lines[i].text.slice(listPrefix), offset: lines[i].offset + listPrefix,
+        } : lines[i];
+        const { cells: separator } = tableCells(lines[i + 1].text);
         if (!separator.every(cell => /^:?-+:?$/.test(cell))) continue;
-        const header = tableCells(lines[i].text);
-        if (header.length !== separator.length) throw Error(`第 ${i + 1} 行表头与分隔行列数不一致`);
+        const headerCells = tableCells(headerLine.text);
+        const header = headerCells.cells;
+        if (header.length !== separator.length || headerCells.codePipe !== undefined || mathTablePipe(headerLine.text, headerCells.separators) !== undefined) {
+            throw malformedTable(headerLine, i + 1, separator.length, headerCells, '表头与分隔行列数不一致');
+        }
         const rows = [header];
         let end = i + 2;
         while (end < lines.length && !lines[end].code && lines[end].depth === lines[i].depth
-            && lines[end].text.includes('|') && !/^\s*\{:/u.test(lines[end].text)) {
-            const cells = tableCells(lines[end].text);
-            if (cells.length > header.length) throw Error(`第 ${end + 1} 行表格单元格超过表头列数`);
+            && below(lines[end]) && lines[end].text.includes('|') && !/^\s*\{:/u.test(lines[end].text)) {
+            const rowCells = tableCells(lines[end].text);
+            const cells = rowCells.cells;
+            if (cells.length > header.length || rowCells.codePipe !== undefined || mathTablePipe(lines[end].text, rowCells.separators) !== undefined) {
+                throw malformedTable(lines[end], end + 1, header.length, rowCells, '表格单元格超过表头列数');
+            }
             rows.push(cells.concat(Array(header.length - cells.length).fill('')));
             end += 1;
         }
@@ -98,6 +129,20 @@ export function readMarkdownTables(markdown) {
         i = end - 1;
     }
     return tables;
+}
+
+function malformedTable(row, line, expected, { cells, separators, codePipe }, reason) {
+    const mathPipe = mathTablePipe(row.text, separators);
+    const actual = cells.length;
+    const index = row.offset + Math.max(0, codePipe ?? mathPipe ?? separators[Math.max(0, expected - 1)] ?? row.text.search(/\S/u));
+    const column = [...row.source.slice(0, index)].length + 1;
+    const hint = '检查本行列分隔符。单元格中的普通竖线用 \\|，公式可用 \\lvert、\\rvert 或 \\mid。';
+    const rule = codePipe !== undefined ? 'table_code_pipe' : mathPipe !== undefined ? 'table_math_pipe' : 'table_column_count';
+    const diagnostic = { line, column, rule,
+        snippet: row.source.slice(Math.max(0, index - 70), index + 100), hint,
+        severity: 'error', expectedColumns: expected, actualColumns: actual };
+    const message = codePipe !== undefined ? '表格行内代码含未转义的竖线' : mathPipe !== undefined ? '表格公式含未转义的竖线' : reason;
+    return Object.assign(Error(`第 ${line} 行第 ${column} 列${message}（预期 ${expected}，实际 ${actual}）。${hint}`), { diagnostic });
 }
 
 function normalizedCell(cell) {

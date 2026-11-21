@@ -2,7 +2,7 @@ import minimist from 'minimist';
 
 import { CLI_COMMAND_ALIAS, PRIMARY_CLI_COMMAND } from '../shared/constants';
 
-export type Command = 'dispatch' | 'list' | 'help' | 'init' | 'config' | 'skill' | 'doctor' | 'show-help' | 'version';
+export type Command = 'dispatch' | 'lint-markdown' | 'list' | 'help' | 'init' | 'config' | 'skill' | 'doctor' | 'show-help' | 'version';
 export type DoctorClient = 'zcode' | 'kimi' | 'auto';
 export type ConfigCommandAction = 'list' | 'get' | 'set' | 'use';
 export type SkillCommandAction = 'list' | 'read' | 'install' | 'uninstall';
@@ -48,6 +48,7 @@ Commands:
   ${PRIMARY_CLI_COMMAND} init                                 Create ~/.siyuan-sisyphus/config.json
   ${PRIMARY_CLI_COMMAND} config <action> ...                  Manage saved SiYuan profiles
   ${PRIMARY_CLI_COMMAND} doctor [--client zcode|kimi|auto]     Verify kernel, plugin, gateway, and MCP bootstrap
+  ${PRIMARY_CLI_COMMAND} lint-markdown <file|-> [--json]      本地检查 Markdown，- 读取标准输入
   ${PRIMARY_CLI_COMMAND} skill install [--bundle cli|mcp|all] Install bundled agent skills
   ${PRIMARY_CLI_COMMAND} skill list [--bundle cli|mcp|all]    List bundled agent skills
   ${PRIMARY_CLI_COMMAND} --help | -h                          Show this help
@@ -125,6 +126,14 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
     const positional = parsed._;
     const first = positional[0];
+
+    if (first === 'lint-markdown') {
+        const extra = Object.keys(parsed).filter(key => !['_', 'json', 'debug', 'help', 'h', 'version', 'v', 'require-ready'].includes(key));
+        if (positional.length !== 2 || typeof positional[1] !== 'string' || extra.length) {
+            throw new Error(`用法：${PRIMARY_CLI_COMMAND} lint-markdown <文件或 -> [--json]`);
+        }
+        return { command: 'lint-markdown', rest: [positional[1]], json: Boolean(parsed.json), debug: Boolean(parsed.debug) };
+    }
 
     if (first === 'init') {
         return {

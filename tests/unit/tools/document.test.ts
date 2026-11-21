@@ -366,6 +366,20 @@ describe('document.lookup path compatibility', () => {
         }
     });
 
+    it('表格出错时返回原始 Markdown 的数学竖线行列与摘录', async () => {
+        const row = '> | 😀 | $|x|$ |';
+        const markdown = `# 附录\r\n\r\n> | 指标 | 数值 |\r\n> | --- | --- |\r\n${row}`;
+        const request = vi.fn();
+        const result = await callDocumentTool(createMockClient({ request }), {
+            action: 'create', notebook: 'nb-1', path: '/附录', markdown,
+        }, buildDefaultToolConfig().document, { reload: vi.fn(), canWrite: vi.fn(() => true) } as never);
+        expect(result.isError).toBe(true);
+        expect(parseResult(result).error.diagnostics).toEqual([expect.objectContaining({
+            line: 5, column: 10, rule: 'table_math_pipe', snippet: row, expectedColumns: 2, actualColumns: 4,
+        })]);
+        expect(request).not.toHaveBeenCalled();
+    });
+
     it('strips duplicate leading title heading when creating a document', async () => {
         const client = createMockClient({
             request: vi.fn(async (endpoint: string) => {
@@ -426,6 +440,9 @@ describe('document.lookup path compatibility', () => {
     it('expands naked block references when creating a document', async () => {
         const client = createMockClient({
             request: vi.fn(async (endpoint: string, body?: Record<string, unknown>) => {
+                if (endpoint === '/api/query/sql' && String(body?.stmt).includes('20260508123456-abcdefg')) {
+                    return [{ id: '20260508123456-abcdefg', box: 'nb-1', path: '/ref.sy' }];
+                }
                 if (endpoint === '/api/block/getBlockKramdown' && body?.id === '20260508123456-abcdefg') {
                     return { id: body.id, kramdown: '完整标题\n{: id="20260508123456-abcdefg"}' };
                 }
@@ -437,6 +454,7 @@ describe('document.lookup path compatibility', () => {
         const permMgr = {
             reload: vi.fn(async () => undefined),
             canWrite: vi.fn(() => true),
+            canRead: vi.fn(() => true),
             get: vi.fn(() => 'rwd'),
         };
 

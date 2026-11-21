@@ -27,6 +27,10 @@ siyuan-sisyphus system bootstrap --json
 
 Search to identify candidates, read the target by ID or path, and only then edit. Use explicit pagination for repeatable results.
 
+撰写新颖性主张前，先用 `search.knowledge(retrievalMode="prior_art")` 核查已有成果。`query` 写拟议主张，`notebooks` 或 `paths` 限定项目。回读核验状态、凭据、接替关系及原块，比较假设和范围。该模式按配置访问向量服务，覆盖召回窗口内有核验凭据的块，空结果不足以建立新颖性结论。
+
+跨文档全文定位用 `search.fulltext`，Markdown 原行匹配用 `fs.search`。多词关键词首窗为空时可回退到字面词元 OR。检查 `matchedTokens`、`unmatchedTokens`、`confidence` 与 `keywordFallback`，把未命中写成查询结果；必要时换核心术语、别名或缩减限定条件。需要逐条检查重复正文时设 `dedupe=false`。
+
 探索性自然语言问题使用 `knowledge(retrievalMode="hybrid", includeContext=true)`，并优先传当前项目的真实存储路径范围。需要精排且思源已配置 TypeSafe 时加 `rerank=true`：只对前10个已授权短候选作一次文本决策请求，失败保留融合排序，检查 rerank.status，不将分数当作证据审核结果。默认 auto 保留原有低成本精确入口；semantic 模式跳过关键词预检，但唯一名称直达及名称歧义保护仍生效。诊断纯语义基线可同时设 namespaceMode="off"。
 
 includeContext 最多补齐前20项的标题与同级相邻块；检查 contextStatus 和 context.complete。关键词与语义各有候选数量、融合来源与降级诊断，不能把融合数量称作向量召回数。语义请求等待上限15秒，超时不重放。精确跨行搜索使用 `fs.search(matchScope="block"|"document")` 与显式 `[\s\S]`，document 仅处理指定单文档；完整性上限拒绝不得解释成无命中。

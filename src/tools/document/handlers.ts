@@ -357,10 +357,9 @@ const handleCreate: DocumentActionHandler = async ({ client, permMgr, rawArgs })
         if (context.notebook !== parsed.notebook) throw new Error('父文档不属于指定笔记本。');
     }
     let path = parsed.path ?? normalizeChildDocPath(parentPath ?? '/', parsed.title!);
-    const markdown = await normalizeMarkdownInputRefs(
-        client,
-        stripRedundantTitleHeading(parsed.markdown ?? '', parsed.title ?? deriveTitleFromCreatePath(path)),
-        'document.create',
+    const markdown = stripRedundantTitleHeading(
+        await normalizeMarkdownInputRefs(client, permMgr, parsed.markdown ?? '', 'document.create'),
+        parsed.title ?? deriveTitleFromCreatePath(path),
     );
     const created = structured ? await documentApi.createDocByParent(client, parsed.notebook, parentID ?? null, parsed.title!, markdown, parsed.expectedParentRevision) : undefined;
     const docId = created?.id ?? await documentApi.createDoc(client, parsed.notebook, path, markdown);

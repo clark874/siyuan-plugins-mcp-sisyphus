@@ -41,6 +41,7 @@ export interface DocumentBlockWindow {
     estimatedTokens: number;
     tokenMode: typeof APPROX_TOKEN_MODE;
     truncated: boolean;
+    characterCoverage: { returned: number; omittedBefore: number; omittedAfter: number; partialBlocks: 0 };
     hasNextWindow: boolean;
     nextBlockStart?: number;
     budgetExceeded?: boolean;
@@ -221,6 +222,7 @@ function buildWindowFromMarkdownBlocks(
     const estimatedTokens = approximateTokensFromChars(contentChars);
     const nextBlockStart = blockStart + returnedBlocks;
     const hasNextWindow = nextBlockStart < totalBlocks;
+    const countChars = (parts: string[]) => parts.reduce((total, part) => total + [...part].length, 0);
     return {
         content: contentParts.join('\n\n'),
         outline: buildOutline(blocks, markdownBlocks, includeBlockIds),
@@ -232,6 +234,12 @@ function buildWindowFromMarkdownBlocks(
         estimatedTokens,
         tokenMode: APPROX_TOKEN_MODE,
         truncated: hasNextWindow,
+        characterCoverage: {
+            returned: countChars(contentParts),
+            omittedBefore: countChars(markdownBlocks.slice(0, blockStart)),
+            omittedAfter: countChars(markdownBlocks.slice(nextBlockStart)),
+            partialBlocks: 0,
+        },
         hasNextWindow,
         ...(hasNextWindow ? { nextBlockStart } : {}),
         ...(estimatedTokens > tokenBudget ? { budgetExceeded: true } : {}),

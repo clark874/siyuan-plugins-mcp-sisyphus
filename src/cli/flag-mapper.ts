@@ -88,7 +88,7 @@ export function mapFlagsToArgs(rest: string[], inputSchema: JsonSchema, context?
             if (!canonical) {
                 throw new Error(`Unknown flag --${rawKey}.`);
             }
-            if (typeof rawVal !== 'string' || rawVal.length === 0) continue;
+            if (typeof rawVal !== 'string' || rawVal.length === 0) throw new Error(`--${rawKey} requires a JSON value.`);
             try {
                 const parsedJson = JSON.parse(rawVal);
                 if (inferType(props[canonical]) === 'array' && !Array.isArray(parsedJson)) {

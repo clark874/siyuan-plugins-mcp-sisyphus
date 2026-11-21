@@ -32,6 +32,7 @@ import { createJsonResult, createPaginatedResult, createWriteSuccessResult, pagi
 import { applyUiRefresh } from '../internal/ui-refresh';
 import { createFootnoteReferenceHint, createSiyuanBlockLinkHint, createUnresolvedBlockRefHint, hasBlockRefIdFallbackAnchors, hasFootnoteReferences, hasSiyuanBlockLinks, normalizeDomInlineRefsAndTags, replaceEditTouchesIndexedInline, replaceSingleKramdownBlockContentInDom } from '../internal/kramdown-safe';
 import { normalizeMarkdownInputRefs, normalizeReplaceEditsRefs } from '../internal/markdown-input';
+import { summarizeMarkdownDiff } from '../../core/write-diagnostics';
 
 
 type RecentUpdatedDocumentSummary = {
@@ -279,6 +280,7 @@ function createBatchInsertAnchorValidationResult(itemIndex: number): ToolResult 
 
 async function normalizeBatchInsertBlocks(
     client: SiYuanClient,
+    permMgr: PermissionManager,
     blocks: Array<{
         dataType: 'markdown' | 'dom';
         data: string;
@@ -300,23 +302,24 @@ async function normalizeBatchInsertBlocks(
 }>> {
     return Promise.all(blocks.map(async (block) => ({
         ...block,
-        data: await normalizeWriteData(client, block.dataType, block.data, 'block.insert'),
+        data: await normalizeWriteData(client, permMgr, block.dataType, block.data, 'block.insert'),
         nextID: block.nextID ?? defaults.nextID,
         previousID: block.previousID ?? defaults.previousID,
         parentID: block.parentID ?? defaults.parentID,
     })));
 }
 
-async function normalizeWriteData(client: SiYuanClient, dataType: 'markdown' | 'dom', data: string, actionName: string): Promise<string> {
+async function normalizeWriteData(client: SiYuanClient, permMgr: PermissionManager, dataType: 'markdown' | 'dom', data: string, actionName: string): Promise<string> {
     if (dataType === 'dom') {
         return normalizeDomInlineRefsAndTags(data, actionName);
     }
 
-    return normalizeMarkdownInputRefs(client, data, actionName);
+    return normalizeMarkdownInputRefs(client, permMgr, data, actionName);
 }
 
 async function normalizeBatchUpdateItems(
     client: SiYuanClient,
+    permMgr: PermissionManager,
     items: Array<{
         id: string;
         dataType: 'markdown' | 'dom';
@@ -329,7 +332,7 @@ async function normalizeBatchUpdateItems(
 }>> {
     return Promise.all(items.map(async (item) => ({
         ...item,
-        data: await normalizeWriteData(client, item.dataType, item.data, 'block.update'),
+        data: await normalizeWriteData(client, permMgr, item.dataType, item.data, 'block.update'),
     })));
 }
 
@@ -420,7 +423,7 @@ function createBatchInsertVerificationErrorResult(
 const handleInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockInsertSchema.parse(rawArgs);
     if (parsed.blocks) {
-        const normalizedBlocks = await normalizeBatchInsertBlocks(client, parsed.blocks, {
+        const normalizedBlocks = await normalizeBatchInsertBlocks(client, permMgr, parsed.blocks, {
             parentID: parsed.parentID,
             previousID: parsed.previousID,
             nextID: parsed.nextID,
@@ -454,7 +457,7 @@ const handleInsert: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
         if (denied) return denied;
         targetDocumentId = context.documentId;
     }
-    const data = await normalizeWriteData(client, parsed.dataType!, parsed.data!, 'block.insert');
+    const data = await normalizeWriteData(client, permMgr, parsed.dataType!, parsed.data!, 'block.insert');
     const result = await blockApi.insertBlock(client, parsed.dataType!, data, parsed.nextID, parsed.previousID, parsed.parentID);
     return applyUiRefresh(client, createSlimWriteResult(result, withReferenceSemanticsHints({
         action: 'insert',
@@ -469,7 +472,7 @@ const handlePrepend: BlockActionHandler = async ({ client, permMgr, rawArgs }) =
     const parsed = BlockPrependSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.parentID, 'write');
     if (denied) return denied;
-    const data = await normalizeWriteData(client, parsed.dataType, parsed.data, 'block.prepend');
+    const data = await normalizeWriteData(client, permMgr, parsed.dataType, parsed.data, 'block.prepend');
     const result = await blockApi.prependBlock(client, parsed.dataType, data, parsed.parentID);
     return applyUiRefresh(client, createSlimWriteResult(result, withReferenceSemanticsHints({
         action: 'prepend',
@@ -482,7 +485,7 @@ const handleAppend: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
     const parsed = BlockAppendSchema.parse(rawArgs);
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.parentID, 'write');
     if (denied) return denied;
-    const data = await normalizeWriteData(client, parsed.dataType, parsed.data, 'block.append');
+    const data = await normalizeWriteData(client, permMgr, parsed.dataType, parsed.data, 'block.append');
     const result = await blockApi.appendBlock(client, parsed.dataType, data, parsed.parentID);
     return applyUiRefresh(client, createSlimWriteResult(result, withReferenceSemanticsHints({
         action: 'append',
@@ -507,7 +510,7 @@ async function syncMindmapsForBlocks(client: SiYuanClient, permMgr: PermissionMa
 const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
     const parsed = BlockUpdateSchema.parse(rawArgs);
     if (parsed.items) {
-        const items = await normalizeBatchUpdateItems(client, parsed.items);
+        const items = await normalizeBatchUpdateItems(client, permMgr, parsed.items);
         const reloadIds = new Set<string>();
         const databaseBlockIds: string[] = [];
         for (const block of items) {
@@ -538,7 +541,7 @@ const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
     const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id!, 'write');
     if (denied) return denied;
     const isDatabaseBlock = await getBlockType(client, parsed.id!) === 'av';
-    const data = await normalizeWriteData(client, parsed.dataType!, parsed.data!, 'block.update');
+    const data = await normalizeWriteData(client, permMgr, parsed.dataType!, parsed.data!, 'block.update');
     const { result, preservedAttributeCount } = await updateBlockPreservingAttrs(client, {
         id: parsed.id!,
         dataType: parsed.dataType!,
@@ -556,17 +559,25 @@ const handleUpdate: BlockActionHandler = async ({ client, permMgr, rawArgs }) =>
     }), [{ type: 'reloadProtyle', id: context.documentId }]);
 };
 
-const handleReplace: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
-    const parsed = BlockReplaceSchema.parse(rawArgs);
-    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
-    if (denied) return denied;
-
+async function planBlockReplace(client: Parameters<BlockActionHandler>[0]['client'], permMgr: PermissionManager, parsed: ReturnType<typeof BlockReplaceSchema.parse>) {
     const current = normalizeKramdownResult(await blockApi.getBlockKramdown(client, parsed.id));
     const originalContent = typeof current.kramdown === 'string' ? current.kramdown : '';
     const dom = await blockApi.getBlockDOM(client, parsed.id);
     const originalDom = typeof dom.dom === 'string' ? dom.dom : '';
-    const edits = await normalizeReplaceEditsRefs(client, Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit], 'block.replace');
-    const { kramdown: nextContent, markdown: nextMarkdown, dom: nextDom, summary } = replaceSingleKramdownBlockContentInDom(originalContent, originalDom, edits, 'block.replace');
+    const edits = await normalizeReplaceEditsRefs(client, permMgr, Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit], 'block.replace');
+    return { originalContent, edits, ...replaceSingleKramdownBlockContentInDom(originalContent, originalDom, edits, 'block.replace') };
+}
+
+export async function previewBlockReplace(client: Parameters<BlockActionHandler>[0]['client'], permMgr: PermissionManager, args: Record<string, unknown>) {
+    const { originalContent, kramdown } = await planBlockReplace(client, permMgr, BlockReplaceSchema.parse(args));
+    return summarizeMarkdownDiff(originalContent, kramdown);
+}
+
+const handleReplace: BlockActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const parsed = BlockReplaceSchema.parse(rawArgs);
+    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, parsed.id, 'write');
+    if (denied) return denied;
+    const { originalContent, edits, kramdown: nextContent, markdown: nextMarkdown, dom: nextDom, summary } = await planBlockReplace(client, permMgr, parsed);
     const changed = nextContent !== originalContent;
 
     if (changed) {

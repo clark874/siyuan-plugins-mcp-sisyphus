@@ -302,7 +302,7 @@ export class SiYuanClient {
         return this.readData<T>(`${this.baseUrl}${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
-            body: JSON.stringify(data ?? {}),
+            body: encodeKernelJson(endpoint, data),
         }, 'read', options?.timeoutMs);
     }
 
@@ -310,23 +310,38 @@ export class SiYuanClient {
         return this.readEnvelope<T>(`${this.baseUrl}${endpoint}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
-            body: JSON.stringify(data ?? {}),
+            body: encodeKernelJson(endpoint, data),
         }, 'read');
     }
 
     async requestWrite<T>(endpoint: string, data?: object, options?: { timeoutMs: number }): Promise<T> {
+        const body = encodeKernelJson(endpoint, data);
         await this.writeGuards.getStore()?.(endpoint, data ?? {});
         try {
             return await this.readData<T>(`${this.baseUrl}${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...this.getAuthHeaders() },
-                body: JSON.stringify(data ?? {}),
+                body,
             }, 'write', options?.timeoutMs);
         } catch (error) {
             if (isAmbiguousTransportFailure(error)) throw new WriteOutcomeUnknownError(endpoint, error);
             throw error;
         }
     }
+}
+
+/** 与 3.8.11 内核的 JSON 契约使用同一字节上限。表单和附件上传走独立通道。 */
+export function encodeKernelJson(endpoint: string, data?: object): string {
+    const body = JSON.stringify(data ?? {});
+    const limit = endpoint === '/api/system/loginAuth' ? 64 * 1024 : 32 * 1024 * 1024;
+    if (body.length <= limit / 3) return body;
+    const bytes = new TextEncoder().encode(body).length;
+    if (bytes > limit) {
+        throw Object.assign(new Error(`内核 JSON 请求为 ${bytes} 字节，超过 ${limit} 字节上限。请缩小内容或拆成可独立回读的批次。`), {
+            code: 'request_body_too_large',
+        });
+    }
+    return body;
 }
 
 function isAmbiguousTransportFailure(error: unknown): boolean {

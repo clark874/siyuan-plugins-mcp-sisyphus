@@ -4,6 +4,9 @@ import { getBlockAttrs } from '../api/block';
 import { querySQL } from '../api/search';
 import type { PermissionManager } from './permissions';
 import { readProjectSourceState } from './project-sources';
+import { ensurePermissionForDocumentId } from '../tools/internal/context';
+import { resolveFsScopePath } from '../tools/internal/helpers/fs-path';
+import { validateKnowledgeRelationMutation } from './knowledge-relations';
 
 export const KNOWLEDGE_UPDATE_ATTR = 'custom-knowledge-update-ledger';
 export const KNOWLEDGE_PROTOCOL = {
@@ -25,6 +28,27 @@ const PendingSource = SourceVersion.extend({
     sourceBlockId: BlockId.optional(),
 }).strict().refine(source => source.disposition !== 'excluded' || source.note, '排除来源须记录理由。').refine(source => source.disposition !== 'reused' || source.reuseBlockId, '复用来源须登记既有知识原子。');
 
+const OperationBase = z.object({
+    key: z.string().trim().min(1).max(128),
+    state: z.enum(['pending', 'verified']),
+    targetId: BlockId.optional(),
+});
+const SourceKey = SourceVersion.shape.key;
+const Operation = z.discriminatedUnion('kind', [
+    OperationBase.extend({
+        kind: z.literal('document'),
+        sourceKey: SourceKey,
+        path: z.string().startsWith('/').max(1000),
+    }).strict(),
+    OperationBase.extend({ kind: z.literal('catalog'), sourceKey: SourceKey }).strict(),
+    OperationBase.extend({
+        kind: z.literal('relation'),
+        fromId: BlockId,
+        toId: BlockId,
+        relationKind: z.string().trim().min(1).max(64),
+    }).strict(),
+]);
+
 const LedgerSchema = z.object({
     version: z.literal(1),
     projectId: z.string().trim().min(1).max(256),
@@ -38,6 +62,7 @@ const LedgerSchema = z.object({
         relationIds: z.array(BlockId),
         eventBlockId: BlockId.optional(),
         nextStep: z.string().trim().min(1).max(500),
+        operations: z.array(Operation).min(1).max(100).optional(),
     }).strict().optional(),
 }).strict().superRefine((ledger, ctx) => {
     for (const list of [ledger.covered, ledger.pending?.sources ?? []]) {
@@ -49,9 +74,19 @@ const LedgerSchema = z.object({
     if (new Set(targets).size !== targets.length) {
         ctx.addIssue({ code: 'custom', message: '账本存在重复对象块。' });
     }
+    const operations = ledger.pending?.operations ?? [];
+    const sourceKeys = new Set(ledger.pending?.sources.map(source => source.key));
+    if (new Set(operations.map(operation => operation.key)).size !== operations.length
+        || operations.some(operation => operation.state === 'verified' && !operation.targetId
+            || 'sourceKey' in operation && !sourceKeys.has(operation.sourceKey)
+            || operation.kind === 'relation' && operation.fromId === operation.toId)) {
+        ctx.addIssue({ code: 'custom', message: '待办键必须唯一，资料来源和关系端点须有效，已回读操作须有目标标识。' });
+    }
 });
 
 type KnowledgeUpdateLedger = z.infer<typeof LedgerSchema>;
+type Pending = NonNullable<KnowledgeUpdateLedger['pending']>;
+type PendingOperation = z.infer<typeof Operation>;
 
 function sameSourceRevision(left: string | undefined, right: string): boolean {
     const sha = /^(?:sha256:)?([a-f0-9]{64})$/i;
@@ -76,10 +111,87 @@ export async function readKnowledgeUpdateLedger(client: SiYuanClient, hubBlockId
             status: ledger.pending ? 'pending' as const : 'ready' as const,
             hubBlockId,
             coveredCount: ledger.covered.length,
-            ...(ledger.pending ? { batchId: ledger.pending.batchId, phase: ledger.pending.phase } : {}),
+            ...(ledger.pending ? {
+                batchId: ledger.pending.batchId,
+                phase: ledger.pending.phase,
+                ...(ledger.pending.operations ? {
+                    pendingOperations: ledger.pending.operations.flatMap(({ key, kind, state }) => state === 'pending' ? [{ key, kind }] : []),
+                    verifiedOperationCount: ledger.pending.operations.filter(operation => operation.state === 'verified').length,
+                } : {}),
+            } : {}),
         };
     } catch {
         return { status: 'invalid' as const, hubBlockId };
+    }
+}
+
+function operationDefinition({ state: _state, targetId: _id, ...definition }: PendingOperation) {
+    return JSON.stringify(definition);
+}
+
+function operationsToVerify(previous: Pending | undefined, next: Pending): PendingOperation[] {
+    const before = new Map(previous?.operations?.map(operation => [operation.key, operation]));
+    const operations = next.operations ?? [];
+    const after = new Map(operations.map(operation => [operation.key, operation]));
+    for (const [key, old] of before) {
+        const item = after.get(key);
+        if (!item || operationDefinition(old) !== operationDefinition(item)
+            || old.targetId && item.targetId !== old.targetId
+            || old.state === 'verified' && 'sourceKey' in old
+                && next.sources.find(source => source.key === old.sourceKey)?.sourceBlockId !== old.targetId
+            || old.state === 'verified' && item.state !== 'verified') {
+            throw new Error('续接时须保留待办定义、既有目标和回读状态。');
+        }
+    }
+    if (operations.some(operation => !before.has(operation.key) && operation.state !== 'pending')) {
+        throw new Error('先记录待核操作，再提交并回读目标。');
+    }
+    return operations.filter(operation => operation.state === 'verified' && before.get(operation.key)?.state !== 'verified');
+}
+
+async function verifyOperations(client: SiYuanClient, permMgr: PermissionManager, projectId: string,
+    batch: Pending, operations: PendingOperation[]) {
+    const catalogSources: Array<{ id: string; status: string }> = [];
+    for (const item of operations) {
+        const target = item.targetId!;
+        const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, target, 'read');
+        if (denied) throw new Error('待办目标不可读，保留批次待续接。');
+        if (item.kind === 'relation') {
+            const relation = await getBlockAttrs(client, target);
+            if (!batch.relationIds.includes(target)
+                || relation['custom-relation-from-id'] !== item.fromId
+                || relation['custom-relation-to-id'] !== item.toId
+                || relation['custom-relation-kind'] !== item.relationKind
+                || relation['custom-relation-status'] === 'retired') {
+                throw new Error('关系块或端点尚未回读到计划状态。');
+            }
+            await validateKnowledgeRelationMutation(client, permMgr, target, relation, relation, new Map());
+        } else {
+            const source = batch.sources.find(entry => entry.key === item.sourceKey);
+            if (source?.sourceBlockId !== target || context.documentId !== target
+                || (BlockId.safeParse(source.key).success && source.key !== target)) {
+                throw new Error('待办所指文档与本批资料标识不一致。');
+            }
+            if (item.kind === 'document') {
+                const located = await resolveFsScopePath(client, permMgr, item.path, 'read');
+                const attrs = await getBlockAttrs(client, target);
+                if (located.type !== 'document' || located.id !== target
+                    || attrs['custom-source-project-id'] !== projectId
+                    || !['source-document', 'source-entry'].includes(attrs['custom-source-role'])
+                    || ![attrs['custom-source-hash'], attrs['custom-source-revision']].some(value => sameSourceRevision(value, source.revision))) {
+                    throw new Error('文档所在位置、项目归属或来源版本尚未回读到计划状态。');
+                }
+            } else {
+                if (!['compiled', 'reused'].includes(source.disposition)) {
+                    throw new Error('目录待办须先核对来源的编译或复用状态。');
+                }
+                catalogSources.push({ id: target, status: source.disposition });
+            }
+        }
+    }
+    if (catalogSources.length) {
+        const { verifyProjectKnowledgeCatalogBindings } = await import('../tools/project/knowledge-catalog');
+        await verifyProjectKnowledgeCatalogBindings(client, permMgr, projectId, batch.workstream, [], catalogSources);
     }
 }
 
@@ -126,11 +238,19 @@ export async function validateKnowledgeUpdateMutation(
         if (next.covered.some(source => priorCovered.get(source.key) !== nextCovered.get(source.key))) {
             throw new Error('完成批次回读后才能更新来源覆盖版本。');
         }
+        if (next.pending) {
+            const toVerify = operationsToVerify(pending, next.pending);
+            if (toVerify.length) await verifyOperations(client, permMgr, next.projectId, next.pending, toVerify);
+        }
         return;
     }
     if (pending.phase !== 'projection' || pending.sources.some(source => source.disposition === 'pending')) {
         throw new Error('知识批次仍有未验收的来源或步骤。');
     }
+    if (pending.operations?.some(operation => operation.state !== 'verified')) {
+        throw new Error('仍有待核文档、目录或关系操作，保留批次待续接。');
+    }
+    if (pending.operations?.length) await verifyOperations(client, permMgr, next.projectId, pending, pending.operations);
     const finished = new Map(pending.sources.map(source => [source.key, JSON.stringify(source)]));
     if (pending.sources.some(source => nextCovered.get(source.key) !== finished.get(source.key))
         || next.covered.some(source => priorCovered.get(source.key) !== nextCovered.get(source.key) && finished.get(source.key) !== nextCovered.get(source.key))) {

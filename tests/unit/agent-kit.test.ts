@@ -367,8 +367,10 @@ it('落库表格逐格验收保留符号并拒绝数值变更或表格拆段', a
     const stored = '| **变量** | {: style="text-align:center;"}效应 |\n|---|---|\n| 水支出 | {: style="text-align:center;"}−0.505\\*<br />\\<0.001 |\n{: id="20261112000000-aaaaaaa"}';
     expect(assertMarkdownTablesMatch(source, stored)).toBe(1);
     expect(() => assertMarkdownTablesMatch(source.replace('−0.505\\*', '+0.505**'), stored.replace('−0.505\\*', '+0.505*'))).toThrow('第 2 行第 2 列');
-    const codePipe = '| **变量** | 代码 |\n|---|---|\n| 值 | `x|y` |';
-    expect(assertMarkdownTablesMatch(codePipe, codePipe)).toBe(1);
+    const listTable = '- | **变量** | 代码 |\n  |---|---|\n  | 值 | `x\\|y` |';
+    expect(assertMarkdownTablesMatch(listTable, listTable)).toBe(1);
+    expect(() => assertMarkdownTablesMatch(listTable.replace('x\\|y', 'x|y'), listTable))
+        .toThrow(/第 3 行第 11 列表格行内代码含未转义的竖线/);
     expect(() => assertMarkdownTablesMatch('无表正文', source)).toThrow('数量不符');
     expect(() => assertMarkdownTablesMatch(source, stored.replace('−0.505', '+0.505'))).toThrow('第 2 行第 2 列');
     expect(() => assertMarkdownTablesMatch(source.replace('−0.505', '12 3'), stored.replace('−0.505', '1 23'))).toThrow('第 2 行第 2 列');

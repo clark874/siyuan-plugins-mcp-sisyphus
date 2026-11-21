@@ -18,3 +18,5 @@ siyuan-sisyphus system bootstrap --json
 ```
 
 本机 CLI 后备入口：[操作规程](cli-sisyphus.md)。优先使用已连接 MCP，不重复注册连接或隐式下载旧版。
+
+提交长篇 Markdown 前，在本地运行 `siyuan-sisyphus lint-markdown /绝对路径/草稿.md --json`。管道输入用 `lint-markdown -`。预检不连接思源，按原稿返回行、列、规则、摘录及修复提示。发现表格错误时先修正原稿。

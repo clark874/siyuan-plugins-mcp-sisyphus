@@ -2,6 +2,7 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 
 import type { ToolResult } from '../tools/internal/shared';
 import type { CliWriteCoordinatorSettings } from './runtime';
+import { isGatewayTimeout } from './mcp-probe';
 
 export async function callCliWriteCoordinator(
     settings: CliWriteCoordinatorSettings | undefined,
@@ -25,8 +26,10 @@ export async function callCliWriteCoordinator(
         } : {}),
         reconnectionOptions: { maxReconnectionDelay: 0, initialReconnectionDelay: 0, reconnectionDelayGrowFactor: 1, maxRetries: 0 },
     });
+    let dispatched = false;
     try {
         await client.connect(transport);
+        dispatched = true;
         const result = await client.callTool({ name, arguments: args });
         const content = result.content
             .filter((item): item is Extract<typeof item, { type: 'text' }> => item.type === 'text')
@@ -41,20 +44,26 @@ export async function callCliWriteCoordinator(
                 : {}),
         };
     } catch (error) {
-        return failure(
-            'write_coordinator_unavailable',
-            `Could not call the plugin write coordinator: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        const timedOut = isGatewayTimeout(error);
+        if (dispatched && args.validateOnly !== true) {
+            return failure('outcome_unknown', timedOut
+                ? '提交写入后等待响应超时。先按 requestId 核对目标与回执，再判断是否需要续接。'
+                : '提交写入后未取得结果。先按 requestId 核对目标与回执。', true);
+        }
+        return failure(timedOut ? 'write_coordinator_timeout' : 'write_coordinator_unavailable', timedOut
+            ? '插件网关未在期限内响应。检查网关状态后可重新预检。'
+            : '未能连接插件写入协调器。请检查插件网关、权限与配置。');
     } finally {
         await client.close().catch(() => {});
     }
 }
-function failure(code: string, message: string): ToolResult {
+function failure(code: string, message: string, unknown = false): ToolResult {
     const payload = {
         success: false,
         writeSafetyMode: 'strict',
-        writeAttempted: false,
-        writeExecuted: false,
+        writeAttempted: unknown ? null : false,
+        writeExecuted: unknown ? null : false,
+        ...(unknown ? { transactionState: 'unknown' } : {}),
         error: { code, message },
     };
     return {

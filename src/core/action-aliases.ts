@@ -15,6 +15,8 @@ export function normalizeActionAlias(category: ToolCategory, action: string): st
     const normalized = action.replace(/-/g, '_');
     const actions = ACTIONS_BY_CATEGORY[category] as readonly string[];
     if (actions.includes(normalized)) return normalized;
+    if (category === 'fs' && normalized === 'search_markdown') return 'search';
+    if (category === 'search' && normalized === 'search_index') return 'fulltext';
 
     const candidates = COMMON_ACTION_ALIASES[normalized] ?? [];
     return candidates.find((candidate) => actions.includes(candidate)) ?? normalized;

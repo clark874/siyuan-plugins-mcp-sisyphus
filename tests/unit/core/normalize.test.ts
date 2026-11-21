@@ -156,5 +156,6 @@ describe('slimSearchBlocks', () => {
         const result = slimSearchBlocks(blocks) as Record<string, unknown>[];
         expect((result[0].markdown as string).length).toBeLessThan(500);
         expect((result[0].markdown as string)).toMatch(/\.\.\.$/);
+        expect(result[0].markdownOmittedChars).toBe(100);
     });
 });

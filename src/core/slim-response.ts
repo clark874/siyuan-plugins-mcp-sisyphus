@@ -46,6 +46,10 @@ const SUCCESS_KEEP_KEYS = new Set([
     'warning',
     'skippedComplexBlocks',
     'recommendedTools',
+    'safety',
+    'deadRefs',
+    'referenceCheck',
+    'markdownWarnings',
 ]);
 
 const TOP_LEVEL_DROP_KEYS = new Set([
@@ -118,6 +122,7 @@ function shouldBypassSlimming(ctx: SlimContext): boolean {
     return ctx.category === 'extension'
         || ctx.category === 'timeline'
         || ctx.action === 'help'
+        || ctx.category === 'fs' && ['write_atoms', 'link_knowledge'].includes(ctx.action)
         || (ctx.category === 'system' && ctx.action === 'conf');
 }
 
@@ -127,6 +132,7 @@ function slimError(error: Record<string, unknown>): Record<string, unknown> {
         'code',
         'message',
         'fields',
+        'diagnostics',
         'suggestions',
         'hint',
         'notebook',
@@ -143,6 +149,11 @@ function slimSearchLikeItem(item: Record<string, unknown>, ctx?: SlimContext): R
     const slimmed: Record<string, unknown> = {};
     for (const key of ['id', 'type', 'subtype', 'hPath', 'path', 'notebookName']) {
         if (item[key] !== undefined) slimmed[key] = item[key];
+    }
+    if (ctx?.category === 'search') {
+        for (const key of ['duplicateSources', 'contentOmittedChars', 'markdownOmittedChars']) {
+            if (item[key] !== undefined) slimmed[key] = item[key];
+        }
     }
 
     if (item.plainContent !== undefined) {
@@ -210,7 +221,7 @@ function slimSuccessObject(payload: Record<string, unknown>, ctx: SlimContext): 
 
 function slimObject(payload: Record<string, unknown>, ctx: SlimContext): Record<string, unknown> {
     if (isRecord(payload.error)) {
-        return { error: slimError(payload.error) };
+        return { error: slimError(payload.error), ...(isRecord(payload.safety) ? { safety: payload.safety } : {}) };
     }
 
     if (payload.success === true) {
@@ -228,7 +239,9 @@ function slimObject(payload: Record<string, unknown>, ctx: SlimContext): Record<
             next.nextWindow = value;
             continue;
         }
-        if (TOP_LEVEL_DROP_KEYS.has(key)) continue;
+        const describesFallbackPaging = payload.paginationMode === 'keyword_or_first_window'
+            && (key === 'paginationMode' || key === 'pagingHint');
+        if (TOP_LEVEL_DROP_KEYS.has(key) && !describesFallbackPaging) continue;
         next[key] = slimValue(value, key, ctx);
     }
 

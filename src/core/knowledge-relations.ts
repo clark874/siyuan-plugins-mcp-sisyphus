@@ -1,6 +1,7 @@
 import type { SiYuanClient } from '../api/client';
 import { querySQL, querySQLWithMeta } from '../api/search';
-import { escapeSqlString } from '../tools/internal/context';
+import { escapeSqlString, resolveDocumentContextById } from '../tools/internal/context';
+import { batchGetBlockAttrs } from '../api/block';
 import type { PermissionManager } from './permissions';
 
 const FROM = 'custom-relation-from-id';
@@ -93,6 +94,7 @@ export async function validateKnowledgeRelationMutation(
     attrs: Record<string, string>,
     current: Record<string, string>,
     pendingAttrs: ReadonlyMap<string, Record<string, string>>,
+    newRelationNotebook?: string,
 ): Promise<string | undefined> {
     if (![FROM, TO, KIND, STATUS].some(key => hasKey(attrs, key))) return undefined;
     const next = { ...current, ...attrs };
@@ -115,7 +117,8 @@ export async function validateKnowledgeRelationMutation(
         WHERE b.id IN (${sqlList([id, fromId, toId])}) LIMIT 3
     `) as RelationEndpointRow[];
     const relation = rows.find(row => row.id === id);
-    if (!relation?.box || !permMgr.canWrite(relation.box)) {
+    const relationBox = relation?.box ?? newRelationNotebook;
+    if (!relationBox || !permMgr.canWrite(relationBox)) {
         throw new Error('知识关系块缺失或不可写。');
     }
     if (next[STATUS] === 'retired') {
@@ -124,8 +127,23 @@ export async function validateKnowledgeRelationMutation(
         }
         return undefined;
     }
-    const from = rows.find(row => row.id === fromId);
-    const to = rows.find(row => row.id === toId);
+    let from = rows.find(row => row.id === fromId);
+    let to = rows.find(row => row.id === toId);
+    if (newRelationNotebook !== undefined) {
+        // 刚写入的原子已在实时块树中可读，SQL 索引可能尚未出现。
+        const endpoints = await Promise.all([fromId, toId].map(targetId => resolveDocumentContextById(client, targetId)
+            .catch(() => null)));
+        if (endpoints.some(endpoint => !endpoint?.notebook || !permMgr.canRead(endpoint.notebook))) {
+            throw new Error('知识关系的端点缺失或不可读。');
+        }
+        const live = await batchGetBlockAttrs(client, [fromId, toId]);
+        [from, to] = [fromId, toId].map((targetId, index) => ({
+            id: targetId,
+            box: endpoints[index]!.notebook,
+            atom_type: live?.[targetId]?.['custom-atom-type'],
+            reuse_scope: live?.[targetId]?.['custom-reuse-scope'],
+        }));
+    }
     if (!from?.box || !to?.box || !permMgr.canRead(from.box) || !permMgr.canRead(to.box)) {
         throw new Error('知识关系的端点缺失或不可读。');
     }
@@ -135,21 +153,32 @@ export async function validateKnowledgeRelationMutation(
     if (!directionAllowed(kind, fromType, toType, toScope)) {
         throw new Error('知识关系类型与端点原子类型或方向不符。');
     }
-    const refs = await querySQL(client, `SELECT DISTINCT def_block_id FROM refs WHERE block_id=${sql(id)}
-        AND def_block_id IN (${sqlList([fromId, toId])}) LIMIT 2`) as Array<{ def_block_id: string }>;
-    if (!refs.some(ref => ref.def_block_id === fromId) || !refs.some(ref => ref.def_block_id === toId)) {
-        throw new Error('关系块的真实引用尚未确认两个端点。请核对正文和引用索引后重试预检。');
+    // 新关系准备阶段只验证端点，提交后须沿原规则核对真实引用。
+    if (newRelationNotebook === undefined) {
+        const refs = await querySQL(client, `SELECT DISTINCT def_block_id FROM refs WHERE block_id=${sql(id)}
+            AND def_block_id IN (${sqlList([fromId, toId])}) LIMIT 2`) as Array<{ def_block_id: string }>;
+        if (!refs.some(ref => ref.def_block_id === fromId) || !refs.some(ref => ref.def_block_id === toId)) {
+            throw new Error('关系块的真实引用尚未确认两个端点。请核对正文和引用索引后重试预检。');
+        }
     }
 
     const duplicates = await querySQL(client, `
-        SELECT b.id, b.box FROM attributes source JOIN blocks b ON b.id=source.block_id
-        JOIN attributes target ON target.block_id=b.id AND target.name=${sql(TO)} AND target.value=${sql(toId)}
+        SELECT b.id, b.box, source.value AS originId FROM attributes source JOIN blocks b ON b.id=source.block_id
+        JOIN attributes target ON target.block_id=b.id AND target.name=${sql(TO)}
         JOIN attributes kind ON kind.block_id=b.id AND kind.name=${sql(KIND)} AND kind.value=${sql(kind)}
-        WHERE source.name=${sql(FROM)} AND source.value=${sql(fromId)} AND b.id<>${sql(id)}
+        WHERE source.name=${sql(FROM)} AND b.id<>${sql(id)}
+        AND ((source.value=${sql(fromId)} AND target.value=${sql(toId)})
+          OR (source.value=${sql(toId)} AND target.value=${sql(fromId)}))
         AND NOT EXISTS (SELECT 1 FROM attributes status WHERE status.block_id=b.id AND status.name=${sql(STATUS)} AND status.value='retired')
         ${readableBoxes(permMgr, ['b.box'])} LIMIT 50
-    `) as Array<{ id: string; box: string }>;
-    if (duplicates.some(row => row.box && permMgr.canRead(row.box))) {
+    `) as Array<{ id: string; box: string; originId?: string }>;
+    const readableDuplicates = duplicates.filter(row => row.box && permMgr.canRead(row.box));
+    if (readableDuplicates.some(row => row.originId === toId)
+        || [...pendingAttrs].some(([otherId, requested]) => otherId !== id && requested[KIND] === kind && requested[FROM] === toId
+            && requested[TO] === fromId && requested[STATUS] !== 'retired')) {
+        throw new Error('同一关系类型的相反方向已存在或同时提交，形成二环，未写入。');
+    }
+    if (readableDuplicates.length > 0) {
         throw new Error('已存在相同端点和类型的知识关系。请复用既有关系块。');
     }
     if (kind === 'supersedes') {

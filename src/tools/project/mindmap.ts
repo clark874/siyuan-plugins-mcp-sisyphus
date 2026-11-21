@@ -5,7 +5,7 @@ import { performTransactions, type TransactionOperation } from '../../api/transa
 import { hashWriteState } from '../../core/write-safety-hash';
 import type { PermissionManager } from '../../core/permissions';
 import type { ProjectMindmapDisplay } from '../../core/types';
-import { requireKernel389 } from '../../api/system';
+import { requireKernel389, supportsKernel38 } from '../../api/system';
 import { ensurePermissionForDocumentId } from '../internal/context';
 import PromiseLimitPool from '../../shared/promise-pool';
 
@@ -299,7 +299,14 @@ function validateState(value: unknown, projectId: string, pageId: string, rootId
 }
 
 export async function readMindmapPlan(client: SiYuanClient, permMgr: PermissionManager, snapshot: any, display?: ProjectMindmapDisplay): Promise<MindmapPlan> {
-    if (display?.appearance || Object.values(display?.nodes ?? {}).some(style => style.width !== undefined || style.branchColor !== undefined)) await requireKernel389(client);
+    const styles = Object.values(display?.nodes ?? {});
+    const uses3811 = styles.some(style => style.shape !== undefined || style.connectorStyle !== undefined)
+        || display?.relations?.some(relation => relation.pathStyle !== undefined || relation.strokeStyle !== undefined);
+    if (uses3811) {
+        if (!await supportsKernel38(client, 11)) throw new Error('节点形状、节点入线和自由关系线型需要思源 3.8.11 或更新版本。');
+    } else if (display?.appearance || styles.some(style => style.width !== undefined || style.branchColor !== undefined)) {
+        await requireKernel389(client);
+    }
     if (snapshot.denied || !snapshot.project || snapshot.project.bindingStatus !== 'available' || !snapshot.progressPage || snapshot.chronology?.complete !== true
         || snapshot.diagnostics.some((row: any) => row.severity === 'error' || ['project_state_lagging', 'workstream_state_lagging', 'project-progress-page_duplicate'].includes(row.code))) {
         throw new Error('项目快照不完整、进度页不唯一或状态投影待更新，未同步导图。');

@@ -1,4 +1,5 @@
 import * as blockApi from '../../api/block';
+import { encodeKernelJson } from '../../api/client';
 import * as documentApi from '../../api/document';
 import * as notebookApi from '../../api/notebook';
 import { querySQL } from '../../api/search';
@@ -17,6 +18,7 @@ import {
 import { ensurePermissionForNotebook, escapeSqlString, listChildDocumentsByPath } from '../internal/context';
 import type { ToolActionHandler } from '../internal/define-tool';
 import {
+    getFsPathErrorCode,
     resolveFsCreateTarget,
     resolveFsDestinationTarget,
     resolveFsScopePath,
@@ -37,7 +39,9 @@ import {
     type OrderedDocumentBlock,
 } from '../internal/document-kramdown';
 import { normalizeMarkdownInputRefs, normalizeReplaceEditsRefs } from '../internal/markdown-input';
+import { summarizeMarkdownDiff } from '../../core/write-diagnostics';
 import PromiseLimitPool from '../../shared/promise-pool';
+import { handleKnowledgeFsWrite } from './knowledge-write';
 
 type FsActionHandler = ToolActionHandler;
 
@@ -345,7 +349,7 @@ function normalizeFsPath(path: string): string {
 const VIRTUAL_ROOT_FILES = [AGENT_MEMORY_VIRTUAL_PATH, USER_RULES_VIRTUAL_PATH] as const;
 type VirtualRootFilePath = typeof VIRTUAL_ROOT_FILES[number];
 
-function getVirtualRootFilePath(path: string): VirtualRootFilePath | null {
+export function getVirtualRootFilePath(path: string): VirtualRootFilePath | null {
     const normalized = normalizeFsPath(path);
     return VIRTUAL_ROOT_FILES.find((virtualPath) => normalized === virtualPath) ?? null;
 }
@@ -594,6 +598,7 @@ async function replaceDocumentBlocksSafely(
     client: Parameters<FsActionHandler>[0]['client'],
     documentId: string,
     edits: Array<{ old: string; new: string; replace_all?: boolean }>,
+    preview = false,
 ) {
     const documentBlocks = await listDocumentBlocksInTreeOrder(client, documentId);
     const complexBlocks = findComplexFsBlocks(documentBlocks);
@@ -617,8 +622,16 @@ async function replaceDocumentBlocksSafely(
         };
     }));
     const replaced = applyDocumentKramdownDomReplacements(kramdownBlocks, edits, 'fs.replace');
+    const diffPreview = preview ? {
+        changedBlocks: replaced.blocks.length,
+        showing: Math.min(10, replaced.blocks.length),
+        blocks: replaced.blocks.slice(0, 10).map(block => ({
+            id: block.id,
+            ...summarizeMarkdownDiff(kramdownBlocks.find(original => original.id === block.id)!.kramdown, block.kramdown),
+        })),
+    } : undefined;
 
-    for (const block of replaced.blocks) {
+    for (const block of preview ? [] : replaced.blocks) {
         const shouldReparseIndexedInline = block.touchesIndexedInline && block.type !== 'l';
         await blockApi.updateBlock(
             client,
@@ -633,7 +646,13 @@ async function replaceDocumentBlocksSafely(
         changedBlockCount: replaced.blocks.length,
         changedMarkdown: replaced.blocks.map((block) => block.markdown).join('\n'),
         skippedComplexBlocks: complexBlocks,
+        diffPreview,
     };
+}
+
+export async function previewFsReplace(client: Parameters<FsActionHandler>[0]['client'], permMgr: Parameters<FsActionHandler>[0]['permMgr'], documentId: string, edit: unknown) {
+    const edits = await normalizeReplaceEditsRefs(client, permMgr, (Array.isArray(edit) ? edit : [edit]) as Array<{ old: string; new: string; replace_all?: boolean }>, 'fs.replace');
+    return (await replaceDocumentBlocksSafely(client, documentId, edits, true)).diffPreview;
 }
 
 /** 只查询已授权范围内的原始块文本，不渲染引用、脚注或嵌入 SQL。 */
@@ -991,13 +1010,64 @@ const handleRead: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     });
 };
 
-const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
+export async function prepareFsWrite(
+    client: Parameters<FsActionHandler>[0]['client'],
+    permMgr: Parameters<FsActionHandler>[0]['permMgr'],
+    rawArgs: unknown,
+) {
     const parsed = FsWriteSchema.parse(rawArgs);
     assertUserRulesWritable(parsed.path);
     assertNotVirtualRootFileDescendant(parsed.path);
-    const virtualPath = getVirtualRootFilePath(parsed.path);
-    if (virtualPath === AGENT_MEMORY_VIRTUAL_PATH) {
-        const config = await writeAgentSiyuanMemory(client, parsed.markdown);
+    if (getVirtualRootFilePath(parsed.path) === AGENT_MEMORY_VIRTUAL_PATH) {
+        return { type: 'virtual', markdown: parsed.markdown } as const;
+    }
+    const target = await resolveFsCreateTarget(client, permMgr, parsed.path);
+    const denied = await ensurePermissionForNotebook(permMgr, target.notebook, 'write');
+    if (denied) return { type: 'blocked', result: denied } as const;
+
+    let existing: FsDocumentPath | null = null;
+    try {
+        const resolved = await resolveFsScopePath(client, permMgr, target.canonicalPath, 'write');
+        existing = resolved.type === 'document' ? resolved : null;
+    } catch (error) {
+        if (getFsPathErrorCode(error) !== 'not_found') throw error;
+    }
+
+    if (!existing) {
+        const markdown = stripRedundantTitleHeading(await normalizeMarkdownInputRefs(client, permMgr, parsed.markdown, 'fs.write'), target.title);
+        encodeKernelJson('/api/filetree/createDocWithMd', { notebook: target.notebook, path: target.hPath, markdown });
+        return { type: 'create', target, markdown } as const;
+    }
+
+    if (!parsed.overwrite) {
+        throw new Error(`Document already exists at "${existing.canonicalPath}". Pass overwrite=true to replace its body.`);
+    }
+
+    const markdown = await normalizeMarkdownInputRefs(client, permMgr, parsed.markdown, 'fs.write');
+    if (markdown.trim().length > 0) {
+        // 覆盖先删除旧块，因此必须提前核对追加正文的实际请求体。
+        encodeKernelJson('/api/block/appendBlock', { dataType: 'markdown', data: markdown, parentID: existing.id });
+    }
+    const liveBlocks = await listLiveDocumentDescendantsForOverwrite(client, existing.id);
+    const complexBlocks = findComplexFsBlocks(liveBlocks);
+    if (complexBlocks.length > 0) {
+        return { type: 'blocked', result: createComplexBlocksNotSupportedResult('write', existing.canonicalPath, existing.id, complexBlocks) } as const;
+    }
+    // 结构化资产扫描独立于会在列表/表格处停止的展示树序遍历。
+    const structuredAssetBlocks = await findStructuredAssetBlocks(client, existing.id, liveBlocks);
+    if (structuredAssetBlocks.length > 0) {
+        return { type: 'blocked', result: createStructuredAssetsOverwriteRejectedResult(existing.canonicalPath, existing.id, structuredAssetBlocks) } as const;
+    }
+    return { type: 'overwrite', existing, markdown } as const;
+}
+
+const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
+    const prepared = await prepareFsWrite(client, permMgr, rawArgs);
+    if (prepared.type === 'blocked') return prepared.result;
+
+    const { markdown } = prepared;
+    if (prepared.type === 'virtual') {
+        const config = await writeAgentSiyuanMemory(client, markdown);
         return createJsonResult({
             success: true,
             path: AGENT_MEMORY_VIRTUAL_PATH,
@@ -1006,20 +1076,8 @@ const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
             updatedAt: config.agentSiyuanMemoryUpdatedAt || null,
         });
     }
-    const target = await resolveFsCreateTarget(client, permMgr, parsed.path);
-    const denied = await ensurePermissionForNotebook(permMgr, target.notebook, 'write');
-    if (denied) return denied;
-
-    let existing: FsDocumentPath | null = null;
-    try {
-        const resolved = await resolveFsScopePath(client, permMgr, target.canonicalPath, 'write');
-        existing = resolved.type === 'document' ? resolved : null;
-    } catch {
-        existing = null;
-    }
-
-    if (!existing) {
-        const markdown = await normalizeMarkdownInputRefs(client, stripRedundantTitleHeading(parsed.markdown, target.title), 'fs.write');
+    if (prepared.type === 'create') {
+        const { target } = prepared;
         const id = await documentApi.createDoc(client, target.notebook, target.hPath, markdown);
         return applyUiRefresh(client, createJsonResult({
             success: true,
@@ -1035,21 +1093,7 @@ const handleWrite: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
         ]);
     }
 
-    if (!parsed.overwrite) {
-        throw new Error(`Document already exists at "${existing.canonicalPath}". Pass overwrite=true to replace its body.`);
-    }
-
-    const markdown = await normalizeMarkdownInputRefs(client, parsed.markdown, 'fs.write');
-    const liveBlocks = await listLiveDocumentDescendantsForOverwrite(client, existing.id);
-    const complexBlocks = findComplexFsBlocks(liveBlocks);
-    if (complexBlocks.length > 0) {
-        return createComplexBlocksNotSupportedResult('write', existing.canonicalPath, existing.id, complexBlocks);
-    }
-    // 结构化资产扫描独立于会在列表/表格处停止的展示树序遍历。
-    const structuredAssetBlocks = await findStructuredAssetBlocks(client, existing.id, liveBlocks);
-    if (structuredAssetBlocks.length > 0) {
-        return createStructuredAssetsOverwriteRejectedResult(existing.canonicalPath, existing.id, structuredAssetBlocks);
-    }
+    const { existing } = prepared;
     const attributeViews = await listDocumentAttributeViews(client, existing.id);
     await overwriteDocumentBody(client, existing.id, markdown);
     return applyUiRefresh(client, createJsonResult({
@@ -1098,7 +1142,7 @@ const handleReplace: FsActionHandler = async ({ client, permMgr, rawArgs }) => {
     const denied = await ensurePermissionForNotebook(permMgr, scope.notebook, 'write');
     if (denied) return denied;
 
-    const edits = await normalizeReplaceEditsRefs(client, Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit], 'fs.replace');
+    const edits = await normalizeReplaceEditsRefs(client, permMgr, Array.isArray(parsed.edit) ? parsed.edit : [parsed.edit], 'fs.replace');
     const replaceResult = await replaceDocumentBlocksSafely(client, scope.id, edits);
     const { summary, changedBlockCount, changedMarkdown, skippedComplexBlocks } = replaceResult;
     const changed = changedBlockCount > 0;
@@ -1318,6 +1362,8 @@ export const FS_ACTION_HANDLERS: Record<FsAction, FsActionHandler> = {
     tree: handleTree,
     read: handleRead,
     write: handleWrite,
+    write_atoms: handleKnowledgeFsWrite,
+    link_knowledge: handleKnowledgeFsWrite,
     replace: handleReplace,
     rm: handleRm,
     mv: handleMv,

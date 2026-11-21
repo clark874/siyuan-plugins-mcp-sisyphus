@@ -12,6 +12,7 @@ import {
     SearchFulltextSchema,
     SearchGetBacklinksSchema,
     SearchListInvalidRefsSchema,
+    SearchLintSchema,
     SearchKnowledgeSchema,
     SearchSemanticSchema,
     SearchQuerySqlSchema,
@@ -31,10 +32,11 @@ export {
 export const SEARCH_TOOL_NAME = 'search';
 
 export const SEARCH_VARIANTS: ActionVariant<SearchAction>[] = [
-    createZodActionVariant('fulltext', SearchFulltextSchema, 'Full-text search across all blocks.'),
+    createZodActionVariant('fulltext', SearchFulltextSchema, '按思源全文索引查块。Markdown 原行匹配请用 fs.search。'),
     createZodActionVariant('semantic', SearchSemanticSchema, 'Run low-level semantic discovery through the SiYuan 3.8 embedding index.'),
-    createZodActionVariant('knowledge', SearchKnowledgeSchema, '检索知识：受控名称直达，支持显式关键词与向量融合、相邻上下文和可选TypeSafe文本精排；保留引用折叠与来源核验边界。'),
+    createZodActionVariant('knowledge', SearchKnowledgeSchema, '检索知识：受控名称直达，支持混合召回、相邻上下文、可选TypeSafe文本精排及 prior_art 已核验成果预检。'),
     createZodActionVariant('check_anchor', SearchCheckAnchorSchema, 'Check candidate name or alias tokens against the readable knowledge anchor namespace.'),
+    createZodActionVariant('lint', SearchLintSchema, '审计指定文档或笔记本的断链、名称冲突、孤儿、陈旧来源、大小及重复原子。'),
     createZodActionVariant('query_sql', SearchQuerySqlSchema, 'Execute a read-only SQL query against the database.'),
     createZodActionVariant('get_backlinks', SearchGetBacklinksSchema, 'Find documents/blocks that link to or mention the given block.'),
     createZodActionVariant('search_refs', SearchRefsSchema, 'Search blocks that reference a given block or document.'),

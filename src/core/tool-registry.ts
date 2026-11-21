@@ -1,4 +1,7 @@
 import type { SiYuanClient } from '../api/client';
+import { ZodError } from 'zod';
+import { normalizeActionAlias } from './action-aliases';
+import { normalizeToolArguments } from './argument-aliases';
 import { AGENT_MEMORY_VIRTUAL_PATH, isDangerousAction, TOOL_CATEGORIES, USER_RULES_VIRTUAL_PATH, type ToolCategory, type ToolConfig } from './config';
 import type { PermissionManager } from './permissions';
 import type { ToolResult } from '@/tools/internal/shared';
@@ -192,6 +195,39 @@ export function listConfiguredToolsForCategory(
     const descriptors = TOOL_REGISTRY[category].listTools(config[category], runtime);
     if (!config.writeSafety.strictMode) return descriptors;
     return descriptors.map((descriptor) => decorateStrictWriteSchema(category, descriptor));
+}
+
+/** 聚合入口允许各客户端读取通用字段表，调用时按实际动作拒绝多余的字段。 */
+export function assertConfiguredToolArgumentFields(
+    category: ToolCategory,
+    action: string,
+    args: Record<string, unknown>,
+    inputSchema: Record<string, unknown> | undefined,
+): boolean {
+    if (category === 'extension' || !inputSchema) return false;
+    const canonicalAction = normalizeActionAlias(category, action);
+    const branches = inputSchema[ACTION_SCHEMA_BRANCHES_KEY] as Array<Record<string, any>> | undefined;
+    const properties = branches?.find(branch => branch.properties?.action?.const === canonicalAction)?.properties;
+    if (!properties) return false;
+    const normalized = normalizeToolArguments(category, args);
+    const allowed = new Set(Object.keys(properties));
+    if ((category === 'fs' && canonicalAction === 'read') || (category === 'document' && canonicalAction === 'get_doc')) {
+        // 已废弃的分页参数继续交给动作给出迁移提示。
+        allowed.add('page');
+        allowed.add('pageSize');
+    }
+    const policy = getActionSafetyPolicy(category, canonicalAction, normalized);
+    if (policy.mode === 'mutation') {
+        allowed.add('validateOnly');
+        allowed.add('requestId');
+        if (policy.precondition !== 'none') allowed.add(PRECONDITION_FIELD[policy.precondition]);
+        if (policy.precondition === 'state') allowed.add('expectedHash');
+    }
+    const unexpected = Object.keys(normalized).filter(key => !allowed.has(key));
+    if (unexpected.length > 0) {
+        throw new ZodError([{ code: 'unrecognized_keys', keys: unexpected, path: [], message: '动作收到未声明的参数。' }]);
+    }
+    return true;
 }
 
 function decorateStrictWriteSchema(category: ToolCategory, descriptor: ToolDescriptor): ToolDescriptor {

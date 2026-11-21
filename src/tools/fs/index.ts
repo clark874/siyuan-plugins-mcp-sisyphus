@@ -13,6 +13,8 @@ import {
     FsSearchSchema,
     FsTreeSchema,
     FsWriteSchema,
+    FsWriteAtomsSchema,
+    FsLinkKnowledgeSchema,
 } from '../../core/types';
 import { defineTool } from '../internal/define-tool';
 import { createZodActionVariant, type ActionVariant, type ToolResult } from '../internal/shared';
@@ -25,6 +27,8 @@ export const FS_VARIANTS: ActionVariant<FsAction>[] = [
     createZodActionVariant('tree', FsTreeSchema, 'List a recursive document tree using human-readable paths.'),
     createZodActionVariant('read', FsReadSchema, 'Read complete display-block Markdown windows by human-readable path, with outline and continuation metadata.'),
     createZodActionVariant('write', FsWriteSchema, 'Create a document, stripping a duplicate leading title heading when present; overwrite=true performs a full body replacement.'),
+    createZodActionVariant('write_atoms', FsWriteAtomsSchema, '向既有文档一次提交多条知识原子及其属性；先预检，同一批次可按稳定块 ID 续接。'),
+    createZodActionVariant('link_knowledge', FsLinkKnowledgeSchema, '创建知识关系块及两条真实引用，验证端点、方向、权限和反链。'),
     createZodActionVariant('replace', FsReplaceSchema, 'Apply exact old/new text replacement edits inside matched non-complex Markdown block DOM without rebuilding the document.'),
     createZodActionVariant('rm', FsRmSchema, 'Delete a document by human-readable path.'),
     createZodActionVariant('mv', FsMvSchema, 'Move or rename a document by human-readable paths.'),

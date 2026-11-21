@@ -14,6 +14,19 @@ describe('SiYuanClient', () => {
         });
     });
 
+    it('按序列化后的 UTF-8 字节接收中文正文的内核上限并拒绝多出一个字节', async () => {
+        mockFetch.mockResolvedValue(new Response(JSON.stringify({ code: 0, data: null })));
+        const limit = 32 * 1024 * 1024;
+        const room = limit - Buffer.byteLength(JSON.stringify({ data: '' }), 'utf8');
+        const data = '中'.repeat(Math.floor(room / 3)) + 'a'.repeat(room % 3);
+
+        await expect(client.requestWrite('/api/block/appendBlock', { data })).resolves.toBeNull();
+        expect(Buffer.byteLength(mockFetch.mock.calls[0][1].body, 'utf8')).toBe(limit);
+        await expect(client.requestWrite('/api/block/appendBlock', { data: `${data}a` }))
+            .rejects.toMatchObject({ code: 'request_body_too_large' });
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
     describe('constructor', () => {
         it('should use default config when no config provided', () => {
             const defaultClient = new SiYuanClient();

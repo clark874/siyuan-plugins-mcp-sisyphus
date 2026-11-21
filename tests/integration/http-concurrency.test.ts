@@ -169,8 +169,8 @@ describe('HTTP MCP concurrency', () => {
 
         expect(toolsA.tools.map((tool) => tool.name)).toContain('system');
         expect(toolsB.tools.map((tool) => tool.name)).toContain('system');
-        expect(parseToolResultText(versionAResult)).toEqual({ version: '3.1.0' });
-        expect(parseToolResultText(versionBResult)).toEqual({ version: '3.1.0' });
+        expect(parseToolResultText(versionAResult)).toEqual({ version: '3.1.0', receivedParams: ['action'] });
+        expect(parseToolResultText(versionBResult)).toEqual({ version: '3.1.0', receivedParams: ['action'] });
         expect(storedFiles['/data/storage/petal/siyuan-plugins-mcp-sisyphus/puppyStats.json']).toBeUndefined();
     });
 
@@ -225,10 +225,11 @@ describe('HTTP MCP concurrency', () => {
 
         for (const round of rounds) {
             expect(round.tools.tools.map((tool) => tool.name)).toContain('system');
-            expect(round.version).toEqual({ version: '3.1.0' });
+            expect(round.version).toEqual({ version: '3.1.0', receivedParams: ['action'] });
             expect(round.currentTime).toEqual({
                 currentTime: 1712640000000,
                 iso: new Date(1712640000000).toISOString(),
+                receivedParams: ['action'],
             });
         }
     });
@@ -271,7 +272,7 @@ describe('HTTP MCP concurrency', () => {
         expect(client.getDiscoverResult()?.supportedVersions).toContain('2026-07-28');
         expect(transport.sessionId).toBeUndefined();
         expect(tools.tools.map((tool) => tool.name)).toContain('system');
-        expect(parseToolResultText(versionResult)).toEqual({ version: '3.1.0' });
+        expect(parseToolResultText(versionResult)).toEqual({ version: '3.1.0', receivedParams: ['action'] });
         expect(confirm).not.toHaveBeenCalled();
         expect(removedResult.isError).toBe(true);
         expect(vi.mocked(global.fetch).mock.calls.some(([url]) => String(url).includes('/api/sync/performSync'))).toBe(false);

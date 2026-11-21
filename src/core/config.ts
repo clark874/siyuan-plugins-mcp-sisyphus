@@ -4,14 +4,14 @@ export const TOOL_CATEGORIES = ['fs', 'notebook', 'document', 'block', 'av', 'fi
 
 export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
-export const FS_ACTIONS = ['ls', 'tree', 'read', 'write', 'replace', 'rm', 'mv', 'reorder', 'search'] as const;
+export const FS_ACTIONS = ['ls', 'tree', 'read', 'write', 'write_atoms', 'link_knowledge', 'replace', 'rm', 'mv', 'reorder', 'search'] as const;
 export const NOTEBOOK_ACTIONS = ['list', 'get_conf', 'get_permissions', 'get_child_docs'] as const;
 export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'move', 'reorder', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'get_outline'] as const;
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'replace', 'move', 'get_kramdown', 'batch_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'docs_info'] as const;
 export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values', 'get_automations', 'set_automations', 'preview_collection', 'collect_blocks', 'preview_template'] as const;
 export const FILE_ACTIONS = ['register_project_source', 'identify_project', 'scan_project_manifest', 'resolve_project_source', 'read_project_source', 'list_project_sources'] as const;
 export const PROJECT_ACTIONS = ['snapshot', 'sync_mindmap'] as const;
-export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'check_anchor', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'list_invalid_refs', 'criteria_list', 'criteria_save', 'criteria_remove'] as const;
+export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'lint', 'check_anchor', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'list_invalid_refs', 'criteria_list', 'criteria_save', 'criteria_remove'] as const;
 export const LITERATURE_ACTIONS = ['find_evidence', 'status', 'list_collections', 'list_collection_items', 'search_papers', 'get_paper', 'get_citations', 'locate_quote', 'get_annotations'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'compare_recent'] as const;
@@ -195,7 +195,7 @@ export type ActionTier = 'basic' | 'advanced';
 const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     fs: {
         ls: 'basic', tree: 'basic', read: 'basic', write: 'basic', replace: 'basic',
-        search: 'basic', reorder: 'basic',
+        search: 'basic', reorder: 'basic', write_atoms: 'basic', link_knowledge: 'basic',
         rm: 'advanced', mv: 'advanced',
     },
     notebook: {
@@ -298,7 +298,7 @@ export function buildDefaultToolConfig(): ToolConfig {
     return {
         fs: {
             enabled: true,
-            actions: createActionsRecord(FS_ACTIONS, ['ls', 'tree', 'read', 'write', 'replace', 'rm', 'mv', 'reorder', 'search']),
+            actions: createActionsRecord(FS_ACTIONS, FS_ACTIONS),
         },
         notebook: {
             enabled: true,

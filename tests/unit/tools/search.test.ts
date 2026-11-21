@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildDefaultToolConfig } from '@/core/config';
 import { normalizeFullTextSearchResult } from '@/core/normalize';
 import { readKnowledgeSupersessions } from '@/core/knowledge-relations';
+import { slimToolResult } from '@/core/slim-response';
 import { callSearchTool, filterBacklinkResultByPermission, filterFullTextSearchResultByPermission, listSearchTools } from '@/tools/search';
 import { callTagTool } from '@/tools/tag';
 import { assertReadOnlySql, getBacklinksWithDiagnostics } from '@/tools/search/sql-builder';
@@ -88,6 +89,68 @@ describe('search SQL read-only guard', () => {
 });
 
 describe('search tool filtering', () => {
+    it('多词零结果后按词元回退，折叠正文相同的可读块并保留来源', async () => {
+        const content = '坐标合流保留原方程';
+        const long = { id: 'container', box: 'allowed', rootID: 'doc-a', path: '/a.sy', hPath: '/父/长路径', type: 'i', content };
+        const short = { id: 'paragraph', box: 'allowed', rootID: 'doc-a', path: '/a.sy', hPath: '/同一文档', type: 'p', content };
+        const other = { ...short, id: 'other-document', rootID: 'doc-b', path: '/b.sy', hPath: '/独立文档' };
+        const request = vi.fn(async (endpoint: string, body: Record<string, unknown>) => {
+            if (endpoint === '/api/search/fullTextSearchBlock') {
+                const blocks = body.method === 1 ? [long, short, other, { ...short, id: 'outside', box: 'blocked', content: '偏R²' }] : [];
+                return { blocks, matchedBlockCount: blocks.length, pageCount: 1 };
+            }
+            if (endpoint === '/api/query/sql') return [long, short, other];
+            return { notebooks: [] };
+        });
+        const permMgr = { reload: async () => {}, canRead: (id: string) => id === 'allowed', getAll: () => ({ blocked: 'none' }) };
+        const client = createMockClient({ request });
+        const args = { action: 'fulltext', query: '坐标合流 偏R²', paths: ['allowed'] };
+        const response = await callSearchTool(client, args, buildDefaultToolConfig().search, permMgr as never);
+        const result = parseResult(slimToolResult(response, { category: 'search', action: 'fulltext' }));
+        expect(request).toHaveBeenCalledWith('/api/search/fullTextSearchBlock', expect.objectContaining({
+            method: 1, query: '"坐标合流" OR "偏R²"', paths: ['allowed'],
+        }));
+        expect(result).toMatchObject({
+            confidence: 'weak', matchedTokens: ['坐标合流'], unmatchedTokens: ['偏R²'], duplicatesCollapsed: 1,
+            data: [{ id: 'paragraph', duplicateSources: [{ id: 'container', rootId: 'doc-a' }] }, { id: 'other-document' }],
+        });
+        const withoutFallback = parseResult(await callSearchTool(client, { ...args, keywordFallback: false }, buildDefaultToolConfig().search, permMgr as never));
+        expect(withoutFallback).toMatchObject({ confidence: 'none', absenceEstablished: false, negativeResultScope: 'current_query_and_scope', data: [], unmatchedTokens: ['坐标合流', '偏R²'] });
+        expect(withoutFallback.queryHint).toContain('不等于库中不存在');
+    });
+
+    it('先行成果核对保留范围内已有证据的核验块，排除草稿和范围外的引用目标', async () => {
+        const verified = { id: '20261101000000-proved1', root_id: 'inside', box: 'allowed', path: '/inside.sy', type: 'p', content: '已核验推导结论' };
+        const draft = { ...verified, id: '20261101000000-draft01', content: '新方案草稿' };
+        const ref = { ...verified, id: '20261101000000-ref0001' };
+        const outside = { ...verified, id: '20261101000000-cover01', path: '/outside.sy' };
+        const request = vi.fn(async (endpoint: string, body: Record<string, unknown>) => {
+            if (endpoint === '/api/search/semanticSearchBlock' || endpoint === '/api/search/fullTextSearchBlock') {
+                return { blocks: [draft, ref, verified], matchedBlockCount: 3, pageCount: 1 };
+            }
+            const stmt = String(body.stmt);
+            if (stmt.includes('SELECT block_id, def_block_id FROM refs')) return [{ block_id: ref.id, def_block_id: outside.id }];
+            if (stmt.includes('namespace_trust_metadata')) return [
+                { block_id: draft.id, name: 'custom-verification-status', value: 'draft' },
+                { block_id: verified.id, name: 'custom-verification-status', value: 'evidence-verified' },
+                { block_id: verified.id, name: 'custom-verification-evidence', value: '复算记录' },
+            ];
+            if (stmt.includes('SELECT id, root_id, box, path, hpath, type, subtype, name, alias, content, markdown,') && stmt.includes('FROM blocks WHERE id IN')) {
+                return [draft, ref, verified, outside];
+            }
+            return [];
+        });
+        const permMgr = { reload: async () => {}, canRead: () => true, getAll: () => ({}) };
+        const result = parseResult(await callSearchTool(createMockClient({ request }), {
+            action: 'knowledge', retrievalMode: 'prior_art', namespaceMode: 'off', query: '核验 推导', paths: ['/inside.sy'],
+        }, buildDefaultToolConfig().search, permMgr as never));
+        expect(result).toMatchObject({
+            retrievalMode: 'prior_art', priorArt: { recordedVerifiedCandidates: 1, excludedUnverified: 1, noveltyEstablished: false },
+            data: [{ id: verified.id, verificationStatus: 'evidence-verified', verificationEvidence: '复算记录' }],
+        });
+        expect(result.data).toHaveLength(1);
+    });
+
     it('routes semantic search through the native embedding endpoint and permission filter', async () => {
         const request = vi.fn(async (endpoint: string, body: unknown) => {
             expect(endpoint).toBe('/api/search/semanticSearchBlock');
@@ -288,9 +351,9 @@ describe('search tool filtering', () => {
         expect(result.isError).toBe(true);
         expect(parsed.error.type).toBe('validation_error');
         expect(parsed.error.message).toContain('Invalid arguments');
-        expect(parsed.error.hint).toContain('candidates=["token"]');
+        expect(parsed.error.hint).toContain('candidates=["词元"]');
         expect(parsed.error.hint).toContain('candidateKind="name"|"alias"');
-        expect(parsed.error.hint).toContain('not to locate existing content');
+        expect(parsed.error.hint).toContain('检查命名碰撞');
         expect(request).not.toHaveBeenCalled();
     });
 

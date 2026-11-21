@@ -1,6 +1,8 @@
 import * as blockApi from '../../api/block';
 import type { SiYuanClient } from '../../api/client';
-import { findUnsupportedTable, readMarkdownTables } from '../../../agent-kit/scripts/pandoc-grid-table.mjs';
+import type { PermissionManager } from '../../core/permissions';
+import { ensurePermissionForDocumentId } from './context';
+import { lintMarkdown } from '../../../agent-kit/scripts/markdown-lint.mjs';
 import { assertSafeBlockReferenceMarkdown, extractKramdownContentForEditing, normalizeBlockRefQuoteStyle } from './kramdown-safe';
 import { createSemanticError } from './validation';
 
@@ -30,7 +32,13 @@ function firstReadableLine(markdown: string): string {
         .find((line) => line.length > 0) ?? '';
 }
 
-async function resolveBlockRefAnchor(client: SiYuanClient, id: string): Promise<string> {
+async function resolveBlockRefAnchor(client: SiYuanClient, permMgr: PermissionManager, id: string): Promise<string> {
+    try {
+        const { context, denied } = await ensurePermissionForDocumentId(client, permMgr, id, 'read');
+        if (denied || !context.notebook) return id;
+    } catch {
+        return id;
+    }
     try {
         const result = await blockApi.getBlockKramdown(client, id);
         const content = typeof result.kramdown === 'string'
@@ -62,19 +70,12 @@ async function resolveBlockRefAnchor(client: SiYuanClient, id: string): Promise<
 
 export async function normalizeMarkdownInputRefs(
     client: SiYuanClient,
+    permMgr: PermissionManager,
     markdown: string,
     actionName: string,
     options: { matchingExisting?: boolean } = {},
 ): Promise<string> {
-    if (!options.matchingExisting) {
-        const incompatible = findUnsupportedTable(markdown);
-        if (incompatible) {
-            throw createSemanticError('invalid_arguments',
-                `警告：${actionName} 检测到 ${incompatible.kind}（待写入正文第 ${incompatible.line} 行），已停止录入。请转换为规范 Markdown 管道表。`,
-                incompatible.kind === 'Pandoc 网格表格' ? 'pandoc_grid_table' : 'html_table_unsupported');
-        }
-        readMarkdownTables(markdown);
-    }
+    if (!options.matchingExisting) assertMarkdownInput(markdown, actionName);
     const quoteNormalizedMarkdown = normalizeBlockRefQuoteStyle(markdown);
     assertSafeBlockReferenceMarkdown(quoteNormalizedMarkdown, actionName, { allowNakedBlockRefs: true });
 
@@ -83,7 +84,7 @@ export async function normalizeMarkdownInputRefs(
 
     const anchors = new Map<string, string>();
     await Promise.all(ids.map(async (id) => {
-        anchors.set(id, await resolveBlockRefAnchor(client, id));
+        anchors.set(id, await resolveBlockRefAnchor(client, permMgr, id));
     }));
 
     const normalized = quoteNormalizedMarkdown.replace(NAKED_BLOCK_REF_PATTERN, (_raw, id: string) => {
@@ -94,14 +95,28 @@ export async function normalizeMarkdownInputRefs(
     return normalized;
 }
 
+/** 严格写入预检与常规写入使用同一份原始 Markdown 诊断。 */
+export function assertMarkdownInput(markdown: string, actionName: string) {
+    const diagnostics = lintMarkdown(markdown);
+    const error = diagnostics.find(diagnostic => diagnostic.severity === 'error');
+    if (error) {
+        const location = `原始 Markdown 第 ${error.line} 行第 ${error.column} 列`;
+        const counts = 'expectedColumns' in error ? `预期 ${error.expectedColumns} 列，实际 ${error.actualColumns} 列。` : '';
+        throw Object.assign(createSemanticError('invalid_arguments',
+            `${actionName} ${error.hint}（${location}）。${counts}`, error.rule), { diagnostics });
+    }
+    return diagnostics;
+}
+
 export async function normalizeReplaceEditsRefs<T extends { old: string; new: string }>(
     client: SiYuanClient,
+    permMgr: PermissionManager,
     edits: T[],
     actionName: string,
 ): Promise<T[]> {
     return Promise.all(edits.map(async (edit) => ({
         ...edit,
-        old: await normalizeMarkdownInputRefs(client, edit.old, actionName, { matchingExisting: true }),
-        new: await normalizeMarkdownInputRefs(client, edit.new, actionName),
+        old: await normalizeMarkdownInputRefs(client, permMgr, edit.old, actionName, { matchingExisting: true }),
+        new: await normalizeMarkdownInputRefs(client, permMgr, edit.new, actionName),
     })));
 }

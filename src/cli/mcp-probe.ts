@@ -6,6 +6,7 @@ export type DiagnosticCode =
     | 'plugin_not_installed'
     | 'plugin_not_ready'
     | 'gateway_not_running'
+    | 'gateway_timeout'
     | 'gateway_unauthorized'
     | 'mcp_initialize_failed'
     | 'tools_list_failed'
@@ -44,7 +45,13 @@ export interface McpProbeResult {
 }
 
 const DEFAULT_REQUIRED_TOOLS = ['system'];
-const EXPECTED_BOOTSTRAP_SCHEMA_VERSION = 2;
+const SUPPORTED_BOOTSTRAP_SCHEMA_VERSIONS = [2, 3];
+
+export function isGatewayTimeout(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const cause = error instanceof Error ? (error as Error & { cause?: { code?: string } }).cause?.code : undefined;
+    return /tim(?:e|ed)[ _-]*out/i.test(`${message} ${cause ?? ''}`);
+}
 
 function classifyInitializeError(error: unknown): DiagnosticCode {
     const message = error instanceof Error ? error.message : String(error);
@@ -54,7 +61,8 @@ function classifyInitializeError(error: unknown): DiagnosticCode {
     if (status === 401 || status === 403 || /\b(?:401|403)\b|unauthorized|forbidden/i.test(message)) {
         return 'gateway_unauthorized';
     }
-    if (/ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|ETIMEDOUT|fetch failed|network|socket|aborted|timeout/i.test(message)) {
+    if (isGatewayTimeout(error)) return 'gateway_timeout';
+    if (/ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|fetch failed|network|socket|aborted/i.test(message)) {
         return 'gateway_not_running';
     }
     return 'mcp_initialize_failed';
@@ -81,7 +89,7 @@ function validateBootstrap(value: unknown): { issue?: DiagnosticCode; schemaVers
     if (!value || typeof value !== 'object') return { issue: 'bootstrap_schema_mismatch' };
     const bootstrap = value as Record<string, unknown>;
     const schemaVersion = typeof bootstrap.schemaVersion === 'number' ? bootstrap.schemaVersion : undefined;
-    if (schemaVersion !== EXPECTED_BOOTSTRAP_SCHEMA_VERSION || bootstrap.bootstrap !== true) {
+    if (!SUPPORTED_BOOTSTRAP_SCHEMA_VERSIONS.includes(schemaVersion) || bootstrap.bootstrap !== true) {
         return { issue: 'bootstrap_schema_mismatch', schemaVersion };
     }
     const toolConfiguration = bootstrap.toolConfiguration;
@@ -132,8 +140,8 @@ export async function probeMcpGateway(
         try {
             tools = await session.listTools();
             toolsListed = true;
-        } catch {
-            return { ready: false, issue: 'tools_list_failed', initialized, toolsListed, bootstrapCompleted };
+        } catch (error) {
+            return { ready: false, issue: isGatewayTimeout(error) ? 'gateway_timeout' : 'tools_list_failed', initialized, toolsListed, bootstrapCompleted };
         }
 
         const requiredTools = options.requiredTools ?? DEFAULT_REQUIRED_TOOLS;
@@ -152,10 +160,10 @@ export async function probeMcpGateway(
         try {
             rawBootstrap = await session.bootstrap();
             bootstrapCompleted = true;
-        } catch {
+        } catch (error) {
             return {
                 ready: false,
-                issue: 'bootstrap_failed',
+                issue: isGatewayTimeout(error) ? 'gateway_timeout' : 'bootstrap_failed',
                 initialized,
                 toolsListed,
                 bootstrapCompleted,

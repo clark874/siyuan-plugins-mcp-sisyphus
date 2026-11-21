@@ -5,6 +5,7 @@ import type { PermissionManager } from '../../core/permissions';
 import { redactText } from '../../shared/text-security';
 import { escapeSqlString } from '../internal/context';
 import { filterFullTextSearchResultByPermission } from './permission-filter';
+import { keywordSearchWithFallback } from './result-quality';
 
 type Candidate = Record<string, any>;
 interface RetrievalArgs {
@@ -14,7 +15,7 @@ interface RetrievalArgs {
     types?: Record<string, boolean>;
     subTypes?: Record<string, boolean>;
     candidateSize?: number;
-    retrievalMode?: 'auto' | 'hybrid' | 'semantic';
+    retrievalMode?: 'auto' | 'hybrid' | 'semantic' | 'prior_art';
 }
 
 /** 两路召回共享授权及范围过滤，只融合真实块 ID，不把相似度当作证据状态。 */
@@ -25,20 +26,21 @@ export async function retrieveKnowledgeCandidates(client: SiYuanClient, permMgr:
     if (paths?.length === 0 && (args.paths?.length || args.notebooks?.length)) {
         return { blocks: [], matchedBlockCount: 0, metadata: { retrievalDiagnostics: { reason: 'empty_scope' }, channelCandidateCounts: { semantic: 0, keyword: 0 } } };
     }
-    const hybrid = args.retrievalMode === 'hybrid';
-    const outcomes = await Promise.allSettled([
+    const hybrid = args.retrievalMode === 'hybrid' || args.retrievalMode === 'prior_art';
+    const [semantic, keyword] = await Promise.allSettled([
         searchApi.semanticSearchBlock(client, { query: args.query, paths, page: 1, pageSize: candidateSize, types: args.types, subTypes: args.subTypes }),
-        hybrid ? searchApi.fullTextSearchBlock(client, { query: args.query, paths, page: 1, pageSize: candidateSize, types: args.types }) : Promise.resolve(null),
+        hybrid ? keywordSearchWithFallback(client, { query: args.query, paths, page: 1, pageSize: candidateSize, types: args.types },
+            result => !!filterFullTextSearchResultByPermission(result, permMgr).blocks?.length) : Promise.resolve(null),
     ]);
-    if (outcomes[0].status === 'rejected' && (!hybrid || outcomes[1].status === 'rejected')) throw outcomes[0].reason;
+    if (semantic.status === 'rejected' && (!hybrid || keyword.status === 'rejected')) throw semantic.reason;
     const fused = new Map<string, Candidate>();
     const diagnostics: Record<string, unknown> = {};
     let filteredCount = 0;
     const channelCandidateCounts = { semantic: 0, keyword: 0 };
-    for (let channel = 0; channel < outcomes.length; channel++) {
-        const name = channel === 0 ? 'semantic' : 'keyword';
-        const outcome = outcomes[channel];
-        if (!hybrid && channel === 1) continue;
+    const keywordFallback = keyword.status === 'fulfilled' ? keyword.value?.fallback : undefined;
+    const keywordResult = keyword.status === 'fulfilled' ? { ...keyword, value: keyword.value?.result } : keyword;
+    for (const [name, outcome] of [['semantic', semantic], ['keyword', keywordResult]] as const) {
+        if (!hybrid && name === 'keyword') continue;
         if (outcome.status === 'rejected') {
             diagnostics[name] = outcome.reason instanceof Error && /timeout/i.test(outcome.reason.message) ? 'timeout' : 'error';
             continue;
@@ -56,6 +58,8 @@ export async function retrieveKnowledgeCandidates(client: SiYuanClient, permMgr:
             const fullPath = `${notebook}${String(block.path ?? '')}`;
             if (!permMgr.canRead(notebook) || (args.notebooks?.length && !args.notebooks.includes(notebook))
                 || (paths?.length && !paths.some((path) => path.startsWith('/') ? String(block.path ?? '').startsWith(path) : path.includes('/') ? fullPath.startsWith(path) : notebook === path))) return;
+            if (name === 'keyword' && args.subTypes && Object.keys(args.subTypes).length
+                && args.subTypes[String(block.subType ?? block.subtype ?? '')] !== true) return;
             channelCandidateCounts[name] += 1;
             const entry = fused.get(block.id) ?? { ...block, fusionScore: 0, retrievalSources: [] };
             entry.fusionScore += 1 / (60 + index + 1);
@@ -71,6 +75,7 @@ export async function retrieveKnowledgeCandidates(client: SiYuanClient, permMgr:
         metadata: {
             retrievalDiagnostics: diagnostics,
             channelCandidateCounts,
+            ...(keywordFallback ? { keywordFallback } : {}),
             ...(Object.values(diagnostics).some((state) => state !== 'ok') ? { partial: true } : {}),
             ...(hybrid ? { fusion: 'reciprocal_rank', fusionConstant: 60 } : {}),
         },
@@ -120,7 +125,7 @@ export async function attachKnowledgeContext(client: SiYuanClient, permMgr: Perm
         const row = byId.get(id);
         if (!row || (literature && forEvidence && !isLiteratureEvidenceRole(row))) return undefined;
         const full = String(row.markdown || row.content || '');
-        return { id, text: full.slice(0, 1000), truncated: full.length > 1000 };
+        return { id, text: full.slice(0, 1000), truncated: full.length > 1000, omittedChars: Math.max(0, full.length - 1000) };
     };
     for (const item of selected) {
         const row = neighbors.find((neighbor) => neighbor.id === item.id);

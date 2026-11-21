@@ -242,11 +242,15 @@ const SHORT_THRESHOLD = 400;
 const DEFAULT_WINDOW = 150;
 
 export function truncateContentAroundMarks(text: string, windowSize: number = DEFAULT_WINDOW): string {
-    if (text.length <= SHORT_THRESHOLD) return text;
+    return searchContentWindow(text, windowSize).text;
+}
+
+function searchContentWindow(text: string, windowSize = DEFAULT_WINDOW): { text: string; omittedChars: number } {
+    if (text.length <= SHORT_THRESHOLD) return { text, omittedChars: 0 };
 
     const matches = [...text.matchAll(MARK_RE)];
     if (matches.length === 0) {
-        return text.length > SHORT_THRESHOLD ? text.slice(0, SHORT_THRESHOLD) + '...' : text;
+        return { text: text.slice(0, SHORT_THRESHOLD) + '...', omittedChars: text.length - SHORT_THRESHOLD };
     }
 
     // Build windows around each <mark> match
@@ -278,7 +282,7 @@ export function truncateContentAroundMarks(text: string, windowSize: number = DE
     }
     if (merged[merged.length - 1][1] < text.length) parts.push('...');
 
-    return parts.join('');
+    return { text: parts.join(''), omittedChars: text.length - merged.reduce((sum, [start, end]) => sum + end - start, 0) };
 }
 
 const MARKDOWN_MAX = 400;
@@ -300,9 +304,12 @@ export function slimSearchBlocks(blocks: unknown[]): unknown[] {
                     ? plainText.slice(0, EXCERPT_LENGTH) + '...'
                     : plainText;
             }
-            slim.content = truncateContentAroundMarks(slim.content);
+            const window = searchContentWindow(slim.content);
+            slim.content = window.text;
+            if (window.omittedChars > 0) slim.contentOmittedChars = window.omittedChars;
         }
         if (typeof slim.markdown === 'string' && (slim.markdown as string).length > MARKDOWN_MAX) {
+            slim.markdownOmittedChars = slim.markdown.length - MARKDOWN_MAX;
             slim.markdown = (slim.markdown as string).slice(0, MARKDOWN_MAX) + '...';
         }
         return slim;

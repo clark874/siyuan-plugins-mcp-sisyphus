@@ -10,7 +10,8 @@ import { ensureZoteroItem } from './register-literature-zotero.mjs';
 import { synchronizeCatalogCells } from './sync-literature-catalog.mjs';
 import { translateLiterature } from './translate-literature.mjs';
 import { mcpConnection } from './tag-literature-roles.mjs';
-import { findUnsupportedTable, readMarkdownTables, assertMarkdownTablesMatch } from './pandoc-grid-table.mjs';
+import { assertMarkdownTablesMatch } from './pandoc-grid-table.mjs';
+import { lintMarkdown } from './markdown-lint.mjs';
 
 const runLocal = promisify(execFile);
 const idPattern = /^\d{14}-[a-z0-9]{7}$/;
@@ -164,11 +165,13 @@ export async function ingestLiteratureBatch({ project, manifest, mcpSettings, zo
         const bytes = await readFile(row.sourcePath);
         if (digest(bytes) !== row.sourceSha256) throw Error('源 Markdown 已变化：' + row.sourcePath);
         const source = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-        const incompatible = findUnsupportedTable(source);
-        if (incompatible) {
-            throw Error(`警告：检测到 ${incompatible.kind}（${row.sourcePath}，第 ${incompatible.line} 行）。整批停止录入。请核对并转换为规范 Markdown 管道表后重新预检。`);
+        const diagnostics = lintMarkdown(source);
+        const issue = diagnostics.find(diagnostic => diagnostic.severity === 'error');
+        if (issue) {
+            const counts = 'expectedColumns' in issue ? `预期 ${issue.expectedColumns} 列，实际 ${issue.actualColumns} 列。` : '';
+            throw Object.assign(Error(`警告：${issue.hint}（${row.sourcePath}，原始 Markdown 第 ${issue.line} 行第 ${issue.column} 列）。整批停止录入。${counts}\n${issue.snippet}`),
+                { sourcePath: row.sourcePath, diagnostics });
         }
-        readMarkdownTables(source);
         sourceBodies.push({ row, source });
     }
     const { notebook, parentID, avID } = project.siyuan;

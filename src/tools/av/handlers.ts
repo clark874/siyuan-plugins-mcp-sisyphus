@@ -1939,10 +1939,21 @@ async function handleSetCells({ client, permMgr, rawArgs }: ToolHandlerContext):
     }
 
     const values: TransactionOperation[] = [];
+    const columns = (avData as { keyValues?: Array<{ key?: { id?: string }; values?: Array<{
+        blockID?: string; text?: { rich?: unknown }; block?: { rich?: unknown; richBlockDOM?: string };
+    }> }> } | null)?.keyValues ?? [];
     for (let index = 0; index < items.length; index += 1) {
         const item = items[index];
         const validatedRowID = validateRowIdForAv(parsed.avID, 'set_cells', rowLookup, item.rowID, isSingleCellCall ? undefined : index);
         if (validatedRowID.ok === false) return validatedRowID.result;
+        const existing = columns.find(column => column.key?.id === item.columnID)?.values?.find(cell => cell.blockID === validatedRowID.rowID);
+        if (existing?.text?.rich || existing?.block?.rich || existing?.block?.richBlockDOM) {
+            return createAvRowIdErrorResult('set_cells', {
+                reason: 'rich_cell_requires_native_editor',
+                message: '目标单元格含思源原生富文本，简单值写入会丢失结构。',
+                hint: '请在支持该 AV 格式的思源客户端中编辑该单元格。',
+            });
+        }
         values.push({
             action: 'updateAttrViewCell',
             avID: parsed.avID,

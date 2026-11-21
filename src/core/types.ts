@@ -120,6 +120,8 @@ const ProjectMindmapNodeStyleSchema = z.object({
     bold: z.boolean().optional(),
     italic: z.boolean().optional(),
     lineDash: z.boolean().optional(),
+    shape: z.enum(['underline', 'rectangle', 'capsule']).optional().describe('思源 3.8.11 节点形状'),
+    connectorStyle: z.enum(['spline', 'orthogonal', 'bezier', 'rounded']).optional().describe('思源 3.8.11 节点入线样式'),
 }).strict();
 const ProjectMindmapKeySchema = z.string().min(1).max(256);
 export const ProjectMindmapDisplaySchema = z.object({
@@ -143,6 +145,8 @@ export const ProjectMindmapDisplaySchema = z.object({
         width: z.number().min(0).max(32).optional(),
         dash: z.boolean().optional(),
         arrowDirection: z.enum(['forward', 'reverse', 'both', 'none']).optional(),
+        pathStyle: z.enum(['auto', 'straight', 'bezier', 'rounded']).optional().describe('思源 3.8.11 自由关系路径'),
+        strokeStyle: z.enum(['solid', 'dashed', 'long-dashed', 'dotted']).optional().describe('思源 3.8.11 自由关系线型'),
     }).strict()).max(160).optional().describe('显式传入时替换关系集合；空数组清空，省略则保留'),
     summaries: z.array(z.object({
         id: z.string().min(1).max(128).optional().describe('稳定概要标识；省略时按相同范围复用或生成'),
@@ -253,11 +257,33 @@ export const FsWriteSchema = z.object({
     overwrite: z.boolean().optional().describe("When true, replace an existing document body while keeping the document node and title. This is a full body replacement."),
 });
 
+export const FsWriteAtomsSchema = z.object({
+    action: z.literal('write_atoms'),
+    path: z.string().min(1).describe('已存在的目标文档路径'),
+    batchId: z.string().min(1).max(128).describe('本批稳定标识，重试时使用同一批次。'),
+    atoms: z.array(z.object({
+        itemKey: z.string().trim().min(1).max(128).optional().describe('条目的固定键。同批要么全填要么全省略；全填时可以重排重试，省略时维持原始次序。'),
+        markdown: z.string().trim().min(1).max(16000).describe('一个 Markdown 正文段落'),
+        attrs: z.record(z.string(), z.string().max(4096)),
+    }).strict()).min(1).max(50),
+    mode: z.enum(['atomic', 'bestEffort']).optional().describe('默认 atomic。bestEffort 跳过预检拒绝的项，其余一次提交'),
+});
+
+export const FsLinkKnowledgeSchema = z.object({
+    action: z.literal('link_knowledge'),
+    path: z.string().min(1).describe('关系块所在的既有文档路径'),
+    fromId: z.string().regex(/^\d{14}-[a-z0-9]{7}$/),
+    toId: z.string().regex(/^\d{14}-[a-z0-9]{7}$/),
+    kind: z.enum(['produced-by', 'supports', 'constrained-by', 'implements', 'part-of', 'reuses',
+        'supersedes', 'active-reuse', 'compatibility-reference', 'historical-compatibility']),
+    evidence: z.string().trim().min(1).max(16000).describe('实际证据或适用边界，单段 Markdown，端点引用由系统补齐'),
+});
+
 export const FsReplaceEditSchema = z.object({
     old: z.string().min(1).describe("Original text to match exactly. Supports multi-line strings."),
     new: z.string().describe("Replacement text. Supports multi-line strings."),
     replace_all: z.boolean().optional().describe("When true, replace every exact match. Defaults to false."),
-});
+}).strict();
 
 export const FsReplaceSchema = z.object({
     action: z.literal("replace"),
@@ -1040,6 +1066,28 @@ export const FileListProjectSourcesSchema = z.object({
 
 export const SearchActionSchema = z.enum(SEARCH_ACTIONS);
 
+const LintUpdatedSchema = z.string().regex(/^\d{14}$/u);
+export const SearchLintSchema = z.object({
+    action: z.literal('lint'),
+    notebook: z.string().regex(/^\d{14}-[a-z0-9]{7}$/u).optional().describe('审计一个可读笔记本。'),
+    documentId: z.string().regex(/^\d{14}-[a-z0-9]{7}$/u).optional().describe('审计一篇可读文档。'),
+    maxBlocks: z.number().int().min(1).max(2000).optional().describe('当前扫描块数上限，默认 500。'),
+    maxFindings: z.number().int().min(1).max(300).optional().describe('返回问题数上限，默认 100。'),
+    atomCharLimit: z.number().int().min(100).max(12000).optional().describe('超大原子字符阈值，默认 5000。'),
+    updatedSince: LintUpdatedSchema.optional().describe('按思源内核本地时间增量巡检，包含此更新时间，格式 YYYYMMDDHHMMSS。'),
+    cursor: z.object({
+        scopeId: z.string().regex(/^\d{14}-[a-z0-9]{7}$/u),
+        scopeKind: z.enum(['notebook', 'document']),
+        cutoffUpdated: LintUpdatedSchema,
+        replaySince: LintUpdatedSchema,
+        updatedSince: LintUpdatedSchema.optional(),
+        afterUpdated: LintUpdatedSchema,
+        afterId: z.string().regex(/^\d{14}-[a-z0-9]{7}$/u),
+        previousPagesComplete: z.boolean(),
+    }).strict().optional().describe('逐页原样传入上次的 nextCursor。'),
+}).refine(value => Boolean(value.notebook) !== Boolean(value.documentId), '请指定 notebook 或 documentId 中的一项。')
+    .refine(value => !value.updatedSince || !value.cursor, '续页由 cursor 携带原水位，请勿同时传 updatedSince。');
+
 const SearchMethodNameSchema = z.enum(["keyword", "query", "query_syntax", "sql", "regex"]);
 const SearchSortNameSchema = z.enum(["relevance", "date", "updated_desc", "updated_asc", "created_desc", "created_asc", "type"]);
 
@@ -1058,6 +1106,8 @@ export const SearchFulltextSchema = z.object({
     pageSize: z.number().optional().describe("Results per page, default 32, max 128"),
     parentId: z.string().optional().describe("Post-filter results to blocks whose root_id or parent_id matches this ID, scoping search within a document subtree."),
     hasTags: z.boolean().optional().describe("When true, only return blocks that have tags. When false, only return blocks without tags."),
+    keywordFallback: z.boolean().optional().describe('默认在多词关键字查询首窗为空时按词元 OR 回退。设为 false 可只执行原查询。'),
+    dedupe: z.boolean().optional().describe('默认折叠当前结果页中正文相同的普通块，保留各来源块 ID。设为 false 可查看独立命中。'),
     stripHtml: z.boolean().optional().describe("Legacy toggle. plainContent is now returned by default; set this when you want to emphasize plain-text-safe downstream parsing while keeping highlighted HTML content."),
 });
 
@@ -1087,7 +1137,8 @@ export const SearchKnowledgeSchema = z.object({
             compileStatus: z.union([z.string().trim().min(1), z.array(z.string().trim().min(1)).min(1).max(50)]).optional(),
         }).strict().optional(),
     }).strict().optional().describe('按已登记的项目知识 AV 和结构化字段限定候选；query 此时用于说明查询意图，返回绑定块供回读。'),
-    retrievalMode: z.enum(['auto', 'hybrid', 'semantic']).optional().describe('默认 auto 保留本地精确直达；hybrid 合并关键词与向量候选，semantic 跳过关键词预检；唯一名称直达与歧义保护始终保留。'),
+    retrievalMode: z.enum(['auto', 'hybrid', 'semantic', 'prior_art']).optional().describe('默认 auto 保留本地精确直达；hybrid 合并关键词与向量候选；semantic 跳过关键词；prior_art 用 query 传拟议主张，核查范围内已有且有执行或证据核验记录的块，会调用已配置的向量服务。'),
+    dedupe: z.boolean().optional().describe('默认折叠召回窗口中正文相同的普通块，保留各来源块 ID。设为 false 可查看独立命中。'),
     includeContext: z.boolean().optional().describe('补齐前20个候选的同级相邻块、文档标题与块定位，默认 false；精排时自动补齐。'),
     includeRelations: z.boolean().optional().describe('按需返回已展示命中的一跳知识关系，含入边和出边，最多50条，默认 false。'),
     rerank: z.boolean().optional().describe('用思源已启用的 TypeSafe 决策配置对前10个文本候选精排，默认 false；失败保留原序并说明降级。'),
@@ -1105,7 +1156,7 @@ export const SearchKnowledgeSchema = z.object({
 
 export const SearchCheckAnchorSchema = z.object({
     action: z.literal("check_anchor"),
-    candidates: z.array(z.string().min(1)).min(1).max(10).describe("Candidate name or alias tokens to check. Comma-separated alias strings are split into exact tokens. Send at most 10 tokens per call to keep adjudication output bounded."),
+    candidates: z.array(z.string().trim().min(1).max(2048)).min(1).max(50).describe('检查名称或别名。支持中英文逗号拆分，每次拆分后最多 50 个不同候选。'),
     candidateKind: z.enum(["name", "alias"]).describe("Whether the candidates will be written as canonical names or retrieval aliases."),
     excludeBlockIds: z.array(z.string()).max(100).optional().describe("Existing block IDs being edited; exclude them from collision results."),
     activeScopes: z.array(z.string().min(1)).max(50).optional().describe("Optional active custom-anchor-scope values used to test deterministic scoped resolution."),
