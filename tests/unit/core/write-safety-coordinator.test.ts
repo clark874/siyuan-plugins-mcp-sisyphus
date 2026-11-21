@@ -87,6 +87,25 @@ describe('严格安全写入协调器', () => {
         expect(execute).not.toHaveBeenCalled();
     });
 
+    it('创建时间线后按仓库专用时限回读标签，写入只执行一次', async () => {
+        const requestRead = vi.fn(async (_endpoint: string, _args: object, options?: { timeoutMs?: number }) => {
+            if (options?.timeoutMs !== 15_000) throw new Error('Request timeout after 5000ms');
+            return { snapshots: [{ id: 'snapshot-1', tag: 'sisyphustimeline_global_release' }] };
+        });
+        const client = {
+            readFile: vi.fn(async () => { throw new Error('HTTP error: 404 Not Found'); }),
+            writeFile: vi.fn(async () => undefined), requestRead,
+        } as never;
+        const execute = vi.fn(async () => success({ node: { snapshotId: 'snapshot-1', tag: 'sisyphustimeline_global_release' } }));
+        const result = parseResult(await new WriteSafetyCoordinator(client).run({
+            client, permMgr: createMockPermissionManager(), category: 'timeline', action: 'create_node', strictMode: true,
+            args: { action: 'create_node', name: '发布', scope: 'global', requestId: uuidV7() }, execute,
+        }));
+        expect(result.safety).toMatchObject({ transactionState: 'committed', writeExecuted: true });
+        expect(execute).toHaveBeenCalledTimes(1);
+        expect(requestRead).toHaveBeenCalledWith('/api/repo/getRepoTagSnapshots', {}, { timeoutMs: 15_000 });
+    });
+
     it('第三方扩展副作用不执行 validateOnly', async () => {
         const execute = vi.fn();
         const result = parseResult(await new WriteSafetyCoordinator({} as never).run({

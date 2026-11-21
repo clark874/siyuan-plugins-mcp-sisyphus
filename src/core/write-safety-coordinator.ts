@@ -5,6 +5,7 @@ import { assertMarkdownInput } from '../tools/internal/markdown-input';
 import { inspectWriteReferences, markdownWriteFragments, summarizeMarkdownDiff } from './write-diagnostics';
 import { normalizeToolArguments } from './argument-aliases';
 import { isDocumentAddressingError } from '../api/document';
+import { getRepoTagSnapshots } from '../api/repo';
 import * as searchApi from '../api/search';
 import { validateBlockAttributeMutations } from './attribute-governance';
 import type { PermissionManager } from './permissions';
@@ -511,7 +512,7 @@ async function probeCurrentStateWithoutAutomation(
         const { readProvenanceWriteState } = await import('./provenance');
         return readProvenanceWriteState(client, action, args);
     } else if (category === 'timeline') {
-        state.timelineTags = await client.requestRead('/api/repo/getRepoTagSnapshots', {});
+        state.timelineTags = await getRepoTagSnapshots(client);
         if (typeof args.documentId === 'string' && args.documentId) {
             const blocks = await listDocumentBlocksInTreeOrder(client, args.documentId);
             state.timelineDocument = {

@@ -156,7 +156,7 @@ describe('block tool', () => {
     });
 
     it('在一次事务中批量写入并逐块回读属性', async () => {
-        const attrs = new Map<string, Record<string, string>>([['block-1', {}], ['block-2', {}]]);
+        const attrs = new Map<string, Record<string, string>>([['block-1', { alias: '旧别名' }], ['block-2', {}]]);
         const transactions: unknown[] = [];
         const client = createMockClient({
             request: vi.fn(async (endpoint: string, body?: Record<string, any>) => {
@@ -168,7 +168,9 @@ describe('block tool', () => {
                 if (endpoint === '/api/transactions') {
                     transactions.push(body);
                     for (const operation of body?.transactions?.[0]?.doOperations || []) {
-                        attrs.set(operation.id, { ...(attrs.get(operation.id) || {}), ...JSON.parse(operation.data) });
+                        const next = { ...(attrs.get(operation.id) || {}), ...JSON.parse(operation.data) };
+                        if (next.alias === '') delete next.alias;
+                        attrs.set(operation.id, next);
                     }
                     return null;
                 }
@@ -179,13 +181,14 @@ describe('block tool', () => {
         const result = parseResult(await callBlockTool(client, {
             action: 'set_attrs',
             items: [
-                { id: 'block-1', attrs: { 'custom-progress-last-event-id': 'event-1' } },
+                { id: 'block-1', attrs: { alias: '', 'custom-progress-last-event-id': 'event-1' } },
                 { id: 'block-2', attrs: { 'custom-progress-last-event-id': 'event-1' } },
             ],
         }, buildDefaultToolConfig().block, permMgr as never));
         expect(result).toMatchObject({ success: true, verification: { status: 'verified', itemCount: 2 } });
         expect(result.items).toHaveLength(2);
         expect(transactions).toHaveLength(1);
+        expect(attrs.get('block-1')).not.toHaveProperty('alias');
     });
 
     it('仅在真实引用涵盖两个原子端点时写入显式关系', async () => {

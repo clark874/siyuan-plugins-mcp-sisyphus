@@ -163,7 +163,7 @@ export const TAG_ACTION_HINTS: Partial<Record<TagAction, string>> = {
 };
 export const TIMELINE_ACTION_HINTS: Partial<Record<TimelineAction, string>> = {
     list_nodes: 'Use global scope without documentId or document/all scope with documentId.',
-    create_node: 'Creates a stable named global or document snapshot node.',
+    create_node: '创建命名快照节点。文档节点也使用全局仓库，请逐次创建；超时后先查 list_nodes，再决定是否补建。',
     compare_node: 'Compares one document with a tagged node.',
     compare_recent: 'Reads the newest different native document-history checkpoint.',
 };

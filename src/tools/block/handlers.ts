@@ -804,7 +804,7 @@ const handleSetAttrs: BlockActionHandler = async ({ client, permMgr, rawArgs }) 
     for (const item of items) {
         const readback = await attributeApi.getBlockAttrs(client, item.id);
         for (const [name, value] of Object.entries(item.attrs)) {
-            if (readback[name] !== value) throw new Error(`块 ${item.id} 的属性 ${name} 写入后回读不一致。`);
+            if ((readback[name] ?? '') !== value) throw new Error(`块 ${item.id} 的属性 ${name} 写入后回读不一致。`);
         }
         readbacks.push({ id: item.id, attrs: item.attrs });
         if (['project-profile', 'stage-ledger', 'artifact-index', 'project-state', 'workstream-state', 'event'].includes(readback['custom-progress-role'])
