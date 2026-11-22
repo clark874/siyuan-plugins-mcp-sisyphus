@@ -1,8 +1,11 @@
 import { access, readFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 
 const SISYPHUS_URL = 'http://127.0.0.1:36806/mcp';
 
@@ -15,18 +18,18 @@ function parseArguments(argv) {
         else if (value === '--json') options.json = true;
         else if (value === '--timeout') options.timeoutMs = Number(argv[++index]);
         else if (value === '--help' || value === '-h') {
-            console.log('用法：node scripts/check-sisyphus.mjs [--client kimi|zcode|antigravity|auto] [--home <目录>] [--json] [--timeout <毫秒>]');
+            console.log('用法：node bin/check-sisyphus.cjs [--client kimi|zcode|antigravity|devin|auto] [--home <目录>] [--json] [--timeout <毫秒>]');
             process.exit(0);
         } else throw new Error(`Unknown argument: ${value}`);
     }
-    if (!['kimi', 'zcode', 'antigravity', 'auto'].includes(options.client)) throw new Error('--client 仅支持 kimi、zcode、antigravity 或 auto。');
+    if (!['kimi', 'zcode', 'antigravity', 'devin', 'auto'].includes(options.client)) throw new Error('--client 仅支持 kimi、zcode、antigravity、devin 或 auto。');
     if (!Number.isFinite(options.timeoutMs) || options.timeoutMs < 1) throw new Error('--timeout must be a positive number.');
     return options;
 }
 
-async function exists(target) {
+async function exists(target, mode) {
     try {
-        await access(target);
+        await access(target, mode);
         return true;
     } catch {
         return false;
@@ -56,6 +59,7 @@ async function clientPaths(options) {
         ].filter(Boolean),
         zcode: [path.join(options.home, '.zcode/cli/config.json')],
         antigravity: [path.join(options.home, '.gemini/antigravity/mcp_config.json')],
+        devin: [path.join(options.home, '.config/devin/mcp_config.json')],
     };
     const clients = options.client === 'auto' ? ['kimi', 'zcode'] : [options.client];
     return clients.flatMap((client) => byClient[client].map((target) => ({ client, target })));
@@ -72,6 +76,16 @@ export async function readConfiguredGateway(options) {
         }
         const server = serverFromConfig(config);
         if (!server || typeof server !== 'object') continue;
+        if (client === 'devin') {
+            const bridge = path.join(options.home, '.siyuan-sisyphus/bin/check-sisyphus.cjs');
+            const token = normalizeToken(server.env?.SIYUAN_MCP_TOKEN);
+            if (server.disabled || !token || !path.isAbsolute(server.command ?? '')
+                || JSON.stringify(server.args) !== JSON.stringify([bridge, '--stdio-bridge'])
+                || !await exists(bridge) || !await exists(server.command, constants.X_OK)) {
+                return { client, issue: 'host_reload_required' };
+            }
+            return { client, token, bridge };
+        }
         const token = normalizeToken(server?.headers?.Authorization);
         const url = client === 'antigravity' ? server.serverUrl : server.url;
         if (server.disabled === true || url !== SISYPHUS_URL || !token) return { client, issue: 'host_reload_required' };
@@ -110,7 +124,11 @@ export async function checkSisyphus(options) {
     if (configured.issue) return { ready: false, issue: configured.issue, client: configured.client, sessionMount: 'not_observable' };
 
     const client = new Client({ name: 'siyuan-sisyphus-agent-kit-check', version: '0.9.2' });
-    const transport = new StreamableHTTPClientTransport(new URL(configured.url), {
+    const transport = configured.bridge ? new StdioClientTransport({
+        command: process.execPath, args: [configured.bridge, '--stdio-bridge'],
+        env: { SIYUAN_MCP_TOKEN: configured.token, NODE_USE_ENV_PROXY: '0', NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost' },
+        stderr: 'ignore',
+    }) : new StreamableHTTPClientTransport(new URL(configured.url), {
         requestInit: { headers: { Authorization: `Bearer ${configured.token}` } },
     });
     try {
@@ -152,7 +170,47 @@ export async function checkSisyphus(options) {
     }
 }
 
+// 原样中继协议帧，仍由原网关完成认证、权限检查和写入协调。
+async function runStdioBridge() {
+    const token = normalizeToken(process.env.SIYUAN_MCP_TOKEN);
+    if (!token) throw new Error('本机思源网关缺少 Bearer 令牌。');
+    const stdio = new StdioServerTransport(process.stdin, process.stdout, { maxBufferSize: 34 * 1024 * 1024 });
+    const http = new StreamableHTTPClientTransport(new URL(SISYPHUS_URL), {
+        fetch: (input, init) => fetch(input, {
+            ...init,
+            redirect: 'error',
+            ...(init?.method === 'DELETE' ? { signal: AbortSignal.timeout(2000) } : {}),
+        }),
+        requestInit: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    stdio.onmessage = message => {
+        http.send(message).catch(error => {
+            const denied = [401, 403].includes(error?.status)
+                || /\b(?:401|403)\b|unauthorized|forbidden/iu.test(String(error));
+            const status = denied ? '网关认证失败（401 或 403）' : '本机思源网关不可用，或请求结果待核对';
+            if ('id' in message && 'method' in message) {
+                void stdio.send({ jsonrpc: '2.0', id: message.id, error: { code: -32000, message: status } }).catch(() => {});
+            }
+        });
+    };
+    http.onmessage = message => {
+        const version = message.result?.protocolVersion;
+        if (typeof version === 'string') http.setProtocolVersion(version);
+        void stdio.send(message).catch(() => {});
+    };
+    stdio.onclose = () => {
+        void http.terminateSession().catch(() => {}).finally(() => http.close().catch(() => {}));
+    };
+    process.stdin.once('end', () => { void stdio.close().catch(() => {}); });
+    await http.start();
+    await stdio.start();
+}
+
 async function main() {
+    if (process.argv.length === 3 && process.argv[2] === '--stdio-bridge') {
+        await runStdioBridge();
+        return;
+    }
     const options = parseArguments(process.argv.slice(2));
     const result = await checkSisyphus(options);
     if (options.json) console.log(JSON.stringify(result));

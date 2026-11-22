@@ -12,6 +12,22 @@ function read(relativePath: string): string {
 }
 
 describe('portable agent kit', () => {
+    it('从 Devin 用户配置识别本机桥接，不把继承的远程配置当成桥接就绪', async () => {
+        const { readConfiguredGateway } = await import(path.join(root, 'agent-kit/scripts/check-sisyphus.mjs'));
+        const home = mkdtempSync(path.join(os.tmpdir(), 'sisyphus-devin-'));
+        const bridge = path.join(home, '.siyuan-sisyphus/bin/check-sisyphus.cjs');
+        const config = path.join(home, '.config/devin/mcp_config.json');
+        const token = 'test-token-devin-12345';
+        mkdirSync(path.dirname(bridge), { recursive: true });
+        mkdirSync(path.dirname(config), { recursive: true });
+        writeFileSync(bridge, '');
+        const save = (siyuan: object) => writeFileSync(config, JSON.stringify({ mcpServers: { siyuan } }));
+        save({ url: 'http://127.0.0.1:36806/mcp', headers: { Authorization: 'Bearer ' + token } });
+        await expect(readConfiguredGateway({ client: 'devin', home })).resolves.toMatchObject({ issue: 'host_reload_required' });
+        save({ command: process.execPath, args: [bridge, '--stdio-bridge'], env: { SIYUAN_MCP_TOKEN: token } });
+        await expect(readConfiguredGateway({ client: 'devin', home })).resolves.toEqual({ client: 'devin', bridge, token });
+    });
+
     it('ships a client-neutral skill synchronized with the canonical MCP skill', () => {
         const canonical = read('skills/codex/siyuan/SKILL.md');
         const portable = read('agent-kit/skills/siyuan/SKILL.md');

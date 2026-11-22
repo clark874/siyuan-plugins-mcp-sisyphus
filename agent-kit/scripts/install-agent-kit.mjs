@@ -36,14 +36,14 @@ function parseArguments(argv) {
         } else if (value === '--require-ready') {
             options.requireReady = true;
         } else if (value === '--help' || value === '-h') {
-            console.log('用法：node scripts/install-agent-kit.mjs --client kimi|zcode|antigravity|all|auto [--home <目录>] [--dry-run] [--require-ready]');
+            console.log('用法：node scripts/install-agent-kit.mjs --client kimi|zcode|antigravity|devin|all|auto [--home <目录>] [--dry-run] [--require-ready]');
             process.exit(0);
         } else {
             throw new Error(`未知参数：${value}`);
         }
     }
-    if (!['kimi', 'zcode', 'antigravity', 'all', 'auto'].includes(options.client)) {
-        throw new Error('--client 仅支持 kimi、zcode、antigravity、all 或 auto。');
+    if (!['kimi', 'zcode', 'antigravity', 'devin', 'all', 'auto'].includes(options.client)) {
+        throw new Error('--client 仅支持 kimi、zcode、antigravity、devin、all 或 auto。');
     }
     return options;
 }
@@ -129,6 +129,15 @@ async function resolveClients(options) {
 async function resolveToken(options, targetPaths) {
     const environmentToken = normalizeToken(process.env.SIYUAN_MCP_TOKEN);
     if (environmentToken) return environmentToken;
+    if (options.client === 'devin') {
+        const current = (await readJson(targetPaths[0], { optional: true }))?.mcpServers?.siyuan;
+        const cursor = (await readJson(path.join(options.home, '.cursor/mcp.json'), { optional: true }))?.mcpServers?.siyuan;
+        const token = normalizeToken(current?.env?.SIYUAN_MCP_TOKEN)
+            ?? normalizeToken(current?.url === SISYPHUS_URL ? current.headers?.Authorization : undefined)
+            ?? normalizeToken(cursor?.url === SISYPHUS_URL ? cursor.headers?.Authorization : undefined);
+        if (!token) throw new Error('请在本机环境设置 SIYUAN_MCP_TOKEN 后再安装 Devin 接入。');
+        return token;
+    }
 
     const candidates = new Set([
         ...targetPaths,
@@ -332,7 +341,27 @@ async function configureClient(client, target, token, options) {
         url: SISYPHUS_URL,
         headers: { Authorization: `Bearer ${token}` },
     };
-    if (client === 'kimi') {
+    if (client === 'devin') {
+        const source = path.join(kitRoot, 'bin/check-sisyphus.cjs');
+        const bridge = path.join(options.home, '.siyuan-sisyphus/bin/check-sisyphus.cjs');
+        const previous = config.mcpServers?.siyuan;
+        if (previous && previous.url !== SISYPHUS_URL && previous.args?.[0] !== bridge) {
+            throw new Error('Devin 已有同名 siyuan 服务，请先核对其归属。');
+        }
+        if (!await exists(source)) throw new Error('请使用已封包的 Agent Kit 安装 Devin 接入。');
+        if (!options.dryRun) {
+            await mkdir(path.dirname(bridge), { recursive: true });
+            const temporary = `${bridge}.${process.pid}.tmp`;
+            await copyFile(source, temporary);
+            await chmod(temporary, 0o755);
+            await rename(temporary, bridge);
+        }
+        config.mcpServers = { ...(config.mcpServers ?? {}), siyuan: {
+            command: process.execPath, args: [bridge, '--stdio-bridge'],
+            env: { SIYUAN_MCP_TOKEN: token, NODE_USE_ENV_PROXY: '0', NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost' },
+            ...(previous?.disabledTools ? { disabledTools: previous.disabledTools } : {}),
+        } };
+    } else if (client === 'kimi') {
         config.mcpServers = { ...(config.mcpServers ?? {}), siyuan: server };
     } else if (client === 'antigravity') {
         config.mcpServers = {
@@ -386,18 +415,19 @@ async function main() {
     const paths = [];
     for (const client of clients) {
         paths.push(client === 'kimi' ? await resolvedKimiConfigPath(options)
-            : client === 'antigravity' ? await antigravityConfigPath(options) : zcodeConfigPath(options));
+            : client === 'antigravity' ? await antigravityConfigPath(options)
+                : client === 'devin' ? path.join(options.home, '.config/devin/mcp_config.json') : zcodeConfigPath(options));
     }
     const token = await resolveToken(options, paths);
-    const skillPath = await installSkill(options);
-    const captureHelperPath = await installSessionCaptureHelper(options);
+    const skillPath = options.client === 'devin' ? undefined : await installSkill(options);
+    const captureHelperPath = options.client === 'devin' ? undefined : await installSessionCaptureHelper(options);
     for (let index = 0; index < clients.length; index += 1) {
         await configureClient(clients[index], paths[index], token, options);
     }
     const verification = await verifyInstallation(options);
     console.log(`${options.dryRun ? '预检完成' : '安装完成'}：已注册唯一外部 MCP ${SISYPHUS_URL}`);
-    console.log(`Skill：${skillPath}`);
-    console.log(`会话捕获助手：${captureHelperPath}`);
+    if (skillPath) console.log(`Skill：${skillPath}`);
+    if (captureHelperPath) console.log(`会话捕获助手：${captureHelperPath}`);
     console.log(`Verification：${verification.status}${verification.issue ? ` (${verification.issue})` : ''}`);
     console.log('重新加载客户端后，首次调用 system(action="bootstrap")。');
     if (options.requireReady && !verification.ready) process.exitCode = 1;

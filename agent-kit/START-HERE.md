@@ -40,11 +40,16 @@ SIYUAN_MCP_TOKEN='<由用户在本地提供的 token>' node scripts/install-agen
 
 # Antigravity
 SIYUAN_MCP_TOKEN='<由用户在本地提供的 token>' node scripts/install-agent-kit.mjs --client antigravity
+
+# Devin Desktop 本地会话
+node scripts/install-agent-kit.mjs --client devin --require-ready
 ```
 
 若目标客户端已经保存了有效的 Sisyphus Bearer token，可省略环境变量，安装器会在受支持的本地客户端配置中复用它。安装器不读取思源工作区正文，不输出 token，也不删除检测到的官方 MCP 配置。
 
 Antigravity 使用 `~/.gemini/antigravity/mcp_config.json` 的 `mcpServers.siyuan.serverUrl` 和 `headers`，技能安装到 `~/.gemini/antigravity/skills/siyuan`。已有配置文件或技能目录链接到中央目录时，安装器保留入口链接。技能本身若由中央管理器软链维护，先通过原管理器同步本版；内容相同则直接复用。`--client antigravity --dry-run` 可只做预检；`auto` 和 `all` 沿用 Kimi、ZCode 的范围。
+
+Devin 安装器在 `~/.config/devin/mcp_config.json` 写入同名 `siyuan` 条目，用标准输入输出桥接同一个本机认证网关，避开客户端的 HTTP 代理路径。其他客户端配置与系统代理设置保持原样。令牌可由本机环境提供，也可复用同一地址的已登记令牌。安装器只登记 Devin 连接。检查命令为 `node bin/check-sisyphus.cjs --client devin --json`。检查通过后，重新加载 Devin 窗口或开启新本地会话，再调用 `system.bootstrap`。
 
 安装器只迁移确认属于本项目的旧场景技能与旧聚合入口，完整备份保存在 `~/.agents/.sisyphus-skill-backups/`（Antigravity 使用 `~/.gemini/.sisyphus-skill-backups/`），位于技能扫描目录之外；其他用户技能保持原样。
 
