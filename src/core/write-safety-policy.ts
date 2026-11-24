@@ -40,7 +40,8 @@ export const ACTION_SAFETY_POLICIES: {
     },
     document: {
         lookup: read(), get_child_blocks: read(), get_child_docs: read(), list_tree: read(), search_docs: read(),
-        get_doc: read(), get_outline: read(),
+        get_doc: read(), get_outline: read(), export_markdown: read(),
+        duplicate: mutation('state'),
         create: mutation(), rename: mutation('state'), move: mutation('structure'), reorder: mutation('structure'), set_attr: mutation('state'),
     },
     block: {
@@ -50,6 +51,7 @@ export const ACTION_SAFETY_POLICIES: {
     },
     av: {
         get: read(), render: mutation(), get_attribute_view_keys: read(), get_attribute_view_filter_sort: read(),
+        view_get: read(), view_configure: mutation('state'),
         search: read(), get_primary_key_values: read(),
         get_automations: read(), preview_collection: read(), preview_template: read(),
         set_automations: mutation('state'), collect_blocks: mutation('manifest'),
@@ -62,7 +64,7 @@ export const ACTION_SAFETY_POLICIES: {
     },
     project: { snapshot: read(), sync_mindmap: mutation('state') },
     search: {
-        fulltext: read(), semantic: read(), knowledge: read(), check_anchor: read(), query_sql: read(), get_backlinks: read(), search_refs: read(),
+        fulltext: read(), semantic: read(), knowledge: read(), check_anchor: read(), query_sql: read(), sql_schema: read(), get_backlinks: read(), search_refs: read(),
         list_invalid_refs: read(), lint: read(), find_replace: mutation('manifest'),
         criteria_list: read(), criteria_save: mutation('state'), criteria_remove: mutation('state'),
     },

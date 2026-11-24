@@ -350,7 +350,9 @@ export class WriteSafetyCoordinator {
                 argsHash: inspected!.argsHash,
                 targetIds: after.targetIds.length > 0 ? after.targetIds : targetIds,
                 state: 'committed',
-                result: safetyResult,
+                result: category === 'document' && action === 'duplicate'
+                    ? { ...safetyResult, copyId: after.targetIds.find(id => id !== args.id) }
+                    : safetyResult,
             });
         } catch (error) {
             if (activeLease) this.preflightLeases.consume(activeLease);
@@ -408,6 +410,9 @@ function derivePostWriteProbeArgs(
     result: ToolResult,
 ): Record<string, unknown> {
     const payload = parseResultObject(result);
+    if (category === 'document' && action === 'duplicate' && typeof payload?.id === 'string') {
+        return { ...args, copyId: payload.id };
+    }
     if (category === 'av' && action === 'duplicate' && payload && typeof payload.avID === 'string') {
         return {
             ...args,
@@ -484,6 +489,12 @@ async function probeCurrentStateWithoutAutomation(
         if (root) targetIds = [root];
     } else if (category === 'fs') {
         await appendHumanPathState(client, args, state);
+    } else if (category === 'document' && action === 'duplicate' && typeof args.id === 'string') {
+        const { readDocumentDuplicateState } = await import('../tools/document/handlers');
+        return readDocumentDuplicateState(client, permMgr, args.id, typeof args.copyId === 'string' ? args.copyId : undefined);
+    } else if (category === 'av' && action === 'view_configure') {
+        const { readAvViewWriteState } = await import('../tools/av/views');
+        return readAvViewWriteState(client, permMgr, args);
     } else if (category === 'av' && typeof args.avID === 'string') {
         state.av = await client.requestRead('/api/av/getAttributeView', { id: args.avID });
     } else if (category === 'file') {

@@ -5,8 +5,10 @@ import { buildChangelogResponse } from '../../core/changelog';
 import {
     AGENT_MEMORY_VIRTUAL_PATH,
     AV_ACTIONS,
+    FILE_ACTIONS,
     LITERATURE_ACTIONS,
     FS_ACTIONS,
+    PROJECT_ACTIONS,
     SEARCH_ACTIONS,
     TIMELINE_ACTIONS,
     loadToolConfigFromApiFileWithStatus,
@@ -39,6 +41,8 @@ function summarizeCapability<Action extends string>(config: CategoryToolConfig<A
 function buildBootstrapCapabilities(config: Awaited<ReturnType<typeof loadToolConfigFromApiFileWithStatus>>['config']) {
     return {
         fs: summarizeCapability(config.fs, FS_ACTIONS),
+        file: summarizeCapability(config.file, FILE_ACTIONS),
+        project: summarizeCapability(config.project, PROJECT_ACTIONS),
         search: summarizeCapability(config.search, SEARCH_ACTIONS),
         av: summarizeCapability(config.av, AV_ACTIONS),
         literature: summarizeCapability(config.literature, LITERATURE_ACTIONS),
@@ -51,8 +55,30 @@ function buildBootstrapNextCalls(
     capabilities: ReturnType<typeof buildBootstrapCapabilities>,
     notebookName: string | undefined,
     memoryStatus: 'missing' | 'fresh' | 'stale',
+    hasLiteratureLibrary: boolean,
 ) {
     const nextCalls: Array<Record<string, unknown>> = [];
+    if (capabilities.project.actions.snapshot) {
+        nextCalls.push({
+            tool: 'project',
+            action: 'snapshot',
+            purpose: '接续或更新指定项目时，先读项目的当前状态、来源与待办。',
+        });
+        if (capabilities.file.actions.list_project_sources) {
+            nextCalls.push({
+                tool: 'file',
+                action: 'list_project_sources',
+                purpose: '尚无稳定项目 ID 时，先按项目名查登记，再以返回的 projectId 调用项目快照。',
+            });
+        }
+    }
+    if (hasLiteratureLibrary) {
+        nextCalls.push({
+            tool: 'literature',
+            action: 'find_evidence',
+            purpose: '查读已入库论文时，从可用文献目录定位论文及证据，并按返回的块 ID 回读原文。',
+        });
+    }
     if (memoryStatus !== 'missing' && capabilities.fs.actions.read) {
         nextCalls.push({
             tool: 'fs',
@@ -216,7 +242,9 @@ const handleBootstrap: ToolActionHandler = async ({ client, permMgr, rawArgs }) 
             rootPath: '/ lists all readable notebooks',
             note: 'hPath != .sy storage path != block ID',
         },
-        nextCalls: buildBootstrapNextCalls(capabilities, primaryOpenNotebook?.name, agentMemory.status),
+        nextCalls: buildBootstrapNextCalls(
+            capabilities, primaryOpenNotebook?.name, agentMemory.status, literature.libraries.length > 0,
+        ),
         memory: {
             path: AGENT_MEMORY_VIRTUAL_PATH,
             status: agentMemory.status,

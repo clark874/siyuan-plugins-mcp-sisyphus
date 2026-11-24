@@ -17,7 +17,7 @@
 | 行操作 | `add_rows`, `remove_rows` |
 | 列操作 | `add_column`, `remove_column` |
 | 单元格更新 | `set_cells` |
-| 结构 | `duplicate` |
+| 结构 | `duplicate`、`view_get`、`view_configure` |
 
 ## 参数与语义
 
@@ -100,3 +100,7 @@ siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "Plain text r
 现有 `render` 接受可选 `nested`：`expandedIDs` 指定展开的父条目，`groupExpandedIDs` 按分组展开，`childPaging` 按父条目标识（分组内为 `groupID/parentID`）指定 `page` 与 `pageSize`，每页最多 200。省略 `nested` 继续平铺读取，不改变数据库配置。
 
 带层级的行保留在响应 `data`，其中 `hierarchy` 包含 `parentID`、`depth`、`childCount`、`context` 与 `expanded`；不能仅用紧凑 `table` 推断父子关系。`nested` 返回根项、匹配项及子项分页计数，不能将祖先上下文计入命中文献数量。
+
+## 视图维护
+
+使用 `view_get` 传 `avID` 与真实载体 `blockID` 查看可用视图，再指定 `viewID` 核对字段与 `revision`。用 `view_configure` 每次预检并执行一项操作。筛选、排序、分组和布局需携带回读修订值。共享视图的修改需要所有可定位镜像有写权限，载体可见性仅影响当前数据库块。逐项回读核对。

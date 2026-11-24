@@ -31,9 +31,21 @@ function fixture(version = '3.8.8') {
 
 afterEach(() => { vi.restoreAllMocks(); });
 
-it('来源普通块更新受全局收集规则约束，拒绝只读目标且没有网络写入', async () => {
+it('空工作区尚无 AV 索引目录时允许严格写入检查', async () => {
+    const client = new SiYuanClient();
+    vi.spyOn(client, 'requestRead').mockImplementation(async (endpoint: string) => {
+        if (endpoint === '/api/system/version') return '3.8.11' as never;
+        if (endpoint === '/api/notebook/lsNotebooks') return { notebooks: [] } as never;
+        throw new Error('SiYuan API error: 404 - path does not exist');
+    });
+    await expect(readAutomationStateHash(client)).resolves.toEqual(expect.any(String));
+});
+
+it('来源普通块更新与原生文档复制受全局收集规则约束，拒绝只读目标', async () => {
     const { client, fetch, permissions } = fixture('3.8.8-dev1');
     await expect(withAutomationWriteGuard(client, permissions(false), () => client.requestWrite('/api/attr/setBlockAttrs', { id: source, attrs: { 'custom-topic': '项目' } })))
+        .rejects.toMatchObject({ code: 'permission_denied' });
+    await expect(withAutomationWriteGuard(client, permissions(false), () => client.requestWrite('/api/filetree/duplicateDoc', { id: source })))
         .rejects.toMatchObject({ code: 'permission_denied' });
     expect(fetch).not.toHaveBeenCalled();
 });

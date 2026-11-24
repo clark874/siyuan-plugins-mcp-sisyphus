@@ -23,6 +23,7 @@ import { defineTool } from '../internal/define-tool';
 import { createZodActionVariant, type ActionVariant, type ToolResult } from '../internal/shared';
 import { AV_ACTION_HANDLERS } from './handlers';
 import { AUTOMATION_ACTION_HANDLERS } from './automation';
+import { AV_VIEW_HANDLERS, AvViewConfigureSchema, AvViewGetSchema } from './views';
 
 export const AV_TOOL_NAME = 'av';
 
@@ -33,6 +34,8 @@ export const AV_VARIANTS: ActionVariant<AvAction>[] = [
     createZodActionVariant('collect_blocks', AvCollectBlocksSchema, '通过原生事务收集预览后指定的来源块；执行时重新验证规则，不清理或删除内容。'),
     createZodActionVariant('preview_template', AvPreviewTemplateSchema, '按实际源条目求值原生模板，返回目标字段值，不保存或触发自动化。'),
     createZodActionVariant('get', AvGetSchema, 'Get the full attribute view payload by AV ID; blockID is an optional exact database-block context.'),
+    createZodActionVariant('view_get', AvViewGetSchema, '读取原生视图、字段顺序和修订值，同时列出可选视图。'),
+    createZodActionVariant('view_configure', AvViewConfigureSchema, '创建、复制或配置原生视图，校验镜像权限并回读。'),
     createZodActionVariant('render', AvRenderSchema, 'Render a compact attribute-view table by id (AV ID, not avID) with optional paging/filtering; use ignoreRows=true for schema-only output, verbose=true only for raw kernel rows, or createIfNotExist=true to materialize an AV block under blockID.'),
     createZodActionVariant('get_attribute_view_keys', AvGetAttributeViewKeysSchema, 'Get the column (key) definitions of an attribute view.'),
     createZodActionVariant('get_attribute_view_filter_sort', AvGetAttributeViewFilterSortSchema, 'Get filter and sort settings for an attribute view.'),
@@ -56,7 +59,7 @@ const avTool = defineTool<AvAction>({
         guidance: AV_GUIDANCE,
         actionHints: AV_ACTION_HINTS,
     },
-    handlers: { ...AV_ACTION_HANDLERS, ...AUTOMATION_ACTION_HANDLERS },
+    handlers: { ...AV_ACTION_HANDLERS, ...AUTOMATION_ACTION_HANDLERS, ...AV_VIEW_HANDLERS },
 });
 
 export function listAvTools(config: CategoryToolConfig<AvAction>) {

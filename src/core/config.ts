@@ -6,12 +6,12 @@ export type ToolCategory = typeof TOOL_CATEGORIES[number];
 
 export const FS_ACTIONS = ['ls', 'tree', 'read', 'write', 'write_atoms', 'link_knowledge', 'replace', 'rm', 'mv', 'reorder', 'search'] as const;
 export const NOTEBOOK_ACTIONS = ['list', 'get_conf', 'get_permissions', 'get_child_docs'] as const;
-export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'move', 'reorder', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'get_outline'] as const;
+export const DOCUMENT_ACTIONS = ['create', 'lookup', 'rename', 'move', 'reorder', 'get_child_blocks', 'get_child_docs', 'set_attr', 'list_tree', 'search_docs', 'get_doc', 'get_outline', 'duplicate', 'export_markdown'] as const;
 export const BLOCK_ACTIONS = ['insert', 'prepend', 'append', 'update', 'replace', 'move', 'get_kramdown', 'batch_kramdown', 'get_children', 'transfer_references', 'set_attrs', 'get_attrs', 'info', 'breadcrumb', 'dom', 'docs_info'] as const;
-export const AV_ACTIONS = ['get', 'render', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values', 'get_automations', 'set_automations', 'preview_collection', 'collect_blocks', 'preview_template'] as const;
+export const AV_ACTIONS = ['get', 'render', 'view_get', 'view_configure', 'get_attribute_view_keys', 'get_attribute_view_filter_sort', 'search', 'rename', 'add_rows', 'remove_rows', 'add_column', 'remove_column', 'set_cells', 'duplicate', 'get_primary_key_values', 'get_automations', 'set_automations', 'preview_collection', 'collect_blocks', 'preview_template'] as const;
 export const FILE_ACTIONS = ['register_project_source', 'identify_project', 'scan_project_manifest', 'resolve_project_source', 'read_project_source', 'list_project_sources'] as const;
 export const PROJECT_ACTIONS = ['snapshot', 'sync_mindmap'] as const;
-export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'lint', 'check_anchor', 'query_sql', 'get_backlinks', 'search_refs', 'find_replace', 'list_invalid_refs', 'criteria_list', 'criteria_save', 'criteria_remove'] as const;
+export const SEARCH_ACTIONS = ['fulltext', 'semantic', 'knowledge', 'lint', 'check_anchor', 'query_sql', 'sql_schema', 'get_backlinks', 'search_refs', 'find_replace', 'list_invalid_refs', 'criteria_list', 'criteria_save', 'criteria_remove'] as const;
 export const LITERATURE_ACTIONS = ['find_evidence', 'status', 'list_collections', 'list_collection_items', 'search_papers', 'get_paper', 'get_citations', 'locate_quote', 'get_annotations'] as const;
 export const TAG_ACTIONS = ['list', 'rename', 'remove'] as const;
 export const TIMELINE_ACTIONS = ['list_nodes', 'create_node', 'compare_node', 'compare_recent'] as const;
@@ -207,6 +207,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
         get_child_blocks: 'basic', get_child_docs: 'basic',
         search_docs: 'basic', rename: 'basic',
         move: 'advanced', reorder: 'advanced', set_attr: 'advanced', list_tree: 'advanced',
+        duplicate: 'advanced', export_markdown: 'advanced',
     },
     block: {
         get_kramdown: 'basic', batch_kramdown: 'basic', get_children: 'basic', get_attrs: 'basic',
@@ -218,6 +219,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     },
     av: {
         get: 'basic', render: 'basic',
+        view_get: 'basic', view_configure: 'advanced',
         get_attribute_view_keys: 'basic', get_attribute_view_filter_sort: 'basic',
         search: 'basic', get_primary_key_values: 'basic',
         rename: 'advanced', add_rows: 'advanced', remove_rows: 'advanced', add_column: 'advanced',
@@ -234,6 +236,7 @@ const ACTION_TIERS: Record<ToolCategory, Record<string, ActionTier>> = {
     },
     search: {
         fulltext: 'basic', semantic: 'basic', knowledge: 'basic', check_anchor: 'basic', query_sql: 'basic',
+        sql_schema: 'advanced',
         get_backlinks: 'basic',
         search_refs: 'advanced', find_replace: 'advanced', list_invalid_refs: 'advanced',
         criteria_list: 'advanced', criteria_save: 'advanced', criteria_remove: 'advanced',

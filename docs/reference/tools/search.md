@@ -1,9 +1,9 @@
 # search
 
-The maintained search surface contains 12 text-knowledge actions:
+The maintained search surface contains 14 text-knowledge actions:
 
-- Retrieval: `fulltext`, `semantic`, `knowledge`, `query_sql`.
-- Governance and references: `check_anchor`, `get_backlinks`, `search_refs`, `list_invalid_refs`.
+- Retrieval: `fulltext`, `semantic`, `knowledge`, `query_sql`, `sql_schema`.
+- Governance and references: `lint`, `check_anchor`, `get_backlinks`, `search_refs`, `list_invalid_refs`.
 - Controlled mutation: `find_replace`, `criteria_save`, `criteria_remove`.
 - Saved search inspection: `criteria_list`.
 

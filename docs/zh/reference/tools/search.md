@@ -1,9 +1,9 @@
 # search
 
-当前检索工具包含 12 个文本知识 action：
+当前检索工具包含 14 个文本知识 action：
 
-- 检索：`fulltext`、`semantic`、`knowledge`、`query_sql`。
-- 治理与引用：`check_anchor`、`get_backlinks`、`search_refs`、`list_invalid_refs`。
+- 检索：`fulltext`、`semantic`、`knowledge`、`query_sql`、`sql_schema`。
+- 治理与引用：`lint`、`check_anchor`、`get_backlinks`、`search_refs`、`list_invalid_refs`。
 - 受控修改：`find_replace`、`criteria_save`、`criteria_remove`。
 - 已保存搜索读取：`criteria_list`。
 

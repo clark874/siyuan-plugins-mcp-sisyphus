@@ -17,7 +17,7 @@ Related pages:
 | Row operations | `add_rows`, `remove_rows` |
 | Column operations | `add_column`, `remove_column` |
 | Cell updates | `set_cells` |
-| Structure | `rename`, `duplicate` |
+| Structure | `rename`, `duplicate`, `view_get`, `view_configure` |
 
 ## Parameters and Semantics
 
@@ -104,3 +104,7 @@ siyuan av add-rows --av-id <attribute-view-id> --primary-key-texts "Plain text r
 - 自动化仍沿用文本知识边界，不写入关联、资源和计算字段。无法完整验证范围时拒绝内容写入。
 
 先调用对应动作的 `help` 取得完整参数，使用真实规则、条目、字段和块标识；不要复制占位标识执行。严格写入使用相同业务参数预检，再携带返回的 `issuedRequestId` 与对应摘要凭据执行一次。
+
+## View maintenance
+
+Call `view_get` with the database and carrier block IDs and inspect the returned view revision. Use `view_configure` to preflight and apply one operation. Shared view writes check mirror permissions, and filter, sort, grouping, and layout changes require the read-back revision.

@@ -31,7 +31,10 @@ async function readViews(client: SiYuanClient): Promise<Map<string, View>> {
     if (!Array.isArray(notebooks)) deny('无法完整枚举自动化所属笔记本，已停止写入。');
     const directories = ['/data/storage/av', ...notebooks.filter(n => n.encrypted && n.unlocked && !n.closed).map(n => `/data/${n.id}/storage/av`)];
     for (const path of directories) {
-        const entries = await client.requestRead<Array<{ name: string; isDir: boolean }>>('/api/file/readDir', { path });
+        const entries = await client.requestRead<Array<{ name: string; isDir: boolean }>>('/api/file/readDir', { path }).catch(error => {
+            if (error instanceof Error && error.message === 'SiYuan API error: 404 - path does not exist') return [];
+            throw error;
+        });
         if (!Array.isArray(entries)) deny('无法完整读取自动化索引，已停止写入。');
         for (const entry of entries) {
             if (entry.isDir || !entry.name.endsWith('.json') || !nodeID.test(entry.name.slice(0, -5))) continue;
@@ -149,7 +152,7 @@ function isContentWrite(endpoint: string): boolean {
     return endpoint === '/api/transactions'
         || /^\/api\/block\/(insert|prepend|append|update|delete|move|batch|transfer|fold|unfold)/.test(endpoint)
         || /^\/api\/attr\/(set|batchSet)/.test(endpoint)
-        || /^\/api\/filetree\/(create|rename|remove|move)/.test(endpoint)
+        || /^\/api\/filetree\/(create|rename|remove|move|duplicate)/.test(endpoint)
         || endpoint === '/api/search/findReplace' || /^\/api\/tag\/(rename|remove)/.test(endpoint)
         || /^\/api\/av\/(add|remove|set|batchSet|duplicate)/.test(endpoint);
 }
@@ -198,6 +201,11 @@ export async function withAutomationWriteGuard<T>(client: SiYuanClient, permMgr:
                 }
             };
             await visit(content);
+            if (endpoint === '/api/filetree/duplicateDoc') {
+                // 内核生成同笔记本副本，派生节点尚未有可查的标识。
+                const notebooks = new Set(contexts.map(context => context.notebook));
+                for (const notebook of notebooks) contexts.push({ notebook, documentId: '', path: '/' });
+            }
             for (const key of ['notebook', 'toNotebook']) if (typeof content[key] === 'string') contexts.push({ notebook: content[key], documentId: '', path: '/' });
             const globalChange = endpoint.includes('/tag/') || endpoint.includes('/search/')
                 || endpoint.endsWith('/transferBlockRef') || operations.some(operation => operation.action === 'swapBlockRef') || !contexts.length;

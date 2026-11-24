@@ -12,7 +12,8 @@ describe('document tool extended actions', () => {
         const [tool] = listDocumentTools(config.document);
         const actionDescription = tool.inputSchema.properties.action.description;
         expect(actionDescription).toContain('lookup');
-        expect(actionDescription).not.toContain('duplicate');
+        expect(actionDescription).toContain('duplicate');
+        expect(actionDescription).toContain('export_markdown');
         expect(actionDescription).not.toContain('create_empty');
         expect(actionDescription).not.toContain('get_path');
         expect(actionDescription).not.toContain('get_hpath');

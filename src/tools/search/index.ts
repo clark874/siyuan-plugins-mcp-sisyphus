@@ -16,6 +16,7 @@ import {
     SearchKnowledgeSchema,
     SearchSemanticSchema,
     SearchQuerySqlSchema,
+    SearchSqlSchemaSchema,
     SearchRefsSchema,
 } from '../../core/types';
 import { defineTool } from '../internal/define-tool';
@@ -38,6 +39,7 @@ export const SEARCH_VARIANTS: ActionVariant<SearchAction>[] = [
     createZodActionVariant('check_anchor', SearchCheckAnchorSchema, 'Check candidate name or alias tokens against the readable knowledge anchor namespace.'),
     createZodActionVariant('lint', SearchLintSchema, '审计指定文档或笔记本的断链、名称冲突、孤儿、陈旧来源、大小及重复原子。'),
     createZodActionVariant('query_sql', SearchQuerySqlSchema, 'Execute a read-only SQL query against the database.'),
+    createZodActionVariant('sql_schema', SearchSqlSchemaSchema, '读取当前思源内核的 SQL 表结构与字段说明。'),
     createZodActionVariant('get_backlinks', SearchGetBacklinksSchema, 'Find documents/blocks that link to or mention the given block.'),
     createZodActionVariant('search_refs', SearchRefsSchema, 'Search blocks that reference a given block or document.'),
     createZodActionVariant('find_replace', SearchFindReplaceSchema, 'Find and replace text in documents or blocks.'),

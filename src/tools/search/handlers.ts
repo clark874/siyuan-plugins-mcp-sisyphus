@@ -5,6 +5,7 @@ import { redactText } from '../../shared/text-security';
 import { normalizeAnchorToken } from '../../core/attribute-governance';
 import { readKnowledgeRelations, readKnowledgeSupersessions } from '../../core/knowledge-relations';
 import { loadToolConfigFromApiFileWithStatus } from '../../core/config';
+import { callOfficialMcpTool } from '../../core/official-mcp-bridge';
 import { readProjectKnowledgeCatalog } from '../project/knowledge-catalog';
 import type { SearchAction } from '../../core/config';
 import {
@@ -29,6 +30,7 @@ import {
     SearchKnowledgeSchema,
     SearchSemanticSchema,
     SearchQuerySqlSchema,
+    SearchSqlSchemaSchema,
     SearchRefsSchema,
 } from '../../core/types';
 import { ensurePermissionForDocumentId, ensurePermissionForNotebook, escapeSqlString, resolveNotebookForPath } from '../internal/context';
@@ -1143,6 +1145,14 @@ export const SEARCH_ACTION_HANDLERS: Record<SearchAction, ToolActionHandler> = {
         return checkAnchors(client, permMgr, parsed);
     },
     lint: async ({ client, permMgr, rawArgs }) => lintKnowledgeScope(client, permMgr, SearchLintSchema.parse(rawArgs)),
+    sql_schema: async ({ client, rawArgs }) => {
+        SearchSqlSchemaSchema.parse(rawArgs);
+        const result = await callOfficialMcpTool(client, 'sql', { action: 'schema' });
+        if (result.isError) return result;
+        return createJsonResult({
+            schema: result.content.filter(item => item.type === 'text').map(item => item.text).join('\n'),
+        });
+    },
     query_sql: async ({ client, permMgr, rawArgs }) => {
         const parsed = SearchQuerySqlSchema.parse(rawArgs);
         const stmt = resolveAliasString(parsed.stmt, parsed.sql);

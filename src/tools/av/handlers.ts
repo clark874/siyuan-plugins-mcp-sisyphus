@@ -548,6 +548,20 @@ async function collectVerifiedAvDatabaseBlockCandidates(
     return verifiedBlockIDs;
 }
 
+/** 修改共享视图时读取完整的原生镜像索引，不使用有上限的候选查找。 */
+export async function listVerifiedAvMirrorBlockIds(client: SiYuanClient, avID: string): Promise<string[]> {
+    const mirrors = await avApi.getMirrorDatabaseBlocks(client, avID);
+    if (!Array.isArray(mirrors?.refDefs) || mirrors.refDefs.some(entry => !ATTRIBUTE_VIEW_ID_PATTERN.test(entry?.refID ?? ''))) {
+        throw createSemanticError('invalid_arguments', '无法完整验证数据库镜像范围。');
+    }
+    const blocks = extractMirrorDatabaseBlockIds(mirrors);
+    const verified: string[] = [];
+    for (const blockID of blocks) {
+        if (await isExactAvDatabaseBlockDom(client, avID, blockID)) verified.push(blockID);
+    }
+    return verified.sort();
+}
+
 async function isExactAvDatabaseBlockDom(
     client: SiYuanClient,
     avID: string,

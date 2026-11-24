@@ -1,11 +1,12 @@
 import { access, readFile } from 'node:fs/promises';
-import { constants } from 'node:fs';
+import { constants, realpathSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+import { inspectCodexGateway, resolveJsonGatewayEntry } from './codex-gateway.mjs';
 
 const SISYPHUS_URL = 'http://127.0.0.1:36806/mcp';
 
@@ -14,15 +15,15 @@ function parseArguments(argv) {
     for (let index = 0; index < argv.length; index += 1) {
         const value = argv[index];
         if (value === '--client') options.client = argv[++index] ?? '';
-        else if (value === '--home') options.home = path.resolve(argv[++index] ?? '');
+        else if (value === '--home') { options.home = path.resolve(argv[++index] ?? ''); options.explicitHome = true; }
         else if (value === '--json') options.json = true;
         else if (value === '--timeout') options.timeoutMs = Number(argv[++index]);
         else if (value === '--help' || value === '-h') {
-            console.log('用法：node bin/check-sisyphus.cjs [--client kimi|zcode|antigravity|devin|auto] [--home <目录>] [--json] [--timeout <毫秒>]');
+            console.log('用法：node bin/check-sisyphus.cjs [--client codex|kimi|zcode|antigravity|devin|auto] [--home <目录>] [--json] [--timeout <毫秒>]');
             process.exit(0);
         } else throw new Error(`Unknown argument: ${value}`);
     }
-    if (!['kimi', 'zcode', 'antigravity', 'devin', 'auto'].includes(options.client)) throw new Error('--client 仅支持 kimi、zcode、antigravity、devin 或 auto。');
+    if (!['codex', 'kimi', 'zcode', 'antigravity', 'devin', 'auto'].includes(options.client)) throw new Error('--client 支持 codex、kimi、zcode、antigravity、devin 或 auto。');
     if (!Number.isFinite(options.timeoutMs) || options.timeoutMs < 1) throw new Error('--timeout must be a positive number.');
     return options;
 }
@@ -43,13 +44,6 @@ function normalizeToken(value) {
     return token;
 }
 
-function serverFromConfig(config) {
-    return config?.mcpServers?.siyuan
-        ?? config?.mcpServers?.['siyuan-sisyphus']
-        ?? config?.mcp?.servers?.siyuan
-        ?? config?.mcp?.servers?.['siyuan-sisyphus'];
-}
-
 async function clientPaths(options) {
     const byClient = {
         kimi: [
@@ -66,6 +60,13 @@ async function clientPaths(options) {
 }
 
 export async function readConfiguredGateway(options) {
+    if (options.client === 'codex') {
+        const { server, token } = await inspectCodexGateway(options);
+        return server?.enabled && token && !server.disabled_tools?.includes('system')
+            && (!server.enabled_tools || server.enabled_tools.includes('system'))
+            ? { client: 'codex', url: SISYPHUS_URL, token }
+            : { client: 'codex', issue: 'host_reload_required' };
+    }
     for (const { client, target } of await clientPaths(options)) {
         if (!await exists(target)) continue;
         let config;
@@ -74,12 +75,14 @@ export async function readConfiguredGateway(options) {
         } catch {
             return { client, issue: 'host_reload_required' };
         }
-        const server = serverFromConfig(config);
+        const bridge = path.join(options.home, '.siyuan-sisyphus/bin/check-sisyphus.cjs');
+        let server;
+        try { ({ server } = resolveJsonGatewayEntry(config, client === 'devin' ? bridge : undefined)); }
+        catch { return { client, issue: 'host_reload_required' }; }
         if (!server || typeof server !== 'object') continue;
         if (client === 'devin') {
-            const bridge = path.join(options.home, '.siyuan-sisyphus/bin/check-sisyphus.cjs');
             const token = normalizeToken(server.env?.SIYUAN_MCP_TOKEN);
-            if (server.disabled || !token || !path.isAbsolute(server.command ?? '')
+            if (server.disabled || server.enabled === false || server.disabledTools?.includes('system') || !token || !path.isAbsolute(server.command ?? '')
                 || JSON.stringify(server.args) !== JSON.stringify([bridge, '--stdio-bridge'])
                 || !await exists(bridge) || !await exists(server.command, constants.X_OK)) {
                 return { client, issue: 'host_reload_required' };
@@ -88,7 +91,7 @@ export async function readConfiguredGateway(options) {
         }
         const token = normalizeToken(server?.headers?.Authorization);
         const url = client === 'antigravity' ? server.serverUrl : server.url;
-        if (server.disabled === true || url !== SISYPHUS_URL || !token) return { client, issue: 'host_reload_required' };
+        if (server.disabled === true || server.enabled === false || server.disabledTools?.includes('system') || url !== SISYPHUS_URL || !token) return { client, issue: 'host_reload_required' };
         return { client, url: SISYPHUS_URL, token };
     }
     return { client: options.client, issue: 'host_reload_required' };
@@ -218,7 +221,7 @@ async function main() {
     if (!result.ready) process.exitCode = 1;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
     main().catch((error) => {
         console.error(error instanceof Error ? error.message : String(error));
         process.exitCode = 1;

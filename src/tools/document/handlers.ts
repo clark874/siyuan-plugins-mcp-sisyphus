@@ -1,6 +1,7 @@
 import type { SiYuanClient } from '../../api/client';
 import * as blockApi from '../../api/block';
 import * as documentApi from '../../api/document';
+import { exportMdContent } from '../../api/file';
 import * as notebookApi from '../../api/notebook';
 import * as searchApi from '../../api/search';
 import * as transactionApi from '../../api/transaction';
@@ -8,6 +9,8 @@ import type { DocumentAction } from '../../core/config';
 import type { PermissionManager } from '../../core/permissions';
 import {
     DocumentCreateSchema,
+    DocumentDuplicateSchema,
+    DocumentExportMarkdownSchema,
     DocumentGetChildBlocksSchema,
     DocumentGetChildDocsSchema,
     DocumentGetDocSchema,
@@ -31,7 +34,7 @@ import {
 import type { ToolActionHandler } from '../internal/define-tool';
 import { resolveNotebookName } from '../internal/helpers/notebook-names';
 import { filterBacklinkResultByPermission, filterItemsByPermissionAndPath } from '../search';
-import { createJsonResult, createPermissionDeniedResult, createSetIconReminder } from '../internal/shared';
+import { createJsonResult, createPermissionDeniedResult, createSetIconReminder, createWriteSuccessResult } from '../internal/shared';
 import { applyUiRefresh, type UiRefreshOperation } from '../internal/ui-refresh';
 import { sleep } from '../../shared/async';
 import { supportsKernel389 } from '../../api/system';
@@ -42,6 +45,7 @@ import { normalizeMarkdownInputRefs } from '../internal/markdown-input';
 import { applyDocumentReorder, readDocumentReorderState } from '../internal/helpers/document-reorder';
 import { isNotebookRootPath, listDocumentSubtreeNodes, listNotebookRootTreeNodes } from '../internal/helpers/doc-tree';
 import { createSemanticError } from '../internal/validation';
+import { hashWriteState } from '../../core/write-safety-hash';
 
 type DocumentActionHandler = ToolActionHandler;
 
@@ -770,7 +774,58 @@ const handleGetOutline: DocumentActionHandler = async ({ client, permMgr, rawArg
     });
 };
 
+async function prepareDocumentDuplicate(client: SiYuanClient, permMgr: PermissionManager, id: string) {
+    const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, id, 'write');
+    if (denied) throw createSemanticError('permission_denied', '没有权限在原文档所属笔记本创建副本。');
+    if (context.documentId !== id) throw createSemanticError('invalid_arguments', '原生复制需要文档 ID。');
+    const identity = await documentApi.getDocIdentity(client, context.notebook, id);
+    const escaped = escapeSqlString(id);
+    const managed = await searchApi.querySQL(client, `SELECT id FROM blocks WHERE root_id = '${escaped}'
+        AND (type IN ('av', 'query_embed') OR COALESCE(name, '') <> '' OR COALESCE(alias, '') <> ''
+        OR EXISTS (SELECT 1 FROM attributes a WHERE a.block_id = blocks.id
+            AND a.name GLOB 'custom-*' AND a.name <> 'custom-sy-ai-source')) LIMIT 1`);
+    if (managed.length > 0) {
+        throw createSemanticError('invalid_arguments', '文档含知识锚点、受管属性、数据库或动态查询，请选择普通文档作为副本来源。');
+    }
+    return identity;
+}
+
+export async function readDocumentDuplicateState(client: SiYuanClient, permMgr: PermissionManager, id: string, copyId?: string) {
+    const identity = await prepareDocumentDuplicate(client, permMgr, id);
+    const target = copyId ? await documentApi.getDocIdentity(client, identity.notebook, copyId) : undefined;
+    const source = await blockApi.getBlockKramdown(client, id);
+    return {
+        hash: hashWriteState({ identity, source, ...(target ? { target } : {}) }),
+        targetIds: target ? [id, target.id] : [id],
+        summary: { sourceId: id, notebook: identity.notebook, parentID: identity.parentID, ...(target ? { copyId: target.id } : {}) },
+    };
+}
+
 export const DOCUMENT_ACTION_HANDLERS: Record<DocumentAction, DocumentActionHandler> = {
+    duplicate: async ({ client, permMgr, rawArgs }) => {
+        const { id } = DocumentDuplicateSchema.parse(rawArgs);
+        const identity = await prepareDocumentDuplicate(client, permMgr, id);
+        const copy = await client.requestWrite<{ id: string; notebook: string; path: string; hPath: string }>('/api/filetree/duplicateDoc', { id });
+        if (!copy?.id || copy.id === id || copy.notebook !== identity.notebook) {
+            throw new Error('内核返回的副本文档身份无法核对，请检查同级文档后再决定是否续接。');
+        }
+        const duplicate = await documentApi.getDocIdentity(client, copy.notebook, copy.id);
+        if (duplicate.path !== copy.path || duplicate.parentID !== identity.parentID) {
+            throw new Error('副本文档已返回，但路径或父级与预期不符，请按返回的文档身份检查。');
+        }
+        return createWriteSuccessResult({ sourceId: id, ...copy, postWriteVerified: true });
+    },
+    export_markdown: async ({ client, permMgr, rawArgs }) => {
+        const { id } = DocumentExportMarkdownSchema.parse(rawArgs);
+        const { denied, context } = await ensurePermissionForDocumentId(client, permMgr, id, 'read');
+        if (denied) return denied;
+        if (context.documentId !== id) throw createSemanticError('invalid_arguments', '原生导出需要文档 ID。');
+        const { notebooks } = await notebookApi.listNotebooks(client);
+        if (notebooks.some(notebook => !permMgr.canRead(notebook.id))) {
+            throw createSemanticError('permission_denied', '原生导出可能展开跨文档引用或查询，请用 get_doc 按当前笔记本权限读取正文。');
+        }
+        return createJsonResult({ id, ...await exportMdContent(client, id) });
+    },
     create: handleCreate,
     lookup: handleLookup,
     rename: handleRename,

@@ -5,6 +5,8 @@ import type { PermissionManager } from '../../core/permissions';
 import {
     DocumentActionSchema,
     DocumentCreateSchema,
+    DocumentDuplicateSchema,
+    DocumentExportMarkdownSchema,
     DocumentGetChildBlocksSchema,
     DocumentGetChildDocsSchema,
     DocumentGetDocSchema,
@@ -36,6 +38,8 @@ export const DOCUMENT_VARIANTS: ActionVariant<DocumentAction>[] = [
     createZodActionVariant('search_docs', DocumentSearchDocsSchema, 'Search documents by title'),
     createZodActionVariant('get_doc', DocumentGetDocSchema, 'Read document Markdown in complete block windows, or return the current HTML view.'),
     createZodActionVariant('get_outline', DocumentGetOutlineSchema, 'Get the native SiYuan heading tree for a document without reading its body.'),
+    createZodActionVariant('duplicate', DocumentDuplicateSchema, '用思源原生方式在同一笔记本复制普通文档，返回新文档 ID。'),
+    createZodActionVariant('export_markdown', DocumentExportMarkdownSchema, '按思源原生规则导出 Markdown 文本。日常正文读取使用 get_doc。'),
 ];
 
 const documentTool = defineTool<DocumentAction>({

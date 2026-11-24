@@ -175,6 +175,8 @@ ${softErrorSection}
 
 ## Help and progressive disclosure
 
+- 用户的任务涉及已保存的笔记、接续项目、更新思源笔记或核读已入库论文时，在当前会话首次使用思源前调用 \`system(action="bootstrap")\`。按返回的权限和任务入口继续，无需用户先说「启动」。无关任务无需访问笔记。
+
 Each tool exposes common actions in its description. For detailed help on any action (including advanced ones):
 - For non-trivial workflows, read \`siyuan://skills/index\` first, then load the narrowest matching \`siyuan://skills/{name}\` scenario skill. Skills explain workflow and safety decisions; action help remains the source of truth for current parameters.
 - Read MCP resources: siyuan://help/action/{tool}/{action}, siyuan://help/tool-overview, siyuan://help/document-path-semantics, siyuan://help/examples, siyuan://help/ai-layout-guide, ${CHANGELOG_RESOURCE_URI}

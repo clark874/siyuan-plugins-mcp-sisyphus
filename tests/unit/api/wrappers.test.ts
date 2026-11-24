@@ -117,16 +117,12 @@ describe('api wrapper payloads', () => {
         const client = createClient();
         vi.spyOn(Date, 'now').mockReturnValue(1234);
 
-        await tagApi.listTags(client);
-        await tagApi.listTags(client, { sort: 1, ignoreMaxListHint: true, app: 'custom' });
         await tagApi.renameTag(client, 'old', 'new');
         await tagApi.removeTag(client, 'old');
 
         await performTransactions(client, [{ doOperations: [{ action: 'insert', id: 'b' }], undoOperations: [] }]);
 
         expect(client.request.mock.calls).toEqual([
-            ['/api/tag/getTag', { app: 'siyuan-mcp-sisyphus' }],
-            ['/api/tag/getTag', { sort: 1, ignoreMaxListHint: true, app: 'custom' }],
             ['/api/tag/renameTag', { oldLabel: 'old', newLabel: 'new' }],
             ['/api/tag/removeTag', { label: 'old' }],
             ['/api/transactions', {

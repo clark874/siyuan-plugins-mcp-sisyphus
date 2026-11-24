@@ -17,6 +17,7 @@ import { execFile } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { codexHome, inspectCodexGateway, resolveJsonGatewayEntry, validateCodexCandidate } from './codex-gateway.mjs';
 
 const SISYPHUS_URL = 'http://127.0.0.1:36806/mcp';
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -36,14 +37,16 @@ function parseArguments(argv) {
         } else if (value === '--require-ready') {
             options.requireReady = true;
         } else if (value === '--help' || value === '-h') {
-            console.log('用法：node scripts/install-agent-kit.mjs --client kimi|zcode|antigravity|devin|all|auto [--home <目录>] [--dry-run] [--require-ready]');
+            console.log('用法：node scripts/install-agent-kit.mjs --client codex|zcode|devin|antigravity|kimi|all|auto（可逗号分隔） [--home <目录>] [--dry-run] [--require-ready]');
             process.exit(0);
         } else {
             throw new Error(`未知参数：${value}`);
         }
     }
-    if (!['kimi', 'zcode', 'antigravity', 'devin', 'all', 'auto'].includes(options.client)) {
-        throw new Error('--client 仅支持 kimi、zcode、antigravity、devin、all 或 auto。');
+    const requested = options.client.split(',');
+    if (requested.some(client => !['codex', 'kimi', 'zcode', 'antigravity', 'devin'].includes(client))
+        && options.client !== 'all' && options.client !== 'auto') {
+        throw new Error('--client 支持 codex、zcode、devin、antigravity、kimi，或单独使用 all、auto。');
     }
     return options;
 }
@@ -78,13 +81,9 @@ function normalizeToken(value) {
 }
 
 function tokenFromConfig(config) {
-    const candidates = [
-        config?.mcpServers?.siyuan?.headers?.Authorization,
-        config?.mcpServers?.['siyuan-sisyphus']?.headers?.Authorization,
-        config?.mcp?.servers?.siyuan?.headers?.Authorization,
-        config?.mcp?.servers?.['siyuan-sisyphus']?.headers?.Authorization,
-    ];
-    return candidates.map(normalizeToken).find(Boolean);
+    const servers = config?.mcpServers ?? config?.mcp?.servers ?? {};
+    return Object.values(servers).filter(server => (server?.url ?? server?.serverUrl) === SISYPHUS_URL)
+        .map(server => normalizeToken(Object.entries(server.headers ?? {}).find(([name]) => name.toLowerCase() === 'authorization')?.[1])).find(Boolean);
 }
 
 function kimiConfigPath(options) {
@@ -113,7 +112,7 @@ async function antigravityConfigPath(options) {
 
 async function resolveClients(options) {
     if (options.client !== 'auto') {
-        return options.client === 'all' ? ['kimi', 'zcode'] : [options.client];
+        return options.client === 'all' ? ['kimi', 'zcode'] : [...new Set(options.client.split(','))];
     }
     const clients = [];
     if (await exists(path.join(options.home, '.kimi')) || await exists(path.join(options.home, '.kimi-code'))) {
@@ -126,11 +125,12 @@ async function resolveClients(options) {
     return clients;
 }
 
-async function resolveToken(options, targetPaths) {
+async function resolveToken(options, targetPaths, codex) {
     const environmentToken = normalizeToken(process.env.SIYUAN_MCP_TOKEN);
     if (environmentToken) return environmentToken;
     if (options.client === 'devin') {
-        const current = (await readJson(targetPaths[0], { optional: true }))?.mcpServers?.siyuan;
+        const bridge = path.join(options.home, '.siyuan-sisyphus/bin/check-sisyphus.cjs');
+        const { server: current } = resolveJsonGatewayEntry(await readJson(targetPaths[0], { optional: true }), bridge);
         const cursor = (await readJson(path.join(options.home, '.cursor/mcp.json'), { optional: true }))?.mcpServers?.siyuan;
         const token = normalizeToken(current?.env?.SIYUAN_MCP_TOKEN)
             ?? normalizeToken(current?.url === SISYPHUS_URL ? current.headers?.Authorization : undefined)
@@ -139,6 +139,7 @@ async function resolveToken(options, targetPaths) {
         return token;
     }
 
+    if (codex?.token) return codex.token;
     const candidates = new Set([
         ...targetPaths,
         path.join(options.home, '.kimi/mcp.json'),
@@ -147,7 +148,7 @@ async function resolveToken(options, targetPaths) {
         path.join(options.home, '.gemini/antigravity/mcp_config.json'),
     ]);
     for (const candidate of candidates) {
-        if (!await exists(candidate)) continue;
+        if (candidate.endsWith('config.toml') || !await exists(candidate)) continue;
         const token = tokenFromConfig(await readJson(candidate));
         if (token) return token;
     }
@@ -182,9 +183,12 @@ function officialServerNames(config) {
 }
 
 async function atomicJsonWrite(target, value, dryRun) {
+    return atomicConfigWrite(target, `${JSON.stringify(value, null, 2)}\n`, dryRun);
+}
+
+async function atomicConfigWrite(target, serialized, dryRun) {
     if (dryRun) return;
     await mkdir(path.dirname(target), { recursive: true });
-    const serialized = `${JSON.stringify(value, null, 2)}\n`;
     if (await exists(target)) {
         if (await readFile(target, 'utf8') === serialized) {
             await chmod(target, 0o600);
@@ -336,18 +340,18 @@ async function configureClient(client, target, token, options) {
     if (officialNames.length > 0) {
         console.warn(`警告：${client} 已配置思源官方 MCP（${officialNames.join(', ')}）。安装器不会删除它；请在客户端中禁用，避免两组思源工具并列。`);
     }
+    const bridge = path.join(options.home, '.siyuan-sisyphus/bin/check-sisyphus.cjs');
+    const { name, server: previousEntry } = resolveJsonGatewayEntry(config, client === 'devin' ? bridge : undefined);
+    const headers = Object.fromEntries(Object.entries(previousEntry?.headers ?? {}).filter(([key]) => key.toLowerCase() !== 'authorization'));
+    headers.Authorization = 'Bearer ' + token;
     const server = {
         transport: 'http',
         url: SISYPHUS_URL,
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
     };
     if (client === 'devin') {
         const source = path.join(kitRoot, 'bin/check-sisyphus.cjs');
-        const bridge = path.join(options.home, '.siyuan-sisyphus/bin/check-sisyphus.cjs');
-        const previous = config.mcpServers?.siyuan;
-        if (previous && previous.url !== SISYPHUS_URL && previous.args?.[0] !== bridge) {
-            throw new Error('Devin 已有同名 siyuan 服务，请先核对其归属。');
-        }
+        const previous = previousEntry;
         if (!await exists(source)) throw new Error('请使用已封包的 Agent Kit 安装 Devin 接入。');
         if (!options.dryRun) {
             await mkdir(path.dirname(bridge), { recursive: true });
@@ -356,26 +360,27 @@ async function configureClient(client, target, token, options) {
             await chmod(temporary, 0o755);
             await rename(temporary, bridge);
         }
-        config.mcpServers = { ...(config.mcpServers ?? {}), siyuan: {
+        config.mcpServers = { ...(config.mcpServers ?? {}), [name]: {
+            ...(previous?.disabled === true ? { disabled: true } : {}),
             command: process.execPath, args: [bridge, '--stdio-bridge'],
             env: { SIYUAN_MCP_TOKEN: token, NODE_USE_ENV_PROXY: '0', NO_PROXY: '127.0.0.1,localhost', no_proxy: '127.0.0.1,localhost' },
             ...(previous?.disabledTools ? { disabledTools: previous.disabledTools } : {}),
         } };
     } else if (client === 'kimi') {
-        config.mcpServers = { ...(config.mcpServers ?? {}), siyuan: server };
+        config.mcpServers = { ...(config.mcpServers ?? {}), [name]: { ...previousEntry, ...server } };
     } else if (client === 'antigravity') {
         config.mcpServers = {
             ...(config.mcpServers ?? {}),
-            siyuan: { serverUrl: SISYPHUS_URL, headers: server.headers },
+            [name]: { ...previousEntry, serverUrl: SISYPHUS_URL, headers: server.headers },
         };
     } else {
         config.mcp = config.mcp ?? {};
         config.mcp.servers = {
             ...(config.mcp.servers ?? {}),
-            siyuan: { type: 'http', url: SISYPHUS_URL, headers: server.headers, enabled: true, timeoutMs: 60000 },
+            [name]: { enabled: true, timeoutMs: 60000, ...previousEntry, type: 'http', url: SISYPHUS_URL, headers: server.headers },
         };
     }
-    await atomicJsonWrite(target, config, options.dryRun);
+    await atomicJsonWrite(await exists(target) ? await realpath(target) : target, config, options.dryRun);
 }
 
 async function verifyInstallation(options) {
@@ -384,18 +389,18 @@ async function verifyInstallation(options) {
     const checker = await exists(bundledChecker)
         ? bundledChecker
         : path.join(scriptDirectory, 'check-sisyphus.mjs');
-    const client = options.client === 'all' ? 'auto' : options.client;
+    const client = options.client;
     return await new Promise((resolve) => {
         execFile(process.execPath, [
             checker,
             '--client', client,
-            '--home', options.home,
+            ...(options.explicitHome ? ['--home', options.home] : []),
             '--json',
-            '--timeout', '800',
+            '--timeout', '3000',
         ], {
             encoding: 'utf8',
-            timeout: 5000,
-            env: process.env,
+            timeout: 14000,
+            env: options.explicitHome ? { ...process.env, CODEX_HOME: path.join(options.home, '.codex') } : process.env,
         }, (_error, stdout) => {
             try {
                 const result = JSON.parse(stdout.trim());
@@ -412,25 +417,49 @@ async function verifyInstallation(options) {
 async function main() {
     const options = parseArguments(process.argv.slice(2));
     const clients = await resolveClients(options);
+    const codex = clients.includes('codex') ? await inspectCodexGateway(options) : undefined;
     const paths = [];
     for (const client of clients) {
-        paths.push(client === 'kimi' ? await resolvedKimiConfigPath(options)
+        paths.push(client === 'codex' ? path.join(codexHome(options), 'config.toml')
+            : client === 'kimi' ? await resolvedKimiConfigPath(options)
             : client === 'antigravity' ? await antigravityConfigPath(options)
                 : client === 'devin' ? path.join(options.home, '.config/devin/mcp_config.json') : zcodeConfigPath(options));
     }
-    const token = await resolveToken(options, paths);
-    const skillPath = options.client === 'devin' ? undefined : await installSkill(options);
-    const captureHelperPath = options.client === 'devin' ? undefined : await installSessionCaptureHelper(options);
-    for (let index = 0; index < clients.length; index += 1) {
-        await configureClient(clients[index], paths[index], token, options);
+    const token = await resolveToken(options, paths, codex);
+    let codexConfig;
+    if (codex && !codex.server) {
+        const configuredPath = paths[clients.indexOf('codex')];
+        const target = await exists(configuredPath) ? await realpath(configuredPath) : configuredPath;
+        const current = await exists(target) ? await readFile(target, 'utf8') : '';
+        const section = ['[mcp_servers.siyuan_sisyphus]', 'url = '+JSON.stringify(SISYPHUS_URL), 'enabled = true',
+            'http_headers = { Authorization = '+JSON.stringify('Bearer '+token)+' }'].join('\n');
+        const serialized = (current ? current + '\n\n' : '') + section + '\n';
+        await validateCodexCandidate(options, serialized);
+        codexConfig = { target, serialized };
     }
-    const verification = await verifyInstallation(options);
-    console.log(`${options.dryRun ? '预检完成' : '安装完成'}：已注册唯一外部 MCP ${SISYPHUS_URL}`);
-    if (skillPath) console.log(`Skill：${skillPath}`);
-    if (captureHelperPath) console.log(`会话捕获助手：${captureHelperPath}`);
-    console.log(`Verification：${verification.status}${verification.issue ? ` (${verification.issue})` : ''}`);
-    console.log('重新加载客户端后，首次调用 system(action="bootstrap")。');
-    if (options.requireReady && !verification.ready) process.exitCode = 1;
+    if (codex?.server && !codex.token) throw new Error('Codex 已有思源入口但未取得其认证配置，请先修复该条目。');
+    for (const [index, client] of clients.entries()) {
+        if (client === 'codex') continue;
+        const config = await readJson(paths[index], { optional: true });
+        const bridge = path.join(options.home, '.siyuan-sisyphus/bin/check-sisyphus.cjs');
+        resolveJsonGatewayEntry(config, client === 'devin' ? bridge : undefined);
+    }
+    const shared = clients.find(client => client === 'kimi' || client === 'zcode');
+    if (shared) await installSkill({ ...options, client: shared });
+    if (clients.includes('antigravity')) await installSkill({ ...options, client: 'antigravity' });
+    if (clients.some(client => client !== 'devin')) await installSessionCaptureHelper(options);
+    for (const [index, client] of clients.entries()) {
+        if (client === 'codex') {
+            if (codexConfig) await atomicConfigWrite(codexConfig.target, codexConfig.serialized, options.dryRun);
+        } else {
+            await configureClient(client, paths[index], token, options);
+        }
+    }
+    const checks = await Promise.all(clients.map(async client => ({ client, ...await verifyInstallation({ ...options, client }) })));
+    console.log(`${options.dryRun ? '预检完成' : '持久登记完成'}：${clients.join('、')} → ${SISYPHUS_URL}`);
+    for (const check of checks) console.log(`${check.client} Verification：${check.status}${check.issue ? ' ('+check.issue+')' : ''}`);
+    console.log('检查结果只证明本机网关可调用。若客户端尚未读到配置，请手动重载，再开新对话验证。也可调用 system(action="bootstrap") 查看实际挂载。');
+    if (options.requireReady && checks.some(check => !check.ready)) process.exitCode = 1;
 }
 
 main().catch((error) => {

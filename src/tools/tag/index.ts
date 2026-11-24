@@ -15,7 +15,7 @@ import { applyUiRefresh } from '../internal/ui-refresh';
 export const TAG_TOOL_NAME = 'tag';
 
 export const TAG_VARIANTS: ActionVariant<TagAction>[] = [
-    createZodActionVariant('list', TagListSchema, 'List tags in the workspace.'),
+    createZodActionVariant('list', TagListSchema, '只读列出可读笔记本的标签。sort 仅用于当前结果。'),
     createZodActionVariant('rename', TagRenameSchema, 'Rename a tag.'),
     createZodActionVariant('remove', TagRemoveSchema, 'Remove a tag.'),
 ];
@@ -30,11 +30,16 @@ const tagTool = defineTool<TagAction>({
         actionHints: TAG_ACTION_HINTS,
     },
     handlers: {
-        list: async ({ client, rawArgs }) => {
+        list: async ({ client, permMgr, rawArgs }) => {
             const parsed = TagListSchema.parse(rawArgs);
+            await permMgr.reload();
+            const excludedNotebooks = Object.entries(permMgr.getAll?.() ?? {})
+                .filter(([, permission]) => permission === 'none').map(([id]) => id);
             const keyword = parsed.query ?? parsed.keyword;
             if (keyword && keyword.trim().length > 0) {
-                const result = await searchApi.searchTag(client, keyword);
+                const result = excludedNotebooks.length
+                    ? await tagApi.searchReadableTags(client, keyword, excludedNotebooks)
+                    : await searchApi.searchTag(client, keyword);
                 const typedResult = result && typeof result === 'object' ? result as unknown as Record<string, unknown> : {};
                 const tags = Array.isArray(typedResult.tags) ? typedResult.tags : [];
                 return createJsonResult({
@@ -45,7 +50,7 @@ const tagTool = defineTool<TagAction>({
                     } : {}),
                 });
             }
-            const result = await tagApi.listTags(client, parsed);
+            const result = await tagApi.listTags(client, { ...parsed, excludedNotebooks });
             return createJsonResult(result);
         },
         rename: async ({ client, rawArgs }) => {

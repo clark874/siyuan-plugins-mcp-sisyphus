@@ -66,6 +66,20 @@ export interface OfficialMcpBridgeOptions {
     getSiYuanVersion?: () => Promise<string>;
 }
 
+/** 各调用方先校验自身权限，再用固定工具与动作访问内核。 */
+export async function callOfficialMcpTool(
+    client: SiYuanClient,
+    name: string,
+    args: Record<string, unknown>,
+): Promise<ToolResult> {
+    const bridge = new OfficialMcpBridge(client);
+    try {
+        return await bridge.callTool(name, args);
+    } finally {
+        await bridge.close();
+    }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

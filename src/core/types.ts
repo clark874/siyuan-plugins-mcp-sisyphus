@@ -411,6 +411,16 @@ export const DocumentLookupSchema = z.object({
     }
 });
 
+export const DocumentDuplicateSchema = z.object({
+    action: z.literal('duplicate'),
+    id: z.string().regex(/^\d{14}-[a-z0-9]{7}$/).describe('原文档 ID。原生复制在同一笔记本生成副本。'),
+});
+
+export const DocumentExportMarkdownSchema = z.object({
+    action: z.literal('export_markdown'),
+    id: z.string().regex(/^\d{14}-[a-z0-9]{7}$/).describe('要按思源原生导出规则读取的文档 ID。'),
+});
+
 export const DocumentRenameSchema = z.object({
     action: z.literal("rename"),
     title: z.string().describe("New document title"),
@@ -743,7 +753,7 @@ const AvCellUpdateItemSchema = z.object({
 const AvAutomationIDSchema = z.string().min(1).max(256);
 const AvAutomationTemplateSchema = z.string().max(8192).refine(value => new TextEncoder().encode(value).byteLength <= 8192, "模板的 UTF-8 编码不得超过 8 KiB");
 const AvAutomationContentSchema = z.object({ content: z.string().max(65536).describe("字段文本") }).strict();
-const AvAutomationValueSchema = z.object({
+export const AvAutomationValueSchema = z.object({
     type: z.enum(["block", "text", "number", "date", "select", "mSelect", "url", "email", "phone", "checkbox"]).describe("允许的文本知识字段类型；不接受关联和资源值"),
     id: AvAutomationIDSchema.optional().describe("值标识"),
     keyID: AvAutomationIDSchema.optional().describe("字段标识"),
@@ -758,7 +768,7 @@ const AvAutomationValueSchema = z.object({
     mSelect: z.array(z.object({ content: z.string().max(1024), color: z.string().max(128).optional() }).strict()).max(1000).optional().describe("已存在的选项"),
     checkbox: z.object({ checked: z.boolean() }).strict().optional().describe("复选框载荷"),
 }).strict();
-const AvAutomationRelativeDateSchema = z.object({ count: z.number().int().min(-100000).max(100000), unit: z.number().int().min(0).max(10), direction: z.number().int().min(-1).max(1) }).strict();
+export const AvAutomationRelativeDateSchema = z.object({ count: z.number().int().min(-100000).max(100000), unit: z.number().int().min(0).max(10), direction: z.number().int().min(-1).max(1) }).strict();
 const AvAutomationFilterFields = {
     column: AvAutomationIDSchema.optional().describe("筛选字段标识"),
     valueSource: z.enum(["stored", "rendered"]).optional().describe("使用保存值或显示值"),
@@ -1161,6 +1171,10 @@ export const SearchCheckAnchorSchema = z.object({
     excludeBlockIds: z.array(z.string()).max(100).optional().describe("Existing block IDs being edited; exclude them from collision results."),
     activeScopes: z.array(z.string().min(1)).max(50).optional().describe("Optional active custom-anchor-scope values used to test deterministic scoped resolution."),
 });
+
+export const SearchSqlSchemaSchema = z.object({
+    action: z.literal("sql_schema"),
+}).strict();
 
 export const SearchQuerySqlSchema = z.object({
     action: z.literal("query_sql"),
